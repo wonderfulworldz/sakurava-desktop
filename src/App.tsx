@@ -1,7 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import { collectionConfigs } from "./lib/collectionData";
+import { detailConfigs } from "./lib/detailData";
 import CollectionPage from "./pages/CollectionPage";
+import DetailPage from "./pages/DetailPage";
 import HomePage from "./pages/HomePage";
 import RouteStubPage from "./pages/RouteStubPage";
 
@@ -28,13 +30,7 @@ function App() {
           />
           <Route
             path="videos/:itemKey"
-            element={
-              <RouteStubPage
-                title="Video Detail"
-                subtitle="View saved video catalog information"
-                label="VideoDetailPage"
-              />
-            }
+            element={<DetailPage config={detailConfigs.videos} />}
           />
           <Route
             path="videos/:itemKey/edit"
@@ -63,13 +59,7 @@ function App() {
           />
           <Route
             path="images/:itemKey"
-            element={
-              <RouteStubPage
-                title="Image Detail"
-                subtitle="View a local image catalog item"
-                label="ImageDetailPage"
-              />
-            }
+            element={<DetailPage config={detailConfigs.images} />}
           />
           <Route
             path="images/:itemKey/edit"
@@ -98,13 +88,7 @@ function App() {
           />
           <Route
             path="performers/:itemKey"
-            element={
-              <RouteStubPage
-                title="Performer Detail"
-                subtitle="View profile, catalog summary, and personal notes"
-                label="PerformerDetailPage"
-              />
-            }
+            element={<DetailPage config={detailConfigs.performers} />}
           />
           <Route
             path="performers/:itemKey/edit"
