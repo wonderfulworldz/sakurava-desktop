@@ -1,5 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
+import { collectionConfigs } from "./lib/collectionData";
+import CollectionPage from "./pages/CollectionPage";
 import HomePage from "./pages/HomePage";
 import RouteStubPage from "./pages/RouteStubPage";
 
@@ -12,13 +14,7 @@ function App() {
 
           <Route
             path="videos"
-            element={
-              <RouteStubPage
-                title="Videos"
-                subtitle="Manage your local video catalog"
-                label="VideoCollectionPage"
-              />
-            }
+            element={<CollectionPage config={collectionConfigs.videos} />}
           />
           <Route
             path="videos/new"
@@ -53,13 +49,7 @@ function App() {
 
           <Route
             path="images"
-            element={
-              <RouteStubPage
-                title="Images"
-                subtitle="Manage your local image catalog"
-                label="ImageCollectionPage"
-              />
-            }
+            element={<CollectionPage config={collectionConfigs.images} />}
           />
           <Route
             path="images/new"
@@ -94,13 +84,7 @@ function App() {
 
           <Route
             path="performers"
-            element={
-              <RouteStubPage
-                title="Performers"
-                subtitle="Manage your local performer catalog"
-                label="PerformerCollectionPage"
-              />
-            }
+            element={<CollectionPage config={collectionConfigs.performers} />}
           />
           <Route
             path="performers/new"

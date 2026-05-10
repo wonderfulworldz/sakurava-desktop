@@ -45,6 +45,26 @@ describe("App", () => {
     expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["/videos", "Search videos...", "24 videos", "Cover Placeholder"],
+    ["/images", "Search images...", "24 images", "Image Placeholder"],
+    [
+      "/performers",
+      "Search performers...",
+      "24 performers",
+      "Profile Placeholder",
+    ],
+  ])("renders collection UI for %s", (path, placeholder, count, fallback) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(screen.getByPlaceholderText(placeholder)).toBeInTheDocument();
+    expect(screen.getByText(count)).toBeInTheDocument();
+    expect(screen.getAllByText(fallback).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Grid view" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "List view" })).toBeInTheDocument();
+  });
+
   it("keeps create routes separate from detail route stubs", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
