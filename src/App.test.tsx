@@ -65,6 +65,65 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "List view" })).toBeInTheDocument();
   });
 
+  it.each([
+    [
+      "/videos/sample-id",
+      [
+        "Video Detail",
+        "Morning Archive",
+        "Rewatch",
+        "Related Performer",
+        "Related Images",
+        "Tech info is not detected in MVP.",
+      ],
+      true,
+    ],
+    [
+      "/images/sample-id",
+      [
+        "Image Detail",
+        "City Light Set",
+        "Memorability",
+        "Related Video",
+        "Related Performer",
+        "Folder analysis is not available in MVP.",
+      ],
+      true,
+    ],
+    [
+      "/performers/sample-id",
+      [
+        "Performer Detail",
+        "Aoi Hanami",
+        "Hanami Aoi",
+        "Rating Summary",
+        "Personal",
+        "Physical",
+        "Related Video",
+        "Related Images",
+        "Available after relation features are added.",
+      ],
+      false,
+    ],
+  ])(
+    "renders static detail UI for %s",
+    (path, expectedTexts, expectsReadOnly) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      for (const text of expectedTexts) {
+        expect(screen.getAllByText(text).length).toBeGreaterThan(0);
+      }
+      const readOnlyPlaceholder = screen.queryByText("Read-only placeholder");
+      if (expectsReadOnly) {
+        expect(readOnlyPlaceholder).toBeInTheDocument();
+      } else {
+        expect(readOnlyPlaceholder).not.toBeInTheDocument();
+      }
+      expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
+    },
+  );
+
   it("keeps create routes separate from detail route stubs", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
