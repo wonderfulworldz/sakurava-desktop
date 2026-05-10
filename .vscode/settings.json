@@ -1,0 +1,7 @@
+{
+  "files.autoSave": "off",
+  "editor.wordWrap": "on",
+  "editor.formatOnSave": false,
+  "markdown.preview.breaks": true,
+  "markdown.updateLinksOnFileMove.enabled": "never"
+}
