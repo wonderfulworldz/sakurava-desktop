@@ -10,7 +10,7 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getAllByText("Sakurava")).toHaveLength(2);
+    expect(screen.getAllByText("Sakurava")).toHaveLength(1);
     expect(screen.getByRole("link", { name: /home/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /videos/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /images/i })).toBeInTheDocument();
@@ -46,21 +46,44 @@ describe("App", () => {
   });
 
   it.each([
-    ["/videos", "Search videos...", "24 videos", "Cover Placeholder"],
-    ["/images", "Search images...", "24 images", "Image Placeholder"],
+    [
+      "/videos",
+      "Search videos...",
+      "30 videos",
+      "Cover Placeholder",
+      "Sample Video Title",
+    ],
+    [
+      "/images",
+      "Search images...",
+      "30 images",
+      "Image Placeholder",
+      "Sample Image Title",
+    ],
     [
       "/performers",
       "Search performers...",
-      "24 performers",
+      "30 performers",
       "Profile Placeholder",
+      "Sample Performer Name",
     ],
-  ])("renders collection UI for %s", (path, placeholder, count, fallback) => {
+  ])("renders collection UI for %s", (path, placeholder, count, fallback, cardTitle) => {
     window.history.pushState({}, "", path);
     render(<App />);
 
     expect(screen.getByPlaceholderText(placeholder)).toBeInTheDocument();
     expect(screen.getByText(count)).toBeInTheDocument();
-    expect(screen.getAllByText(fallback).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(cardTitle)).toHaveLength(30);
+    expect(screen.getByText("Categories")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("All categories")).toBeInTheDocument();
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("30");
+    for (const pageSize of ["30", "60", "90", "120"]) {
+      expect(screen.getByRole("option", { name: pageSize })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Previous" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(screen.getAllByText(/Sample/).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Grid view" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "List view" })).toBeInTheDocument();
   });
