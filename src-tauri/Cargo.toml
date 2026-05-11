@@ -1,0 +1,16 @@
+[package]
+name = "sakurava-desktop"
+version = "0.0.0"
+description = "Sakurava desktop runtime"
+authors = ["Sakurava"]
+edition = "2021"
+
+[lib]
+name = "sakurava_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
