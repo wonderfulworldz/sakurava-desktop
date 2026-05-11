@@ -151,6 +151,37 @@ describe("App", () => {
     },
   );
 
+  it("renders the read-only Settings page", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByText("App Overview")).toBeInTheDocument();
+    expect(screen.getByText("Storage & Database")).toBeInTheDocument();
+    expect(screen.getByText("Data Safety")).toBeInTheDocument();
+    expect(screen.getByText("MVP Feature Status")).toBeInTheDocument();
+    expect(screen.getByText("UI Preferences")).toBeInTheDocument();
+    expect(screen.getByText("About Sakurava")).toBeInTheDocument();
+    expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
+    expect(screen.getByText("Local / Offline")).toBeInTheDocument();
+    expect(screen.getByText("Windows Desktop")).toBeInTheDocument();
+    expect(screen.getByText("Static Frontend Preview")).toBeInTheDocument();
+    expect(screen.getByText("sakurava.sqlite")).toBeInTheDocument();
+    expect(screen.getByText("Not connected yet")).toBeInTheDocument();
+    expect(screen.getByText("Frontend Static Only")).toBeInTheDocument();
+    expect(screen.getByText("Database Not Connected")).toBeInTheDocument();
+    expect(screen.getByText("Local device only")).toBeInTheDocument();
+    expect(screen.getAllByText("Static UI Ready")).toHaveLength(4);
+    expect(screen.getByText("Sakura Pink")).toBeInTheDocument();
+    expect(
+      screen.getByText("UI preferences are read-only in MVP."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Backup Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Restore Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open Data Folder" })).toBeDisabled();
+  });
+
   it("keeps create routes separate from detail route stubs", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);

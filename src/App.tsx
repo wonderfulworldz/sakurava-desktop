@@ -7,7 +7,7 @@ import CollectionPage from "./pages/CollectionPage";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import HomePage from "./pages/HomePage";
-import RouteStubPage from "./pages/RouteStubPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function App() {
   return (
@@ -71,16 +71,7 @@ function App() {
             }
           />
 
-          <Route
-            path="settings"
-            element={
-              <RouteStubPage
-                title="Settings"
-                subtitle="Minimal local app settings"
-                label="SettingsPage"
-              />
-            }
-          />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
