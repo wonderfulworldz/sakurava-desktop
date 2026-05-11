@@ -4,6 +4,7 @@ import {
   type FormEvent,
   type ReactNode,
   type SetStateAction,
+  useEffect,
   useState,
 } from "react";
 import { Link } from "react-router-dom";
@@ -17,11 +18,24 @@ import type {
 type FormPageProps = {
   config: FormConfig;
   mode: FormMode;
+  onSubmit?: (data: FormSubmitData) => Promise<FormSubmitResult> | FormSubmitResult;
 };
 
 type FormValues = Record<string, string | boolean>;
+type SaveState = "idle" | "error" | "saved";
 
-function FormPage({ config, mode }: FormPageProps) {
+type FormSubmitData = {
+  values: FormValues;
+  categories: string[];
+  aliases: string[];
+};
+
+type FormSubmitResult = {
+  state: Exclude<SaveState, "idle">;
+  message?: string;
+};
+
+function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
     config.initialCategories[mode],
@@ -31,7 +45,16 @@ function FormPage({ config, mode }: FormPageProps) {
   );
   const [categoryDraft, setCategoryDraft] = useState("");
   const [aliasDraft, setAliasDraft] = useState("");
-  const [saveState, setSaveState] = useState<"idle" | "error" | "saved">("idle");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveMessage, setSaveMessage] = useState("");
+
+  useEffect(() => {
+    setValues(config.initialValues[mode]);
+    setCategories(config.initialCategories[mode]);
+    setAliases(config.initialAliases?.[mode] ?? []);
+    setSaveState("idle");
+    setSaveMessage("");
+  }, [config, mode]);
 
   const title = mode === "create" ? config.createTitle : config.editTitle;
   const subtitle =
@@ -45,16 +68,33 @@ function FormPage({ config, mode }: FormPageProps) {
     setSaveState("idle");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const requiredValue = values[config.requiredField];
 
     if (typeof requiredValue !== "string" || requiredValue.trim() === "") {
       setSaveState("error");
+      setSaveMessage("Required field is empty.");
       return;
     }
 
-    setSaveState("saved");
+    if (!onSubmit) {
+      setSaveState("saved");
+      setSaveMessage("Local visual save state only");
+      return;
+    }
+
+    try {
+      const result = await onSubmit({ values, categories, aliases });
+      setSaveState(result.state);
+      setSaveMessage(
+        result.message ??
+          (result.state === "saved" ? "Saved." : "Unable to save."),
+      );
+    } catch {
+      setSaveState("error");
+      setSaveMessage("Unable to save.");
+    }
   }
 
   return (
@@ -190,12 +230,12 @@ function FormPage({ config, mode }: FormPageProps) {
             {saveState === "saved" && (
               <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
                 <CheckCircle2 size={16} />
-                Local visual save state only
+                {saveMessage || "Local visual save state only"}
               </p>
             )}
             {saveState === "error" && (
               <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600">
-                Required field is empty.
+                {saveMessage || "Required field is empty."}
               </p>
             )}
           </div>
