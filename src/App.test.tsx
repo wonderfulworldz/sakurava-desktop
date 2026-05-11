@@ -11,6 +11,10 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava")).toHaveLength(1);
+    expect(
+      screen.getByPlaceholderText("Search videos, images, performers..."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Welcome to Sakurava")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /home/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /videos/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /images/i })).toBeInTheDocument();
