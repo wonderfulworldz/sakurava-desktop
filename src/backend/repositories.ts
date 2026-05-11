@@ -9,6 +9,7 @@ import type {
   PerformerPatch,
   Video,
   VideoPatch,
+  ValidationResult,
 } from "./types";
 
 export interface CatalogRepository<TRecord, TCreate, TPatch> {
@@ -38,6 +39,20 @@ export class RepositoryNotConnectedError extends Error {
   constructor(repositoryName: string) {
     super(`${repositoryName} repository is not connected to SQLite yet.`);
     this.name = "RepositoryNotConnectedError";
+  }
+}
+
+export class RepositoryValidationError extends Error {
+  constructor(public readonly validation: ValidationResult) {
+    super(validation.errors.map((error) => error.message).join(" "));
+    this.name = "RepositoryValidationError";
+  }
+}
+
+export class RepositoryRecordNotFoundError extends Error {
+  constructor(id: EntityId) {
+    super(`Record ${id} was not found.`);
+    this.name = "RepositoryRecordNotFoundError";
   }
 }
 

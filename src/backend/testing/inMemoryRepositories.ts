@@ -1,3 +1,7 @@
+import {
+  RepositoryRecordNotFoundError,
+  RepositoryValidationError,
+} from "../repositories";
 import type {
   CatalogRepository,
   ImageRepository,
@@ -26,20 +30,6 @@ import {
   validatePerformerInput,
   validateVideoInput,
 } from "../validation";
-
-export class RepositoryValidationError extends Error {
-  constructor(public readonly validation: ValidationResult) {
-    super(validation.errors.map((error) => error.message).join(" "));
-    this.name = "RepositoryValidationError";
-  }
-}
-
-export class RepositoryRecordNotFoundError extends Error {
-  constructor(id: EntityId) {
-    super(`Record ${id} was not found.`);
-    this.name = "RepositoryRecordNotFoundError";
-  }
-}
 
 type CreateRecord<TCreate, TRecord> = (
   input: TCreate,
