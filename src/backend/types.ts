@@ -54,13 +54,18 @@ export interface Performer extends BaseCatalogRecord {
   pictorialsCount: number | null;
 }
 
-export type NewVideo = Omit<Video, "id" | "createdAt" | "updatedAt">;
+type GeneratedFields = "id" | "createdAt" | "updatedAt";
+
+export type NewVideo = Pick<Video, "title"> &
+  Partial<Omit<Video, GeneratedFields | "title">>;
 export type VideoPatch = Partial<NewVideo>;
 
-export type NewImage = Omit<Image, "id" | "createdAt" | "updatedAt">;
+export type NewImage = Pick<Image, "title"> &
+  Partial<Omit<Image, GeneratedFields | "title">>;
 export type ImagePatch = Partial<NewImage>;
 
-export type NewPerformer = Omit<Performer, "id" | "createdAt" | "updatedAt">;
+export type NewPerformer = Pick<Performer, "name"> &
+  Partial<Omit<Performer, GeneratedFields | "name">>;
 export type PerformerPatch = Partial<NewPerformer>;
 
 export interface ValidationError {
