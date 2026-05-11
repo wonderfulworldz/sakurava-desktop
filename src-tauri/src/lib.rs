@@ -5,13 +5,14 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let paths = database::prepare_tauri_database_paths(app.handle())
+            let database = database::prepare_tauri_database(app.handle())
                 .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
             println!(
-                "Sakurava database path prepared: {}",
-                paths.database_file.display()
+                "Sakurava database initialized: {}",
+                database.paths.database_file.display()
             );
-            app.manage(paths);
+            let _connection = database.connection();
+            app.manage(database);
             Ok(())
         })
         .run(tauri::generate_context!())
