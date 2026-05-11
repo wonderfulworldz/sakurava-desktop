@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
 
 describe("App", () => {
@@ -131,7 +131,120 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: "Add Video" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("VideoCreatePage")).toBeInTheDocument();
+    expect(screen.getByText("Video Create Form")).toBeInTheDocument();
     expect(screen.queryByText("VideoDetailPage")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "/videos/new",
+      "Video Create Form",
+      "Browse Cover",
+      "Browse Media",
+      "Tech info is not detected in MVP.",
+      "Related Performer",
+      "Rewatch",
+    ],
+    [
+      "/videos/sample-id/edit",
+      "Video Edit Form",
+      "Browse Cover",
+      "Browse Media",
+      "Tech info is not detected in MVP.",
+      "Related Images",
+      "Rewatch",
+    ],
+    [
+      "/images/new",
+      "Image Create Form",
+      "Browse Cover",
+      "Browse Folder",
+      "Folder analysis is not available in MVP.",
+      "Related Video",
+      "Memorability",
+    ],
+    [
+      "/images/sample-id/edit",
+      "Image Edit Form",
+      "Browse Cover",
+      "Browse Folder",
+      "Folder analysis is not available in MVP.",
+      "Related Performer",
+      "Memorability",
+    ],
+    [
+      "/performers/new",
+      "Performer Create Form",
+      "Browse Cover",
+      "Thumbnail 1",
+      "Related Videos",
+      "Related Images",
+      "Attraction",
+    ],
+    [
+      "/performers/sample-id/edit",
+      "Performer Edit Form",
+      "Browse Cover",
+      "Thumbnail 1",
+      "Related Videos",
+      "Related Images",
+      "Attraction",
+    ],
+  ])(
+    "renders static form safeguards for %s",
+    (path, formLabel, disabledOne, disabledTwo, placeholderOne, placeholderTwo, ratingLabel) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      expect(screen.getByText(formLabel)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: disabledOne })).toBeDisabled();
+      expect(screen.getAllByText(disabledTwo).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(placeholderOne).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(placeholderTwo).length).toBeGreaterThan(0);
+      expect(screen.getByLabelText(ratingLabel)).toBeInTheDocument();
+      expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
+    },
+  );
+
+  it("allows local form typing, category chips, aliases, and ratings", () => {
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Typed Performer" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Typed Category" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
+      target: { value: "Typed Alias" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    fireEvent.change(screen.getByLabelText("Attraction"), {
+      target: { value: "5" },
+    });
+
+    expect(screen.getByDisplayValue("Typed Performer")).toBeInTheDocument();
+    expect(screen.getByText("Typed Category")).toBeInTheDocument();
+    expect(screen.getByText("Typed Alias")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("5")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["/videos/new", "8. Related Performer", "9. Related Images"],
+    ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
+    ["/images/new", "8. Related Performer", "9. Related Video"],
+    ["/images/sample-id/edit", "8. Related Performer", "9. Related Video"],
+    ["/performers/new", "8. Related Videos", "9. Related Images"],
+    ["/performers/sample-id/edit", "8. Related Videos", "9. Related Images"],
+  ])("renders separate related sections for %s", (path, first, second) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: first })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: second })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "8. Related Content" }))
+      .not.toBeInTheDocument();
   });
 });

@@ -2,8 +2,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import { collectionConfigs } from "./lib/collectionData";
 import { detailConfigs } from "./lib/detailData";
+import { formConfigs } from "./lib/formData";
 import CollectionPage from "./pages/CollectionPage";
 import DetailPage from "./pages/DetailPage";
+import FormPage from "./pages/FormPage";
 import HomePage from "./pages/HomePage";
 import RouteStubPage from "./pages/RouteStubPage";
 
@@ -20,13 +22,7 @@ function App() {
           />
           <Route
             path="videos/new"
-            element={
-              <RouteStubPage
-                title="Add Video"
-                subtitle="Create a new video catalog item"
-                label="VideoCreatePage"
-              />
-            }
+            element={<FormPage config={formConfigs.videos} mode="create" />}
           />
           <Route
             path="videos/:itemKey"
@@ -34,13 +30,7 @@ function App() {
           />
           <Route
             path="videos/:itemKey/edit"
-            element={
-              <RouteStubPage
-                title="Edit Video"
-                subtitle="Update a video catalog item"
-                label="VideoEditPage"
-              />
-            }
+            element={<FormPage config={formConfigs.videos} mode="edit" />}
           />
 
           <Route
@@ -49,13 +39,7 @@ function App() {
           />
           <Route
             path="images/new"
-            element={
-              <RouteStubPage
-                title="Add Image"
-                subtitle="Create a new image catalog item"
-                label="ImageCreatePage"
-              />
-            }
+            element={<FormPage config={formConfigs.images} mode="create" />}
           />
           <Route
             path="images/:itemKey"
@@ -63,13 +47,7 @@ function App() {
           />
           <Route
             path="images/:itemKey/edit"
-            element={
-              <RouteStubPage
-                title="Edit Image"
-                subtitle="Update an image catalog item"
-                label="ImageEditPage"
-              />
-            }
+            element={<FormPage config={formConfigs.images} mode="edit" />}
           />
 
           <Route
@@ -79,11 +57,7 @@ function App() {
           <Route
             path="performers/new"
             element={
-              <RouteStubPage
-                title="Add Performer"
-                subtitle="Create a new performer profile"
-                label="PerformerCreatePage"
-              />
+              <FormPage config={formConfigs.performers} mode="create" />
             }
           />
           <Route
@@ -93,11 +67,7 @@ function App() {
           <Route
             path="performers/:itemKey/edit"
             element={
-              <RouteStubPage
-                title="Edit Performer"
-                subtitle="Update a performer profile"
-                label="PerformerEditPage"
-              />
+              <FormPage config={formConfigs.performers} mode="edit" />
             }
           />
 
