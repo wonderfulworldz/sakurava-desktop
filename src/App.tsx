@@ -8,6 +8,9 @@ import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import HomePage from "./pages/HomePage";
 import SettingsPage from "./pages/SettingsPage";
+import VideoCollectionPage from "./pages/VideoCollectionPage";
+import VideoDetailPage from "./pages/VideoDetailPage";
+import VideoFormPage from "./pages/VideoFormPage";
 
 function App() {
   return (
@@ -16,21 +19,12 @@ function App() {
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
 
-          <Route
-            path="videos"
-            element={<CollectionPage config={collectionConfigs.videos} />}
-          />
-          <Route
-            path="videos/new"
-            element={<FormPage config={formConfigs.videos} mode="create" />}
-          />
-          <Route
-            path="videos/:itemKey"
-            element={<DetailPage config={detailConfigs.videos} />}
-          />
+          <Route path="videos" element={<VideoCollectionPage />} />
+          <Route path="videos/new" element={<VideoFormPage mode="create" />} />
+          <Route path="videos/:itemKey" element={<VideoDetailPage />} />
           <Route
             path="videos/:itemKey/edit"
-            element={<FormPage config={formConfigs.videos} mode="edit" />}
+            element={<VideoFormPage mode="edit" />}
           />
 
           <Route

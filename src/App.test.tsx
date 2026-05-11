@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { vi } from "vitest";
 import App from "./App";
+
+type TestTauriInvoke = NonNullable<Window["__TAURI_INTERNALS__"]>["invoke"];
 
 describe("App", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
+    delete window.__TAURI_INTERNALS__;
   });
 
   it("renders the app shell and Home page", () => {
@@ -289,6 +293,123 @@ describe("App", () => {
     expect(screen.getByDisplayValue("5")).toBeInTheDocument();
   });
 
+  it("loads video collection from the Tauri command boundary when available", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ title: "Persisted Video" })];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Video")).toBeInTheDocument();
+    expect(screen.getByText("1 video")).toBeInTheDocument();
+    expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("video_list", {}, undefined);
+  });
+
+  it("creates a video through Tauri commands without exposing the internal id", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const created = persistedVideo({
+      title: "Created Video",
+      categoriesJson: '["Typed Category"]',
+      ratingJson: '{"rewatch":4}',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "video_create") {
+          expect(args.input.title).toBe("Created Video");
+          expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          return created;
+        }
+        if (command === "video_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Created Video" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Typed Category" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Created Video")).toBeInTheDocument();
+    expect(screen.getByText("Typed Category")).toBeInTheDocument();
+    expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
+  });
+
+  it("loads and updates a video through Tauri commands", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const existing = persistedVideo({
+      title: "Existing Video",
+      categoriesJson: '["Classic"]',
+      ratingJson: '{"rewatch":3}',
+    });
+    const updated = persistedVideo({
+      title: "Updated Video",
+      categoriesJson: '["Classic","Updated"]',
+      ratingJson: '{"rewatch":5}',
+    });
+    let currentVideo = existing;
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "video_get") {
+          expect(args.id).toBe("video_test_001");
+          return currentVideo;
+        }
+        if (command === "video_update") {
+          expect(args.id).toBe("video_test_001");
+          expect(args.patch.title).toBe("Updated Video");
+          expect(args.patch.categoriesJson).toBe('["Classic","Updated"]');
+          expect(args.patch.ratingJson).toContain('"rewatch":5');
+          currentVideo = updated;
+          return updated;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Existing Video")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Updated Video" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.change(screen.getByLabelText("Rewatch"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Updated Video")).toBeInTheDocument();
+    expect(screen.getByText("Updated")).toBeInTheDocument();
+    expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["/videos/new", "8. Related Performer", "9. Related Images"],
     ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
@@ -306,3 +427,26 @@ describe("App", () => {
       .not.toBeInTheDocument();
   });
 });
+
+function persistedVideo(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "video_test_001",
+    title: "Persisted Video",
+    originalTitle: "Original Persisted",
+    code: "VID-001",
+    censorship: "Censored",
+    availability: "Owned",
+    releaseDate: "2026-05-11",
+    durationMinutes: 120,
+    publisherLabel: "Sakura Label",
+    coverPath: "",
+    mediaPath: "",
+    categoriesJson: '["Classic"]',
+    ratingJson: '{"rewatch":4,"performance":3}',
+    notes: "Persisted notes",
+    favorite: true,
+    createdAt: "2026-05-11T00:00:00.000Z",
+    updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
+}
