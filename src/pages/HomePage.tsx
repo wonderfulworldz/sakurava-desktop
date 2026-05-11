@@ -1,4 +1,4 @@
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, SlidersHorizontal, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import {
@@ -15,48 +15,58 @@ function HomePage() {
         title="Home"
         subtitle="Local private catalog for Videos, Images, and Performers"
         action={
-          <div className="relative w-full sm:w-80">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              size={17}
-            />
-            <input
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-600 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-              placeholder="Search catalog..."
-              aria-label="Search catalog placeholder"
-            />
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <label className="relative block w-full sm:w-[420px]">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                size={19}
+              />
+              <input
+                className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-slate-600 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                placeholder="Search videos, images, performers..."
+                aria-label="Search videos, images, performers"
+              />
+            </label>
+            <button
+              type="button"
+              className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm"
+              aria-label="Search filters placeholder"
+            >
+              <SlidersHorizontal size={19} />
+            </button>
           </div>
         }
       />
 
-      <section className="overflow-hidden rounded-lg border border-sakura-100 bg-white">
-        <div className="grid gap-0 lg:grid-cols-[1.4fr_0.8fr]">
-          <div className="p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sakura-600">
-              Static frontend preview
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
-              Start organizing your private catalog locally.
+      <section className="relative overflow-hidden rounded-lg border border-sakura-100 bg-white">
+        <div className="absolute inset-0 bg-gradient-to-r from-white via-white to-sakura-50/80" />
+        <div className="relative grid min-h-56 gap-0 lg:grid-cols-[1fr_1fr]">
+          <div className="flex flex-col justify-center p-7 lg:p-10">
+            <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
+              Welcome to Sakurava
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-              This Home screen uses mock counts and placeholder sections while
-              the shell and routes are prepared for later batches.
+            <p className="mt-4 max-w-md text-base leading-7 text-slate-600">
+              Manage your local video, image, and performer catalog in one
+              private desktop app.
             </p>
             <Link
               to="/videos"
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
+              className="mt-6 inline-flex h-11 w-fit items-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
             >
               Get Started
               <ArrowRight size={17} />
             </Link>
           </div>
-          <div className="min-h-48 border-t border-sakura-100 bg-sakura-50 p-6 lg:border-l lg:border-t-0">
-            <div className="grid h-full grid-cols-2 gap-3">
-              <div className="rounded-lg border border-white/80 bg-white/70 p-4" />
-              <div className="rounded-lg border border-white/80 bg-white/70 p-4" />
-              <div className="rounded-lg border border-white/80 bg-white/70 p-4" />
-              <div className="rounded-lg border border-white/80 bg-white/70 p-4" />
-            </div>
+          <div className="relative min-h-52 overflow-hidden">
+            <div className="absolute -right-8 top-2 h-56 w-80 rotate-[-12deg] rounded-full bg-sakura-100/50 blur-3xl" />
+            <div className="absolute right-0 top-1/2 h-2 w-[420px] -translate-y-1/2 rotate-[-24deg] rounded-full bg-rose-300/40" />
+            <div className="absolute right-8 top-6 h-2 w-[300px] rotate-[-24deg] rounded-full bg-rose-900/25" />
+            <SakuraCluster className="absolute right-10 top-10 scale-110" />
+            <SakuraCluster className="absolute right-40 top-24 scale-75 opacity-75" />
+            <SakuraCluster className="absolute right-56 top-7 scale-50 opacity-50" />
+            <span className="absolute left-10 top-8 size-4 rotate-45 rounded-full bg-sakura-200/50 blur-[1px]" />
+            <span className="absolute left-32 top-20 size-3 rotate-45 rounded-full bg-sakura-200/45 blur-[1px]" />
+            <span className="absolute bottom-10 left-24 size-5 rotate-45 rounded-full bg-sakura-100/60 blur-[1px]" />
           </div>
         </div>
       </section>
@@ -159,6 +169,35 @@ function HomePage() {
       </section>
     </div>
   );
+}
+
+function SakuraCluster({ className }: { className: string }) {
+  return (
+    <div className={["relative size-28", className].join(" ")} aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((petal) => (
+        <span
+          key={petal}
+          className={[
+            "absolute left-1/2 top-1/2 h-12 w-7 origin-bottom rounded-full bg-gradient-to-b from-sakura-100 to-sakura-300/70 shadow-sm",
+            petalClass(petal),
+          ].join(" ")}
+        />
+      ))}
+      <span className="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sakura-400/70" />
+    </div>
+  );
+}
+
+function petalClass(index: number) {
+  const classes = [
+    "-translate-x-1/2 -translate-y-full rotate-0",
+    "-translate-x-1/2 -translate-y-full rotate-[72deg]",
+    "-translate-x-1/2 -translate-y-full rotate-[144deg]",
+    "-translate-x-1/2 -translate-y-full rotate-[216deg]",
+    "-translate-x-1/2 -translate-y-full rotate-[288deg]",
+  ];
+
+  return classes[index] ?? "";
 }
 
 export default HomePage;
