@@ -1,3 +1,4 @@
+mod commands;
 mod database;
 
 use tauri::Manager;
@@ -15,6 +16,23 @@ pub fn run() {
             app.manage(database);
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            commands::video_create,
+            commands::video_list,
+            commands::video_get,
+            commands::video_update,
+            commands::video_delete,
+            commands::image_create,
+            commands::image_list,
+            commands::image_get,
+            commands::image_update,
+            commands::image_delete,
+            commands::performer_create,
+            commands::performer_list,
+            commands::performer_get,
+            commands::performer_update,
+            commands::performer_delete
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Sakurava");
 }

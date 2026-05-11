@@ -2530,6 +2530,8 @@ name = "sakurava-desktop"
 version = "0.0.0"
 dependencies = [
  "rusqlite",
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
 ]
