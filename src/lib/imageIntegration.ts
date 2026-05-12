@@ -1,0 +1,162 @@
+import type { Image, ImagePatch, NewImage } from "../backend/types";
+import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from "../backend/json";
+import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
+import { collectionConfigs } from "./collectionData";
+import type { ImageDetailConfig } from "./detailData";
+import { detailConfigs } from "./detailData";
+import type { FormConfig, FormMode } from "./formData";
+import { formConfigs } from "./formData";
+
+type FormValues = Record<string, string | boolean>;
+
+const imageRatingFields = formConfigs.images.ratingFields;
+
+export function buildImageCollectionConfig(images: Image[]): CollectionConfig {
+  return {
+    ...collectionConfigs.images,
+    countLabel: `${images.length} ${images.length === 1 ? "image" : "images"}`,
+    items: images.map(toImageCollectionItem),
+  };
+}
+
+export function buildImageDetailConfig(image: Image): ImageDetailConfig {
+  const baseConfig = detailConfigs.images as ImageDetailConfig;
+  const rating = parseRatingObject(image.ratingJson);
+  return {
+    ...baseConfig,
+    editTo: `/images/${image.id}/edit`,
+    displayTitle: image.title,
+    originalTitle: image.originalTitle,
+    code: image.code || "No code",
+    favorite: image.favorite,
+    chips: [image.availability || "Unspecified", image.censorship || "Unspecified"],
+    categories: parseTextLabelArray(image.categoriesJson),
+    metadata: [
+      { label: "Release Date", value: image.releaseDate || "Not set" },
+      { label: "Image Count", value: formatImageCount(image.imageCount) },
+      { label: "Publisher / Label", value: image.publisherLabel || "Not set" },
+      { label: "Cover Path", value: image.coverPath || "Not set" },
+      { label: "Folder Path", value: image.folderPath || "Not set" },
+    ],
+    rating: imageRatingFields.map((field) => ({
+      label: field.label,
+      value: numberFromRating(rating[field.name]),
+    })),
+    notes: image.notes || "No notes saved.",
+  };
+}
+
+export function buildImageFormConfig(image: Image | null, mode: FormMode): FormConfig {
+  if (!image) {
+    return formConfigs.images;
+  }
+
+  const values = imageToFormValues(image);
+  return {
+    ...formConfigs.images,
+    editCancelTo: `/images/${image.id}`,
+    initialValues: {
+      ...formConfigs.images.initialValues,
+      [mode]: values,
+    },
+    initialCategories: {
+      ...formConfigs.images.initialCategories,
+      [mode]: parseTextLabelArray(image.categoriesJson),
+    },
+  };
+}
+
+export function imageFormToCreateInput(values: FormValues, categories: string[]): NewImage {
+  return {
+    title: textValue(values.title),
+    originalTitle: textValue(values.originalTitle),
+    code: textValue(values.code),
+    favorite: Boolean(values.favorite),
+    availability: textValue(values.availability) as NewImage["availability"],
+    censorship: textValue(values.censorship) as NewImage["censorship"],
+    coverPath: textValue(values.coverPath),
+    folderPath: textValue(values.folderPath),
+    releaseDate: textValue(values.releaseDate),
+    imageCount: optionalInteger(values.imageCount),
+    publisherLabel: textValue(values.publisherLabel),
+    categoriesJson: stringifyTextLabelArray(categories),
+    ratingJson: JSON.stringify(formRating(values)),
+    notes: textValue(values.notes),
+  };
+}
+
+export function imageFormToPatch(values: FormValues, categories: string[]): ImagePatch {
+  return imageFormToCreateInput(values, categories);
+}
+
+function toImageCollectionItem(image: Image): ImageCollectionItem {
+  return {
+    kind: "images",
+    key: image.id,
+    title: image.title,
+    originalTitle: image.originalTitle,
+    code: image.code || "No code",
+    imageCount: formatImageCount(image.imageCount),
+    availability: image.availability || "Unspecified",
+    censorship: image.censorship || "Unspecified",
+    categories: parseTextLabelArray(image.categoriesJson),
+    favorite: image.favorite,
+  };
+}
+
+function imageToFormValues(image: Image): FormValues {
+  const rating = parseRatingObject(image.ratingJson);
+  return {
+    title: image.title,
+    originalTitle: image.originalTitle,
+    code: image.code,
+    favorite: image.favorite,
+    availability: image.availability || "Owned",
+    censorship: image.censorship || "Censored",
+    coverPath: image.coverPath,
+    folderPath: image.folderPath,
+    releaseDate: image.releaseDate,
+    imageCount: image.imageCount?.toString() ?? "",
+    publisherLabel: image.publisherLabel,
+    notes: image.notes,
+    ...Object.fromEntries(
+      imageRatingFields.map((field) => [
+        field.name,
+        rating[field.name] === undefined ? "" : String(rating[field.name]),
+      ]),
+    ),
+  };
+}
+
+function formRating(values: FormValues): Record<string, number> {
+  return Object.fromEntries(
+    imageRatingFields
+      .map((field) => [field.name, Number(values[field.name])] as const)
+      .filter(([, value]) => Number.isFinite(value) && value >= 1 && value <= 5),
+  );
+}
+
+function numberFromRating(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function textValue(value: FormValues[string]) {
+  return typeof value === "string" ? value : "";
+}
+
+function optionalInteger(value: FormValues[string]) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return null;
+  }
+
+  const number = Number(value);
+  return Number.isInteger(number) ? number : null;
+}
+
+function formatImageCount(count: number | null) {
+  if (!count) {
+    return "Not set";
+  }
+
+  return `${count} ${count === 1 ? "image" : "images"}`;
+}

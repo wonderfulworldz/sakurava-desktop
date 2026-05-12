@@ -7,6 +7,9 @@ import CollectionPage from "./pages/CollectionPage";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import HomePage from "./pages/HomePage";
+import ImageCollectionPage from "./pages/ImageCollectionPage";
+import ImageDetailPage from "./pages/ImageDetailPage";
+import ImageFormPage from "./pages/ImageFormPage";
 import SettingsPage from "./pages/SettingsPage";
 import VideoCollectionPage from "./pages/VideoCollectionPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
@@ -27,21 +30,12 @@ function App() {
             element={<VideoFormPage mode="edit" />}
           />
 
-          <Route
-            path="images"
-            element={<CollectionPage config={collectionConfigs.images} />}
-          />
-          <Route
-            path="images/new"
-            element={<FormPage config={formConfigs.images} mode="create" />}
-          />
-          <Route
-            path="images/:itemKey"
-            element={<DetailPage config={detailConfigs.images} />}
-          />
+          <Route path="images" element={<ImageCollectionPage />} />
+          <Route path="images/new" element={<ImageFormPage mode="create" />} />
+          <Route path="images/:itemKey" element={<ImageDetailPage />} />
           <Route
             path="images/:itemKey/edit"
-            element={<FormPage config={formConfigs.images} mode="edit" />}
+            element={<ImageFormPage mode="edit" />}
           />
 
           <Route

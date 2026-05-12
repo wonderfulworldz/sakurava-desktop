@@ -410,6 +410,123 @@ describe("App", () => {
     expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
   });
 
+  it("loads image collection from the Tauri command boundary when available", async () => {
+    window.history.pushState({}, "", "/images");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [persistedImage({ title: "Persisted Image" })];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Image")).toBeInTheDocument();
+    expect(screen.getByText("1 image")).toBeInTheDocument();
+    expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("image_list", {}, undefined);
+  });
+
+  it("creates an image through Tauri commands without exposing the internal id", async () => {
+    window.history.pushState({}, "", "/images/new");
+    const created = persistedImage({
+      title: "Created Image",
+      categoriesJson: '["Typed Category"]',
+      ratingJson: '{"memorability":4}',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "image_create") {
+          expect(args.input.title).toBe("Created Image");
+          expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          return created;
+        }
+        if (command === "image_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Created Image" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Typed Category" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Created Image")).toBeInTheDocument();
+    expect(screen.getByText("Typed Category")).toBeInTheDocument();
+    expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
+  });
+
+  it("loads and updates an image through Tauri commands", async () => {
+    window.history.pushState({}, "", "/images/image_test_001/edit");
+    const existing = persistedImage({
+      title: "Existing Image",
+      categoriesJson: '["Portrait"]',
+      ratingJson: '{"memorability":3}',
+    });
+    const updated = persistedImage({
+      title: "Updated Image",
+      categoriesJson: '["Portrait","Updated"]',
+      ratingJson: '{"memorability":5}',
+    });
+    let currentImage = existing;
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "image_get") {
+          expect(args.id).toBe("image_test_001");
+          return currentImage;
+        }
+        if (command === "image_update") {
+          expect(args.id).toBe("image_test_001");
+          expect(args.patch.title).toBe("Updated Image");
+          expect(args.patch.categoriesJson).toBe('["Portrait","Updated"]');
+          expect(args.patch.ratingJson).toContain('"memorability":5');
+          currentImage = updated;
+          return updated;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Existing Image")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Updated Image" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.change(screen.getByLabelText("Memorability"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Updated Image")).toBeInTheDocument();
+    expect(screen.getByText("Updated")).toBeInTheDocument();
+    expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["/videos/new", "8. Related Performer", "9. Related Images"],
     ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
@@ -444,6 +561,29 @@ function persistedVideo(overrides: Record<string, unknown> = {}) {
     categoriesJson: '["Classic"]',
     ratingJson: '{"rewatch":4,"performance":3}',
     notes: "Persisted notes",
+    favorite: true,
+    createdAt: "2026-05-11T00:00:00.000Z",
+    updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function persistedImage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "image_test_001",
+    title: "Persisted Image",
+    originalTitle: "Original Persisted Image",
+    code: "IMG-001",
+    censorship: "Censored",
+    availability: "Owned",
+    releaseDate: "2026-05-11",
+    publisherLabel: "Sakura Label",
+    coverPath: "",
+    folderPath: "",
+    imageCount: 24,
+    categoriesJson: '["Portrait"]',
+    ratingJson: '{"memorability":4,"visual":3}',
+    notes: "Persisted image notes",
     favorite: true,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
