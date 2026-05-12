@@ -171,8 +171,14 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <Chip label="Active" tone="green" />
-        <Chip label="Favorite" icon={Heart} tone="pink" />
+        {config.chips.map((chip) => (
+          <Chip
+            key={chip}
+            label={chip}
+            tone={chip === "Active" ? "green" : "orange"}
+          />
+        ))}
+        {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
       </div>
 
       <Divider />

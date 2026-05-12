@@ -10,6 +10,9 @@ import HomePage from "./pages/HomePage";
 import ImageCollectionPage from "./pages/ImageCollectionPage";
 import ImageDetailPage from "./pages/ImageDetailPage";
 import ImageFormPage from "./pages/ImageFormPage";
+import PerformerCollectionPage from "./pages/PerformerCollectionPage";
+import PerformerDetailPage from "./pages/PerformerDetailPage";
+import PerformerFormPage from "./pages/PerformerFormPage";
 import SettingsPage from "./pages/SettingsPage";
 import VideoCollectionPage from "./pages/VideoCollectionPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
@@ -38,25 +41,15 @@ function App() {
             element={<ImageFormPage mode="edit" />}
           />
 
-          <Route
-            path="performers"
-            element={<CollectionPage config={collectionConfigs.performers} />}
-          />
+          <Route path="performers" element={<PerformerCollectionPage />} />
           <Route
             path="performers/new"
-            element={
-              <FormPage config={formConfigs.performers} mode="create" />
-            }
+            element={<PerformerFormPage mode="create" />}
           />
-          <Route
-            path="performers/:itemKey"
-            element={<DetailPage config={detailConfigs.performers} />}
-          />
+          <Route path="performers/:itemKey" element={<PerformerDetailPage />} />
           <Route
             path="performers/:itemKey/edit"
-            element={
-              <FormPage config={formConfigs.performers} mode="edit" />
-            }
+            element={<PerformerFormPage mode="edit" />}
           />
 
           <Route path="settings" element={<SettingsPage />} />
