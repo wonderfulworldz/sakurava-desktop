@@ -16,12 +16,15 @@ type CollectionPageProps = {
   config: CollectionConfig;
 };
 
+type ViewMode = "card" | "table";
+
 function CollectionPage({ config }: CollectionPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterValue, setFilterValue] = useState(config.filterOptions[0] ?? "");
   const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
   const [pageSize, setPageSize] = useState("30");
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<ViewMode>("card");
 
   const sortedItems = sortItems(
     filterByCategory(filterItems(config.items, searchQuery), filterValue, config),
@@ -47,6 +50,7 @@ function CollectionPage({ config }: CollectionPageProps) {
         searchQuery={searchQuery}
         filterValue={filterValue}
         sortValue={sortValue}
+        viewMode={viewMode}
         onSearchChange={(value) => {
           setSearchQuery(value);
           resetToFirstPage();
@@ -59,22 +63,27 @@ function CollectionPage({ config }: CollectionPageProps) {
           setSortValue(value);
           resetToFirstPage();
         }}
+        onViewModeChange={setViewMode}
       />
 
       {hasVisibleItems ? (
         <>
-          <section
-            className={[
-              "grid gap-4 sm:grid-cols-2 lg:grid-cols-4",
-              config.kind === "performers"
-                ? "2xl:grid-cols-6"
-                : "2xl:grid-cols-5",
-            ].join(" ")}
-          >
-            {pageItems.map((item) => (
-              <CollectionCard key={item.key} config={config} item={item} />
-            ))}
-          </section>
+          {viewMode === "card" ? (
+            <section
+              className={[
+                "grid gap-4 sm:grid-cols-2 lg:grid-cols-4",
+                config.kind === "performers"
+                  ? "2xl:grid-cols-6"
+                  : "2xl:grid-cols-5",
+              ].join(" ")}
+            >
+              {pageItems.map((item) => (
+                <CollectionCard key={item.key} config={config} item={item} />
+              ))}
+            </section>
+          ) : (
+            <CollectionTable config={config} items={pageItems} />
+          )}
           <PaginationBar
             page={currentPage}
             pageCount={pageCount}
@@ -124,16 +133,20 @@ function CollectionToolbar({
   searchQuery,
   filterValue,
   sortValue,
+  viewMode,
   onSearchChange,
   onFilterChange,
   onSortChange,
+  onViewModeChange,
 }: CollectionPageProps & {
   searchQuery: string;
   filterValue: string;
   sortValue: string;
+  viewMode: ViewMode;
   onSearchChange: (value: string) => void;
   onFilterChange: (value: string) => void;
   onSortChange: (value: string) => void;
+  onViewModeChange: (value: ViewMode) => void;
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3">
@@ -169,16 +182,30 @@ function CollectionToolbar({
 
         <div className="flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white p-1">
           <button
-            className="flex size-9 items-center justify-center rounded-md bg-sakura-50 text-sakura-500"
+            className={[
+              "flex size-9 items-center justify-center rounded-md",
+              viewMode === "card"
+                ? "bg-sakura-50 text-sakura-500"
+                : "text-slate-400",
+            ].join(" ")}
             type="button"
             aria-label="Grid view"
+            aria-pressed={viewMode === "card"}
+            onClick={() => onViewModeChange("card")}
           >
             <Grid2X2 size={18} />
           </button>
           <button
-            className="flex size-9 items-center justify-center rounded-md text-slate-400"
+            className={[
+              "flex size-9 items-center justify-center rounded-md",
+              viewMode === "table"
+                ? "bg-sakura-50 text-sakura-500"
+                : "text-slate-400",
+            ].join(" ")}
             type="button"
             aria-label="List view"
+            aria-pressed={viewMode === "table"}
+            onClick={() => onViewModeChange("table")}
           >
             <List size={18} />
           </button>
@@ -225,6 +252,68 @@ function SelectBox({
         ))}
       </select>
     </label>
+  );
+}
+
+function CollectionTable({
+  config,
+  items,
+}: {
+  config: CollectionConfig;
+  items: CollectionItem[];
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
+            <tr>
+              {tableHeaders(config.kind).map((header) => (
+                <th key={header} className="whitespace-nowrap px-4 py-3">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((item) => (
+              <CollectionTableRow key={item.key} config={config} item={item} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function CollectionTableRow({
+  config,
+  item,
+}: {
+  config: CollectionConfig;
+  item: CollectionItem;
+}) {
+  return (
+    <tr className="transition hover:bg-sakura-50/60">
+      {tableCells(item).map((cell, index) => (
+        <td
+          key={`${item.key}-${index}`}
+          className="whitespace-nowrap px-4 py-3 text-slate-700"
+        >
+          <Link
+            to={`/${config.kind}/${item.key}`}
+            className={[
+              "block",
+              index === 0
+                ? "font-semibold text-slate-950 hover:text-sakura-600"
+                : "",
+            ].join(" ")}
+          >
+            {cell}
+          </Link>
+        </td>
+      ))}
+    </tr>
   );
 }
 
@@ -636,6 +725,74 @@ function normalizeSearchText(value: string) {
 
 function pageNumbers(pageCount: number) {
   return Array.from({ length: pageCount }, (_, index) => index + 1);
+}
+
+function tableHeaders(kind: CollectionConfig["kind"]) {
+  if (kind === "performers") {
+    return [
+      "Name",
+      "Original Name",
+      "Status",
+      "Filmography",
+      "Pictorials",
+      "Categories",
+    ];
+  }
+
+  if (kind === "images") {
+    return [
+      "Title",
+      "Original Title",
+      "Code",
+      "Availability",
+      "Image Count",
+      "Categories",
+    ];
+  }
+
+  return [
+    "Title",
+    "Original Title",
+    "Censorship",
+    "Availability",
+    "Duration",
+    "Categories",
+  ];
+}
+
+function tableCells(item: CollectionItem) {
+  const categories = item.categories.length > 0 ? item.categories.join(", ") : "None";
+
+  if (item.kind === "performers") {
+    return [
+      item.name,
+      item.originalName,
+      item.status,
+      item.filmographyCount,
+      item.pictorialsCount,
+      categories,
+    ];
+  }
+
+  if (item.kind === "images") {
+    return [
+      item.title,
+      item.originalTitle,
+      item.code,
+      item.availability ?? "Unspecified",
+      item.imageCount,
+      categories,
+    ];
+  }
+
+  return [
+    item.title,
+    item.originalTitle,
+    item.censorship ?? "Unspecified",
+    item.availability ?? "Unspecified",
+    item.duration,
+    categories,
+  ];
 }
 
 export default CollectionPage;

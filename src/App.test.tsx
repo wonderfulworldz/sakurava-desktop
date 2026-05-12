@@ -567,6 +567,177 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
   });
 
+  it("switches collection cards to a read-only table with detail links", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Table Video",
+            originalTitle: "Original Table Video",
+            categoriesJson: '["Category A"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("Cover Placeholder")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Original Title" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Censorship" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Table Video" }),
+    ).toHaveAttribute("href", "/videos/video_1");
+    expect(screen.queryByLabelText("Cover Placeholder")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+  });
+
+  it("keeps search, category filter, sort, and pagination active in table view", async () => {
+    window.history.pushState({}, "", "/videos");
+    const videos = [
+      persistedVideo({
+        id: "video_1",
+        title: "Zulu Archive 01",
+        categoriesJson: '["Category A"]',
+      }),
+      persistedVideo({
+        id: "video_2",
+        title: "Alpha Archive 02",
+        categoriesJson: '["Category A"]',
+      }),
+      persistedVideo({
+        id: "video_3",
+        title: "Beta Clip 03",
+        categoriesJson: '["Category B"]',
+      }),
+      ...Array.from({ length: 29 }, (_, index) =>
+        persistedVideo({
+          id: `video_extra_${index + 1}`,
+          title: `Extra Archive ${String(index + 4).padStart(2, "0")}`,
+          categoriesJson: '["Category A"]',
+        }),
+      ),
+    ];
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return videos;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Zulu Archive 01")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "archive" },
+    });
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+    fireEvent.change(screen.getByLabelText("Sort by"), {
+      target: { value: "Title A-Z" },
+    });
+
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Alpha Archive 02");
+    expect(screen.queryByText("Beta Clip 03")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.queryByText("Alpha Archive 02")).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
+  });
+
+  it("renders entity-aware table columns for images and performers", async () => {
+    window.history.pushState({}, "", "/images");
+    const imageInvoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_1",
+            title: "Table Image",
+            code: "IMG-TABLE",
+            imageCount: 42,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: imageInvoke,
+    };
+
+    const imageRender = render(<App />);
+
+    expect(await screen.findByText("Table Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Image Count" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("IMG-TABLE")).toBeInTheDocument();
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/performers");
+    const performerInvoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_1",
+            name: "Table Performer",
+            filmographyCount: 7,
+            pictorialsCount: 3,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: performerInvoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Table Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Filmography" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Pictorials" }),
+    ).toBeInTheDocument();
+  });
+
   it("creates a video through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/videos/new");
     const created = persistedVideo({
