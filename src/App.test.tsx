@@ -527,6 +527,138 @@ describe("App", () => {
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
   });
 
+  it("loads performer collection from the Tauri command boundary when available", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [persistedPerformer({ name: "Persisted Performer" })];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Performer")).toBeInTheDocument();
+    expect(screen.getByText("1 performer")).toBeInTheDocument();
+    expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("performer_list", {}, undefined);
+  });
+
+  it("creates a performer through Tauri commands without exposing the internal id", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const created = persistedPerformer({
+      name: "Created Performer",
+      aliasesJson: '["Typed Alias"]',
+      categoriesJson: '["Typed Category"]',
+      ratingJson: '{"attraction":4}',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "performer_create") {
+          expect(args.input.name).toBe("Created Performer");
+          expect(args.input.aliasesJson).toBe('["Typed Alias"]');
+          expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          return created;
+        }
+        if (command === "performer_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Created Performer" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
+      target: { value: "Typed Alias" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Typed Category" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Created Performer")).toBeInTheDocument();
+    expect(screen.getByText("Typed Alias")).toBeInTheDocument();
+    expect(screen.getByText("Typed Category")).toBeInTheDocument();
+    expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
+  });
+
+  it("loads and updates a performer through Tauri commands", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001/edit");
+    const existing = persistedPerformer({
+      name: "Existing Performer",
+      aliasesJson: '["Alias One"]',
+      categoriesJson: '["Classic"]',
+      ratingJson: '{"attraction":3}',
+    });
+    const updated = persistedPerformer({
+      name: "Updated Performer",
+      aliasesJson: '["Alias One","Alias Two"]',
+      categoriesJson: '["Classic","Updated"]',
+      ratingJson: '{"attraction":5}',
+    });
+    let currentPerformer = existing;
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "performer_get") {
+          expect(args.id).toBe("performer_test_001");
+          return currentPerformer;
+        }
+        if (command === "performer_update") {
+          expect(args.id).toBe("performer_test_001");
+          expect(args.patch.name).toBe("Updated Performer");
+          expect(args.patch.aliasesJson).toBe('["Alias One","Alias Two"]');
+          expect(args.patch.categoriesJson).toBe('["Classic","Updated"]');
+          expect(args.patch.ratingJson).toContain('"attraction":5');
+          currentPerformer = updated;
+          return updated;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Existing Performer")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Updated Performer" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
+      target: { value: "Alias Two" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
+      target: { value: "Updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.change(screen.getByLabelText("Attraction"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Updated Performer")).toBeInTheDocument();
+    expect(screen.getByText("Alias Two")).toBeInTheDocument();
+    expect(screen.getByText("Updated")).toBeInTheDocument();
+    expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["/videos/new", "8. Related Performer", "9. Related Images"],
     ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
@@ -584,6 +716,27 @@ function persistedImage(overrides: Record<string, unknown> = {}) {
     categoriesJson: '["Portrait"]',
     ratingJson: '{"memorability":4,"visual":3}',
     notes: "Persisted image notes",
+    favorite: true,
+    createdAt: "2026-05-11T00:00:00.000Z",
+    updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function persistedPerformer(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "performer_test_001",
+    name: "Persisted Performer",
+    originalName: "Original Persisted",
+    aliasesJson: '["Alias One"]',
+    status: "Active",
+    birthDate: "2026-05-11",
+    coverPath: "",
+    filmographyCount: 12,
+    pictorialsCount: 8,
+    categoriesJson: '["Classic"]',
+    ratingJson: '{"attraction":4,"visual":3}',
+    notes: "Persisted performer notes",
     favorite: true,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
