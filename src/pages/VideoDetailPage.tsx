@@ -10,6 +10,9 @@ function VideoDetailPage() {
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.videos);
   const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(() =>
+    Boolean(itemKey && isVideoRuntimeAvailable()),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -17,9 +20,11 @@ function VideoDetailPage() {
     if (!itemKey || !isVideoRuntimeAvailable()) {
       setConfig(detailConfigs.videos);
       setMissing(false);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     getVideo(itemKey)
       .then((video) => {
         if (cancelled) {
@@ -28,15 +33,18 @@ function VideoDetailPage() {
 
         if (!video) {
           setMissing(true);
+          setLoading(false);
           return;
         }
 
         setMissing(false);
         setConfig(buildVideoDetailConfig(video));
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
           setMissing(true);
+          setLoading(false);
         }
       });
 
@@ -44,6 +52,17 @@ function VideoDetailPage() {
       cancelled = true;
     };
   }, [itemKey]);
+
+  if (loading) {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Video Detail
+        </h1>
+        <p className="mt-3 text-sm text-slate-500">Loading video...</p>
+      </section>
+    );
+  }
 
   if (missing) {
     return (

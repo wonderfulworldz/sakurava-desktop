@@ -10,6 +10,9 @@ function ImageDetailPage() {
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.images);
   const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(() =>
+    Boolean(itemKey && isImageRuntimeAvailable()),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -17,9 +20,11 @@ function ImageDetailPage() {
     if (!itemKey || !isImageRuntimeAvailable()) {
       setConfig(detailConfigs.images);
       setMissing(false);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     getImage(itemKey)
       .then((image) => {
         if (cancelled) {
@@ -28,15 +33,18 @@ function ImageDetailPage() {
 
         if (!image) {
           setMissing(true);
+          setLoading(false);
           return;
         }
 
         setMissing(false);
         setConfig(buildImageDetailConfig(image));
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
           setMissing(true);
+          setLoading(false);
         }
       });
 
@@ -44,6 +52,17 @@ function ImageDetailPage() {
       cancelled = true;
     };
   }, [itemKey]);
+
+  if (loading) {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Image Detail
+        </h1>
+        <p className="mt-3 text-sm text-slate-500">Loading image...</p>
+      </section>
+    );
+  }
 
   if (missing) {
     return (

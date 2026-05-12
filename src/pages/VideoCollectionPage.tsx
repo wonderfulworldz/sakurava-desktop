@@ -6,7 +6,11 @@ import CollectionPage from "./CollectionPage";
 import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
 
 function VideoCollectionPage() {
-  const [config, setConfig] = useState<CollectionConfig>(collectionConfigs.videos);
+  const [config, setConfig] = useState<CollectionConfig>(() =>
+    isVideoRuntimeAvailable()
+      ? { ...collectionConfigs.videos, items: [], countLabel: "0 videos" }
+      : collectionConfigs.videos,
+  );
 
   useEffect(() => {
     let cancelled = false;
