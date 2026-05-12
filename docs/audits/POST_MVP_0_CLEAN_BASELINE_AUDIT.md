@@ -65,6 +65,27 @@ Fixed with small runtime guards:
 - `src/pages/PerformerFormPage.tsx`
 - `docs/audits/POST_MVP_0_CLEAN_BASELINE_AUDIT.md`
 
+## Intentionally Not Changed
+
+- Automated test fixtures in `src/App.test.tsx` and `src/backend/*.test.ts` were kept because they are test-only and required for verification.
+- Static fallback configs in `src/lib/collectionData.ts`, `src/lib/detailData.ts`, and `src/lib/formData.ts` were kept for browser-preview/static fallback behavior, but production runtime pages now avoid showing them before SQLite data resolves.
+- `docs/04a-visual-mockup-prompt-pack.md` was kept because it is documentation-only and does not affect production runtime.
+- Table View for collection pages was intentionally not added in Batch 0. It belongs to Batch 2 — Functional Collection Controls, together with search, filter, sort, view toggle, pagination, and items per page.
+- Thumbnail rendering, Backup / Restore, Native File Picker, Related Picker, Advanced Categories Manager, File Missing Scanner, and Icon / Branding work were not changed in Batch 0.
+
+## Next Batch Notes
+
+- Batch 1 — Bugfix & Polish from 1–2 days of usage should focus only on confirmed problems found during real use.
+- Batch 2 — Functional Collection Controls should include:
+  - Search
+  - Filter
+  - Sort
+  - View toggle: Card View / Table View
+  - Pagination
+  - Items per page
+  - Empty state
+  - Runtime data only, no sample/mock data
+
 ## Verification
 
 Run after this audit:
