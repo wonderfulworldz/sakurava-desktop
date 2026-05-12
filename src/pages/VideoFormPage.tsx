@@ -24,6 +24,9 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
   const navigate = useNavigate();
   const [config, setConfig] = useState<FormConfig>(formConfigs.videos);
   const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(() =>
+    Boolean(mode === "edit" && itemKey && isVideoRuntimeAvailable()),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -31,9 +34,11 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
     if (mode === "create" || !itemKey || !isVideoRuntimeAvailable()) {
       setConfig(formConfigs.videos);
       setMissing(false);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     getVideo(itemKey)
       .then((video) => {
         if (cancelled) {
@@ -42,15 +47,18 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
 
         if (!video) {
           setMissing(true);
+          setLoading(false);
           return;
         }
 
         setMissing(false);
         setConfig(buildVideoFormConfig(video, "edit"));
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
           setMissing(true);
+          setLoading(false);
         }
       });
 
@@ -58,6 +66,17 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
       cancelled = true;
     };
   }, [itemKey, mode]);
+
+  if (loading) {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Edit Video
+        </h1>
+        <p className="mt-3 text-sm text-slate-500">Loading video...</p>
+      </section>
+    );
+  }
 
   if (missing) {
     return (

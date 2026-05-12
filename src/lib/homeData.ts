@@ -3,26 +3,26 @@ import { Image, Plus, Star, UserRound, Video } from "lucide-react";
 export const summaryCards = [
   {
     label: "Videos",
-    value: "24",
-    detail: "Mock catalog count",
+    value: "0",
+    detail: "No saved videos yet",
     icon: Video,
   },
   {
     label: "Images",
-    value: "24",
-    detail: "Mock catalog count",
+    value: "0",
+    detail: "No saved images yet",
     icon: Image,
   },
   {
     label: "Performers",
-    value: "24",
-    detail: "Mock profile count",
+    value: "0",
+    detail: "No saved performers yet",
     icon: UserRound,
   },
   {
     label: "Favorites",
-    value: "8",
-    detail: "Placeholder count",
+    value: "0",
+    detail: "No favorites yet",
     icon: Star,
   },
 ];
@@ -30,33 +30,24 @@ export const summaryCards = [
 export const quickActions = [
   {
     label: "Add Video",
-    detail: "Open the video create route stub",
+    detail: "Create a new video catalog item",
     to: "/videos/new",
     icon: Plus,
   },
   {
     label: "Add Image",
-    detail: "Open the image create route stub",
+    detail: "Create a new image catalog item",
     to: "/images/new",
     icon: Plus,
   },
   {
     label: "Add Performer",
-    detail: "Open the performer create route stub",
+    detail: "Create a new performer profile",
     to: "/performers/new",
     icon: Plus,
   },
 ];
 
-export const continueItems = [
-  "Recent videos placeholder",
-  "Recent images placeholder",
-  "Recent performers placeholder",
-];
+export const continueItems: string[] = [];
 
-export const recentlyAdded = [
-  "Video draft placeholder",
-  "Image set placeholder",
-  "Performer profile placeholder",
-  "Favorite item placeholder",
-];
+export const recentlyAdded: string[] = [];

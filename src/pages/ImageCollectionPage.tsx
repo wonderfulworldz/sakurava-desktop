@@ -6,7 +6,11 @@ import CollectionPage from "./CollectionPage";
 import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
 
 function ImageCollectionPage() {
-  const [config, setConfig] = useState<CollectionConfig>(collectionConfigs.images);
+  const [config, setConfig] = useState<CollectionConfig>(() =>
+    isImageRuntimeAvailable()
+      ? { ...collectionConfigs.images, items: [], countLabel: "0 images" }
+      : collectionConfigs.images,
+  );
 
   useEffect(() => {
     let cancelled = false;

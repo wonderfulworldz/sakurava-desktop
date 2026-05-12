@@ -9,8 +9,10 @@ import {
 } from "../runtime/performerCommands";
 
 function PerformerCollectionPage() {
-  const [config, setConfig] = useState<CollectionConfig>(
-    collectionConfigs.performers,
+  const [config, setConfig] = useState<CollectionConfig>(() =>
+    isPerformerRuntimeAvailable()
+      ? { ...collectionConfigs.performers, items: [], countLabel: "0 performers" }
+      : collectionConfigs.performers,
   );
 
   useEffect(() => {

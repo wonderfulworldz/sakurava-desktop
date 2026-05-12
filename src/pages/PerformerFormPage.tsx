@@ -24,6 +24,9 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
   const navigate = useNavigate();
   const [config, setConfig] = useState<FormConfig>(formConfigs.performers);
   const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(() =>
+    Boolean(mode === "edit" && itemKey && isPerformerRuntimeAvailable()),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -31,9 +34,11 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     if (mode === "create" || !itemKey || !isPerformerRuntimeAvailable()) {
       setConfig(formConfigs.performers);
       setMissing(false);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     getPerformer(itemKey)
       .then((performer) => {
         if (cancelled) {
@@ -42,15 +47,18 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
 
         if (!performer) {
           setMissing(true);
+          setLoading(false);
           return;
         }
 
         setMissing(false);
         setConfig(buildPerformerFormConfig(performer, "edit"));
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
           setMissing(true);
+          setLoading(false);
         }
       });
 
@@ -58,6 +66,17 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
       cancelled = true;
     };
   }, [itemKey, mode]);
+
+  if (loading) {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+          Edit Performer
+        </h1>
+        <p className="mt-3 text-sm text-slate-500">Loading performer...</p>
+      </section>
+    );
+  }
 
   if (missing) {
     return (

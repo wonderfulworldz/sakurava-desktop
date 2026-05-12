@@ -44,7 +44,7 @@ function CollectionPage({ config }: CollectionPageProps) {
             No items to show
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            Collection cards will appear here when mock items are available.
+            Collection cards will appear here when saved items are available.
           </p>
         </section>
       )}
