@@ -314,6 +314,430 @@ describe("App", () => {
     expect(invoke).toHaveBeenCalledWith("video_list", {}, undefined);
   });
 
+  it("filters collection cards with search", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({ id: "video_1", title: "Alpha Video" }),
+          persistedVideo({ id: "video_2", title: "Beta Video" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Alpha Video")).toBeInTheDocument();
+    expect(screen.getByText("Beta Video")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "alpha" },
+    });
+
+    expect(screen.getByText("Alpha Video")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Video")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "missing" },
+    });
+
+    expect(screen.getByText("No matching items")).toBeInTheDocument();
+  });
+
+  it("sorts collection cards without mutating the loaded records", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({ id: "video_1", title: "Zulu Video" }),
+          persistedVideo({ id: "video_2", title: "Alpha Video" }),
+          persistedVideo({ id: "video_3", title: "Beta Video" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Zulu Video")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Sort by"), {
+      target: { value: "Title A-Z" },
+    });
+
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
+      heading.textContent,
+    )).toEqual(["Alpha Video", "Beta Video", "Zulu Video"]);
+
+    fireEvent.change(screen.getByLabelText("Sort by"), {
+      target: { value: "Recently Added" },
+    });
+
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
+      heading.textContent,
+    )).toEqual(["Zulu Video", "Alpha Video", "Beta Video"]);
+  });
+
+  it("slices collection cards by page size and navigates pages", async () => {
+    window.history.pushState({}, "", "/videos");
+    const videos = Array.from({ length: 31 }, (_, index) =>
+      persistedVideo({
+        id: `video_${index + 1}`,
+        title: `Paged Video ${String(index + 1).padStart(2, "0")}`,
+      }),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return videos;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Paged Video 01")).toBeInTheDocument();
+    expect(screen.queryByText("Paged Video 31")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.getByText("Paged Video 31")).toBeInTheDocument();
+    expect(screen.queryByText("Paged Video 01")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "60" },
+    });
+
+    expect(screen.getByText("Paged Video 01")).toBeInTheDocument();
+    expect(screen.getByText("Paged Video 31")).toBeInTheDocument();
+  });
+
+  it("filters collection cards by category and restores all categories", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Classic Video",
+            categoriesJson: '["Category A"]',
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Modern Video",
+            categoriesJson: '["Category B"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Classic Video")).toBeInTheDocument();
+    expect(screen.getByText("Modern Video")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+
+    expect(screen.getByText("Classic Video")).toBeInTheDocument();
+    expect(screen.queryByText("Modern Video")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "All categories" },
+    });
+
+    expect(screen.getByText("Classic Video")).toBeInTheDocument();
+    expect(screen.getByText("Modern Video")).toBeInTheDocument();
+  });
+
+  it("combines category filter with search and sort", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Zulu Archive",
+            categoriesJson: '["Category A"]',
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Alpha Archive",
+            categoriesJson: '["Category A"]',
+          }),
+          persistedVideo({
+            id: "video_3",
+            title: "Beta Clip",
+            categoriesJson: '["Category B"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Zulu Archive")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "archive" },
+    });
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+    fireEvent.change(screen.getByLabelText("Sort by"), {
+      target: { value: "Title A-Z" },
+    });
+
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
+      heading.textContent,
+    )).toEqual(["Alpha Archive", "Zulu Archive"]);
+    expect(screen.queryByText("Beta Clip")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category B" },
+    });
+
+    expect(screen.getByText("No matching items")).toBeInTheDocument();
+  });
+
+  it("applies pagination after category filter and resets to page one", async () => {
+    window.history.pushState({}, "", "/videos");
+    const categoryAVideos = Array.from({ length: 31 }, (_, index) =>
+      persistedVideo({
+        id: `video_a_${index + 1}`,
+        title: `Category A Video ${String(index + 1).padStart(2, "0")}`,
+        categoriesJson: '["Category A"]',
+      }),
+    );
+    const videos = [
+      ...categoryAVideos,
+      persistedVideo({
+        id: "video_b_1",
+        title: "Category B Video 01",
+        categoriesJson: '["Category B"]',
+      }),
+    ];
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return videos;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Category A Video 01")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Category A Video 31")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category B" },
+    });
+
+    expect(screen.getByText("Category B Video 01")).toBeInTheDocument();
+    expect(screen.queryByText("Category A Video 31")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+  });
+
+  it("switches collection cards to a read-only table with detail links", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Table Video",
+            originalTitle: "Original Table Video",
+            categoriesJson: '["Category A"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("Cover Placeholder")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Original Title" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Censorship" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Table Video" }),
+    ).toHaveAttribute("href", "/videos/video_1");
+    expect(screen.queryByLabelText("Cover Placeholder")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+  });
+
+  it("keeps search, category filter, sort, and pagination active in table view", async () => {
+    window.history.pushState({}, "", "/videos");
+    const videos = [
+      persistedVideo({
+        id: "video_1",
+        title: "Zulu Archive 01",
+        categoriesJson: '["Category A"]',
+      }),
+      persistedVideo({
+        id: "video_2",
+        title: "Alpha Archive 02",
+        categoriesJson: '["Category A"]',
+      }),
+      persistedVideo({
+        id: "video_3",
+        title: "Beta Clip 03",
+        categoriesJson: '["Category B"]',
+      }),
+      ...Array.from({ length: 29 }, (_, index) =>
+        persistedVideo({
+          id: `video_extra_${index + 1}`,
+          title: `Extra Archive ${String(index + 4).padStart(2, "0")}`,
+          categoriesJson: '["Category A"]',
+        }),
+      ),
+    ];
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return videos;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Zulu Archive 01")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "archive" },
+    });
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+    fireEvent.change(screen.getByLabelText("Sort by"), {
+      target: { value: "Title A-Z" },
+    });
+
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Alpha Archive 02");
+    expect(screen.queryByText("Beta Clip 03")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.queryByText("Alpha Archive 02")).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
+  });
+
+  it("renders entity-aware table columns for images and performers", async () => {
+    window.history.pushState({}, "", "/images");
+    const imageInvoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_1",
+            title: "Table Image",
+            code: "IMG-TABLE",
+            imageCount: 42,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: imageInvoke,
+    };
+
+    const imageRender = render(<App />);
+
+    expect(await screen.findByText("Table Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Image Count" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("IMG-TABLE")).toBeInTheDocument();
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/performers");
+    const performerInvoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_1",
+            name: "Table Performer",
+            filmographyCount: 7,
+            pictorialsCount: 3,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: performerInvoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Table Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Filmography" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Pictorials" }),
+    ).toBeInTheDocument();
+  });
+
   it("creates a video through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/videos/new");
     const created = persistedVideo({

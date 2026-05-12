@@ -8,7 +8,7 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 
@@ -16,37 +16,87 @@ type CollectionPageProps = {
   config: CollectionConfig;
 };
 
+type ViewMode = "card" | "table";
+
 function CollectionPage({ config }: CollectionPageProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterValue, setFilterValue] = useState(config.filterOptions[0] ?? "");
+  const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
+  const [pageSize, setPageSize] = useState("30");
+  const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<ViewMode>("card");
+
+  const sortedItems = sortItems(
+    filterByCategory(filterItems(config.items, searchQuery), filterValue, config),
+    sortValue,
+  );
+  const numericPageSize = Number(pageSize);
+  const pageCount = Math.max(1, Math.ceil(sortedItems.length / numericPageSize));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * numericPageSize;
+  const pageItems = sortedItems.slice(startIndex, startIndex + numericPageSize);
+  const hasItems = config.items.length > 0;
+  const hasVisibleItems = pageItems.length > 0;
+
+  function resetToFirstPage() {
+    setPage(1);
+  }
+
   return (
     <div className="space-y-6">
       <CollectionHeader config={config} />
-      <CollectionToolbar config={config} />
+      <CollectionToolbar
+        config={config}
+        searchQuery={searchQuery}
+        filterValue={filterValue}
+        sortValue={sortValue}
+        viewMode={viewMode}
+        onSearchChange={(value) => {
+          setSearchQuery(value);
+          resetToFirstPage();
+        }}
+        onFilterChange={(value) => {
+          setFilterValue(value);
+          resetToFirstPage();
+        }}
+        onSortChange={(value) => {
+          setSortValue(value);
+          resetToFirstPage();
+        }}
+        onViewModeChange={setViewMode}
+      />
 
-      {config.items.length > 0 ? (
+      {hasVisibleItems ? (
         <>
-          <section
-            className={[
-              "grid gap-4 sm:grid-cols-2 lg:grid-cols-4",
-              config.kind === "performers"
-                ? "2xl:grid-cols-6"
-                : "2xl:grid-cols-5",
-            ].join(" ")}
-          >
-            {config.items.map((item) => (
-              <CollectionCard key={item.key} config={config} item={item} />
-            ))}
-          </section>
-          <PaginationBar />
+          {viewMode === "card" ? (
+            <section
+              className={[
+                "grid gap-4 sm:grid-cols-2 lg:grid-cols-4",
+                config.kind === "performers"
+                  ? "2xl:grid-cols-6"
+                  : "2xl:grid-cols-5",
+              ].join(" ")}
+            >
+              {pageItems.map((item) => (
+                <CollectionCard key={item.key} config={config} item={item} />
+              ))}
+            </section>
+          ) : (
+            <CollectionTable config={config} items={pageItems} />
+          )}
+          <PaginationBar
+            page={currentPage}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(value) => {
+              setPageSize(value);
+              resetToFirstPage();
+            }}
+          />
         </>
       ) : (
-        <section className="rounded-lg border border-dashed border-slate-200 bg-white p-6 text-center">
-          <p className="text-sm font-semibold text-slate-800">
-            No items to show
-          </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Collection cards will appear here when saved items are available.
-          </p>
-        </section>
+        <CollectionEmptyState hasItems={hasItems} />
       )}
     </div>
   );
@@ -78,7 +128,26 @@ function CollectionHeader({ config }: CollectionPageProps) {
   );
 }
 
-function CollectionToolbar({ config }: CollectionPageProps) {
+function CollectionToolbar({
+  config,
+  searchQuery,
+  filterValue,
+  sortValue,
+  viewMode,
+  onSearchChange,
+  onFilterChange,
+  onSortChange,
+  onViewModeChange,
+}: CollectionPageProps & {
+  searchQuery: string;
+  filterValue: string;
+  sortValue: string;
+  viewMode: ViewMode;
+  onSearchChange: (value: string) => void;
+  onFilterChange: (value: string) => void;
+  onSortChange: (value: string) => void;
+  onViewModeChange: (value: ViewMode) => void;
+}) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_230px_230px_auto] lg:items-center">
@@ -91,6 +160,8 @@ function CollectionToolbar({ config }: CollectionPageProps) {
             className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
             placeholder={config.searchPlaceholder}
             aria-label={`${config.title} search`}
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
           />
         </label>
 
@@ -98,25 +169,43 @@ function CollectionToolbar({ config }: CollectionPageProps) {
           id={`${config.kind}-filter`}
           label={config.filterLabel}
           options={config.filterOptions}
+          value={filterValue}
+          onChange={onFilterChange}
         />
         <SelectBox
           id={`${config.kind}-sort`}
           label={config.sortLabel}
           options={config.sortOptions}
+          value={sortValue}
+          onChange={onSortChange}
         />
 
         <div className="flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white p-1">
           <button
-            className="flex size-9 items-center justify-center rounded-md bg-sakura-50 text-sakura-500"
+            className={[
+              "flex size-9 items-center justify-center rounded-md",
+              viewMode === "card"
+                ? "bg-sakura-50 text-sakura-500"
+                : "text-slate-400",
+            ].join(" ")}
             type="button"
             aria-label="Grid view"
+            aria-pressed={viewMode === "card"}
+            onClick={() => onViewModeChange("card")}
           >
             <Grid2X2 size={18} />
           </button>
           <button
-            className="flex size-9 items-center justify-center rounded-md text-slate-400"
+            className={[
+              "flex size-9 items-center justify-center rounded-md",
+              viewMode === "table"
+                ? "bg-sakura-50 text-sakura-500"
+                : "text-slate-400",
+            ].join(" ")}
             type="button"
             aria-label="List view"
+            aria-pressed={viewMode === "table"}
+            onClick={() => onViewModeChange("table")}
           >
             <List size={18} />
           </button>
@@ -130,10 +219,14 @@ function SelectBox({
   id,
   label,
   options,
+  value,
+  onChange,
 }: {
   id: string;
   label: string;
   options: string[];
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   return (
     <label
@@ -146,13 +239,81 @@ function SelectBox({
       <select
         id={id}
         className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none"
-        defaultValue={options[0]}
+        {...(value === undefined
+          ? { defaultValue: options[0] }
+          : {
+              value,
+              onChange: (event: ChangeEvent<HTMLSelectElement>) =>
+                onChange?.(event.target.value),
+            })}
       >
         {options.map((option) => (
           <option key={option}>{option}</option>
         ))}
       </select>
     </label>
+  );
+}
+
+function CollectionTable({
+  config,
+  items,
+}: {
+  config: CollectionConfig;
+  items: CollectionItem[];
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
+            <tr>
+              {tableHeaders(config.kind).map((header) => (
+                <th key={header} className="whitespace-nowrap px-4 py-3">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((item) => (
+              <CollectionTableRow key={item.key} config={config} item={item} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function CollectionTableRow({
+  config,
+  item,
+}: {
+  config: CollectionConfig;
+  item: CollectionItem;
+}) {
+  return (
+    <tr className="transition hover:bg-sakura-50/60">
+      {tableCells(item).map((cell, index) => (
+        <td
+          key={`${item.key}-${index}`}
+          className="whitespace-nowrap px-4 py-3 text-slate-700"
+        >
+          <Link
+            to={`/${config.kind}/${item.key}`}
+            className={[
+              "block",
+              index === 0
+                ? "font-semibold text-slate-950 hover:text-sakura-600"
+                : "",
+            ].join(" ")}
+          >
+            {cell}
+          </Link>
+        </td>
+      ))}
+    </tr>
   );
 }
 
@@ -330,9 +491,19 @@ function CategoryChip({ label }: { label: string }) {
   );
 }
 
-function PaginationBar() {
-  const [pageSize, setPageSize] = useState("30");
-
+function PaginationBar({
+  page,
+  pageCount,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageCount: number;
+  pageSize: string;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: string) => void;
+}) {
   return (
     <nav
       className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
@@ -343,7 +514,7 @@ function PaginationBar() {
         <select
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           value={pageSize}
-          onChange={(event) => setPageSize(event.target.value)}
+          onChange={(event) => onPageSizeChange(event.target.value)}
           aria-label="Items per page"
         >
           {["30", "60", "90", "120"].map((option) => (
@@ -357,33 +528,271 @@ function PaginationBar() {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
+          disabled={page === 1}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
         >
           Previous
         </button>
-        {[1, 2, 3].map((page) => (
+        {pageNumbers(pageCount).map((pageNumber) => (
           <button
-            key={page}
+            key={pageNumber}
             type="button"
             className={[
               "flex size-9 items-center justify-center rounded-lg text-sm font-semibold",
-              page === 1
+              pageNumber === page
                 ? "bg-sakura-500 text-white"
                 : "border border-slate-200 bg-white text-slate-500",
             ].join(" ")}
+            onClick={() => onPageChange(pageNumber)}
+            aria-label={`Page ${pageNumber}`}
           >
-            {page}
+            {pageNumber}
           </button>
         ))}
         <button
           type="button"
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
+          disabled={page === pageCount}
+          onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         >
           Next
         </button>
       </div>
     </nav>
   );
+}
+
+function CollectionEmptyState({ hasItems }: { hasItems: boolean }) {
+  return (
+    <section className="rounded-lg border border-dashed border-slate-200 bg-white p-6 text-center">
+      <p className="text-sm font-semibold text-slate-800">
+        {hasItems ? "No matching items" : "No saved records"}
+      </p>
+      <p className="mt-2 text-sm text-slate-500">
+        {hasItems
+          ? "Try a different search term or sort option."
+          : "Collection cards will appear here when saved items are available."}
+      </p>
+    </section>
+  );
+}
+
+function filterItems(items: CollectionItem[], searchQuery: string) {
+  const normalizedQuery = normalizeSearchText(searchQuery);
+
+  if (!normalizedQuery) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    getSearchText(item).includes(normalizedQuery),
+  );
+}
+
+function filterByCategory(
+  items: CollectionItem[],
+  filterValue: string,
+  config: CollectionConfig,
+) {
+  if (!filterValue || filterValue === config.filterOptions[0]) {
+    return items;
+  }
+
+  const normalizedFilter = normalizeSearchText(filterValue);
+
+  return items.filter((item) =>
+    item.categories.some(
+      (category) => normalizeSearchText(category) === normalizedFilter,
+    ),
+  );
+}
+
+function sortItems(items: CollectionItem[], sortValue: string) {
+  const indexedItems = items.map((item, index) => ({ item, index }));
+
+  if (sortValue === "Title A-Z" || sortValue === "Name A-Z") {
+    return indexedItems
+      .slice()
+      .sort((left, right) =>
+        getPrimaryTitle(left.item).localeCompare(getPrimaryTitle(right.item)) ||
+        left.index - right.index,
+      )
+      .map(({ item }) => item);
+  }
+
+  if (sortValue === "Duration") {
+    return sortByNumber(indexedItems, (item) =>
+      item.kind === "videos" ? numberFromDisplayText(item.duration) : null,
+    );
+  }
+
+  if (sortValue === "Image Count") {
+    return sortByNumber(indexedItems, (item) =>
+      item.kind === "images" ? numberFromDisplayText(item.imageCount) : null,
+    );
+  }
+
+  if (sortValue === "Filmography") {
+    return sortByNumber(indexedItems, (item) =>
+      item.kind === "performers"
+        ? numberFromDisplayText(item.filmographyCount)
+        : null,
+    );
+  }
+
+  if (sortValue === "Pictorials") {
+    return sortByNumber(indexedItems, (item) =>
+      item.kind === "performers"
+        ? numberFromDisplayText(item.pictorialsCount)
+        : null,
+    );
+  }
+
+  return items;
+}
+
+function sortByNumber(
+  indexedItems: Array<{ item: CollectionItem; index: number }>,
+  valueForItem: (item: CollectionItem) => number | null,
+) {
+  return indexedItems
+    .slice()
+    .sort((left, right) => {
+      const leftValue = valueForItem(left.item);
+      const rightValue = valueForItem(right.item);
+
+      if (leftValue === null && rightValue === null) {
+        return left.index - right.index;
+      }
+
+      if (leftValue === null) {
+        return 1;
+      }
+
+      if (rightValue === null) {
+        return -1;
+      }
+
+      return rightValue - leftValue || left.index - right.index;
+    })
+    .map(({ item }) => item);
+}
+
+function getSearchText(item: CollectionItem) {
+  if (item.kind === "performers") {
+    return normalizeSearchText(
+      [
+        item.name,
+        item.originalName,
+        item.status,
+        item.filmographyCount,
+        item.pictorialsCount,
+        ...item.categories,
+      ].join(" "),
+    );
+  }
+
+  const fields = [
+    item.title,
+    item.originalTitle,
+    item.availability,
+    item.censorship,
+    ...item.categories,
+  ];
+
+  if (item.kind === "videos") {
+    fields.push(item.duration);
+  } else {
+    fields.push(item.code, item.imageCount);
+  }
+
+  return normalizeSearchText(fields.join(" "));
+}
+
+function getPrimaryTitle(item: CollectionItem) {
+  return item.kind === "performers" ? item.name : item.title;
+}
+
+function numberFromDisplayText(value: string) {
+  const match = value.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function pageNumbers(pageCount: number) {
+  return Array.from({ length: pageCount }, (_, index) => index + 1);
+}
+
+function tableHeaders(kind: CollectionConfig["kind"]) {
+  if (kind === "performers") {
+    return [
+      "Name",
+      "Original Name",
+      "Status",
+      "Filmography",
+      "Pictorials",
+      "Categories",
+    ];
+  }
+
+  if (kind === "images") {
+    return [
+      "Title",
+      "Original Title",
+      "Code",
+      "Availability",
+      "Image Count",
+      "Categories",
+    ];
+  }
+
+  return [
+    "Title",
+    "Original Title",
+    "Censorship",
+    "Availability",
+    "Duration",
+    "Categories",
+  ];
+}
+
+function tableCells(item: CollectionItem) {
+  const categories = item.categories.length > 0 ? item.categories.join(", ") : "None";
+
+  if (item.kind === "performers") {
+    return [
+      item.name,
+      item.originalName,
+      item.status,
+      item.filmographyCount,
+      item.pictorialsCount,
+      categories,
+    ];
+  }
+
+  if (item.kind === "images") {
+    return [
+      item.title,
+      item.originalTitle,
+      item.code,
+      item.availability ?? "Unspecified",
+      item.imageCount,
+      categories,
+    ];
+  }
+
+  return [
+    item.title,
+    item.originalTitle,
+    item.censorship ?? "Unspecified",
+    item.availability ?? "Unspecified",
+    item.duration,
+    categories,
+  ];
 }
 
 export default CollectionPage;
