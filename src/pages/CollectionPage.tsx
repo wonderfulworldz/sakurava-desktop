@@ -18,12 +18,13 @@ type CollectionPageProps = {
 
 function CollectionPage({ config }: CollectionPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterValue, setFilterValue] = useState(config.filterOptions[0] ?? "");
   const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
   const [pageSize, setPageSize] = useState("30");
   const [page, setPage] = useState(1);
 
   const sortedItems = sortItems(
-    filterItems(config.items, searchQuery),
+    filterByCategory(filterItems(config.items, searchQuery), filterValue, config),
     sortValue,
   );
   const numericPageSize = Number(pageSize);
@@ -44,9 +45,14 @@ function CollectionPage({ config }: CollectionPageProps) {
       <CollectionToolbar
         config={config}
         searchQuery={searchQuery}
+        filterValue={filterValue}
         sortValue={sortValue}
         onSearchChange={(value) => {
           setSearchQuery(value);
+          resetToFirstPage();
+        }}
+        onFilterChange={(value) => {
+          setFilterValue(value);
           resetToFirstPage();
         }}
         onSortChange={(value) => {
@@ -116,13 +122,17 @@ function CollectionHeader({ config }: CollectionPageProps) {
 function CollectionToolbar({
   config,
   searchQuery,
+  filterValue,
   sortValue,
   onSearchChange,
+  onFilterChange,
   onSortChange,
 }: CollectionPageProps & {
   searchQuery: string;
+  filterValue: string;
   sortValue: string;
   onSearchChange: (value: string) => void;
+  onFilterChange: (value: string) => void;
   onSortChange: (value: string) => void;
 }) {
   return (
@@ -146,6 +156,8 @@ function CollectionToolbar({
           id={`${config.kind}-filter`}
           label={config.filterLabel}
           options={config.filterOptions}
+          value={filterValue}
+          onChange={onFilterChange}
         />
         <SelectBox
           id={`${config.kind}-sort`}
@@ -486,6 +498,24 @@ function filterItems(items: CollectionItem[], searchQuery: string) {
 
   return items.filter((item) =>
     getSearchText(item).includes(normalizedQuery),
+  );
+}
+
+function filterByCategory(
+  items: CollectionItem[],
+  filterValue: string,
+  config: CollectionConfig,
+) {
+  if (!filterValue || filterValue === config.filterOptions[0]) {
+    return items;
+  }
+
+  const normalizedFilter = normalizeSearchText(filterValue);
+
+  return items.filter((item) =>
+    item.categories.some(
+      (category) => normalizeSearchText(category) === normalizedFilter,
+    ),
   );
 }
 
