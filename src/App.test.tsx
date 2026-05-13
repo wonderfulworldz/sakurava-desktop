@@ -218,6 +218,7 @@ describe("App", () => {
     expect(screen.getByText("MVP Feature Status")).toBeInTheDocument();
     expect(screen.getByText("Planned Tools")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
+    expect(screen.getByText("Language")).toBeInTheDocument();
     expect(screen.getByText("About Sakurava")).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
@@ -237,12 +238,17 @@ describe("App", () => {
     expect(screen.getByText("Local device only")).toBeInTheDocument();
     expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
     expect(screen.getByText("Light Mode")).toBeInTheDocument();
-    expect(screen.getByText("Current / default")).toBeInTheDocument();
     expect(screen.getByText("Dark Mode")).toBeInTheDocument();
     expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
     expect(screen.getByText("Sakura Pink")).toBeInTheDocument();
     expect(
       screen.getByText("Appearance switching is planned and not active in this batch."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("English")).toBeInTheDocument();
+    expect(screen.getAllByText("Current / default")).toHaveLength(2);
+    expect(screen.getByText("Indonesian")).toBeInTheDocument();
+    expect(
+      screen.getByText("Language switching is planned and not active in this batch."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Restore Data" })).toBeDisabled();
