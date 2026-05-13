@@ -255,7 +255,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Category" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /Rename Category/i })).toBeDisabled();
+    expect(screen.queryByText("Apply Rename")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Delete Unused Category/i }),
     ).toBeDisabled();
@@ -364,7 +364,7 @@ describe("App", () => {
 
     expect(screen.getByText('Added category "Local Drama".')).toBeInTheDocument();
     expect(screen.getByText("Managed Categories")).toBeInTheDocument();
-    expect(screen.getByText("Local Drama")).toBeInTheDocument();
+    expect(screen.getAllByText("Local Drama").length).toBeGreaterThan(0);
     expect(screen.getByText("Unused / 0 usage")).toBeInTheDocument();
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Local Drama"]',
@@ -414,8 +414,53 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
 
-    expect(screen.getByText("Recovered")).toBeInTheDocument();
+    expect(screen.getAllByText("Recovered").length).toBeGreaterThan(0);
     expect(screen.getByText("Unused / 0 usage")).toBeInTheDocument();
+  });
+
+  it("shows planned rename structure for managed categories without applying changes", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Classic"]',
+    );
+
+    render(<App />);
+
+    expect(screen.getByText("Rename Category")).toBeInTheDocument();
+    expect(
+      screen.getByText("Rename application is planned and not active in this batch."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Existing category")).toHaveValue("Drama");
+    const proposedNameInput = screen.getByLabelText("Proposed name");
+    expect(screen.getByRole("button", { name: "Apply Rename" })).toBeDisabled();
+
+    expect(screen.getByText("Enter a new category name.")).toBeInTheDocument();
+
+    fireEvent.change(proposedNameInput, {
+      target: { value: " drama " },
+    });
+    expect(screen.getByText("Choose a different category name.")).toBeInTheDocument();
+
+    fireEvent.change(proposedNameInput, {
+      target: { value: "CLASSIC" },
+    });
+    expect(screen.getByText("That category name already exists.")).toBeInTheDocument();
+
+    fireEvent.change(proposedNameInput, {
+      target: { value: "Modern Drama" },
+    });
+    expect(
+      screen.getAllByText(
+        "Rename application is planned and not active in this batch.",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Drama","Classic"]',
+    );
+    expect(
+      screen.getByRole("button", { name: /Delete Unused Category/i }),
+    ).toBeDisabled();
   });
 
   it("adds a configured media root from the Settings folder picker", async () => {

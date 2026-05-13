@@ -23,6 +23,7 @@ import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAu
 import {
   addStoredManagedCategory,
   getStoredManagedCategories,
+  validateManagedCategoryRename,
 } from "../lib/managedCategories";
 import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
@@ -674,12 +675,34 @@ function CatalogSettingsCard({
   onAddManagedCategory: () => void;
 }) {
   const hasCategories = audit.rows.length > 0;
+  const [renameSourceCategory, setRenameSourceCategory] = useState("");
+  const [renameTargetCategory, setRenameTargetCategory] = useState("");
   const managedCategoryRows = managedCategories.map((category) => {
     const usage =
       audit.rows.find((row) => row.name.toLowerCase() === category.toLowerCase())
         ?.total ?? 0;
     return { category, usage };
   });
+  const selectedRenameCategory =
+    renameSourceCategory && managedCategories.includes(renameSourceCategory)
+      ? renameSourceCategory
+      : managedCategories[0] ?? "";
+  const renameValidation = selectedRenameCategory
+    ? validateManagedCategoryRename(
+        selectedRenameCategory,
+        renameTargetCategory,
+        managedCategories,
+      )
+    : null;
+
+  useEffect(() => {
+    if (
+      managedCategories.length > 0 &&
+      (!renameSourceCategory || !managedCategories.includes(renameSourceCategory))
+    ) {
+      setRenameSourceCategory(managedCategories[0]);
+    }
+  }, [managedCategories, renameSourceCategory]);
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -794,8 +817,67 @@ function CatalogSettingsCard({
             </div>
           )}
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <CategoryManagementAction label="Rename Category" />
+          {managedCategories.length > 0 && (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Rename Category
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Rename application is planned and not active in this batch.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <label className="grid gap-1 text-xs font-semibold text-slate-500">
+                  Existing category
+                  <select
+                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                    value={selectedRenameCategory}
+                    onChange={(event) => {
+                      setRenameSourceCategory(event.target.value);
+                      setRenameTargetCategory("");
+                    }}
+                  >
+                    {managedCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-xs font-semibold text-slate-500">
+                  Proposed name
+                  <input
+                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                    placeholder="New category name"
+                    value={renameTargetCategory}
+                    onChange={(event) => setRenameTargetCategory(event.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled
+                  className="h-10 self-end rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+                >
+                  Apply Rename
+                </button>
+              </div>
+              {renameValidation && (
+                <p
+                  className={[
+                    "mt-2 text-xs font-semibold",
+                    renameValidation.state === "invalid"
+                      ? "text-rose-600"
+                      : "text-slate-500",
+                  ].join(" ")}
+                >
+                  {renameValidation.message}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 grid gap-3">
             <CategoryManagementAction label="Delete Unused Category" />
           </div>
         </div>
