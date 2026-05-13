@@ -102,6 +102,11 @@ const appearanceRows: SettingsRow[] = [
   { label: "Sidebar", value: "Expanded by default", icon: Folder },
 ];
 
+const languageRows: SettingsRow[] = [
+  { label: "English", value: "Current / default", icon: FileText },
+  { label: "Indonesian", value: "Planned / disabled", icon: FileText },
+];
+
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
@@ -405,6 +410,11 @@ function SettingsPage() {
         title="Appearance"
         rows={appearanceRows}
         note="Appearance switching is planned and not active in this batch."
+      />
+      <SettingsCard
+        title="Language"
+        rows={languageRows}
+        note="Language switching is planned and not active in this batch."
       />
       <AboutCard />
     </div>
