@@ -8,9 +8,10 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
+import { localImagePathToAssetSrc } from "../runtime/localAsset";
 
 type CollectionPageProps = {
   config: CollectionConfig;
@@ -335,6 +336,8 @@ function CollectionCard({ config, item }: CollectionCardProps) {
       <PlaceholderMedia
         kind={config.kind}
         label={config.placeholderLabel}
+        title={title}
+        coverPath={item.coverPath}
         favorite={item.favorite}
       />
 
@@ -363,12 +366,24 @@ function CollectionCard({ config, item }: CollectionCardProps) {
 function PlaceholderMedia({
   kind,
   label,
+  title,
+  coverPath,
   favorite,
 }: {
   kind: CollectionConfig["kind"];
   label: string;
+  title: string;
+  coverPath?: string;
   favorite: boolean;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const assetSrc = localImagePathToAssetSrc(coverPath);
+  const showImage = Boolean(assetSrc && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc]);
+
   return (
     <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div
@@ -376,9 +391,21 @@ function PlaceholderMedia({
           "relative flex items-end justify-center",
           kind === "performers" ? "aspect-[4/5]" : "aspect-video",
         ].join(" ")}
-        aria-label={label}
+        aria-label={showImage ? undefined : label}
       >
-        {kind === "performers" ? <ProfilePlaceholder /> : <ImagePlaceholder />}
+        {showImage ? (
+          <img
+            src={assetSrc ?? undefined}
+            alt={`${title} cover`}
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
+        ) : kind === "performers" ? (
+          <ProfilePlaceholder />
+        ) : (
+          <ImagePlaceholder />
+        )}
       </div>
       <span
         className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-full bg-white/90 text-sakura-500 shadow-sm"

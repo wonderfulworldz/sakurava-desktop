@@ -32,6 +32,7 @@ export function buildPerformerDetailConfig(
   return {
     ...baseConfig,
     editTo: `/performers/${performer.id}/edit`,
+    coverPath: performer.coverPath,
     displayTitle: performer.name,
     originalTitle: performer.originalName,
     favorite: performer.favorite,
@@ -137,6 +138,7 @@ function toPerformerCollectionItem(
     key: performer.id,
     name: performer.name,
     originalName: performer.originalName,
+    coverPath: performer.coverPath,
     status: performer.status || "Unknown",
     filmographyCount: `Filmography ${formatCount(performer.filmographyCount)}`,
     pictorialsCount: `Pictorials ${formatCount(performer.pictorialsCount)}`,

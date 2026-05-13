@@ -26,6 +26,7 @@ export function buildVideoDetailConfig(video: Video): VideoDetailConfig {
   return {
     ...baseConfig,
     editTo: `/videos/${video.id}/edit`,
+    coverPath: video.coverPath,
     displayTitle: video.title,
     originalTitle: video.originalTitle,
     code: video.code || "No code",
@@ -100,6 +101,7 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     key: video.id,
     title: video.title,
     originalTitle: video.originalTitle,
+    coverPath: video.coverPath,
     duration: formatDuration(video.durationMinutes),
     availability: video.availability || "Unspecified",
     censorship: video.censorship || "Unspecified",

@@ -27,6 +27,7 @@ type BaseDetailConfig = {
   editTo: string;
   placeholderLabel: string;
   placeholderIcon: LucideIcon;
+  coverPath?: string;
   displayTitle: string;
   originalTitle: string;
   favorite: boolean;
