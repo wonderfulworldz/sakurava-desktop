@@ -161,29 +161,56 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByText("App Overview")).toBeInTheDocument();
-    expect(screen.getByText("Storage & Database")).toBeInTheDocument();
+    expect(screen.getByText("Runtime & Database")).toBeInTheDocument();
+    expect(screen.getByText("Thumbnails & Local Assets")).toBeInTheDocument();
     expect(screen.getByText("Data Safety")).toBeInTheDocument();
     expect(screen.getByText("MVP Feature Status")).toBeInTheDocument();
+    expect(screen.getByText("Planned Tools")).toBeInTheDocument();
     expect(screen.getByText("UI Preferences")).toBeInTheDocument();
     expect(screen.getByText("About Sakurava")).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
     expect(screen.getByText("Local / Offline")).toBeInTheDocument();
     expect(screen.getByText("Windows Desktop")).toBeInTheDocument();
-    expect(screen.getByText("Static Frontend Preview")).toBeInTheDocument();
+    expect(screen.getAllByText("Browser preview").length).toBeGreaterThan(0);
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
     expect(screen.getByText("sakurava.sqlite")).toBeInTheDocument();
-    expect(screen.getByText("Not connected yet")).toBeInTheDocument();
-    expect(screen.getByText("Frontend Static Only")).toBeInTheDocument();
-    expect(screen.getByText("Database Not Connected")).toBeInTheDocument();
+    expect(screen.getByText("app.sakurava.desktop")).toBeInTheDocument();
+    expect(screen.getByText("Database Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Manual thumbnail rendering")).toBeInTheDocument();
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(
+      screen.getByText("Pictures, Videos, Documents, and Downloads"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Placeholders only")).toBeInTheDocument();
     expect(screen.getByText("Local device only")).toBeInTheDocument();
-    expect(screen.getAllByText("Static UI Ready")).toHaveLength(4);
+    expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
     expect(screen.getByText("Sakura Pink")).toBeInTheDocument();
     expect(
-      screen.getByText("UI preferences are read-only in MVP."),
+      screen.getByText("Settings are read-only in this batch."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Restore Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Backup / Restore" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Import / Export" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Native File Picker" }),
+    ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Open Data Folder" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Advanced Settings" })).toBeDisabled();
+  });
+
+  it("shows desktop runtime database status when Tauri is available", () => {
+    window.history.pushState({}, "", "/settings");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
+    expect(screen.getByText("Available")).toBeInTheDocument();
+    expect(screen.getByText("Database Available")).toBeInTheDocument();
   });
 
   it("keeps create routes separate from detail route stubs", () => {

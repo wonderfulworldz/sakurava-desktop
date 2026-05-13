@@ -1,6 +1,8 @@
 import {
   CloudOff,
   Database,
+  FileArchive,
+  FileInput,
   FileText,
   Folder,
   HardDrive,
@@ -8,15 +10,15 @@ import {
   Palette,
   ShieldCheck,
   SlidersHorizontal,
-  Star,
   Tag,
-  Upload,
   Video,
   Image as ImageIcon,
   UserRound,
   FilePenLine,
+  ImageUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type SettingsRow = {
   label: string;
@@ -28,34 +30,49 @@ const appOverviewRows: SettingsRow[] = [
   { label: "App Name", value: "Sakurava", icon: Tag },
   { label: "Version", value: "1.0.0 MVP", icon: ShieldCheck },
   { label: "Mode", value: "Local / Offline", icon: CloudOff },
-  { label: "Platform", value: "Windows Desktop", icon: Monitor },
-  { label: "Build Status", value: "Static Frontend Preview", icon: Star },
+  { label: "Platform Target", value: "Windows Desktop", icon: Monitor },
 ];
 
-const storageRows: SettingsRow[] = [
-  { label: "Database File", value: "sakurava.sqlite", icon: Database },
-  { label: "App Data Folder", value: "app.sakurava.desktop", icon: Folder },
-  { label: "Storage Mode", value: "Local only", icon: HardDrive },
-  { label: "Database Status", value: "Not connected yet", icon: ShieldCheck },
-];
+const DATABASE_FILE_NAME = "sakurava.sqlite";
+const APP_DATA_FOLDER_LABEL = "app.sakurava.desktop";
 
 const dataSafetyRows: SettingsRow[] = [
   { label: "Data Privacy", value: "Local device only", icon: ShieldCheck },
   { label: "Internet Required", value: "No", icon: CloudOff },
   { label: "Cloud Sync", value: "Not enabled", icon: CloudOff },
-  { label: "Backup", value: "Coming later", icon: Upload },
-  { label: "Restore", value: "Coming later", icon: Folder },
 ];
 
 const featureStatusRows: SettingsRow[] = [
-  { label: "Videos", value: "Static UI Ready", icon: Video },
-  { label: "Images", value: "Static UI Ready", icon: ImageIcon },
-  { label: "Performers", value: "Static UI Ready", icon: UserRound },
-  { label: "Forms", value: "Static UI Ready", icon: FilePenLine },
-  { label: "SQLite", value: "Not connected", icon: Database },
-  { label: "Tauri Runtime", value: "Not connected", icon: Monitor },
-  { label: "Native File Picker", value: "Post-MVP", icon: Folder },
-  { label: "Backup / Restore", value: "Post-MVP", icon: Upload },
+  { label: "Videos", value: "Runtime CRUD enabled", icon: Video },
+  { label: "Images", value: "Runtime CRUD enabled", icon: ImageIcon },
+  { label: "Performers", value: "Runtime CRUD enabled", icon: UserRound },
+  { label: "Forms", value: "Runtime create/update enabled", icon: FilePenLine },
+  { label: "Safe Delete", value: "Single-record confirmation enabled", icon: ShieldCheck },
+];
+
+const thumbnailRows: SettingsRow[] = [
+  {
+    label: "Manual thumbnail rendering",
+    value: "Enabled",
+    icon: ImageUp,
+  },
+  {
+    label: "Asset access scope",
+    value: "Pictures, Videos, Documents, and Downloads",
+    icon: Folder,
+  },
+  {
+    label: "Browser preview thumbnails",
+    value: "Placeholders only",
+    icon: CloudOff,
+  },
+];
+
+const plannedActionRows: SettingsRow[] = [
+  { label: "Backup / Restore", value: "Planned / disabled", icon: FileArchive },
+  { label: "Import / Export", value: "Planned / disabled", icon: FileInput },
+  { label: "Native File Picker", value: "Planned / disabled", icon: Folder },
+  { label: "Advanced Settings", value: "Planned / disabled", icon: SlidersHorizontal },
 ];
 
 const uiPreferenceRows: SettingsRow[] = [
@@ -66,6 +83,31 @@ const uiPreferenceRows: SettingsRow[] = [
 ];
 
 function SettingsPage() {
+  const isDesktopRuntime = isTauriRuntimeAvailable();
+  const runtimeRows: SettingsRow[] = [
+    {
+      label: "App mode",
+      value: isDesktopRuntime ? "Desktop runtime" : "Browser preview",
+      icon: isDesktopRuntime ? Monitor : CloudOff,
+    },
+    {
+      label: "Database status",
+      value: isDesktopRuntime ? "Available" : "Unavailable",
+      icon: Database,
+    },
+    {
+      label: "Database file name",
+      value: DATABASE_FILE_NAME,
+      icon: Database,
+    },
+    {
+      label: "App data folder label",
+      value: APP_DATA_FOLDER_LABEL,
+      icon: Folder,
+    },
+    { label: "Storage mode", value: "Local only", icon: HardDrive },
+  ];
+
   return (
     <div className="space-y-6">
       <header>
@@ -73,26 +115,41 @@ function SettingsPage() {
           Settings
         </h1>
         <p className="mt-3 text-base text-slate-500">
-          Minimal local app settings
+          Read-only runtime status for the local Sakurava desktop app.
         </p>
       </header>
 
       <SettingsCard title="App Overview" rows={appOverviewRows} />
       <SettingsCard
-        title="Storage & Database"
-        rows={storageRows}
-        badges={["Frontend Static Only", "Database Not Connected"]}
+        title="Runtime & Database"
+        rows={runtimeRows}
+        badges={[
+          isDesktopRuntime ? "Desktop Runtime" : "Browser Preview",
+          isDesktopRuntime ? "Database Available" : "Database Unavailable",
+        ]}
       />
+      <SettingsCard title="Thumbnails & Local Assets" rows={thumbnailRows} />
       <SettingsCard
         title="Data Safety"
         rows={dataSafetyRows}
-        disabledActions={["Backup Data", "Restore Data", "Open Data Folder"]}
+        disabledActions={["Backup Data", "Restore Data"]}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
+        title="Planned Tools"
+        rows={plannedActionRows}
+        disabledActions={[
+          "Backup / Restore",
+          "Import / Export",
+          "Native File Picker",
+          "Open Data Folder",
+          "Advanced Settings",
+        ]}
+      />
+      <SettingsCard
         title="UI Preferences"
         rows={uiPreferenceRows}
-        note="UI preferences are read-only in MVP."
+        note="Settings are read-only in this batch."
       />
       <AboutCard />
     </div>
@@ -194,8 +251,9 @@ function AboutCard() {
               Images, and Performers.
             </p>
             <p>
-              This MVP is currently in static frontend phase. Backend,
-              database, and desktop runtime integration will be added later.
+              Runtime data is stored locally, and manually saved thumbnails are
+              rendered from approved local asset locations when running in
+              Tauri.
             </p>
           </div>
         </div>
