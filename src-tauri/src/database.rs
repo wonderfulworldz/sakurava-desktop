@@ -4,7 +4,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use rusqlite::Connection;
+use rusqlite::{Connection, DatabaseName};
+use serde::Serialize;
 use tauri::Manager;
 
 pub const APP_DATA_FOLDER_NAME: &str = "app.sakurava.desktop";
@@ -92,6 +93,13 @@ pub struct RuntimeDatabase {
     connection: Arc<Mutex<Connection>>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseBackupResult {
+    pub destination_path: String,
+    pub success: bool,
+}
+
 impl RuntimeDatabase {
     pub fn connection(&self) -> Arc<Mutex<Connection>> {
         Arc::clone(&self.connection)
@@ -155,6 +163,49 @@ pub fn prepare_tauri_database<R: tauri::Runtime>(
     }
 
     prepare_database(app_data_dir)
+}
+
+pub fn backup_runtime_database(
+    database: &RuntimeDatabase,
+    destination_path: impl AsRef<Path>,
+) -> Result<DatabaseBackupResult, String> {
+    let destination_path = destination_path.as_ref();
+
+    if destination_path.as_os_str().is_empty() {
+        return Err("Backup destination path is required".to_string());
+    }
+    if destination_path.is_dir() {
+        return Err("Backup destination must be a file path".to_string());
+    }
+    if paths_refer_to_same_file(&database.paths.database_file, destination_path) {
+        return Err("Backup destination cannot be the active database file".to_string());
+    }
+
+    if let Some(parent) = destination_path.parent() {
+        if !parent.as_os_str().is_empty() && !parent.is_dir() {
+            return Err("Backup destination folder does not exist".to_string());
+        }
+    }
+
+    let connection = database.connection();
+    let connection = connection
+        .lock()
+        .map_err(|_| "Database connection is unavailable".to_string())?;
+    connection
+        .backup(DatabaseName::Main, destination_path, None)
+        .map_err(|error| format!("Unable to back up SQLite database: {error}"))?;
+
+    Ok(DatabaseBackupResult {
+        destination_path: destination_path.display().to_string(),
+        success: true,
+    })
+}
+
+fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
 }
 
 #[cfg(test)]
@@ -264,6 +315,73 @@ mod tests {
                 .expect("relation table count");
             assert_eq!(count, 0, "{table_name} should not exist");
         }
+
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn backs_up_runtime_database_to_explicit_destination() {
+        let app_data_dir = unique_test_dir("sqlite-backup").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+
+        let database = prepare_database(&app_data_dir).expect("database init");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            connection
+                .execute(
+                    "INSERT INTO videos (
+                        id, title, originalTitle, code, censorship, availability, releaseDate,
+                        durationMinutes, publisherLabel, coverPath, mediaPath, categoriesJson,
+                        ratingJson, notes, favorite, createdAt, updatedAt
+                    ) VALUES (
+                        'video_backup_test', 'Backed Up Video', '', '', '', '', '',
+                        NULL, '', 'C:/Media/cover.jpg', 'C:/Media/video.mp4', '[]',
+                        '{}', '', 0, '1', '1'
+                    )",
+                    [],
+                )
+                .expect("insert video");
+        }
+
+        let destination_path = app_data_dir.join("sakurava-backup.sqlite");
+        let result = backup_runtime_database(&database, &destination_path).expect("backup");
+
+        assert_eq!(
+            result,
+            DatabaseBackupResult {
+                destination_path: destination_path.display().to_string(),
+                success: true
+            }
+        );
+        assert!(destination_path.is_file());
+
+        let backup = Connection::open(&destination_path).expect("open backup");
+        let title: String = backup
+            .query_row(
+                "SELECT title FROM videos WHERE id = 'video_backup_test'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("backup row");
+        assert_eq!(title, "Backed Up Video");
+
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn rejects_backup_to_active_database_file() {
+        let app_data_dir = unique_test_dir("sqlite-backup-active").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let error = backup_runtime_database(&database, &database.paths.database_file)
+            .expect_err("active database backup should fail");
+
+        assert_eq!(
+            error,
+            "Backup destination cannot be the active database file"
+        );
 
         let _ = fs::remove_dir_all(app_data_dir);
     }

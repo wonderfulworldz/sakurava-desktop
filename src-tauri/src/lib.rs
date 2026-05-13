@@ -17,6 +17,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::database_backup,
             commands::video_create,
             commands::video_list,
             commands::video_get,

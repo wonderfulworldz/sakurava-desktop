@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::State;
 
-use crate::database::RuntimeDatabase;
+use crate::database::{backup_runtime_database, DatabaseBackupResult, RuntimeDatabase};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -189,6 +189,14 @@ pub struct PerformerPatch {
 pub struct DeleteResult {
     pub id: String,
     pub deleted: bool,
+}
+
+#[tauri::command]
+pub fn database_backup(
+    database: State<'_, RuntimeDatabase>,
+    destination_path: String,
+) -> Result<DatabaseBackupResult, String> {
+    backup_runtime_database(&database, destination_path)
 }
 
 #[tauri::command]
