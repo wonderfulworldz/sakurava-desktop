@@ -39,6 +39,9 @@ describe("App", () => {
       screen.getByRole("link", { name: /performers/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Local mode")).toBeInTheDocument();
     expect(screen.getByText("Quick Actions")).toBeInTheDocument();
     expect(
@@ -48,6 +51,34 @@ describe("App", () => {
     expect(
       screen.getByText(/configured local asset scope/i),
     ).toBeInTheDocument();
+  });
+
+  it("collapses and expands the sidebar without changing navigation", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+
+    expect(
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.queryByText("Private local catalog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Offline first")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+
+    expect(
+      screen.getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Private local catalog")).toBeInTheDocument();
+    expect(screen.getByText("Offline first")).toBeInTheDocument();
   });
 
   it.each([
