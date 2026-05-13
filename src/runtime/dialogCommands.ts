@@ -25,3 +25,22 @@ export async function selectDatabaseBackupDestination() {
     ],
   });
 }
+
+export async function selectDatabaseRestoreSource() {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  return open({
+    title: "Restore Sakurava Database",
+    multiple: false,
+    directory: false,
+    filters: [
+      {
+        name: "SQLite database",
+        extensions: ["sqlite"],
+      },
+    ],
+  });
+}
