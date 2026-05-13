@@ -1,21 +1,25 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import { buildPerformerDetailConfig } from "../lib/performerIntegration";
 import DetailPage from "./DetailPage";
 import {
+  deletePerformer,
   getPerformer,
   isPerformerRuntimeAvailable,
 } from "../runtime/performerCommands";
 
 function PerformerDetailPage() {
   const { itemKey } = useParams();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.performers);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isPerformerRuntimeAvailable()),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +60,34 @@ function PerformerDetailPage() {
     };
   }, [itemKey]);
 
+  async function handleDelete() {
+    if (!itemKey || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    setDeleteError(null);
+
+    try {
+      const result = await deletePerformer(itemKey);
+
+      if (!result.deleted) {
+        setDeleteError(
+          "Performer delete failed. The saved Sakurava record was not removed.",
+        );
+        return;
+      }
+
+      navigate("/performers", { replace: true });
+    } catch {
+      setDeleteError(
+        "Performer delete failed. The saved Sakurava record was not removed.",
+      );
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -80,7 +112,18 @@ function PerformerDetailPage() {
     );
   }
 
-  return <DetailPage config={config} />;
+  const deleteAction =
+    itemKey && isPerformerRuntimeAvailable()
+      ? {
+          itemLabel: config.displayTitle || "this performer",
+          isPending: deletePending,
+          errorMessage: deleteError,
+          onOpen: () => setDeleteError(null),
+          onConfirm: handleDelete,
+        }
+      : undefined;
+
+  return <DetailPage config={config} deleteAction={deleteAction} />;
 }
 
 export default PerformerDetailPage;

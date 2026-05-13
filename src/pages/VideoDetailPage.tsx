@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import { buildVideoDetailConfig } from "../lib/videoIntegration";
 import DetailPage from "./DetailPage";
-import { getVideo, isVideoRuntimeAvailable } from "../runtime/videoCommands";
+import {
+  deleteVideo,
+  getVideo,
+  isVideoRuntimeAvailable,
+} from "../runtime/videoCommands";
 
 function VideoDetailPage() {
   const { itemKey } = useParams();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.videos);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isVideoRuntimeAvailable()),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +60,30 @@ function VideoDetailPage() {
     };
   }, [itemKey]);
 
+  async function handleDelete() {
+    if (!itemKey || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    setDeleteError(null);
+
+    try {
+      const result = await deleteVideo(itemKey);
+
+      if (!result.deleted) {
+        setDeleteError("Video delete failed. The saved Sakurava record was not removed.");
+        return;
+      }
+
+      navigate("/videos", { replace: true });
+    } catch {
+      setDeleteError("Video delete failed. The saved Sakurava record was not removed.");
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -77,7 +108,18 @@ function VideoDetailPage() {
     );
   }
 
-  return <DetailPage config={config} />;
+  const deleteAction =
+    itemKey && isVideoRuntimeAvailable()
+      ? {
+          itemLabel: config.displayTitle || "this video",
+          isPending: deletePending,
+          errorMessage: deleteError,
+          onOpen: () => setDeleteError(null),
+          onConfirm: handleDelete,
+        }
+      : undefined;
+
+  return <DetailPage config={config} deleteAction={deleteAction} />;
 }
 
 export default VideoDetailPage;
