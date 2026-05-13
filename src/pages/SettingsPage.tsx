@@ -18,6 +18,9 @@ import {
   ImageUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useState } from "react";
+import { backUpDatabase } from "../runtime/databaseCommands";
+import { selectDatabaseBackupDestination } from "../runtime/dialogCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type SettingsRow = {
@@ -25,6 +28,18 @@ type SettingsRow = {
   value: string;
   icon: LucideIcon;
 };
+
+type SettingsAction = {
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+type BackupStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
 
 const appOverviewRows: SettingsRow[] = [
   { label: "App Name", value: "Sakurava", icon: Tag },
@@ -84,6 +99,11 @@ const uiPreferenceRows: SettingsRow[] = [
 
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
+  const [backupStatus, setBackupStatus] = useState<BackupStatus>({
+    state: "idle",
+  });
+  const isBackupPending = backupStatus.state === "pending";
+  const canBackUpDatabase = isDesktopRuntime && !isBackupPending;
   const runtimeRows: SettingsRow[] = [
     {
       label: "App mode",
@@ -107,6 +127,47 @@ function SettingsPage() {
     },
     { label: "Storage mode", value: "Local only", icon: HardDrive },
   ];
+
+  async function handleBackupData() {
+    if (!canBackUpDatabase) {
+      return;
+    }
+
+    setBackupStatus({ state: "pending" });
+
+    try {
+      const destinationPath = await selectDatabaseBackupDestination();
+
+      if (!destinationPath) {
+        setBackupStatus({ state: "idle" });
+        return;
+      }
+
+      const result = await backUpDatabase(destinationPath);
+      if (!result.success) {
+        setBackupStatus({
+          state: "error",
+          message: "Backup did not complete. No database backup was created.",
+        });
+        return;
+      }
+
+      setBackupStatus({
+        state: "success",
+        message: `Backup created at ${result.destinationPath}`,
+      });
+    } catch (error) {
+      setBackupStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+            : "Backup failed. The database was not backed up.",
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -132,7 +193,15 @@ function SettingsPage() {
       <SettingsCard
         title="Data Safety"
         rows={dataSafetyRows}
-        disabledActions={["Backup Data", "Restore Data"]}
+        actions={[
+          {
+            label: isBackupPending ? "Backing Up..." : "Backup Data",
+            disabled: !canBackUpDatabase,
+            onClick: handleBackupData,
+          },
+          { label: "Restore Data", disabled: true },
+        ]}
+        status={backupStatus}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
@@ -160,13 +229,17 @@ function SettingsCard({
   title,
   rows,
   badges,
+  actions,
   disabledActions,
+  status,
   note,
 }: {
   title: string;
   rows: SettingsRow[];
   badges?: string[];
+  actions?: SettingsAction[];
   disabledActions?: string[];
+  status?: BackupStatus;
   note?: string;
 }) {
   return (
@@ -193,6 +266,35 @@ function SettingsCard({
           <SettingsInfoRow key={row.label} row={row} />
         ))}
       </div>
+      {status && status.state !== "idle" && (
+        <p
+          role={status.state === "error" ? "alert" : "status"}
+          className={`border-t border-slate-200 px-6 py-4 text-sm font-semibold ${
+            status.state === "error" ? "text-rose-600" : "text-slate-600"
+          }`}
+        >
+          {status.state === "pending" ? "Creating database backup..." : status.message}
+        </p>
+      )}
+      {actions && (
+        <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-4">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              disabled={action.disabled}
+              onClick={action.onClick}
+              className={`h-10 rounded-lg border px-4 text-sm font-semibold ${
+                action.disabled
+                  ? "border-slate-200 bg-slate-100 text-slate-400"
+                  : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+              }`}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
       {disabledActions && (
         <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-4">
           {disabledActions.map((action) => (

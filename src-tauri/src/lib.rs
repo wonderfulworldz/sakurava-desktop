@@ -5,6 +5,7 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let database = database::prepare_tauri_database(app.handle())
                 .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
