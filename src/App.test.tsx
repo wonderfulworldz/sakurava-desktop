@@ -217,7 +217,7 @@ describe("App", () => {
     expect(screen.getByText("Data Safety")).toBeInTheDocument();
     expect(screen.getByText("MVP Feature Status")).toBeInTheDocument();
     expect(screen.getByText("Planned Tools")).toBeInTheDocument();
-    expect(screen.getByText("UI Preferences")).toBeInTheDocument();
+    expect(screen.getByText("Appearance")).toBeInTheDocument();
     expect(screen.getByText("About Sakurava")).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
@@ -236,9 +236,13 @@ describe("App", () => {
     expect(screen.getByText("Placeholders only")).toBeInTheDocument();
     expect(screen.getByText("Local device only")).toBeInTheDocument();
     expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
+    expect(screen.getByText("Light Mode")).toBeInTheDocument();
+    expect(screen.getByText("Current / default")).toBeInTheDocument();
+    expect(screen.getByText("Dark Mode")).toBeInTheDocument();
+    expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
     expect(screen.getByText("Sakura Pink")).toBeInTheDocument();
     expect(
-      screen.getByText("Settings are read-only in this batch."),
+      screen.getByText("Appearance switching is planned and not active in this batch."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Restore Data" })).toBeDisabled();
