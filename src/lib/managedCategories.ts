@@ -70,6 +70,47 @@ export function addStoredManagedCategory(
   }
 }
 
+export function validateManagedCategoryRename(
+  currentName: string,
+  nextName: string,
+  categories: string[],
+) {
+  const trimmedCurrentName = currentName.trim();
+  const trimmedNextName = nextName.trim();
+
+  if (!trimmedNextName) {
+    return {
+      state: "invalid" as const,
+      message: "Enter a new category name.",
+    };
+  }
+
+  if (trimmedCurrentName.toLowerCase() === trimmedNextName.toLowerCase()) {
+    return {
+      state: "invalid" as const,
+      message: "Choose a different category name.",
+    };
+  }
+
+  const duplicate = categories.some(
+    (category) =>
+      category.trim().toLowerCase() === trimmedNextName.toLowerCase() &&
+      category.trim().toLowerCase() !== trimmedCurrentName.toLowerCase(),
+  );
+
+  if (duplicate) {
+    return {
+      state: "invalid" as const,
+      message: "That category name already exists.",
+    };
+  }
+
+  return {
+    state: "valid" as const,
+    message: "Rename application is planned and not active in this batch.",
+  };
+}
+
 function normalizeManagedCategories(value: unknown) {
   const parsed = typeof value === "string" ? safeParseArray(value) : value;
 
