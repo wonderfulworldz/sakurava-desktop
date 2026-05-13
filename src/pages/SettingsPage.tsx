@@ -677,6 +677,7 @@ function CatalogSettingsCard({
   const hasCategories = audit.rows.length > 0;
   const [renameSourceCategory, setRenameSourceCategory] = useState("");
   const [renameTargetCategory, setRenameTargetCategory] = useState("");
+  const [deleteSourceCategory, setDeleteSourceCategory] = useState("");
   const managedCategoryRows = managedCategories.map((category) => {
     const usage =
       audit.rows.find((row) => row.name.toLowerCase() === category.toLowerCase())
@@ -694,6 +695,13 @@ function CatalogSettingsCard({
         managedCategories,
       )
     : null;
+  const selectedDeleteCategory =
+    deleteSourceCategory && managedCategories.includes(deleteSourceCategory)
+      ? deleteSourceCategory
+      : managedCategories[0] ?? "";
+  const selectedDeleteRow =
+    managedCategoryRows.find((row) => row.category === selectedDeleteCategory) ??
+    null;
 
   useEffect(() => {
     if (
@@ -703,6 +711,15 @@ function CatalogSettingsCard({
       setRenameSourceCategory(managedCategories[0]);
     }
   }, [managedCategories, renameSourceCategory]);
+
+  useEffect(() => {
+    if (
+      managedCategories.length > 0 &&
+      (!deleteSourceCategory || !managedCategories.includes(deleteSourceCategory))
+    ) {
+      setDeleteSourceCategory(managedCategories[0]);
+    }
+  }, [managedCategories, deleteSourceCategory]);
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -877,9 +894,49 @@ function CatalogSettingsCard({
             </div>
           )}
 
-          <div className="mt-3 grid gap-3">
-            <CategoryManagementAction label="Delete Unused Category" />
-          </div>
+          {managedCategories.length > 0 && selectedDeleteRow && (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Delete Unused Category
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Delete application is planned and not active in this batch.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <label className="grid gap-1 text-xs font-semibold text-slate-500">
+                  Category to delete
+                  <select
+                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                    value={selectedDeleteCategory}
+                    onChange={(event) => setDeleteSourceCategory(event.target.value)}
+                  >
+                    {managedCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="grid gap-1 text-xs font-semibold text-slate-500">
+                  Usage status
+                  <p className="flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
+                    {selectedDeleteRow.usage === 0
+                      ? "Unused / 0 usage: eligible for future deletion."
+                      : `${selectedDeleteRow.usage} usage: cannot be deleted until usage is removed.`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="h-10 self-end rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+                >
+                  Apply Delete
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
