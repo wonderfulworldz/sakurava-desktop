@@ -1,14 +1,70 @@
-import { ArrowRight, SlidersHorizontal, Search } from "lucide-react";
+import {
+  ArrowRight,
+  Heart,
+  Image,
+  Search,
+  SlidersHorizontal,
+  UserRound,
+  Video,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import {
+  buildHomeSummaryCards,
+  buildRecentlyAdded,
   continueItems,
   quickActions,
   recentlyAdded,
   summaryCards,
+  type HomeRecentItem,
+  type HomeSummaryCard,
 } from "../lib/homeData";
+import { listImages } from "../runtime/imageCommands";
+import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { listPerformers } from "../runtime/performerCommands";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import { listVideos } from "../runtime/videoCommands";
+
+type HomeData = {
+  summaryCards: HomeSummaryCard[];
+  recentlyAdded: HomeRecentItem[];
+};
 
 function HomePage() {
+  const [homeData, setHomeData] = useState<HomeData>({
+    summaryCards,
+    recentlyAdded,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isTauriRuntimeAvailable()) {
+      setHomeData({ summaryCards, recentlyAdded });
+      return;
+    }
+
+    Promise.all([listVideos(), listImages(), listPerformers()])
+      .then(([videos, images, performers]) => {
+        if (!cancelled) {
+          setHomeData({
+            summaryCards: buildHomeSummaryCards({ videos, images, performers }),
+            recentlyAdded: buildRecentlyAdded({ videos, images, performers }),
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHomeData({ summaryCards, recentlyAdded });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -72,7 +128,7 @@ function HomePage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((card) => {
+        {homeData.summaryCards.map((card) => {
           const Icon = card.icon;
 
           return (
@@ -155,20 +211,78 @@ function HomePage() {
         <h2 className="text-base font-semibold text-slate-950">
           Recently Added
         </h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {recentlyAdded.map((item) => (
-            <div
-              key={item}
-              className="rounded-lg border border-slate-200 bg-white p-4"
-            >
-              <div className="aspect-video rounded-md bg-slate-100" />
-              <p className="mt-3 text-sm font-medium text-slate-700">{item}</p>
-            </div>
-          ))}
-        </div>
+        {homeData.recentlyAdded.length > 0 ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {homeData.recentlyAdded.map((item) => (
+              <RecentCard key={`${item.kind}-${item.key}`} item={item} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
+            Recently added items will appear here after records are saved.
+          </p>
+        )}
       </section>
     </div>
   );
+}
+
+function RecentCard({ item }: { item: HomeRecentItem }) {
+  const assetSrc = localImagePathToAssetSrc(item.coverPath);
+  const Icon = recentIcon(item.kind);
+
+  return (
+    <Link
+      to={`/${item.kind}/${item.key}`}
+      className="group rounded-lg border border-slate-200 bg-white p-3 transition hover:border-sakura-200 hover:shadow-sm"
+    >
+      <div
+        className={[
+          "relative overflow-hidden rounded-md bg-slate-100",
+          item.kind === "performers" ? "aspect-[4/5]" : "aspect-video",
+        ].join(" ")}
+      >
+        {assetSrc ? (
+          <img
+            src={assetSrc}
+            alt={`${item.title} cover`}
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-300">
+            <Icon size={28} />
+          </div>
+        )}
+        {item.favorite ? (
+          <span
+            className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-white/90 text-sakura-500 shadow-sm"
+            aria-label="Favorite"
+          >
+            <Heart size={17} fill="currentColor" />
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-3 truncate text-sm font-semibold text-slate-800">
+        {item.title}
+      </p>
+      <p className="mt-1 truncate text-xs font-medium text-slate-500">
+        {item.detail}
+      </p>
+    </Link>
+  );
+}
+
+function recentIcon(kind: HomeRecentItem["kind"]) {
+  if (kind === "performers") {
+    return UserRound;
+  }
+
+  if (kind === "images") {
+    return Image;
+  }
+
+  return Video;
 }
 
 function SakuraCluster({ className }: { className: string }) {
