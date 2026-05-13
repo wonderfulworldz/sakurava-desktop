@@ -139,13 +139,13 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
       <DetailHeader config={config} deleteAction={deleteAction} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <div className="grid gap-6 lg:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
           <LargePlaceholder config={config} />
           <CatalogIdentity config={config} />
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.85fr_1.3fr_0.85fr]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)]">
         <RowsCard title="Metadata" icon={Calendar} items={config.metadata} />
         <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
         <RowsCard
@@ -168,7 +168,7 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
 
 function CatalogIdentity({ config }: DetailPageProps) {
   return (
-    <div className="flex min-h-full flex-col justify-center py-2">
+    <div className="flex min-h-full flex-col justify-start py-2">
       <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
         {config.displayTitle}
       </h2>
@@ -240,7 +240,7 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <LargePlaceholder config={config} />
 
-      <div className="mt-4 grid grid-cols-4 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {config.techItems.map((item) => (
           <SmallThumbnail key={item.label} label={item.label} />
         ))}
@@ -306,7 +306,7 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
 function LargePlaceholder({ config }: DetailPageProps) {
   const Icon = config.placeholderIcon;
   const aspectClass =
-    config.kind === "performers" ? "aspect-[1.18/1]" : "aspect-video";
+    config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
   const [imageFailed, setImageFailed] = useState(false);
   const assetSrc = localImagePathToAssetSrc(config.coverPath);
   const showImage = Boolean(assetSrc && !imageFailed);
@@ -351,7 +351,7 @@ function LargePlaceholder({ config }: DetailPageProps) {
 
 function SmallThumbnail({ label }: { label: string }) {
   return (
-    <div className="aspect-square rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50">
+    <div className="aspect-[4/5] rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50">
       <div className="flex h-full items-center justify-center text-slate-300">
         <ImageIcon size={24} aria-label={label} />
       </div>
@@ -373,17 +373,21 @@ function RowsCard({
   readOnly?: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title={title} icon={Icon} />
       {message && <p className="mt-3 text-xs text-slate-500">{message}</p>}
       <div className="mt-4 divide-y divide-slate-100">
         {items.map((item) => (
           <div
             key={item.label}
-            className="grid grid-cols-[1fr_1.1fr] gap-4 py-3 text-sm"
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 py-3 text-sm"
           >
-            <span className="font-medium text-slate-700">{item.label}</span>
-            <span className="text-slate-500">{item.value}</span>
+            <span className="min-w-0 font-medium text-slate-700">
+              {item.label}
+            </span>
+            <span className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]">
+              {item.value}
+            </span>
           </div>
         ))}
       </div>
@@ -424,24 +428,26 @@ function RatingSummaryCard({
   rating: { label: string; value: number }[];
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title={title} icon={Star} />
-      <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_230px]">
-        <div className="space-y-3">
+      <div className="mt-4 grid gap-6 [@media(min-width:1800px)]:grid-cols-[minmax(0,1fr)_260px] [@media(min-width:1800px)]:gap-8">
+        <RadarPlaceholder rating={rating} />
+        <div className="min-w-0 space-y-3 [@media(min-width:1800px)]:order-first">
           {rating.map((axis) => (
             <div
               key={axis.label}
-              className="grid grid-cols-[1fr_44px_112px] items-center gap-3 text-sm"
+              className="grid grid-cols-[minmax(0,1fr)_3rem_7rem] items-center gap-3 text-sm"
             >
-              <span className="font-medium text-slate-700">{axis.label}</span>
-              <span className="text-right text-slate-600">
+              <span className="min-w-0 break-words font-medium leading-5 text-slate-700">
+                {axis.label}
+              </span>
+              <span className="shrink-0 text-right text-slate-600">
                 {axis.value.toFixed(1)}
               </span>
               <Stars value={axis.value} />
             </div>
           ))}
         </div>
-        <RadarPlaceholder rating={rating} />
       </div>
     </section>
   );
@@ -503,7 +509,10 @@ function radarLabelClass(index: number) {
 
 function Stars({ value }: { value: number }) {
   return (
-    <span className="flex gap-1 text-sakura-500" aria-label={`${value}/5`}>
+    <span
+      className="flex shrink-0 justify-end gap-1 text-sakura-500"
+      aria-label={`${value}/5`}
+    >
       {Array.from({ length: 5 }, (_, index) => (
         <Star
           key={index}
