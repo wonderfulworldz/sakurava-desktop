@@ -87,6 +87,7 @@ function CatalogDetailPage({ config }: DetailPageProps) {
       <RelatedRows sections={config.relatedSections} />
 
       {config.kind === "images" && <GalleryGrid labels={config.galleryLabels} />}
+      <SystemInfoCard items={config.systemInfo} />
     </div>
   );
 }
@@ -138,6 +139,7 @@ function PerformerDetailPage({ config }: { config: PerformerDetailConfig }) {
 
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
+          <RowsCard title="Profile Metadata" icon={Calendar} items={config.metadata} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
@@ -148,6 +150,7 @@ function PerformerDetailPage({ config }: { config: PerformerDetailConfig }) {
       </div>
 
       <RelatedRows sections={config.relatedSections} />
+      <SystemInfoCard items={config.systemInfo} />
     </div>
   );
 }
@@ -287,6 +290,26 @@ function RowsCard({
           Read-only placeholder
         </p>
       )}
+    </section>
+  );
+}
+
+function SystemInfoCard({
+  items,
+}: {
+  items: { label: string; value: string }[];
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+      <CardTitle title="System Info" icon={Info} />
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.label} className="text-sm">
+            <p className="font-medium text-slate-600">{item.label}</p>
+            <p className="mt-1 text-slate-500">{item.value}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

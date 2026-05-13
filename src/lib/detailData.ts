@@ -33,6 +33,7 @@ type BaseDetailConfig = {
   chips: string[];
   categories: string[];
   metadata: MetadataItem[];
+  systemInfo: MetadataItem[];
   ratingTitle: string;
   rating: RatingAxis[];
   techTitle: string;
@@ -67,6 +68,37 @@ export type DetailConfig =
   | ImageDetailConfig
   | PerformerDetailConfig;
 
+export function formatSystemTimestamp(
+  value: string | number | null | undefined,
+) {
+  if (value === null || value === undefined) {
+    return "Not set";
+  }
+
+  const rawValue = String(value).trim();
+  if (!rawValue) {
+    return "Not set";
+  }
+
+  const date = /^\d+$/.test(rawValue)
+    ? new Date(Number(rawValue))
+    : new Date(rawValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not set";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(date);
+}
+
 export const detailConfigs: Record<DetailKind, DetailConfig> = {
   videos: {
     kind: "videos",
@@ -88,6 +120,10 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Duration", value: "124 min" },
       { label: "Publisher / Label", value: "Sakura Studio" },
     ],
+    systemInfo: [
+      { label: "Created in Sakurava", value: "Preview only" },
+      { label: "Last edited", value: "Preview only" },
+    ],
     ratingTitle: "Rating Summary",
     rating: [
       { label: "Rewatch", value: 4 },
@@ -98,7 +134,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Chemistry", value: 4 },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info is not detected in MVP.",
+    techMessage: "Tech info is not detected or saved in MVP.",
     techItems: [
       { label: "Resolution", value: "Not detected" },
       { label: "File Size", value: "Not detected" },
@@ -140,6 +176,10 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Cover Path", value: "Manual path placeholder" },
       { label: "Folder Path", value: "Manual folder placeholder" },
     ],
+    systemInfo: [
+      { label: "Created in Sakurava", value: "Preview only" },
+      { label: "Last edited", value: "Preview only" },
+    ],
     ratingTitle: "Rating Summary",
     rating: [
       { label: "Memorability", value: 4 },
@@ -150,7 +190,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Signature", value: 5 },
     ],
     techTitle: "Tech Info",
-    techMessage: "Folder analysis is not available in MVP.",
+    techMessage: "Folder analysis is not detected or saved in MVP.",
     techItems: [
       { label: "Folder Size", value: "Not detected" },
       { label: "Detected Image Count", value: "Not detected" },
@@ -204,17 +244,21 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Status", value: "Active" },
       { label: "Profile Source", value: "Manual placeholder" },
     ],
+    systemInfo: [
+      { label: "Created in Sakurava", value: "Preview only" },
+      { label: "Last edited", value: "Preview only" },
+    ],
     personal: [
-      { label: "Birthplace", value: "Tokyo, Japan" },
-      { label: "Nationality", value: "Japanese" },
-      { label: "Astrological Sign", value: "Aries" },
-      { label: "Blood Type", value: "O" },
+      { label: "Birthplace", value: "Not saved in MVP" },
+      { label: "Nationality", value: "Not saved in MVP" },
+      { label: "Astrological Sign", value: "Not saved in MVP" },
+      { label: "Blood Type", value: "Not saved in MVP" },
     ],
     physical: [
-      { label: "Height", value: "165 cm" },
-      { label: "Weight", value: "50 kg" },
-      { label: "Measurement", value: "88-58-85 cm" },
-      { label: "Cup Size", value: "C" },
+      { label: "Height", value: "Not saved in MVP" },
+      { label: "Weight", value: "Not saved in MVP" },
+      { label: "Measurement", value: "Not saved in MVP" },
+      { label: "Cup Size", value: "Not saved in MVP" },
     ],
     ratingTitle: "Rating Summary",
     rating: [
@@ -226,7 +270,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Versatility", value: 3 },
     ],
     techTitle: "Profile Media",
-    techMessage: "Thumbnail paths are inactive placeholders in MVP.",
+    techMessage: "Thumbnail paths are not saved or rendered in MVP.",
     techItems: [
       { label: "Thumbnail 1", value: "Placeholder" },
       { label: "Thumbnail 2", value: "Placeholder" },

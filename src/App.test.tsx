@@ -105,7 +105,7 @@ describe("App", () => {
         "Rewatch",
         "Related Performer",
         "Related Images",
-        "Tech info is not detected in MVP.",
+        "Tech info is not detected or saved in MVP.",
       ],
       true,
     ],
@@ -117,7 +117,7 @@ describe("App", () => {
         "Memorability",
         "Related Video",
         "Related Performer",
-        "Folder analysis is not available in MVP.",
+        "Folder analysis is not detected or saved in MVP.",
       ],
       true,
     ],
@@ -779,6 +779,37 @@ describe("App", () => {
     expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
   });
 
+  it("shows persisted timestamps on video detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Timestamped Video",
+          createdAt: "1778611681088",
+          updatedAt: "1778611707544",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Timestamped Video")).toBeInTheDocument();
+    expect(screen.getByText("System Info")).toBeInTheDocument();
+    expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
+    expect(screen.getByText("Last edited")).toBeInTheDocument();
+    expect(screen.getAllByText("May 12, 2026, 06:48 PM UTC")).toHaveLength(2);
+    expect(screen.queryByText("Created At")).not.toBeInTheDocument();
+    expect(screen.queryByText("Updated At")).not.toBeInTheDocument();
+    expect(screen.queryByText("1778611681088")).not.toBeInTheDocument();
+    expect(screen.queryByText("1778611707544")).not.toBeInTheDocument();
+  });
+
   it("loads and updates a video through Tauri commands", async () => {
     window.history.pushState({}, "", "/videos/video_test_001/edit");
     const existing = persistedVideo({
@@ -951,6 +982,36 @@ describe("App", () => {
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
   });
 
+  it("shows persisted timestamps on image detail", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Timestamped Image",
+          createdAt: "2026-05-10T01:02:03.000Z",
+          updatedAt: "2026-05-12T07:08:09.000Z",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Timestamped Image")).toBeInTheDocument();
+    expect(screen.getByText("System Info")).toBeInTheDocument();
+    expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
+    expect(screen.getByText("May 10, 2026, 01:02 AM UTC")).toBeInTheDocument();
+    expect(screen.getByText("Last edited")).toBeInTheDocument();
+    expect(screen.getByText("May 12, 2026, 07:08 AM UTC")).toBeInTheDocument();
+    expect(screen.queryByText("2026-05-10T01:02:03.000Z")).not.toBeInTheDocument();
+    expect(screen.queryByText("2026-05-12T07:08:09.000Z")).not.toBeInTheDocument();
+  });
+
   it("loads performer collection from the Tauri command boundary when available", async () => {
     window.history.pushState({}, "", "/performers");
     const invoke = vi.fn(async (command: string) => {
@@ -1081,6 +1142,37 @@ describe("App", () => {
     expect(screen.getByText("Alias Two")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
+  });
+
+  it("shows persisted timestamps on performer detail", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({
+          name: "Timestamped Performer",
+          createdAt: "2026-05-09T01:02:03.000Z",
+          updatedAt: "2026-05-12T10:11:12.000Z",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Timestamped Performer")).toBeInTheDocument();
+    expect(screen.getByText("System Info")).toBeInTheDocument();
+    expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
+    expect(screen.getByText("May 9, 2026, 01:02 AM UTC")).toBeInTheDocument();
+    expect(screen.getByText("Last edited")).toBeInTheDocument();
+    expect(screen.getByText("May 12, 2026, 10:11 AM UTC")).toBeInTheDocument();
+    expect(screen.queryByText("2026-05-09T01:02:03.000Z")).not.toBeInTheDocument();
+    expect(screen.queryByText("2026-05-12T10:11:12.000Z")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Not saved in MVP").length).toBeGreaterThan(0);
   });
 
   it.each([

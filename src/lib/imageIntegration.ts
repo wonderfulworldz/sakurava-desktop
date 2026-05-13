@@ -3,6 +3,7 @@ import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from 
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import type { ImageDetailConfig } from "./detailData";
+import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
@@ -37,6 +38,10 @@ export function buildImageDetailConfig(image: Image): ImageDetailConfig {
       { label: "Publisher / Label", value: image.publisherLabel || "Not set" },
       { label: "Cover Path", value: image.coverPath || "Not set" },
       { label: "Folder Path", value: image.folderPath || "Not set" },
+    ],
+    systemInfo: [
+      { label: "Created in Sakurava", value: formatSystemTimestamp(image.createdAt) },
+      { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
     ],
     rating: imageRatingFields.map((field) => ({
       label: field.label,
