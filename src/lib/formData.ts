@@ -89,12 +89,12 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       {
         name: "coverPath",
         label: "Cover Path",
-        helper: "Saved as typed. Native file browsing is planned.",
+        helper: "Saved as typed or selected local image path.",
       },
       {
         name: "mediaPath",
         label: "Media Path",
-        helper: "Saved as typed. Native file browsing is planned.",
+        helper: "Saved as typed or selected local media path.",
       },
     ],
     metadataFields: [
@@ -195,12 +195,12 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       {
         name: "coverPath",
         label: "Cover Path",
-        helper: "Saved as typed. Native file browsing is planned.",
+        helper: "Saved as typed or selected local image path.",
       },
       {
         name: "folderPath",
         label: "Gallery Folder Path",
-        helper: "Saved as typed. Folder analysis and native browsing are planned.",
+        helper: "Saved as typed or selected local folder path. Folder analysis is not run.",
       },
     ],
     metadataFields: [
@@ -298,7 +298,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       {
         name: "coverPath",
         label: "Cover Path",
-        helper: "Saved as typed. Native file browsing is planned.",
+        helper: "Saved as typed or selected local image path.",
       },
     ],
     metadataFields: [],

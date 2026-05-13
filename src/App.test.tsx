@@ -667,6 +667,135 @@ describe("App", () => {
     },
   );
 
+  it.each([
+    {
+      path: "/videos/new",
+      buttonName: "Browse Cover",
+      inputLabel: "Cover Path",
+      selectedPath: "D:/Sakurava/Covers/video-cover.jpg",
+      expectedDialog: {
+        title: "Select Image File",
+        directory: false,
+        filters: [
+          {
+            name: "Image",
+            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+          },
+        ],
+      },
+    },
+    {
+      path: "/videos/new",
+      buttonName: "Browse Media",
+      inputLabel: "Media Path",
+      selectedPath: "D:/Sakurava/Videos/sample-video.mp4",
+      expectedDialog: {
+        title: "Select Media File",
+        directory: false,
+        filters: [
+          {
+            name: "Media",
+            extensions: ["mp4", "mkv", "avi", "mov", "wmv", "webm", "m4v"],
+          },
+        ],
+      },
+    },
+    {
+      path: "/images/new",
+      buttonName: "Browse Cover",
+      inputLabel: "Cover Path",
+      selectedPath: "D:/Sakurava/Images/image-cover.png",
+      expectedDialog: {
+        title: "Select Image File",
+        directory: false,
+        filters: [
+          {
+            name: "Image",
+            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+          },
+        ],
+      },
+    },
+    {
+      path: "/images/new",
+      buttonName: "Browse Folder",
+      inputLabel: "Gallery Folder Path",
+      selectedPath: "D:/Sakurava/Images/Gallery",
+      expectedDialog: {
+        title: "Select Folder",
+        directory: true,
+      },
+    },
+    {
+      path: "/performers/new",
+      buttonName: "Browse Cover",
+      inputLabel: "Cover Path",
+      selectedPath: "D:/Sakurava/Performers/performer-cover.webp",
+      expectedDialog: {
+        title: "Select Image File",
+        directory: false,
+        filters: [
+          {
+            name: "Image",
+            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+          },
+        ],
+      },
+    },
+  ])(
+    "fills $inputLabel from native picker on $path",
+    async ({ path, buttonName, inputLabel, selectedPath, expectedDialog }) => {
+      window.history.pushState({}, "", path);
+      window.__TAURI_INTERNALS__ = {
+        invoke: vi.fn(),
+      };
+      dialogMocks.open.mockResolvedValue(selectedPath);
+
+      render(<App />);
+
+      const browseButton = screen.getByRole("button", { name: buttonName });
+      expect(browseButton).toBeEnabled();
+      fireEvent.click(browseButton);
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(inputLabel)).toHaveValue(selectedPath),
+      );
+      expect(dialogMocks.open).toHaveBeenCalledWith(
+        expect.objectContaining({
+          multiple: false,
+          ...expectedDialog,
+        }),
+      );
+    },
+  );
+
+  it("keeps manual path typing available when browse is enabled", () => {
+    window.history.pushState({}, "", "/videos/new");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(),
+    };
+
+    render(<App />);
+
+    const coverPathInput = screen.getByLabelText("Cover Path");
+    fireEvent.change(coverPathInput, {
+      target: { value: "D:/Typed/cover.jpg" },
+    });
+
+    expect(coverPathInput).toHaveValue("D:/Typed/cover.jpg");
+  });
+
+  it("does not open native picker from browser preview", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    const browseButton = screen.getByRole("button", { name: "Browse Cover" });
+    expect(browseButton).toBeDisabled();
+    fireEvent.click(browseButton);
+
+    expect(dialogMocks.open).not.toHaveBeenCalled();
+  });
+
   it("labels performer persisted and planned fields distinctly", () => {
     window.history.pushState({}, "", "/performers/new");
     render(<App />);
