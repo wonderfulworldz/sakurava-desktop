@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DetailConfig, PerformerDetailConfig } from "../lib/detailData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
 export type DetailDeleteAction = {
   itemLabel: string;
@@ -308,12 +309,13 @@ function LargePlaceholder({ config }: DetailPageProps) {
   const aspectClass =
     config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
   const [imageFailed, setImageFailed] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(config.coverPath);
-  const showImage = Boolean(assetSrc && !imageFailed);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   useEffect(() => {
     setImageFailed(false);
-  }, [assetSrc]);
+  }, [assetSrc, mediaAssetScopeReady]);
 
   return (
     <div
