@@ -256,9 +256,7 @@ describe("App", () => {
     expect(screen.getByPlaceholderText("Category name")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Category" })).toBeEnabled();
     expect(screen.queryByText("Apply Rename")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Delete Unused Category/i }),
-    ).toBeDisabled();
+    expect(screen.queryByText("Apply Delete")).not.toBeInTheDocument();
     expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
     expect(screen.getByText("Light Mode")).toBeInTheDocument();
     expect(screen.getByText("Dark Mode")).toBeInTheDocument();
@@ -458,9 +456,52 @@ describe("App", () => {
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Classic"]',
     );
+    expect(screen.getByRole("button", { name: "Apply Delete" })).toBeDisabled();
+  });
+
+  it("shows planned delete structure for managed categories without applying changes", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Unused"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ categoriesJson: '["Drama"]' })];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(screen.getByText("Rename Category")).toBeInTheDocument();
+    expect(screen.getByText("Delete Unused Category")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Delete Unused Category/i }),
-    ).toBeDisabled();
+      screen.getByText("Delete application is planned and not active in this batch."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Category to delete")).toHaveValue("Drama");
+    expect(
+      await screen.findByText("1 usage: cannot be deleted until usage is removed."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply Delete" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Category to delete"), {
+      target: { value: "Unused" },
+    });
+
+    expect(
+      screen.getByText("Unused / 0 usage: eligible for future deletion."),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Drama","Unused"]',
+    );
   });
 
   it("adds a configured media root from the Settings folder picker", async () => {
