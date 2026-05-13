@@ -11,24 +11,48 @@ import {
   Info,
   Ruler,
   Star,
+  Trash2,
   UserRound,
 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { DetailConfig, PerformerDetailConfig } from "../lib/detailData";
 
-type DetailPageProps = {
-  config: DetailConfig;
+export type DetailDeleteAction = {
+  itemLabel: string;
+  isPending: boolean;
+  errorMessage: string | null;
+  onOpen: () => void;
+  onConfirm: () => void;
 };
 
-function DetailPage({ config }: DetailPageProps) {
+type DetailPageProps = {
+  config: DetailConfig;
+  deleteAction?: DetailDeleteAction;
+};
+
+function DetailPage({ config, deleteAction }: DetailPageProps) {
   if (config.kind === "performers") {
-    return <PerformerDetailPage config={config} />;
+    return <PerformerDetailPage config={config} deleteAction={deleteAction} />;
   }
 
-  return <CatalogDetailPage config={config} />;
+  return <CatalogDetailPage config={config} deleteAction={deleteAction} />;
 }
 
-function DetailHeader({ config }: DetailPageProps) {
+function DetailHeader({ config, deleteAction }: DetailPageProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function openConfirmation() {
+    deleteAction?.onOpen();
+    setConfirmOpen(true);
+  }
+
+  function closeConfirmation() {
+    if (!deleteAction?.isPending) {
+      setConfirmOpen(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -39,13 +63,25 @@ function DetailHeader({ config }: DetailPageProps) {
           <ArrowLeft size={16} />
           {config.backLabel}
         </Link>
-        <Link
-          to={config.editTo}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
-        >
-          <Edit3 size={16} />
-          Edit
-        </Link>
+        <div className="flex items-center gap-2">
+          {deleteAction && (
+            <button
+              type="button"
+              onClick={openConfirmation}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-600 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
+            >
+              <Trash2 size={16} />
+              Delete
+            </button>
+          )}
+          <Link
+            to={config.editTo}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
+          >
+            <Edit3 size={16} />
+            Edit
+          </Link>
+        </div>
       </div>
       <div>
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
@@ -55,14 +91,51 @@ function DetailHeader({ config }: DetailPageProps) {
           {config.subtitle}
         </p>
       </div>
+      {deleteAction && confirmOpen && (
+        <section
+          aria-label="Delete confirmation"
+          className="rounded-lg border border-rose-200 bg-rose-50/70 p-4"
+        >
+          <h2 className="text-base font-semibold text-rose-900">
+            Delete {deleteAction.itemLabel}?
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-rose-800">
+            This removes the saved Sakurava record for {deleteAction.itemLabel}.
+            It does not delete local media files from this device.
+          </p>
+          {deleteAction.errorMessage && (
+            <p className="mt-3 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700">
+              {deleteAction.errorMessage}
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={closeConfirmation}
+              disabled={deleteAction.isPending}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={deleteAction.onConfirm}
+              disabled={deleteAction.isPending}
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleteAction.isPending ? "Deleting..." : "Delete permanently"}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function CatalogDetailPage({ config }: DetailPageProps) {
+function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
   return (
     <div className="space-y-5">
-      <DetailHeader config={config} />
+      <DetailHeader config={config} deleteAction={deleteAction} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="grid gap-6 lg:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
@@ -129,10 +202,16 @@ function CatalogIdentity({ config }: DetailPageProps) {
   );
 }
 
-function PerformerDetailPage({ config }: { config: PerformerDetailConfig }) {
+function PerformerDetailPage({
+  config,
+  deleteAction,
+}: {
+  config: PerformerDetailConfig;
+  deleteAction?: DetailDeleteAction;
+}) {
   return (
     <div className="space-y-5">
-      <DetailHeader config={config} />
+      <DetailHeader config={config} deleteAction={deleteAction} />
 
       <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
         <PerformerProfileCard config={config} />

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
 
@@ -825,6 +825,259 @@ describe("App", () => {
     expect(screen.queryByText("Updated At")).not.toBeInTheDocument();
     expect(screen.queryByText("1778611681088")).not.toBeInTheDocument();
     expect(screen.queryByText("1778611707544")).not.toBeInTheDocument();
+  });
+
+  it("hides destructive delete controls in browser preview detail pages", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Video Detail" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Delete permanently" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens delete confirmation with item-specific safety copy", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({ title: "Delete Candidate Video" });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Delete Candidate Video")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(
+      screen.getByRole("region", { name: "Delete confirmation" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Delete Delete Candidate Video?")).toBeInTheDocument();
+    expect(
+      screen.getByText(/removes the saved Sakurava record for Delete Candidate Video/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not delete local media files/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete permanently" }),
+    ).toBeInTheDocument();
+  });
+
+  it("cancels delete confirmation without calling the delete command", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({ title: "Cancel Delete Video" });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Cancel Delete Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(
+      screen.queryByRole("region", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_delete",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      title: "Deletable Video",
+      getCommand: "video_get",
+      deleteCommand: "video_delete",
+      listCommand: "video_list",
+      collectionPath: "/videos",
+      collectionHeading: "Videos",
+      record: persistedVideo({ title: "Deletable Video" }),
+    },
+    {
+      path: "/images/image_test_001",
+      title: "Deletable Image",
+      getCommand: "image_get",
+      deleteCommand: "image_delete",
+      listCommand: "image_list",
+      collectionPath: "/images",
+      collectionHeading: "Images",
+      record: persistedImage({ title: "Deletable Image" }),
+    },
+    {
+      path: "/performers/performer_test_001",
+      title: "Deletable Performer",
+      getCommand: "performer_get",
+      deleteCommand: "performer_delete",
+      listCommand: "performer_list",
+      collectionPath: "/performers",
+      collectionHeading: "Performers",
+      record: persistedPerformer({ name: "Deletable Performer" }),
+    },
+  ])(
+    "confirms delete with $deleteCommand and redirects to $collectionPath",
+    async ({
+      path,
+      title,
+      getCommand,
+      deleteCommand,
+      listCommand,
+      collectionPath,
+      collectionHeading,
+      record,
+    }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(
+        async (command: string, args: Record<string, any> = {}) => {
+          if (command === getCommand) {
+            return record;
+          }
+          if (command === deleteCommand) {
+            return { id: args.id, deleted: true };
+          }
+          if (command === listCommand) {
+            return [];
+          }
+
+          throw new Error(`Unexpected command ${command}`);
+        },
+      ) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByText(title)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+
+      await waitFor(() => expect(window.location.pathname).toBe(collectionPath));
+      expect(
+        screen.getByRole("heading", { name: collectionHeading }),
+      ).toBeInTheDocument();
+      expect(invoke).toHaveBeenCalledWith(
+        deleteCommand,
+        { id: path.split("/").pop() },
+        undefined,
+      );
+    },
+  );
+
+  it("shows an error and stays on detail when delete returns false", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "image_get") {
+          return persistedImage({ title: "Failed Delete Image" });
+        }
+        if (command === "image_delete") {
+          return { id: args.id, deleted: false };
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Failed Delete Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+
+    expect(
+      await screen.findByText(
+        "Image delete failed. The saved Sakurava record was not removed.",
+      ),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/images/image_test_001");
+    expect(screen.getByRole("heading", { name: "Image Detail" })).toBeInTheDocument();
+  });
+
+  it("disables delete confirmation while pending and prevents duplicate submits", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    let resolveDelete: (value: { id: string; deleted: boolean }) => void = () => {};
+    const deletePromise = new Promise<{ id: string; deleted: boolean }>((resolve) => {
+      resolveDelete = resolve;
+    });
+    const invokeMock = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "performer_get") {
+          return persistedPerformer({ name: "Pending Delete Performer" });
+        }
+        if (command === "performer_delete") {
+          return deletePromise;
+        }
+        if (command === "performer_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    );
+    window.__TAURI_INTERNALS__ = {
+      invoke: invokeMock as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Pending Delete Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+
+    const pendingButton = await screen.findByRole("button", { name: "Deleting..." });
+    expect(pendingButton).toBeDisabled();
+    fireEvent.click(pendingButton);
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "performer_delete"),
+    ).toHaveLength(1);
+
+    resolveDelete({ id: "performer_test_001", deleted: true });
+    await waitFor(() => expect(window.location.pathname).toBe("/performers"));
+  });
+
+  it("does not add bulk, checkbox, or row delete behavior to detail pages", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({ title: "Single Delete Only Video" });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Single Delete Only Video")).toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryByText(/bulk/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/select/i)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
   });
 
   it("loads and updates a video through Tauri commands", async () => {
