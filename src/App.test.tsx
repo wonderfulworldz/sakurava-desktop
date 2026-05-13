@@ -960,6 +960,40 @@ describe("App", () => {
   );
 
   it.each([
+    "/videos/new",
+    "/images/new",
+    "/performers/new",
+  ])("shows managed categories as form suggestions on %s", async (path) => {
+    window.history.pushState({}, "", path);
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Managed Category", "managed category", "  Trimmed Category  "]',
+    );
+
+    render(<App />);
+
+    const categoryInput = screen.getByPlaceholderText("Add category...");
+    await waitFor(() => expect(categoryInput).toHaveAttribute("list"));
+    const optionListId = categoryInput.getAttribute("list");
+    const optionValues = Array.from(
+      document.querySelectorAll(`#${optionListId} option`),
+    ).map((option) => option.getAttribute("value"));
+
+    expect(optionValues).toContain("Managed Category");
+    expect(optionValues).toContain("Trimmed Category");
+    expect(
+      optionValues.filter((option) => option === "Managed Category"),
+    ).toHaveLength(1);
+
+    fireEvent.change(categoryInput, {
+      target: { value: "Manual Category" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+
+    expect(screen.getByText("Manual Category")).toBeInTheDocument();
+  });
+
+  it.each([
     {
       path: "/videos/new",
       buttonName: "Browse Cover",

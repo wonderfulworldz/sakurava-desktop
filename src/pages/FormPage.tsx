@@ -14,6 +14,7 @@ import type {
   ReadOnlyField,
   TextField,
 } from "../lib/formData";
+import { getStoredManagedCategories } from "../lib/managedCategories";
 import {
   selectLocalFolder,
   selectLocalImageFile,
@@ -51,9 +52,11 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   );
   const [categoryDraft, setCategoryDraft] = useState("");
   const [aliasDraft, setAliasDraft] = useState("");
+  const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const canBrowsePaths = isTauriRuntimeAvailable();
+  const categoryOptions = mergeCategoryOptions(managedCategories, categories);
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
@@ -62,6 +65,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setSaveState("idle");
     setSaveMessage("");
   }, [config, mode]);
+
+  useEffect(() => {
+    setManagedCategories(getStoredManagedCategories());
+  }, []);
 
   const title = mode === "create" ? config.createTitle : config.editTitle;
   const subtitle =
@@ -183,6 +190,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 draft={categoryDraft}
                 chips={categories}
                 placeholder="Add category..."
+                options={categoryOptions}
                 onDraftChange={setCategoryDraft}
                 onAdd={() =>
                   addChip(
@@ -219,6 +227,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           categoryDraft={categoryDraft}
           setCategories={setCategories}
           setCategoryDraft={setCategoryDraft}
+          categoryOptions={categoryOptions}
           canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
           browsePath={browsePath}
@@ -332,6 +341,7 @@ function CatalogExtraSections({
   categoryDraft,
   setCategories,
   setCategoryDraft,
+  categoryOptions,
   canBrowsePaths,
   updateValue,
   browsePath,
@@ -342,6 +352,7 @@ function CatalogExtraSections({
   categoryDraft: string;
   setCategories: Dispatch<SetStateAction<string[]>>;
   setCategoryDraft: Dispatch<SetStateAction<string>>;
+  categoryOptions: string[];
   canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
   browsePath: (field: TextField) => void;
@@ -367,6 +378,7 @@ function CatalogExtraSections({
             draft={categoryDraft}
             chips={categories}
             placeholder="Add category..."
+            options={categoryOptions}
             onDraftChange={setCategoryDraft}
             onAdd={() =>
               addChip(categoryDraft, categories, setCategories, setCategoryDraft)
@@ -700,6 +712,7 @@ function ChipInput({
   draft,
   chips,
   placeholder,
+  options = [],
   onDraftChange,
   onAdd,
   onRemove,
@@ -708,10 +721,13 @@ function ChipInput({
   draft: string;
   chips: string[];
   placeholder: string;
+  options?: string[];
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (chip: string) => void;
 }) {
+  const optionListId = `${label.toLowerCase().replace(/\s+/g, "-")}-options`;
+
   return (
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
       <span className="pt-2">{label}</span>
@@ -736,6 +752,7 @@ function ChipInput({
           className="min-w-40 flex-1 border-0 bg-transparent px-1 py-1 text-sm font-normal text-slate-700 outline-none placeholder:text-slate-400"
           value={draft}
           placeholder={placeholder}
+          list={options.length > 0 ? optionListId : undefined}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -752,6 +769,13 @@ function ChipInput({
         >
           <Plus size={15} />
         </button>
+        {options.length > 0 && (
+          <datalist id={optionListId}>
+            {options.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        )}
       </div>
     </div>
   );
@@ -829,6 +853,28 @@ function addChip(
 
   setChips((current) => [...current, nextChip]);
   setDraft("");
+}
+
+function mergeCategoryOptions(...categoryGroups: string[][]) {
+  const categoriesByKey = new Map<string, string>();
+
+  for (const categories of categoryGroups) {
+    for (const category of categories) {
+      const label = category.trim();
+      if (!label) {
+        continue;
+      }
+
+      const key = label.toLowerCase();
+      if (!categoriesByKey.has(key)) {
+        categoriesByKey.set(key, label);
+      }
+    }
+  }
+
+  return [...categoriesByKey.values()].sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 function inputClass(inactive: boolean) {
