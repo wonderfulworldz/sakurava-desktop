@@ -2,12 +2,24 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
 
+const dialogMocks = vi.hoisted(() => ({
+  open: vi.fn(),
+  save: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: dialogMocks.open,
+  save: dialogMocks.save,
+}));
+
 type TestTauriInvoke = NonNullable<Window["__TAURI_INTERNALS__"]>["invoke"];
 
 describe("App", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
+    dialogMocks.open.mockReset();
+    dialogMocks.save.mockReset();
   });
 
   it("renders the app shell and Home page", () => {
@@ -211,6 +223,366 @@ describe("App", () => {
     expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
     expect(screen.getByText("Available")).toBeInTheDocument();
     expect(screen.getByText("Database Available")).toBeInTheDocument();
+  });
+
+  it("cancels database backup without calling the backup command", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn();
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.save.mockResolvedValue(null);
+
+    render(<App />);
+
+    const backupButton = screen.getByRole("button", { name: "Backup Data" });
+    expect(backupButton).toBeEnabled();
+    fireEvent.click(backupButton);
+
+    await waitFor(() => expect(dialogMocks.save).toHaveBeenCalledTimes(1));
+    expect(invoke).not.toHaveBeenCalledWith(
+      "database_backup",
+      expect.anything(),
+      undefined,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore Data" })).toBeEnabled();
+  });
+
+  it("backs up the database to the selected destination", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Backups/sakurava-backup-2026-05-13.sqlite";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "database_backup") {
+        return {
+          destinationPath: args.destinationPath,
+          success: true,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.save.mockResolvedValue(destinationPath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Backup Data" }));
+
+    await screen.findByText(`Backup created at ${destinationPath}`);
+    expect(dialogMocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: expect.stringMatching(
+          /^sakurava-backup-\d{4}-\d{2}-\d{2}\.sqlite$/,
+        ),
+        filters: [
+          {
+            name: "SQLite database",
+            extensions: ["sqlite"],
+          },
+        ],
+      }),
+    );
+    expect(invoke).toHaveBeenCalledWith(
+      "database_backup",
+      { destinationPath },
+      undefined,
+    );
+  });
+
+  it("prevents duplicate backup submits while pending", async () => {
+    window.history.pushState({}, "", "/settings");
+    let resolveDestination: (destinationPath: string) => void = () => {};
+    const destinationPathPromise = new Promise<string>((resolve) => {
+      resolveDestination = resolve;
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "database_backup") {
+        return {
+          destinationPath: args.destinationPath,
+          success: true,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.save.mockReturnValue(destinationPathPromise);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Backup Data" }));
+
+    const pendingButton = await screen.findByRole("button", {
+      name: "Backing Up...",
+    });
+    expect(pendingButton).toBeDisabled();
+    fireEvent.click(pendingButton);
+    expect(dialogMocks.save).toHaveBeenCalledTimes(1);
+
+    resolveDestination("D:/Backups/sakurava-backup.sqlite");
+    await screen.findByText("Backup created at D:/Backups/sakurava-backup.sqlite");
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error when database backup fails", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Backups/sakurava-backup.sqlite";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "database_backup") {
+        throw new Error("Unable to back up SQLite database");
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.save.mockResolvedValue(destinationPath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Backup Data" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to back up SQLite database",
+    );
+    expect(screen.getByRole("button", { name: "Backup Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Restore Data" })).toBeEnabled();
+  });
+
+  it("cancels restore source selection without calling the restore command", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn();
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.open.mockResolvedValue(null);
+
+    render(<App />);
+
+    const restoreButton = screen.getByRole("button", { name: "Restore Data" });
+    expect(restoreButton).toBeEnabled();
+    fireEvent.click(restoreButton);
+
+    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalledTimes(1));
+    expect(dialogMocks.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiple: false,
+        directory: false,
+        filters: [
+          {
+            name: "SQLite database",
+            extensions: ["sqlite"],
+          },
+        ],
+      }),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "database_restore",
+      expect.anything(),
+      undefined,
+    );
+    expect(screen.queryByText("Confirm database restore")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("requires confirmation before restoring a selected database", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn();
+    const sourcePath = "D:/Backups/sakurava-backup.sqlite";
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.open.mockResolvedValue(sourcePath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+
+    expect(await screen.findByText("Confirm database restore")).toBeInTheDocument();
+    expect(
+      screen.getByText("Current Sakurava database will be replaced."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Only records are restored.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Local media files are not restored or deleted."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("A safety backup will be created first."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(`Source: ${sourcePath}`)).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "database_restore",
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("cancels restore confirmation without calling the restore command", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn();
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.open.mockResolvedValue("D:/Backups/sakurava-backup.sqlite");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    await screen.findByText("Confirm database restore");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Confirm database restore")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "database_restore",
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("restores the selected database after confirmation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const sourcePath = "D:/Backups/sakurava-backup.sqlite";
+    const safetyBackupPath =
+      "C:/Users/Example/AppData/Roaming/app.sakurava.desktop/sakurava-before-restore.sqlite";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "database_restore") {
+        return {
+          sourcePath: args.sourcePath,
+          success: true,
+          safetyBackupPath,
+          restartRequired: false,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.open.mockResolvedValue(sourcePath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    await screen.findByText("Confirm database restore");
+    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+
+    await screen.findByText(
+      `Restored database from ${sourcePath}. Safety backup: ${safetyBackupPath}.`,
+    );
+    expect(invoke).toHaveBeenCalledWith(
+      "database_restore",
+      { sourcePath },
+      undefined,
+    );
+  });
+
+  it("shows restart guidance when restore reports restartRequired", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "database_restore") {
+        return {
+          sourcePath: args.sourcePath,
+          success: true,
+          safetyBackupPath: "C:/Safety/sakurava-before-restore.sqlite",
+          restartRequired: true,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.open.mockResolvedValue("D:/Backups/sakurava-backup.sqlite");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    await screen.findByText("Confirm database restore");
+    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+
+    expect(
+      await screen.findByText(/Restart Sakurava to use the restored database\./),
+    ).toBeInTheDocument();
+  });
+
+  it("prevents duplicate restore submits while pending", async () => {
+    window.history.pushState({}, "", "/settings");
+    let resolveRestore: (result: {
+      sourcePath: string;
+      success: boolean;
+      safetyBackupPath: string;
+      restartRequired: boolean;
+    }) => void = () => {};
+    const restorePromise = new Promise<{
+      sourcePath: string;
+      success: boolean;
+      safetyBackupPath: string;
+      restartRequired: boolean;
+    }>((resolve) => {
+      resolveRestore = resolve;
+    });
+    const sourcePath = "D:/Backups/sakurava-backup.sqlite";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "database_restore") {
+        return restorePromise;
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.open.mockResolvedValue(sourcePath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    await screen.findByText("Confirm database restore");
+    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+
+    const pendingButton = await screen.findByRole("button", {
+      name: "Restoring...",
+    });
+    expect(pendingButton).toBeDisabled();
+    fireEvent.click(pendingButton);
+    expect(invoke).toHaveBeenCalledTimes(1);
+
+    resolveRestore({
+      sourcePath,
+      success: true,
+      safetyBackupPath: "C:/Safety/sakurava-before-restore.sqlite",
+      restartRequired: false,
+    });
+    await screen.findByText(
+      "Restored database from D:/Backups/sakurava-backup.sqlite. Safety backup: C:/Safety/sakurava-before-restore.sqlite.",
+    );
+  });
+
+  it("shows an error when database restore fails", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "database_restore") {
+        throw new Error("Restore source failed SQLite integrity check");
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.open.mockResolvedValue("D:/Backups/broken.sqlite");
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    await screen.findByText("Confirm database restore");
+    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Restore source failed SQLite integrity check",
+    );
+    expect(screen.getByRole("button", { name: "Restore Data" })).toBeEnabled();
   });
 
   it("keeps create routes separate from detail route stubs", () => {

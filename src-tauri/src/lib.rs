@@ -5,6 +5,7 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let database = database::prepare_tauri_database(app.handle())
                 .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
@@ -17,6 +18,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::database_backup,
+            commands::database_restore,
             commands::video_create,
             commands::video_list,
             commands::video_get,

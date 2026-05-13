@@ -18,6 +18,12 @@ import {
   ImageUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useState } from "react";
+import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
+import {
+  selectDatabaseBackupDestination,
+  selectDatabaseRestoreSource,
+} from "../runtime/dialogCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type SettingsRow = {
@@ -25,6 +31,25 @@ type SettingsRow = {
   value: string;
   icon: LucideIcon;
 };
+
+type SettingsAction = {
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+type BackupStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
+type RestoreStatus =
+  | { state: "idle" }
+  | { state: "confirming"; sourcePath: string }
+  | { state: "pending"; sourcePath: string }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
 
 const appOverviewRows: SettingsRow[] = [
   { label: "App Name", value: "Sakurava", icon: Tag },
@@ -84,6 +109,17 @@ const uiPreferenceRows: SettingsRow[] = [
 
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
+  const [backupStatus, setBackupStatus] = useState<BackupStatus>({
+    state: "idle",
+  });
+  const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>({
+    state: "idle",
+  });
+  const isBackupPending = backupStatus.state === "pending";
+  const isRestorePending = restoreStatus.state === "pending";
+  const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
+  const canRestoreDatabase =
+    isDesktopRuntime && !isBackupPending && !isRestorePending;
   const runtimeRows: SettingsRow[] = [
     {
       label: "App mode",
@@ -107,6 +143,112 @@ function SettingsPage() {
     },
     { label: "Storage mode", value: "Local only", icon: HardDrive },
   ];
+
+  async function handleBackupData() {
+    if (!canBackUpDatabase) {
+      return;
+    }
+
+    setBackupStatus({ state: "pending" });
+
+    try {
+      const destinationPath = await selectDatabaseBackupDestination();
+
+      if (!destinationPath) {
+        setBackupStatus({ state: "idle" });
+        return;
+      }
+
+      const result = await backUpDatabase(destinationPath);
+      if (!result.success) {
+        setBackupStatus({
+          state: "error",
+          message: "Backup did not complete. No database backup was created.",
+        });
+        return;
+      }
+
+      setBackupStatus({
+        state: "success",
+        message: `Backup created at ${result.destinationPath}`,
+      });
+    } catch (error) {
+      setBackupStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+            : "Backup failed. The database was not backed up.",
+      });
+    }
+  }
+
+  async function handleRestoreData() {
+    if (!canRestoreDatabase) {
+      return;
+    }
+
+    try {
+      const sourcePath = await selectDatabaseRestoreSource();
+
+      if (!sourcePath) {
+        setRestoreStatus({ state: "idle" });
+        return;
+      }
+
+      setRestoreStatus({ state: "confirming", sourcePath });
+    } catch (error) {
+      setRestoreStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Restore failed before a source file was selected.",
+      });
+    }
+  }
+
+  async function handleConfirmRestore() {
+    if (restoreStatus.state !== "confirming") {
+      return;
+    }
+
+    const { sourcePath } = restoreStatus;
+    setRestoreStatus({ state: "pending", sourcePath });
+
+    try {
+      const result = await restoreDatabase(sourcePath);
+      if (!result.success) {
+        setRestoreStatus({
+          state: "error",
+          message: "Restore did not complete. The current database was not replaced.",
+        });
+        return;
+      }
+
+      const restartMessage = result.restartRequired
+        ? " Restart Sakurava to use the restored database."
+        : "";
+      setRestoreStatus({
+        state: "success",
+        message: `Restored database from ${result.sourcePath}. Safety backup: ${result.safetyBackupPath}.${restartMessage}`,
+      });
+    } catch (error) {
+      setRestoreStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Restore failed. The current database was not replaced.",
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -132,7 +274,22 @@ function SettingsPage() {
       <SettingsCard
         title="Data Safety"
         rows={dataSafetyRows}
-        disabledActions={["Backup Data", "Restore Data"]}
+        actions={[
+          {
+            label: isBackupPending ? "Backing Up..." : "Backup Data",
+            disabled: !canBackUpDatabase,
+            onClick: handleBackupData,
+          },
+          {
+            label: isRestorePending ? "Restoring..." : "Restore Data",
+            disabled: !canRestoreDatabase,
+            onClick: handleRestoreData,
+          },
+        ]}
+        backupStatus={backupStatus}
+        restoreStatus={restoreStatus}
+        onCancelRestore={() => setRestoreStatus({ state: "idle" })}
+        onConfirmRestore={handleConfirmRestore}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
@@ -160,13 +317,23 @@ function SettingsCard({
   title,
   rows,
   badges,
+  actions,
   disabledActions,
+  backupStatus,
+  restoreStatus,
+  onCancelRestore,
+  onConfirmRestore,
   note,
 }: {
   title: string;
   rows: SettingsRow[];
   badges?: string[];
+  actions?: SettingsAction[];
   disabledActions?: string[];
+  backupStatus?: BackupStatus;
+  restoreStatus?: RestoreStatus;
+  onCancelRestore?: () => void;
+  onConfirmRestore?: () => void;
   note?: string;
 }) {
   return (
@@ -193,6 +360,57 @@ function SettingsCard({
           <SettingsInfoRow key={row.label} row={row} />
         ))}
       </div>
+      <SettingsStatusMessage status={backupStatus} kind="backup" />
+      {restoreStatus?.state === "confirming" && (
+        <div className="space-y-4 border-t border-slate-200 px-6 py-4">
+          <div className="space-y-2 text-sm leading-6 text-slate-600">
+            <p className="font-semibold text-slate-800">Confirm database restore</p>
+            <p>Current Sakurava database will be replaced.</p>
+            <p>Only records are restored.</p>
+            <p>Local media files are not restored or deleted.</p>
+            <p>A safety backup will be created first.</p>
+            <p className="break-all font-medium text-slate-500">
+              Source: {restoreStatus.sourcePath}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={onCancelRestore}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirmRestore}
+              className="h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+            >
+              Restore database
+            </button>
+          </div>
+        </div>
+      )}
+      <SettingsStatusMessage status={restoreStatus} kind="restore" />
+      {actions && (
+        <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-4">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              disabled={action.disabled}
+              onClick={action.onClick}
+              className={`h-10 rounded-lg border px-4 text-sm font-semibold ${
+                action.disabled
+                  ? "border-slate-200 bg-slate-100 text-slate-400"
+                  : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+              }`}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
       {disabledActions && (
         <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-4">
           {disabledActions.map((action) => (
@@ -213,6 +431,33 @@ function SettingsCard({
         </p>
       )}
     </section>
+  );
+}
+
+function SettingsStatusMessage({
+  status,
+  kind,
+}: {
+  status?: BackupStatus | RestoreStatus;
+  kind: "backup" | "restore";
+}) {
+  if (!status || status.state === "idle" || status.state === "confirming") {
+    return null;
+  }
+
+  const isError = status.state === "error";
+  const pendingMessage =
+    kind === "backup" ? "Creating database backup..." : "Restoring database...";
+
+  return (
+    <p
+      role={isError ? "alert" : "status"}
+      className={`border-t border-slate-200 px-6 py-4 text-sm font-semibold ${
+        isError ? "text-rose-600" : "text-slate-600"
+      }`}
+    >
+      {status.state === "pending" ? pendingMessage : status.message}
+    </p>
   );
 }
 
