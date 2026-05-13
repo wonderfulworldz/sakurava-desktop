@@ -3,6 +3,7 @@ import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from 
 import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import type { VideoDetailConfig } from "./detailData";
+import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
@@ -37,6 +38,10 @@ export function buildVideoDetailConfig(video: Video): VideoDetailConfig {
       { label: "Publisher / Label", value: video.publisherLabel || "Not set" },
       { label: "Cover Path", value: video.coverPath || "Not set" },
       { label: "Media Path", value: video.mediaPath || "Not set" },
+    ],
+    systemInfo: [
+      { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },
+      { label: "Last edited", value: formatSystemTimestamp(video.updatedAt) },
     ],
     rating: videoRatingFields.map((field) => ({
       label: field.label,

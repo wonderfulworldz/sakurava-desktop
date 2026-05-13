@@ -346,6 +346,9 @@ function CatalogExtraSections({
         </FieldGrid>
       </FormSection>
       <FormSection index={3} title={pathTitle}>
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Paths are saved as manual text. Browse buttons are unavailable in MVP.
+        </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
             <PathInput
@@ -400,6 +403,9 @@ function PerformerExtraSections({
   return (
     <>
       <FormSection index={2} title="Media">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Cover path is saved as manual text. Thumbnail paths are planned and not saved in MVP.
+        </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
             <PathInput
@@ -421,8 +427,23 @@ function PerformerExtraSections({
           ))}
         </FieldGrid>
       </FormSection>
-      <InactiveFieldSection index={3} title="Summary" fields={sections.summary} values={values} />
+      <FormSection index={3} title="Summary">
+        <FieldGrid>
+          {sections.summary.map((field) => (
+            <TextInput
+              key={field.name}
+              field={field}
+              value={String(values[field.name] ?? "")}
+              onChange={(value) => updateValue(field.name, value)}
+              inactive={field.name === "yearsActive"}
+            />
+          ))}
+        </FieldGrid>
+      </FormSection>
       <FormSection index={4} title="Personal">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Birth date is saved. Other personal fields are planned and not saved in MVP.
+        </p>
         <FieldGrid>
           {sections.personal.map((field) => (
             <TextInput
@@ -509,18 +530,28 @@ function TextInput({
         {field.required && <span className="text-sakura-500"> *</span>}
       </span>
       <span className="flex items-center gap-2">
-        <input
-          className={inputClass(inactive)}
-          type={field.type ?? "text"}
-          value={value}
-          disabled={inactive}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        {field.suffix && (
-          <span className="shrink-0 text-xs font-semibold text-slate-500">
-            {field.suffix}
+        <span className="grid flex-1 gap-1">
+          <span className="flex items-center gap-2">
+            <input
+              className={inputClass(inactive)}
+              aria-label={field.label}
+              type={field.type ?? "text"}
+              value={value}
+              disabled={inactive}
+              onChange={(event) => onChange(event.target.value)}
+            />
+            {field.suffix && (
+              <span className="shrink-0 text-xs font-semibold text-slate-500">
+                {field.suffix}
+              </span>
+            )}
           </span>
-        )}
+          {field.helper && (
+            <span className="text-xs font-medium text-slate-500">
+              {field.helper}
+            </span>
+          )}
+        </span>
       </span>
     </label>
   );
@@ -540,19 +571,26 @@ function PathInput({
   return (
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
       <span>{field.label}</span>
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
-        <input
-          className={inputClass(false)}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <button
-          type="button"
-          disabled
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-400"
-        >
-          {browseLabel}
-        </button>
+      <div className="grid gap-1">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
+          <input
+            className={inputClass(false)}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <button
+            type="button"
+            disabled
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-400"
+          >
+            {browseLabel}
+          </button>
+        </div>
+        {field.helper && (
+          <span className="text-xs font-medium text-slate-500">
+            {field.helper}
+          </span>
+        )}
       </div>
     </div>
   );

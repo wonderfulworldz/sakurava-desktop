@@ -3,6 +3,7 @@ import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from 
 import type { CollectionConfig, PerformerCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import type { PerformerDetailConfig } from "./detailData";
+import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
@@ -47,18 +48,22 @@ export function buildPerformerDetailConfig(
       { label: "Status", value: performer.status || "Unknown" },
       { label: "Cover Path", value: performer.coverPath || "Not set" },
     ],
+    systemInfo: [
+      { label: "Created in Sakurava", value: formatSystemTimestamp(performer.createdAt) },
+      { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },
+    ],
     personal: [
       { label: "Birth Date", value: performer.birthDate || "Not set" },
-      { label: "Birthplace", value: "Inactive placeholder" },
-      { label: "Nationality", value: "Inactive placeholder" },
-      { label: "Astrological Sign", value: "Inactive placeholder" },
-      { label: "Blood Type", value: "Inactive placeholder" },
+      { label: "Birthplace", value: "Not saved in MVP" },
+      { label: "Nationality", value: "Not saved in MVP" },
+      { label: "Astrological Sign", value: "Not saved in MVP" },
+      { label: "Blood Type", value: "Not saved in MVP" },
     ],
     physical: [
-      { label: "Height", value: "Inactive placeholder" },
-      { label: "Weight", value: "Inactive placeholder" },
-      { label: "Measurement", value: "Inactive placeholder" },
-      { label: "Cup Size", value: "Inactive placeholder" },
+      { label: "Height", value: "Not saved in MVP" },
+      { label: "Weight", value: "Not saved in MVP" },
+      { label: "Measurement", value: "Not saved in MVP" },
+      { label: "Cup Size", value: "Not saved in MVP" },
     ],
     rating: performerRatingFields.map((field) => ({
       label: field.label,
@@ -148,22 +153,22 @@ function performerToFormValues(performer: Performer): FormValues {
     favorite: performer.favorite,
     status: performer.status || "Active",
     coverPath: performer.coverPath,
-    thumbnail1: "",
-    thumbnail2: "",
-    thumbnail3: "",
-    thumbnail4: "",
-    yearsActive: "Placeholder only",
+    thumbnail1: "Not saved in MVP",
+    thumbnail2: "Not saved in MVP",
+    thumbnail3: "Not saved in MVP",
+    thumbnail4: "Not saved in MVP",
+    yearsActive: "Not saved in MVP",
     filmography: performer.filmographyCount?.toString() ?? "",
     pictorials: performer.pictorialsCount?.toString() ?? "",
     birthDate: performer.birthDate,
-    birthplace: "Inactive placeholder",
-    nationality: "Inactive placeholder",
-    astrologicalSign: "Inactive placeholder",
-    bloodType: "Inactive placeholder",
-    height: "Inactive placeholder",
-    weight: "Inactive placeholder",
-    measurement: "Inactive placeholder",
-    cupSize: "Inactive placeholder",
+    birthplace: "Not saved in MVP",
+    nationality: "Not saved in MVP",
+    astrologicalSign: "Not saved in MVP",
+    bloodType: "Not saved in MVP",
+    height: "Not saved in MVP",
+    weight: "Not saved in MVP",
+    measurement: "Not saved in MVP",
+    cupSize: "Not saved in MVP",
     notes: performer.notes,
     ...Object.fromEntries(
       performerRatingFields.map((field) => [
