@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 type TauriInternals = {
   invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+  convertFileSrc?: (filePath: string, protocol?: string) => string;
 };
 
 declare global {
