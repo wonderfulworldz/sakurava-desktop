@@ -838,6 +838,75 @@ describe("App", () => {
     expect(screen.getByDisplayValue("5")).toBeInTheDocument();
   });
 
+  it("loads Home dashboard counts and recent items from Tauri lists", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Recent Video",
+            createdAt: "2026-05-12T00:00:00.000Z",
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Older Video",
+            favorite: false,
+            createdAt: "2026-05-11T00:00:00.000Z",
+          }),
+          persistedVideo({
+            id: "video_3",
+            title: "Third Video",
+            favorite: false,
+            createdAt: "2026-05-10T00:00:00.000Z",
+          }),
+          persistedVideo({
+            id: "video_4",
+            title: "Fourth Video",
+            favorite: false,
+            createdAt: "2026-05-09T00:00:00.000Z",
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_1",
+            title: "Recent Image",
+            createdAt: "not-a-date",
+          }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_1",
+            name: "Recent Performer",
+            favorite: false,
+            createdAt: undefined,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Recent Video")).toBeInTheDocument();
+    expect(screen.getByText("Recent Image")).toBeInTheDocument();
+    expect(screen.getByText("Recent Performer")).toBeInTheDocument();
+    expect(screen.getByText("4 saved videos")).toBeInTheDocument();
+    expect(screen.getByText("1 saved image")).toBeInTheDocument();
+    expect(screen.getByText("1 saved performer")).toBeInTheDocument();
+    expect(screen.getByText("2 favorite items")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("video_list", {}, undefined);
+    expect(invoke).toHaveBeenCalledWith("image_list", {}, undefined);
+    expect(invoke).toHaveBeenCalledWith("performer_list", {}, undefined);
+  });
+
   it("loads video collection from the Tauri command boundary when available", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
