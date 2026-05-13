@@ -1,10 +1,11 @@
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::State;
+use tauri::{Scopes, State};
 
 use crate::database::{
     backup_runtime_database, restore_runtime_database, DatabaseBackupResult, DatabaseRestoreResult,
@@ -194,6 +195,13 @@ pub struct DeleteResult {
     pub deleted: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaAssetRootResult {
+    pub root_path: String,
+    pub success: bool,
+}
+
 #[tauri::command]
 pub fn database_backup(
     database: State<'_, RuntimeDatabase>,
@@ -208,6 +216,22 @@ pub fn database_restore(
     source_path: String,
 ) -> Result<DatabaseRestoreResult, String> {
     restore_runtime_database(&database, source_path)
+}
+
+#[tauri::command]
+pub fn media_asset_allow_root(
+    scopes: State<'_, Scopes>,
+    root_path: String,
+) -> Result<MediaAssetRootResult, String> {
+    let root_path = validate_media_asset_root(&root_path)?;
+    scopes
+        .allow_directory(&root_path, true)
+        .map_err(|error| format!("Unable to allow media asset root: {error}"))?;
+
+    Ok(MediaAssetRootResult {
+        root_path: root_path.display().to_string(),
+        success: true,
+    })
 }
 
 #[tauri::command]
@@ -784,6 +808,37 @@ fn delete_row(
     Ok(DeleteResult { id, deleted })
 }
 
+fn validate_media_asset_root(root_path: &str) -> Result<PathBuf, String> {
+    let trimmed = root_path.trim();
+    if trimmed.is_empty() {
+        return Err("Media asset root path is required".to_string());
+    }
+
+    let path = PathBuf::from(trimmed);
+    if !path.exists() {
+        return Err("Media asset root folder does not exist".to_string());
+    }
+    if !path.is_dir() {
+        return Err("Media asset root must be a folder".to_string());
+    }
+    if is_filesystem_root(&path) {
+        return Err("Media asset root cannot be a drive or filesystem root".to_string());
+    }
+
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve media asset root: {error}"))?;
+    if is_filesystem_root(&canonical_path) {
+        return Err("Media asset root cannot be a drive or filesystem root".to_string());
+    }
+
+    Ok(canonical_path)
+}
+
+fn is_filesystem_root(path: &Path) -> bool {
+    path.parent().is_none()
+}
+
 fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
     Ok(Video {
         id: row.get("id")?,
@@ -1169,6 +1224,48 @@ mod tests {
                 .expect_err("performer name error"),
             "Performer name is required"
         );
+    }
+
+    #[test]
+    fn media_asset_root_validation_requires_existing_non_root_folder() {
+        assert_eq!(
+            validate_media_asset_root(" ").expect_err("empty root should fail"),
+            "Media asset root path is required"
+        );
+
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-media-root-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create media root");
+
+        assert_eq!(
+            validate_media_asset_root(temp_root.join("missing").to_string_lossy().as_ref())
+                .expect_err("missing root should fail"),
+            "Media asset root folder does not exist"
+        );
+
+        let file_path = temp_root.join("cover.jpg");
+        std::fs::write(&file_path, "not an image").expect("write file");
+        assert_eq!(
+            validate_media_asset_root(file_path.to_string_lossy().as_ref())
+                .expect_err("file root should fail"),
+            "Media asset root must be a folder"
+        );
+
+        let filesystem_root = temp_root.ancestors().last().expect("filesystem root");
+        assert_eq!(
+            validate_media_asset_root(filesystem_root.to_string_lossy().as_ref())
+                .expect_err("filesystem root should fail"),
+            "Media asset root cannot be a drive or filesystem root"
+        );
+
+        let accepted = validate_media_asset_root(temp_root.to_string_lossy().as_ref())
+            .expect("existing folder should pass");
+        assert_eq!(accepted, temp_root.canonicalize().expect("canonical root"));
+
+        let _ = std::fs::remove_dir_all(temp_root);
     }
 
     fn empty_video_input() -> VideoInput {

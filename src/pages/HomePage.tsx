@@ -22,6 +22,7 @@ import {
 } from "../lib/homeData";
 import { listImages } from "../runtime/imageCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { listVideos } from "../runtime/videoCommands";
@@ -250,6 +251,7 @@ function HomePage() {
 }
 
 function RecentCard({ item }: { item: HomeRecentItem }) {
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(item.coverPath);
   const Icon = recentIcon(item.kind);
 
@@ -264,7 +266,7 @@ function RecentCard({ item }: { item: HomeRecentItem }) {
           item.kind === "performers" ? "aspect-[4/5]" : "aspect-video",
         ].join(" ")}
       >
-        {assetSrc ? (
+        {assetSrc && mediaAssetScopeReady ? (
           <img
             src={assetSrc}
             alt={`${item.title} cover`}

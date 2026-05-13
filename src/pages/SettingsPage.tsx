@@ -18,12 +18,18 @@ import {
   ImageUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
   selectDatabaseBackupDestination,
   selectDatabaseRestoreSource,
+  selectLocalFolder,
 } from "../runtime/dialogCommands";
+import {
+  allowMediaAssetRoot,
+  getStoredMediaAssetRoots,
+  storeMediaAssetRoots,
+} from "../runtime/mediaAssetScope";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type SettingsRow = {
@@ -51,6 +57,12 @@ type RestoreStatus =
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
+type MediaRootStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
 const appOverviewRows: SettingsRow[] = [
   { label: "App Name", value: "Sakurava", icon: Tag },
   { label: "Version", value: "1.0.0 MVP", icon: ShieldCheck },
@@ -75,24 +87,6 @@ const featureStatusRows: SettingsRow[] = [
   { label: "Safe Delete", value: "Single-record confirmation enabled", icon: ShieldCheck },
 ];
 
-const thumbnailRows: SettingsRow[] = [
-  {
-    label: "Manual thumbnail rendering",
-    value: "Enabled",
-    icon: ImageUp,
-  },
-  {
-    label: "Asset access scope",
-    value: "Pictures, Videos, Documents, and Downloads",
-    icon: Folder,
-  },
-  {
-    label: "Browser preview thumbnails",
-    value: "Placeholders only",
-    icon: CloudOff,
-  },
-];
-
 const plannedActionRows: SettingsRow[] = [
   { label: "Backup / Restore", value: "Planned / disabled", icon: FileArchive },
   { label: "Import / Export", value: "Planned / disabled", icon: FileInput },
@@ -115,11 +109,42 @@ function SettingsPage() {
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>({
     state: "idle",
   });
+  const [mediaRoots, setMediaRoots] = useState<string[]>([]);
+  const [mediaRootStatus, setMediaRootStatus] = useState<MediaRootStatus>({
+    state: "idle",
+  });
   const isBackupPending = backupStatus.state === "pending";
   const isRestorePending = restoreStatus.state === "pending";
+  const isMediaRootPending = mediaRootStatus.state === "pending";
   const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
   const canRestoreDatabase =
     isDesktopRuntime && !isBackupPending && !isRestorePending;
+  const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
+  const thumbnailRows: SettingsRow[] = [
+    {
+      label: "Manual thumbnail rendering",
+      value: "Enabled",
+      icon: ImageUp,
+    },
+    {
+      label: "Asset access scope",
+      value:
+        mediaRoots.length > 0
+          ? "Pictures, Videos, Documents, Downloads, and configured media roots"
+          : "Pictures, Videos, Documents, and Downloads",
+      icon: Folder,
+    },
+    {
+      label: "Configured media roots",
+      value: mediaRoots.length > 0 ? `${mediaRoots.length} configured` : "None",
+      icon: Folder,
+    },
+    {
+      label: "Browser preview thumbnails",
+      value: "Placeholders only",
+      icon: CloudOff,
+    },
+  ];
   const runtimeRows: SettingsRow[] = [
     {
       label: "App mode",
@@ -143,6 +168,10 @@ function SettingsPage() {
     },
     { label: "Storage mode", value: "Local only", icon: HardDrive },
   ];
+
+  useEffect(() => {
+    setMediaRoots(getStoredMediaAssetRoots());
+  }, []);
 
   async function handleBackupData() {
     if (!canBackUpDatabase) {
@@ -250,6 +279,61 @@ function SettingsPage() {
     }
   }
 
+  async function handleAddMediaRoot() {
+    if (!canAddMediaRoot) {
+      return;
+    }
+
+    setMediaRootStatus({ state: "pending" });
+
+    try {
+      const selectedPath = await selectLocalFolder();
+      if (!selectedPath) {
+        setMediaRootStatus({ state: "idle" });
+        return;
+      }
+
+      const result = await allowMediaAssetRoot(selectedPath);
+      if (hasMediaRoot(mediaRoots, result.rootPath)) {
+        setMediaRootStatus({
+          state: "success",
+          message: `${displayMediaRootPath(result.rootPath)} is already configured.`,
+        });
+        return;
+      }
+
+      const nextRoots = [...mediaRoots, result.rootPath];
+      storeMediaAssetRoots(nextRoots);
+      setMediaRoots(nextRoots);
+      setMediaRootStatus({
+        state: "success",
+        message: `Media root enabled for thumbnails: ${displayMediaRootPath(result.rootPath)}`,
+      });
+    } catch (error) {
+      setMediaRootStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Media root was not enabled.",
+      });
+    }
+  }
+
+  function handleRemoveMediaRoot(rootPath: string) {
+    const nextRoots = mediaRoots.filter(
+      (root) => mediaRootKey(root) !== mediaRootKey(rootPath),
+    );
+    storeMediaAssetRoots(nextRoots);
+    setMediaRoots(nextRoots);
+    setMediaRootStatus({
+      state: "success",
+      message: "Removed roots stop being restored after restart.",
+    });
+  }
+
   return (
     <div className="space-y-6">
       <header>
@@ -270,7 +354,20 @@ function SettingsPage() {
           isDesktopRuntime ? "Database Available" : "Database Unavailable",
         ]}
       />
-      <SettingsCard title="Thumbnails & Local Assets" rows={thumbnailRows} />
+      <SettingsCard
+        title="Thumbnails & Local Assets"
+        rows={thumbnailRows}
+        actions={[
+          {
+            label: isMediaRootPending ? "Adding Media Root..." : "Add Media Root",
+            disabled: !canAddMediaRoot,
+            onClick: handleAddMediaRoot,
+          },
+        ]}
+        mediaRootStatus={mediaRootStatus}
+        mediaRoots={mediaRoots}
+        onRemoveMediaRoot={handleRemoveMediaRoot}
+      />
       <SettingsCard
         title="Data Safety"
         rows={dataSafetyRows}
@@ -321,6 +418,9 @@ function SettingsCard({
   disabledActions,
   backupStatus,
   restoreStatus,
+  mediaRootStatus,
+  mediaRoots,
+  onRemoveMediaRoot,
   onCancelRestore,
   onConfirmRestore,
   note,
@@ -332,6 +432,9 @@ function SettingsCard({
   disabledActions?: string[];
   backupStatus?: BackupStatus;
   restoreStatus?: RestoreStatus;
+  mediaRootStatus?: MediaRootStatus;
+  mediaRoots?: string[];
+  onRemoveMediaRoot?: (rootPath: string) => void;
   onCancelRestore?: () => void;
   onConfirmRestore?: () => void;
   note?: string;
@@ -360,7 +463,11 @@ function SettingsCard({
           <SettingsInfoRow key={row.label} row={row} />
         ))}
       </div>
+      {mediaRoots && onRemoveMediaRoot && (
+        <MediaRootList roots={mediaRoots} onRemove={onRemoveMediaRoot} />
+      )}
       <SettingsStatusMessage status={backupStatus} kind="backup" />
+      <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
       {restoreStatus?.state === "confirming" && (
         <div className="space-y-4 border-t border-slate-200 px-6 py-4">
           <div className="space-y-2 text-sm leading-6 text-slate-600">
@@ -393,22 +500,30 @@ function SettingsCard({
       )}
       <SettingsStatusMessage status={restoreStatus} kind="restore" />
       {actions && (
-        <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-4">
-          {actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              disabled={action.disabled}
-              onClick={action.onClick}
-              className={`h-10 rounded-lg border px-4 text-sm font-semibold ${
-                action.disabled
-                  ? "border-slate-200 bg-slate-100 text-slate-400"
-                  : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
-              }`}
-            >
-              {action.label}
-            </button>
-          ))}
+        <div className="space-y-3 border-t border-slate-200 px-4 py-4">
+          {mediaRoots && (
+            <p className="text-sm font-medium leading-6 text-slate-500">
+              Choose a folder, not a drive root. Example: D:\Sakurava Media.
+              Files inside that folder and its subfolders can be used for thumbnails.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            {actions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                disabled={action.disabled}
+                onClick={action.onClick}
+                className={`h-10 rounded-lg border px-4 text-sm font-semibold ${
+                  action.disabled
+                    ? "border-slate-200 bg-slate-100 text-slate-400"
+                    : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+                }`}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       {disabledActions && (
@@ -438,8 +553,8 @@ function SettingsStatusMessage({
   status,
   kind,
 }: {
-  status?: BackupStatus | RestoreStatus;
-  kind: "backup" | "restore";
+  status?: BackupStatus | RestoreStatus | MediaRootStatus;
+  kind: "backup" | "restore" | "mediaRoot";
 }) {
   if (!status || status.state === "idle" || status.state === "confirming") {
     return null;
@@ -447,7 +562,11 @@ function SettingsStatusMessage({
 
   const isError = status.state === "error";
   const pendingMessage =
-    kind === "backup" ? "Creating database backup..." : "Restoring database...";
+    kind === "backup"
+      ? "Creating database backup..."
+      : kind === "restore"
+        ? "Restoring database..."
+        : "Adding media root...";
 
   return (
     <p
@@ -505,6 +624,57 @@ function AboutCard() {
       </div>
     </section>
   );
+}
+
+function MediaRootList({
+  roots,
+  onRemove,
+}: {
+  roots: string[];
+  onRemove: (rootPath: string) => void;
+}) {
+  return (
+    <div className="border-t border-slate-200 px-6 py-4">
+      {roots.length === 0 ? (
+        <p className="text-sm font-medium text-slate-500">
+          No additional media roots configured.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {roots.map((root) => (
+            <div
+              key={root}
+              className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="min-w-0 break-all text-sm font-semibold text-slate-600">
+                {displayMediaRootPath(root)}
+              </p>
+              <button
+                type="button"
+                onClick={() => onRemove(root)}
+                className="h-8 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:border-rose-200 hover:text-rose-600"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function hasMediaRoot(currentRoots: string[], nextRoot: string) {
+  const nextKey = mediaRootKey(nextRoot);
+  return currentRoots.some((root) => mediaRootKey(root) === nextKey);
+}
+
+function mediaRootKey(rootPath: string) {
+  return displayMediaRootPath(rootPath).replace(/\//g, "\\").toLocaleLowerCase();
+}
+
+function displayMediaRootPath(rootPath: string) {
+  return rootPath.trim().replace(/^\\\\\?\\UNC\\/i, "\\\\").replace(/^\\\\\?\\/i, "");
 }
 
 export default SettingsPage;

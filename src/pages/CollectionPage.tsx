@@ -12,6 +12,7 @@ import { type ChangeEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
 type CollectionPageProps = {
   config: CollectionConfig;
@@ -377,12 +378,13 @@ function PlaceholderMedia({
   favorite: boolean;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(coverPath);
-  const showImage = Boolean(assetSrc && !imageFailed);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   useEffect(() => {
     setImageFailed(false);
-  }, [assetSrc]);
+  }, [assetSrc, mediaAssetScopeReady]);
 
   return (
     <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 via-white to-slate-100">

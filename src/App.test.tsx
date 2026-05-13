@@ -18,6 +18,7 @@ describe("App", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
+    window.localStorage.clear();
     dialogMocks.open.mockReset();
     dialogMocks.save.mockReset();
   });
@@ -230,6 +231,101 @@ describe("App", () => {
     expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
     expect(screen.getByText("Available")).toBeInTheDocument();
     expect(screen.getByText("Database Available")).toBeInTheDocument();
+  });
+
+  it("adds a configured media root from the Settings folder picker", async () => {
+    window.history.pushState({}, "", "/settings");
+    const selectedRoot = "D:/Sakurava Media";
+    const canonicalRoot = "\\\\?\\D:\\Sakurava Media";
+    const displayRoot = "D:\\Sakurava Media";
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "media_asset_allow_root") {
+        expect(args.rootPath).toBe(selectedRoot);
+        return {
+          rootPath: canonicalRoot,
+          success: true,
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.open.mockResolvedValue(selectedRoot);
+
+    render(<App />);
+
+    const addMediaRootButton = screen.getByRole("button", {
+      name: "Add Media Root",
+    });
+    expect(addMediaRootButton).toBeEnabled();
+    fireEvent.click(addMediaRootButton);
+
+    await waitFor(() =>
+      expect(screen.getByText(displayRoot)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(canonicalRoot)).not.toBeInTheDocument();
+    expect(dialogMocks.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Select Folder",
+        multiple: false,
+        directory: true,
+      }),
+    );
+    expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
+      JSON.stringify([canonicalRoot]),
+    );
+    expect(screen.getByText("1 configured")).toBeInTheDocument();
+    expect(screen.getByText(/choose a folder, not a drive root/i)).toBeInTheDocument();
+  });
+
+  it("does not duplicate and can remove a configured media root", async () => {
+    window.history.pushState({}, "", "/settings");
+    const canonicalRoot = "\\\\?\\D:\\FOTO PRODUK";
+    const displayRoot = "D:\\FOTO PRODUK";
+    window.localStorage.setItem(
+      "sakurava.mediaAssetRoots.v1",
+      JSON.stringify([canonicalRoot]),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "media_asset_allow_root") {
+        return {
+          rootPath: canonicalRoot,
+          success: true,
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+    dialogMocks.open.mockResolvedValue("D:/FOTO PRODUK");
+
+    render(<App />);
+
+    expect(screen.getByText(displayRoot)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Media Root" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(`${displayRoot} is already configured.`)).toBeInTheDocument(),
+    );
+    expect(screen.getAllByText(displayRoot)).toHaveLength(1);
+    expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
+      JSON.stringify([canonicalRoot]),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    expect(screen.queryByText(displayRoot)).not.toBeInTheDocument();
+    expect(screen.getByText("None")).toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
+      JSON.stringify([]),
+    );
+    expect(
+      screen.getByText("Removed roots stop being restored after restart."),
+    ).toBeInTheDocument();
   });
 
   it("cancels database backup without calling the backup command", async () => {
@@ -1413,6 +1509,52 @@ describe("App", () => {
       expect(screen.queryByLabelText(placeholder)).not.toBeInTheDocument();
     },
   );
+
+  it("waits for stored media roots before rendering collection cover images", async () => {
+    window.history.pushState({}, "", "/videos");
+    window.localStorage.setItem(
+      "sakurava.mediaAssetRoots.v1",
+      JSON.stringify(["D:/Sakurava"]),
+    );
+    const record = persistedVideo({
+      title: "Restart Cover Video",
+      coverPath: "D:/Sakurava/video-cover.jpg",
+    });
+    let resolveMediaRoot!: (value: { rootPath: string; success: boolean }) => void;
+    const mediaRootPromise = new Promise<{ rootPath: string; success: boolean }>(
+      (resolve) => {
+        resolveMediaRoot = resolve;
+      },
+    );
+    const invoke = vi.fn(async (incomingCommand: string) => {
+      if (incomingCommand === "media_asset_allow_root") {
+        return mediaRootPromise;
+      }
+      if (incomingCommand === "video_list") {
+        return [record];
+      }
+
+      throw new Error(`Unexpected command ${incomingCommand}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Restart Cover Video")).toBeInTheDocument();
+    expect(
+      screen.queryByAltText("Restart Cover Video cover"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+
+    resolveMediaRoot({ rootPath: "D:\\Sakurava", success: true });
+
+    const image = await screen.findByAltText("Restart Cover Video cover");
+    expect(image).toHaveAttribute("src", `asset://localhost/${record.coverPath}`);
+    expect(screen.queryByLabelText("Cover Placeholder")).not.toBeInTheDocument();
+  });
 
   it.each([
     {
