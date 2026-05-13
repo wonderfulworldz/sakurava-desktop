@@ -72,10 +72,10 @@ function CollectionPage({ config }: CollectionPageProps) {
           {viewMode === "card" ? (
             <section
               className={[
-                "grid gap-4 sm:grid-cols-2 lg:grid-cols-4",
+                "grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]",
                 config.kind === "performers"
-                  ? "2xl:grid-cols-6"
-                  : "2xl:grid-cols-5",
+                  ? "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]"
+                  : "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]",
               ].join(" ")}
             >
               {pageItems.map((item) => (
@@ -151,7 +151,7 @@ function CollectionToolbar({
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3">
-      <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_230px_230px_auto] lg:items-center">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_minmax(180px,230px)_minmax(180px,230px)_auto] xl:items-center">
         <label className="relative block">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -181,7 +181,7 @@ function CollectionToolbar({
           onChange={onSortChange}
         />
 
-        <div className="flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white p-1">
+        <div className="flex h-11 items-center justify-center justify-self-start rounded-lg border border-slate-200 bg-white p-1 md:justify-self-end xl:justify-self-auto">
           <button
             className={[
               "flex size-9 items-center justify-center rounded-md",
@@ -231,7 +231,7 @@ function SelectBox({
 }) {
   return (
     <label
-      className="flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3"
+      className="flex h-11 min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3"
       htmlFor={id}
     >
       <span className="shrink-0 text-xs font-semibold text-slate-500">
