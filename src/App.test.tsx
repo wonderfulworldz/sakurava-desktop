@@ -249,9 +249,12 @@ describe("App", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Category management is planned and not active in this batch."),
+      screen.getByText(
+        "Add Category is active locally. Rename and delete category management is planned and not active in this batch.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Add Category/i })).toBeDisabled();
+    expect(screen.getByPlaceholderText("Category name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Category" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Rename Category/i })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: /Delete Unused Category/i }),
@@ -347,6 +350,72 @@ describe("App", () => {
     expect(
       screen.queryByText("Saved categories will appear here after records use them."),
     ).not.toBeInTheDocument();
+  });
+
+  it("adds a managed category in Settings localStorage", () => {
+    window.history.pushState({}, "", "/settings");
+
+    render(<App />);
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  Local Drama  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
+
+    expect(screen.getByText('Added category "Local Drama".')).toBeInTheDocument();
+    expect(screen.getByText("Managed Categories")).toBeInTheDocument();
+    expect(screen.getByText("Local Drama")).toBeInTheDocument();
+    expect(screen.getByText("Unused / 0 usage")).toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Local Drama"]',
+    );
+  });
+
+  it("rejects blank and duplicate managed categories", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ categoriesJson: '["Classic"]' })];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
+    expect(screen.getByText("Enter a category name.")).toBeInTheDocument();
+
+    expect(await screen.findByText("Classic")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: " classic " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
+
+    expect(screen.getByText("That category already exists.")).toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBeNull();
+  });
+
+  it("shows stored managed categories safely when localStorage is corrupt", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem("sakurava.managedCategories.v1", "{bad json");
+
+    render(<App />);
+
+    expect(screen.getByText("Catalog Settings")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "Recovered" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
+
+    expect(screen.getByText("Recovered")).toBeInTheDocument();
+    expect(screen.getByText("Unused / 0 usage")).toBeInTheDocument();
   });
 
   it("adds a configured media root from the Settings folder picker", async () => {
