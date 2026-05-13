@@ -19,18 +19,22 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
 import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
   selectDatabaseBackupDestination,
   selectDatabaseRestoreSource,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
+import { listImages } from "../runtime/imageCommands";
 import {
   allowMediaAssetRoot,
   getStoredMediaAssetRoots,
   storeMediaAssetRoots,
 } from "../runtime/mediaAssetScope";
+import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import { listVideos } from "../runtime/videoCommands";
 
 type SettingsRow = {
   label: string;
@@ -62,6 +66,12 @@ type MediaRootStatus =
   | { state: "pending" }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
+
+const emptyCategoryAudit = buildCategoryAudit({
+  videos: [],
+  images: [],
+  performers: [],
+});
 
 const appOverviewRows: SettingsRow[] = [
   { label: "App Name", value: "Sakurava", icon: Tag },
@@ -125,6 +135,8 @@ function SettingsPage() {
   const [mediaRootStatus, setMediaRootStatus] = useState<MediaRootStatus>({
     state: "idle",
   });
+  const [categoryAudit, setCategoryAudit] =
+    useState<CategoryAuditSummary>(emptyCategoryAudit);
   const isBackupPending = backupStatus.state === "pending";
   const isRestorePending = restoreStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
@@ -184,6 +196,39 @@ function SettingsPage() {
   useEffect(() => {
     setMediaRoots(getStoredMediaAssetRoots());
   }, []);
+
+  useEffect(() => {
+    if (!isDesktopRuntime) {
+      setCategoryAudit(emptyCategoryAudit);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadCategoryAudit() {
+      try {
+        const [videos, images, performers] = await Promise.all([
+          listVideos(),
+          listImages(),
+          listPerformers(),
+        ]);
+
+        if (!cancelled) {
+          setCategoryAudit(buildCategoryAudit({ videos, images, performers }));
+        }
+      } catch {
+        if (!cancelled) {
+          setCategoryAudit(emptyCategoryAudit);
+        }
+      }
+    }
+
+    void loadCategoryAudit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDesktopRuntime]);
 
   async function handleBackupData() {
     if (!canBackUpDatabase) {
@@ -400,6 +445,7 @@ function SettingsPage() {
         onCancelRestore={() => setRestoreStatus({ state: "idle" })}
         onConfirmRestore={handleConfirmRestore}
       />
+      <CatalogSettingsCard audit={categoryAudit} />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
         title="Planned Tools"
@@ -568,6 +614,87 @@ function SettingsCard({
         </p>
       )}
     </section>
+  );
+}
+
+function CatalogSettingsCard({ audit }: { audit: CategoryAuditSummary }) {
+  const hasCategories = audit.rows.length > 0;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 px-6 py-4">
+        <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+          Catalog Settings
+        </h2>
+      </div>
+      <div className="space-y-4 px-6 py-4">
+        <div>
+          <h3 className="text-base font-semibold text-slate-800">
+            Categories Audit
+          </h3>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Add, rename, and delete category management is planned and not active in this batch.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          <CategoryAuditMetric label="Total unique categories" value={audit.totalUnique} />
+          <CategoryAuditMetric label="Categories used by Videos" value={audit.videoCategories} />
+          <CategoryAuditMetric label="Categories used by Images" value={audit.imageCategories} />
+          <CategoryAuditMetric
+            label="Categories used by Performers"
+            value={audit.performerCategories}
+          />
+        </div>
+
+        {hasCategories ? (
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(72px,0.7fr))] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+              <span>Category</span>
+              <span>Videos</span>
+              <span>Images</span>
+              <span>Performers</span>
+              <span>Total</span>
+            </div>
+            <div className="divide-y divide-slate-200">
+              {audit.rows.map((row) => (
+                <div
+                  key={row.name.toLowerCase()}
+                  className="grid grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(72px,0.7fr))] gap-2 px-3 py-2 text-sm"
+                >
+                  <span className="break-words font-semibold text-slate-700">
+                    {row.name}
+                  </span>
+                  <span className="font-medium text-slate-500">{row.videos}</span>
+                  <span className="font-medium text-slate-500">{row.images}</span>
+                  <span className="font-medium text-slate-500">{row.performers}</span>
+                  <span className="font-semibold text-slate-700">{row.total}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
+            Saved categories will appear here after records use them.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CategoryAuditMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+    </div>
   );
 }
 

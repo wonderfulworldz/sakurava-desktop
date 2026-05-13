@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
 
@@ -215,6 +215,8 @@ describe("App", () => {
     expect(screen.getByText("Runtime & Database")).toBeInTheDocument();
     expect(screen.getByText("Thumbnails & Local Assets")).toBeInTheDocument();
     expect(screen.getByText("Data Safety")).toBeInTheDocument();
+    expect(screen.getByText("Catalog Settings")).toBeInTheDocument();
+    expect(screen.getByText("Categories Audit")).toBeInTheDocument();
     expect(screen.getByText("MVP Feature Status")).toBeInTheDocument();
     expect(screen.getByText("Planned Tools")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
@@ -237,6 +239,14 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Placeholders only")).toBeInTheDocument();
     expect(screen.getByText("Local device only")).toBeInTheDocument();
+    expect(
+      screen.getByText("Saved categories will appear here after records use them."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Add, rename, and delete category management is planned and not active in this batch.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
     expect(screen.getByText("Light Mode")).toBeInTheDocument();
     expect(screen.getByText("Dark Mode")).toBeInTheDocument();
@@ -279,6 +289,55 @@ describe("App", () => {
     expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
     expect(screen.getByText("Available")).toBeInTheDocument();
     expect(screen.getByText("Database Available")).toBeInTheDocument();
+  });
+
+  it("renders the Catalog Settings categories audit from runtime records", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({ categoriesJson: '["Classic", "Favorite"]' }),
+          persistedVideo({ categoriesJson: '["favorite", "Invalid Duplicate"]' }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({ categoriesJson: '["Favorite", "Portrait", 7]' }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({ categoriesJson: '["portrait", "Featured"]' }),
+          persistedPerformer({ categoriesJson: "{bad json" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Invalid Duplicate")).toBeInTheDocument();
+    const catalogSettings = screen
+      .getByText("Catalog Settings")
+      .closest("section");
+    expect(catalogSettings).not.toBeNull();
+    const catalog = within(catalogSettings as HTMLElement);
+
+    expect(catalog.getByText("Total unique categories")).toBeInTheDocument();
+    expect(catalog.getByText("Categories used by Videos")).toBeInTheDocument();
+    expect(catalog.getByText("Categories used by Images")).toBeInTheDocument();
+    expect(catalog.getByText("Categories used by Performers")).toBeInTheDocument();
+    expect(catalog.getByText("Classic")).toBeInTheDocument();
+    expect(catalog.getByText("Favorite")).toBeInTheDocument();
+    expect(catalog.getByText("Portrait")).toBeInTheDocument();
+    expect(catalog.getByText("Featured")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Saved categories will appear here after records use them."),
+    ).not.toBeInTheDocument();
   });
 
   it("adds a configured media root from the Settings folder picker", async () => {
@@ -475,7 +534,9 @@ describe("App", () => {
 
     resolveDestination("D:/Backups/sakurava-backup.sqlite");
     await screen.findByText("Backup created at D:/Backups/sakurava-backup.sqlite");
-    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(
+      invoke.mock.calls.filter(([command]) => command === "database_backup"),
+    ).toHaveLength(1);
   });
 
   it("shows an error when database backup fails", async () => {
@@ -698,7 +759,9 @@ describe("App", () => {
     });
     expect(pendingButton).toBeDisabled();
     fireEvent.click(pendingButton);
-    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(
+      invoke.mock.calls.filter(([command]) => command === "database_restore"),
+    ).toHaveLength(1);
 
     resolveRestore({
       sourcePath,
