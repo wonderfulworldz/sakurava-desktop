@@ -135,7 +135,7 @@ describe("App", () => {
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
     expect(screen.getByText("Categories")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("All categories")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("30");
     for (const pageSize of ["30", "60", "90", "120"]) {
       expect(screen.getByRole("option", { name: pageSize })).toBeInTheDocument();
@@ -1296,10 +1296,17 @@ describe("App", () => {
 
     expect(screen.getByText("Classic Video")).toBeInTheDocument();
     expect(screen.queryByText("Modern Video")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Category A" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Category A" }));
+
+    expect(screen.getByText("Classic Video")).toBeInTheDocument();
+    expect(screen.getByText("Modern Video")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Categories"), {
-      target: { value: "All categories" },
+      target: { value: "Category B" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
 
     expect(screen.getByText("Classic Video")).toBeInTheDocument();
     expect(screen.getByText("Modern Video")).toBeInTheDocument();
@@ -1360,6 +1367,69 @@ describe("App", () => {
     expect(screen.getByText("No matching items")).toBeInTheDocument();
   });
 
+  it("applies category multi-filter with AND behavior and caps active filters", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Two Category Video",
+            categoriesJson: '["Category A", "Category B"]',
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Single Category Video",
+            categoriesJson: '["Category A"]',
+          }),
+          persistedVideo({
+            id: "video_3",
+            title: "Five Category Video",
+            categoriesJson:
+              '["Category A", "Category B", "Category C", "Category D", "Category E"]',
+          }),
+          persistedVideo({
+            id: "video_4",
+            title: "Sixth Category Video",
+            categoriesJson: '["Category F"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Two Category Video")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category B" },
+    });
+
+    expect(screen.getByText("Two Category Video")).toBeInTheDocument();
+    expect(screen.getByText("Five Category Video")).toBeInTheDocument();
+    expect(screen.queryByText("Single Category Video")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sixth Category Video")).not.toBeInTheDocument();
+
+    for (const category of ["Category C", "Category D", "Category E"]) {
+      fireEvent.change(screen.getByLabelText("Categories"), {
+        target: { value: category },
+      });
+    }
+
+    expect(screen.getByText("Five Category Video")).toBeInTheDocument();
+    expect(screen.queryByText("Two Category Video")).not.toBeInTheDocument();
+    expect(screen.getByText("Up to 5 category filters can be active.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Categories")).toBeDisabled();
+  });
+
   it("applies pagination after category filter and resets to page one", async () => {
     window.history.pushState({}, "", "/videos");
     const categoryAVideos = Array.from({ length: 31 }, (_, index) =>
@@ -1392,9 +1462,13 @@ describe("App", () => {
 
     expect(await screen.findByText("Category A Video 01")).toBeInTheDocument();
 
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Category A Video 31")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category B" },
     });

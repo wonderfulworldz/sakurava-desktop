@@ -8,7 +8,7 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
@@ -22,14 +22,21 @@ type ViewMode = "card" | "table";
 
 function CollectionPage({ config }: CollectionPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterValue, setFilterValue] = useState(config.filterOptions[0] ?? "");
+  const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
   const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
   const [pageSize, setPageSize] = useState("30");
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const categoryOptions = useMemo(
+    () => getCategoryOptions(config.items),
+    [config.items],
+  );
 
   const sortedItems = sortItems(
-    filterByCategory(filterItems(config.items, searchQuery), filterValue, config),
+    filterByCategories(
+      filterItems(config.items, searchQuery),
+      activeCategoryFilters,
+    ),
     sortValue,
   );
   const numericPageSize = Number(pageSize);
@@ -44,23 +51,56 @@ function CollectionPage({ config }: CollectionPageProps) {
     setPage(1);
   }
 
+  function addCategoryFilter(category: string) {
+    if (
+      !category ||
+      activeCategoryFilters.length >= 5 ||
+      hasCategoryFilter(activeCategoryFilters, category)
+    ) {
+      return;
+    }
+
+    setActiveCategoryFilters([...activeCategoryFilters, category]);
+    resetToFirstPage();
+  }
+
+  function removeCategoryFilter(category: string) {
+    setActiveCategoryFilters(
+      activeCategoryFilters.filter(
+        (filter) => normalizeCategoryKey(filter) !== normalizeCategoryKey(category),
+      ),
+    );
+    resetToFirstPage();
+  }
+
+  function clearCategoryFilters() {
+    setActiveCategoryFilters([]);
+    resetToFirstPage();
+  }
+
+  useEffect(() => {
+    setActiveCategoryFilters((filters) =>
+      filters.filter((filter) => hasCategoryFilter(categoryOptions, filter)),
+    );
+  }, [categoryOptions]);
+
   return (
     <div className="space-y-6">
       <CollectionHeader config={config} />
       <CollectionToolbar
         config={config}
         searchQuery={searchQuery}
-        filterValue={filterValue}
+        categoryOptions={categoryOptions}
+        activeCategoryFilters={activeCategoryFilters}
         sortValue={sortValue}
         viewMode={viewMode}
         onSearchChange={(value) => {
           setSearchQuery(value);
           resetToFirstPage();
         }}
-        onFilterChange={(value) => {
-          setFilterValue(value);
-          resetToFirstPage();
-        }}
+        onAddCategoryFilter={addCategoryFilter}
+        onRemoveCategoryFilter={removeCategoryFilter}
+        onClearCategoryFilters={clearCategoryFilters}
         onSortChange={(value) => {
           setSortValue(value);
           resetToFirstPage();
@@ -133,23 +173,36 @@ function CollectionHeader({ config }: CollectionPageProps) {
 function CollectionToolbar({
   config,
   searchQuery,
-  filterValue,
+  categoryOptions,
+  activeCategoryFilters,
   sortValue,
   viewMode,
   onSearchChange,
-  onFilterChange,
+  onAddCategoryFilter,
+  onRemoveCategoryFilter,
+  onClearCategoryFilters,
   onSortChange,
   onViewModeChange,
 }: CollectionPageProps & {
   searchQuery: string;
-  filterValue: string;
+  categoryOptions: string[];
+  activeCategoryFilters: string[];
   sortValue: string;
   viewMode: ViewMode;
   onSearchChange: (value: string) => void;
-  onFilterChange: (value: string) => void;
+  onAddCategoryFilter: (value: string) => void;
+  onRemoveCategoryFilter: (value: string) => void;
+  onClearCategoryFilters: () => void;
   onSortChange: (value: string) => void;
   onViewModeChange: (value: ViewMode) => void;
 }) {
+  const selectableCategories = categoryOptions.filter(
+    (category) => !hasCategoryFilter(activeCategoryFilters, category),
+  );
+  const reachedCategoryLimit = activeCategoryFilters.length >= 5;
+  const categorySelectDisabled =
+    reachedCategoryLimit || selectableCategories.length === 0;
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_minmax(180px,230px)_minmax(180px,230px)_auto] xl:items-center">
@@ -170,9 +223,10 @@ function CollectionToolbar({
         <SelectBox
           id={`${config.kind}-filter`}
           label={config.filterLabel}
-          options={config.filterOptions}
-          value={filterValue}
-          onChange={onFilterChange}
+          options={["Add category filter", ...selectableCategories]}
+          value="Add category filter"
+          onChange={onAddCategoryFilter}
+          disabled={categorySelectDisabled}
         />
         <SelectBox
           id={`${config.kind}-sort`}
@@ -213,6 +267,41 @@ function CollectionToolbar({
           </button>
         </div>
       </div>
+
+      {(activeCategoryFilters.length > 0 || reachedCategoryLimit) && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          {activeCategoryFilters.map((category) => (
+            <span
+              key={normalizeCategoryKey(category)}
+              className="inline-flex max-w-full items-center gap-2 rounded-full bg-sakura-50 px-3 py-1.5 text-xs font-semibold text-sakura-700"
+            >
+              <span className="truncate">{category}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${category}`}
+                className="rounded-full text-sakura-500 hover:text-sakura-700"
+                onClick={() => onRemoveCategoryFilter(category)}
+              >
+                Remove
+              </button>
+            </span>
+          ))}
+          {activeCategoryFilters.length > 0 && (
+            <button
+              type="button"
+              className="text-xs font-semibold text-slate-500 hover:text-sakura-600"
+              onClick={onClearCategoryFilters}
+            >
+              Clear all
+            </button>
+          )}
+          {reachedCategoryLimit && (
+            <span className="text-xs font-semibold text-slate-500">
+              Up to 5 category filters can be active.
+            </span>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -223,12 +312,14 @@ function SelectBox({
   options,
   value,
   onChange,
+  disabled,
 }: {
   id: string;
   label: string;
   options: string[];
   value?: string;
   onChange?: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <label
@@ -240,7 +331,8 @@ function SelectBox({
       </span>
       <select
         id={id}
-        className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none"
+        className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none disabled:text-slate-400"
+        disabled={disabled}
         {...(value === undefined
           ? { defaultValue: options[0] }
           : {
@@ -619,22 +711,17 @@ function filterItems(items: CollectionItem[], searchQuery: string) {
   );
 }
 
-function filterByCategory(
-  items: CollectionItem[],
-  filterValue: string,
-  config: CollectionConfig,
-) {
-  if (!filterValue || filterValue === config.filterOptions[0]) {
+function filterByCategories(items: CollectionItem[], categoryFilters: string[]) {
+  if (categoryFilters.length === 0) {
     return items;
   }
 
-  const normalizedFilter = normalizeSearchText(filterValue);
+  const filterKeys = categoryFilters.map(normalizeCategoryKey);
 
-  return items.filter((item) =>
-    item.categories.some(
-      (category) => normalizeSearchText(category) === normalizedFilter,
-    ),
-  );
+  return items.filter((item) => {
+    const itemCategoryKeys = new Set(item.categories.map(normalizeCategoryKey));
+    return filterKeys.every((filterKey) => itemCategoryKeys.has(filterKey));
+  });
 }
 
 function sortItems(items: CollectionItem[], sortValue: string) {
@@ -737,6 +824,37 @@ function getSearchText(item: CollectionItem) {
   }
 
   return normalizeSearchText(fields.join(" "));
+}
+
+function getCategoryOptions(items: CollectionItem[]) {
+  const categoriesByKey = new Map<string, string>();
+
+  for (const item of items) {
+    for (const category of item.categories) {
+      const label = category.trim();
+      if (!label) {
+        continue;
+      }
+
+      const key = normalizeCategoryKey(label);
+      if (!categoriesByKey.has(key)) {
+        categoriesByKey.set(key, label);
+      }
+    }
+  }
+
+  return [...categoriesByKey.values()].sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function hasCategoryFilter(filters: string[], category: string) {
+  const categoryKey = normalizeCategoryKey(category);
+  return filters.some((filter) => normalizeCategoryKey(filter) === categoryKey);
+}
+
+function normalizeCategoryKey(category: string) {
+  return normalizeSearchText(category.trim());
 }
 
 function getPrimaryTitle(item: CollectionItem) {
