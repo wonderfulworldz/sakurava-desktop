@@ -26,6 +26,7 @@ export function buildImageDetailConfig(image: Image): ImageDetailConfig {
   return {
     ...baseConfig,
     editTo: `/images/${image.id}/edit`,
+    coverPath: image.coverPath,
     displayTitle: image.title,
     originalTitle: image.originalTitle,
     code: image.code || "No code",
@@ -100,6 +101,7 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
     key: image.id,
     title: image.title,
     originalTitle: image.originalTitle,
+    coverPath: image.coverPath,
     code: image.code || "No code",
     imageCount: formatImageCount(image.imageCount),
     availability: image.availability || "Unspecified",

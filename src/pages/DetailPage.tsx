@@ -14,9 +14,10 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DetailConfig, PerformerDetailConfig } from "../lib/detailData";
+import { localImagePathToAssetSrc } from "../runtime/localAsset";
 
 export type DetailDeleteAction = {
   itemLabel: string;
@@ -306,22 +307,44 @@ function LargePlaceholder({ config }: DetailPageProps) {
   const Icon = config.placeholderIcon;
   const aspectClass =
     config.kind === "performers" ? "aspect-[1.18/1]" : "aspect-video";
+  const [imageFailed, setImageFailed] = useState(false);
+  const assetSrc = localImagePathToAssetSrc(config.coverPath);
+  const showImage = Boolean(assetSrc && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc]);
 
   return (
     <div
-      className={`${aspectClass} flex min-h-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+      className={`${aspectClass} relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+      aria-label={showImage ? undefined : config.placeholderLabel}
     >
-      <div className="flex flex-col items-center gap-3">
-        <Icon size={config.kind === "performers" ? 86 : 74} strokeWidth={1.5} />
-        <div className="text-center">
-          <p className="text-sm font-medium text-slate-500">
-            {config.placeholderLabel}
-          </p>
-          {config.kind === "videos" && (
-            <p className="mt-2 text-sm text-slate-400">16:9</p>
-          )}
+      {showImage ? (
+        <img
+          src={assetSrc ?? undefined}
+          alt={`${config.displayTitle} ${
+            config.kind === "performers" ? "profile image" : "cover"
+          }`}
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <Icon
+            size={config.kind === "performers" ? 86 : 74}
+            strokeWidth={1.5}
+          />
+          <div className="text-center">
+            <p className="text-sm font-medium text-slate-500">
+              {config.placeholderLabel}
+            </p>
+            {config.kind === "videos" && (
+              <p className="mt-2 text-sm text-slate-400">16:9</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

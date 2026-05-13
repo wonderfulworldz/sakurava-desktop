@@ -755,6 +755,172 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      path: "/videos",
+      title: "Covered Video",
+      placeholder: "Cover Placeholder",
+      command: "video_list",
+      record: persistedVideo({
+        title: "Covered Video",
+        coverPath: "D:/Sakurava/video-cover.jpg",
+      }),
+    },
+    {
+      path: "/images",
+      title: "Covered Image",
+      placeholder: "Image Placeholder",
+      command: "image_list",
+      record: persistedImage({
+        title: "Covered Image",
+        coverPath: "D:/Sakurava/image-cover.jpg",
+      }),
+    },
+    {
+      path: "/performers",
+      title: "Covered Performer",
+      placeholder: "Profile Placeholder",
+      command: "performer_list",
+      record: persistedPerformer({
+        name: "Covered Performer",
+        coverPath: "D:/Sakurava/performer-cover.jpg",
+      }),
+    },
+  ])(
+    "renders runtime collection cover image for $path when conversion is available",
+    async ({ path, title, placeholder, command, record }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (incomingCommand: string) => {
+        if (incomingCommand === command) {
+          return [record];
+        }
+
+        throw new Error(`Unexpected command ${incomingCommand}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+        convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      };
+
+      render(<App />);
+
+      const image = await screen.findByAltText(`${title} cover`);
+      expect(image).toHaveAttribute("src", `asset://localhost/${record.coverPath}`);
+      expect(screen.queryByLabelText(placeholder)).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      alt: "Covered Video Detail cover",
+      command: "video_get",
+      record: persistedVideo({
+        title: "Covered Video Detail",
+        coverPath: "D:/Sakurava/video-detail-cover.jpg",
+      }),
+    },
+    {
+      path: "/images/image_test_001",
+      alt: "Covered Image Detail cover",
+      command: "image_get",
+      record: persistedImage({
+        title: "Covered Image Detail",
+        coverPath: "D:/Sakurava/image-detail-cover.jpg",
+      }),
+    },
+    {
+      path: "/performers/performer_test_001",
+      alt: "Covered Performer Detail profile image",
+      command: "performer_get",
+      record: persistedPerformer({
+        name: "Covered Performer Detail",
+        coverPath: "D:/Sakurava/performer-detail-cover.jpg",
+      }),
+    },
+  ])(
+    "renders runtime detail cover image for $path when conversion is available",
+    async ({ path, alt, command, record }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(
+        async (incomingCommand: string, args: Record<string, any>) => {
+          if (incomingCommand === command) {
+            expect(args.id).toBe(path.split("/").pop());
+            return record;
+          }
+
+          throw new Error(`Unexpected command ${incomingCommand}`);
+        },
+      ) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+        convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      };
+
+      render(<App />);
+
+      const image = await screen.findByAltText(alt);
+      expect(image).toHaveAttribute("src", `asset://localhost/${record.coverPath}`);
+    },
+  );
+
+  it("keeps collection placeholder when cover conversion is unavailable", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Unconverted Cover Video",
+            coverPath: "D:/Sakurava/unconverted-cover.jpg",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Unconverted Cover Video")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+    expect(
+      screen.queryByAltText("Unconverted Cover Video cover"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("falls back to collection placeholder when cover image loading fails", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Broken Cover Video",
+            coverPath: "D:/Sakurava/broken-cover.jpg",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    const image = await screen.findByAltText("Broken Cover Video cover");
+    fireEvent.error(image);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+    });
+    expect(screen.queryByAltText("Broken Cover Video cover")).not.toBeInTheDocument();
+  });
+
   it("creates a video through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/videos/new");
     const created = persistedVideo({
@@ -973,7 +1139,7 @@ describe("App", () => {
 
       await waitFor(() => expect(window.location.pathname).toBe(collectionPath));
       expect(
-        screen.getByRole("heading", { name: collectionHeading }),
+        await screen.findByRole("heading", { name: collectionHeading }),
       ).toBeInTheDocument();
       expect(invoke).toHaveBeenCalledWith(
         deleteCommand,

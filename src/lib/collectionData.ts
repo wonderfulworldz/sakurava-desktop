@@ -4,6 +4,7 @@ type BaseCollectionItem = {
   key: string;
   title: string;
   originalTitle: string;
+  coverPath?: string;
   favorite: boolean;
   availability?: string;
   censorship?: string;
@@ -26,6 +27,7 @@ export type PerformerCollectionItem = {
   key: string;
   name: string;
   originalName: string;
+  coverPath?: string;
   favorite: boolean;
   status: string;
   filmographyCount: string;
