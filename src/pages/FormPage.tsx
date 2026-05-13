@@ -14,6 +14,12 @@ import type {
   ReadOnlyField,
   TextField,
 } from "../lib/formData";
+import {
+  selectLocalFolder,
+  selectLocalImageFile,
+  selectLocalMediaFile,
+} from "../runtime/dialogCommands";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type FormPageProps = {
   config: FormConfig;
@@ -47,6 +53,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [aliasDraft, setAliasDraft] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
+  const canBrowsePaths = isTauriRuntimeAvailable();
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
@@ -66,6 +73,23 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
     setSaveState("idle");
+  }
+
+  async function browsePath(field: TextField) {
+    if (!canBrowsePaths) {
+      return;
+    }
+
+    try {
+      const selectedPath = await selectPathForField(config.kind, field.name);
+
+      if (selectedPath) {
+        updateValue(field.name, selectedPath);
+      }
+    } catch {
+      setSaveState("error");
+      setSaveMessage("Unable to open file picker.");
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -183,7 +207,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         <PerformerExtraSections
           config={config}
           values={values}
+          canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
+          browsePath={browsePath}
         />
       ) : (
         <CatalogExtraSections
@@ -193,7 +219,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           categoryDraft={categoryDraft}
           setCategories={setCategories}
           setCategoryDraft={setCategoryDraft}
+          canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
+          browsePath={browsePath}
         />
       )}
 
@@ -304,7 +332,9 @@ function CatalogExtraSections({
   categoryDraft,
   setCategories,
   setCategoryDraft,
+  canBrowsePaths,
   updateValue,
+  browsePath,
 }: {
   config: FormConfig;
   values: FormValues;
@@ -312,7 +342,9 @@ function CatalogExtraSections({
   categoryDraft: string;
   setCategories: Dispatch<SetStateAction<string[]>>;
   setCategoryDraft: Dispatch<SetStateAction<string>>;
+  canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
+  browsePath: (field: TextField) => void;
 }) {
   const pathTitle =
     config.kind === "images" ? "Cover & Folder Path" : "Cover & File Path";
@@ -347,7 +379,7 @@ function CatalogExtraSections({
       </FormSection>
       <FormSection index={3} title={pathTitle}>
         <p className="mb-3 text-xs font-medium text-slate-500">
-          Paths are saved as manual text. Browse buttons are unavailable in MVP.
+          Paths are saved as manual text. Browse selects a local path only.
         </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
@@ -356,7 +388,9 @@ function CatalogExtraSections({
               field={field}
               value={String(values[field.name] ?? "")}
               browseLabel={field.name === "mediaPath" ? "Browse Media" : field.name === "folderPath" ? "Browse Folder" : "Browse Cover"}
+              browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
+              onBrowse={() => browsePath(field)}
             />
           ))}
         </FieldGrid>
@@ -388,11 +422,15 @@ function CatalogExtraSections({
 function PerformerExtraSections({
   config,
   values,
+  canBrowsePaths,
   updateValue,
+  browsePath,
 }: {
   config: FormConfig;
   values: FormValues;
+  canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
+  browsePath: (field: TextField) => void;
 }) {
   const sections = config.performerSections;
 
@@ -413,7 +451,9 @@ function PerformerExtraSections({
               field={field}
               value={String(values[field.name] ?? "")}
               browseLabel="Browse Cover"
+              browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
+              onBrowse={() => browsePath(field)}
             />
           ))}
           {sections.media.map((field) => (
@@ -561,12 +601,16 @@ function PathInput({
   field,
   value,
   browseLabel,
+  browseDisabled,
   onChange,
+  onBrowse,
 }: {
   field: TextField;
   value: string;
   browseLabel: string;
+  browseDisabled: boolean;
   onChange: (value: string) => void;
+  onBrowse: () => void;
 }) {
   return (
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
@@ -575,13 +619,19 @@ function PathInput({
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
           <input
             className={inputClass(false)}
+            aria-label={field.label}
             value={value}
             onChange={(event) => onChange(event.target.value)}
           />
           <button
             type="button"
-            disabled
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-400"
+            disabled={browseDisabled}
+            onClick={onBrowse}
+            className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
+              browseDisabled
+                ? "border-slate-200 bg-slate-100 text-slate-400"
+                : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100"
+            }`}
           >
             {browseLabel}
           </button>
@@ -788,6 +838,18 @@ function inputClass(inactive: boolean) {
       ? "border-slate-200 bg-slate-100 text-slate-500"
       : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
   ].join(" ");
+}
+
+function selectPathForField(kind: FormConfig["kind"], fieldName: string) {
+  if (fieldName === "folderPath") {
+    return selectLocalFolder();
+  }
+
+  if (kind === "videos" && fieldName === "mediaPath") {
+    return selectLocalMediaFile();
+  }
+
+  return selectLocalImageFile();
 }
 
 function collectionLabel(kind: FormConfig["kind"]) {
