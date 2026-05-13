@@ -107,6 +107,12 @@ const languageRows: SettingsRow[] = [
   { label: "Indonesian", value: "Planned / disabled", icon: FileText },
 ];
 
+const welcomeSliderRows: SettingsRow[] = [
+  { label: "Default Welcome Image", value: "Current / default", icon: ImageIcon },
+  { label: "Custom Slider Images", value: "Planned / disabled", icon: ImageUp },
+  { label: "Slider Management", value: "Planned / disabled", icon: SlidersHorizontal },
+];
+
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
@@ -415,6 +421,11 @@ function SettingsPage() {
         title="Language"
         rows={languageRows}
         note="Language switching is planned and not active in this batch."
+      />
+      <SettingsCard
+        title="Welcome Slider"
+        rows={welcomeSliderRows}
+        note="Welcome slider customization is planned and not active in this batch."
       />
       <AboutCard />
     </div>

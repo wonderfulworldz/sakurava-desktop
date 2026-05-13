@@ -219,6 +219,7 @@ describe("App", () => {
     expect(screen.getByText("Planned Tools")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
     expect(screen.getByText("Language")).toBeInTheDocument();
+    expect(screen.getByText("Welcome Slider")).toBeInTheDocument();
     expect(screen.getByText("About Sakurava")).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
@@ -245,10 +246,16 @@ describe("App", () => {
       screen.getByText("Appearance switching is planned and not active in this batch."),
     ).toBeInTheDocument();
     expect(screen.getByText("English")).toBeInTheDocument();
-    expect(screen.getAllByText("Current / default")).toHaveLength(2);
     expect(screen.getByText("Indonesian")).toBeInTheDocument();
     expect(
       screen.getByText("Language switching is planned and not active in this batch."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Default Welcome Image")).toBeInTheDocument();
+    expect(screen.getAllByText("Current / default")).toHaveLength(3);
+    expect(screen.getByText("Custom Slider Images")).toBeInTheDocument();
+    expect(screen.getByText("Slider Management")).toBeInTheDocument();
+    expect(
+      screen.getByText("Welcome slider customization is planned and not active in this batch."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Restore Data" })).toBeDisabled();
