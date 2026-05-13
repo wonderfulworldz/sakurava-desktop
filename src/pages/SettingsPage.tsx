@@ -20,6 +20,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
+import {
+  addStoredManagedCategory,
+  getStoredManagedCategories,
+} from "../lib/managedCategories";
 import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
   selectDatabaseBackupDestination,
@@ -64,6 +68,11 @@ type RestoreStatus =
 type MediaRootStatus =
   | { state: "idle" }
   | { state: "pending" }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
+type CategoryStatus =
+  | { state: "idle" }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
@@ -137,6 +146,10 @@ function SettingsPage() {
   });
   const [categoryAudit, setCategoryAudit] =
     useState<CategoryAuditSummary>(emptyCategoryAudit);
+  const [managedCategories, setManagedCategories] = useState<string[]>([]);
+  const [managedCategoryInput, setManagedCategoryInput] = useState("");
+  const [managedCategoryStatus, setManagedCategoryStatus] =
+    useState<CategoryStatus>({ state: "idle" });
   const isBackupPending = backupStatus.state === "pending";
   const isRestorePending = restoreStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
@@ -195,6 +208,7 @@ function SettingsPage() {
 
   useEffect(() => {
     setMediaRoots(getStoredMediaAssetRoots());
+    setManagedCategories(getStoredManagedCategories());
   }, []);
 
   useEffect(() => {
@@ -391,6 +405,23 @@ function SettingsPage() {
     });
   }
 
+  function handleAddManagedCategory() {
+    const result = addStoredManagedCategory(
+      managedCategoryInput,
+      categoryAudit.rows.map((row) => row.name),
+    );
+
+    setManagedCategories(result.categories);
+    setManagedCategoryStatus({
+      state: result.state,
+      message: result.message,
+    });
+
+    if (result.state === "success") {
+      setManagedCategoryInput("");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header>
@@ -445,7 +476,17 @@ function SettingsPage() {
         onCancelRestore={() => setRestoreStatus({ state: "idle" })}
         onConfirmRestore={handleConfirmRestore}
       />
-      <CatalogSettingsCard audit={categoryAudit} />
+      <CatalogSettingsCard
+        audit={categoryAudit}
+        managedCategories={managedCategories}
+        managedCategoryInput={managedCategoryInput}
+        managedCategoryStatus={managedCategoryStatus}
+        onManagedCategoryInputChange={(value) => {
+          setManagedCategoryInput(value);
+          setManagedCategoryStatus({ state: "idle" });
+        }}
+        onAddManagedCategory={handleAddManagedCategory}
+      />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
         title="Planned Tools"
@@ -617,8 +658,28 @@ function SettingsCard({
   );
 }
 
-function CatalogSettingsCard({ audit }: { audit: CategoryAuditSummary }) {
+function CatalogSettingsCard({
+  audit,
+  managedCategories,
+  managedCategoryInput,
+  managedCategoryStatus,
+  onManagedCategoryInputChange,
+  onAddManagedCategory,
+}: {
+  audit: CategoryAuditSummary;
+  managedCategories: string[];
+  managedCategoryInput: string;
+  managedCategoryStatus: CategoryStatus;
+  onManagedCategoryInputChange: (value: string) => void;
+  onAddManagedCategory: () => void;
+}) {
   const hasCategories = audit.rows.length > 0;
+  const managedCategoryRows = managedCategories.map((category) => {
+    const usage =
+      audit.rows.find((row) => row.name.toLowerCase() === category.toLowerCase())
+        ?.total ?? 0;
+    return { category, usage };
+  });
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -685,11 +746,55 @@ function CatalogSettingsCard({ audit }: { audit: CategoryAuditSummary }) {
               Category Management
             </h3>
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Category management is planned and not active in this batch.
+              Add Category is active locally. Rename and delete category management is planned and not active in this batch.
             </p>
           </div>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <CategoryManagementAction label="Add Category" />
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">Category name</span>
+              <input
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                placeholder="Category name"
+                value={managedCategoryInput}
+                onChange={(event) =>
+                  onManagedCategoryInputChange(event.target.value)
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="h-10 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm shadow-sakura-100 transition hover:bg-sakura-600"
+              onClick={onAddManagedCategory}
+            >
+              Add Category
+            </button>
+          </div>
+          <SettingsStatusMessage status={managedCategoryStatus} kind="category" />
+
+          {managedCategoryRows.length > 0 && (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                Managed Categories
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {managedCategoryRows.map((row) => (
+                  <span
+                    key={row.category.toLowerCase()}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
+                  >
+                    <span className="break-words">{row.category}</span>
+                    <span className="text-slate-400">
+                      {row.usage === 0
+                        ? "Unused / 0 usage"
+                        : `${row.usage} usage`}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
             <CategoryManagementAction label="Rename Category" />
             <CategoryManagementAction label="Delete Unused Category" />
           </div>
@@ -733,8 +838,8 @@ function SettingsStatusMessage({
   status,
   kind,
 }: {
-  status?: BackupStatus | RestoreStatus | MediaRootStatus;
-  kind: "backup" | "restore" | "mediaRoot";
+  status?: BackupStatus | RestoreStatus | MediaRootStatus | CategoryStatus;
+  kind: "backup" | "restore" | "mediaRoot" | "category";
 }) {
   if (!status || status.state === "idle" || status.state === "confirming") {
     return null;
@@ -746,7 +851,9 @@ function SettingsStatusMessage({
       ? "Creating database backup..."
       : kind === "restore"
         ? "Restoring database..."
-        : "Adding media root...";
+        : kind === "mediaRoot"
+          ? "Adding media root..."
+          : "Adding category...";
 
   return (
     <p
