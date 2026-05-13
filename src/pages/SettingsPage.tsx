@@ -678,6 +678,22 @@ function CatalogSettingsCard({ audit }: { audit: CategoryAuditSummary }) {
             Saved categories will appear here after records use them.
           </p>
         )}
+
+        <div className="border-t border-slate-200 pt-4">
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">
+              Category Management
+            </h3>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              Category management is planned and not active in this batch.
+            </p>
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <CategoryManagementAction label="Add Category" />
+            <CategoryManagementAction label="Rename Category" />
+            <CategoryManagementAction label="Delete Unused Category" />
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -695,6 +711,21 @@ function CategoryAuditMetric({
       <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
     </div>
+  );
+}
+
+function CategoryManagementAction({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      disabled
+      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left text-sm font-semibold text-slate-400"
+    >
+      <span className="block text-slate-600">{label}</span>
+      <span className="mt-1 block text-xs font-semibold uppercase text-slate-400">
+        Planned / disabled
+      </span>
+    </button>
   );
 }
 

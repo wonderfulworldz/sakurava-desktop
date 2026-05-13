@@ -217,6 +217,7 @@ describe("App", () => {
     expect(screen.getByText("Data Safety")).toBeInTheDocument();
     expect(screen.getByText("Catalog Settings")).toBeInTheDocument();
     expect(screen.getByText("Categories Audit")).toBeInTheDocument();
+    expect(screen.getByText("Category Management")).toBeInTheDocument();
     expect(screen.getByText("MVP Feature Status")).toBeInTheDocument();
     expect(screen.getByText("Planned Tools")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
@@ -247,6 +248,14 @@ describe("App", () => {
         "Add, rename, and delete category management is planned and not active in this batch.",
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("Category management is planned and not active in this batch."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add Category/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Rename Category/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Delete Unused Category/i }),
+    ).toBeDisabled();
     expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
     expect(screen.getByText("Light Mode")).toBeInTheDocument();
     expect(screen.getByText("Dark Mode")).toBeInTheDocument();
