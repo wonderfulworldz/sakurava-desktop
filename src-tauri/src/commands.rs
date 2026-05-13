@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::State;
 
-use crate::database::{backup_runtime_database, DatabaseBackupResult, RuntimeDatabase};
+use crate::database::{
+    backup_runtime_database, restore_runtime_database, DatabaseBackupResult, DatabaseRestoreResult,
+    RuntimeDatabase,
+};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -197,6 +200,14 @@ pub fn database_backup(
     destination_path: String,
 ) -> Result<DatabaseBackupResult, String> {
     backup_runtime_database(&database, destination_path)
+}
+
+#[tauri::command]
+pub fn database_restore(
+    database: State<'_, RuntimeDatabase>,
+    source_path: String,
+) -> Result<DatabaseRestoreResult, String> {
+    restore_runtime_database(&database, source_path)
 }
 
 #[tauri::command]
