@@ -203,7 +203,7 @@ describe("App", () => {
       "Video Create Form",
       "Browse Cover",
       "Browse Media",
-      "Tech info is not detected in MVP.",
+      "Tech info is not detected or saved in MVP.",
       "Related Performer",
       "Rewatch",
     ],
@@ -212,7 +212,7 @@ describe("App", () => {
       "Video Edit Form",
       "Browse Cover",
       "Browse Media",
-      "Tech info is not detected in MVP.",
+      "Tech info is not detected or saved in MVP.",
       "Related Images",
       "Rewatch",
     ],
@@ -221,7 +221,7 @@ describe("App", () => {
       "Image Create Form",
       "Browse Cover",
       "Browse Folder",
-      "Folder analysis is not available in MVP.",
+      "Folder analysis is not detected or saved in MVP.",
       "Related Video",
       "Memorability",
     ],
@@ -230,7 +230,7 @@ describe("App", () => {
       "Image Edit Form",
       "Browse Cover",
       "Browse Folder",
-      "Folder analysis is not available in MVP.",
+      "Folder analysis is not detected or saved in MVP.",
       "Related Performer",
       "Memorability",
     ],
@@ -238,7 +238,7 @@ describe("App", () => {
       "/performers/new",
       "Performer Create Form",
       "Browse Cover",
-      "Thumbnail 1",
+      "Thumbnail 1 (planned)",
       "Related Videos",
       "Related Images",
       "Attraction",
@@ -247,7 +247,7 @@ describe("App", () => {
       "/performers/sample-id/edit",
       "Performer Edit Form",
       "Browse Cover",
-      "Thumbnail 1",
+      "Thumbnail 1 (planned)",
       "Related Videos",
       "Related Images",
       "Attraction",
@@ -267,6 +267,23 @@ describe("App", () => {
       expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
     },
   );
+
+  it("labels performer persisted and planned fields distinctly", () => {
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    expect(screen.getByLabelText("Filmography")).not.toBeDisabled();
+    expect(screen.getByLabelText("Pictorials")).not.toBeDisabled();
+    expect(screen.getByLabelText("Birth Date")).not.toBeDisabled();
+    expect(screen.getByLabelText("Years Active (planned)")).toBeDisabled();
+    expect(screen.getByLabelText("Birthplace (planned)")).toBeDisabled();
+    expect(screen.getByLabelText("Height (planned)")).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Birth date is saved. Other personal fields are planned and not saved in MVP.",
+      ),
+    ).toBeInTheDocument();
+  });
 
   it("allows local form typing, category chips, aliases, and ratings", () => {
     window.history.pushState({}, "", "/performers/new");
