@@ -94,11 +94,12 @@ const plannedActionRows: SettingsRow[] = [
   { label: "Advanced Settings", value: "Planned / disabled", icon: SlidersHorizontal },
 ];
 
-const uiPreferenceRows: SettingsRow[] = [
-  { label: "Theme", value: "Light mode", icon: Monitor },
+const appearanceRows: SettingsRow[] = [
+  { label: "Light Mode", value: "Current / default", icon: Monitor },
+  { label: "Dark Mode", value: "Planned / disabled", icon: Palette },
   { label: "Accent Color", value: "Sakura Pink", icon: Palette },
   { label: "Density", value: "Compact", icon: SlidersHorizontal },
-  { label: "Sidebar", value: "Expanded", icon: Folder },
+  { label: "Sidebar", value: "Expanded by default", icon: Folder },
 ];
 
 function SettingsPage() {
@@ -401,9 +402,9 @@ function SettingsPage() {
         ]}
       />
       <SettingsCard
-        title="UI Preferences"
-        rows={uiPreferenceRows}
-        note="Settings are read-only in this batch."
+        title="Appearance"
+        rows={appearanceRows}
+        note="Appearance switching is planned and not active in this batch."
       />
       <AboutCard />
     </div>
