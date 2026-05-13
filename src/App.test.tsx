@@ -27,9 +27,9 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava")).toHaveLength(1);
-    expect(
-      screen.getByPlaceholderText("Search videos, images, performers..."),
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Home search planned")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Home filters planned" }))
+      .toBeDisabled();
     expect(screen.getByText("Welcome to Sakurava")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /home/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /videos/i })).toBeInTheDocument();
@@ -40,6 +40,13 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(screen.getByText("Local mode")).toBeInTheDocument();
     expect(screen.getByText("Quick Actions")).toBeInTheDocument();
+    expect(
+      screen.getByText(/incomplete records that need thumbnails/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/No recent records yet/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/configured local asset scope/i),
+    ).toBeInTheDocument();
   });
 
   it.each([

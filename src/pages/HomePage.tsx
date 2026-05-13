@@ -29,19 +29,21 @@ import { listVideos } from "../runtime/videoCommands";
 type HomeData = {
   summaryCards: HomeSummaryCard[];
   recentlyAdded: HomeRecentItem[];
+  loading: boolean;
 };
 
 function HomePage() {
   const [homeData, setHomeData] = useState<HomeData>({
     summaryCards,
     recentlyAdded,
+    loading: isTauriRuntimeAvailable(),
   });
 
   useEffect(() => {
     let cancelled = false;
 
     if (!isTauriRuntimeAvailable()) {
-      setHomeData({ summaryCards, recentlyAdded });
+      setHomeData({ summaryCards, recentlyAdded, loading: false });
       return;
     }
 
@@ -51,12 +53,13 @@ function HomePage() {
           setHomeData({
             summaryCards: buildHomeSummaryCards({ videos, images, performers }),
             recentlyAdded: buildRecentlyAdded({ videos, images, performers }),
+            loading: false,
           });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setHomeData({ summaryCards, recentlyAdded });
+          setHomeData({ summaryCards, recentlyAdded, loading: false });
         }
       });
 
@@ -78,15 +81,18 @@ function HomePage() {
                 size={19}
               />
               <input
-                className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-slate-600 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                placeholder="Search videos, images, performers..."
-                aria-label="Search videos, images, performers"
+                className="h-12 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-medium text-slate-500 outline-none placeholder:text-slate-400"
+                placeholder="Home search planned"
+                aria-label="Home search planned"
+                disabled
               />
             </label>
             <button
               type="button"
-              className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm"
-              aria-label="Search filters placeholder"
+              className="flex size-12 shrink-0 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 shadow-sm"
+              aria-label="Home filters planned"
+              disabled
+              title="Home filters planned"
             >
               <SlidersHorizontal size={19} />
             </button>
@@ -191,19 +197,26 @@ function HomePage() {
           <h2 className="text-base font-semibold text-slate-950">
             Continue Cataloging
           </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {continueItems.map((item) => (
-              <div
-                key={item}
-                className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4"
-              >
-                <div className="h-16 rounded-md bg-white" />
-                <p className="mt-3 text-sm font-medium text-slate-700">
-                  {item}
-                </p>
-              </div>
-            ))}
-          </div>
+          {continueItems.length > 0 ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {continueItems.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="h-16 rounded-md bg-white" />
+                  <p className="mt-3 text-sm font-medium text-slate-700">
+                    {item}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-6 text-slate-500">
+              Planned: incomplete records that need thumbnails, categories, or
+              important metadata will appear here.
+            </p>
+          )}
         </div>
       </section>
 
@@ -211,7 +224,11 @@ function HomePage() {
         <h2 className="text-base font-semibold text-slate-950">
           Recently Added
         </h2>
-        {homeData.recentlyAdded.length > 0 ? (
+        {homeData.loading ? (
+          <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
+            Loading recently added items...
+          </p>
+        ) : homeData.recentlyAdded.length > 0 ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {homeData.recentlyAdded.map((item) => (
               <RecentCard key={`${item.kind}-${item.key}`} item={item} />
@@ -219,9 +236,14 @@ function HomePage() {
           </div>
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-            Recently added items will appear here after records are saved.
+            No recent records yet. Videos, Images, and Performers will appear
+            here after they are saved.
           </p>
         )}
+        <p className="mt-3 text-xs font-medium text-slate-400">
+          Thumbnails outside the configured local asset scope may show an icon
+          placeholder.
+        </p>
       </section>
     </div>
   );
