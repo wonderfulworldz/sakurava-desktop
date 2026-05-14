@@ -70,6 +70,63 @@ export function addStoredManagedCategory(
   }
 }
 
+export function renameStoredManagedCategory(
+  currentName: string,
+  nextName: string,
+  categories: string[] = getStoredManagedCategories(),
+) {
+  const storedCategories = normalizeManagedCategories(categories);
+  const trimmedCurrentName = currentName.trim();
+  const currentKey = trimmedCurrentName.toLowerCase();
+
+  if (
+    !trimmedCurrentName ||
+    !storedCategories.some(
+      (category) => category.trim().toLowerCase() === currentKey,
+    )
+  ) {
+    return {
+      state: "error" as const,
+      message: "Managed category could not be found.",
+      categories: storedCategories,
+    };
+  }
+
+  const validation = validateManagedCategoryRename(
+    currentName,
+    nextName,
+    storedCategories,
+  );
+
+  if (validation.state === "invalid") {
+    return {
+      state: "error" as const,
+      message: validation.message,
+      categories: storedCategories,
+    };
+  }
+
+  const trimmedNextName = nextName.trim();
+  const renamedCategories = storedCategories.map((category) =>
+    category.trim().toLowerCase() === currentKey ? trimmedNextName : category,
+  );
+
+  try {
+    const nextCategories = storeManagedCategories(renamedCategories);
+    return {
+      state: "success" as const,
+      message: `Renamed managed category "${trimmedCurrentName}" to "${trimmedNextName}". Existing record categories were not changed.`,
+      categories: nextCategories,
+    };
+  } catch {
+    return {
+      state: "error" as const,
+      message: "Category could not be saved.",
+      categories: storedCategories,
+    };
+  }
+}
+
 export function validateManagedCategoryRename(
   currentName: string,
   nextName: string,
@@ -107,7 +164,7 @@ export function validateManagedCategoryRename(
 
   return {
     state: "valid" as const,
-    message: "Rename application is planned and not active in this batch.",
+    message: "Ready to rename this managed category only.",
   };
 }
 
