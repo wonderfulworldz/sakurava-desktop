@@ -245,12 +245,12 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Add, rename, and delete category management is planned and not active in this batch.",
+        "Audit lists record categories. Managed category rename only updates the local managed list.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Add Category is active locally. Rename and delete category management is planned and not active in this batch.",
+        "Add and Rename are active locally. Delete category management is planned and not active in this batch.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name")).toBeInTheDocument();
@@ -416,7 +416,7 @@ describe("App", () => {
     expect(screen.getByText("Unused / 0 usage")).toBeInTheDocument();
   });
 
-  it("shows planned rename structure for managed categories without applying changes", () => {
+  it("enables Apply Rename only for valid managed category rename input", () => {
     window.history.pushState({}, "", "/settings");
     window.localStorage.setItem(
       "sakurava.managedCategories.v1",
@@ -427,7 +427,9 @@ describe("App", () => {
 
     expect(screen.getByText("Rename Category")).toBeInTheDocument();
     expect(
-      screen.getByText("Rename application is planned and not active in this batch."),
+      screen.getByText(
+        "Rename applies only to managed categories. Existing record categories are not changed.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Existing category")).toHaveValue("Drama");
     const proposedNameInput = screen.getByLabelText("Proposed name");
@@ -448,15 +450,58 @@ describe("App", () => {
     fireEvent.change(proposedNameInput, {
       target: { value: "Modern Drama" },
     });
-    expect(
-      screen.getAllByText(
-        "Rename application is planned and not active in this batch.",
-      ).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getByText("Ready to rename this managed category only.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply Rename" })).toBeEnabled();
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Classic"]',
     );
     expect(screen.getByRole("button", { name: "Apply Delete" })).toBeDisabled();
+  });
+
+  it("applies managed category rename locally without touching record categories", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Classic"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ categoriesJson: '["Drama"]' })];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("1 usage")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Proposed name"), {
+      target: { value: " Modern Drama " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Rename" }));
+
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Modern Drama","Classic"]',
+    );
+    expect(screen.getByLabelText("Existing category")).toHaveValue("Modern Drama");
+    expect(screen.getByLabelText("Proposed name")).toHaveValue("");
+    expect(screen.getAllByText("Modern Drama").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'Renamed managed category "Drama" to "Modern Drama". Existing record categories were not changed.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Drama")).toBeInTheDocument();
+    await waitFor(() => {
+      const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
+      expect(commands).toEqual(["video_list", "image_list", "performer_list"]);
+    });
   });
 
   it("shows planned delete structure for managed categories without applying changes", async () => {

@@ -23,6 +23,7 @@ import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAu
 import {
   addStoredManagedCategory,
   getStoredManagedCategories,
+  renameStoredManagedCategory,
   validateManagedCategoryRename,
 } from "../lib/managedCategories";
 import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
@@ -423,6 +424,22 @@ function SettingsPage() {
     }
   }
 
+  function handleRenameManagedCategory(currentName: string, nextName: string) {
+    const result = renameStoredManagedCategory(
+      currentName,
+      nextName,
+      managedCategories,
+    );
+
+    setManagedCategories(result.categories);
+    setManagedCategoryStatus({
+      state: result.state,
+      message: result.message,
+    });
+
+    return result.state === "success";
+  }
+
   return (
     <div className="space-y-6">
       <header>
@@ -487,6 +504,7 @@ function SettingsPage() {
           setManagedCategoryStatus({ state: "idle" });
         }}
         onAddManagedCategory={handleAddManagedCategory}
+        onRenameManagedCategory={handleRenameManagedCategory}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
@@ -666,6 +684,7 @@ function CatalogSettingsCard({
   managedCategoryStatus,
   onManagedCategoryInputChange,
   onAddManagedCategory,
+  onRenameManagedCategory,
 }: {
   audit: CategoryAuditSummary;
   managedCategories: string[];
@@ -673,6 +692,7 @@ function CatalogSettingsCard({
   managedCategoryStatus: CategoryStatus;
   onManagedCategoryInputChange: (value: string) => void;
   onAddManagedCategory: () => void;
+  onRenameManagedCategory: (currentName: string, nextName: string) => boolean;
 }) {
   const hasCategories = audit.rows.length > 0;
   const [renameSourceCategory, setRenameSourceCategory] = useState("");
@@ -695,6 +715,7 @@ function CatalogSettingsCard({
         managedCategories,
       )
     : null;
+  const canApplyRename = renameValidation?.state === "valid";
   const selectedDeleteCategory =
     deleteSourceCategory && managedCategories.includes(deleteSourceCategory)
       ? deleteSourceCategory
@@ -735,7 +756,7 @@ function CatalogSettingsCard({
               Categories Audit
             </h3>
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Add, rename, and delete category management is planned and not active in this batch.
+              Audit lists record categories. Managed category rename only updates the local managed list.
             </p>
           </div>
 
@@ -790,7 +811,7 @@ function CatalogSettingsCard({
               Category Management
             </h3>
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Add Category is active locally. Rename and delete category management is planned and not active in this batch.
+              Add and Rename are active locally. Delete category management is planned and not active in this batch.
             </p>
           </div>
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
@@ -850,7 +871,7 @@ function CatalogSettingsCard({
                   Rename Category
                 </p>
                 <p className="mt-1 text-xs font-medium text-slate-500">
-                  Rename application is planned and not active in this batch.
+                  Rename applies only to managed categories. Existing record categories are not changed.
                 </p>
               </div>
               <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
@@ -882,8 +903,23 @@ function CatalogSettingsCard({
                 </label>
                 <button
                   type="button"
-                  disabled
-                  className="h-10 self-end rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400 md:w-auto"
+                  disabled={!canApplyRename}
+                  onClick={() => {
+                    if (
+                      onRenameManagedCategory(
+                        selectedRenameCategory,
+                        renameTargetCategory,
+                      )
+                    ) {
+                      setRenameTargetCategory("");
+                    }
+                  }}
+                  className={[
+                    "h-10 self-end rounded-lg border px-4 text-sm font-semibold md:w-auto",
+                    canApplyRename
+                      ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+                      : "border-slate-200 bg-slate-100 text-slate-400",
+                  ].join(" ")}
                 >
                   Apply Rename
                 </button>
