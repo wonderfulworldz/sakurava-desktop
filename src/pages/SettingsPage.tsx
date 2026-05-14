@@ -28,6 +28,7 @@ import {
 } from "../lib/categoryRenamePreview";
 import {
   addStoredManagedCategory,
+  deleteStoredManagedCategory,
   getStoredManagedCategories,
   renameStoredManagedCategory,
   validateManagedCategoryRename,
@@ -461,6 +462,18 @@ function SettingsPage() {
     return result.state === "success";
   }
 
+  function handleDeleteManagedCategory(category: string) {
+    const result = deleteStoredManagedCategory(category, managedCategories);
+
+    setManagedCategories(result.categories);
+    setManagedCategoryStatus({
+      state: result.state,
+      message: result.message,
+    });
+
+    return result.state === "success";
+  }
+
   async function handleApplyRecordCategoryRename(
     sourceCategory: string,
     targetCategory: string,
@@ -609,6 +622,7 @@ function SettingsPage() {
         onAddManagedCategory={handleAddManagedCategory}
         onRenameManagedCategory={handleRenameManagedCategory}
         onApplyRecordCategoryRename={handleApplyRecordCategoryRename}
+        onDeleteManagedCategory={handleDeleteManagedCategory}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
@@ -791,6 +805,7 @@ function CatalogSettingsCard({
   onAddManagedCategory,
   onRenameManagedCategory,
   onApplyRecordCategoryRename,
+  onDeleteManagedCategory,
 }: {
   audit: CategoryAuditSummary;
   renamePreviewRecords: {
@@ -808,12 +823,15 @@ function CatalogSettingsCard({
     currentName: string,
     nextName: string,
   ) => Promise<boolean>;
+  onDeleteManagedCategory: (category: string) => boolean;
 }) {
   const hasCategories = audit.rows.length > 0;
   const [renameSourceCategory, setRenameSourceCategory] = useState("");
   const [renameTargetCategory, setRenameTargetCategory] = useState("");
   const [isConfirmingRecordRename, setIsConfirmingRecordRename] = useState(false);
   const [deleteSourceCategory, setDeleteSourceCategory] = useState("");
+  const [isConfirmingDeleteCategory, setIsConfirmingDeleteCategory] =
+    useState(false);
   const managedCategoryRows = managedCategories.map((category) => {
     const usage =
       audit.rows.find((row) => row.name.toLowerCase() === category.toLowerCase())
@@ -844,6 +862,7 @@ function CatalogSettingsCard({
   const selectedDeleteRow =
     managedCategoryRows.find((row) => row.category === selectedDeleteCategory) ??
     null;
+  const canApplyDelete = !!selectedDeleteRow && selectedDeleteRow.usage === 0;
 
   useEffect(() => {
     if (
@@ -1098,7 +1117,10 @@ function CatalogSettingsCard({
                   <select
                     className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                     value={selectedDeleteCategory}
-                    onChange={(event) => setDeleteSourceCategory(event.target.value)}
+                    onChange={(event) => {
+                      setDeleteSourceCategory(event.target.value);
+                      setIsConfirmingDeleteCategory(false);
+                    }}
                   >
                     {managedCategories.map((category) => (
                       <option key={category} value={category}>
@@ -1117,12 +1139,51 @@ function CatalogSettingsCard({
                 </div>
                 <button
                   type="button"
-                  disabled
-                  className="h-10 self-end rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400 md:w-auto"
+                  disabled={!canApplyDelete}
+                  onClick={() => setIsConfirmingDeleteCategory(true)}
+                  className={[
+                    "h-10 self-end rounded-lg border px-4 text-sm font-semibold md:w-auto",
+                    canApplyDelete
+                      ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                      : "border-slate-200 bg-slate-100 text-slate-400",
+                  ].join(" ")}
                 >
                   Apply Delete
                 </button>
               </div>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                Delete removes only the managed category entry. Existing record categories are not changed.
+              </p>
+              {isConfirmingDeleteCategory && (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Confirm managed category delete
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-500">
+                    This will remove "{selectedDeleteCategory}" from the managed category list only.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingDeleteCategory(false)}
+                      className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onDeleteManagedCategory(selectedDeleteCategory)) {
+                          setIsConfirmingDeleteCategory(false);
+                        }
+                      }}
+                      className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                    >
+                      Confirm Delete
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

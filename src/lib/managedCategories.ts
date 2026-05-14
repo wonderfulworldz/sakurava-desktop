@@ -127,6 +127,47 @@ export function renameStoredManagedCategory(
   }
 }
 
+export function deleteStoredManagedCategory(
+  name: string,
+  categories: string[] = getStoredManagedCategories(),
+) {
+  const storedCategories = normalizeManagedCategories(categories);
+  const trimmedName = name.trim();
+  const deleteKey = trimmedName.toLowerCase();
+
+  if (
+    !trimmedName ||
+    !storedCategories.some(
+      (category) => category.trim().toLowerCase() === deleteKey,
+    )
+  ) {
+    return {
+      state: "error" as const,
+      message: "Managed category could not be found.",
+      categories: storedCategories,
+    };
+  }
+
+  try {
+    const nextCategories = storeManagedCategories(
+      storedCategories.filter(
+        (category) => category.trim().toLowerCase() !== deleteKey,
+      ),
+    );
+    return {
+      state: "success" as const,
+      message: `Deleted managed category "${trimmedName}". Existing record categories were not changed.`,
+      categories: nextCategories,
+    };
+  } catch {
+    return {
+      state: "error" as const,
+      message: "Category could not be saved.",
+      categories: storedCategories,
+    };
+  }
+}
+
 export function validateManagedCategoryRename(
   currentName: string,
   nextName: string,

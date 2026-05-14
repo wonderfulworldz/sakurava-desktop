@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   addStoredManagedCategory,
+  deleteStoredManagedCategory,
   getStoredManagedCategories,
   MANAGED_CATEGORIES_STORAGE_KEY,
   renameStoredManagedCategory,
@@ -107,6 +108,50 @@ describe("managed category storage", () => {
     window.localStorage.setItem(MANAGED_CATEGORIES_STORAGE_KEY, "{bad json");
 
     expect(renameStoredManagedCategory("Drama", "Classic")).toMatchObject({
+      state: "error",
+      message: "Managed category could not be found.",
+      categories: [],
+    });
+  });
+
+  it("deletes a managed category", () => {
+    window.localStorage.setItem(
+      MANAGED_CATEGORIES_STORAGE_KEY,
+      '["Drama","Unused","Classic"]',
+    );
+
+    const result = deleteStoredManagedCategory("Unused");
+
+    expect(result).toEqual({
+      state: "success",
+      message:
+        'Deleted managed category "Unused". Existing record categories were not changed.',
+      categories: ["Drama", "Classic"],
+    });
+    expect(getStoredManagedCategories()).toEqual(["Drama", "Classic"]);
+  });
+
+  it("preserves remaining managed category order when deleting", () => {
+    expect(
+      deleteStoredManagedCategory("Classic", ["Drama", "Classic", "Portrait"]),
+    ).toMatchObject({
+      state: "success",
+      categories: ["Drama", "Portrait"],
+    });
+  });
+
+  it("fails safely when deleting a missing managed category", () => {
+    expect(deleteStoredManagedCategory("Missing", ["Drama"])).toMatchObject({
+      state: "error",
+      message: "Managed category could not be found.",
+      categories: ["Drama"],
+    });
+  });
+
+  it("does not crash deleting with corrupt localStorage", () => {
+    window.localStorage.setItem(MANAGED_CATEGORIES_STORAGE_KEY, "{bad json");
+
+    expect(deleteStoredManagedCategory("Drama")).toMatchObject({
       state: "error",
       message: "Managed category could not be found.",
       categories: [],
