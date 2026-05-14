@@ -21,6 +21,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Image, Performer, Video as VideoRecord } from "../backend/types";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
+import { renameCategoryInCategoriesJson } from "../lib/categoryRenameApply";
 import {
   buildCategoryRenamePreview,
   type CategoryRenamePreview,
@@ -37,15 +38,15 @@ import {
   selectDatabaseRestoreSource,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
-import { listImages } from "../runtime/imageCommands";
+import { listImages, updateImage } from "../runtime/imageCommands";
 import {
   allowMediaAssetRoot,
   getStoredMediaAssetRoots,
   storeMediaAssetRoots,
 } from "../runtime/mediaAssetScope";
-import { listPerformers } from "../runtime/performerCommands";
+import { listPerformers, updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import { listVideos } from "../runtime/videoCommands";
+import { listVideos, updateVideo } from "../runtime/videoCommands";
 
 type SettingsRow = {
   label: string;
@@ -80,6 +81,7 @@ type MediaRootStatus =
 
 type CategoryStatus =
   | { state: "idle" }
+  | { state: "pending" }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
@@ -225,6 +227,17 @@ function SettingsPage() {
     setManagedCategories(getStoredManagedCategories());
   }, []);
 
+  async function loadCategoryData() {
+    const [videos, images, performers] = await Promise.all([
+      listVideos(),
+      listImages(),
+      listPerformers(),
+    ]);
+
+    setCategoryAudit(buildCategoryAudit({ videos, images, performers }));
+    setCategoryRenamePreviewRecords({ videos, images, performers });
+  }
+
   useEffect(() => {
     if (!isDesktopRuntime) {
       setCategoryAudit(emptyCategoryAudit);
@@ -236,15 +249,8 @@ function SettingsPage() {
 
     async function loadCategoryAudit() {
       try {
-        const [videos, images, performers] = await Promise.all([
-          listVideos(),
-          listImages(),
-          listPerformers(),
-        ]);
-
         if (!cancelled) {
-          setCategoryAudit(buildCategoryAudit({ videos, images, performers }));
-          setCategoryRenamePreviewRecords({ videos, images, performers });
+          await loadCategoryData();
         }
       } catch {
         if (!cancelled) {
@@ -455,6 +461,87 @@ function SettingsPage() {
     return result.state === "success";
   }
 
+  async function handleApplyRecordCategoryRename(
+    sourceCategory: string,
+    targetCategory: string,
+  ) {
+    setManagedCategoryStatus({ state: "pending" });
+
+    const videoUpdates = categoryRenamePreviewRecords.videos
+      .map((record) => ({
+        record,
+        rename: renameCategoryInCategoriesJson(
+          record.categoriesJson,
+          sourceCategory,
+          targetCategory,
+        ),
+      }))
+      .filter((entry) => entry.rename.changed);
+    const imageUpdates = categoryRenamePreviewRecords.images
+      .map((record) => ({
+        record,
+        rename: renameCategoryInCategoriesJson(
+          record.categoriesJson,
+          sourceCategory,
+          targetCategory,
+        ),
+      }))
+      .filter((entry) => entry.rename.changed);
+    const performerUpdates = categoryRenamePreviewRecords.performers
+      .map((record) => ({
+        record,
+        rename: renameCategoryInCategoriesJson(
+          record.categoriesJson,
+          sourceCategory,
+          targetCategory,
+        ),
+      }))
+      .filter((entry) => entry.rename.changed);
+    const affectedCount =
+      videoUpdates.length + imageUpdates.length + performerUpdates.length;
+
+    if (affectedCount === 0) {
+      setManagedCategoryStatus({
+        state: "error",
+        message: "No existing records use this category.",
+      });
+      return false;
+    }
+
+    try {
+      await Promise.all([
+        ...videoUpdates.map(({ record, rename }) =>
+          updateVideo(record.id, { categoriesJson: rename.categoriesJson }),
+        ),
+        ...imageUpdates.map(({ record, rename }) =>
+          updateImage(record.id, { categoriesJson: rename.categoriesJson }),
+        ),
+        ...performerUpdates.map(({ record, rename }) =>
+          updatePerformer(record.id, { categoriesJson: rename.categoriesJson }),
+        ),
+      ]);
+      await loadCategoryData();
+      setManagedCategoryStatus({
+        state: "success",
+        message: `Renamed category in ${affectedCount} existing record${
+          affectedCount === 1 ? "" : "s"
+        }. Managed categories were not changed.`,
+      });
+      return true;
+    } catch (error) {
+      setManagedCategoryStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Record category rename did not complete.",
+      });
+      return false;
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header>
@@ -521,6 +608,7 @@ function SettingsPage() {
         }}
         onAddManagedCategory={handleAddManagedCategory}
         onRenameManagedCategory={handleRenameManagedCategory}
+        onApplyRecordCategoryRename={handleApplyRecordCategoryRename}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
@@ -702,6 +790,7 @@ function CatalogSettingsCard({
   onManagedCategoryInputChange,
   onAddManagedCategory,
   onRenameManagedCategory,
+  onApplyRecordCategoryRename,
 }: {
   audit: CategoryAuditSummary;
   renamePreviewRecords: {
@@ -715,10 +804,15 @@ function CatalogSettingsCard({
   onManagedCategoryInputChange: (value: string) => void;
   onAddManagedCategory: () => void;
   onRenameManagedCategory: (currentName: string, nextName: string) => boolean;
+  onApplyRecordCategoryRename: (
+    currentName: string,
+    nextName: string,
+  ) => Promise<boolean>;
 }) {
   const hasCategories = audit.rows.length > 0;
   const [renameSourceCategory, setRenameSourceCategory] = useState("");
   const [renameTargetCategory, setRenameTargetCategory] = useState("");
+  const [isConfirmingRecordRename, setIsConfirmingRecordRename] = useState(false);
   const [deleteSourceCategory, setDeleteSourceCategory] = useState("");
   const managedCategoryRows = managedCategories.map((category) => {
     const usage =
@@ -741,6 +835,8 @@ function CatalogSettingsCard({
   const renamePreview = selectedRenameCategory
     ? buildCategoryRenamePreview(selectedRenameCategory, renamePreviewRecords)
     : null;
+  const canApplyRecordRename =
+    canApplyRename && (renamePreview?.total ?? 0) > 0;
   const selectedDeleteCategory =
     deleteSourceCategory && managedCategories.includes(deleteSourceCategory)
       ? deleteSourceCategory
@@ -908,6 +1004,7 @@ function CatalogSettingsCard({
                     onChange={(event) => {
                       setRenameSourceCategory(event.target.value);
                       setRenameTargetCategory("");
+                      setIsConfirmingRecordRename(false);
                     }}
                   >
                     {managedCategories.map((category) => (
@@ -923,7 +1020,10 @@ function CatalogSettingsCard({
                     className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                     placeholder="New category name"
                     value={renameTargetCategory}
-                    onChange={(event) => setRenameTargetCategory(event.target.value)}
+                    onChange={(event) => {
+                      setRenameTargetCategory(event.target.value);
+                      setIsConfirmingRecordRename(false);
+                    }}
                   />
                 </label>
                 <button
@@ -962,7 +1062,22 @@ function CatalogSettingsCard({
                 </p>
               )}
               {renamePreview && (
-                <CategoryRecordRenamePreview preview={renamePreview} />
+                <CategoryRecordRenamePreview
+                  preview={renamePreview}
+                  canApply={canApplyRecordRename}
+                  isConfirming={isConfirmingRecordRename}
+                  onStartApply={() => setIsConfirmingRecordRename(true)}
+                  onCancelApply={() => setIsConfirmingRecordRename(false)}
+                  onConfirmApply={async () => {
+                    const applied = await onApplyRecordCategoryRename(
+                      selectedRenameCategory,
+                      renameTargetCategory,
+                    );
+                    if (applied) {
+                      setIsConfirmingRecordRename(false);
+                    }
+                  }}
+                />
               )}
             </div>
           )}
@@ -1033,8 +1148,18 @@ function CategoryAuditMetric({
 
 function CategoryRecordRenamePreview({
   preview,
+  canApply,
+  isConfirming,
+  onStartApply,
+  onCancelApply,
+  onConfirmApply,
 }: {
   preview: CategoryRenamePreview;
+  canApply: boolean;
+  isConfirming: boolean;
+  onStartApply: () => void;
+  onCancelApply: () => void;
+  onConfirmApply: () => void;
 }) {
   return (
     <div
@@ -1048,13 +1173,19 @@ function CategoryRecordRenamePreview({
             Record Rename Preview
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500">
-            Record rename preview only. Applying rename to records is planned and not active in this batch.
+            Applying rename to records updates only categoriesJson after confirmation.
           </p>
         </div>
         <button
           type="button"
-          disabled
-          className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-400"
+          disabled={!canApply}
+          onClick={onStartApply}
+          className={[
+            "h-9 rounded-lg border px-3 text-xs font-semibold",
+            canApply
+              ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+              : "border-slate-200 bg-slate-100 text-slate-400",
+          ].join(" ")}
         >
           Apply to Records
         </button>
@@ -1087,6 +1218,33 @@ function CategoryRecordRenamePreview({
                 <span className="break-words">{example.label}</span>
               </span>
             ))}
+          </div>
+        </div>
+      )}
+      {isConfirming && (
+        <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
+          <p className="text-sm font-semibold text-slate-800">
+            Confirm record category rename
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            This will update categoriesJson for {preview.total} existing record
+            {preview.total === 1 ? "" : "s"}. Only category labels will change.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onCancelApply}
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirmApply}
+              className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+            >
+              Confirm Apply to Records
+            </button>
           </div>
         </div>
       )}
@@ -1128,7 +1286,7 @@ function SettingsStatusMessage({
         ? "Restoring database..."
         : kind === "mediaRoot"
           ? "Adding media root..."
-          : "Adding category...";
+          : "Updating category data...";
   const messageClassName =
     kind === "category"
       ? `mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold ${

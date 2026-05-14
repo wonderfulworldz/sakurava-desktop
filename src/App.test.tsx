@@ -568,6 +568,144 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Apply to Records" })).toBeDisabled();
   });
 
+  it("confirms and applies record category rename with categoriesJson-only patches", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Classic"]',
+    );
+    let videos = [
+      persistedVideo({
+        id: "video_1",
+        title: "Drama Video",
+        ratingJson: '{"rewatch":5}',
+        notes: "Keep video notes",
+        categoriesJson: '["Drama","Classic"]',
+      }),
+    ];
+    let images = [
+      persistedImage({
+        id: "image_1",
+        title: "Drama Image",
+        ratingJson: '{"visual":4}',
+        notes: "Keep image notes",
+        categoriesJson: '["Drama","Modern"]',
+      }),
+    ];
+    let performers = [
+      persistedPerformer({
+        id: "performer_1",
+        name: "Drama Performer",
+        ratingJson: '{"attraction":4}',
+        notes: "Keep performer notes",
+        categoriesJson: '[" drama "]',
+      }),
+    ];
+    const invoke = vi.fn(
+      async (command: string, args?: Record<string, any>) => {
+        if (command === "video_list") {
+          return videos;
+        }
+        if (command === "image_list") {
+          return images;
+        }
+        if (command === "performer_list") {
+          return performers;
+        }
+        if (command === "video_update") {
+          expect(args?.id).toBe("video_1");
+          expect(Object.keys(args?.patch ?? {})).toEqual(["categoriesJson"]);
+          expect(args?.patch.categoriesJson).toBe('["Modern","Classic"]');
+          videos = [{ ...videos[0], categoriesJson: args!.patch.categoriesJson }];
+          return videos[0];
+        }
+        if (command === "image_update") {
+          expect(args?.id).toBe("image_1");
+          expect(Object.keys(args?.patch ?? {})).toEqual(["categoriesJson"]);
+          expect(args?.patch.categoriesJson).toBe('["Modern"]');
+          images = [{ ...images[0], categoriesJson: args!.patch.categoriesJson }];
+          return images[0];
+        }
+        if (command === "performer_update") {
+          expect(args?.id).toBe("performer_1");
+          expect(Object.keys(args?.patch ?? {})).toEqual(["categoriesJson"]);
+          expect(args?.patch.categoriesJson).toBe('["Modern"]');
+          performers = [
+            { ...performers[0], categoriesJson: args!.patch.categoriesJson },
+          ];
+          return performers[0];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Drama Video")).toBeInTheDocument();
+    const applyToRecords = screen.getByRole("button", {
+      name: "Apply to Records",
+    });
+    expect(applyToRecords).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Proposed name"), {
+      target: { value: "Modern" },
+    });
+    expect(applyToRecords).toBeEnabled();
+    expect(
+      screen.queryByText("Confirm record category rename"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(applyToRecords);
+    expect(screen.getByText("Confirm record category rename")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm Apply to Records" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Renamed category in 3 existing records. Managed categories were not changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No existing records use this category.")).toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Drama","Classic"]',
+    );
+    expect(videos[0]).toMatchObject({
+      title: "Drama Video",
+      ratingJson: '{"rewatch":5}',
+      notes: "Keep video notes",
+      categoriesJson: '["Modern","Classic"]',
+    });
+    expect(images[0]).toMatchObject({
+      title: "Drama Image",
+      ratingJson: '{"visual":4}',
+      notes: "Keep image notes",
+      categoriesJson: '["Modern"]',
+    });
+    expect(performers[0]).toMatchObject({
+      name: "Drama Performer",
+      ratingJson: '{"attraction":4}',
+      notes: "Keep performer notes",
+      categoriesJson: '["Modern"]',
+    });
+    const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
+    expect(commands).toEqual([
+      "video_list",
+      "image_list",
+      "performer_list",
+      "video_update",
+      "image_update",
+      "performer_update",
+      "video_list",
+      "image_list",
+      "performer_list",
+    ]);
+  });
+
   it("shows an empty record rename preview when no records use the category", async () => {
     window.history.pushState({}, "", "/settings");
     window.localStorage.setItem(
