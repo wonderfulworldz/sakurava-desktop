@@ -59,6 +59,18 @@ export function buildCategoryRenamePreview(
   };
 }
 
+export function buildCategoryDeletePreview(
+  sourceCategory: string,
+  records: {
+    videos: TitledRecord[];
+    images: TitledRecord[];
+    performers: TitledRecord[];
+  },
+  exampleLimit = 8,
+) {
+  return buildCategoryRenamePreview(sourceCategory, records, exampleLimit);
+}
+
 function hasCategory(record: PreviewRecord, sourceKey: string) {
   if (!sourceKey) {
     return false;

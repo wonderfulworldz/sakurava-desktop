@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildCategoryRenamePreview } from "./categoryRenamePreview";
+import {
+  buildCategoryDeletePreview,
+  buildCategoryRenamePreview,
+} from "./categoryRenamePreview";
 
 describe("category rename record preview", () => {
   it("counts affected records and examples case-insensitively", () => {
@@ -43,5 +46,28 @@ describe("category rename record preview", () => {
     expect(preview.videos).toBe(8);
     expect(preview.total).toBe(8);
     expect(preview.examples).toHaveLength(3);
+  });
+});
+
+describe("category delete record preview", () => {
+  it("counts affected records and ignores invalid categoriesJson", () => {
+    const preview = buildCategoryDeletePreview("classic", {
+      videos: [{ title: "Classic Video", categoriesJson: '["Classic"]' }],
+      images: [
+        { title: "Classic Image", categoriesJson: '[" CLASSIC "]' },
+        { title: "Invalid Image", categoriesJson: "{bad json" },
+      ],
+      performers: [{ name: "Classic Performer", categoriesJson: '["classic"]' }],
+    });
+
+    expect(preview.videos).toBe(1);
+    expect(preview.images).toBe(1);
+    expect(preview.performers).toBe(1);
+    expect(preview.total).toBe(3);
+    expect(preview.examples).toEqual([
+      { kind: "Video", label: "Classic Video" },
+      { kind: "Image", label: "Classic Image" },
+      { kind: "Performer", label: "Classic Performer" },
+    ]);
   });
 });
