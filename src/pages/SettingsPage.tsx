@@ -21,7 +21,10 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Image, Performer, Video as VideoRecord } from "../backend/types";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
-import { renameCategoryInCategoriesJson } from "../lib/categoryRenameApply";
+import {
+  removeCategoryFromCategoriesJson,
+  renameCategoryInCategoriesJson,
+} from "../lib/categoryRenameApply";
 import {
   buildCategoryDeletePreview,
   buildCategoryRenamePreview,
@@ -475,6 +478,81 @@ function SettingsPage() {
     return result.state === "success";
   }
 
+  async function handleApplyRecordCategoryRemove(sourceCategory: string) {
+    setManagedCategoryStatus({ state: "pending" });
+
+    const videoUpdates = categoryRenamePreviewRecords.videos
+      .map((record) => ({
+        record,
+        remove: removeCategoryFromCategoriesJson(
+          record.categoriesJson,
+          sourceCategory,
+        ),
+      }))
+      .filter((entry) => entry.remove.changed);
+    const imageUpdates = categoryRenamePreviewRecords.images
+      .map((record) => ({
+        record,
+        remove: removeCategoryFromCategoriesJson(
+          record.categoriesJson,
+          sourceCategory,
+        ),
+      }))
+      .filter((entry) => entry.remove.changed);
+    const performerUpdates = categoryRenamePreviewRecords.performers
+      .map((record) => ({
+        record,
+        remove: removeCategoryFromCategoriesJson(
+          record.categoriesJson,
+          sourceCategory,
+        ),
+      }))
+      .filter((entry) => entry.remove.changed);
+    const affectedCount =
+      videoUpdates.length + imageUpdates.length + performerUpdates.length;
+
+    if (affectedCount === 0) {
+      setManagedCategoryStatus({
+        state: "error",
+        message: "No existing records use this category.",
+      });
+      return false;
+    }
+
+    try {
+      await Promise.all([
+        ...videoUpdates.map(({ record, remove }) =>
+          updateVideo(record.id, { categoriesJson: remove.categoriesJson }),
+        ),
+        ...imageUpdates.map(({ record, remove }) =>
+          updateImage(record.id, { categoriesJson: remove.categoriesJson }),
+        ),
+        ...performerUpdates.map(({ record, remove }) =>
+          updatePerformer(record.id, { categoriesJson: remove.categoriesJson }),
+        ),
+      ]);
+      await loadCategoryData();
+      setManagedCategoryStatus({
+        state: "success",
+        message: `Removed category from ${affectedCount} existing record${
+          affectedCount === 1 ? "" : "s"
+        }. Managed categories were not changed.`,
+      });
+      return true;
+    } catch (error) {
+      setManagedCategoryStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Record category removal did not complete.",
+      });
+      return false;
+    }
+  }
+
   async function handleApplyRecordCategoryRename(
     sourceCategory: string,
     targetCategory: string,
@@ -624,6 +702,7 @@ function SettingsPage() {
         onRenameManagedCategory={handleRenameManagedCategory}
         onApplyRecordCategoryRename={handleApplyRecordCategoryRename}
         onDeleteManagedCategory={handleDeleteManagedCategory}
+        onApplyRecordCategoryRemove={handleApplyRecordCategoryRemove}
       />
       <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
       <SettingsCard
@@ -807,6 +886,7 @@ function CatalogSettingsCard({
   onRenameManagedCategory,
   onApplyRecordCategoryRename,
   onDeleteManagedCategory,
+  onApplyRecordCategoryRemove,
 }: {
   audit: CategoryAuditSummary;
   renamePreviewRecords: {
@@ -825,6 +905,7 @@ function CatalogSettingsCard({
     nextName: string,
   ) => Promise<boolean>;
   onDeleteManagedCategory: (category: string) => boolean;
+  onApplyRecordCategoryRemove: (category: string) => Promise<boolean>;
 }) {
   const hasCategories = audit.rows.length > 0;
   const [renameSourceCategory, setRenameSourceCategory] = useState("");
@@ -833,6 +914,7 @@ function CatalogSettingsCard({
   const [deleteSourceCategory, setDeleteSourceCategory] = useState("");
   const [isConfirmingDeleteCategory, setIsConfirmingDeleteCategory] =
     useState(false);
+  const [isConfirmingRecordDelete, setIsConfirmingRecordDelete] = useState(false);
   const managedCategoryRows = managedCategories.map((category) => {
     const usage =
       audit.rows.find((row) => row.name.toLowerCase() === category.toLowerCase())
@@ -867,6 +949,8 @@ function CatalogSettingsCard({
   const deletePreview = selectedDeleteCategory
     ? buildCategoryDeletePreview(selectedDeleteCategory, renamePreviewRecords)
     : null;
+  const canRemoveFromRecords =
+    !!selectedDeleteCategory && (deletePreview?.total ?? 0) > 0;
 
   useEffect(() => {
     if (
@@ -1124,6 +1208,7 @@ function CatalogSettingsCard({
                     onChange={(event) => {
                       setDeleteSourceCategory(event.target.value);
                       setIsConfirmingDeleteCategory(false);
+                      setIsConfirmingRecordDelete(false);
                     }}
                   >
                     {managedCategories.map((category) => (
@@ -1189,7 +1274,21 @@ function CatalogSettingsCard({
                 </div>
               )}
               {deletePreview && (
-                <CategoryRecordDeletePreview preview={deletePreview} />
+                <CategoryRecordDeletePreview
+                  preview={deletePreview}
+                  canApply={canRemoveFromRecords}
+                  isConfirming={isConfirmingRecordDelete}
+                  onStartApply={() => setIsConfirmingRecordDelete(true)}
+                  onCancelApply={() => setIsConfirmingRecordDelete(false)}
+                  onConfirmApply={async () => {
+                    const applied = await onApplyRecordCategoryRemove(
+                      selectedDeleteCategory,
+                    );
+                    if (applied) {
+                      setIsConfirmingRecordDelete(false);
+                    }
+                  }}
+                />
               )}
             </div>
           )}
@@ -1322,8 +1421,18 @@ function CategoryRecordRenamePreview({
 
 function CategoryRecordDeletePreview({
   preview,
+  canApply,
+  isConfirming,
+  onStartApply,
+  onCancelApply,
+  onConfirmApply,
 }: {
   preview: CategoryRenamePreview;
+  canApply: boolean;
+  isConfirming: boolean;
+  onStartApply: () => void;
+  onCancelApply: () => void;
+  onConfirmApply: () => void;
 }) {
   return (
     <div
@@ -1337,13 +1446,19 @@ function CategoryRecordDeletePreview({
             Record Delete Preview
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500">
-            Record delete preview only. Removing category from records is planned and not active in this batch.
+            Removing category from records updates only categoriesJson after confirmation.
           </p>
         </div>
         <button
           type="button"
-          disabled
-          className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-400"
+          disabled={!canApply}
+          onClick={onStartApply}
+          className={[
+            "h-9 rounded-lg border px-3 text-xs font-semibold",
+            canApply
+              ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+              : "border-slate-200 bg-slate-100 text-slate-400",
+          ].join(" ")}
         >
           Remove from Records
         </button>
@@ -1376,6 +1491,33 @@ function CategoryRecordDeletePreview({
                 <span className="break-words">{example.label}</span>
               </span>
             ))}
+          </div>
+        </div>
+      )}
+      {isConfirming && (
+        <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
+          <p className="text-sm font-semibold text-slate-800">
+            Confirm record category removal
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            This will update categoriesJson for {preview.total} existing record
+            {preview.total === 1 ? "" : "s"}. Managed categories will not be changed.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onCancelApply}
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirmApply}
+              className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+            >
+              Confirm Remove from Records
+            </button>
           </div>
         </div>
       )}

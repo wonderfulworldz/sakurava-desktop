@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { renameCategoryInCategoriesJson } from "./categoryRenameApply";
+import {
+  removeCategoryFromCategoriesJson,
+  renameCategoryInCategoriesJson,
+} from "./categoryRenameApply";
 
 describe("category rename apply helper", () => {
   it("renames a category", () => {
@@ -59,6 +62,67 @@ describe("category rename apply helper", () => {
     ).toEqual({
       changed: false,
       categoriesJson: '["Classic"]',
+    });
+  });
+});
+
+describe("category remove apply helper", () => {
+  it("removes a category", () => {
+    expect(removeCategoryFromCategoriesJson('["Drama","Classic"]', "Drama")).toEqual({
+      changed: true,
+      categoriesJson: '["Classic"]',
+    });
+  });
+
+  it("matches source category case-insensitively", () => {
+    expect(removeCategoryFromCategoriesJson('["drama","Classic"]', "DRAMA")).toEqual({
+      changed: true,
+      categoriesJson: '["Classic"]',
+    });
+  });
+
+  it("trims labels and removes blank categories", () => {
+    expect(
+      removeCategoryFromCategoriesJson(
+        '["  Drama  "," Classic ","  "]',
+        " drama ",
+      ),
+    ).toEqual({
+      changed: true,
+      categoriesJson: '["Classic"]',
+    });
+  });
+
+  it("preserves remaining category order", () => {
+    expect(
+      removeCategoryFromCategoriesJson(
+        '["First","Drama","Second","Third"]',
+        "Drama",
+      ),
+    ).toEqual({
+      changed: true,
+      categoriesJson: '["First","Second","Third"]',
+    });
+  });
+
+  it("does not crash on invalid JSON", () => {
+    expect(removeCategoryFromCategoriesJson("{bad json", "Drama")).toEqual({
+      changed: false,
+      categoriesJson: "{bad json",
+    });
+  });
+
+  it("does not change records without the source category", () => {
+    expect(removeCategoryFromCategoriesJson('["Classic"]', "Drama")).toEqual({
+      changed: false,
+      categoriesJson: '["Classic"]',
+    });
+  });
+
+  it("returns an empty array when the only category is removed", () => {
+    expect(removeCategoryFromCategoriesJson('["Drama"]', "Drama")).toEqual({
+      changed: true,
+      categoriesJson: "[]",
     });
   });
 });

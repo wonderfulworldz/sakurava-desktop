@@ -58,3 +58,53 @@ export function renameCategoryInCategoriesJson(
     categoriesJson: JSON.stringify(nextLabels),
   };
 }
+
+export function removeCategoryFromCategoriesJson(
+  categoriesJson: string | null | undefined,
+  sourceCategory: string,
+) {
+  const sourceKey = sourceCategory.trim().toLowerCase();
+  const labels = parseTextLabelArray(categoriesJson);
+
+  if (!sourceKey || labels.length === 0) {
+    return {
+      changed: false,
+      categoriesJson: categoriesJson ?? "[]",
+    };
+  }
+
+  let matched = false;
+  let changed = false;
+  const nextLabels: string[] = [];
+
+  for (const label of labels) {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) {
+      changed = true;
+      continue;
+    }
+
+    if (trimmedLabel.toLowerCase() === sourceKey) {
+      matched = true;
+      changed = true;
+      continue;
+    }
+
+    if (trimmedLabel !== label) {
+      changed = true;
+    }
+    nextLabels.push(trimmedLabel);
+  }
+
+  if (!matched) {
+    return {
+      changed: false,
+      categoriesJson: categoriesJson ?? "[]",
+    };
+  }
+
+  return {
+    changed,
+    categoriesJson: JSON.stringify(nextLabels),
+  };
+}
