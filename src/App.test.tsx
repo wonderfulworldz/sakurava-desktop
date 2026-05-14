@@ -504,6 +504,109 @@ describe("App", () => {
     });
   });
 
+  it("shows record rename preview counts and examples for the selected category", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Unused"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Drama Video",
+            categoriesJson: '[" drama "]',
+          }),
+          persistedVideo({
+            title: "Other Video",
+            categoriesJson: '["Classic"]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            title: "Drama Image",
+            categoriesJson: '["DRAMA"]',
+          }),
+          persistedImage({
+            title: "Invalid Image",
+            categoriesJson: "{bad json",
+          }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            name: "Drama Performer",
+            categoriesJson: '["Drama"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Drama Video")).toBeInTheDocument();
+    const preview = within(
+      screen.getByRole("region", { name: "Record rename preview" }),
+    );
+    expect(preview.getByText("Affected Videos")).toBeInTheDocument();
+    expect(preview.getByText("Affected Images")).toBeInTheDocument();
+    expect(preview.getByText("Affected Performers")).toBeInTheDocument();
+    expect(preview.getByText("Total affected records")).toBeInTheDocument();
+    expect(preview.getAllByText("1")).toHaveLength(3);
+    expect(preview.getByText("3")).toBeInTheDocument();
+    expect(preview.getByText("Drama Video")).toBeInTheDocument();
+    expect(preview.getByText("Drama Image")).toBeInTheDocument();
+    expect(preview.getByText("Drama Performer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply to Records" })).toBeDisabled();
+  });
+
+  it("shows an empty record rename preview when no records use the category", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Unused"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ categoriesJson: '["Drama"]' })];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("1 usage")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Existing category"), {
+      target: { value: "Unused" },
+    });
+
+    expect(
+      screen.getByText("No existing records use this category."),
+    ).toBeInTheDocument();
+    const preview = within(
+      screen.getByRole("region", { name: "Record rename preview" }),
+    );
+    expect(preview.getAllByText("0")).toHaveLength(4);
+    expect(screen.getByRole("button", { name: "Apply to Records" })).toBeDisabled();
+    const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
+    expect(commands).toEqual(["video_list", "image_list", "performer_list"]);
+  });
+
   it("shows planned delete structure for managed categories without applying changes", async () => {
     window.history.pushState({}, "", "/settings");
     window.localStorage.setItem(
