@@ -1,2 +1,58 @@
-# sakurava-desktop
+# Sakurava Desktop
 
+Sakurava is a local/offline Windows desktop app for managing Videos, Images, and Performers.
+
+## Stack
+
+- React
+- TypeScript
+- Tailwind CSS
+- Tauri
+- SQLite
+- Vitest
+
+## Local Development
+
+```powershell
+npm.cmd install
+npm.cmd run dev
+npm.cmd run tauri dev
+```
+
+## Verification
+
+```powershell
+npm.cmd run test
+npm.cmd run build
+Push-Location src-tauri; cargo test; Pop-Location
+```
+
+Run `cargo test` from `src-tauri`, not from the project root.
+
+## Project Docs
+
+- [Agent instructions](AGENTS.md)
+- [Agent Code handoff](docs/AGENT_CODE_HANDOFF.md)
+- [Project status](docs/PROJECT_STATUS.md)
+- [Locked roadmap](docs/ROADMAP_LOCKED.md)
+- [Git workflow](docs/WORKFLOW_GIT.md)
+- [Category Management safety](docs/10-category-management-safety.md)
+
+## Current Status
+
+Category Management is complete through Batch 16.3, with the latest known category checkpoint:
+
+```text
+post-mvp-16-3-delete-category-record-apply-v1
+```
+
+Category Management safety documentation is complete through Batch 17.1 if that checkpoint has been merged.
+
+## Development Rules
+
+- Keep one branch per batch.
+- Do not commit without user approval.
+- Keep diffs scoped to the requested batch.
+- Treat the docs above as compressed project memory.
+- Do not change category behavior without following `docs/10-category-management-safety.md`.
+- Do not propose UI polish by default unless requested or blocking usability.
