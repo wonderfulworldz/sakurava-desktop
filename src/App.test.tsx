@@ -552,7 +552,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Drama Video")).toBeInTheDocument();
+    expect((await screen.findAllByText("Drama Video")).length).toBeGreaterThan(0);
     const preview = within(
       screen.getByRole("region", { name: "Record rename preview" }),
     );
@@ -645,7 +645,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Drama Video")).toBeInTheDocument();
+    expect((await screen.findAllByText("Drama Video")).length).toBeGreaterThan(0);
     const applyToRecords = screen.getByRole("button", {
       name: "Apply to Records",
     });
@@ -670,7 +670,9 @@ describe("App", () => {
         "Renamed category in 3 existing records. Managed categories were not changed.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("No existing records use this category.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("No existing records use this category.").length,
+    ).toBeGreaterThan(0);
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Classic"]',
     );
@@ -788,6 +790,123 @@ describe("App", () => {
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Unused"]',
     );
+  });
+
+  it("shows record delete preview counts and examples for the selected category", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Unused"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Delete Preview Video",
+            categoriesJson: '[" drama "]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            title: "Delete Preview Image",
+            categoriesJson: '["DRAMA"]',
+          }),
+          persistedImage({
+            title: "Invalid Delete Preview Image",
+            categoriesJson: "{bad json",
+          }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            name: "Delete Preview Performer",
+            categoriesJson: '["Drama"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("Delete Preview Video")).length,
+    ).toBeGreaterThan(0);
+    const preview = within(
+      screen.getByRole("region", { name: "Record delete preview" }),
+    );
+    expect(preview.getByText("Record Delete Preview")).toBeInTheDocument();
+    expect(preview.getByText("Affected Videos")).toBeInTheDocument();
+    expect(preview.getByText("Affected Images")).toBeInTheDocument();
+    expect(preview.getByText("Affected Performers")).toBeInTheDocument();
+    expect(preview.getByText("Total affected records")).toBeInTheDocument();
+    expect(preview.getAllByText("1")).toHaveLength(3);
+    expect(preview.getByText("3")).toBeInTheDocument();
+    expect(preview.getByText("Delete Preview Video")).toBeInTheDocument();
+    expect(preview.getByText("Delete Preview Image")).toBeInTheDocument();
+    expect(preview.getByText("Delete Preview Performer")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove from Records" }),
+    ).toBeDisabled();
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Drama","Unused"]',
+    );
+    expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).toEqual([
+      "video_list",
+      "image_list",
+      "performer_list",
+    ]);
+  });
+
+  it("shows empty record delete preview when no records use the selected category", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Unused"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ categoriesJson: '["Drama"]' })];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("1 usage")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Category to delete"), {
+      target: { value: "Unused" },
+    });
+
+    const preview = within(
+      screen.getByRole("region", { name: "Record delete preview" }),
+    );
+    expect(
+      preview.getByText("No existing records use this category."),
+    ).toBeInTheDocument();
+    expect(preview.getAllByText("0")).toHaveLength(4);
+    expect(
+      screen.getByRole("button", { name: "Remove from Records" }),
+    ).toBeDisabled();
+    expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).toEqual([
+      "video_list",
+      "image_list",
+      "performer_list",
+    ]);
   });
 
   it("deletes an unused managed category after confirmation without touching records", async () => {
