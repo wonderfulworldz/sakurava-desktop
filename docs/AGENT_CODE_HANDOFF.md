@@ -1,0 +1,114 @@
+# Agent Code Handoff
+
+Use this document when continuing Sakurava with VSCode Agent Code or Codex.
+
+Use these docs as compressed project memory. Do not reconstruct the full historical workflow unless the user explicitly asks for it.
+
+## First Prompt For Agent Code
+
+```text
+You are working on the Sakurava desktop app.
+
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/WORKFLOW_GIT.md, docs/AGENT_CODE_HANDOFF.md, and docs/10-category-management-safety.md.
+
+Follow the locked terminology, no auto-commit rule, category safety rules, and roadmap order. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
+
+Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. UI polish is not a default roadmap item.
+
+Before editing, check git status. After editing, report files changed, verification run, risks, and follow-up. Do not commit without user approval.
+```
+
+## Files To Read First
+
+Read these before planning or editing:
+
+- `AGENTS.md`
+- `docs/PROJECT_STATUS.md`
+- `docs/ROADMAP_LOCKED.md`
+- `docs/WORKFLOW_GIT.md`
+- `docs/AGENT_CODE_HANDOFF.md`
+- `docs/10-category-management-safety.md`
+- `package.json`
+
+For category-related work, also inspect:
+
+- `src/lib/managedCategories.ts`
+- `src/lib/categoryAudit.ts`
+- `src/lib/categoryRenamePreview.ts`
+- `src/lib/categoryRenameApply.ts`
+- `src/pages/SettingsPage.tsx`
+- `src/App.test.tsx`
+
+## Critical Warnings
+
+- Do not commit without user approval.
+- Do not rename locked terms.
+- Do not replace `categoriesJson` with category IDs, UUIDs, `categoryIds`, relation tables, or parent/child categories.
+- Do not mutate records from Managed Category operations.
+- Do not mutate Managed Categories from Record Category operations.
+- Do not perform mass record category changes without preview and confirmation.
+- Record category operations must patch only `categoriesJson`.
+- Preserve unrelated record fields.
+- Keep UI polish out of the default plan unless requested or blocking usability.
+- Keep documentation-only batches documentation-only.
+- Treat future Category Management dedicated page work as separate from the Categories sidebar browsing/catalog page.
+- Treat future form category lockdown as a Managed Categories-only picker direction, not free-text creation.
+- Leave related pickers and Media Play for future phases after category page decisions.
+
+## Preferred Batch Prompt Format
+
+Use this shape for future batch prompts:
+
+```text
+Current branch:
+<branch-name>
+
+Context:
+- <stable checkpoint>
+- <completed relevant work>
+- <important docs to preserve>
+
+Task:
+<one narrow objective>
+
+Required files or areas:
+- <file or area>
+
+Rules:
+- Do not commit.
+- Keep the diff controlled.
+- Preserve locked terms.
+- Follow category safety docs when category behavior is involved.
+
+Verification:
+- <commands to run or explain why not needed>
+
+After finishing, report:
+- files changed;
+- verification run;
+- behavior changed, if any;
+- risks or follow-up.
+```
+
+## Human Review Requirements
+
+Human review is required before:
+
+- committing;
+- tagging a checkpoint;
+- opening or merging a PR;
+- schema changes;
+- data migration;
+- backup/restore behavior changes;
+- bulk record mutation behavior;
+- changing category storage or semantics;
+- adding new navigation surfaces such as a Categories sidebar page;
+- changing roadmap order.
+
+For category work, the reviewer should confirm:
+
+- Managed Categories and Record Categories remain separate;
+- `sakurava.managedCategories.v1` behavior is preserved;
+- `categoriesJson` remains the MVP record category storage;
+- mass record changes require preview and confirmation;
+- record patches include only `categoriesJson` for category rename/remove.
