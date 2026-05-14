@@ -854,11 +854,145 @@ describe("App", () => {
     expect(preview.getByText("Delete Preview Performer")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Remove from Records" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Unused"]',
     );
     expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).toEqual([
+      "video_list",
+      "image_list",
+      "performer_list",
+    ]);
+  });
+
+  it("confirms and removes a category from records with categoriesJson-only patches", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Classic"]',
+    );
+    let videos = [
+      persistedVideo({
+        id: "video_remove_1",
+        title: "Remove Video",
+        ratingJson: '{"rewatch":5}',
+        notes: "Keep video remove notes",
+        categoriesJson: '["Drama","Classic"]',
+      }),
+    ];
+    let images = [
+      persistedImage({
+        id: "image_remove_1",
+        title: "Remove Image",
+        ratingJson: '{"visual":4}',
+        notes: "Keep image remove notes",
+        categoriesJson: '["Modern"," drama "]',
+      }),
+    ];
+    let performers = [
+      persistedPerformer({
+        id: "performer_remove_1",
+        name: "Remove Performer",
+        ratingJson: '{"attraction":4}',
+        notes: "Keep performer remove notes",
+        categoriesJson: '["Drama"]',
+      }),
+    ];
+    const invoke = vi.fn(
+      async (command: string, args?: Record<string, any>) => {
+        if (command === "video_list") {
+          return videos;
+        }
+        if (command === "image_list") {
+          return images;
+        }
+        if (command === "performer_list") {
+          return performers;
+        }
+        if (command === "video_update") {
+          expect(args?.id).toBe("video_remove_1");
+          expect(Object.keys(args?.patch ?? {})).toEqual(["categoriesJson"]);
+          expect(args?.patch.categoriesJson).toBe('["Classic"]');
+          videos = [{ ...videos[0], categoriesJson: args!.patch.categoriesJson }];
+          return videos[0];
+        }
+        if (command === "image_update") {
+          expect(args?.id).toBe("image_remove_1");
+          expect(Object.keys(args?.patch ?? {})).toEqual(["categoriesJson"]);
+          expect(args?.patch.categoriesJson).toBe('["Modern"]');
+          images = [{ ...images[0], categoriesJson: args!.patch.categoriesJson }];
+          return images[0];
+        }
+        if (command === "performer_update") {
+          expect(args?.id).toBe("performer_remove_1");
+          expect(Object.keys(args?.patch ?? {})).toEqual(["categoriesJson"]);
+          expect(args?.patch.categoriesJson).toBe("[]");
+          performers = [
+            { ...performers[0], categoriesJson: args!.patch.categoriesJson },
+          ];
+          return performers[0];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect((await screen.findAllByText("Remove Video")).length).toBeGreaterThan(0);
+    const removeFromRecords = screen.getByRole("button", {
+      name: "Remove from Records",
+    });
+    expect(removeFromRecords).toBeEnabled();
+    expect(
+      screen.queryByText("Confirm record category removal"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(removeFromRecords);
+    expect(screen.getByText("Confirm record category removal")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm Remove from Records" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Removed category from 3 existing records. Managed categories were not changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("No existing records use this category.").length,
+    ).toBeGreaterThan(0);
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Drama","Classic"]',
+    );
+    expect(videos[0]).toMatchObject({
+      title: "Remove Video",
+      ratingJson: '{"rewatch":5}',
+      notes: "Keep video remove notes",
+      categoriesJson: '["Classic"]',
+    });
+    expect(images[0]).toMatchObject({
+      title: "Remove Image",
+      ratingJson: '{"visual":4}',
+      notes: "Keep image remove notes",
+      categoriesJson: '["Modern"]',
+    });
+    expect(performers[0]).toMatchObject({
+      name: "Remove Performer",
+      ratingJson: '{"attraction":4}',
+      notes: "Keep performer remove notes",
+      categoriesJson: "[]",
+    });
+    expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).toEqual([
+      "video_list",
+      "image_list",
+      "performer_list",
+      "video_update",
+      "image_update",
+      "performer_update",
       "video_list",
       "image_list",
       "performer_list",
