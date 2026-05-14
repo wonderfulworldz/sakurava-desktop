@@ -19,7 +19,12 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { Image, Performer, Video as VideoRecord } from "../backend/types";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
+import {
+  buildCategoryRenamePreview,
+  type CategoryRenamePreview,
+} from "../lib/categoryRenamePreview";
 import {
   addStoredManagedCategory,
   getStoredManagedCategories,
@@ -83,6 +88,11 @@ const emptyCategoryAudit = buildCategoryAudit({
   images: [],
   performers: [],
 });
+const emptyCategoryRenamePreviewRecords = {
+  videos: [] as VideoRecord[],
+  images: [] as Image[],
+  performers: [] as Performer[],
+};
 
 const appOverviewRows: SettingsRow[] = [
   { label: "App Name", value: "Sakurava", icon: Tag },
@@ -148,6 +158,8 @@ function SettingsPage() {
   });
   const [categoryAudit, setCategoryAudit] =
     useState<CategoryAuditSummary>(emptyCategoryAudit);
+  const [categoryRenamePreviewRecords, setCategoryRenamePreviewRecords] =
+    useState(emptyCategoryRenamePreviewRecords);
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [managedCategoryInput, setManagedCategoryInput] = useState("");
   const [managedCategoryStatus, setManagedCategoryStatus] =
@@ -216,6 +228,7 @@ function SettingsPage() {
   useEffect(() => {
     if (!isDesktopRuntime) {
       setCategoryAudit(emptyCategoryAudit);
+      setCategoryRenamePreviewRecords(emptyCategoryRenamePreviewRecords);
       return;
     }
 
@@ -231,10 +244,12 @@ function SettingsPage() {
 
         if (!cancelled) {
           setCategoryAudit(buildCategoryAudit({ videos, images, performers }));
+          setCategoryRenamePreviewRecords({ videos, images, performers });
         }
       } catch {
         if (!cancelled) {
           setCategoryAudit(emptyCategoryAudit);
+          setCategoryRenamePreviewRecords(emptyCategoryRenamePreviewRecords);
         }
       }
     }
@@ -496,6 +511,7 @@ function SettingsPage() {
       />
       <CatalogSettingsCard
         audit={categoryAudit}
+        renamePreviewRecords={categoryRenamePreviewRecords}
         managedCategories={managedCategories}
         managedCategoryInput={managedCategoryInput}
         managedCategoryStatus={managedCategoryStatus}
@@ -679,6 +695,7 @@ function SettingsCard({
 
 function CatalogSettingsCard({
   audit,
+  renamePreviewRecords,
   managedCategories,
   managedCategoryInput,
   managedCategoryStatus,
@@ -687,6 +704,11 @@ function CatalogSettingsCard({
   onRenameManagedCategory,
 }: {
   audit: CategoryAuditSummary;
+  renamePreviewRecords: {
+    videos: VideoRecord[];
+    images: Image[];
+    performers: Performer[];
+  };
   managedCategories: string[];
   managedCategoryInput: string;
   managedCategoryStatus: CategoryStatus;
@@ -716,6 +738,9 @@ function CatalogSettingsCard({
       )
     : null;
   const canApplyRename = renameValidation?.state === "valid";
+  const renamePreview = selectedRenameCategory
+    ? buildCategoryRenamePreview(selectedRenameCategory, renamePreviewRecords)
+    : null;
   const selectedDeleteCategory =
     deleteSourceCategory && managedCategories.includes(deleteSourceCategory)
       ? deleteSourceCategory
@@ -936,6 +961,9 @@ function CatalogSettingsCard({
                   {renameValidation.message}
                 </p>
               )}
+              {renamePreview && (
+                <CategoryRecordRenamePreview preview={renamePreview} />
+              )}
             </div>
           )}
 
@@ -999,6 +1027,69 @@ function CategoryAuditMetric({
     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
       <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function CategoryRecordRenamePreview({
+  preview,
+}: {
+  preview: CategoryRenamePreview;
+}) {
+  return (
+    <div
+      role="region"
+      aria-label="Record rename preview"
+      className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Record Rename Preview
+          </p>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            Record rename preview only. Applying rename to records is planned and not active in this batch.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled
+          className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-400"
+        >
+          Apply to Records
+        </button>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-4">
+        <CategoryAuditMetric label="Affected Videos" value={preview.videos} />
+        <CategoryAuditMetric label="Affected Images" value={preview.images} />
+        <CategoryAuditMetric
+          label="Affected Performers"
+          value={preview.performers}
+        />
+        <CategoryAuditMetric label="Total affected records" value={preview.total} />
+      </div>
+      {preview.total === 0 ? (
+        <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">
+          No existing records use this category.
+        </p>
+      ) : (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Affected examples
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {preview.examples.map((example, index) => (
+              <span
+                key={`${example.kind}-${example.label}-${index}`}
+                className="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
+              >
+                <span className="text-sakura-600">{example.kind}</span>
+                <span className="break-words">{example.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
