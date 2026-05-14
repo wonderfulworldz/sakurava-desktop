@@ -455,7 +455,7 @@ describe("App", () => {
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Classic"]',
     );
-    expect(screen.getByRole("button", { name: "Apply Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Apply Delete" })).toBeEnabled();
   });
 
   it("applies managed category rename locally without touching record categories", async () => {
@@ -788,6 +788,81 @@ describe("App", () => {
     expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
       '["Drama","Unused"]',
     );
+  });
+
+  it("deletes an unused managed category after confirmation without touching records", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.managedCategories.v1",
+      '["Drama","Unused","Classic"]',
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({ categoriesJson: '["Drama"]' })];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("1 usage")).toBeInTheDocument();
+    const applyDelete = screen.getByRole("button", { name: "Apply Delete" });
+    expect(applyDelete).toBeDisabled();
+    expect(screen.getByLabelText("Category to delete")).toHaveValue("Drama");
+    expect(
+      screen.getByText("1 usage: cannot be deleted until usage is removed."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Category to delete"), {
+      target: { value: "Unused" },
+    });
+
+    expect(applyDelete).toBeEnabled();
+    expect(
+      screen.getByText("Unused / 0 usage: eligible for future deletion."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Confirm managed category delete"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(applyDelete);
+    expect(screen.getByText("Confirm managed category delete")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
+
+    expect(window.localStorage.getItem("sakurava.managedCategories.v1")).toBe(
+      '["Drama","Classic"]',
+    );
+    expect(
+      screen.getByText(
+        'Deleted managed category "Unused". Existing record categories were not changed.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Unused" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Drama").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Classic").length).toBeGreaterThan(0);
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).toHaveBeenCalledTimes(3);
   });
 
   it("adds a configured media root from the Settings folder picker", async () => {
