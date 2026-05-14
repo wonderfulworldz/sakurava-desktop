@@ -4,6 +4,7 @@ import {
   type FormEvent,
   type ReactNode,
   type SetStateAction,
+  useEffect,
   useState,
 } from "react";
 import { Link } from "react-router-dom";
@@ -13,15 +14,35 @@ import type {
   ReadOnlyField,
   TextField,
 } from "../lib/formData";
+import { getStoredManagedCategories } from "../lib/managedCategories";
+import {
+  selectLocalFolder,
+  selectLocalImageFile,
+  selectLocalMediaFile,
+} from "../runtime/dialogCommands";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type FormPageProps = {
   config: FormConfig;
   mode: FormMode;
+  onSubmit?: (data: FormSubmitData) => Promise<FormSubmitResult> | FormSubmitResult;
 };
 
 type FormValues = Record<string, string | boolean>;
+type SaveState = "idle" | "error" | "saved";
 
-function FormPage({ config, mode }: FormPageProps) {
+type FormSubmitData = {
+  values: FormValues;
+  categories: string[];
+  aliases: string[];
+};
+
+type FormSubmitResult = {
+  state: Exclude<SaveState, "idle">;
+  message?: string;
+};
+
+function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
     config.initialCategories[mode],
@@ -31,7 +52,23 @@ function FormPage({ config, mode }: FormPageProps) {
   );
   const [categoryDraft, setCategoryDraft] = useState("");
   const [aliasDraft, setAliasDraft] = useState("");
-  const [saveState, setSaveState] = useState<"idle" | "error" | "saved">("idle");
+  const [managedCategories, setManagedCategories] = useState<string[]>([]);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveMessage, setSaveMessage] = useState("");
+  const canBrowsePaths = isTauriRuntimeAvailable();
+  const categoryOptions = mergeCategoryOptions(managedCategories, categories);
+
+  useEffect(() => {
+    setValues(config.initialValues[mode]);
+    setCategories(config.initialCategories[mode]);
+    setAliases(config.initialAliases?.[mode] ?? []);
+    setSaveState("idle");
+    setSaveMessage("");
+  }, [config, mode]);
+
+  useEffect(() => {
+    setManagedCategories(getStoredManagedCategories());
+  }, []);
 
   const title = mode === "create" ? config.createTitle : config.editTitle;
   const subtitle =
@@ -45,16 +82,50 @@ function FormPage({ config, mode }: FormPageProps) {
     setSaveState("idle");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function browsePath(field: TextField) {
+    if (!canBrowsePaths) {
+      return;
+    }
+
+    try {
+      const selectedPath = await selectPathForField(config.kind, field.name);
+
+      if (selectedPath) {
+        updateValue(field.name, selectedPath);
+      }
+    } catch {
+      setSaveState("error");
+      setSaveMessage("Unable to open file picker.");
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const requiredValue = values[config.requiredField];
 
     if (typeof requiredValue !== "string" || requiredValue.trim() === "") {
       setSaveState("error");
+      setSaveMessage("Required field is empty.");
       return;
     }
 
-    setSaveState("saved");
+    if (!onSubmit) {
+      setSaveState("saved");
+      setSaveMessage("Local visual save state only");
+      return;
+    }
+
+    try {
+      const result = await onSubmit({ values, categories, aliases });
+      setSaveState(result.state);
+      setSaveMessage(
+        result.message ??
+          (result.state === "saved" ? "Saved." : "Unable to save."),
+      );
+    } catch {
+      setSaveState("error");
+      setSaveMessage("Unable to save.");
+    }
   }
 
   return (
@@ -119,6 +190,7 @@ function FormPage({ config, mode }: FormPageProps) {
                 draft={categoryDraft}
                 chips={categories}
                 placeholder="Add category..."
+                options={categoryOptions}
                 onDraftChange={setCategoryDraft}
                 onAdd={() =>
                   addChip(
@@ -143,7 +215,9 @@ function FormPage({ config, mode }: FormPageProps) {
         <PerformerExtraSections
           config={config}
           values={values}
+          canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
+          browsePath={browsePath}
         />
       ) : (
         <CatalogExtraSections
@@ -153,7 +227,10 @@ function FormPage({ config, mode }: FormPageProps) {
           categoryDraft={categoryDraft}
           setCategories={setCategories}
           setCategoryDraft={setCategoryDraft}
+          categoryOptions={categoryOptions}
+          canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
+          browsePath={browsePath}
         />
       )}
 
@@ -190,12 +267,12 @@ function FormPage({ config, mode }: FormPageProps) {
             {saveState === "saved" && (
               <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
                 <CheckCircle2 size={16} />
-                Local visual save state only
+                {saveMessage || "Local visual save state only"}
               </p>
             )}
             {saveState === "error" && (
               <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600">
-                Required field is empty.
+                {saveMessage || "Required field is empty."}
               </p>
             )}
           </div>
@@ -264,7 +341,10 @@ function CatalogExtraSections({
   categoryDraft,
   setCategories,
   setCategoryDraft,
+  categoryOptions,
+  canBrowsePaths,
   updateValue,
+  browsePath,
 }: {
   config: FormConfig;
   values: FormValues;
@@ -272,7 +352,10 @@ function CatalogExtraSections({
   categoryDraft: string;
   setCategories: Dispatch<SetStateAction<string[]>>;
   setCategoryDraft: Dispatch<SetStateAction<string>>;
+  categoryOptions: string[];
+  canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
+  browsePath: (field: TextField) => void;
 }) {
   const pathTitle =
     config.kind === "images" ? "Cover & Folder Path" : "Cover & File Path";
@@ -295,6 +378,7 @@ function CatalogExtraSections({
             draft={categoryDraft}
             chips={categories}
             placeholder="Add category..."
+            options={categoryOptions}
             onDraftChange={setCategoryDraft}
             onAdd={() =>
               addChip(categoryDraft, categories, setCategories, setCategoryDraft)
@@ -306,6 +390,9 @@ function CatalogExtraSections({
         </FieldGrid>
       </FormSection>
       <FormSection index={3} title={pathTitle}>
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Paths are saved as manual text. Browse selects a local path only.
+        </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
             <PathInput
@@ -313,7 +400,9 @@ function CatalogExtraSections({
               field={field}
               value={String(values[field.name] ?? "")}
               browseLabel={field.name === "mediaPath" ? "Browse Media" : field.name === "folderPath" ? "Browse Folder" : "Browse Cover"}
+              browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
+              onBrowse={() => browsePath(field)}
             />
           ))}
         </FieldGrid>
@@ -345,11 +434,15 @@ function CatalogExtraSections({
 function PerformerExtraSections({
   config,
   values,
+  canBrowsePaths,
   updateValue,
+  browsePath,
 }: {
   config: FormConfig;
   values: FormValues;
+  canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
+  browsePath: (field: TextField) => void;
 }) {
   const sections = config.performerSections;
 
@@ -360,6 +453,9 @@ function PerformerExtraSections({
   return (
     <>
       <FormSection index={2} title="Media">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Cover path is saved as manual text. Thumbnail paths are planned and not saved in MVP.
+        </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
             <PathInput
@@ -367,7 +463,9 @@ function PerformerExtraSections({
               field={field}
               value={String(values[field.name] ?? "")}
               browseLabel="Browse Cover"
+              browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
+              onBrowse={() => browsePath(field)}
             />
           ))}
           {sections.media.map((field) => (
@@ -381,8 +479,23 @@ function PerformerExtraSections({
           ))}
         </FieldGrid>
       </FormSection>
-      <InactiveFieldSection index={3} title="Summary" fields={sections.summary} values={values} />
+      <FormSection index={3} title="Summary">
+        <FieldGrid>
+          {sections.summary.map((field) => (
+            <TextInput
+              key={field.name}
+              field={field}
+              value={String(values[field.name] ?? "")}
+              onChange={(value) => updateValue(field.name, value)}
+              inactive={field.name === "yearsActive"}
+            />
+          ))}
+        </FieldGrid>
+      </FormSection>
       <FormSection index={4} title="Personal">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Birth date is saved. Other personal fields are planned and not saved in MVP.
+        </p>
         <FieldGrid>
           {sections.personal.map((field) => (
             <TextInput
@@ -469,18 +582,28 @@ function TextInput({
         {field.required && <span className="text-sakura-500"> *</span>}
       </span>
       <span className="flex items-center gap-2">
-        <input
-          className={inputClass(inactive)}
-          type={field.type ?? "text"}
-          value={value}
-          disabled={inactive}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        {field.suffix && (
-          <span className="shrink-0 text-xs font-semibold text-slate-500">
-            {field.suffix}
+        <span className="grid flex-1 gap-1">
+          <span className="flex items-center gap-2">
+            <input
+              className={inputClass(inactive)}
+              aria-label={field.label}
+              type={field.type ?? "text"}
+              value={value}
+              disabled={inactive}
+              onChange={(event) => onChange(event.target.value)}
+            />
+            {field.suffix && (
+              <span className="shrink-0 text-xs font-semibold text-slate-500">
+                {field.suffix}
+              </span>
+            )}
           </span>
-        )}
+          {field.helper && (
+            <span className="text-xs font-medium text-slate-500">
+              {field.helper}
+            </span>
+          )}
+        </span>
       </span>
     </label>
   );
@@ -490,29 +613,46 @@ function PathInput({
   field,
   value,
   browseLabel,
+  browseDisabled,
   onChange,
+  onBrowse,
 }: {
   field: TextField;
   value: string;
   browseLabel: string;
+  browseDisabled: boolean;
   onChange: (value: string) => void;
+  onBrowse: () => void;
 }) {
   return (
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
       <span>{field.label}</span>
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
-        <input
-          className={inputClass(false)}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <button
-          type="button"
-          disabled
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-400"
-        >
-          {browseLabel}
-        </button>
+      <div className="grid gap-1">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
+          <input
+            className={inputClass(false)}
+            aria-label={field.label}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <button
+            type="button"
+            disabled={browseDisabled}
+            onClick={onBrowse}
+            className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
+              browseDisabled
+                ? "border-slate-200 bg-slate-100 text-slate-400"
+                : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100"
+            }`}
+          >
+            {browseLabel}
+          </button>
+        </div>
+        {field.helper && (
+          <span className="text-xs font-medium text-slate-500">
+            {field.helper}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -572,6 +712,7 @@ function ChipInput({
   draft,
   chips,
   placeholder,
+  options = [],
   onDraftChange,
   onAdd,
   onRemove,
@@ -580,10 +721,13 @@ function ChipInput({
   draft: string;
   chips: string[];
   placeholder: string;
+  options?: string[];
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (chip: string) => void;
 }) {
+  const optionListId = `${label.toLowerCase().replace(/\s+/g, "-")}-options`;
+
   return (
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
       <span className="pt-2">{label}</span>
@@ -608,6 +752,7 @@ function ChipInput({
           className="min-w-40 flex-1 border-0 bg-transparent px-1 py-1 text-sm font-normal text-slate-700 outline-none placeholder:text-slate-400"
           value={draft}
           placeholder={placeholder}
+          list={options.length > 0 ? optionListId : undefined}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -624,6 +769,13 @@ function ChipInput({
         >
           <Plus size={15} />
         </button>
+        {options.length > 0 && (
+          <datalist id={optionListId}>
+            {options.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        )}
       </div>
     </div>
   );
@@ -703,6 +855,28 @@ function addChip(
   setDraft("");
 }
 
+function mergeCategoryOptions(...categoryGroups: string[][]) {
+  const categoriesByKey = new Map<string, string>();
+
+  for (const categories of categoryGroups) {
+    for (const category of categories) {
+      const label = category.trim();
+      if (!label) {
+        continue;
+      }
+
+      const key = label.toLowerCase();
+      if (!categoriesByKey.has(key)) {
+        categoriesByKey.set(key, label);
+      }
+    }
+  }
+
+  return [...categoriesByKey.values()].sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
 function inputClass(inactive: boolean) {
   return [
     "h-9 w-full rounded-lg border px-3 text-sm font-normal outline-none transition",
@@ -710,6 +884,18 @@ function inputClass(inactive: boolean) {
       ? "border-slate-200 bg-slate-100 text-slate-500"
       : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
   ].join(" ");
+}
+
+function selectPathForField(kind: FormConfig["kind"], fieldName: string) {
+  if (fieldName === "folderPath") {
+    return selectLocalFolder();
+  }
+
+  if (kind === "videos" && fieldName === "mediaPath") {
+    return selectLocalMediaFile();
+  }
+
+  return selectLocalImageFile();
 }
 
 function collectionLabel(kind: FormConfig["kind"]) {

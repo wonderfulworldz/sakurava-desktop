@@ -1,6 +1,7 @@
 export * from "./json";
 export * from "./repositories";
 export * from "./runtime/commands";
+export * from "./runtime/database";
 export * from "./schema";
 export * from "./sqlite/adapter";
 export * from "./sqlite/database";

@@ -8,6 +8,7 @@ export type TextField = {
   type?: "text" | "date" | "number";
   required?: boolean;
   suffix?: string;
+  helper?: string;
 };
 
 export type SelectField = {
@@ -85,8 +86,16 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "censorship", label: "Censorship", options: censorshipOptions },
     ],
     pathFields: [
-      { name: "coverPath", label: "Cover Path" },
-      { name: "mediaPath", label: "Media Path" },
+      {
+        name: "coverPath",
+        label: "Cover Path",
+        helper: "Saved as typed or selected local image path.",
+      },
+      {
+        name: "mediaPath",
+        label: "Media Path",
+        helper: "Saved as typed or selected local media path.",
+      },
     ],
     metadataFields: [
       { name: "releaseDate", label: "Release Date", type: "date" },
@@ -94,7 +103,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "publisherLabel", label: "Publisher / Label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info is not detected in MVP.",
+    techMessage: "Tech info is not detected or saved in MVP.",
     techFields: [
       { label: "Resolution", value: "Not detected" },
       { label: "File Size", value: "Not detected" },
@@ -183,8 +192,16 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "censorship", label: "Censorship", options: censorshipOptions },
     ],
     pathFields: [
-      { name: "coverPath", label: "Cover Path" },
-      { name: "folderPath", label: "Gallery Folder / Gallery Source" },
+      {
+        name: "coverPath",
+        label: "Cover Path",
+        helper: "Saved as typed or selected local image path.",
+      },
+      {
+        name: "folderPath",
+        label: "Gallery Folder Path",
+        helper: "Saved as typed or selected local folder path. Folder analysis is not run.",
+      },
     ],
     metadataFields: [
       { name: "releaseDate", label: "Release Date", type: "date" },
@@ -192,7 +209,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "publisherLabel", label: "Publisher / Label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Folder analysis is not available in MVP.",
+    techMessage: "Folder analysis is not detected or saved in MVP.",
     techFields: [
       { label: "Folder Size", value: "Not detected" },
       { label: "Detected Image Count", value: "Not detected" },
@@ -277,7 +294,13 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     selectFields: [
       { name: "status", label: "Status", options: ["Unknown", "Active", "Retired"] },
     ],
-    pathFields: [{ name: "coverPath", label: "Cover Path" }],
+    pathFields: [
+      {
+        name: "coverPath",
+        label: "Cover Path",
+        helper: "Saved as typed or selected local image path.",
+      },
+    ],
     metadataFields: [],
     techFields: [],
     ratingFields: [
@@ -295,28 +318,68 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     showAliases: true,
     performerSections: {
       media: [
-        { name: "thumbnail1", label: "Thumbnail 1" },
-        { name: "thumbnail2", label: "Thumbnail 2" },
-        { name: "thumbnail3", label: "Thumbnail 3" },
-        { name: "thumbnail4", label: "Thumbnail 4" },
+        {
+          name: "thumbnail1",
+          label: "Thumbnail 1 (planned)",
+          helper: "Not saved in MVP.",
+        },
+        {
+          name: "thumbnail2",
+          label: "Thumbnail 2 (planned)",
+          helper: "Not saved in MVP.",
+        },
+        {
+          name: "thumbnail3",
+          label: "Thumbnail 3 (planned)",
+          helper: "Not saved in MVP.",
+        },
+        {
+          name: "thumbnail4",
+          label: "Thumbnail 4 (planned)",
+          helper: "Not saved in MVP.",
+        },
       ],
       summary: [
-        { name: "yearsActive", label: "Years Active" },
+        {
+          name: "yearsActive",
+          label: "Years Active (planned)",
+          helper: "Not saved in MVP.",
+        },
         { name: "filmography", label: "Filmography", type: "number" },
         { name: "pictorials", label: "Pictorials", type: "number" },
       ],
       personal: [
         { name: "birthDate", label: "Birth Date", type: "date" },
-        { name: "birthplace", label: "Birthplace" },
-        { name: "nationality", label: "Nationality" },
-        { name: "astrologicalSign", label: "Astrological Sign" },
-        { name: "bloodType", label: "Blood Type" },
+        {
+          name: "birthplace",
+          label: "Birthplace (planned)",
+          helper: "Not saved in MVP.",
+        },
+        {
+          name: "nationality",
+          label: "Nationality (planned)",
+          helper: "Not saved in MVP.",
+        },
+        {
+          name: "astrologicalSign",
+          label: "Astrological Sign (planned)",
+          helper: "Not saved in MVP.",
+        },
+        {
+          name: "bloodType",
+          label: "Blood Type (planned)",
+          helper: "Not saved in MVP.",
+        },
       ],
       physical: [
-        { name: "height", label: "Height" },
-        { name: "weight", label: "Weight" },
-        { name: "measurement", label: "Measurement" },
-        { name: "cupSize", label: "Cup Size" },
+        { name: "height", label: "Height (planned)", helper: "Not saved in MVP." },
+        { name: "weight", label: "Weight (planned)", helper: "Not saved in MVP." },
+        {
+          name: "measurement",
+          label: "Measurement (planned)",
+          helper: "Not saved in MVP.",
+        },
+        { name: "cupSize", label: "Cup Size (planned)", helper: "Not saved in MVP." },
       ],
     },
     initialValues: {
@@ -330,18 +393,18 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         thumbnail2: "",
         thumbnail3: "",
         thumbnail4: "",
-        yearsActive: "Placeholder only",
+        yearsActive: "Not saved in MVP",
         filmography: "0",
         pictorials: "0",
         birthDate: "",
-        birthplace: "Inactive placeholder",
-        nationality: "Inactive placeholder",
-        astrologicalSign: "Inactive placeholder",
-        bloodType: "Inactive placeholder",
-        height: "Inactive placeholder",
-        weight: "Inactive placeholder",
-        measurement: "Inactive placeholder",
-        cupSize: "Inactive placeholder",
+        birthplace: "Not saved in MVP",
+        nationality: "Not saved in MVP",
+        astrologicalSign: "Not saved in MVP",
+        bloodType: "Not saved in MVP",
+        height: "Not saved in MVP",
+        weight: "Not saved in MVP",
+        measurement: "Not saved in MVP",
+        cupSize: "Not saved in MVP",
         notes: "",
         attraction: "3",
         visual: "3",
@@ -356,23 +419,23 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         favorite: true,
         status: "Active",
         coverPath: "D:/Images/Performers/sample_cover.jpg",
-        thumbnail1: "D:/Images/Performers/thumb1.jpg",
-        thumbnail2: "D:/Images/Performers/thumb2.jpg",
-        thumbnail3: "D:/Images/Performers/thumb3.jpg",
-        thumbnail4: "D:/Images/Performers/thumb4.jpg",
-        yearsActive: "2015 - present",
+        thumbnail1: "Not saved in MVP",
+        thumbnail2: "Not saved in MVP",
+        thumbnail3: "Not saved in MVP",
+        thumbnail4: "Not saved in MVP",
+        yearsActive: "Not saved in MVP",
         filmography: "30",
         pictorials: "25",
         birthDate: "1998-01-01",
-        birthplace: "Tokyo, Japan",
-        nationality: "Japanese",
-        astrologicalSign: "Capricorn",
-        bloodType: "O",
-        height: "165 cm",
-        weight: "50 kg",
-        measurement: "88-58-85 cm",
-        cupSize: "C",
-        notes: "This is a read-only placeholder for personal notes about the performer.",
+        birthplace: "Not saved in MVP",
+        nationality: "Not saved in MVP",
+        astrologicalSign: "Not saved in MVP",
+        bloodType: "Not saved in MVP",
+        height: "Not saved in MVP",
+        weight: "Not saved in MVP",
+        measurement: "Not saved in MVP",
+        cupSize: "Not saved in MVP",
+        notes: "This is a sample note for the performer.",
         attraction: "4",
         visual: "4",
         performance: "4",

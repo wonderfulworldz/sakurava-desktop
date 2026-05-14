@@ -1,0 +1,20 @@
+[package]
+name = "sakurava-desktop"
+version = "0.0.0"
+description = "Sakurava desktop runtime"
+authors = ["Sakurava"]
+edition = "2021"
+
+[lib]
+name = "sakurava_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["backup", "bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"

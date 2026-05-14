@@ -11,24 +11,50 @@ import {
   Info,
   Ruler,
   Star,
+  Trash2,
   UserRound,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DetailConfig, PerformerDetailConfig } from "../lib/detailData";
+import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
+
+export type DetailDeleteAction = {
+  itemLabel: string;
+  isPending: boolean;
+  errorMessage: string | null;
+  onOpen: () => void;
+  onConfirm: () => void;
+};
 
 type DetailPageProps = {
   config: DetailConfig;
+  deleteAction?: DetailDeleteAction;
 };
 
-function DetailPage({ config }: DetailPageProps) {
+function DetailPage({ config, deleteAction }: DetailPageProps) {
   if (config.kind === "performers") {
-    return <PerformerDetailPage config={config} />;
+    return <PerformerDetailPage config={config} deleteAction={deleteAction} />;
   }
 
-  return <CatalogDetailPage config={config} />;
+  return <CatalogDetailPage config={config} deleteAction={deleteAction} />;
 }
 
-function DetailHeader({ config }: DetailPageProps) {
+function DetailHeader({ config, deleteAction }: DetailPageProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function openConfirmation() {
+    deleteAction?.onOpen();
+    setConfirmOpen(true);
+  }
+
+  function closeConfirmation() {
+    if (!deleteAction?.isPending) {
+      setConfirmOpen(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -39,13 +65,25 @@ function DetailHeader({ config }: DetailPageProps) {
           <ArrowLeft size={16} />
           {config.backLabel}
         </Link>
-        <Link
-          to={config.editTo}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
-        >
-          <Edit3 size={16} />
-          Edit
-        </Link>
+        <div className="flex items-center gap-2">
+          {deleteAction && (
+            <button
+              type="button"
+              onClick={openConfirmation}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-600 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
+            >
+              <Trash2 size={16} />
+              Delete
+            </button>
+          )}
+          <Link
+            to={config.editTo}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
+          >
+            <Edit3 size={16} />
+            Edit
+          </Link>
+        </div>
       </div>
       <div>
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
@@ -55,23 +93,60 @@ function DetailHeader({ config }: DetailPageProps) {
           {config.subtitle}
         </p>
       </div>
+      {deleteAction && confirmOpen && (
+        <section
+          aria-label="Delete confirmation"
+          className="rounded-lg border border-rose-200 bg-rose-50/70 p-4"
+        >
+          <h2 className="text-base font-semibold text-rose-900">
+            Delete {deleteAction.itemLabel}?
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-rose-800">
+            This removes the saved Sakurava record for {deleteAction.itemLabel}.
+            It does not delete local media files from this device.
+          </p>
+          {deleteAction.errorMessage && (
+            <p className="mt-3 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700">
+              {deleteAction.errorMessage}
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={closeConfirmation}
+              disabled={deleteAction.isPending}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={deleteAction.onConfirm}
+              disabled={deleteAction.isPending}
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleteAction.isPending ? "Deleting..." : "Delete permanently"}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function CatalogDetailPage({ config }: DetailPageProps) {
+function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
   return (
     <div className="space-y-5">
-      <DetailHeader config={config} />
+      <DetailHeader config={config} deleteAction={deleteAction} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <div className="grid gap-6 lg:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
           <LargePlaceholder config={config} />
           <CatalogIdentity config={config} />
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.85fr_1.3fr_0.85fr]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)]">
         <RowsCard title="Metadata" icon={Calendar} items={config.metadata} />
         <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
         <RowsCard
@@ -87,13 +162,14 @@ function CatalogDetailPage({ config }: DetailPageProps) {
       <RelatedRows sections={config.relatedSections} />
 
       {config.kind === "images" && <GalleryGrid labels={config.galleryLabels} />}
+      <SystemInfoCard items={config.systemInfo} />
     </div>
   );
 }
 
 function CatalogIdentity({ config }: DetailPageProps) {
   return (
-    <div className="flex min-h-full flex-col justify-center py-2">
+    <div className="flex min-h-full flex-col justify-start py-2">
       <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
         {config.displayTitle}
       </h2>
@@ -128,16 +204,23 @@ function CatalogIdentity({ config }: DetailPageProps) {
   );
 }
 
-function PerformerDetailPage({ config }: { config: PerformerDetailConfig }) {
+function PerformerDetailPage({
+  config,
+  deleteAction,
+}: {
+  config: PerformerDetailConfig;
+  deleteAction?: DetailDeleteAction;
+}) {
   return (
     <div className="space-y-5">
-      <DetailHeader config={config} />
+      <DetailHeader config={config} deleteAction={deleteAction} />
 
       <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
         <PerformerProfileCard config={config} />
 
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
+          <RowsCard title="Profile Metadata" icon={Calendar} items={config.metadata} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
@@ -148,6 +231,7 @@ function PerformerDetailPage({ config }: { config: PerformerDetailConfig }) {
       </div>
 
       <RelatedRows sections={config.relatedSections} />
+      <SystemInfoCard items={config.systemInfo} />
     </div>
   );
 }
@@ -157,7 +241,7 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <LargePlaceholder config={config} />
 
-      <div className="mt-4 grid grid-cols-4 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {config.techItems.map((item) => (
           <SmallThumbnail key={item.label} label={item.label} />
         ))}
@@ -171,8 +255,14 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <Chip label="Active" tone="green" />
-        <Chip label="Favorite" icon={Heart} tone="pink" />
+        {config.chips.map((chip) => (
+          <Chip
+            key={chip}
+            label={chip}
+            tone={chip === "Active" ? "green" : "orange"}
+          />
+        ))}
+        {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
       </div>
 
       <Divider />
@@ -217,30 +307,53 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
 function LargePlaceholder({ config }: DetailPageProps) {
   const Icon = config.placeholderIcon;
   const aspectClass =
-    config.kind === "performers" ? "aspect-[1.18/1]" : "aspect-video";
+    config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
+  const [imageFailed, setImageFailed] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const assetSrc = localImagePathToAssetSrc(config.coverPath);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc, mediaAssetScopeReady]);
 
   return (
     <div
-      className={`${aspectClass} flex min-h-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+      className={`${aspectClass} relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+      aria-label={showImage ? undefined : config.placeholderLabel}
     >
-      <div className="flex flex-col items-center gap-3">
-        <Icon size={config.kind === "performers" ? 86 : 74} strokeWidth={1.5} />
-        <div className="text-center">
-          <p className="text-sm font-medium text-slate-500">
-            {config.placeholderLabel}
-          </p>
-          {config.kind === "videos" && (
-            <p className="mt-2 text-sm text-slate-400">16:9</p>
-          )}
+      {showImage ? (
+        <img
+          src={assetSrc ?? undefined}
+          alt={`${config.displayTitle} ${
+            config.kind === "performers" ? "profile image" : "cover"
+          }`}
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <Icon
+            size={config.kind === "performers" ? 86 : 74}
+            strokeWidth={1.5}
+          />
+          <div className="text-center">
+            <p className="text-sm font-medium text-slate-500">
+              {config.placeholderLabel}
+            </p>
+            {config.kind === "videos" && (
+              <p className="mt-2 text-sm text-slate-400">16:9</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 function SmallThumbnail({ label }: { label: string }) {
   return (
-    <div className="aspect-square rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50">
+    <div className="aspect-[4/5] rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50">
       <div className="flex h-full items-center justify-center text-slate-300">
         <ImageIcon size={24} aria-label={label} />
       </div>
@@ -262,17 +375,21 @@ function RowsCard({
   readOnly?: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title={title} icon={Icon} />
       {message && <p className="mt-3 text-xs text-slate-500">{message}</p>}
       <div className="mt-4 divide-y divide-slate-100">
         {items.map((item) => (
           <div
             key={item.label}
-            className="grid grid-cols-[1fr_1.1fr] gap-4 py-3 text-sm"
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 py-3 text-sm"
           >
-            <span className="font-medium text-slate-700">{item.label}</span>
-            <span className="text-slate-500">{item.value}</span>
+            <span className="min-w-0 font-medium text-slate-700">
+              {item.label}
+            </span>
+            <span className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]">
+              {item.value}
+            </span>
           </div>
         ))}
       </div>
@@ -285,6 +402,26 @@ function RowsCard({
   );
 }
 
+function SystemInfoCard({
+  items,
+}: {
+  items: { label: string; value: string }[];
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+      <CardTitle title="System Info" icon={Info} />
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.label} className="text-sm">
+            <p className="font-medium text-slate-600">{item.label}</p>
+            <p className="mt-1 text-slate-500">{item.value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RatingSummaryCard({
   title,
   rating,
@@ -293,24 +430,26 @@ function RatingSummaryCard({
   rating: { label: string; value: number }[];
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title={title} icon={Star} />
-      <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_230px]">
-        <div className="space-y-3">
+      <div className="mt-4 grid gap-6 [@media(min-width:1800px)]:grid-cols-[minmax(0,1fr)_260px] [@media(min-width:1800px)]:gap-8">
+        <RadarPlaceholder rating={rating} />
+        <div className="min-w-0 space-y-3 [@media(min-width:1800px)]:order-first">
           {rating.map((axis) => (
             <div
               key={axis.label}
-              className="grid grid-cols-[1fr_44px_112px] items-center gap-3 text-sm"
+              className="grid grid-cols-[minmax(0,1fr)_3rem_7rem] items-center gap-3 text-sm"
             >
-              <span className="font-medium text-slate-700">{axis.label}</span>
-              <span className="text-right text-slate-600">
+              <span className="min-w-0 break-words font-medium leading-5 text-slate-700">
+                {axis.label}
+              </span>
+              <span className="shrink-0 text-right text-slate-600">
                 {axis.value.toFixed(1)}
               </span>
               <Stars value={axis.value} />
             </div>
           ))}
         </div>
-        <RadarPlaceholder rating={rating} />
       </div>
     </section>
   );
@@ -372,7 +511,10 @@ function radarLabelClass(index: number) {
 
 function Stars({ value }: { value: number }) {
   return (
-    <span className="flex gap-1 text-sakura-500" aria-label={`${value}/5`}>
+    <span
+      className="flex shrink-0 justify-end gap-1 text-sakura-500"
+      aria-label={`${value}/5`}
+    >
       {Array.from({ length: 5 }, (_, index) => (
         <Star
           key={index}
