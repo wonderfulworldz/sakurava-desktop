@@ -40,6 +40,7 @@ Urutan acuan dokumen:
 14. `12-backup-restore-ux-safety.md` — aturan aman UX Backup/Restore.
 15. `13-settings-persistence-planning.md` - rencana aman persistensi Settings.
 16. `14-category-management-dedicated-page-planning.md` - rencana halaman khusus Category Management.
+17. `15-form-category-picker-lockdown-planning.md` - rencana lockdown picker kategori form ke Managed Categories.
 
 ## Current Post-MVP Reading Order
 
@@ -53,8 +54,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 6. `12-backup-restore-ux-safety.md`
 7. `13-settings-persistence-planning.md`
 8. `14-category-management-dedicated-page-planning.md`
-9. `AGENT_CODE_HANDOFF.md`
-10. `WORKFLOW_GIT.md`
+9. `15-form-category-picker-lockdown-planning.md`
+10. `AGENT_CODE_HANDOFF.md`
+11. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
