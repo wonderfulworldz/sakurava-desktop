@@ -38,6 +38,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [PRD alignment and development plan](docs/11-prd-alignment-and-development-plan.md)
 - [Git workflow](docs/WORKFLOW_GIT.md)
 - [Category Management safety](docs/10-category-management-safety.md)
+- [Backup/Restore UX Safety](docs/12-backup-restore-ux-safety.md)
 
 ## Current Status
 
