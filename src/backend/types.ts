@@ -28,6 +28,7 @@ export interface Video extends BaseCatalogRecord {
   publisherLabel: string;
   coverPath: string;
   mediaPath: string;
+  relatedPerformersJson: JsonText;
 }
 
 export interface Image extends BaseCatalogRecord {
@@ -41,6 +42,7 @@ export interface Image extends BaseCatalogRecord {
   coverPath: string;
   folderPath: string;
   imageCount: number | null;
+  relatedPerformersJson: JsonText;
 }
 
 export interface Performer extends BaseCatalogRecord {

@@ -19,13 +19,14 @@ describe("SQLite schema foundation", () => {
     expect(SCHEMA_SQL).toHaveLength(3);
   });
 
-  it("defines the videos table with JSON text fields and no relation fields", () => {
+  it("defines the videos table with JSON text fields and no relation tables", () => {
     expect(CREATE_VIDEOS_TABLE_SQL).toContain("CREATE TABLE IF NOT EXISTS videos");
     for (const column of [
       "id TEXT PRIMARY KEY NOT NULL",
       "title TEXT NOT NULL",
       "durationMinutes INTEGER",
       "categoriesJson TEXT NOT NULL DEFAULT '[]'",
+      "relatedPerformersJson TEXT NOT NULL DEFAULT '[]'",
       "ratingJson TEXT NOT NULL DEFAULT '{}'",
       "favorite INTEGER NOT NULL DEFAULT 0",
       "createdAt TEXT NOT NULL",
@@ -35,7 +36,7 @@ describe("SQLite schema foundation", () => {
     }
 
     expect(CREATE_VIDEOS_TABLE_SQL).not.toContain("categoryIds");
-    expect(CREATE_VIDEOS_TABLE_SQL).not.toContain("related");
+    expect(CREATE_VIDEOS_TABLE_SQL).not.toContain("related_performers");
   });
 
   it("defines the images table with folder metadata", () => {
@@ -43,9 +44,12 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_IMAGES_TABLE_SQL).toContain("folderPath TEXT NOT NULL DEFAULT ''");
     expect(CREATE_IMAGES_TABLE_SQL).toContain("imageCount INTEGER");
     expect(CREATE_IMAGES_TABLE_SQL).toContain("categoriesJson TEXT NOT NULL DEFAULT '[]'");
+    expect(CREATE_IMAGES_TABLE_SQL).toContain(
+      "relatedPerformersJson TEXT NOT NULL DEFAULT '[]'",
+    );
     expect(CREATE_IMAGES_TABLE_SQL).toContain("ratingJson TEXT NOT NULL DEFAULT '{}'");
     expect(CREATE_IMAGES_TABLE_SQL).not.toContain("categoryIds");
-    expect(CREATE_IMAGES_TABLE_SQL).not.toContain("related");
+    expect(CREATE_IMAGES_TABLE_SQL).not.toContain("related_performers");
   });
 
   it("defines the performers table with aliasesJson and count fields", () => {

@@ -70,6 +70,12 @@ Related Performer Storage Planning expected checkpoint after merge:
 post-mvp-22-2-related-performer-storage-planning-v1
 ```
 
+Related Performer Storage Implementation expected checkpoint after merge:
+
+```text
+post-mvp-22-3-related-performer-storage-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -115,6 +121,7 @@ Current app capabilities include:
 - collection search, sort, view toggle, pagination, and category filtering;
 - Categories sidebar browse/discovery page;
 - Managed Categories-only form category picker;
+- Related Performer JSON storage foundation for Videos and Images;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -135,22 +142,22 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 22.2, documentation may change only to plan Related Performer storage. Application code, tests, routes, schema, backend, Rust/Tauri, package files, category behavior, media behavior, and existing relation placeholders should not change.
+For Batch 22.3, code and tests may change only to add safe Related Performer JSON storage on Video and Image records. The Related Performer picker UI, relation tables, Performer mutation from Video/Image saves, category behavior, media behavior, package files, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Latest roadmap documentation batch:
+Latest roadmap implementation batch:
 
 ```text
-Batch 22.2 - Related Performer Storage Planning
+Batch 22.3 - Related Performer Storage Implementation
 ```
 
-Recommended next phase after Batch 22.2:
+Recommended next phase after Batch 22.3:
 
 ```text
-Related Performer Storage Implementation
+Related Performer Picker UI Implementation
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, and `docs/18-related-performer-storage-planning.md` before changing code.
