@@ -28,6 +28,12 @@ Settings Persistence Planning expected checkpoint after merge:
 post-mvp-18-2-settings-persistence-planning-v1
 ```
 
+Category Management Dedicated Page Planning expected checkpoint after merge:
+
+```text
+post-mvp-19-1-category-management-dedicated-page-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -99,13 +105,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 18.2 - Settings Persistence Planning
+Batch 19.1 - Category Management Dedicated Page Planning
 ```
 
-Recommended next phase after Batch 18.2:
+Recommended next phase after Batch 19.1:
 
 ```text
-Category Management Dedicated Page Planning
+Category Management Dedicated Page Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, and `docs/13-settings-persistence-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, and `docs/14-category-management-dedicated-page-planning.md` before changing code.

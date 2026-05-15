@@ -40,6 +40,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Category Management safety](docs/10-category-management-safety.md)
 - [Backup/Restore UX Safety](docs/12-backup-restore-ux-safety.md)
 - [Settings persistence planning](docs/13-settings-persistence-planning.md)
+- [Category Management dedicated page planning](docs/14-category-management-dedicated-page-planning.md)
 
 ## Current Status
 
