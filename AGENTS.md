@@ -60,6 +60,8 @@ The source of truth for category safety is `docs/10-category-management-safety.m
 
 For Category Management dedicated page planning, read `docs/14-category-management-dedicated-page-planning.md`.
 
+For Form Category Picker Lockdown planning, read `docs/15-form-category-picker-lockdown-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.

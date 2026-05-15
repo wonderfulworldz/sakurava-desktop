@@ -41,6 +41,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Backup/Restore UX Safety](docs/12-backup-restore-ux-safety.md)
 - [Settings persistence planning](docs/13-settings-persistence-planning.md)
 - [Category Management dedicated page planning](docs/14-category-management-dedicated-page-planning.md)
+- [Form Category Picker Lockdown planning](docs/15-form-category-picker-lockdown-planning.md)
 
 ## Current Status
 

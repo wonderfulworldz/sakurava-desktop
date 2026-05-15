@@ -40,6 +40,12 @@ Category Management Dedicated Page Implementation expected checkpoint after merg
 post-mvp-19-2-category-management-dedicated-page-implementation-v1
 ```
 
+Form Category Picker Lockdown Planning expected checkpoint after merge:
+
+```text
+post-mvp-20-1-form-category-picker-lockdown-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -103,7 +109,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 19.2, application frontend code and tests may change only to add the dedicated Category Management page and Settings entry point. Schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
+For Batch 20.1, documentation may change only to plan Form Category Picker Lockdown. Application code, tests, schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
 
 ## Recommended Next Phase
 
@@ -112,13 +118,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 19.2 - Category Management Dedicated Page Implementation
+Batch 20.1 - Form Category Picker Lockdown Planning
 ```
 
-Recommended next phase after Batch 19.2:
+Recommended next phase after Batch 20.1:
 
 ```text
-Form Category Picker Lockdown
+Form Category Picker Lockdown Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, and `docs/14-category-management-dedicated-page-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, and `docs/15-form-category-picker-lockdown-planning.md` before changing code.
