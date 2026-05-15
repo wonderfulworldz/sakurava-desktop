@@ -3,9 +3,16 @@ import { Image, UserRound, Video } from "lucide-react";
 
 export type DetailKind = "videos" | "images" | "performers";
 
-type DetailSection = {
+export type RelatedPerformerDetailItem = {
+  name: string;
+  originalName?: string;
+  unresolved: boolean;
+};
+
+export type DetailSection = {
   title: string;
   description: string;
+  relatedPerformers?: RelatedPerformerDetailItem[];
 };
 
 type RatingAxis = {

@@ -1,4 +1,4 @@
-import type { NewVideo, Video, VideoPatch } from "../backend/types";
+import type { NewVideo, Performer, Video, VideoPatch } from "../backend/types";
 import {
   normalizeRelatedPerformersJson,
   parseRatingObject,
@@ -8,7 +8,7 @@ import {
 } from "../backend/json";
 import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
-import type { VideoDetailConfig } from "./detailData";
+import type { DetailSection, VideoDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
@@ -30,7 +30,10 @@ export function buildVideoCollectionConfig(videos: Video[]): CollectionConfig {
   };
 }
 
-export function buildVideoDetailConfig(video: Video): VideoDetailConfig {
+export function buildVideoDetailConfig(
+  video: Video,
+  performers: Performer[] = [],
+): VideoDetailConfig {
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   const rating = parseRatingObject(video.ratingJson);
   return {
@@ -59,6 +62,11 @@ export function buildVideoDetailConfig(video: Video): VideoDetailConfig {
       value: numberFromRating(rating[field.name]),
     })),
     notes: video.notes || "No notes saved.",
+    relatedSections: buildRelatedSections(
+      baseConfig.relatedSections,
+      video.relatedPerformersJson,
+      performers,
+    ),
   };
 }
 
@@ -191,4 +199,53 @@ function formatDuration(minutes: number | null) {
   }
 
   return `${minutes} min`;
+}
+
+function buildRelatedSections(
+  sections: DetailSection[],
+  relatedPerformersJson: string | null | undefined,
+  performers: Performer[],
+): DetailSection[] {
+  return sections.map((section) =>
+    section.title === "Related Performer"
+      ? {
+          ...section,
+          description: "Read-only Related Performer links saved on this record.",
+          relatedPerformers: buildRelatedPerformerItems(
+            relatedPerformersJson,
+            performers,
+          ),
+        }
+      : section,
+  );
+}
+
+function buildRelatedPerformerItems(
+  relatedPerformersJson: string | null | undefined,
+  performers: Performer[],
+) {
+  const performerById = new Map(performers.map((performer) => [performer.id, performer]));
+
+  return parseRelatedPerformerArray(relatedPerformersJson).map((relation) => {
+    const performer = relation.performerId
+      ? performerById.get(relation.performerId)
+      : undefined;
+
+    if (performer) {
+      const name = performer.name || performer.originalName || relation.nameSnapshot || "Unresolved Performer";
+      return {
+        name,
+        originalName:
+          performer.originalName && performer.originalName !== name
+            ? performer.originalName
+            : undefined,
+        unresolved: false,
+      };
+    }
+
+    return {
+      name: relation.nameSnapshot || "Unresolved Performer",
+      unresolved: true,
+    };
+  });
 }

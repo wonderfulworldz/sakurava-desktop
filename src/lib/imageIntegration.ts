@@ -1,4 +1,4 @@
-import type { Image, ImagePatch, NewImage } from "../backend/types";
+import type { Image, ImagePatch, NewImage, Performer } from "../backend/types";
 import {
   normalizeRelatedPerformersJson,
   parseRatingObject,
@@ -8,7 +8,7 @@ import {
 } from "../backend/json";
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
-import type { ImageDetailConfig } from "./detailData";
+import type { DetailSection, ImageDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
@@ -30,7 +30,10 @@ export function buildImageCollectionConfig(images: Image[]): CollectionConfig {
   };
 }
 
-export function buildImageDetailConfig(image: Image): ImageDetailConfig {
+export function buildImageDetailConfig(
+  image: Image,
+  performers: Performer[] = [],
+): ImageDetailConfig {
   const baseConfig = detailConfigs.images as ImageDetailConfig;
   const rating = parseRatingObject(image.ratingJson);
   return {
@@ -59,6 +62,11 @@ export function buildImageDetailConfig(image: Image): ImageDetailConfig {
       value: numberFromRating(rating[field.name]),
     })),
     notes: image.notes || "No notes saved.",
+    relatedSections: buildRelatedSections(
+      baseConfig.relatedSections,
+      image.relatedPerformersJson,
+      performers,
+    ),
   };
 }
 
@@ -192,4 +200,53 @@ function formatImageCount(count: number | null) {
   }
 
   return `${count} ${count === 1 ? "image" : "images"}`;
+}
+
+function buildRelatedSections(
+  sections: DetailSection[],
+  relatedPerformersJson: string | null | undefined,
+  performers: Performer[],
+): DetailSection[] {
+  return sections.map((section) =>
+    section.title === "Related Performer"
+      ? {
+          ...section,
+          description: "Read-only Related Performer links saved on this record.",
+          relatedPerformers: buildRelatedPerformerItems(
+            relatedPerformersJson,
+            performers,
+          ),
+        }
+      : section,
+  );
+}
+
+function buildRelatedPerformerItems(
+  relatedPerformersJson: string | null | undefined,
+  performers: Performer[],
+) {
+  const performerById = new Map(performers.map((performer) => [performer.id, performer]));
+
+  return parseRelatedPerformerArray(relatedPerformersJson).map((relation) => {
+    const performer = relation.performerId
+      ? performerById.get(relation.performerId)
+      : undefined;
+
+    if (performer) {
+      const name = performer.name || performer.originalName || relation.nameSnapshot || "Unresolved Performer";
+      return {
+        name,
+        originalName:
+          performer.originalName && performer.originalName !== name
+            ? performer.originalName
+            : undefined,
+        unresolved: false,
+      };
+    }
+
+    return {
+      name: relation.nameSnapshot || "Unresolved Performer",
+      unresolved: true,
+    };
+  });
 }
