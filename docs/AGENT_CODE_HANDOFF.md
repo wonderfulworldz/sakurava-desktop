@@ -9,11 +9,11 @@ Use these docs as compressed project memory. Do not reconstruct the full histori
 ```text
 You are working on the Sakurava desktop app.
 
-Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
 
-Follow the locked terminology, no auto-commit rule, category safety rules, and Backup/Restore safety rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
+Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, and Settings persistence planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
 
-Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. For Backup/Restore work, read docs/12-backup-restore-ux-safety.md before planning or implementation. UI polish is not a default roadmap item.
+Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. For Backup/Restore work, read docs/12-backup-restore-ux-safety.md before planning or implementation. For Settings persistence work, read docs/13-settings-persistence-planning.md before planning or implementation. UI polish is not a default roadmap item.
 
 Before editing, check git status. After editing, report files changed, verification run, risks, and follow-up. Do not commit without user approval.
 ```
@@ -28,6 +28,7 @@ Read these before planning or editing:
 - `docs/11-prd-alignment-and-development-plan.md`
 - `docs/10-category-management-safety.md`
 - `docs/12-backup-restore-ux-safety.md`
+- `docs/13-settings-persistence-planning.md`
 - `docs/WORKFLOW_GIT.md`
 - `docs/AGENT_CODE_HANDOFF.md`
 - `package.json`
@@ -56,8 +57,11 @@ For category-related work, also inspect:
 - Treat future Category Management dedicated page work as separate from the Categories sidebar browsing/catalog page.
 - Treat future form category lockdown as a Managed Categories-only picker direction, not free-text creation.
 - Leave related pickers and Media Play for future phases after category page decisions.
-- Do not make restore a one-click destructive action — follow the Restore UX Flow in `docs/12-backup-restore-ux-safety.md`.
+- Do not make restore a one-click destructive action - follow the Restore UX Flow in `docs/12-backup-restore-ux-safety.md`.
 - Backup/Restore must clearly state that media files are not included in the backup.
+- Do not implement Settings persistence without reading `docs/13-settings-persistence-planning.md`.
+- Keep low-risk UI preferences separate from data-risk Settings.
+- Settings persistence must not mutate catalog records, category behavior, Backup/Restore behavior, or media behavior unless a later batch explicitly asks.
 
 ## Preferred Batch Prompt Format
 

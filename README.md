@@ -39,6 +39,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Git workflow](docs/WORKFLOW_GIT.md)
 - [Category Management safety](docs/10-category-management-safety.md)
 - [Backup/Restore UX Safety](docs/12-backup-restore-ux-safety.md)
+- [Settings persistence planning](docs/13-settings-persistence-planning.md)
 
 ## Current Status
 
