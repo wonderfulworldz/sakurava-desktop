@@ -75,6 +75,20 @@ Backup and Restore are data-risk operations. Safety rules:
 - Restore must clearly explain whether media files are included.
 - Follow the Restore UX Flow in the safety document (select -> validate -> preview -> confirm -> execute).
 
+## Settings Persistence Planning
+
+The source of truth for Settings persistence planning is `docs/13-settings-persistence-planning.md`.
+
+Settings persistence rules:
+
+- Do not implement Settings persistence from a planning batch.
+- Keep low-risk UI preferences separate from data-risk settings.
+- Do not persist everything by default.
+- Settings persistence must not mutate catalog records.
+- Settings persistence must not change category behavior.
+- Settings persistence must not change Backup/Restore or media behavior unless a later batch explicitly asks.
+- Use safe defaults and defensive parsing for missing or invalid stored settings.
+
 Current completed category checkpoint:
 
 ```text

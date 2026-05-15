@@ -22,6 +22,12 @@ Backup/Restore UX Safety Review expected checkpoint after merge:
 post-mvp-18-1-backup-restore-ux-safety-v1
 ```
 
+Settings Persistence Planning expected checkpoint after merge:
+
+```text
+post-mvp-18-2-settings-persistence-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -93,13 +99,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 18.1 - Backup/Restore UX Safety Review
+Batch 18.2 - Settings Persistence Planning
 ```
 
-Recommended next phase after Batch 18.1:
+Recommended next phase after Batch 18.2:
 
 ```text
-Settings Persistence Planning
+Category Management Dedicated Page Planning
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, and `docs/12-backup-restore-ux-safety.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, and `docs/13-settings-persistence-planning.md` before changing code.
