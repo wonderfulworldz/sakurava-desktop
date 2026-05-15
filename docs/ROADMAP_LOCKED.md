@@ -51,4 +51,5 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - The Categories sidebar page should be a browsing/catalog page, not the management page.
 - Form Category Picker Lockdown means form category input should eventually be locked to Managed Categories only, not free-text creation.
 - Form Category Picker Lockdown planning is documented in `docs/15-form-category-picker-lockdown-planning.md`.
+- Categories Sidebar Page planning is documented in `docs/16-categories-sidebar-page-planning.md`.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.

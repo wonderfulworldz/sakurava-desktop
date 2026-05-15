@@ -46,6 +46,12 @@ Form Category Picker Lockdown Planning expected checkpoint after merge:
 post-mvp-20-1-form-category-picker-lockdown-planning-v1
 ```
 
+Categories Sidebar Page Planning expected checkpoint after merge:
+
+```text
+post-mvp-21-1-categories-sidebar-page-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -64,7 +70,7 @@ docs/11-prd-alignment-and-development-plan.md
 - Category audit lists Record Categories from Videos, Images, and Performers.
 - Collection pages support category filtering.
 - Managed Categories can be added locally.
-- Managed Categories are offered as form category suggestions.
+- Managed Categories are offered as the controlled vocabulary for form category selection.
 - Managed Categories can be renamed locally without changing records.
 - Record category rename has preview, confirmation, and apply behavior.
 - Unused Managed Categories can be deleted after confirmation.
@@ -88,7 +94,7 @@ Current app capabilities include:
 - Tauri runtime;
 - create, list, detail, update, and delete flows;
 - collection search, sort, view toggle, pagination, and category filtering;
-- form category chips and managed category suggestions;
+- Managed Categories-only form category picker;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -109,7 +115,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 20.1, documentation may change only to plan Form Category Picker Lockdown. Application code, tests, schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
+For Batch 21.1, documentation may change only to plan the future Categories Sidebar Page as a browsing/discovery page. Application code, tests, routes, sidebar navigation, schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
 
 ## Recommended Next Phase
 
@@ -118,13 +124,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 20.1 - Form Category Picker Lockdown Planning
+Batch 21.1 - Categories Sidebar Page Planning
 ```
 
-Recommended next phase after Batch 20.1:
+Recommended next phase after Batch 21.1:
 
 ```text
-Form Category Picker Lockdown Implementation
+Categories Sidebar Page Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, and `docs/15-form-category-picker-lockdown-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, and `docs/16-categories-sidebar-page-planning.md` before changing code.
