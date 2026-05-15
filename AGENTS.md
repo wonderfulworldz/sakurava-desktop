@@ -62,6 +62,8 @@ For Category Management dedicated page planning, read `docs/14-category-manageme
 
 For Form Category Picker Lockdown planning, read `docs/15-form-category-picker-lockdown-planning.md`.
 
+For Categories Sidebar Page planning, read `docs/16-categories-sidebar-page-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
@@ -166,7 +168,8 @@ Only include UI polish when the user requests it or when it blocks usability, co
 
 - Category Management may later move into a dedicated page, with Settings as the parent entry.
 - A future Categories sidebar page should be a browsing/catalog page, not the management page.
-- Form category input should eventually be locked to Managed Categories only, not free-text creation.
+- Form category input should stay locked to Managed Categories only, not free-text creation.
+- Categories Sidebar Page planning is documented in `docs/16-categories-sidebar-page-planning.md`.
 - Related pickers and Media Play are future phases after category page decisions.
 
 ## Verification Commands

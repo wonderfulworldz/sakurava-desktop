@@ -9,11 +9,11 @@ Use these docs as compressed project memory. Do not reconstruct the full histori
 ```text
 You are working on the Sakurava desktop app.
 
-Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
 
-Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, Settings persistence planning rules, Category Management dedicated page planning rules, and Form Category Picker Lockdown planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
+Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, Settings persistence planning rules, Category Management dedicated page planning rules, Form Category Picker Lockdown planning rules, and Categories Sidebar Page planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
 
-Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. For Category Management dedicated page work, read docs/14-category-management-dedicated-page-planning.md before planning or implementation. For Form Category Picker Lockdown work, read docs/15-form-category-picker-lockdown-planning.md before implementation. For Backup/Restore work, read docs/12-backup-restore-ux-safety.md before planning or implementation. For Settings persistence work, read docs/13-settings-persistence-planning.md before planning or implementation. UI polish is not a default roadmap item.
+Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. For Category Management dedicated page work, read docs/14-category-management-dedicated-page-planning.md before planning or implementation. For Form Category Picker Lockdown work, read docs/15-form-category-picker-lockdown-planning.md before implementation. For Categories Sidebar Page work, read docs/16-categories-sidebar-page-planning.md before implementation. For Backup/Restore work, read docs/12-backup-restore-ux-safety.md before planning or implementation. For Settings persistence work, read docs/13-settings-persistence-planning.md before planning or implementation. UI polish is not a default roadmap item.
 
 Before editing, check git status. After editing, report files changed, verification run, risks, and follow-up. Do not commit without user approval.
 ```
@@ -31,6 +31,7 @@ Read these before planning or editing:
 - `docs/13-settings-persistence-planning.md`
 - `docs/14-category-management-dedicated-page-planning.md`
 - `docs/15-form-category-picker-lockdown-planning.md`
+- `docs/16-categories-sidebar-page-planning.md`
 - `docs/WORKFLOW_GIT.md`
 - `docs/AGENT_CODE_HANDOFF.md`
 - `package.json`
@@ -59,6 +60,7 @@ For category-related work, also inspect:
 - Treat future Category Management dedicated page work as separate from the Categories sidebar browsing/catalog page.
 - Treat future form category lockdown as a Managed Categories-only picker direction, not free-text creation.
 - For Form Category Picker Lockdown implementation, preserve `categoriesJson` and do not mutate Managed Categories from forms.
+- For Categories Sidebar Page implementation, keep it browsing/discovery only and do not add management or destructive operations.
 - Leave related pickers and Media Play for future phases after category page decisions.
 - Do not make restore a one-click destructive action - follow the Restore UX Flow in `docs/12-backup-restore-ux-safety.md`.
 - Backup/Restore must clearly state that media files are not included in the backup.
@@ -68,6 +70,8 @@ For category-related work, also inspect:
 - Read `docs/14-category-management-dedicated-page-planning.md` before Category Management dedicated page work.
 - Do not mix Category Management dedicated page work with the future Categories Sidebar Page.
 - Do not mix Category Management dedicated page work with Form Category Picker Lockdown.
+- Read `docs/16-categories-sidebar-page-planning.md` before Categories Sidebar Page work.
+- Do not mix Categories Sidebar Page work with Category Management or Form Category Picker Lockdown.
 
 ## Preferred Batch Prompt Format
 

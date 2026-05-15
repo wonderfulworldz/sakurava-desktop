@@ -41,6 +41,7 @@ Urutan acuan dokumen:
 15. `13-settings-persistence-planning.md` - rencana aman persistensi Settings.
 16. `14-category-management-dedicated-page-planning.md` - rencana halaman khusus Category Management.
 17. `15-form-category-picker-lockdown-planning.md` - rencana lockdown picker kategori form ke Managed Categories.
+18. `16-categories-sidebar-page-planning.md` - rencana halaman sidebar Categories sebagai browsing/discovery, bukan management.
 
 ## Current Post-MVP Reading Order
 
@@ -55,8 +56,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 7. `13-settings-persistence-planning.md`
 8. `14-category-management-dedicated-page-planning.md`
 9. `15-form-category-picker-lockdown-planning.md`
-10. `AGENT_CODE_HANDOFF.md`
-11. `WORKFLOW_GIT.md`
+10. `16-categories-sidebar-page-planning.md`
+11. `AGENT_CODE_HANDOFF.md`
+12. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
