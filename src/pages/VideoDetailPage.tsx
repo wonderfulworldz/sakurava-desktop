@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
+import type { Performer } from "../backend/types";
 import { buildVideoDetailConfig } from "../lib/videoIntegration";
 import DetailPage from "./DetailPage";
 import {
@@ -9,6 +10,10 @@ import {
   getVideo,
   isVideoRuntimeAvailable,
 } from "../runtime/videoCommands";
+import {
+  isPerformerRuntimeAvailable,
+  listPerformers,
+} from "../runtime/performerCommands";
 
 function VideoDetailPage() {
   const { itemKey } = useParams();
@@ -33,7 +38,7 @@ function VideoDetailPage() {
 
     setLoading(true);
     getVideo(itemKey)
-      .then((video) => {
+      .then(async (video) => {
         if (cancelled) {
           return;
         }
@@ -45,7 +50,18 @@ function VideoDetailPage() {
         }
 
         setMissing(false);
-        setConfig(buildVideoDetailConfig(video));
+        let performers: Performer[] = [];
+        if (isPerformerRuntimeAvailable()) {
+          try {
+            performers = await listPerformers();
+          } catch {
+            performers = [];
+          }
+        }
+        if (cancelled) {
+          return;
+        }
+        setConfig(buildVideoDetailConfig(video, performers));
         setLoading(false);
       })
       .catch(() => {

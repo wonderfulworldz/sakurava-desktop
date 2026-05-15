@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
+import type { Performer } from "../backend/types";
 import { buildImageDetailConfig } from "../lib/imageIntegration";
 import DetailPage from "./DetailPage";
 import {
@@ -9,6 +10,10 @@ import {
   getImage,
   isImageRuntimeAvailable,
 } from "../runtime/imageCommands";
+import {
+  isPerformerRuntimeAvailable,
+  listPerformers,
+} from "../runtime/performerCommands";
 
 function ImageDetailPage() {
   const { itemKey } = useParams();
@@ -33,7 +38,7 @@ function ImageDetailPage() {
 
     setLoading(true);
     getImage(itemKey)
-      .then((image) => {
+      .then(async (image) => {
         if (cancelled) {
           return;
         }
@@ -45,7 +50,18 @@ function ImageDetailPage() {
         }
 
         setMissing(false);
-        setConfig(buildImageDetailConfig(image));
+        let performers: Performer[] = [];
+        if (isPerformerRuntimeAvailable()) {
+          try {
+            performers = await listPerformers();
+          } catch {
+            performers = [];
+          }
+        }
+        if (cancelled) {
+          return;
+        }
+        setConfig(buildImageDetailConfig(image, performers));
         setLoading(false);
       })
       .catch(() => {

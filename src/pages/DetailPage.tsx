@@ -16,7 +16,11 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { DetailConfig, PerformerDetailConfig } from "../lib/detailData";
+import type {
+  DetailConfig,
+  DetailSection,
+  PerformerDetailConfig,
+} from "../lib/detailData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
@@ -541,7 +545,7 @@ function NotesCard({ notes }: { notes: string }) {
 function RelatedRows({
   sections,
 }: {
-  sections: { title: string; description: string }[];
+  sections: DetailSection[];
 }) {
   return (
     <section className="space-y-3">
@@ -562,10 +566,49 @@ function RelatedRows({
           <p className="min-w-[150px] text-sm font-semibold text-slate-800">
             {section.title}
           </p>
-          <p className="text-sm text-slate-500">{section.description}</p>
+          {section.relatedPerformers ? (
+            <RelatedPerformerSummary section={section} />
+          ) : (
+            <p className="text-sm text-slate-500">{section.description}</p>
+          )}
         </div>
       ))}
     </section>
+  );
+}
+
+function RelatedPerformerSummary({ section }: { section: DetailSection }) {
+  const relatedPerformers = section.relatedPerformers ?? [];
+
+  if (relatedPerformers.length === 0) {
+    return <p className="text-sm text-slate-500">No related Performers saved.</p>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+      {relatedPerformers.map((performer, index) => (
+        <span
+          key={`${performer.name}-${index}`}
+          className={`inline-flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
+            performer.unresolved
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-sakura-100 bg-sakura-50 text-sakura-600"
+          }`}
+        >
+          <span className="min-w-0 break-words">{performer.name}</span>
+          {performer.originalName && (
+            <span className="font-medium text-slate-500">
+              {performer.originalName}
+            </span>
+          )}
+          {performer.unresolved && (
+            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
+              Unresolved
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
   );
 }
 

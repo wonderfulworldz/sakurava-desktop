@@ -3008,6 +3008,88 @@ describe("App", () => {
     expect(screen.queryByAltText("Broken Cover Video cover")).not.toBeInTheDocument();
   });
 
+  it("displays resolved Related Performers on video detail without raw ids", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Related Performer Video",
+          relatedPerformersJson:
+            '[{"performerId":"performer_aoi","nameSnapshot":"Snapshot Aoi"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_aoi",
+            name: "Aoi Sakura",
+            originalName: "Sakura Aoi",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Performer Video")).toBeInTheDocument();
+    expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
+    expect(screen.getByText("Sakura Aoi")).toBeInTheDocument();
+    expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("displays Related Performer snapshots on image detail when performers cannot load", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Legacy Performer Image",
+          relatedPerformersJson:
+            '[{"performerId":"missing_performer","nameSnapshot":"Former Performer"},{"performerId":"empty_snapshot","nameSnapshot":""}]',
+        });
+      }
+      if (command === "performer_list") {
+        throw new Error("Performer list unavailable");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Legacy Performer Image")).toBeInTheDocument();
+    expect(screen.getByText("Former Performer")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved Performer")).toBeInTheDocument();
+    expect(screen.getAllByText("Unresolved")).toHaveLength(2);
+    expect(screen.queryByText("missing_performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
   it("creates a video through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/videos/new");
     setManagedCategories(["Typed Category"]);
