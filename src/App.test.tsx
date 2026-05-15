@@ -38,6 +38,9 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /performers/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /categories/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Collapse sidebar" }),
@@ -95,6 +98,7 @@ describe("App", () => {
     ["/performers/new", "Add Performer"],
     ["/performers/sample-id", "Performer Detail"],
     ["/performers/sample-id/edit", "Edit Performer"],
+    ["/categories", "Categories"],
     ["/settings", "Settings"],
   ])("renders %s", (path, heading) => {
     window.history.pushState({}, "", path);
@@ -102,6 +106,111 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
+  });
+
+  it("renders Categories as a browse-only page in browser preview", () => {
+    window.history.pushState({}, "", "/categories");
+    setManagedCategories(["Unused Local"]);
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Categories" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search categories...")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Name A-Z")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Category Management" }),
+    ).toHaveAttribute("href", "/settings/category-management");
+
+    const categoryCard = screen.getByRole("article", {
+      name: "Category Unused Local",
+    });
+    expect(within(categoryCard).getByText("Unused Managed")).toBeInTheDocument();
+    expect(within(categoryCard).getByText("No record usage yet.")).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("button", { name: /add category/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /rename/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /delete/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("loads Categories usage from record categories without management actions", async () => {
+    window.history.pushState({}, "", "/categories");
+    setManagedCategories(["Drama", "Unused Local"]);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({ title: "Drama Video", categoriesJson: '["Drama"]' }),
+          persistedVideo({ title: "Classic Video", categoriesJson: '["Classic"]' }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({ title: "Drama Image", categoriesJson: '["Drama"]' }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            name: "Drama Performer",
+            categoriesJson: '["Drama"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    const dramaCard = await screen.findByRole("article", {
+      name: "Category Drama",
+    });
+    expect(within(dramaCard).getByText("Managed")).toBeInTheDocument();
+    expect(within(dramaCard).getByText("3")).toBeInTheDocument();
+    expect(within(dramaCard).getByText("Open Videos")).toHaveAttribute(
+      "href",
+      "/videos",
+    );
+    expect(within(dramaCard).getByText("Open Images")).toHaveAttribute(
+      "href",
+      "/images",
+    );
+    expect(within(dramaCard).getByText("Open Performers")).toHaveAttribute(
+      "href",
+      "/performers",
+    );
+
+    const classicCard = screen.getByRole("article", {
+      name: "Category Classic",
+    });
+    expect(within(classicCard).getByText("Record-only")).toBeInTheDocument();
+
+    const unusedCard = screen.getByRole("article", {
+      name: "Category Unused Local",
+    });
+    expect(within(unusedCard).getByText("Unused Managed")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories search"), {
+      target: { value: "classic" },
+    });
+    expect(screen.getByRole("article", { name: "Category Classic" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Category Drama" }))
+      .not.toBeInTheDocument();
+
+    const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
+    expect(commands).toEqual(["video_list", "image_list", "performer_list"]);
+    expect(commands).not.toContain("video_update");
+    expect(commands).not.toContain("image_update");
+    expect(commands).not.toContain("performer_update");
   });
 
   it.each([
@@ -134,7 +243,7 @@ describe("App", () => {
     expect(screen.getByText(count)).toBeInTheDocument();
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
-    expect(screen.getByText("Categories")).toBeInTheDocument();
+    expect(screen.getAllByText("Categories").length).toBeGreaterThan(0);
     expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("30");
     for (const pageSize of ["30", "60", "90", "120"]) {

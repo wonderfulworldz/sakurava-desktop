@@ -52,6 +52,12 @@ Categories Sidebar Page Planning expected checkpoint after merge:
 post-mvp-21-1-categories-sidebar-page-planning-v1
 ```
 
+Categories Sidebar Page Implementation expected checkpoint after merge:
+
+```text
+post-mvp-21-2-categories-sidebar-page-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -78,6 +84,7 @@ docs/11-prd-alignment-and-development-plan.md
 - Record category apply operations patch only `categoriesJson`.
 - Category Management safety rules are documented in `docs/10-category-management-safety.md`.
 - Category Management has a dedicated route at `/settings/category-management`.
+- Categories has a dedicated browse route at `/categories`.
 
 ## Current Capabilities
 
@@ -94,6 +101,7 @@ Current app capabilities include:
 - Tauri runtime;
 - create, list, detail, update, and delete flows;
 - collection search, sort, view toggle, pagination, and category filtering;
+- Categories sidebar browse/discovery page;
 - Managed Categories-only form category picker;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
@@ -115,7 +123,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 21.1, documentation may change only to plan the future Categories Sidebar Page as a browsing/discovery page. Application code, tests, routes, sidebar navigation, schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
+For Batch 21.2, application frontend code and tests may change only to implement the Categories Sidebar Page as a browsing/discovery page. Category Management behavior, Form Category Picker Lockdown behavior, schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
 
 ## Recommended Next Phase
 
@@ -124,13 +132,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 21.1 - Categories Sidebar Page Planning
+Batch 21.2 - Categories Sidebar Page Implementation
 ```
 
-Recommended next phase after Batch 21.1:
+Recommended next phase after Batch 21.2:
 
 ```text
-Categories Sidebar Page Implementation
+Related Performer Picker Structure
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, and `docs/16-categories-sidebar-page-planning.md` before changing code.
