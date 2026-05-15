@@ -64,6 +64,8 @@ For Form Category Picker Lockdown planning, read `docs/15-form-category-picker-l
 
 For Categories Sidebar Page planning, read `docs/16-categories-sidebar-page-planning.md`.
 
+For Related Performer Picker Structure planning, read `docs/17-related-performer-picker-structure-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
@@ -170,6 +172,7 @@ Only include UI polish when the user requests it or when it blocks usability, co
 - A future Categories sidebar page should be a browsing/catalog page, not the management page.
 - Form category input should stay locked to Managed Categories only, not free-text creation.
 - Categories Sidebar Page planning is documented in `docs/16-categories-sidebar-page-planning.md`.
+- Related Performer Picker Structure planning is documented in `docs/17-related-performer-picker-structure-planning.md`.
 - Related pickers and Media Play are future phases after category page decisions.
 
 ## Verification Commands

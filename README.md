@@ -43,6 +43,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Category Management dedicated page planning](docs/14-category-management-dedicated-page-planning.md)
 - [Form Category Picker Lockdown planning](docs/15-form-category-picker-lockdown-planning.md)
 - [Categories Sidebar Page planning](docs/16-categories-sidebar-page-planning.md)
+- [Related Performer Picker Structure planning](docs/17-related-performer-picker-structure-planning.md)
 
 ## Current Status
 
