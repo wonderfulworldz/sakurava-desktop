@@ -34,6 +34,12 @@ Category Management Dedicated Page Planning expected checkpoint after merge:
 post-mvp-19-1-category-management-dedicated-page-planning-v1
 ```
 
+Category Management Dedicated Page Implementation expected checkpoint after merge:
+
+```text
+post-mvp-19-2-category-management-dedicated-page-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -59,6 +65,7 @@ docs/11-prd-alignment-and-development-plan.md
 - Record category removal has preview, confirmation, and apply behavior.
 - Record category apply operations patch only `categoriesJson`.
 - Category Management safety rules are documented in `docs/10-category-management-safety.md`.
+- Category Management has a dedicated route at `/settings/category-management`.
 
 ## Current Capabilities
 
@@ -96,7 +103,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For this documentation-only batch, no application code, tests, schema, backend, Rust/Tauri, UI, or category behavior should change.
+For Batch 19.2, application frontend code and tests may change only to add the dedicated Category Management page and Settings entry point. Schema, backend, Rust/Tauri, package files, category storage, `categoriesJson`, and Managed Categories semantics should not change.
 
 ## Recommended Next Phase
 
@@ -105,13 +112,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 19.1 - Category Management Dedicated Page Planning
+Batch 19.2 - Category Management Dedicated Page Implementation
 ```
 
-Recommended next phase after Batch 19.1:
+Recommended next phase after Batch 19.2:
 
 ```text
-Category Management Dedicated Page Implementation
+Form Category Picker Lockdown
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, and `docs/14-category-management-dedicated-page-planning.md` before changing code.

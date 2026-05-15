@@ -5,6 +5,7 @@ import { collectionConfigs } from "./lib/collectionData";
 import { detailConfigs } from "./lib/detailData";
 import { formConfigs } from "./lib/formData";
 import CollectionPage from "./pages/CollectionPage";
+import CategoryManagementPage from "./pages/CategoryManagementPage";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import HomePage from "./pages/HomePage";
@@ -77,6 +78,10 @@ function App() {
             />
 
             <Route path="settings" element={<SettingsPage />} />
+            <Route
+              path="settings/category-management"
+              element={<CategoryManagementPage />}
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
