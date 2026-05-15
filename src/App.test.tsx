@@ -215,6 +215,10 @@ describe("App", () => {
     expect(screen.getByText("Runtime & Database")).toBeInTheDocument();
     expect(screen.getByText("Thumbnails & Local Assets")).toBeInTheDocument();
     expect(screen.getByText("Data Safety")).toBeInTheDocument();
+    expect(screen.getByText("Catalog Management")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Category Management" }),
+    ).toHaveAttribute("href", "/settings/category-management");
     expect(screen.getByText("Catalog Settings")).toBeInTheDocument();
     expect(screen.getByText("Categories Audit")).toBeInTheDocument();
     expect(screen.getByText("Category Management")).toBeInTheDocument();
@@ -286,6 +290,19 @@ describe("App", () => {
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Open Data Folder" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Advanced Settings" })).toBeDisabled();
+  });
+
+  it("renders the dedicated Category Management page", () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    render(<App />);
+
+    expect(
+      screen.getAllByRole("heading", { name: "Category Management" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Catalog Settings")).toBeInTheDocument();
+    expect(screen.getByText("Categories Audit")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Category" })).toBeEnabled();
   });
 
   it("shows desktop runtime database status when Tauri is available", () => {
