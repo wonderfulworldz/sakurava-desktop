@@ -33,6 +33,24 @@ Urutan acuan dokumen:
 7. `06-backend-task-plan.md` — rencana backend only.
 8. `07-integration-task-plan.md` — rencana integration only.
 9. `08-testing-and-release-checklist.md` — manual testing dan release checklist.
+10. `PROJECT_STATUS.md` — ringkasan status post-MVP saat ini.
+11. `ROADMAP_LOCKED.md` — urutan roadmap post-MVP yang terkunci.
+12. `10-category-management-safety.md` — batas aman Category Management.
+13. `11-prd-alignment-and-development-plan.md` — cara membaca PRD MVP bersama standar post-MVP saat ini.
+
+## Current Post-MVP Reading Order
+
+Untuk agent baru yang melanjutkan project sekarang, baca:
+
+1. `../AGENTS.md`
+2. `PROJECT_STATUS.md`
+3. `ROADMAP_LOCKED.md`
+4. `11-prd-alignment-and-development-plan.md`
+5. `10-category-management-safety.md`
+6. `AGENT_CODE_HANDOFF.md`
+7. `WORKFLOW_GIT.md`
+
+`02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
 ## Approved Visual Mockup v1
 

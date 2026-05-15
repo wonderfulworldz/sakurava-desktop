@@ -16,10 +16,16 @@ post-mvp-17-1-category-management-safety-docs-v1
 
 Treat Batch 17.1 as complete if that checkpoint has already been merged.
 
-Current branch for this documentation batch:
+Latest documentation alignment batch:
 
 ```text
-batch-17-2-agent-handoff-documentation
+batch-17-3-prd-alignment-development-plan
+```
+
+Current documentation alignment document:
+
+```text
+docs/11-prd-alignment-and-development-plan.md
 ```
 
 ## Completed Category Management Milestones

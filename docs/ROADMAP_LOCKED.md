@@ -33,6 +33,11 @@ These items are intentionally deferred and should not be introduced during norma
 - parent/child categories
 - category analytics
 - import/export category mapping
+- advanced media player
+
+## Documentation Alignment
+
+Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mvp-prd.md` remains the MVP baseline while this roadmap, project status, category safety, workflow, and handoff docs represent the current post-MVP standard.
 
 ## Roadmap Rules
 

@@ -4,6 +4,8 @@ Instructions for VSCode Agent Code, Codex, and other coding agents working on Sa
 
 Use these docs as compressed project memory. Do not reconstruct the full historical workflow unless the user explicitly asks for history or archaeology.
 
+For PRD alignment, read `docs/11-prd-alignment-and-development-plan.md`: the original PRD remains the MVP baseline, while `PROJECT_STATUS`, `ROADMAP_LOCKED`, category safety docs, workflow docs, and handoff docs represent the current post-MVP standard.
+
 ## Project Identity
 
 Sakurava is a local/offline Windows desktop app for managing Videos, Images, and Performers.
