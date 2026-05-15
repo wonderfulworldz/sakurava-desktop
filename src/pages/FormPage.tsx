@@ -50,18 +50,17 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [aliases, setAliases] = useState<string[]>(
     config.initialAliases?.[mode] ?? [],
   );
-  const [categoryDraft, setCategoryDraft] = useState("");
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const canBrowsePaths = isTauriRuntimeAvailable();
-  const categoryOptions = mergeCategoryOptions(managedCategories, categories);
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
     setCategories(config.initialCategories[mode]);
     setAliases(config.initialAliases?.[mode] ?? []);
+    setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
   }, [config, mode]);
@@ -185,26 +184,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   }
                 />
               )}
-              <ChipInput
-                label="Categories"
-                draft={categoryDraft}
-                chips={categories}
-                placeholder="Add category..."
-                options={categoryOptions}
-                onDraftChange={setCategoryDraft}
-                onAdd={() =>
-                  addChip(
-                    categoryDraft,
-                    categories,
-                    setCategories,
-                    setCategoryDraft,
-                  )
-                }
-                onRemove={(chip) =>
-                  setCategories((current) =>
-                    current.filter((item) => item !== chip),
-                  )
-                }
+              <CategoryPicker
+                selected={categories}
+                managedCategories={managedCategories}
+                onChange={setCategories}
               />
             </>
           )}
@@ -224,10 +207,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           config={config}
           values={values}
           categories={categories}
-          categoryDraft={categoryDraft}
           setCategories={setCategories}
-          setCategoryDraft={setCategoryDraft}
-          categoryOptions={categoryOptions}
+          managedCategories={managedCategories}
           canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
           browsePath={browsePath}
@@ -338,10 +319,8 @@ function CatalogExtraSections({
   config,
   values,
   categories,
-  categoryDraft,
   setCategories,
-  setCategoryDraft,
-  categoryOptions,
+  managedCategories,
   canBrowsePaths,
   updateValue,
   browsePath,
@@ -349,10 +328,8 @@ function CatalogExtraSections({
   config: FormConfig;
   values: FormValues;
   categories: string[];
-  categoryDraft: string;
   setCategories: Dispatch<SetStateAction<string[]>>;
-  setCategoryDraft: Dispatch<SetStateAction<string>>;
-  categoryOptions: string[];
+  managedCategories: string[];
   canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
   browsePath: (field: TextField) => void;
@@ -373,19 +350,10 @@ function CatalogExtraSections({
               onChange={(value) => updateValue(field.name, value)}
             />
           ))}
-          <ChipInput
-            label="Categories"
-            draft={categoryDraft}
-            chips={categories}
-            placeholder="Add category..."
-            options={categoryOptions}
-            onDraftChange={setCategoryDraft}
-            onAdd={() =>
-              addChip(categoryDraft, categories, setCategories, setCategoryDraft)
-            }
-            onRemove={(chip) =>
-              setCategories((current) => current.filter((item) => item !== chip))
-            }
+          <CategoryPicker
+            selected={categories}
+            managedCategories={managedCategories}
+            onChange={setCategories}
           />
         </FieldGrid>
       </FormSection>
@@ -781,6 +749,110 @@ function ChipInput({
   );
 }
 
+function CategoryPicker({
+  selected,
+  managedCategories,
+  onChange,
+}: {
+  selected: string[];
+  managedCategories: string[];
+  onChange: Dispatch<SetStateAction<string[]>>;
+}) {
+  const availableCategories = managedCategories.filter(
+    (category) => !hasCategory(selected, category),
+  );
+
+  return (
+    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <span className="pt-2">Categories</span>
+      <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
+          {selected.length === 0 ? (
+            <span className="px-1 text-sm font-medium text-slate-400">
+              No categories selected.
+            </span>
+          ) : (
+            selected.map((category) => {
+              const isManaged = hasCategory(managedCategories, category);
+
+              return (
+                <span
+                  key={category}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                    isManaged
+                      ? "border-sakura-100 bg-sakura-50 text-sakura-600"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
+                  }`}
+                >
+                  {category}
+                  {!isManaged && (
+                    <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
+                      Record-only
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className={
+                      isManaged
+                        ? "text-sakura-500 hover:text-sakura-700"
+                        : "text-amber-700 hover:text-amber-900"
+                    }
+                    aria-label={`Remove ${category}`}
+                    onClick={() =>
+                      onChange((current) =>
+                        current.filter((item) => item !== category),
+                      )
+                    }
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              );
+            })
+          )}
+        </div>
+
+        <div className="grid gap-2">
+          <div className="flex flex-wrap gap-2">
+            {availableCategories.length > 0 ? (
+              availableCategories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  className="inline-flex h-8 items-center rounded-md border border-sakura-100 bg-sakura-50 px-3 text-xs font-semibold text-sakura-600 transition hover:border-sakura-200 hover:bg-sakura-100"
+                  aria-label={`Add ${category}`}
+                  onClick={() =>
+                    onChange((current) =>
+                      hasCategory(current, category)
+                        ? current
+                        : [...current, category],
+                    )
+                  }
+                >
+                  {category}
+                </button>
+              ))
+            ) : (
+              <p className="text-xs font-medium text-slate-500">
+                No Managed Categories available.
+              </p>
+            )}
+          </div>
+          <p className="text-xs font-medium text-slate-500">
+            Create categories in Category Management first.{" "}
+            <Link
+              to="/settings/category-management"
+              className="font-semibold text-sakura-600 hover:text-sakura-700"
+            >
+              Open Category Management
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RatingInput({
   label,
   value,
@@ -855,26 +927,10 @@ function addChip(
   setDraft("");
 }
 
-function mergeCategoryOptions(...categoryGroups: string[][]) {
-  const categoriesByKey = new Map<string, string>();
+function hasCategory(categories: string[], category: string) {
+  const categoryKey = category.trim().toLowerCase();
 
-  for (const categories of categoryGroups) {
-    for (const category of categories) {
-      const label = category.trim();
-      if (!label) {
-        continue;
-      }
-
-      const key = label.toLowerCase();
-      if (!categoriesByKey.has(key)) {
-        categoriesByKey.set(key, label);
-      }
-    }
-  }
-
-  return [...categoriesByKey.values()].sort((left, right) =>
-    left.localeCompare(right),
-  );
+  return categories.some((item) => item.trim().toLowerCase() === categoryKey);
 }
 
 function inputClass(inactive: boolean) {

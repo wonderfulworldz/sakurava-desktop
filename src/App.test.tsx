@@ -1683,34 +1683,61 @@ describe("App", () => {
     "/videos/new",
     "/images/new",
     "/performers/new",
-  ])("shows managed categories as form suggestions on %s", async (path) => {
+  ])("uses Managed Categories as form picker choices on %s", async (path) => {
     window.history.pushState({}, "", path);
-    window.localStorage.setItem(
-      "sakurava.managedCategories.v1",
-      '["Managed Category", "managed category", "  Trimmed Category  "]',
-    );
+    setManagedCategories(["Managed Category", "managed category", "  Trimmed Category  "]);
 
     render(<App />);
 
-    const categoryInput = screen.getByPlaceholderText("Add category...");
-    await waitFor(() => expect(categoryInput).toHaveAttribute("list"));
-    const optionListId = categoryInput.getAttribute("list");
-    const optionValues = Array.from(
-      document.querySelectorAll(`#${optionListId} option`),
-    ).map((option) => option.getAttribute("value"));
-
-    expect(optionValues).toContain("Managed Category");
-    expect(optionValues).toContain("Trimmed Category");
+    expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
     expect(
-      optionValues.filter((option) => option === "Managed Category"),
-    ).toHaveLength(1);
+      screen.getByText("Create categories in Category Management first."),
+    ).toBeInTheDocument();
 
-    fireEvent.change(categoryInput, {
-      target: { value: "Manual Category" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Add Managed Category" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Add Trimmed Category" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add managed category" }),
+    ).not.toBeInTheDocument();
 
-    expect(screen.getByText("Manual Category")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Managed Category" }));
+
+    expect(screen.getByText("Managed Category")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Managed Category" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows an empty managed category picker state without free-text fallback", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
+    expect(screen.getByText("No categories selected.")).toBeInTheDocument();
+    expect(screen.getByText("No Managed Categories available.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Category Management" }),
+    ).toHaveAttribute("href", "/settings/category-management");
+  });
+
+  it("keeps legacy record-only categories visible and removable on edit forms", () => {
+    window.history.pushState({}, "", "/videos/sample-id/edit");
+    render(<App />);
+
+    expect(screen.getByText("Category A")).toBeInTheDocument();
+    expect(screen.getByText("Category B")).toBeInTheDocument();
+    expect(screen.getAllByText("Record-only")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Category A" }));
+
+    expect(screen.queryByText("Category A")).not.toBeInTheDocument();
+    expect(screen.getByText("Category B")).toBeInTheDocument();
   });
 
   it.each([
@@ -1861,15 +1888,13 @@ describe("App", () => {
 
   it("allows local form typing, category chips, aliases, and ratings", () => {
     window.history.pushState({}, "", "/performers/new");
+    setManagedCategories(["Typed Category"]);
     render(<App />);
 
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Typed Performer" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Typed Category" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
       target: { value: "Typed Alias" },
     });
@@ -2686,6 +2711,7 @@ describe("App", () => {
 
   it("creates a video through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/videos/new");
+    setManagedCategories(["Typed Category"]);
     const created = persistedVideo({
       title: "Created Video",
       categoriesJson: '["Typed Category"]',
@@ -2714,10 +2740,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Created Video" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Typed Category" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Video")).toBeInTheDocument();
@@ -3011,6 +3034,7 @@ describe("App", () => {
 
   it("loads and updates a video through Tauri commands", async () => {
     window.history.pushState({}, "", "/videos/video_test_001/edit");
+    setManagedCategories(["Updated"]);
     const existing = persistedVideo({
       title: "Existing Video",
       categoriesJson: '["Classic"]',
@@ -3050,10 +3074,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Video" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Updated" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fireEvent.change(screen.getByLabelText("Rewatch"), {
       target: { value: "5" },
     });
@@ -3087,6 +3108,7 @@ describe("App", () => {
 
   it("creates an image through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/images/new");
+    setManagedCategories(["Typed Category"]);
     const created = persistedImage({
       title: "Created Image",
       categoriesJson: '["Typed Category"]',
@@ -3115,10 +3137,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Created Image" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Typed Category" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
@@ -3128,6 +3147,7 @@ describe("App", () => {
 
   it("loads and updates an image through Tauri commands", async () => {
     window.history.pushState({}, "", "/images/image_test_001/edit");
+    setManagedCategories(["Updated"]);
     const existing = persistedImage({
       title: "Existing Image",
       categoriesJson: '["Portrait"]',
@@ -3167,10 +3187,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Image" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Updated" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fireEvent.change(screen.getByLabelText("Memorability"), {
       target: { value: "5" },
     });
@@ -3234,6 +3251,7 @@ describe("App", () => {
 
   it("creates a performer through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/performers/new");
+    setManagedCategories(["Typed Category"]);
     const created = persistedPerformer({
       name: "Created Performer",
       aliasesJson: '["Typed Alias"]',
@@ -3268,10 +3286,7 @@ describe("App", () => {
       target: { value: "Typed Alias" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Typed Category" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Performer")).toBeInTheDocument();
@@ -3282,6 +3297,7 @@ describe("App", () => {
 
   it("loads and updates a performer through Tauri commands", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001/edit");
+    setManagedCategories(["Updated"]);
     const existing = persistedPerformer({
       name: "Existing Performer",
       aliasesJson: '["Alias One"]',
@@ -3328,10 +3344,7 @@ describe("App", () => {
       target: { value: "Alias Two" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
-    fireEvent.change(screen.getByPlaceholderText("Add category..."), {
-      target: { value: "Updated" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Categories" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fireEvent.change(screen.getByLabelText("Attraction"), {
       target: { value: "5" },
     });
@@ -3391,6 +3404,13 @@ describe("App", () => {
       .not.toBeInTheDocument();
   });
 });
+
+function setManagedCategories(categories: string[]) {
+  window.localStorage.setItem(
+    "sakurava.managedCategories.v1",
+    JSON.stringify(categories),
+  );
+}
 
 function persistedVideo(overrides: Record<string, unknown> = {}) {
   return {
