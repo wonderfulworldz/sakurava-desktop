@@ -39,6 +39,7 @@ Urutan acuan dokumen:
 13. `11-prd-alignment-and-development-plan.md` — cara membaca PRD MVP bersama standar post-MVP saat ini.
 14. `12-backup-restore-ux-safety.md` — aturan aman UX Backup/Restore.
 15. `13-settings-persistence-planning.md` - rencana aman persistensi Settings.
+16. `14-category-management-dedicated-page-planning.md` - rencana halaman khusus Category Management.
 
 ## Current Post-MVP Reading Order
 
@@ -51,8 +52,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 5. `10-category-management-safety.md`
 6. `12-backup-restore-ux-safety.md`
 7. `13-settings-persistence-planning.md`
-8. `AGENT_CODE_HANDOFF.md`
-9. `WORKFLOW_GIT.md`
+8. `14-category-management-dedicated-page-planning.md`
+9. `AGENT_CODE_HANDOFF.md`
+10. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

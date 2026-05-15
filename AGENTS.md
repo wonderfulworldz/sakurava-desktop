@@ -58,6 +58,8 @@ It is acceptable to prepare a commit summary, verification status, and recommend
 
 The source of truth for category safety is `docs/10-category-management-safety.md`.
 
+For Category Management dedicated page planning, read `docs/14-category-management-dedicated-page-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
