@@ -58,6 +58,23 @@ It is acceptable to prepare a commit summary, verification status, and recommend
 
 The source of truth for category safety is `docs/10-category-management-safety.md`.
 
+## Backup/Restore Safety Rules
+
+The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
+
+Backup and Restore are data-risk operations. Safety rules:
+
+- Backup must never mutate existing data.
+- Backup must generate a clear backup artifact with recognizable name and timestamp.
+- Backup failure must not affect the current database.
+- Backup must clearly state that media files are not included.
+- Restore is destructive — must require explicit confirmation.
+- Restore must validate the backup file before applying.
+- Restore must create a pre-restore safety backup.
+- Restore failure must not leave the app in a partially restored state.
+- Restore must clearly explain whether media files are included.
+- Follow the Restore UX Flow in the safety document (select -> validate -> preview -> confirm -> execute).
+
 Current completed category checkpoint:
 
 ```text

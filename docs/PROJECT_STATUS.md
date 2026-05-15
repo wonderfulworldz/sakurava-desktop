@@ -16,6 +16,12 @@ post-mvp-17-1-category-management-safety-docs-v1
 
 Treat Batch 17.1 as complete if that checkpoint has already been merged.
 
+Backup/Restore UX Safety Review expected checkpoint after merge:
+
+```text
+post-mvp-18-1-backup-restore-ux-safety-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -84,10 +90,16 @@ For this documentation-only batch, no application code, tests, schema, backend, 
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next phase:
+Latest roadmap documentation batch:
 
 ```text
-Backup/Restore UX Safety Review
+Batch 18.1 - Backup/Restore UX Safety Review
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, and `docs/10-category-management-safety.md` before changing code.
+Recommended next phase after Batch 18.1:
+
+```text
+Settings Persistence Planning
+```
+
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, and `docs/12-backup-restore-ux-safety.md` before changing code.
