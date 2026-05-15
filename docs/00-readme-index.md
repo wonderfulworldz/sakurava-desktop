@@ -42,6 +42,7 @@ Urutan acuan dokumen:
 16. `14-category-management-dedicated-page-planning.md` - rencana halaman khusus Category Management.
 17. `15-form-category-picker-lockdown-planning.md` - rencana lockdown picker kategori form ke Managed Categories.
 18. `16-categories-sidebar-page-planning.md` - rencana halaman sidebar Categories sebagai browsing/discovery, bukan management.
+19. `17-related-performer-picker-structure-planning.md` - rencana struktur picker Related Performer dari record Performer yang sudah ada.
 
 ## Current Post-MVP Reading Order
 
@@ -57,8 +58,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 8. `14-category-management-dedicated-page-planning.md`
 9. `15-form-category-picker-lockdown-planning.md`
 10. `16-categories-sidebar-page-planning.md`
-11. `AGENT_CODE_HANDOFF.md`
-12. `WORKFLOW_GIT.md`
+11. `17-related-performer-picker-structure-planning.md`
+12. `AGENT_CODE_HANDOFF.md`
+13. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
