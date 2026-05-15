@@ -299,8 +299,11 @@ describe("App", () => {
     expect(
       screen.getAllByRole("heading", { name: "Category Management" }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("Catalog Settings")).toBeInTheDocument();
+    expect(screen.getAllByText("Catalog Settings").length).toBeGreaterThan(0);
     expect(screen.getByText("Categories Audit")).toBeInTheDocument();
+    expect(screen.getByText("Selected Category Detail")).toBeInTheDocument();
+    expect(screen.getByText("Modify Records")).toBeInTheDocument();
+    expect(screen.getByText("Safety Notes")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Category" })).toBeEnabled();
   });

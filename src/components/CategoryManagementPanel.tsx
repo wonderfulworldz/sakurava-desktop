@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Image, Performer, Video as VideoRecord } from "../backend/types";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
 import {
@@ -27,6 +27,19 @@ type CategoryStatus =
   | { state: "pending" }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
+
+type CategoryListFilter = "all" | "managed" | "record" | "unused";
+type CategoryListSort = "name" | "usage-desc" | "usage-asc";
+
+type CategoryTableRow = {
+  name: string;
+  videos: number;
+  images: number;
+  performers: number;
+  total: number;
+  isManaged: boolean;
+  isRecordCategory: boolean;
+};
 
 const emptyCategoryAudit = buildCategoryAudit({
   videos: [],
@@ -296,7 +309,7 @@ function CategoryManagementPanel() {
   }
 
   return (
-    <CatalogSettingsCard
+    <CategoryManagementSurface
       audit={categoryAudit}
       renamePreviewRecords={categoryRenamePreviewRecords}
       managedCategories={managedCategories}
@@ -315,7 +328,7 @@ function CategoryManagementPanel() {
   );
 }
 
-function CatalogSettingsCard({
+function CategoryManagementSurface({
   audit,
   renamePreviewRecords,
   managedCategories,
@@ -347,146 +360,128 @@ function CatalogSettingsCard({
   onDeleteManagedCategory: (category: string) => boolean;
   onApplyRecordCategoryRemove: (category: string) => Promise<boolean>;
 }) {
-  const hasCategories = audit.rows.length > 0;
-  const [renameSourceCategory, setRenameSourceCategory] = useState("");
-  const [renameTargetCategory, setRenameTargetCategory] = useState("");
-  const [isConfirmingRecordRename, setIsConfirmingRecordRename] = useState(false);
-  const [deleteSourceCategory, setDeleteSourceCategory] = useState("");
-  const [isConfirmingDeleteCategory, setIsConfirmingDeleteCategory] =
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filter, setFilter] = useState<CategoryListFilter>("all");
+  const [sort, setSort] = useState<CategoryListSort>("name");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [managedRenameTarget, setManagedRenameTarget] = useState("");
+  const [isConfirmingManagedDelete, setIsConfirmingManagedDelete] =
     useState(false);
-  const [isConfirmingRecordDelete, setIsConfirmingRecordDelete] = useState(false);
-  const managedCategoryRows = managedCategories.map((category) => {
-    const usage =
-      audit.rows.find((row) => row.name.toLowerCase() === category.toLowerCase())
-        ?.total ?? 0;
-    return { category, usage };
-  });
-  const selectedRenameCategory =
-    renameSourceCategory && managedCategories.includes(renameSourceCategory)
-      ? renameSourceCategory
-      : managedCategories[0] ?? "";
-  const renameValidation = selectedRenameCategory
+  const [recordRenameSource, setRecordRenameSource] = useState("");
+  const [recordRenameTarget, setRecordRenameTarget] = useState("");
+  const [isConfirmingRecordRename, setIsConfirmingRecordRename] = useState(false);
+  const [recordRemoveSource, setRecordRemoveSource] = useState("");
+  const [isConfirmingRecordRemove, setIsConfirmingRecordRemove] = useState(false);
+
+  const categoryRows = useMemo(
+    () => buildCategoryRows(audit, managedCategories),
+    [audit, managedCategories],
+  );
+  const filteredRows = useMemo(
+    () => filterCategoryRows(categoryRows, searchTerm, filter, sort),
+    [categoryRows, filter, searchTerm, sort],
+  );
+  const selectedRow =
+    categoryRows.find((row) => row.name === selectedCategory) ??
+    filteredRows[0] ??
+    categoryRows[0] ??
+    null;
+  const selectedUsage = selectedRow?.total ?? 0;
+  const canDeleteSelectedManagedCategory =
+    !!selectedRow && selectedRow.isManaged && selectedUsage === 0;
+  const managedRenameValidation =
+    selectedRow?.isManaged
+      ? validateManagedCategoryRename(
+          selectedRow.name,
+          managedRenameTarget,
+          managedCategories,
+        )
+      : null;
+  const canApplyManagedRename =
+    managedRenameValidation?.state === "valid" && !!selectedRow?.isManaged;
+
+  const recordSourceCategories = managedCategories;
+  const selectedRecordRenameSource =
+    recordRenameSource && recordSourceCategories.includes(recordRenameSource)
+      ? recordRenameSource
+      : recordSourceCategories[0] ?? "";
+  const selectedRecordRemoveSource =
+    recordRemoveSource && recordSourceCategories.includes(recordRemoveSource)
+      ? recordRemoveSource
+      : recordSourceCategories[0] ?? "";
+  const recordRenameValidation = selectedRecordRenameSource
     ? validateManagedCategoryRename(
-        selectedRenameCategory,
-        renameTargetCategory,
+        selectedRecordRenameSource,
+        recordRenameTarget,
         managedCategories,
       )
     : null;
-  const canApplyRename = renameValidation?.state === "valid";
-  const renamePreview = selectedRenameCategory
-    ? buildCategoryRenamePreview(selectedRenameCategory, renamePreviewRecords)
+  const recordRenamePreview = selectedRecordRenameSource
+    ? buildCategoryRenamePreview(selectedRecordRenameSource, renamePreviewRecords)
     : null;
   const canApplyRecordRename =
-    canApplyRename && (renamePreview?.total ?? 0) > 0;
-  const selectedDeleteCategory =
-    deleteSourceCategory && managedCategories.includes(deleteSourceCategory)
-      ? deleteSourceCategory
-      : managedCategories[0] ?? "";
-  const selectedDeleteRow =
-    managedCategoryRows.find((row) => row.category === selectedDeleteCategory) ??
-    null;
-  const canApplyDelete = !!selectedDeleteRow && selectedDeleteRow.usage === 0;
-  const deletePreview = selectedDeleteCategory
-    ? buildCategoryDeletePreview(selectedDeleteCategory, renamePreviewRecords)
+    recordRenameValidation?.state === "valid" &&
+    (recordRenamePreview?.total ?? 0) > 0;
+  const recordRemovePreview = selectedRecordRemoveSource
+    ? buildCategoryDeletePreview(selectedRecordRemoveSource, renamePreviewRecords)
     : null;
-  const canRemoveFromRecords =
-    !!selectedDeleteCategory && (deletePreview?.total ?? 0) > 0;
+  const canApplyRecordRemove = (recordRemovePreview?.total ?? 0) > 0;
+
+  useEffect(() => {
+    if (!selectedCategory && categoryRows.length > 0) {
+      setSelectedCategory(categoryRows[0].name);
+      return;
+    }
+
+    if (
+      selectedCategory &&
+      !categoryRows.some((row) => row.name === selectedCategory)
+    ) {
+      setSelectedCategory(categoryRows[0]?.name ?? "");
+      setManagedRenameTarget("");
+      setIsConfirmingManagedDelete(false);
+    }
+  }, [categoryRows, selectedCategory]);
 
   useEffect(() => {
     if (
-      managedCategories.length > 0 &&
-      (!renameSourceCategory || !managedCategories.includes(renameSourceCategory))
+      recordSourceCategories.length > 0 &&
+      (!recordRenameSource || !recordSourceCategories.includes(recordRenameSource))
     ) {
-      setRenameSourceCategory(managedCategories[0]);
+      setRecordRenameSource(recordSourceCategories[0]);
     }
-  }, [managedCategories, renameSourceCategory]);
+  }, [recordRenameSource, recordSourceCategories]);
 
   useEffect(() => {
     if (
-      managedCategories.length > 0 &&
-      (!deleteSourceCategory || !managedCategories.includes(deleteSourceCategory))
+      recordSourceCategories.length > 0 &&
+      (!recordRemoveSource || !recordSourceCategories.includes(recordRemoveSource))
     ) {
-      setDeleteSourceCategory(managedCategories[0]);
+      setRecordRemoveSource(recordSourceCategories[0]);
     }
-  }, [managedCategories, deleteSourceCategory]);
+  }, [recordRemoveSource, recordSourceCategories]);
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-6 py-4">
-        <h2 className="text-xl font-semibold tracking-normal text-slate-950">
-          Catalog Settings
-        </h2>
-      </div>
-      <div className="space-y-4 px-6 py-4">
-        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-          <div>
-            <h3 className="text-base font-semibold text-slate-800">
-              Categories Audit
-            </h3>
-            <p className="mt-1 text-sm font-medium text-slate-500">
-              Audit lists Record Categories. Managed Category rename only updates the local managed list.
-            </p>
-          </div>
-
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <CategoryAuditMetric label="Total unique categories" value={audit.totalUnique} />
-            <CategoryAuditMetric label="Categories used by Videos" value={audit.videoCategories} />
-            <CategoryAuditMetric label="Categories used by Images" value={audit.imageCategories} />
-            <CategoryAuditMetric
-              label="Categories used by Performers"
-              value={audit.performerCategories}
-            />
-          </div>
-
-          {hasCategories ? (
-            <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <div className="min-w-[560px]">
-                <div className="grid grid-cols-[minmax(160px,1.5fr)_repeat(4,minmax(80px,0.7fr))] gap-2 bg-white px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-                  <span>Category</span>
-                  <span>Videos</span>
-                  <span>Images</span>
-                  <span>Performers</span>
-                  <span>Total</span>
-                </div>
-                <div className="divide-y divide-slate-200">
-                  {audit.rows.map((row) => (
-                    <div
-                      key={row.name.toLowerCase()}
-                      className="grid grid-cols-[minmax(160px,1.5fr)_repeat(4,minmax(80px,0.7fr))] gap-2 px-3 py-2 text-sm"
-                    >
-                      <span className="break-words font-semibold text-slate-700">
-                        {row.name}
-                      </span>
-                      <span className="font-medium text-slate-500">{row.videos}</span>
-                      <span className="font-medium text-slate-500">{row.images}</span>
-                      <span className="font-medium text-slate-500">{row.performers}</span>
-                      <span className="font-semibold text-slate-700">{row.total}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-3 rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
-              Saved categories will appear here after records use them.
-            </p>
-          )}
+    <div className="space-y-4">
+      <section className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Catalog Settings
+          </p>
+          <h2 className="mt-1 text-xl font-semibold tracking-normal text-slate-950">
+            Add / Edit Managed Category
+          </h2>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Managed Category changes update only the local managed list. Existing
+            Videos, Images, and Performers are not changed here.
+          </p>
         </div>
-
-        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-          <div>
-            <h3 className="text-base font-semibold text-slate-800">
-              Category Management
-            </h3>
-            <p className="mt-1 text-sm font-medium text-slate-500">
-              Managed Categories and Record Categories stay separate. Record operations require preview and confirmation.
-            </p>
-          </div>
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold uppercase text-slate-500">
+        <div className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+            <p className="text-sm font-semibold text-slate-800">
               Add Category
             </p>
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
               <label className="min-w-0 flex-1">
                 <span className="sr-only">Category name</span>
                 <input
@@ -509,48 +504,331 @@ function CatalogSettingsCard({
             <CategoryStatusMessage status={managedCategoryStatus} />
           </div>
 
-          {managedCategoryRows.length > 0 && (
-            <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-3">
-              <p className="text-xs font-semibold uppercase text-slate-500">
-                Managed Categories
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {managedCategoryRows.map((row) => (
-                  <span
-                    key={row.category.toLowerCase()}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-                  >
-                    <span className="break-words">{row.category}</span>
-                    <span className="text-slate-400">
-                      {row.usage === 0
-                        ? "Unused / 0 usage"
-                        : `${row.usage} usage`}
-                    </span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {managedCategories.length > 0 && (
-            <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-500">
-                  Rename Category
+                <p className="text-sm font-semibold text-slate-800">
+                  Edit Selected Managed Category
                 </p>
                 <p className="mt-1 text-xs font-medium text-slate-500">
-                  Rename applies only to Managed Categories. Existing Record Categories are not changed.
+                  Rename keeps Record Categories unchanged.
                 </p>
               </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <span className="w-fit rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
+                {selectedRow?.isManaged ? "Managed" : "Select managed row"}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <label className="grid gap-1 text-xs font-semibold text-slate-500">
+                Proposed name
+                <input
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100 disabled:bg-slate-100 disabled:text-slate-400"
+                  disabled={!selectedRow?.isManaged}
+                  placeholder="New category name"
+                  value={managedRenameTarget}
+                  onChange={(event) => {
+                    setManagedRenameTarget(event.target.value);
+                    setIsConfirmingManagedDelete(false);
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!canApplyManagedRename || !selectedRow}
+                onClick={() => {
+                  if (
+                    selectedRow &&
+                    onRenameManagedCategory(selectedRow.name, managedRenameTarget)
+                  ) {
+                    setSelectedCategory(managedRenameTarget.trim());
+                    setManagedRenameTarget("");
+                  }
+                }}
+                className={[
+                  "h-10 self-end rounded-lg border px-4 text-sm font-semibold",
+                  canApplyManagedRename
+                    ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+                    : "border-slate-200 bg-slate-100 text-slate-400",
+                ].join(" ")}
+              >
+                Apply Rename
+              </button>
+            </div>
+            {managedRenameValidation && (
+              <p
+                className={[
+                  "mt-2 text-xs font-semibold",
+                  managedRenameValidation.state === "invalid"
+                    ? "text-rose-600"
+                    : "text-slate-500",
+                ].join(" ")}
+              >
+                {managedRenameValidation.message}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+            Categories Audit
+          </h2>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Search, filter, and review the combined Managed Category list and
+            Record Category usage counts.
+          </p>
+        </div>
+        <div className="grid gap-3 border-b border-slate-200 px-5 py-4 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+          <label className="grid gap-1 text-xs font-semibold text-slate-500">
+            Search categories
+            <input
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+              placeholder="Search by category name"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-slate-500">
+            Filter
+            <select
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+              value={filter}
+              onChange={(event) =>
+                setFilter(event.target.value as CategoryListFilter)
+              }
+            >
+              <option value="all">All categories</option>
+              <option value="managed">Managed only</option>
+              <option value="record">Record usage only</option>
+              <option value="unused">Unused managed</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-slate-500">
+            Sort
+            <select
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+              value={sort}
+              onChange={(event) =>
+                setSort(event.target.value as CategoryListSort)
+              }
+            >
+              <option value="name">Name A-Z</option>
+              <option value="usage-desc">Usage high to low</option>
+              <option value="usage-asc">Usage low to high</option>
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-2 border-b border-slate-200 px-5 py-4 sm:grid-cols-2 xl:grid-cols-4">
+          <CategoryAuditMetric label="Total unique categories" value={audit.totalUnique} />
+          <CategoryAuditMetric label="Managed Categories" value={managedCategories.length} />
+          <CategoryAuditMetric label="Categories used by Videos" value={audit.videoCategories} />
+          <CategoryAuditMetric
+            label="Categories used by Performers"
+            value={audit.performerCategories}
+          />
+        </div>
+        {filteredRows.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                  <th className="px-5 py-3">Category</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Videos</th>
+                  <th className="px-3 py-3">Images</th>
+                  <th className="px-3 py-3">Performers</th>
+                  <th className="px-3 py-3">Total</th>
+                  <th className="px-5 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredRows.map((row) => (
+                  <tr
+                    key={row.name.toLowerCase()}
+                    className={
+                      selectedRow?.name === row.name
+                        ? "bg-sakura-50/60"
+                        : "bg-white"
+                    }
+                  >
+                    <td className="px-5 py-3">
+                      <span className="break-words font-semibold text-slate-800">
+                        {row.name}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {row.isManaged && <CategoryBadge label="Managed" />}
+                        {row.isRecordCategory && <CategoryBadge label="Record" />}
+                        {!row.isRecordCategory && <CategoryBadge label="Unused" />}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 font-medium text-slate-500">
+                      {row.videos}
+                    </td>
+                    <td className="px-3 py-3 font-medium text-slate-500">
+                      {row.images}
+                    </td>
+                    <td className="px-3 py-3 font-medium text-slate-500">
+                      {row.performers}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-800">
+                      {row.total}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(row.name);
+                          setManagedRenameTarget("");
+                          setIsConfirmingManagedDelete(false);
+                        }}
+                        className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:border-sakura-200 hover:text-sakura-600"
+                      >
+                        Select
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mx-5 my-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
+            Saved categories will appear here after records use them or managed
+            categories are added.
+          </p>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white px-5 py-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              Selected Category Detail
+            </p>
+            <h2 className="mt-1 break-words text-xl font-semibold tracking-normal text-slate-950">
+              {selectedRow?.name ?? "No category selected"}
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              This card summarizes the selected label. It does not create
+              parent categories or change record data by itself.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedRow?.isManaged && <CategoryBadge label="Managed Category" />}
+            {selectedRow?.isRecordCategory && <CategoryBadge label="Record Category" />}
+            {selectedRow && selectedUsage === 0 && <CategoryBadge label="Unused" />}
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <CategoryAuditMetric label="Videos" value={selectedRow?.videos ?? 0} />
+          <CategoryAuditMetric label="Images" value={selectedRow?.images ?? 0} />
+          <CategoryAuditMetric label="Performers" value={selectedRow?.performers ?? 0} />
+          <CategoryAuditMetric label="Total usage" value={selectedUsage} />
+        </div>
+        {selectedRow?.isManaged && (
+          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50/40 px-4 py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Delete unused Managed Category
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Delete removes only the managed entry and is available only
+                  when total usage is 0.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!canDeleteSelectedManagedCategory}
+                onClick={() => setIsConfirmingManagedDelete(true)}
+                className={[
+                  "h-10 rounded-lg border px-4 text-sm font-semibold",
+                  canDeleteSelectedManagedCategory
+                    ? "border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+                    : "border-slate-200 bg-slate-100 text-slate-400",
+                ].join(" ")}
+              >
+                Apply Delete
+              </button>
+            </div>
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              {canDeleteSelectedManagedCategory
+                ? `${selectedRow.name} / 0 usage: eligible for deletion.`
+                : `${selectedUsage} usage: cannot be deleted until usage is removed.`}
+            </p>
+            {isConfirmingManagedDelete && (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
+                <p className="text-sm font-semibold text-slate-800">
+                  Confirm managed category delete
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  This will remove "{selectedRow.name}" from the managed
+                  category list only.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingManagedDelete(false)}
+                    className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onDeleteManagedCategory(selectedRow.name)) {
+                        setSelectedCategory("");
+                        setIsConfirmingManagedDelete(false);
+                      }
+                    }}
+                    className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                  >
+                    Confirm Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+            Modify Records
+          </h2>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Record Category changes require preview and confirmation. These
+            actions patch only `categoriesJson`.
+          </p>
+        </div>
+        {managedCategories.length === 0 ? (
+          <p className="mx-5 my-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
+            Add a Managed Category before preparing record category operations.
+          </p>
+        ) : (
+          <div className="grid gap-4 px-5 py-4 xl:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+              <h3 className="text-base font-semibold text-slate-800">
+                Rename Category Across Records
+              </h3>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Managed Categories are not automatically changed by this record
+                operation.
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="grid gap-1 text-xs font-semibold text-slate-500">
-                  Existing category
+                  Record category to rename
                   <select
                     className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                    value={selectedRenameCategory}
+                    value={selectedRecordRenameSource}
                     onChange={(event) => {
-                      setRenameSourceCategory(event.target.value);
-                      setRenameTargetCategory("");
+                      setRecordRenameSource(event.target.value);
+                      setRecordRenameTarget("");
                       setIsConfirmingRecordRename(false);
                     }}
                   >
@@ -562,63 +840,50 @@ function CatalogSettingsCard({
                   </select>
                 </label>
                 <label className="grid gap-1 text-xs font-semibold text-slate-500">
-                  Proposed name
+                  Proposed record category name
                   <input
                     className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                    placeholder="New category name"
-                    value={renameTargetCategory}
+                    placeholder="New record category name"
+                    value={recordRenameTarget}
                     onChange={(event) => {
-                      setRenameTargetCategory(event.target.value);
+                      setRecordRenameTarget(event.target.value);
                       setIsConfirmingRecordRename(false);
                     }}
                   />
                 </label>
-                <button
-                  type="button"
-                  disabled={!canApplyRename}
-                  onClick={() => {
-                    if (
-                      onRenameManagedCategory(
-                        selectedRenameCategory,
-                        renameTargetCategory,
-                      )
-                    ) {
-                      setRenameTargetCategory("");
-                    }
-                  }}
-                  className={[
-                    "h-10 self-end rounded-lg border px-4 text-sm font-semibold md:w-auto",
-                    canApplyRename
-                      ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
-                      : "border-slate-200 bg-slate-100 text-slate-400",
-                  ].join(" ")}
-                >
-                  Apply Rename
-                </button>
               </div>
-              {renameValidation && (
+              {recordRenameValidation && (
                 <p
                   className={[
                     "mt-2 text-xs font-semibold",
-                    renameValidation.state === "invalid"
+                    recordRenameValidation.state === "invalid"
                       ? "text-rose-600"
                       : "text-slate-500",
                   ].join(" ")}
                 >
-                  {renameValidation.message}
+                  {recordRenameValidation.message}
                 </p>
               )}
-              {renamePreview && (
-                <CategoryRecordRenamePreview
-                  preview={renamePreview}
+              {recordRenamePreview && (
+                <CategoryRecordPreview
+                  label="Record rename preview"
+                  title="Record Rename Preview"
+                  description="Applying rename to records updates only categoriesJson after confirmation."
+                  preview={recordRenamePreview}
                   canApply={canApplyRecordRename}
                   isConfirming={isConfirmingRecordRename}
+                  actionLabel="Apply to Records"
+                  confirmTitle="Confirm record category rename"
+                  confirmLabel="Confirm Apply to Records"
+                  confirmDescription={`This will update categoriesJson for ${recordRenamePreview.total} existing record${
+                    recordRenamePreview.total === 1 ? "" : "s"
+                  }. Only category labels will change.`}
                   onStartApply={() => setIsConfirmingRecordRename(true)}
                   onCancelApply={() => setIsConfirmingRecordRename(false)}
                   onConfirmApply={async () => {
                     const applied = await onApplyRecordCategoryRename(
-                      selectedRenameCategory,
-                      renameTargetCategory,
+                      selectedRecordRenameSource,
+                      recordRenameTarget,
                     );
                     if (applied) {
                       setIsConfirmingRecordRename(false);
@@ -627,114 +892,165 @@ function CatalogSettingsCard({
                 />
               )}
             </div>
-          )}
 
-          {managedCategories.length > 0 && selectedDeleteRow && (
-            <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-3">
-              <div>
-                <p className="text-xs font-semibold uppercase text-slate-500">
-                  Delete Unused Category
-                </p>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  Delete removes only an unused Managed Category entry. Existing Record Categories are not changed.
-                </p>
-              </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                <label className="grid gap-1 text-xs font-semibold text-slate-500">
-                  Category to delete
-                  <select
-                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                    value={selectedDeleteCategory}
-                    onChange={(event) => {
-                      setDeleteSourceCategory(event.target.value);
-                      setIsConfirmingDeleteCategory(false);
-                      setIsConfirmingRecordDelete(false);
-                    }}
-                  >
-                    {managedCategories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="grid gap-1 text-xs font-semibold text-slate-500">
-                  Usage status
-                  <p className="flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                    {selectedDeleteRow.usage === 0
-                      ? "Unused / 0 usage: eligible for deletion."
-                      : `${selectedDeleteRow.usage} usage: cannot be deleted until usage is removed.`}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={!canApplyDelete}
-                  onClick={() => setIsConfirmingDeleteCategory(true)}
-                  className={[
-                    "h-10 self-end rounded-lg border px-4 text-sm font-semibold md:w-auto",
-                    canApplyDelete
-                      ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
-                      : "border-slate-200 bg-slate-100 text-slate-400",
-                  ].join(" ")}
-                >
-                  Apply Delete
-                </button>
-              </div>
-              <p className="mt-2 text-xs font-medium text-slate-500">
-                Delete removes only the managed category entry. Existing record categories are not changed.
+            <div className="rounded-lg border border-rose-200 bg-rose-50/30 p-4">
+              <h3 className="text-base font-semibold text-slate-800">
+                Remove Category From Records
+              </h3>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Removal affects Record Categories only after confirmation.
               </p>
-              {isConfirmingDeleteCategory && (
-                <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
-                  <p className="text-sm font-semibold text-slate-800">
-                    Confirm managed category delete
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
-                    This will remove "{selectedDeleteCategory}" from the managed category list only.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsConfirmingDeleteCategory(false)}
-                      className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onDeleteManagedCategory(selectedDeleteCategory)) {
-                          setIsConfirmingDeleteCategory(false);
-                        }
-                      }}
-                      className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
-                    >
-                      Confirm Delete
-                    </button>
-                  </div>
-                </div>
-              )}
-              {deletePreview && (
-                <CategoryRecordDeletePreview
-                  preview={deletePreview}
-                  canApply={canRemoveFromRecords}
-                  isConfirming={isConfirmingRecordDelete}
-                  onStartApply={() => setIsConfirmingRecordDelete(true)}
-                  onCancelApply={() => setIsConfirmingRecordDelete(false)}
+              <label className="mt-3 grid gap-1 text-xs font-semibold text-slate-500">
+                Record category to remove
+                <select
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                  value={selectedRecordRemoveSource}
+                  onChange={(event) => {
+                    setRecordRemoveSource(event.target.value);
+                    setIsConfirmingRecordRemove(false);
+                  }}
+                >
+                  {managedCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {recordRemovePreview && (
+                <CategoryRecordPreview
+                  label="Record delete preview"
+                  title="Record Delete Preview"
+                  description="Removing category from records updates only categoriesJson after confirmation."
+                  preview={recordRemovePreview}
+                  canApply={canApplyRecordRemove}
+                  isConfirming={isConfirmingRecordRemove}
+                  actionLabel="Remove from Records"
+                  confirmTitle="Confirm record category removal"
+                  confirmLabel="Confirm Remove from Records"
+                  confirmDescription={`This will update categoriesJson for ${recordRemovePreview.total} existing record${
+                    recordRemovePreview.total === 1 ? "" : "s"
+                  }. Managed categories will not be changed.`}
+                  onStartApply={() => setIsConfirmingRecordRemove(true)}
+                  onCancelApply={() => setIsConfirmingRecordRemove(false)}
                   onConfirmApply={async () => {
                     const applied = await onApplyRecordCategoryRemove(
-                      selectedDeleteCategory,
+                      selectedRecordRemoveSource,
                     );
                     if (applied) {
-                      setIsConfirmingRecordDelete(false);
+                      setIsConfirmingRecordRemove(false);
                     }
                   }}
                 />
               )}
             </div>
-          )}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white px-5 py-4">
+        <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+          Safety Notes
+        </h2>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {[
+            "Managed Categories and Record Categories remain separate.",
+            "Managed-only add, rename, and delete do not mutate records.",
+            "Record operations require preview and confirmation.",
+            "Record operations patch only `categoriesJson`.",
+            "Videos, Images, Performers, media files, and unrelated fields are unchanged.",
+            "No parent/child category behavior is implemented in this batch.",
+          ].map((note) => (
+            <p
+              key={note}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600"
+            >
+              {note}
+            </p>
+          ))}
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
+  );
+}
+
+function buildCategoryRows(
+  audit: CategoryAuditSummary,
+  managedCategories: string[],
+) {
+  const rowsByKey = new Map<string, CategoryTableRow>();
+
+  for (const row of audit.rows) {
+    rowsByKey.set(row.name.toLowerCase(), {
+      ...row,
+      isManaged: false,
+      isRecordCategory: row.total > 0,
+    });
+  }
+
+  for (const category of managedCategories) {
+    const key = category.toLowerCase();
+    const existing = rowsByKey.get(key);
+    if (existing) {
+      rowsByKey.set(key, { ...existing, isManaged: true });
+    } else {
+      rowsByKey.set(key, {
+        name: category,
+        videos: 0,
+        images: 0,
+        performers: 0,
+        total: 0,
+        isManaged: true,
+        isRecordCategory: false,
+      });
+    }
+  }
+
+  return [...rowsByKey.values()].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
+}
+
+function filterCategoryRows(
+  rows: CategoryTableRow[],
+  searchTerm: string,
+  filter: CategoryListFilter,
+  sort: CategoryListSort,
+) {
+  const searchKey = searchTerm.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (searchKey && !row.name.toLowerCase().includes(searchKey)) {
+      return false;
+    }
+
+    if (filter === "managed") {
+      return row.isManaged;
+    }
+    if (filter === "record") {
+      return row.isRecordCategory;
+    }
+    if (filter === "unused") {
+      return row.isManaged && row.total === 0;
+    }
+    return true;
+  });
+
+  return filtered.sort((left, right) => {
+    if (sort === "usage-desc") {
+      return right.total - left.total || left.name.localeCompare(right.name);
+    }
+    if (sort === "usage-asc") {
+      return left.total - right.total || left.name.localeCompare(right.name);
+    }
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function CategoryBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex w-fit rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+      {label}
+    </span>
   );
 }
 
@@ -753,17 +1069,31 @@ function CategoryAuditMetric({
   );
 }
 
-function CategoryRecordRenamePreview({
+function CategoryRecordPreview({
+  label,
+  title,
+  description,
   preview,
   canApply,
   isConfirming,
+  actionLabel,
+  confirmTitle,
+  confirmLabel,
+  confirmDescription,
   onStartApply,
   onCancelApply,
   onConfirmApply,
 }: {
+  label: string;
+  title: string;
+  description: string;
   preview: CategoryRenamePreview;
   canApply: boolean;
   isConfirming: boolean;
+  actionLabel: string;
+  confirmTitle: string;
+  confirmLabel: string;
+  confirmDescription: string;
   onStartApply: () => void;
   onCancelApply: () => void;
   onConfirmApply: () => void;
@@ -771,16 +1101,16 @@ function CategoryRecordRenamePreview({
   return (
     <div
       role="region"
-      aria-label="Record rename preview"
-      className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3"
+      aria-label={label}
+      className="mt-4 rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase text-slate-500">
-            Record Rename Preview
+            {title}
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500">
-            Applying rename to records updates only categoriesJson after confirmation.
+            {description}
           </p>
         </div>
         <button
@@ -794,7 +1124,7 @@ function CategoryRecordRenamePreview({
               : "border-slate-200 bg-slate-100 text-slate-400",
           ].join(" ")}
         >
-          Apply to Records
+          {actionLabel}
         </button>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-4">
@@ -830,12 +1160,9 @@ function CategoryRecordRenamePreview({
       )}
       {isConfirming && (
         <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
-          <p className="text-sm font-semibold text-slate-800">
-            Confirm record category rename
-          </p>
+          <p className="text-sm font-semibold text-slate-800">{confirmTitle}</p>
           <p className="mt-1 text-sm font-medium text-slate-500">
-            This will update categoriesJson for {preview.total} existing record
-            {preview.total === 1 ? "" : "s"}. Only category labels will change.
+            {confirmDescription}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -850,113 +1177,7 @@ function CategoryRecordRenamePreview({
               onClick={onConfirmApply}
               className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
             >
-              Confirm Apply to Records
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CategoryRecordDeletePreview({
-  preview,
-  canApply,
-  isConfirming,
-  onStartApply,
-  onCancelApply,
-  onConfirmApply,
-}: {
-  preview: CategoryRenamePreview;
-  canApply: boolean;
-  isConfirming: boolean;
-  onStartApply: () => void;
-  onCancelApply: () => void;
-  onConfirmApply: () => void;
-}) {
-  return (
-    <div
-      role="region"
-      aria-label="Record delete preview"
-      className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3"
-    >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase text-slate-500">
-            Record Delete Preview
-          </p>
-          <p className="mt-1 text-xs font-medium text-slate-500">
-            Removing category from records updates only categoriesJson after confirmation.
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={!canApply}
-          onClick={onStartApply}
-          className={[
-            "h-9 rounded-lg border px-3 text-xs font-semibold",
-            canApply
-              ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
-              : "border-slate-200 bg-slate-100 text-slate-400",
-          ].join(" ")}
-        >
-          Remove from Records
-        </button>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-4">
-        <CategoryAuditMetric label="Affected Videos" value={preview.videos} />
-        <CategoryAuditMetric label="Affected Images" value={preview.images} />
-        <CategoryAuditMetric
-          label="Affected Performers"
-          value={preview.performers}
-        />
-        <CategoryAuditMetric label="Total affected records" value={preview.total} />
-      </div>
-      {preview.total === 0 ? (
-        <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">
-          No existing records use this category.
-        </p>
-      ) : (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <p className="text-xs font-semibold uppercase text-slate-500">
-            Affected examples
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {preview.examples.map((example, index) => (
-              <span
-                key={`${example.kind}-${example.label}-${index}`}
-                className="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-              >
-                <span className="text-sakura-600">{example.kind}</span>
-                <span className="break-words">{example.label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-      {isConfirming && (
-        <div className="mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
-          <p className="text-sm font-semibold text-slate-800">
-            Confirm record category removal
-          </p>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            This will update categoriesJson for {preview.total} existing record
-            {preview.total === 1 ? "" : "s"}. Managed categories will not be changed.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onCancelApply}
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={onConfirmApply}
-              className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100"
-            >
-              Confirm Remove from Records
+              {confirmLabel}
             </button>
           </div>
         </div>
@@ -977,7 +1198,7 @@ function CategoryStatusMessage({ status }: { status: CategoryStatus }) {
   return (
     <p
       role={isError ? "alert" : "status"}
-      className={`mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold ${
+      className={`mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold ${
         isError ? "text-rose-600" : "text-slate-600"
       }`}
     >
