@@ -5,6 +5,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Tags,
   UserRound,
   Video,
 } from "lucide-react";
@@ -16,6 +17,7 @@ const icons = {
   videos: Video,
   images: Image,
   performers: UserRound,
+  categories: Tags,
   settings: Settings,
 };
 

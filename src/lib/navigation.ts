@@ -20,6 +20,11 @@ export const sidebarItems = [
     icon: "performers",
   },
   {
+    label: "Categories",
+    to: "/categories",
+    icon: "categories",
+  },
+  {
     label: "Settings",
     to: "/settings",
     icon: "settings",
