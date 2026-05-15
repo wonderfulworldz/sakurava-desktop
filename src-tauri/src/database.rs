@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS videos (
   coverPath TEXT NOT NULL DEFAULT '',
   mediaPath TEXT NOT NULL DEFAULT '',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
+  relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS images (
   folderPath TEXT NOT NULL DEFAULT '',
   imageCount INTEGER,
   categoriesJson TEXT NOT NULL DEFAULT '[]',
+  relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -135,6 +137,29 @@ pub fn prepare_database_paths(app_data_dir: impl AsRef<Path>) -> io::Result<Runt
 pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     for statement in SCHEMA_SQL {
         connection.execute_batch(statement)?;
+    }
+
+    ensure_text_json_column(connection, "videos", "relatedPerformersJson", "[]")?;
+    ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
+
+    Ok(())
+}
+
+fn ensure_text_json_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+    default_json: &str,
+) -> rusqlite::Result<()> {
+    let mut statement = connection.prepare(&format!("PRAGMA table_info({table_name})"))?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    if !columns.iter().any(|column| column == column_name) {
+        connection.execute_batch(&format!(
+            "ALTER TABLE {table_name} ADD COLUMN {column_name} TEXT NOT NULL DEFAULT '{default_json}'"
+        ))?;
     }
 
     Ok(())
@@ -390,6 +415,44 @@ mod tests {
     }
 
     #[test]
+    fn schema_initialization_adds_related_performer_columns_to_existing_tables() {
+        let connection = Connection::open_in_memory().expect("in-memory database");
+        connection
+            .execute_batch(
+                r#"
+                CREATE TABLE videos (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  title TEXT NOT NULL,
+                  categoriesJson TEXT NOT NULL DEFAULT '[]',
+                  createdAt TEXT NOT NULL,
+                  updatedAt TEXT NOT NULL
+                );
+                CREATE TABLE images (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  title TEXT NOT NULL,
+                  categoriesJson TEXT NOT NULL DEFAULT '[]',
+                  createdAt TEXT NOT NULL,
+                  updatedAt TEXT NOT NULL
+                );
+                "#,
+            )
+            .expect("legacy tables");
+
+        initialize_schema(&connection).expect("schema init");
+
+        assert!(table_has_column(
+            &connection,
+            "videos",
+            "relatedPerformersJson"
+        ));
+        assert!(table_has_column(
+            &connection,
+            "images",
+            "relatedPerformersJson"
+        ));
+    }
+
+    #[test]
     fn schema_does_not_create_relational_category_or_content_tables() {
         let app_data_dir = unique_test_dir("sqlite-no-relations").join(APP_DATA_FOLDER_NAME);
         let _ = fs::remove_dir_all(&app_data_dir);
@@ -638,6 +701,19 @@ mod tests {
                 [id, title],
             )
             .expect("insert video");
+    }
+
+    fn table_has_column(connection: &Connection, table_name: &str, column_name: &str) -> bool {
+        let mut statement = connection
+            .prepare(&format!("PRAGMA table_info({table_name})"))
+            .expect("table info statement");
+        let columns = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("table info rows")
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .expect("table columns");
+
+        columns.iter().any(|column| column == column_name)
     }
 
     fn read_video_title(database: &RuntimeDatabase, id: &str) -> Option<String> {

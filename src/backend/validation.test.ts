@@ -1,8 +1,10 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultRelatedPerformersJson,
   defaultRatingJson,
   normalizeRatingJson,
+  parseRelatedPerformerArray,
   parseRatingObject,
   parseTextLabelArray,
   stringifyTextLabelArray,
@@ -29,6 +31,7 @@ const baseVideo = {
   coverPath: "",
   mediaPath: "",
   categoriesJson: "",
+  relatedPerformersJson: "",
   ratingJson: "",
   notes: "",
   favorite: false,
@@ -46,6 +49,7 @@ const baseImage = {
   folderPath: "",
   imageCount: null,
   categoriesJson: "",
+  relatedPerformersJson: "",
   ratingJson: "",
   notes: "",
   favorite: false,
@@ -85,9 +89,23 @@ describe("JSON helpers", () => {
   it("normalizes empty or invalid JSON defaults", () => {
     expect(defaultCategoriesJson()).toBe("[]");
     expect(defaultAliasesJson("{bad json")).toBe("[]");
+    expect(defaultRelatedPerformersJson("{bad json")).toBe("[]");
     expect(defaultRatingJson("[1,2,3]")).toBe("{}");
     expect(normalizeRatingJson('{"visual":5}')).toBe('{"visual":5}');
     expect(parseRatingObject("{bad json")).toEqual({});
+  });
+
+  it("normalizes related performer references safely", () => {
+    const json =
+      '[{"performerId":" performer-1 ","nameSnapshot":" Performer One "},{"performerId":"performer-1","nameSnapshot":"Duplicate"},{"performerId":"","nameSnapshot":"Legacy Name"},{"performerId":7,"nameSnapshot":""},"bad"]';
+
+    expect(parseRelatedPerformerArray(json)).toEqual([
+      { performerId: "performer-1", nameSnapshot: "Performer One" },
+      { performerId: "", nameSnapshot: "Legacy Name" },
+    ]);
+    expect(defaultRelatedPerformersJson(json)).toBe(
+      '[{"performerId":"performer-1","nameSnapshot":"Performer One"},{"performerId":"","nameSnapshot":"Legacy Name"}]',
+    );
   });
 });
 
@@ -150,11 +168,15 @@ describe("default normalization", () => {
       normalizeVideoDefaults({
         ...baseVideo,
         categoriesJson: '["Favorite","High Replay"]',
+        relatedPerformersJson:
+          '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
         ratingJson: '{"rewatch":3}',
       }),
     ).toMatchObject({
       title: "Sample Video",
       categoriesJson: '["Favorite","High Replay"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"rewatch":3}',
       favorite: false,
     });
@@ -165,11 +187,13 @@ describe("default normalization", () => {
       normalizeImageDefaults({
         ...baseImage,
         categoriesJson: "{bad json",
+        relatedPerformersJson: "{bad json",
         ratingJson: "",
       }),
     ).toMatchObject({
       title: "Sample Image",
       categoriesJson: "[]",
+      relatedPerformersJson: "[]",
       ratingJson: "{}",
       imageCount: null,
     });

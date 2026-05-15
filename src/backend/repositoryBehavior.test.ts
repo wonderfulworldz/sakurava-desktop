@@ -29,6 +29,8 @@ const baseVideo = {
   coverPath: "",
   mediaPath: "",
   categoriesJson: '["Favorite","Classic"]',
+  relatedPerformersJson:
+    '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
   ratingJson: '{"rewatch":4,"visual":5}',
   notes: "",
   favorite: false,
@@ -46,6 +48,8 @@ const baseImage = {
   folderPath: "D:/images/sample",
   imageCount: 24,
   categoriesJson: '["Pictorial","Favorite"]',
+  relatedPerformersJson:
+    '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
   ratingJson: '{"memorability":4,"visual":5}',
   notes: "",
   favorite: false,
@@ -92,6 +96,8 @@ describe("video repository behavior", () => {
       id: "video-1",
       title: "Sample Video",
       favorite: false,
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       createdAt: "2026-05-11T00:00:00.000Z",
       updatedAt: "2026-05-11T00:00:00.000Z",
     });
@@ -111,6 +117,8 @@ describe("video repository behavior", () => {
     const updated = await repository.update(created.id, {
       title: "Updated Video",
       categoriesJson: '["Updated Label"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
       ratingJson: "{bad json",
       favorite: true,
     });
@@ -122,6 +130,8 @@ describe("video repository behavior", () => {
       createdAt: "2026-05-11T00:00:00.000Z",
       updatedAt: "2026-05-11T00:01:00.000Z",
       categoriesJson: '["Updated Label"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
       ratingJson: "{}",
     });
 
@@ -161,6 +171,8 @@ describe("image repository behavior", () => {
       title: "Sample Image",
       favorite: false,
       imageCount: 24,
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       createdAt: "2026-05-11T01:00:00.000Z",
       updatedAt: "2026-05-11T01:00:00.000Z",
     });
@@ -181,6 +193,7 @@ describe("image repository behavior", () => {
       title: "Updated Image",
       imageCount: null,
       categoriesJson: '["Updated Image Label"]',
+      relatedPerformersJson: "{bad json",
       ratingJson: "",
       favorite: true,
     });
@@ -191,6 +204,7 @@ describe("image repository behavior", () => {
       favorite: true,
       imageCount: null,
       categoriesJson: '["Updated Image Label"]',
+      relatedPerformersJson: "[]",
       ratingJson: "{}",
       createdAt: "2026-05-11T01:00:00.000Z",
       updatedAt: "2026-05-11T01:01:00.000Z",

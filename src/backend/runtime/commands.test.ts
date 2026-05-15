@@ -50,6 +50,8 @@ describe("repository runtime command invoker", () => {
     const created = await invoker.invoke("video_create", {
       title: " Video Runtime ",
       categoriesJson: '["Favorite","Runtime"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"rewatch":4}',
     });
 
@@ -57,6 +59,8 @@ describe("repository runtime command invoker", () => {
       id: "video-1",
       title: "Video Runtime",
       categoriesJson: '["Favorite","Runtime"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"rewatch":4}',
       favorite: false,
     });
@@ -90,6 +94,8 @@ describe("repository runtime command invoker", () => {
       folderPath: "D:/images/runtime",
       imageCount: 24,
       categoriesJson: '["Pictorial"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"visual":5}',
     });
 
@@ -98,6 +104,8 @@ describe("repository runtime command invoker", () => {
       title: "Image Runtime",
       imageCount: 24,
       categoriesJson: '["Pictorial"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"visual":5}',
     });
     expect(await invoker.invoke("image_list", undefined)).toEqual([created]);

@@ -188,6 +188,8 @@ describe("SQLite repository adapter foundation", () => {
     const created = await repository.create({
       title: " Video Title ",
       categoriesJson: '["Favorite","Classic"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"rewatch":4}',
     });
 
@@ -196,6 +198,8 @@ describe("SQLite repository adapter foundation", () => {
       title: "Video Title",
       favorite: false,
       categoriesJson: '["Favorite","Classic"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"rewatch":4}',
       createdAt: "2026-05-11T01:00:00.000Z",
       updatedAt: "2026-05-11T01:00:00.000Z",
@@ -205,12 +209,16 @@ describe("SQLite repository adapter foundation", () => {
 
     const updated = await repository.update("video-id", {
       title: "Updated Video",
+      relatedPerformersJson:
+        '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
       ratingJson: "{bad json",
       favorite: true,
     });
 
     expect(updated).toMatchObject({
       title: "Updated Video",
+      relatedPerformersJson:
+        '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
       ratingJson: "{}",
       favorite: true,
       createdAt: "2026-05-11T01:00:00.000Z",
@@ -237,6 +245,8 @@ describe("SQLite repository adapter foundation", () => {
       folderPath: "D:/images",
       imageCount: 24,
       categoriesJson: '["Pictorial"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"visual":5}',
     });
 
@@ -244,6 +254,8 @@ describe("SQLite repository adapter foundation", () => {
       id: "image-id",
       imageCount: 24,
       categoriesJson: '["Pictorial"]',
+      relatedPerformersJson:
+        '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       ratingJson: '{"visual":5}',
       favorite: false,
     });
@@ -251,11 +263,13 @@ describe("SQLite repository adapter foundation", () => {
     const updated = await repository.update("image-id", {
       imageCount: null,
       categoriesJson: '["Updated Image"]',
+      relatedPerformersJson: "{bad json",
     });
 
     expect(updated).toMatchObject({
       imageCount: null,
       categoriesJson: '["Updated Image"]',
+      relatedPerformersJson: "[]",
       updatedAt: "2026-05-11T02:01:00.000Z",
     });
   });

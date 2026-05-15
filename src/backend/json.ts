@@ -1,6 +1,11 @@
 const EMPTY_ARRAY_JSON = "[]";
 const EMPTY_OBJECT_JSON = "{}";
 
+export type RelatedPerformerReference = {
+  performerId: string;
+  nameSnapshot: string;
+};
+
 export function safeParseJson(value: string | null | undefined): unknown {
   if (!value) {
     return undefined;
@@ -37,6 +42,51 @@ export function normalizeTextLabelArrayJson(
   return JSON.stringify(parseTextLabelArray(value));
 }
 
+export function parseRelatedPerformerArray(
+  value: string | null | undefined,
+): RelatedPerformerReference[] {
+  const parsed = safeParseJson(value);
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const references: RelatedPerformerReference[] = [];
+
+  for (const item of parsed) {
+    if (!item || Array.isArray(item) || typeof item !== "object") {
+      continue;
+    }
+
+    const record = item as Record<string, unknown>;
+    const performerId =
+      typeof record.performerId === "string" ? record.performerId.trim() : "";
+    const nameSnapshot =
+      typeof record.nameSnapshot === "string" ? record.nameSnapshot.trim() : "";
+
+    if (!performerId && !nameSnapshot) {
+      continue;
+    }
+
+    const key = performerId || nameSnapshot.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    references.push({ performerId, nameSnapshot });
+  }
+
+  return references;
+}
+
+export function normalizeRelatedPerformersJson(
+  value: string | null | undefined,
+): string {
+  return JSON.stringify(parseRelatedPerformerArray(value));
+}
+
 export function parseRatingObject(
   value: string | null | undefined,
 ): Record<string, unknown> {
@@ -63,4 +113,8 @@ export function defaultAliasesJson(value?: string | null): string {
 
 export function defaultRatingJson(value?: string | null): string {
   return value ? normalizeRatingJson(value) : EMPTY_OBJECT_JSON;
+}
+
+export function defaultRelatedPerformersJson(value?: string | null): string {
+  return value ? normalizeRelatedPerformersJson(value) : EMPTY_ARRAY_JSON;
 }
