@@ -12,15 +12,22 @@ import type {
   FormConfig,
   FormMode,
   ReadOnlyField,
+  RelatedPerformerFormValue,
   TextField,
 } from "../lib/formData";
 import { getStoredManagedCategories } from "../lib/managedCategories";
+import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
 import {
   selectLocalFolder,
   selectLocalImageFile,
   selectLocalMediaFile,
 } from "../runtime/dialogCommands";
+import {
+  isPerformerRuntimeAvailable,
+  listPerformers,
+} from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import type { Performer } from "../backend/types";
 
 type FormPageProps = {
   config: FormConfig;
@@ -35,12 +42,15 @@ type FormSubmitData = {
   values: FormValues;
   categories: string[];
   aliases: string[];
+  relatedPerformers: RelatedPerformerFormValue[];
 };
 
 type FormSubmitResult = {
   state: Exclude<SaveState, "idle">;
   message?: string;
 };
+
+type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
 
 function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
@@ -50,16 +60,25 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [aliases, setAliases] = useState<string[]>(
     config.initialAliases?.[mode] ?? [],
   );
+  const [relatedPerformers, setRelatedPerformers] = useState<
+    RelatedPerformerFormValue[]
+  >(config.initialRelatedPerformers?.[mode] ?? []);
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
+  const [availablePerformers, setAvailablePerformers] = useState<Performer[]>([]);
+  const [performerLoadState, setPerformerLoadState] =
+    useState<RelatedPerformerLoadState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const canBrowsePaths = isTauriRuntimeAvailable();
+  const supportsRelatedPerformerPicker =
+    config.kind === "videos" || config.kind === "images";
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
     setCategories(config.initialCategories[mode]);
     setAliases(config.initialAliases?.[mode] ?? []);
+    setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
@@ -68,6 +87,43 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   useEffect(() => {
     setManagedCategories(getStoredManagedCategories());
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!supportsRelatedPerformerPicker) {
+      setAvailablePerformers([]);
+      setPerformerLoadState("idle");
+      return;
+    }
+
+    if (!isPerformerRuntimeAvailable()) {
+      setAvailablePerformers([]);
+      setPerformerLoadState("loaded");
+      return;
+    }
+
+    setPerformerLoadState("loading");
+    listPerformers()
+      .then((performers) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAvailablePerformers(Array.isArray(performers) ? performers : []);
+        setPerformerLoadState("loaded");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailablePerformers([]);
+          setPerformerLoadState("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supportsRelatedPerformerPicker]);
 
   const title = mode === "create" ? config.createTitle : config.editTitle;
   const subtitle =
@@ -115,7 +171,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     }
 
     try {
-      const result = await onSubmit({ values, categories, aliases });
+      const result = await onSubmit({
+        values,
+        categories,
+        aliases,
+        relatedPerformers,
+      });
       setSaveState(result.state);
       setSaveMessage(
         result.message ??
@@ -240,7 +301,21 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </label>
       </FormSection>
 
-      <RelatedFormSections sections={config.relatedSections} />
+      {supportsRelatedPerformerPicker && (
+        <FormSection index={8} title="Related Performer">
+          <RelatedPerformerPicker
+            performers={availablePerformers}
+            selected={relatedPerformers}
+            loadState={performerLoadState}
+            onChange={setRelatedPerformers}
+          />
+        </FormSection>
+      )}
+
+      <RelatedFormSections
+        sections={relatedSectionsForConfig(config)}
+        startIndex={supportsRelatedPerformerPicker ? 9 : 8}
+      />
 
       <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-slate-50/95 py-4 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -899,15 +974,35 @@ function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
   );
 }
 
-function RelatedFormSections({ sections }: { sections: ReadOnlyField[] }) {
+function RelatedFormSections({
+  sections,
+  startIndex,
+}: {
+  sections: ReadOnlyField[];
+  startIndex: number;
+}) {
   return (
     <>
       {sections.map((section, index) => (
-        <FormSection key={section.label} index={index + 8} title={section.label}>
+        <FormSection
+          key={section.label}
+          index={startIndex + index}
+          title={section.label}
+        >
           <ReadOnlyRows fields={[section]} />
         </FormSection>
       ))}
     </>
+  );
+}
+
+function relatedSectionsForConfig(config: FormConfig) {
+  if (config.kind !== "videos" && config.kind !== "images") {
+    return config.relatedSections;
+  }
+
+  return config.relatedSections.filter(
+    (section) => section.label !== "Related Performer",
   );
 }
 

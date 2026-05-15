@@ -1724,7 +1724,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Media",
       "Tech info is not detected or saved in MVP.",
-      "Related Performer",
+      "Selected Performers",
       "Rewatch",
     ],
     [
@@ -1751,7 +1751,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Folder",
       "Folder analysis is not detected or saved in MVP.",
-      "Related Performer",
+      "Selected Performers",
       "Memorability",
     ],
     [
@@ -1833,6 +1833,194 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Open Category Management" }),
     ).toHaveAttribute("href", "/settings/category-management");
+  });
+
+  it("shows an empty related performer picker state without free-text creation", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "8. Related Performer" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
+    expect(screen.getByText("No related Performers selected.")).toBeInTheDocument();
+    expect(screen.getByText("No Performer records available. Create Performer records first."))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Performers" })).toHaveAttribute(
+      "href",
+      "/performers",
+    );
+    expect(screen.getByRole("link", { name: "Add Performer" })).toHaveAttribute(
+      "href",
+      "/performers/new",
+    );
+    expect(screen.queryByPlaceholderText("Add related performer..."))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create performer/i }))
+      .not.toBeInTheDocument();
+  });
+
+  it("selects existing Performers on video forms and saves relatedPerformersJson", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const created = persistedVideo({
+      title: "Related Video",
+      relatedPerformersJson:
+        '[{"performerId":"performer_aoi","nameSnapshot":"Aoi Sakura"}]',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "performer_list") {
+          return [
+            persistedPerformer({
+              id: "performer_aoi",
+              name: "Aoi Sakura",
+              originalName: "Hanami Aoi",
+            }),
+            persistedPerformer({
+              id: "performer_yuki",
+              name: "Yuki Tanaka",
+              originalName: "",
+            }),
+          ];
+        }
+        if (command === "video_create") {
+          expect(args.input.title).toBe("Related Video");
+          expect(args.input.relatedPerformersJson).toBe(
+            '[{"performerId":"performer_aoi","nameSnapshot":"Aoi Sakura"}]',
+          );
+          return created;
+        }
+        if (command === "video_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Search related performers"), {
+      target: { value: "hanami" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add related performer Aoi Sakura",
+      }),
+    );
+    expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
+    expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Related Video" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Related Video")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("selects existing Performers on image forms and saves relatedPerformersJson", async () => {
+    window.history.pushState({}, "", "/images/new");
+    const created = persistedImage({
+      title: "Related Image",
+      relatedPerformersJson:
+        '[{"performerId":"performer_yuki","nameSnapshot":"Yuki Tanaka"}]',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "performer_list") {
+          return [
+            persistedPerformer({
+              id: "performer_yuki",
+              name: "Yuki Tanaka",
+              originalName: "Tanaka Yuki",
+            }),
+          ];
+        }
+        if (command === "image_create") {
+          expect(args.input.title).toBe("Related Image");
+          expect(args.input.relatedPerformersJson).toBe(
+            '[{"performerId":"performer_yuki","nameSnapshot":"Yuki Tanaka"}]',
+          );
+          return created;
+        }
+        if (command === "image_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add related performer Yuki Tanaka",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Related Image" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Related Image")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("keeps unresolved related Performers visible until removed from the current record", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const existing = persistedVideo({
+      title: "Legacy Relation Video",
+      relatedPerformersJson:
+        '[{"performerId":"missing_performer","nameSnapshot":"Former Performer"}]',
+    });
+    const updated = persistedVideo({
+      ...existing,
+      relatedPerformersJson: "[]",
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "video_get") {
+          return existing;
+        }
+        if (command === "performer_list") {
+          return [];
+        }
+        if (command === "video_update") {
+          expect(args.patch.relatedPerformersJson).toBe("[]");
+          return updated;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Former Performer")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved")).toBeInTheDocument();
+    expect(screen.queryByText("missing_performer")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove related performer Former Performer",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Legacy Relation Video")).toBeInTheDocument();
   });
 
   it("keeps legacy record-only categories visible and removable on edit forms", () => {
@@ -2813,7 +3001,9 @@ describe("App", () => {
     fireEvent.error(image);
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+      expect(
+        screen.getByRole("img", { name: "Cover Placeholder" }),
+      ).toBeInTheDocument();
     });
     expect(screen.queryByAltText("Broken Cover Video cover")).not.toBeInTheDocument();
   });
@@ -2831,10 +3021,14 @@ describe("App", () => {
         if (command === "video_create") {
           expect(args.input.title).toBe("Created Video");
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          expect(args.input.relatedPerformersJson).toBe("[]");
           return created;
         }
         if (command === "video_get") {
           return created;
+        }
+        if (command === "performer_list") {
+          return [];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -3165,9 +3359,13 @@ describe("App", () => {
           expect(args.id).toBe("video_test_001");
           expect(args.patch.title).toBe("Updated Video");
           expect(args.patch.categoriesJson).toBe('["Classic","Updated"]');
+          expect(args.patch.relatedPerformersJson).toBe("[]");
           expect(args.patch.ratingJson).toContain('"rewatch":5');
           currentVideo = updated;
           return updated;
+        }
+        if (command === "performer_list") {
+          return [];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -3228,10 +3426,14 @@ describe("App", () => {
         if (command === "image_create") {
           expect(args.input.title).toBe("Created Image");
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          expect(args.input.relatedPerformersJson).toBe("[]");
           return created;
         }
         if (command === "image_get") {
           return created;
+        }
+        if (command === "performer_list") {
+          return [];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -3278,9 +3480,13 @@ describe("App", () => {
           expect(args.id).toBe("image_test_001");
           expect(args.patch.title).toBe("Updated Image");
           expect(args.patch.categoriesJson).toBe('["Portrait","Updated"]');
+          expect(args.patch.relatedPerformersJson).toBe("[]");
           expect(args.patch.ratingJson).toContain('"memorability":5');
           currentImage = updated;
           return updated;
+        }
+        if (command === "performer_list") {
+          return [];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -3535,6 +3741,7 @@ function persistedVideo(overrides: Record<string, unknown> = {}) {
     coverPath: "",
     mediaPath: "",
     categoriesJson: '["Classic"]',
+    relatedPerformersJson: "[]",
     ratingJson: '{"rewatch":4,"performance":3}',
     notes: "Persisted notes",
     favorite: true,
@@ -3558,6 +3765,7 @@ function persistedImage(overrides: Record<string, unknown> = {}) {
     folderPath: "",
     imageCount: 24,
     categoriesJson: '["Portrait"]',
+    relatedPerformersJson: "[]",
     ratingJson: '{"memorability":4,"visual":3}',
     notes: "Persisted image notes",
     favorite: true,

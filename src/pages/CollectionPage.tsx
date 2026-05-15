@@ -485,6 +485,7 @@ function PlaceholderMedia({
           "relative flex items-end justify-center",
           kind === "performers" ? "aspect-[4/5]" : "aspect-video",
         ].join(" ")}
+        role={showImage ? undefined : "img"}
         aria-label={showImage ? undefined : label}
       >
         {showImage ? (

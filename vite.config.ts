@@ -3,6 +3,15 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    watch: {
+      ignored: [
+        "src-tauri/target",
+        "src-tauri/target/**",
+        "**/src-tauri/target/**",
+      ],
+    },
+  },
   test: {
     environment: "jsdom",
     globals: true,

@@ -76,6 +76,12 @@ Related Performer Storage Implementation expected checkpoint after merge:
 post-mvp-22-3-related-performer-storage-implementation-v1
 ```
 
+Related Performer Picker Implementation expected checkpoint after merge:
+
+```text
+post-mvp-22-4-related-performer-picker-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -122,6 +128,7 @@ Current app capabilities include:
 - Categories sidebar browse/discovery page;
 - Managed Categories-only form category picker;
 - Related Performer JSON storage foundation for Videos and Images;
+- Related Performer picker on Video and Image forms;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -142,7 +149,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 22.3, code and tests may change only to add safe Related Performer JSON storage on Video and Image records. The Related Performer picker UI, relation tables, Performer mutation from Video/Image saves, category behavior, media behavior, package files, and broad UI changes should not change.
+For Batch 22.4, frontend code and tests may change only to add the Related Performer Picker UI on Video and Image forms using existing `relatedPerformersJson` storage. Schema, backend, Rust/Tauri, package files, relation tables, Performer mutation from Video/Image saves, category behavior, media behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -151,13 +158,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap implementation batch:
 
 ```text
-Batch 22.3 - Related Performer Storage Implementation
+Batch 22.4 - Related Performer Picker Implementation
 ```
 
-Recommended next phase after Batch 22.3:
+Recommended next phase after Batch 22.4:
 
 ```text
-Related Performer Picker UI Implementation
+Related Performer display and smoke validation
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, and `docs/18-related-performer-storage-planning.md` before changing code.

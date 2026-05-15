@@ -1,11 +1,21 @@
 import type { Image, ImagePatch, NewImage } from "../backend/types";
-import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from "../backend/json";
+import {
+  normalizeRelatedPerformersJson,
+  parseRatingObject,
+  parseRelatedPerformerArray,
+  parseTextLabelArray,
+  stringifyTextLabelArray,
+} from "../backend/json";
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import type { ImageDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
-import type { FormConfig, FormMode } from "./formData";
+import type {
+  FormConfig,
+  FormMode,
+  RelatedPerformerFormValue,
+} from "./formData";
 import { formConfigs } from "./formData";
 
 type FormValues = Record<string, string | boolean>;
@@ -69,10 +79,19 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
       ...formConfigs.images.initialCategories,
       [mode]: parseTextLabelArray(image.categoriesJson),
     },
+    initialRelatedPerformers: {
+      create: formConfigs.images.initialRelatedPerformers?.create ?? [],
+      edit: formConfigs.images.initialRelatedPerformers?.edit ?? [],
+      [mode]: parseRelatedPerformerArray(image.relatedPerformersJson),
+    },
   };
 }
 
-export function imageFormToCreateInput(values: FormValues, categories: string[]): NewImage {
+export function imageFormToCreateInput(
+  values: FormValues,
+  categories: string[],
+  relatedPerformers: RelatedPerformerFormValue[] = [],
+): NewImage {
   return {
     title: textValue(values.title),
     originalTitle: textValue(values.originalTitle),
@@ -86,13 +105,20 @@ export function imageFormToCreateInput(values: FormValues, categories: string[])
     imageCount: optionalInteger(values.imageCount),
     publisherLabel: textValue(values.publisherLabel),
     categoriesJson: stringifyTextLabelArray(categories),
+    relatedPerformersJson: normalizeRelatedPerformersJson(
+      JSON.stringify(relatedPerformers),
+    ),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
 }
 
-export function imageFormToPatch(values: FormValues, categories: string[]): ImagePatch {
-  return imageFormToCreateInput(values, categories);
+export function imageFormToPatch(
+  values: FormValues,
+  categories: string[],
+  relatedPerformers: RelatedPerformerFormValue[] = [],
+): ImagePatch {
+  return imageFormToCreateInput(values, categories, relatedPerformers);
 }
 
 function toImageCollectionItem(image: Image): ImageCollectionItem {

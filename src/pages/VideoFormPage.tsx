@@ -95,7 +95,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
-      onSubmit={async ({ values, categories }) => {
+      onSubmit={async ({ values, categories, relatedPerformers }) => {
         if (!isVideoRuntimeAvailable()) {
           return {
             state: "saved",
@@ -104,7 +104,9 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
         }
 
         if (mode === "create") {
-          const created = await createVideo(videoFormToCreateInput(values, categories));
+          const created = await createVideo(
+            videoFormToCreateInput(values, categories, relatedPerformers),
+          );
           navigate(`/videos/${created.id}`);
           return { state: "saved", message: "Video saved." };
         }
@@ -113,7 +115,10 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
           return { state: "error", message: "Video could not be saved." };
         }
 
-        const updated = await updateVideo(itemKey, videoFormToPatch(values, categories));
+        const updated = await updateVideo(
+          itemKey,
+          videoFormToPatch(values, categories, relatedPerformers),
+        );
         if (!updated) {
           return { state: "error", message: "Video could not be found." };
         }

@@ -95,7 +95,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
-      onSubmit={async ({ values, categories }) => {
+      onSubmit={async ({ values, categories, relatedPerformers }) => {
         if (!isImageRuntimeAvailable()) {
           return {
             state: "saved",
@@ -104,7 +104,9 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
         }
 
         if (mode === "create") {
-          const created = await createImage(imageFormToCreateInput(values, categories));
+          const created = await createImage(
+            imageFormToCreateInput(values, categories, relatedPerformers),
+          );
           navigate(`/images/${created.id}`);
           return { state: "saved", message: "Image saved." };
         }
@@ -113,7 +115,10 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
           return { state: "error", message: "Image could not be saved." };
         }
 
-        const updated = await updateImage(itemKey, imageFormToPatch(values, categories));
+        const updated = await updateImage(
+          itemKey,
+          imageFormToPatch(values, categories, relatedPerformers),
+        );
         if (!updated) {
           return { state: "error", message: "Image could not be found." };
         }
