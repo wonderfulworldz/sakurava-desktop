@@ -35,6 +35,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Agent Code handoff](docs/AGENT_CODE_HANDOFF.md)
 - [Project status](docs/PROJECT_STATUS.md)
 - [Locked roadmap](docs/ROADMAP_LOCKED.md)
+- [PRD alignment and development plan](docs/11-prd-alignment-and-development-plan.md)
 - [Git workflow](docs/WORKFLOW_GIT.md)
 - [Category Management safety](docs/10-category-management-safety.md)
 

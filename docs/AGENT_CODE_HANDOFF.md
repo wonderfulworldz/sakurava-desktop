@@ -9,7 +9,7 @@ Use these docs as compressed project memory. Do not reconstruct the full histori
 ```text
 You are working on the Sakurava desktop app.
 
-Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/WORKFLOW_GIT.md, docs/AGENT_CODE_HANDOFF.md, and docs/10-category-management-safety.md.
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/WORKFLOW_GIT.md, docs/AGENT_CODE_HANDOFF.md, and docs/10-category-management-safety.md.
 
 Follow the locked terminology, no auto-commit rule, category safety rules, and roadmap order. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
 
@@ -25,6 +25,7 @@ Read these before planning or editing:
 - `AGENTS.md`
 - `docs/PROJECT_STATUS.md`
 - `docs/ROADMAP_LOCKED.md`
+- `docs/11-prd-alignment-and-development-plan.md`
 - `docs/WORKFLOW_GIT.md`
 - `docs/AGENT_CODE_HANDOFF.md`
 - `docs/10-category-management-safety.md`
