@@ -2,6 +2,11 @@ export type FormKind = "videos" | "images" | "performers";
 
 export type FormMode = "create" | "edit";
 
+export type RelatedPerformerFormValue = {
+  performerId: string;
+  nameSnapshot: string;
+};
+
 export type TextField = {
   name: string;
   label: string;
@@ -58,6 +63,7 @@ export type FormConfig = {
   initialValues: Record<FormMode, Record<string, string | boolean>>;
   initialCategories: Record<FormMode, string[]>;
   initialAliases?: Record<FormMode, string[]>;
+  initialRelatedPerformers?: Record<FormMode, RelatedPerformerFormValue[]>;
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
@@ -169,6 +175,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: ["Category A", "Category B"],
     },
+    initialRelatedPerformers: {
+      create: [],
+      edit: [],
+    },
   },
   images: {
     kind: "images",
@@ -273,6 +283,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     initialCategories: {
       create: [],
       edit: ["Category A", "Category B"],
+    },
+    initialRelatedPerformers: {
+      create: [],
+      edit: [],
     },
   },
   performers: {

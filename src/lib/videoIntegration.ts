@@ -1,11 +1,21 @@
 import type { NewVideo, Video, VideoPatch } from "../backend/types";
-import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from "../backend/json";
+import {
+  normalizeRelatedPerformersJson,
+  parseRatingObject,
+  parseRelatedPerformerArray,
+  parseTextLabelArray,
+  stringifyTextLabelArray,
+} from "../backend/json";
 import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import type { VideoDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
-import type { FormConfig, FormMode } from "./formData";
+import type {
+  FormConfig,
+  FormMode,
+  RelatedPerformerFormValue,
+} from "./formData";
 import { formConfigs } from "./formData";
 
 type FormValues = Record<string, string | boolean>;
@@ -69,10 +79,19 @@ export function buildVideoFormConfig(video: Video | null, mode: FormMode): FormC
       ...formConfigs.videos.initialCategories,
       [mode]: parseTextLabelArray(video.categoriesJson),
     },
+    initialRelatedPerformers: {
+      create: formConfigs.videos.initialRelatedPerformers?.create ?? [],
+      edit: formConfigs.videos.initialRelatedPerformers?.edit ?? [],
+      [mode]: parseRelatedPerformerArray(video.relatedPerformersJson),
+    },
   };
 }
 
-export function videoFormToCreateInput(values: FormValues, categories: string[]): NewVideo {
+export function videoFormToCreateInput(
+  values: FormValues,
+  categories: string[],
+  relatedPerformers: RelatedPerformerFormValue[] = [],
+): NewVideo {
   return {
     title: textValue(values.title),
     originalTitle: textValue(values.originalTitle),
@@ -86,13 +105,20 @@ export function videoFormToCreateInput(values: FormValues, categories: string[])
     durationMinutes: optionalInteger(values.durationMinutes),
     publisherLabel: textValue(values.publisherLabel),
     categoriesJson: stringifyTextLabelArray(categories),
+    relatedPerformersJson: normalizeRelatedPerformersJson(
+      JSON.stringify(relatedPerformers),
+    ),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
 }
 
-export function videoFormToPatch(values: FormValues, categories: string[]): VideoPatch {
-  return videoFormToCreateInput(values, categories);
+export function videoFormToPatch(
+  values: FormValues,
+  categories: string[],
+  relatedPerformers: RelatedPerformerFormValue[] = [],
+): VideoPatch {
+  return videoFormToCreateInput(values, categories, relatedPerformers);
 }
 
 function toVideoCollectionItem(video: Video): VideoCollectionItem {
