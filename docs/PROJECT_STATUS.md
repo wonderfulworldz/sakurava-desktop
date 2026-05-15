@@ -64,6 +64,12 @@ Related Performer Picker Structure Planning expected checkpoint after merge:
 post-mvp-22-1-related-performer-picker-structure-planning-v1
 ```
 
+Related Performer Storage Planning expected checkpoint after merge:
+
+```text
+post-mvp-22-2-related-performer-storage-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -129,7 +135,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 22.1, documentation may change only to plan the future Related Performer Picker Structure. Application code, tests, routes, schema, backend, Rust/Tauri, package files, category behavior, media behavior, and existing relation placeholders should not change.
+For Batch 22.2, documentation may change only to plan Related Performer storage. Application code, tests, routes, schema, backend, Rust/Tauri, package files, category behavior, media behavior, and existing relation placeholders should not change.
 
 ## Recommended Next Phase
 
@@ -138,13 +144,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap documentation batch:
 
 ```text
-Batch 22.1 - Related Performer Picker Structure Planning
+Batch 22.2 - Related Performer Storage Planning
 ```
 
-Recommended next phase after Batch 22.1:
+Recommended next phase after Batch 22.2:
 
 ```text
-Related Performer Picker Structure Implementation
+Related Performer Storage Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, and `docs/17-related-performer-picker-structure-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, and `docs/18-related-performer-storage-planning.md` before changing code.

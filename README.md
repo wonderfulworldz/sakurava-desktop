@@ -44,6 +44,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Form Category Picker Lockdown planning](docs/15-form-category-picker-lockdown-planning.md)
 - [Categories Sidebar Page planning](docs/16-categories-sidebar-page-planning.md)
 - [Related Performer Picker Structure planning](docs/17-related-performer-picker-structure-planning.md)
+- [Related Performer Storage planning](docs/18-related-performer-storage-planning.md)
 
 ## Current Status
 

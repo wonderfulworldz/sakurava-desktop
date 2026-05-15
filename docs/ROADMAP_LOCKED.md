@@ -53,4 +53,5 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Form Category Picker Lockdown planning is documented in `docs/15-form-category-picker-lockdown-planning.md`.
 - Categories Sidebar Page planning is documented in `docs/16-categories-sidebar-page-planning.md`.
 - Related Performer Picker Structure planning is documented in `docs/17-related-performer-picker-structure-planning.md`.
+- Related Performer Storage planning is documented in `docs/18-related-performer-storage-planning.md`.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
