@@ -61,4 +61,5 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Cover/Thumbnail Full Size Preview planning is documented in `docs/23-cover-thumbnail-full-size-preview-planning.md`.
 - Performer Mini Thumbnail Storage/Form planning is documented in `docs/24-performer-mini-thumbnail-storage-form-planning.md`.
 - Image Gallery planning is documented in `docs/25-image-gallery-planning.md`.
+- Image Gallery Storage/Form planning is documented in `docs/26-image-gallery-storage-form-planning.md`.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.

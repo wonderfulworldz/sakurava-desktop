@@ -51,6 +51,7 @@ Urutan acuan dokumen:
 25. `23-cover-thumbnail-full-size-preview-planning.md` - rencana aman preview full-size cover dan thumbnail dari path eksplisit.
 26. `24-performer-mini-thumbnail-storage-form-planning.md` - rencana storage/form aman untuk 4 mini thumbnail Performer.
 27. `25-image-gallery-planning.md` - rencana aman Image Gallery dari daftar path gambar eksplisit.
+28. `26-image-gallery-storage-form-planning.md` - rencana storage/form aman untuk daftar path Image Gallery.
 
 ## Current Post-MVP Reading Order
 
@@ -75,8 +76,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 17. `23-cover-thumbnail-full-size-preview-planning.md`
 18. `24-performer-mini-thumbnail-storage-form-planning.md`
 19. `25-image-gallery-planning.md`
-20. `AGENT_CODE_HANDOFF.md`
-21. `WORKFLOW_GIT.md`
+20. `26-image-gallery-storage-form-planning.md`
+21. `AGENT_CODE_HANDOFF.md`
+22. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
