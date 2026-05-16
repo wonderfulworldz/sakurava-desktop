@@ -242,6 +242,14 @@ pub struct PathStatusResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaOpenResult {
+    pub path: String,
+    pub opened: bool,
+    pub message: String,
+}
+
 #[tauri::command]
 pub fn database_backup(
     database: State<'_, RuntimeDatabase>,
@@ -395,6 +403,18 @@ pub fn performer_delete(
 #[tauri::command]
 pub fn path_status_check(path: String) -> Result<PathStatusResult, String> {
     Ok(check_path_status(&path))
+}
+
+#[tauri::command]
+pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
+    let media_path = validate_media_open_file_path(&path)?;
+    open_media_file_with_default_app(&media_path)?;
+
+    Ok(MediaOpenResult {
+        path: media_path.display().to_string(),
+        opened: true,
+        message: "Media file open request sent".to_string(),
+    })
 }
 
 fn with_connection<T>(
@@ -935,6 +955,73 @@ fn check_path_status(path: &str) -> PathStatusResult {
             message: "Path status could not be checked".to_string(),
         },
     }
+}
+
+fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return Err("Media path is required".to_string());
+    }
+
+    let metadata = fs::metadata(trimmed).map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => "Media file does not exist".to_string(),
+        io::ErrorKind::PermissionDenied => "Media file is inaccessible".to_string(),
+        _ => "Media file could not be checked".to_string(),
+    })?;
+
+    if !metadata.is_file() {
+        return Err("Media path must be a file".to_string());
+    }
+
+    Ok(PathBuf::from(trimmed))
+}
+
+#[cfg(target_os = "windows")]
+fn open_media_file_with_default_app(path: &Path) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+
+    const SW_SHOWNORMAL: i32 = 1;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: isize,
+            lp_operation: *const u16,
+            lp_file: *const u16,
+            lp_parameters: *const u16,
+            lp_directory: *const u16,
+            n_show_cmd: i32,
+        ) -> isize;
+    }
+
+    let file_path: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let result = unsafe {
+        ShellExecuteW(
+            0,
+            std::ptr::null(),
+            file_path.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    if result <= 32 {
+        return Err("Media file could not be opened".to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_media_file_with_default_app(_path: &Path) -> Result<(), String> {
+    Err("Media file open is unavailable on this platform".to_string())
 }
 
 fn validate_media_asset_root(root_path: &str) -> Result<PathBuf, String> {
@@ -1615,6 +1702,65 @@ mod tests {
         assert_eq!(result.status, PathStatusKind::Missing);
         assert_eq!(result.kind, PathKind::Unknown);
         assert_eq!(result.message, "Path does not exist");
+    }
+
+    #[test]
+    fn media_open_validation_rejects_empty_path() {
+        assert_eq!(
+            validate_media_open_file_path("   ").expect_err("empty media path should fail"),
+            "Media path is required"
+        );
+    }
+
+    #[test]
+    fn media_open_validation_rejects_missing_path() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "sakurava-media-open-missing-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&missing_path);
+
+        assert_eq!(
+            validate_media_open_file_path(missing_path.to_string_lossy().as_ref())
+                .expect_err("missing media file should fail"),
+            "Media file does not exist"
+        );
+    }
+
+    #[test]
+    fn media_open_validation_rejects_folder_path() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-media-open-folder-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+
+        assert_eq!(
+            validate_media_open_file_path(temp_root.to_string_lossy().as_ref())
+                .expect_err("folder path should fail"),
+            "Media path must be a file"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn media_open_validation_accepts_existing_file_without_opening_it() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-media-open-file-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let file_path = temp_root.join("video.mp4");
+        std::fs::write(&file_path, "not opened by validation test").expect("write temp file");
+
+        let accepted =
+            validate_media_open_file_path(file_path.to_string_lossy().as_ref()).expect("file path");
+        assert_eq!(accepted, file_path);
+
+        let _ = std::fs::remove_dir_all(temp_root);
     }
 
     fn empty_video_input() -> VideoInput {
