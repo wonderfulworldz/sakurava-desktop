@@ -14,6 +14,7 @@ import {
   Star,
   Trash2,
   UserRound,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -324,44 +325,144 @@ function LargePlaceholder({ config }: DetailPageProps) {
   const aspectClass =
     config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
   const [imageFailed, setImageFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(config.coverPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+  const previewTitle = coverPreviewTitle(config.kind);
+  const imageAlt = `${config.displayTitle} ${
+    config.kind === "performers" ? "profile image" : "cover"
+  }`;
 
   useEffect(() => {
     setImageFailed(false);
+    setPreviewOpen(false);
   }, [assetSrc, mediaAssetScopeReady]);
 
   return (
-    <div
-      className={`${aspectClass} relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
-      aria-label={showImage ? undefined : config.placeholderLabel}
-    >
-      {showImage ? (
-        <img
-          src={assetSrc ?? undefined}
-          alt={`${config.displayTitle} ${
-            config.kind === "performers" ? "profile image" : "cover"
-          }`}
-          className="absolute inset-0 h-full w-full object-cover"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <div className="flex flex-col items-center gap-3">
-          <Icon
-            size={config.kind === "performers" ? 86 : 74}
-            strokeWidth={1.5}
-          />
-          <div className="text-center">
-            <p className="text-sm font-medium text-slate-500">
-              {config.placeholderLabel}
-            </p>
-            {config.kind === "videos" && (
-              <p className="mt-2 text-sm text-slate-400">16:9</p>
-            )}
+    <>
+      <div
+        className={`${aspectClass} relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+        aria-label={showImage ? undefined : config.placeholderLabel}
+      >
+        {showImage ? (
+          <button
+            type="button"
+            aria-label={`Preview ${previewTitle}`}
+            className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <img
+              src={assetSrc ?? undefined}
+              alt={imageAlt}
+              className="h-full w-full object-cover"
+              onError={() => setImageFailed(true)}
+            />
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <Icon
+              size={config.kind === "performers" ? 86 : 74}
+              strokeWidth={1.5}
+            />
+            <div className="text-center">
+              <p className="text-sm font-medium text-slate-500">
+                {config.placeholderLabel}
+              </p>
+              {config.kind === "videos" && (
+                <p className="mt-2 text-sm text-slate-400">16:9</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+      {showImage && assetSrc && previewOpen && (
+        <ImagePreviewModal
+          alt={`${previewTitle} full size`}
+          src={assetSrc}
+          title={previewTitle}
+          onClose={() => setPreviewOpen(false)}
+          onImageError={() => {
+            setImageFailed(true);
+            setPreviewOpen(false);
+          }}
+        />
       )}
+    </>
+  );
+}
+
+function coverPreviewTitle(kind: DetailConfig["kind"]) {
+  if (kind === "videos") {
+    return "Video Cover";
+  }
+
+  if (kind === "images") {
+    return "Image Cover";
+  }
+
+  return "Performer Cover";
+}
+
+function ImagePreviewModal({
+  alt,
+  src,
+  title,
+  onClose,
+  onImageError,
+}: {
+  alt: string;
+  src: string;
+  title: string;
+  onClose: () => void;
+  onImageError: () => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="flex max-h-full w-full max-w-5xl flex-col rounded-lg bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+          >
+            <X size={14} />
+            Close
+          </button>
+        </div>
+        <div className="flex min-h-0 items-center justify-center bg-slate-950 p-4">
+          <img
+            src={src}
+            alt={alt}
+            className="max-h-[78vh] max-w-full object-contain"
+            onError={onImageError}
+          />
+        </div>
+      </div>
     </div>
   );
 }

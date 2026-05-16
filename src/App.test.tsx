@@ -3174,6 +3174,136 @@ describe("App", () => {
     },
   );
 
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      buttonName: "Preview Video Cover",
+      dialogName: "Video Cover",
+      fullSizeAlt: "Video Cover full size",
+      command: "video_get",
+      record: persistedVideo({
+        title: "Preview Video Detail",
+        coverPath: "D:/Sakurava/video-preview-cover.jpg",
+      }),
+    },
+    {
+      path: "/images/image_test_001",
+      buttonName: "Preview Image Cover",
+      dialogName: "Image Cover",
+      fullSizeAlt: "Image Cover full size",
+      command: "image_get",
+      record: persistedImage({
+        title: "Preview Image Detail",
+        coverPath: "D:/Sakurava/image-preview-cover.jpg",
+      }),
+    },
+    {
+      path: "/performers/performer_test_001",
+      buttonName: "Preview Performer Cover",
+      dialogName: "Performer Cover",
+      fullSizeAlt: "Performer Cover full size",
+      command: "performer_get",
+      record: persistedPerformer({
+        name: "Preview Performer Detail",
+        coverPath: "D:/Sakurava/performer-preview-cover.jpg",
+      }),
+    },
+  ])(
+    "opens and closes full-size cover preview for $path",
+    async ({ path, buttonName, dialogName, fullSizeAlt, command, record }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(
+        async (incomingCommand: string, args: Record<string, any> = {}) => {
+          if (incomingCommand === command) {
+            expect(args.id).toBe(path.split("/").pop());
+            return record;
+          }
+          if (
+            incomingCommand === "path_status_check" ||
+            incomingCommand === "performer_list" ||
+            incomingCommand === "image_list" ||
+            incomingCommand === "video_list"
+          ) {
+            if (incomingCommand === "path_status_check") {
+              return {
+                path: args.path,
+                status: "exists",
+                kind: "file",
+                message: "Path exists",
+              };
+            }
+
+            return [];
+          }
+
+          throw new Error(`Unexpected command ${incomingCommand}`);
+        },
+      ) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+        convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      };
+
+      render(<App />);
+
+      const previewButton = await screen.findByRole("button", {
+        name: buttonName,
+      });
+      fireEvent.click(previewButton);
+
+      const dialog = await screen.findByRole("dialog", { name: dialogName });
+      const previewImage = within(dialog).getByAltText(fullSizeAlt);
+      expect(previewImage).toHaveAttribute(
+        "src",
+        `asset://localhost/${record.coverPath}`,
+      );
+      expect(within(dialog).queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByRole("button", { name: "Previous" }),
+      ).not.toBeInTheDocument();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: dialogName }),
+        ).not.toBeInTheDocument();
+      });
+
+      fireEvent.click(previewButton);
+      expect(await screen.findByRole("dialog", { name: dialogName })).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: "Escape" });
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: dialogName }),
+        ).not.toBeInTheDocument();
+      });
+    },
+  );
+
+  it("keeps detail placeholder non-interactive when no safe image source exists", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Placeholder Preview Video",
+          coverPath: "D:/Sakurava/unavailable-cover.jpg",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Placeholder Preview Video")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Preview Video Cover" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Video Cover" })).not.toBeInTheDocument();
+  });
+
   it("keeps collection placeholder when cover conversion is unavailable", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
