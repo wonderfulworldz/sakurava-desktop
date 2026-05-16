@@ -11,6 +11,8 @@ export type RelatedCatalogRecordReference = {
   titleSnapshot: string;
 };
 
+const MAX_PERFORMER_THUMBNAIL_PATHS = 4;
+
 export function safeParseJson(value: string | null | undefined): unknown {
   if (!value) {
     return undefined;
@@ -39,6 +41,45 @@ export function stringifyTextLabelArray(labels: readonly string[]): string {
     .filter((label) => label.length > 0);
 
   return JSON.stringify(normalized);
+}
+
+export function parsePerformerThumbnailPathArray(
+  value: string | null | undefined,
+): string[] {
+  const parsed = safeParseJson(value);
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const paths: string[] = [];
+
+  for (const item of parsed) {
+    if (typeof item !== "string") {
+      continue;
+    }
+
+    const path = item.trim();
+    if (!path || seen.has(path)) {
+      continue;
+    }
+
+    seen.add(path);
+    paths.push(path);
+
+    if (paths.length >= MAX_PERFORMER_THUMBNAIL_PATHS) {
+      break;
+    }
+  }
+
+  return paths;
+}
+
+export function normalizePerformerThumbnailPathsJson(
+  value: string | null | undefined,
+): string {
+  return JSON.stringify(parsePerformerThumbnailPathArray(value));
 }
 
 export function normalizeTextLabelArrayJson(
@@ -173,4 +214,8 @@ export function defaultRelatedPerformersJson(value?: string | null): string {
 
 export function defaultRelatedCatalogRecordsJson(value?: string | null): string {
   return value ? normalizeRelatedCatalogRecordsJson(value) : EMPTY_ARRAY_JSON;
+}
+
+export function defaultPerformerThumbnailPathsJson(value?: string | null): string {
+  return value ? normalizePerformerThumbnailPathsJson(value) : EMPTY_ARRAY_JSON;
 }

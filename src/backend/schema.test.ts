@@ -63,6 +63,9 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain(
       "aliasesJson TEXT NOT NULL DEFAULT '[]'",
     );
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain(
+      "performerThumbnailPathsJson TEXT NOT NULL DEFAULT '[]'",
+    );
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("filmographyCount INTEGER");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("pictorialsCount INTEGER");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain(

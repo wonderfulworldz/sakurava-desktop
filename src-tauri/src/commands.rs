@@ -157,6 +157,7 @@ pub struct Performer {
     pub status: String,
     pub birth_date: String,
     pub cover_path: String,
+    pub performer_thumbnail_paths_json: String,
     pub filmography_count: Option<i64>,
     pub pictorials_count: Option<i64>,
     pub categories_json: String,
@@ -176,6 +177,7 @@ pub struct PerformerInput {
     pub status: Option<String>,
     pub birth_date: Option<String>,
     pub cover_path: Option<String>,
+    pub performer_thumbnail_paths_json: Option<String>,
     pub filmography_count: Option<i64>,
     pub pictorials_count: Option<i64>,
     pub categories_json: Option<String>,
@@ -193,6 +195,7 @@ pub struct PerformerPatch {
     pub status: Option<String>,
     pub birth_date: Option<String>,
     pub cover_path: Option<String>,
+    pub performer_thumbnail_paths_json: Option<String>,
     pub filmography_count: Option<i64>,
     pub pictorials_count: Option<i64>,
     pub categories_json: Option<String>,
@@ -757,6 +760,9 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         status: default_text(input.status),
         birth_date: default_text(input.birth_date),
         cover_path: default_text(input.cover_path),
+        performer_thumbnail_paths_json: normalize_performer_thumbnail_paths_json(
+            input.performer_thumbnail_paths_json,
+        ),
         filmography_count: input.filmography_count,
         pictorials_count: input.pictorials_count,
         categories_json: normalize_string_array_json(input.categories_json),
@@ -771,9 +777,9 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         .execute(
             "INSERT INTO performers (
                 id, name, originalName, aliasesJson, status, birthDate, coverPath,
-                filmographyCount, pictorialsCount, categoriesJson, ratingJson,
-                notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                performerThumbnailPathsJson, filmographyCount, pictorialsCount,
+                categoriesJson, ratingJson, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 performer.id,
                 performer.name,
@@ -782,6 +788,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 performer.status,
                 performer.birth_date,
                 performer.cover_path,
+                performer.performer_thumbnail_paths_json,
                 performer.filmography_count,
                 performer.pictorials_count,
                 performer.categories_json,
@@ -840,6 +847,10 @@ fn update_performer(
     apply_text(&mut performer.status, patch.status);
     apply_text(&mut performer.birth_date, patch.birth_date);
     apply_text(&mut performer.cover_path, patch.cover_path);
+    if patch.performer_thumbnail_paths_json.is_some() {
+        performer.performer_thumbnail_paths_json =
+            normalize_performer_thumbnail_paths_json(patch.performer_thumbnail_paths_json);
+    }
     if patch.filmography_count.is_some() {
         performer.filmography_count = patch.filmography_count;
     }
@@ -862,9 +873,9 @@ fn update_performer(
         .execute(
             "UPDATE performers SET
                 name = ?2, originalName = ?3, aliasesJson = ?4, status = ?5,
-                birthDate = ?6, coverPath = ?7, filmographyCount = ?8,
-                pictorialsCount = ?9, categoriesJson = ?10, ratingJson = ?11,
-                notes = ?12, favorite = ?13, updatedAt = ?14
+                birthDate = ?6, coverPath = ?7, performerThumbnailPathsJson = ?8,
+                filmographyCount = ?9, pictorialsCount = ?10, categoriesJson = ?11,
+                ratingJson = ?12, notes = ?13, favorite = ?14, updatedAt = ?15
             WHERE id = ?1",
             params![
                 performer.id,
@@ -874,6 +885,7 @@ fn update_performer(
                 performer.status,
                 performer.birth_date,
                 performer.cover_path,
+                performer.performer_thumbnail_paths_json,
                 performer.filmography_count,
                 performer.pictorials_count,
                 performer.categories_json,
@@ -1112,6 +1124,7 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         status: row.get("status")?,
         birth_date: row.get("birthDate")?,
         cover_path: row.get("coverPath")?,
+        performer_thumbnail_paths_json: row.get("performerThumbnailPathsJson")?,
         filmography_count: row.get("filmographyCount")?,
         pictorials_count: row.get("pictorialsCount")?,
         categories_json: row.get("categoriesJson")?,
@@ -1154,6 +1167,38 @@ fn normalize_string_array_json(value: Option<String>) -> String {
         .filter(|label| !label.is_empty())
         .collect::<Vec<_>>();
     serde_json::to_string(&labels).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn normalize_performer_thumbnail_paths_json(value: Option<String>) -> String {
+    const MAX_THUMBNAIL_PATHS: usize = 4;
+
+    let Some(value) = value else {
+        return "[]".to_string();
+    };
+    let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&value) else {
+        return "[]".to_string();
+    };
+
+    let mut seen = Vec::new();
+    let mut paths = Vec::new();
+
+    for item in items {
+        let Some(path) = item.as_str().map(str::trim) else {
+            continue;
+        };
+        if path.is_empty() || seen.iter().any(|existing| existing == path) {
+            continue;
+        }
+
+        seen.push(path.to_string());
+        paths.push(path.to_string());
+
+        if paths.len() >= MAX_THUMBNAIL_PATHS {
+            break;
+        }
+    }
+
+    serde_json::to_string(&paths).unwrap_or_else(|_| "[]".to_string())
 }
 
 fn normalize_object_json(value: Option<String>) -> String {
@@ -1518,6 +1563,9 @@ mod tests {
                 status: Some("active".to_string()),
                 birth_date: None,
                 cover_path: None,
+                performer_thumbnail_paths_json: Some(
+                    r#"[" C:/thumbs/one.jpg ","","C:/thumbs/two.jpg","C:/thumbs/one.jpg","C:/thumbs/three.jpg","C:/thumbs/four.jpg","C:/thumbs/five.jpg"]"#.to_string(),
+                ),
                 filmography_count: Some(3),
                 pictorials_count: Some(2),
                 categories_json: Some(r#"["Featured"]"#.to_string()),
@@ -1529,6 +1577,10 @@ mod tests {
         .expect("create performer");
 
         assert_eq!(created.aliases_json, r#"["Alias A","Alias B"]"#);
+        assert_eq!(
+            created.performer_thumbnail_paths_json,
+            r#"["C:/thumbs/one.jpg","C:/thumbs/two.jpg","C:/thumbs/three.jpg","C:/thumbs/four.jpg"]"#
+        );
         assert_eq!(created.categories_json, r#"["Featured"]"#);
         assert_eq!(created.rating_json, r#"{"score":3}"#);
         assert!(!created.favorite);
@@ -1552,6 +1604,7 @@ mod tests {
                 status: None,
                 birth_date: None,
                 cover_path: None,
+                performer_thumbnail_paths_json: Some("{bad json".to_string()),
                 filmography_count: None,
                 pictorials_count: None,
                 categories_json: None,
@@ -1564,6 +1617,7 @@ mod tests {
         .expect("updated performer");
         assert_eq!(updated.name, "Updated Performer");
         assert_eq!(updated.aliases_json, r#"["Alias C"]"#);
+        assert_eq!(updated.performer_thumbnail_paths_json, "[]");
         assert_eq!(updated.rating_json, "{}");
         assert!(updated.favorite);
 
@@ -1813,6 +1867,7 @@ mod tests {
             status: None,
             birth_date: None,
             cover_path: None,
+            performer_thumbnail_paths_json: None,
             filmography_count: None,
             pictorials_count: None,
             categories_json: None,

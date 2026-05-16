@@ -54,6 +54,7 @@ export interface Performer extends BaseCatalogRecord {
   status: PerformerStatus;
   birthDate: IsoDateString;
   coverPath: string;
+  performerThumbnailPathsJson: JsonText;
   filmographyCount: number | null;
   pictorialsCount: number | null;
 }

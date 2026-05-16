@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS performers (
   status TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
   coverPath TEXT NOT NULL DEFAULT '',
+  performerThumbnailPathsJson TEXT NOT NULL DEFAULT '[]',
   filmographyCount INTEGER,
   pictorialsCount INTEGER,
   categoriesJson TEXT NOT NULL DEFAULT '[]',

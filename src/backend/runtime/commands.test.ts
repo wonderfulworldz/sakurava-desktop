@@ -155,6 +155,8 @@ describe("repository runtime command invoker", () => {
     const created = await invoker.invoke("performer_create", {
       name: "Performer Runtime",
       aliasesJson: '["Alias A","Alias B"]',
+      performerThumbnailPathsJson:
+        '[" D:/thumbs/runtime-1.jpg ","","D:/thumbs/runtime-2.jpg","D:/thumbs/runtime-1.jpg"]',
       categoriesJson: '["Featured"]',
       ratingJson: '{"visual":5}',
     });
@@ -163,6 +165,8 @@ describe("repository runtime command invoker", () => {
       id: "performer-1",
       name: "Performer Runtime",
       aliasesJson: '["Alias A","Alias B"]',
+      performerThumbnailPathsJson:
+        '["D:/thumbs/runtime-1.jpg","D:/thumbs/runtime-2.jpg"]',
       categoriesJson: '["Featured"]',
       ratingJson: '{"visual":5}',
     });
@@ -170,12 +174,17 @@ describe("repository runtime command invoker", () => {
 
     const updated = await invoker.invoke("performer_update", {
       id: created.id,
-      patch: { aliasesJson: '["Updated Alias"]', favorite: true },
+      patch: {
+        aliasesJson: '["Updated Alias"]',
+        performerThumbnailPathsJson: "{bad json",
+        favorite: true,
+      },
     });
 
     expect(updated).toMatchObject({
       id: created.id,
       aliasesJson: '["Updated Alias"]',
+      performerThumbnailPathsJson: "[]",
       favorite: true,
     });
     expect(await invoker.invoke("performer_delete", { id: created.id })).toEqual({
