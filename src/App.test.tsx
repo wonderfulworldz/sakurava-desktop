@@ -4625,6 +4625,131 @@ describe("App", () => {
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
   });
 
+  it("renders image detail gallery paths with load more from saved data", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const galleryPaths = Array.from(
+      { length: 30 },
+      (_, index) =>
+        `C:/Gallery/${String(index + 1).padStart(2, "0")}.jpg`,
+    );
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Gallery Detail Image",
+          galleryImagePathsJson: JSON.stringify([
+            ` ${galleryPaths[0]} `,
+            "",
+            ...galleryPaths.slice(1),
+            galleryPaths[0],
+            7,
+          ]),
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Gallery Detail Image")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gallery" })).toBeInTheDocument();
+    expect(screen.getByText("Showing 24 of 30 images")).toBeInTheDocument();
+    const initialImages = screen.getAllByRole("img", {
+      name: /Gallery image/i,
+    });
+    expect(initialImages).toHaveLength(24);
+    expect(initialImages[0]).toHaveAttribute(
+      "src",
+      "asset://localhost/C:/Gallery/01.jpg",
+    );
+    expect(initialImages[1]).toHaveAttribute(
+      "src",
+      "asset://localhost/C:/Gallery/02.jpg",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Load More" }));
+
+    expect(
+      screen.getAllByRole("img", { name: /Gallery image/i }),
+    ).toHaveLength(30);
+    expect(screen.getByText("Showing 30 of 30 images")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Load More" }),
+    ).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "gallery_folder_images_list",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("shows an empty image detail gallery state for invalid saved gallery data", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Invalid Gallery Image",
+          galleryImagePathsJson: '{"path":"C:/Gallery/not-array.jpg"}',
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Invalid Gallery Image")).toBeInTheDocument();
+    expect(screen.getByText("No Gallery Images saved.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Load More" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides failed image detail gallery images behind the placeholder state", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Broken Gallery Image",
+          galleryImagePathsJson: '["C:/Gallery/broken.jpg"]',
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    const image = await screen.findByAltText("Gallery image 1");
+    fireEvent.error(image);
+
+    await waitFor(() => {
+      expect(screen.getByText("Image unavailable")).toBeInTheDocument();
+    });
+    expect(screen.queryByAltText("Gallery image 1")).not.toBeInTheDocument();
+  });
+
   it("shows persisted timestamps on image detail", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
