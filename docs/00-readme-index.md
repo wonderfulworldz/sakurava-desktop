@@ -44,6 +44,7 @@ Urutan acuan dokumen:
 18. `16-categories-sidebar-page-planning.md` - rencana halaman sidebar Categories sebagai browsing/discovery, bukan management.
 19. `17-related-performer-picker-structure-planning.md` - rencana struktur picker Related Performer dari record Performer yang sudah ada.
 20. `18-related-performer-storage-planning.md` - rencana storage Related Performer sebelum implementasi picker.
+21. `19-related-video-image-picker-structure-planning.md` - rencana struktur picker Related Video/Image dari record Video/Image yang sudah ada.
 
 ## Current Post-MVP Reading Order
 
@@ -61,8 +62,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 10. `16-categories-sidebar-page-planning.md`
 11. `17-related-performer-picker-structure-planning.md`
 12. `18-related-performer-storage-planning.md`
-13. `AGENT_CODE_HANDOFF.md`
-14. `WORKFLOW_GIT.md`
+13. `19-related-video-image-picker-structure-planning.md`
+14. `AGENT_CODE_HANDOFF.md`
+15. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

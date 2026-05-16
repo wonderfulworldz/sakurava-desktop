@@ -45,6 +45,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Categories Sidebar Page planning](docs/16-categories-sidebar-page-planning.md)
 - [Related Performer Picker Structure planning](docs/17-related-performer-picker-structure-planning.md)
 - [Related Performer Storage planning](docs/18-related-performer-storage-planning.md)
+- [Related Video/Image Picker Structure planning](docs/19-related-video-image-picker-structure-planning.md)
 
 ## Current Status
 
