@@ -3524,6 +3524,148 @@ describe("App", () => {
     expect(screen.queryByText("1778611707544")).not.toBeInTheDocument();
   });
 
+  it("shows Video detail media path status without open or reveal actions", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Status Video",
+          coverPath: "D:/Sakurava/covers/status-video.jpg",
+          mediaPath: "D:/Sakurava/videos/status-video.mp4",
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: args.path,
+          status: "exists",
+          kind: "file",
+          message: "Path exists",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Status Video")).toBeInTheDocument();
+    const statusSection = screen.getByText("Media File Status").closest("section");
+    expect(statusSection).not.toBeNull();
+    const status = within(statusSection as HTMLElement);
+
+    expect(await status.findByText("Cover Path")).toBeInTheDocument();
+    expect(status.getByText("Media Path")).toBeInTheDocument();
+    await waitFor(() => expect(status.getAllByText("Exists")).toHaveLength(2));
+    expect(status.getAllByText("File path found")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /open/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reveal/i })).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("shows Image detail missing and not set path status safely", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Status Image",
+          coverPath: "",
+          folderPath: "D:/Sakurava/images/missing-folder",
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: args.path,
+          status: "missing",
+          kind: "unknown",
+          message: "Path does not exist",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Status Image")).toBeInTheDocument();
+    const statusSection = screen.getByText("Media File Status").closest("section");
+    expect(statusSection).not.toBeNull();
+    const status = within(statusSection as HTMLElement);
+
+    await waitFor(() => expect(status.getByText("Not Set")).toBeInTheDocument());
+    await waitFor(() => expect(status.getByText("Missing")).toBeInTheDocument());
+    expect(status.getByText("No path saved")).toBeInTheDocument();
+    expect(status.getByText("Saved path was not found")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("shows Performer detail cover path status", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          name: "Status Performer",
+          coverPath: "D:/Sakurava/performers/status-cover.jpg",
+        });
+      }
+      if (command === "path_status_check") {
+        return {
+          path: args.path,
+          status: "exists",
+          kind: "file",
+          message: "Path exists",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Status Performer")).toBeInTheDocument();
+    const statusSection = screen.getByText("Media File Status").closest("section");
+    expect(statusSection).not.toBeNull();
+    const status = within(statusSection as HTMLElement);
+
+    expect(await status.findByText("Cover Path")).toBeInTheDocument();
+    await waitFor(() => expect(status.getByText("Exists")).toBeInTheDocument());
+    expect(status.getByText("File path found")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("shows browser preview fallback for static detail path status", async () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+
+    render(<App />);
+
+    const statusSection = screen.getByText("Media File Status").closest("section");
+    expect(statusSection).not.toBeNull();
+    const status = within(statusSection as HTMLElement);
+
+    expect(await status.findAllByText("Unknown")).toHaveLength(2);
+    expect(status.getAllByText("Available in desktop runtime")).toHaveLength(2);
+  });
+
   it("hides destructive delete controls in browser preview detail pages", () => {
     window.history.pushState({}, "", "/videos/sample-id");
     render(<App />);

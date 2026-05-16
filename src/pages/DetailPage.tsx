@@ -19,10 +19,17 @@ import { Link } from "react-router-dom";
 import type {
   DetailConfig,
   DetailSection,
+  MediaPathItem,
   PerformerDetailConfig,
 } from "../lib/detailData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
+import {
+  checkPathStatus,
+  type PathKind,
+  type PathStatusKind,
+  type PathStatusResult,
+} from "../runtime/pathStatusCommands";
 
 export type DetailDeleteAction = {
   itemLabel: string;
@@ -162,6 +169,7 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
         />
       </section>
 
+      <MediaPathStatusCard items={config.mediaPaths} />
       <NotesCard notes={config.notes} />
       <RelatedRows sections={config.relatedSections} />
 
@@ -225,6 +233,7 @@ function PerformerDetailPage({
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
           <RowsCard title="Profile Metadata" icon={Calendar} items={config.metadata} />
+          <MediaPathStatusCard items={config.mediaPaths} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
@@ -404,6 +413,131 @@ function RowsCard({
       )}
     </section>
   );
+}
+
+type PathStatusState = PathStatusResult & {
+  label: string;
+};
+
+function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
+  const [statuses, setStatuses] = useState<PathStatusState[]>(() =>
+    initialPathStatuses(items),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatuses(initialPathStatuses(items));
+
+    Promise.all(
+      items.map(async (item) => ({
+        label: item.label,
+        ...(await checkPathStatus(item.path)),
+      })),
+    ).then((results) => {
+      if (!cancelled) {
+        setStatuses(results);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <CardTitle title="Media File Status" icon={Folder} />
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {statuses.map((status) => {
+          const display = pathStatusDisplay(status.status, status.kind);
+
+          return (
+            <div
+              key={status.label}
+              className={`rounded-lg border px-3 py-3 ${display.containerClass}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-700">
+                  {status.label}
+                </p>
+                <span
+                  className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${display.badgeClass}`}
+                >
+                  {display.label}
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {display.detail}
+              </p>
+              {status.message && status.message !== display.detail && (
+                <p className="mt-1 text-xs text-slate-400">{status.message}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function initialPathStatuses(items: MediaPathItem[]): PathStatusState[] {
+  return items.map((item) => ({
+    label: item.label,
+    path: item.path.trim(),
+    status: item.path.trim() ? "unknown" : "notSet",
+    kind: "unknown",
+    message: item.path.trim() ? "Not checked" : "Path is not set",
+  }));
+}
+
+function pathStatusDisplay(status: PathStatusKind, kind: PathKind) {
+  if (status === "exists") {
+    return {
+      label: "Exists",
+      detail:
+        kind === "folder"
+          ? "Folder path found"
+          : kind === "file"
+            ? "File path found"
+            : "Path found",
+      badgeClass: "border-emerald-100 bg-emerald-50 text-emerald-700",
+      containerClass: "border-emerald-100 bg-emerald-50/30",
+    };
+  }
+
+  if (status === "missing") {
+    return {
+      label: "Missing",
+      detail: "Saved path was not found",
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
+      containerClass: "border-amber-200 bg-amber-50/40",
+    };
+  }
+
+  if (status === "inaccessible") {
+    return {
+      label: "Inaccessible",
+      detail: "Path cannot be accessed",
+      badgeClass: "border-rose-200 bg-rose-50 text-rose-700",
+      containerClass: "border-rose-200 bg-rose-50/40",
+    };
+  }
+
+  if (status === "notSet") {
+    return {
+      label: "Not Set",
+      detail: "No path saved",
+      badgeClass: "border-slate-200 bg-slate-100 text-slate-600",
+      containerClass: "border-slate-200 bg-slate-50/70",
+    };
+  }
+
+  return {
+    label: "Unknown",
+    detail: "Not checked",
+    badgeClass: "border-slate-200 bg-white text-slate-600",
+    containerClass: "border-slate-200 bg-white",
+  };
 }
 
 function SystemInfoCard({

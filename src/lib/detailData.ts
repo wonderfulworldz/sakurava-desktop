@@ -32,6 +32,11 @@ type MetadataItem = {
   value: string;
 };
 
+export type MediaPathItem = {
+  label: string;
+  path: string;
+};
+
 type BaseDetailConfig = {
   kind: DetailKind;
   title: string;
@@ -48,6 +53,7 @@ type BaseDetailConfig = {
   chips: string[];
   categories: string[];
   metadata: MetadataItem[];
+  mediaPaths: MediaPathItem[];
   systemInfo: MetadataItem[];
   ratingTitle: string;
   rating: RatingAxis[];
@@ -135,6 +141,10 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Duration", value: "124 min" },
       { label: "Publisher / Label", value: "Sakura Studio" },
     ],
+    mediaPaths: [
+      { label: "Cover Path", path: "Manual cover path placeholder" },
+      { label: "Media Path", path: "Manual media path placeholder" },
+    ],
     systemInfo: [
       { label: "Created in Sakurava", value: "Preview only" },
       { label: "Last edited", value: "Preview only" },
@@ -190,6 +200,10 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Publisher / Label", value: "Urban Light Studio" },
       { label: "Cover Path", value: "Manual path placeholder" },
       { label: "Folder Path", value: "Manual folder placeholder" },
+    ],
+    mediaPaths: [
+      { label: "Cover Path", path: "Manual path placeholder" },
+      { label: "Folder Path", path: "Manual folder placeholder" },
     ],
     systemInfo: [
       { label: "Created in Sakurava", value: "Preview only" },
@@ -259,6 +273,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Status", value: "Active" },
       { label: "Profile Source", value: "Manual placeholder" },
     ],
+    mediaPaths: [{ label: "Cover Path", path: "Manual cover path placeholder" }],
     systemInfo: [
       { label: "Created in Sakurava", value: "Preview only" },
       { label: "Last edited", value: "Preview only" },

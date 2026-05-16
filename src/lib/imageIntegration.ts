@@ -57,6 +57,10 @@ export function buildImageDetailConfig(
       { label: "Cover Path", value: image.coverPath || "Not set" },
       { label: "Folder Path", value: image.folderPath || "Not set" },
     ],
+    mediaPaths: [
+      { label: "Cover Path", path: image.coverPath },
+      { label: "Folder Path", path: image.folderPath },
+    ],
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(image.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
