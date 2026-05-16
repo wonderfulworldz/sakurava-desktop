@@ -76,6 +76,8 @@ For Media File Status / Open File planning, read `docs/21-media-file-status-open
 
 For External Media Open planning, read `docs/22-external-media-open-planning.md`.
 
+For Cover/Thumbnail Full Size Preview planning, read `docs/23-cover-thumbnail-full-size-preview-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
@@ -188,6 +190,7 @@ Only include UI polish when the user requests it or when it blocks usability, co
 - Related Video/Image Storage planning is documented in `docs/20-related-video-image-storage-planning.md`.
 - Media File Status / Open File planning is documented in `docs/21-media-file-status-open-file-planning.md`.
 - External Media Open planning is documented in `docs/22-external-media-open-planning.md`.
+- Cover/Thumbnail Full Size Preview planning is documented in `docs/23-cover-thumbnail-full-size-preview-planning.md`.
 - Related pickers and Media Play are future phases after category page decisions.
 
 ## Verification Commands
