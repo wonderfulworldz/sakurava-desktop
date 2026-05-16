@@ -7,6 +7,11 @@ export type RelatedPerformerFormValue = {
   nameSnapshot: string;
 };
 
+export type RelatedCatalogRecordFormValue = {
+  recordId: string;
+  titleSnapshot: string;
+};
+
 export type TextField = {
   name: string;
   label: string;
@@ -64,6 +69,10 @@ export type FormConfig = {
   initialCategories: Record<FormMode, string[]>;
   initialAliases?: Record<FormMode, string[]>;
   initialRelatedPerformers?: Record<FormMode, RelatedPerformerFormValue[]>;
+  initialRelatedCatalogRecords?: Record<
+    FormMode,
+    RelatedCatalogRecordFormValue[]
+  >;
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
@@ -179,6 +188,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialRelatedCatalogRecords: {
+      create: [],
+      edit: [],
+    },
   },
   images: {
     kind: "images",
@@ -285,6 +298,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       edit: ["Category A", "Category B"],
     },
     initialRelatedPerformers: {
+      create: [],
+      edit: [],
+    },
+    initialRelatedCatalogRecords: {
       create: [],
       edit: [],
     },
