@@ -106,6 +106,12 @@ Media File Status / Open File Planning expected checkpoint after merge:
 post-mvp-24-1-media-file-status-open-file-planning-v1
 ```
 
+Media File Status Runtime Implementation expected checkpoint after merge:
+
+```text
+post-mvp-24-2-media-file-status-runtime-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -157,6 +163,7 @@ Current app capabilities include:
 - Related Video/Image Picker Structure planning through Batch 23.1 after merge;
 - Related Video/Image Storage planning through Batch 23.2 after merge;
 - Media File Status / Open File planning through Batch 24.1 after merge;
+- Media File Status runtime foundation through Batch 24.2 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -177,7 +184,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 24.1, documentation may change only to add Media File Status / Open File planning and references. Application code, tests, schema, backend, Rust/Tauri, package files, detail UI, forms, media status runtime, open/reveal behavior, media player behavior, file scanner behavior, Backup/Restore behavior, related picker behavior, category behavior, and broad UI changes should not change.
+For Batch 24.2, changes may add only the Media File Status runtime foundation for checking one saved local path at a time. Detail page UI display, forms, Open File, Reveal in Folder, media playback, file scanners, recursive scanning, schema/database changes, package changes, Backup/Restore behavior, related picker behavior, category behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -189,10 +196,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 24.1:
+Recommended next phase after Batch 24.2:
 
 ```text
-Media File Status Runtime Implementation
+Detail Page Status Display
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, and `docs/21-media-file-status-open-file-planning.md` before changing code.
