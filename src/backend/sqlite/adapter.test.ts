@@ -190,6 +190,8 @@ describe("SQLite repository adapter foundation", () => {
       categoriesJson: '["Favorite","Classic"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
       ratingJson: '{"rewatch":4}',
     });
 
@@ -200,6 +202,8 @@ describe("SQLite repository adapter foundation", () => {
       categoriesJson: '["Favorite","Classic"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
       ratingJson: '{"rewatch":4}',
       createdAt: "2026-05-11T01:00:00.000Z",
       updatedAt: "2026-05-11T01:00:00.000Z",
@@ -211,6 +215,8 @@ describe("SQLite repository adapter foundation", () => {
       title: "Updated Video",
       relatedPerformersJson:
         '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-2","titleSnapshot":"Image Two"}]',
       ratingJson: "{bad json",
       favorite: true,
     });
@@ -219,6 +225,8 @@ describe("SQLite repository adapter foundation", () => {
       title: "Updated Video",
       relatedPerformersJson:
         '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-2","titleSnapshot":"Image Two"}]',
       ratingJson: "{}",
       favorite: true,
       createdAt: "2026-05-11T01:00:00.000Z",
@@ -247,6 +255,8 @@ describe("SQLite repository adapter foundation", () => {
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedVideosJson:
+        '[{"recordId":"video-1","titleSnapshot":"Video One"}]',
       ratingJson: '{"visual":5}',
     });
 
@@ -256,6 +266,8 @@ describe("SQLite repository adapter foundation", () => {
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedVideosJson:
+        '[{"recordId":"video-1","titleSnapshot":"Video One"}]',
       ratingJson: '{"visual":5}',
       favorite: false,
     });
@@ -264,12 +276,16 @@ describe("SQLite repository adapter foundation", () => {
       imageCount: null,
       categoriesJson: '["Updated Image"]',
       relatedPerformersJson: "{bad json",
+      relatedVideosJson:
+        '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
     });
 
     expect(updated).toMatchObject({
       imageCount: null,
       categoriesJson: '["Updated Image"]',
       relatedPerformersJson: "[]",
+      relatedVideosJson:
+        '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
       updatedAt: "2026-05-11T02:01:00.000Z",
     });
   });

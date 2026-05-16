@@ -27,6 +27,7 @@ describe("SQLite schema foundation", () => {
       "durationMinutes INTEGER",
       "categoriesJson TEXT NOT NULL DEFAULT '[]'",
       "relatedPerformersJson TEXT NOT NULL DEFAULT '[]'",
+      "relatedImagesJson TEXT NOT NULL DEFAULT '[]'",
       "ratingJson TEXT NOT NULL DEFAULT '{}'",
       "favorite INTEGER NOT NULL DEFAULT 0",
       "createdAt TEXT NOT NULL",
@@ -46,6 +47,9 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_IMAGES_TABLE_SQL).toContain("categoriesJson TEXT NOT NULL DEFAULT '[]'");
     expect(CREATE_IMAGES_TABLE_SQL).toContain(
       "relatedPerformersJson TEXT NOT NULL DEFAULT '[]'",
+    );
+    expect(CREATE_IMAGES_TABLE_SQL).toContain(
+      "relatedVideosJson TEXT NOT NULL DEFAULT '[]'",
     );
     expect(CREATE_IMAGES_TABLE_SQL).toContain("ratingJson TEXT NOT NULL DEFAULT '{}'");
     expect(CREATE_IMAGES_TABLE_SQL).not.toContain("categoryIds");

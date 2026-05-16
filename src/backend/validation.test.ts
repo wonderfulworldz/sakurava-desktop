@@ -1,9 +1,11 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultRelatedCatalogRecordsJson,
   defaultRelatedPerformersJson,
   defaultRatingJson,
   normalizeRatingJson,
+  parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseRatingObject,
   parseTextLabelArray,
@@ -32,6 +34,7 @@ const baseVideo = {
   mediaPath: "",
   categoriesJson: "",
   relatedPerformersJson: "",
+  relatedImagesJson: "",
   ratingJson: "",
   notes: "",
   favorite: false,
@@ -50,6 +53,7 @@ const baseImage = {
   imageCount: null,
   categoriesJson: "",
   relatedPerformersJson: "",
+  relatedVideosJson: "",
   ratingJson: "",
   notes: "",
   favorite: false,
@@ -90,6 +94,7 @@ describe("JSON helpers", () => {
     expect(defaultCategoriesJson()).toBe("[]");
     expect(defaultAliasesJson("{bad json")).toBe("[]");
     expect(defaultRelatedPerformersJson("{bad json")).toBe("[]");
+    expect(defaultRelatedCatalogRecordsJson("{bad json")).toBe("[]");
     expect(defaultRatingJson("[1,2,3]")).toBe("{}");
     expect(normalizeRatingJson('{"visual":5}')).toBe('{"visual":5}');
     expect(parseRatingObject("{bad json")).toEqual({});
@@ -105,6 +110,19 @@ describe("JSON helpers", () => {
     ]);
     expect(defaultRelatedPerformersJson(json)).toBe(
       '[{"performerId":"performer-1","nameSnapshot":"Performer One"},{"performerId":"","nameSnapshot":"Legacy Name"}]',
+    );
+  });
+
+  it("normalizes related catalog record references safely", () => {
+    const json =
+      '[{"recordId":" image-1 ","titleSnapshot":" Image One "},{"recordId":"image-1","titleSnapshot":"Duplicate"},{"recordId":"","titleSnapshot":"Legacy Title"},{"recordId":7,"titleSnapshot":""},"bad"]';
+
+    expect(parseRelatedCatalogRecordArray(json)).toEqual([
+      { recordId: "image-1", titleSnapshot: "Image One" },
+      { recordId: "", titleSnapshot: "Legacy Title" },
+    ]);
+    expect(defaultRelatedCatalogRecordsJson(json)).toBe(
+      '[{"recordId":"image-1","titleSnapshot":"Image One"},{"recordId":"","titleSnapshot":"Legacy Title"}]',
     );
   });
 });
@@ -170,6 +188,8 @@ describe("default normalization", () => {
         categoriesJson: '["Favorite","High Replay"]',
         relatedPerformersJson:
           '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+        relatedImagesJson:
+          '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
         ratingJson: '{"rewatch":3}',
       }),
     ).toMatchObject({
@@ -177,6 +197,8 @@ describe("default normalization", () => {
       categoriesJson: '["Favorite","High Replay"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
       ratingJson: '{"rewatch":3}',
       favorite: false,
     });
@@ -188,12 +210,14 @@ describe("default normalization", () => {
         ...baseImage,
         categoriesJson: "{bad json",
         relatedPerformersJson: "{bad json",
+        relatedVideosJson: "{bad json",
         ratingJson: "",
       }),
     ).toMatchObject({
       title: "Sample Image",
       categoriesJson: "[]",
       relatedPerformersJson: "[]",
+      relatedVideosJson: "[]",
       ratingJson: "{}",
       imageCount: null,
     });

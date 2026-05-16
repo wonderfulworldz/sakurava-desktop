@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS videos (
   mediaPath TEXT NOT NULL DEFAULT '',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
+  relatedImagesJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS images (
   imageCount INTEGER,
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
+  relatedVideosJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -140,7 +142,9 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     }
 
     ensure_text_json_column(connection, "videos", "relatedPerformersJson", "[]")?;
+    ensure_text_json_column(connection, "videos", "relatedImagesJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
+    ensure_text_json_column(connection, "images", "relatedVideosJson", "[]")?;
 
     Ok(())
 }
@@ -415,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_initialization_adds_related_performer_columns_to_existing_tables() {
+    fn schema_initialization_adds_related_columns_to_existing_tables() {
         let connection = Connection::open_in_memory().expect("in-memory database");
         connection
             .execute_batch(
@@ -445,11 +449,13 @@ mod tests {
             "videos",
             "relatedPerformersJson"
         ));
+        assert!(table_has_column(&connection, "videos", "relatedImagesJson"));
         assert!(table_has_column(
             &connection,
             "images",
             "relatedPerformersJson"
         ));
+        assert!(table_has_column(&connection, "images", "relatedVideosJson"));
     }
 
     #[test]
