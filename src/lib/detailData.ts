@@ -74,7 +74,7 @@ export type VideoDetailConfig = BaseDetailConfig & {
 export type ImageDetailConfig = BaseDetailConfig & {
   kind: "images";
   code: string;
-  galleryLabels: string[];
+  galleryImagePaths: string[];
 };
 
 export type PerformerDetailConfig = BaseDetailConfig & {
@@ -245,14 +245,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
         description: "Available after relation features are added.",
       },
     ],
-    galleryLabels: [
-      "Gallery Placeholder 1",
-      "Gallery Placeholder 2",
-      "Gallery Placeholder 3",
-      "Gallery Placeholder 4",
-      "Gallery Placeholder 5",
-      "Gallery Placeholder 6",
-    ],
+    galleryImagePaths: [],
   },
   performers: {
     kind: "performers",

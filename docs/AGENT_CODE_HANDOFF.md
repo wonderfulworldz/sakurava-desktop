@@ -119,7 +119,7 @@ For category-related work, also inspect:
 - Invalid or missing `galleryImagePathsJson` should parse as an empty array.
 - Gallery folder picker/direct read is implemented after Batch 25.4. It reads only direct files from one explicitly selected folder, filters `.jpg`, `.jpeg`, `.png`, `.webp`, and `.gif` case-insensitively, replaces Gallery Images rows, and does not scan child folders.
 - Native multi-image picker remains intentionally unimplemented unless explicitly requested.
-- Image Detail gallery grid and gallery next/back remain future work unless explicitly requested.
+- Image Detail gallery grid is implemented after Batch 25.5; broader gallery viewer controls remain future work unless explicitly requested.
 
 ## Preferred Batch Prompt Format
 

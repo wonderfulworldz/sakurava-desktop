@@ -72,6 +72,7 @@ export function buildImageDetailConfig(
       value: numberFromRating(rating[field.name]),
     })),
     notes: image.notes || "No notes saved.",
+    galleryImagePaths: parseGalleryImagePathArray(image.galleryImagePathsJson),
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       image.relatedPerformersJson,

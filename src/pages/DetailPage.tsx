@@ -176,7 +176,9 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
       <NotesCard notes={config.notes} />
       <RelatedRows sections={config.relatedSections} />
 
-      {config.kind === "images" && <GalleryGrid labels={config.galleryLabels} />}
+      {config.kind === "images" && (
+        <GalleryGrid paths={config.galleryImagePaths} />
+      )}
       <SystemInfoCard items={config.systemInfo} />
     </div>
   );
@@ -1002,23 +1004,117 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   );
 }
 
-function GalleryGrid({ labels }: { labels: string[] }) {
+const GALLERY_BATCH_SIZE = 24;
+
+function GalleryGrid({ paths }: { paths: string[] }) {
+  const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
+  const visiblePaths = paths.slice(0, visibleCount);
+  const canLoadMore = visibleCount < paths.length;
+
+  useEffect(() => {
+    setVisibleCount(GALLERY_BATCH_SIZE);
+  }, [paths]);
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Gallery Grid" icon={ImageIcon} />
-      <div className="mt-4 grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        {[...labels, ...labels].map((label, index) => (
-          <div
-            key={`${label}-${index}`}
-            className="aspect-[1.35/1] rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50"
-          >
-            <div className="flex h-full items-center justify-center text-slate-300">
-              <ImageIcon size={34} />
-            </div>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <CardTitle title="Gallery" icon={ImageIcon} />
+        {paths.length > 0 && (
+          <p className="text-xs font-medium text-slate-500">
+            Showing {visiblePaths.length} of {paths.length} images
+          </p>
+        )}
       </div>
+      {paths.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
+          No Gallery Images saved.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+            {visiblePaths.map((path, index) => (
+              <GalleryImageTile
+                key={`${path}-${index}`}
+                path={path}
+                label={`Gallery image ${index + 1}`}
+              />
+            ))}
+          </div>
+          {canLoadMore && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((current) => current + GALLERY_BATCH_SIZE)
+                }
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+              >
+                Load More
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </section>
+  );
+}
+
+function GalleryImageTile({ path, label }: { path: string; label: string }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const assetSrc = localImagePathToAssetSrc(path);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+    setPreviewOpen(false);
+  }, [assetSrc, mediaAssetScopeReady]);
+
+  return (
+    <>
+      <div
+        className="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50"
+        role={showImage ? undefined : "img"}
+        aria-label={showImage ? undefined : label}
+      >
+        {showImage ? (
+          <button
+            type="button"
+            aria-label={`Preview ${label}`}
+            className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <img
+              src={assetSrc ?? undefined}
+              alt={label}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={() => setImageFailed(true)}
+            />
+          </button>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-300">
+            <ImageIcon size={28} />
+            <span className="text-xs font-medium text-slate-400">
+              Image unavailable
+            </span>
+          </div>
+        )}
+      </div>
+      {showImage && assetSrc && previewOpen && (
+        <ImagePreviewModal
+          alt={`${label} full size`}
+          src={assetSrc}
+          title={label}
+          onClose={() => setPreviewOpen(false)}
+          onImageError={() => {
+            setImageFailed(true);
+            setPreviewOpen(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 
