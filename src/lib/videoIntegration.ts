@@ -1,7 +1,9 @@
 import type { NewVideo, Performer, Video, VideoPatch } from "../backend/types";
 import {
+  normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
   parseRatingObject,
+  parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
   stringifyTextLabelArray,
@@ -14,6 +16,7 @@ import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
   FormMode,
+  RelatedCatalogRecordFormValue,
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
@@ -92,6 +95,11 @@ export function buildVideoFormConfig(video: Video | null, mode: FormMode): FormC
       edit: formConfigs.videos.initialRelatedPerformers?.edit ?? [],
       [mode]: parseRelatedPerformerArray(video.relatedPerformersJson),
     },
+    initialRelatedCatalogRecords: {
+      create: formConfigs.videos.initialRelatedCatalogRecords?.create ?? [],
+      edit: formConfigs.videos.initialRelatedCatalogRecords?.edit ?? [],
+      [mode]: parseRelatedCatalogRecordArray(video.relatedImagesJson),
+    },
   };
 }
 
@@ -99,6 +107,7 @@ export function videoFormToCreateInput(
   values: FormValues,
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
+  relatedImages: RelatedCatalogRecordFormValue[] = [],
 ): NewVideo {
   return {
     title: textValue(values.title),
@@ -116,6 +125,9 @@ export function videoFormToCreateInput(
     relatedPerformersJson: normalizeRelatedPerformersJson(
       JSON.stringify(relatedPerformers),
     ),
+    relatedImagesJson: normalizeRelatedCatalogRecordsJson(
+      JSON.stringify(relatedImages),
+    ),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -125,8 +137,14 @@ export function videoFormToPatch(
   values: FormValues,
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
+  relatedImages: RelatedCatalogRecordFormValue[] = [],
 ): VideoPatch {
-  return videoFormToCreateInput(values, categories, relatedPerformers);
+  return videoFormToCreateInput(
+    values,
+    categories,
+    relatedPerformers,
+    relatedImages,
+  );
 }
 
 function toVideoCollectionItem(video: Video): VideoCollectionItem {

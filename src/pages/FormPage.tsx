@@ -11,11 +11,13 @@ import { Link } from "react-router-dom";
 import type {
   FormConfig,
   FormMode,
+  RelatedCatalogRecordFormValue,
   ReadOnlyField,
   RelatedPerformerFormValue,
   TextField,
 } from "../lib/formData";
 import { getStoredManagedCategories } from "../lib/managedCategories";
+import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
 import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
 import {
   selectLocalFolder,
@@ -26,8 +28,10 @@ import {
   isPerformerRuntimeAvailable,
   listPerformers,
 } from "../runtime/performerCommands";
+import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import type { Performer } from "../backend/types";
+import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
+import type { Image, Performer, Video } from "../backend/types";
 
 type FormPageProps = {
   config: FormConfig;
@@ -43,6 +47,7 @@ type FormSubmitData = {
   categories: string[];
   aliases: string[];
   relatedPerformers: RelatedPerformerFormValue[];
+  relatedCatalogRecords: RelatedCatalogRecordFormValue[];
 };
 
 type FormSubmitResult = {
@@ -51,6 +56,7 @@ type FormSubmitResult = {
 };
 
 type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
+type RelatedCatalogLoadState = "idle" | "loading" | "loaded" | "error";
 
 function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
@@ -63,15 +69,24 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [relatedPerformers, setRelatedPerformers] = useState<
     RelatedPerformerFormValue[]
   >(config.initialRelatedPerformers?.[mode] ?? []);
+  const [relatedCatalogRecords, setRelatedCatalogRecords] = useState<
+    RelatedCatalogRecordFormValue[]
+  >(config.initialRelatedCatalogRecords?.[mode] ?? []);
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [availablePerformers, setAvailablePerformers] = useState<Performer[]>([]);
   const [performerLoadState, setPerformerLoadState] =
     useState<RelatedPerformerLoadState>("idle");
+  const [availableRelatedImages, setAvailableRelatedImages] = useState<Image[]>([]);
+  const [availableRelatedVideos, setAvailableRelatedVideos] = useState<Video[]>([]);
+  const [relatedCatalogLoadState, setRelatedCatalogLoadState] =
+    useState<RelatedCatalogLoadState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const canBrowsePaths = isTauriRuntimeAvailable();
   const supportsRelatedPerformerPicker =
+    config.kind === "videos" || config.kind === "images";
+  const supportsRelatedCatalogPicker =
     config.kind === "videos" || config.kind === "images";
 
   useEffect(() => {
@@ -79,6 +94,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setCategories(config.initialCategories[mode]);
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
+    setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
@@ -124,6 +140,83 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       cancelled = true;
     };
   }, [supportsRelatedPerformerPicker]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!supportsRelatedCatalogPicker) {
+      setAvailableRelatedImages([]);
+      setAvailableRelatedVideos([]);
+      setRelatedCatalogLoadState("idle");
+      return;
+    }
+
+    if (config.kind === "videos") {
+      setAvailableRelatedVideos([]);
+
+      if (!isImageRuntimeAvailable()) {
+        setAvailableRelatedImages([]);
+        setRelatedCatalogLoadState("loaded");
+        return;
+      }
+
+      setRelatedCatalogLoadState("loading");
+      listImages()
+        .then((images) => {
+          if (cancelled) {
+            return;
+          }
+
+          setAvailableRelatedImages(Array.isArray(images) ? images : []);
+          setRelatedCatalogLoadState("loaded");
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAvailableRelatedImages([]);
+            setRelatedCatalogLoadState("error");
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (config.kind === "images") {
+      setAvailableRelatedImages([]);
+
+      if (!isVideoRuntimeAvailable()) {
+        setAvailableRelatedVideos([]);
+        setRelatedCatalogLoadState("loaded");
+        return;
+      }
+
+      setRelatedCatalogLoadState("loading");
+      listVideos()
+        .then((videos) => {
+          if (cancelled) {
+            return;
+          }
+
+          setAvailableRelatedVideos(Array.isArray(videos) ? videos : []);
+          setRelatedCatalogLoadState("loaded");
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAvailableRelatedVideos([]);
+            setRelatedCatalogLoadState("error");
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config.kind, supportsRelatedCatalogPicker]);
 
   const title = mode === "create" ? config.createTitle : config.editTitle;
   const subtitle =
@@ -176,6 +269,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         categories,
         aliases,
         relatedPerformers,
+        relatedCatalogRecords,
       });
       setSaveState(result.state);
       setSaveMessage(
@@ -312,9 +406,36 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </FormSection>
       )}
 
+      {supportsRelatedCatalogPicker && (
+        <FormSection
+          index={supportsRelatedPerformerPicker ? 9 : 8}
+          title={config.kind === "videos" ? "Related Images" : "Related Video"}
+        >
+          <RelatedCatalogPicker
+            records={
+              config.kind === "videos"
+                ? availableRelatedImages
+                : availableRelatedVideos
+            }
+            selected={relatedCatalogRecords}
+            loadState={relatedCatalogLoadState}
+            targetKind={config.kind === "videos" ? "images" : "videos"}
+            onChange={setRelatedCatalogRecords}
+          />
+        </FormSection>
+      )}
+
       <RelatedFormSections
         sections={relatedSectionsForConfig(config)}
-        startIndex={supportsRelatedPerformerPicker ? 9 : 8}
+        startIndex={
+          supportsRelatedCatalogPicker
+            ? supportsRelatedPerformerPicker
+              ? 10
+              : 9
+            : supportsRelatedPerformerPicker
+              ? 9
+              : 8
+        }
       />
 
       <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-slate-50/95 py-4 backdrop-blur">
@@ -1002,7 +1123,10 @@ function relatedSectionsForConfig(config: FormConfig) {
   }
 
   return config.relatedSections.filter(
-    (section) => section.label !== "Related Performer",
+    (section) =>
+      section.label !== "Related Performer" &&
+      section.label !== "Related Images" &&
+      section.label !== "Related Video",
   );
 }
 

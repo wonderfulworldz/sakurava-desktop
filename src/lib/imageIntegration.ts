@@ -1,7 +1,9 @@
 import type { Image, ImagePatch, NewImage, Performer } from "../backend/types";
 import {
+  normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
   parseRatingObject,
+  parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
   stringifyTextLabelArray,
@@ -14,6 +16,7 @@ import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
   FormMode,
+  RelatedCatalogRecordFormValue,
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
@@ -92,6 +95,11 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
       edit: formConfigs.images.initialRelatedPerformers?.edit ?? [],
       [mode]: parseRelatedPerformerArray(image.relatedPerformersJson),
     },
+    initialRelatedCatalogRecords: {
+      create: formConfigs.images.initialRelatedCatalogRecords?.create ?? [],
+      edit: formConfigs.images.initialRelatedCatalogRecords?.edit ?? [],
+      [mode]: parseRelatedCatalogRecordArray(image.relatedVideosJson),
+    },
   };
 }
 
@@ -99,6 +107,7 @@ export function imageFormToCreateInput(
   values: FormValues,
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
+  relatedVideos: RelatedCatalogRecordFormValue[] = [],
 ): NewImage {
   return {
     title: textValue(values.title),
@@ -116,6 +125,9 @@ export function imageFormToCreateInput(
     relatedPerformersJson: normalizeRelatedPerformersJson(
       JSON.stringify(relatedPerformers),
     ),
+    relatedVideosJson: normalizeRelatedCatalogRecordsJson(
+      JSON.stringify(relatedVideos),
+    ),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -125,8 +137,14 @@ export function imageFormToPatch(
   values: FormValues,
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
+  relatedVideos: RelatedCatalogRecordFormValue[] = [],
 ): ImagePatch {
-  return imageFormToCreateInput(values, categories, relatedPerformers);
+  return imageFormToCreateInput(
+    values,
+    categories,
+    relatedPerformers,
+    relatedVideos,
+  );
 }
 
 function toImageCollectionItem(image: Image): ImageCollectionItem {

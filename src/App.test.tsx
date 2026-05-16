@@ -1733,7 +1733,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Media",
       "Tech info is not detected or saved in MVP.",
-      "Related Images",
+      "Selected Images",
       "Rewatch",
     ],
     [
@@ -1742,7 +1742,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Folder",
       "Folder analysis is not detected or saved in MVP.",
-      "Related Video",
+      "Selected Videos",
       "Memorability",
     ],
     [
@@ -1859,6 +1859,54 @@ describe("App", () => {
       .not.toBeInTheDocument();
   });
 
+  it("shows an empty related Images picker state without free-text creation", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "9. Related Images" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
+    expect(screen.getByText("No related Images selected.")).toBeInTheDocument();
+    expect(screen.getByText("No Image records available. Create Image records first."))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Images" })).toHaveAttribute(
+      "href",
+      "/images",
+    );
+    expect(screen.getByRole("link", { name: "Add Image" })).toHaveAttribute(
+      "href",
+      "/images/new",
+    );
+    expect(screen.queryByPlaceholderText("Add related image..."))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create image/i }))
+      .not.toBeInTheDocument();
+  });
+
+  it("shows an empty related Videos picker state without free-text creation", () => {
+    window.history.pushState({}, "", "/images/new");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "9. Related Video" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
+    expect(screen.getByText("No related Videos selected.")).toBeInTheDocument();
+    expect(screen.getByText("No Video records available. Create Video records first."))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Videos" })).toHaveAttribute(
+      "href",
+      "/videos",
+    );
+    expect(screen.getByRole("link", { name: "Add Video" })).toHaveAttribute(
+      "href",
+      "/videos/new",
+    );
+    expect(screen.queryByPlaceholderText("Add related video..."))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create video/i }))
+      .not.toBeInTheDocument();
+  });
+
   it("selects existing Performers on video forms and saves relatedPerformersJson", async () => {
     window.history.pushState({}, "", "/videos/new");
     const created = persistedVideo({
@@ -1922,6 +1970,183 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("selects existing Images on video forms and saves relatedImagesJson", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const created = persistedVideo({
+      title: "Video With Images",
+      relatedImagesJson:
+        '[{"recordId":"image_hanami","titleSnapshot":"Hanami Gallery"}]',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "performer_list") {
+          return [];
+        }
+        if (command === "image_list") {
+          return [
+            persistedImage({
+              id: "image_hanami",
+              title: "Hanami Gallery",
+              originalTitle: "Spring Set",
+            }),
+            persistedImage({
+              id: "image_night",
+              title: "Night Gallery",
+              originalTitle: "",
+            }),
+          ];
+        }
+        if (command === "video_create") {
+          expect(args.input.title).toBe("Video With Images");
+          expect(args.input.relatedImagesJson).toBe(
+            '[{"recordId":"image_hanami","titleSnapshot":"Hanami Gallery"}]',
+          );
+          return created;
+        }
+        if (command === "video_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Search related images"), {
+      target: { value: "spring" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add related image Hanami Gallery",
+      }),
+    );
+    expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Video With Images" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Video With Images")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("selects existing Videos on image forms and saves relatedVideosJson", async () => {
+    window.history.pushState({}, "", "/images/new");
+    const created = persistedImage({
+      title: "Image With Videos",
+      relatedVideosJson:
+        '[{"recordId":"video_spring","titleSnapshot":"Spring Feature"}]',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "performer_list") {
+          return [];
+        }
+        if (command === "video_list") {
+          return [
+            persistedVideo({
+              id: "video_spring",
+              title: "Spring Feature",
+              originalTitle: "Feature Original",
+            }),
+          ];
+        }
+        if (command === "image_create") {
+          expect(args.input.title).toBe("Image With Videos");
+          expect(args.input.relatedVideosJson).toBe(
+            '[{"recordId":"video_spring","titleSnapshot":"Spring Feature"}]',
+          );
+          return created;
+        }
+        if (command === "image_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Search related videos"), {
+      target: { value: "original" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add related video Spring Feature",
+      }),
+    );
+    expect(screen.getByText("Spring Feature")).toBeInTheDocument();
+    expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Image With Videos" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Image With Videos")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("keeps unresolved related Images visible until removed from the current record", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const existing = persistedVideo({
+      title: "Legacy Image Relation Video",
+      relatedImagesJson:
+        '[{"recordId":"missing_image","titleSnapshot":"Former Gallery"}]',
+    });
+    const updated = persistedVideo({
+      ...existing,
+      relatedImagesJson: "[]",
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "video_get") {
+          return existing;
+        }
+        if (command === "performer_list" || command === "image_list") {
+          return [];
+        }
+        if (command === "video_update") {
+          expect(args.patch.relatedImagesJson).toBe("[]");
+          return updated;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Former Gallery")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved")).toBeInTheDocument();
+    expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove related image Former Gallery",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Legacy Image Relation Video"))
+      .toBeInTheDocument();
   });
 
   it("selects existing Performers on image forms and saves relatedPerformersJson", async () => {
