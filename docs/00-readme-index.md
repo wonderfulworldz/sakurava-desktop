@@ -47,6 +47,7 @@ Urutan acuan dokumen:
 21. `19-related-video-image-picker-structure-planning.md` - rencana struktur picker Related Video/Image dari record Video/Image yang sudah ada.
 22. `20-related-video-image-storage-planning.md` - rencana storage Related Video/Image sebelum implementasi picker.
 23. `21-media-file-status-open-file-planning.md` - rencana aman status path media lokal dan aksi open/reveal desktop.
+24. `22-external-media-open-planning.md` - rencana aman membuka media eksternal memakai aplikasi default OS.
 
 ## Current Post-MVP Reading Order
 
@@ -67,8 +68,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 13. `19-related-video-image-picker-structure-planning.md`
 14. `20-related-video-image-storage-planning.md`
 15. `21-media-file-status-open-file-planning.md`
-16. `AGENT_CODE_HANDOFF.md`
-17. `WORKFLOW_GIT.md`
+16. `22-external-media-open-planning.md`
+17. `AGENT_CODE_HANDOFF.md`
+18. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

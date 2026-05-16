@@ -118,6 +118,12 @@ Detail Page Media File Status Display expected checkpoint after merge:
 post-mvp-24-3-detail-page-media-file-status-display-v1
 ```
 
+External Media Open Planning expected checkpoint after merge:
+
+```text
+post-mvp-24-4-external-media-open-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -171,6 +177,7 @@ Current app capabilities include:
 - Media File Status / Open File planning through Batch 24.1 after merge;
 - Media File Status runtime foundation through Batch 24.2 after merge;
 - Detail page Media File Status display through Batch 24.3 after merge;
+- External Media Open planning through Batch 24.4 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -191,7 +198,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 24.3, changes may add only read-only Media File Status display on detail pages for saved local paths. Open File, Reveal in Folder, media playback, file scanners, recursive scanning, forms, schema/database changes, Rust/Tauri changes, package changes, Backup/Restore behavior, related picker behavior, category behavior, and broad UI changes should not change.
+For Batch 24.4, documentation may change only to add External Media Open planning and references. Application code, tests, schema, backend, Rust/Tauri, package files, Play button UI, open media runtime, image preview behavior, reveal folder behavior, media player behavior, file scanner behavior, Backup/Restore behavior, related picker behavior, category behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -203,10 +210,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 24.3:
+Recommended next phase after Batch 24.4:
 
 ```text
-Open / Reveal Actions
+External Media Open Runtime Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, and `docs/21-media-file-status-open-file-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, and `docs/22-external-media-open-planning.md` before changing code.
