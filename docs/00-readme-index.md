@@ -46,6 +46,7 @@ Urutan acuan dokumen:
 20. `18-related-performer-storage-planning.md` - rencana storage Related Performer sebelum implementasi picker.
 21. `19-related-video-image-picker-structure-planning.md` - rencana struktur picker Related Video/Image dari record Video/Image yang sudah ada.
 22. `20-related-video-image-storage-planning.md` - rencana storage Related Video/Image sebelum implementasi picker.
+23. `21-media-file-status-open-file-planning.md` - rencana aman status path media lokal dan aksi open/reveal desktop.
 
 ## Current Post-MVP Reading Order
 
@@ -65,8 +66,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 12. `18-related-performer-storage-planning.md`
 13. `19-related-video-image-picker-structure-planning.md`
 14. `20-related-video-image-storage-planning.md`
-15. `AGENT_CODE_HANDOFF.md`
-16. `WORKFLOW_GIT.md`
+15. `21-media-file-status-open-file-planning.md`
+16. `AGENT_CODE_HANDOFF.md`
+17. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
