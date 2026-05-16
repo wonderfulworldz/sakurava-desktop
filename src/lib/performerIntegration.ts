@@ -35,6 +35,9 @@ export function buildPerformerDetailConfig(
 ): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
   const rating = parseRatingObject(performer.ratingJson);
+  const thumbnailPaths = parsePerformerThumbnailPathArray(
+    performer.performerThumbnailPathsJson,
+  );
   return {
     ...baseConfig,
     editTo: `/performers/${performer.id}/edit`,
@@ -44,6 +47,7 @@ export function buildPerformerDetailConfig(
     favorite: performer.favorite,
     chips: [performer.status || "Unknown"],
     aliases: parseTextLabelArray(performer.aliasesJson),
+    thumbnailPaths,
     categories: parseTextLabelArray(performer.categoriesJson),
     summary: [
       { label: "Years Active", value: "Not tracked in MVP" },
@@ -56,6 +60,11 @@ export function buildPerformerDetailConfig(
       { label: "Cover Path", value: performer.coverPath || "Not set" },
     ],
     mediaPaths: [{ label: "Cover Path", path: performer.coverPath }],
+    techItems: Array.from({ length: 4 }, (_, index) => ({
+      label: `Performer Thumbnail ${index + 1}`,
+      value: thumbnailPaths[index] ? "Saved" : "Not set",
+    })),
+    techMessage: "Mini thumbnails use explicit saved local image paths.",
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(performer.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },

@@ -258,9 +258,18 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
       <LargePlaceholder config={config} />
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {config.techItems.map((item) => (
-          <SmallThumbnail key={item.label} label={item.label} />
-        ))}
+        {Array.from({ length: 4 }, (_, index) => {
+          const label =
+            config.techItems[index]?.label ?? `Performer Thumbnail ${index + 1}`;
+
+          return (
+            <SmallThumbnail
+              key={label}
+              label={label}
+              path={config.thumbnailPaths[index]}
+            />
+          );
+        })}
       </div>
 
       <div className="mt-5">
@@ -467,13 +476,56 @@ function ImagePreviewModal({
   );
 }
 
-function SmallThumbnail({ label }: { label: string }) {
+function SmallThumbnail({ label, path }: { label: string; path?: string }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const assetSrc = localImagePathToAssetSrc(path);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+    setPreviewOpen(false);
+  }, [assetSrc, mediaAssetScopeReady]);
+
   return (
-    <div className="aspect-[4/5] rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50">
-      <div className="flex h-full items-center justify-center text-slate-300">
-        <ImageIcon size={24} aria-label={label} />
+    <>
+      <div
+        className="relative aspect-[4/5] overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50"
+      >
+        {showImage ? (
+          <button
+            type="button"
+            aria-label={`Preview ${label}`}
+            className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <img
+              src={assetSrc ?? undefined}
+              alt={label}
+              className="h-full w-full object-cover"
+              onError={() => setImageFailed(true)}
+            />
+          </button>
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-300">
+            <ImageIcon size={24} aria-label={label} />
+          </div>
+        )}
       </div>
-    </div>
+      {showImage && assetSrc && previewOpen && (
+        <ImagePreviewModal
+          alt={`${label} full size`}
+          src={assetSrc}
+          title={label}
+          onClose={() => setPreviewOpen(false)}
+          onImageError={() => {
+            setImageFailed(true);
+            setPreviewOpen(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 

@@ -166,6 +166,12 @@ Performer Form Mini Thumbnail Fields expected checkpoint after merge:
 post-mvp-24-11-performer-form-mini-thumbnail-fields-v1
 ```
 
+Performer Detail Mini Thumbnail Display and Preview expected checkpoint after merge:
+
+```text
+post-mvp-24-12-performer-detail-mini-thumbnail-display-preview-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -227,6 +233,7 @@ Current app capabilities include:
 - Performer Mini Thumbnail Storage/Form planning through Batch 24.9 after merge;
 - Performer Mini Thumbnail storage foundation through Batch 24.10 after merge;
 - Performer mini thumbnail form fields through Batch 24.11 after merge;
+- Performer Detail mini thumbnail display and preview through Batch 24.12 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -247,7 +254,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 24.11, form/integration changes may add 4 optional Performer mini thumbnail path fields that map to `performerThumbnailPathsJson`. Performer Detail mini thumbnail display, preview UI, storage/backend/schema/Rust/Tauri changes, gallery behavior, folder scanning, Video Play behavior, related picker behavior, category behavior, package files, and broad UI changes should not change.
+For Batch 24.12, Performer Detail may render 4 mini thumbnail slots from `performerThumbnailPathsJson` and valid explicit saved image paths may open the existing full-size preview modal. Form fields, storage/backend/schema/Rust/Tauri changes, gallery behavior, folder scanning, Video Play behavior, related picker behavior, category behavior, package files, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -259,10 +266,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 24.11:
+Recommended next phase after Batch 24.12:
 
 ```text
-Performer Detail Mini Thumbnail Display and Preview
+Batch 25.1 - Image Gallery Planning
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, and `docs/24-performer-mini-thumbnail-storage-form-planning.md` before changing code.

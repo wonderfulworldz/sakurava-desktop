@@ -80,6 +80,7 @@ export type ImageDetailConfig = BaseDetailConfig & {
 export type PerformerDetailConfig = BaseDetailConfig & {
   kind: "performers";
   aliases: string[];
+  thumbnailPaths: string[];
   summary: MetadataItem[];
   personal: MetadataItem[];
   physical: MetadataItem[];
@@ -267,6 +268,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     favorite: true,
     chips: ["Active"],
     aliases: ["Aoi H.", "Hanami"],
+    thumbnailPaths: [],
     categories: ["Favorite", "Lead", "Studio"],
     summary: [
       { label: "Years Active", value: "2015 - present" },
@@ -305,12 +307,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Versatility", value: 3 },
     ],
     techTitle: "Profile Media",
-    techMessage: "Thumbnail paths are not saved or rendered in MVP.",
+    techMessage: "Mini thumbnails use explicit saved local image paths.",
     techItems: [
-      { label: "Thumbnail 1", value: "Placeholder" },
-      { label: "Thumbnail 2", value: "Placeholder" },
-      { label: "Thumbnail 3", value: "Placeholder" },
-      { label: "Thumbnail 4", value: "Placeholder" },
+      { label: "Performer Thumbnail 1", value: "Not set" },
+      { label: "Performer Thumbnail 2", value: "Not set" },
+      { label: "Performer Thumbnail 3", value: "Not set" },
+      { label: "Performer Thumbnail 4", value: "Not set" },
     ],
     notes:
       "Static performer notes preview. Advanced profile fields are visual placeholders until a later approved phase.",
