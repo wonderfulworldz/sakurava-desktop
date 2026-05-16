@@ -55,4 +55,5 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Related Performer Picker Structure planning is documented in `docs/17-related-performer-picker-structure-planning.md`.
 - Related Performer Storage planning is documented in `docs/18-related-performer-storage-planning.md`.
 - Related Video/Image Picker Structure planning is documented in `docs/19-related-video-image-picker-structure-planning.md`.
+- Related Video/Image Storage planning is documented in `docs/20-related-video-image-storage-planning.md`.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.

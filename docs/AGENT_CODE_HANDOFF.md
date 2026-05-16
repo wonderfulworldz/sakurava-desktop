@@ -9,11 +9,11 @@ Use these docs as compressed project memory. Do not reconstruct the full histori
 ```text
 You are working on the Sakurava desktop app.
 
-Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/17-related-performer-picker-structure-planning.md, docs/18-related-performer-storage-planning.md, docs/19-related-video-image-picker-structure-planning.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/17-related-performer-picker-structure-planning.md, docs/18-related-performer-storage-planning.md, docs/19-related-video-image-picker-structure-planning.md, docs/20-related-video-image-storage-planning.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
 
-Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, Settings persistence planning rules, Category Management dedicated page planning rules, Form Category Picker Lockdown planning rules, Categories Sidebar Page planning rules, Related Performer Picker Structure planning rules, Related Performer Storage planning rules, and Related Video/Image Picker Structure planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
+Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, Settings persistence planning rules, Category Management dedicated page planning rules, Form Category Picker Lockdown planning rules, Categories Sidebar Page planning rules, Related Performer Picker Structure planning rules, Related Performer Storage planning rules, Related Video/Image Picker Structure planning rules, and Related Video/Image Storage planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
 
-Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. For Category Management dedicated page work, read docs/14-category-management-dedicated-page-planning.md before planning or implementation. For Form Category Picker Lockdown work, read docs/15-form-category-picker-lockdown-planning.md before implementation. For Categories Sidebar Page work, read docs/16-categories-sidebar-page-planning.md before implementation. For Related Performer Picker Structure work, read docs/17-related-performer-picker-structure-planning.md before implementation. For Related Performer Storage work, read docs/18-related-performer-storage-planning.md before implementation. For Related Video/Image Picker Structure work, read docs/19-related-video-image-picker-structure-planning.md before implementation. For Backup/Restore work, read docs/12-backup-restore-ux-safety.md before planning or implementation. For Settings persistence work, read docs/13-settings-persistence-planning.md before planning or implementation. UI polish is not a default roadmap item.
+Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if already merged. For Category Management dedicated page work, read docs/14-category-management-dedicated-page-planning.md before planning or implementation. For Form Category Picker Lockdown work, read docs/15-form-category-picker-lockdown-planning.md before implementation. For Categories Sidebar Page work, read docs/16-categories-sidebar-page-planning.md before implementation. For Related Performer Picker Structure work, read docs/17-related-performer-picker-structure-planning.md before implementation. For Related Performer Storage work, read docs/18-related-performer-storage-planning.md before implementation. For Related Video/Image Picker Structure work, read docs/19-related-video-image-picker-structure-planning.md before implementation. For Related Video/Image Storage work, read docs/20-related-video-image-storage-planning.md before implementation. For Backup/Restore work, read docs/12-backup-restore-ux-safety.md before planning or implementation. For Settings persistence work, read docs/13-settings-persistence-planning.md before planning or implementation. UI polish is not a default roadmap item.
 
 Before editing, check git status. After editing, report files changed, verification run, risks, and follow-up. Do not commit without user approval.
 ```
@@ -35,6 +35,7 @@ Read these before planning or editing:
 - `docs/17-related-performer-picker-structure-planning.md`
 - `docs/18-related-performer-storage-planning.md`
 - `docs/19-related-video-image-picker-structure-planning.md`
+- `docs/20-related-video-image-storage-planning.md`
 - `docs/WORKFLOW_GIT.md`
 - `docs/AGENT_CODE_HANDOFF.md`
 - `package.json`
@@ -67,6 +68,7 @@ For category-related work, also inspect:
 - For Related Performer Picker Structure implementation, do not auto-create Performers, do not mutate Performer records from Video/Image forms, and do not invent storage before inspecting current record shapes.
 - For Related Performer Storage implementation, prefer the planned JSON field direction unless the user explicitly approves a relational schema batch.
 - For Related Video/Image Picker Structure implementation, do not auto-create related Video/Image records, do not mutate target records from the current form, and do not invent storage before storage planning.
+- For Related Video/Image Storage implementation, prefer the planned `relatedImagesJson` and `relatedVideosJson` JSON field direction unless the user explicitly approves a relational schema batch.
 - Leave related pickers and Media Play for future phases after category page decisions.
 - Do not make restore a one-click destructive action - follow the Restore UX Flow in `docs/12-backup-restore-ux-safety.md`.
 - Backup/Restore must clearly state that media files are not included in the backup.
@@ -84,6 +86,8 @@ For category-related work, also inspect:
 - Do not implement Related Performer Picker persistence before storage has been approved.
 - Read `docs/19-related-video-image-picker-structure-planning.md` before Related Video/Image Picker work.
 - Do not implement Related Video/Image Picker persistence before storage planning and storage implementation have been approved.
+- Read `docs/20-related-video-image-storage-planning.md` before Related Video/Image Storage work.
+- Do not add Related Video/Image relation tables unless the user explicitly approves a relational schema batch.
 
 ## Preferred Batch Prompt Format
 

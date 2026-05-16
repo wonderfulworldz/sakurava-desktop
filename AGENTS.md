@@ -70,6 +70,8 @@ For Related Performer Storage planning, read `docs/18-related-performer-storage-
 
 For Related Video/Image Picker Structure planning, read `docs/19-related-video-image-picker-structure-planning.md`.
 
+For Related Video/Image Storage planning, read `docs/20-related-video-image-storage-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
@@ -179,6 +181,7 @@ Only include UI polish when the user requests it or when it blocks usability, co
 - Related Performer Picker Structure planning is documented in `docs/17-related-performer-picker-structure-planning.md`.
 - Related Performer Storage planning is documented in `docs/18-related-performer-storage-planning.md`.
 - Related Video/Image Picker Structure planning is documented in `docs/19-related-video-image-picker-structure-planning.md`.
+- Related Video/Image Storage planning is documented in `docs/20-related-video-image-storage-planning.md`.
 - Related pickers and Media Play are future phases after category page decisions.
 
 ## Verification Commands

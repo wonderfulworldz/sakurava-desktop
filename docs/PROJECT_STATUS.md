@@ -94,6 +94,12 @@ Related Video/Image Picker Structure Planning expected checkpoint after merge:
 post-mvp-23-1-related-video-image-picker-structure-planning-v1
 ```
 
+Related Video/Image Storage Planning expected checkpoint after merge:
+
+```text
+post-mvp-23-2-related-video-image-storage-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -143,6 +149,7 @@ Current app capabilities include:
 - Related Performer picker on Video and Image forms;
 - Related Performer detail display on Video and Image detail pages;
 - Related Video/Image Picker Structure planning through Batch 23.1 after merge;
+- Related Video/Image Storage planning through Batch 23.2 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -163,7 +170,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 23.1, documentation may change only to add Related Video/Image Picker Structure planning and references. Application code, tests, schema, backend, Rust/Tauri, package files, picker UI, relation storage fields, relation tables, Related Performer behavior, category behavior, media behavior, and broad UI changes should not change.
+For Batch 23.2, documentation may change only to add Related Video/Image Storage planning and references. Application code, tests, schema, backend, Rust/Tauri, package files, picker UI, relation storage fields, relation tables, Related Performer behavior, category behavior, media behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -175,10 +182,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 23.1:
+Recommended next phase after Batch 23.2:
 
 ```text
-Related Video/Image Storage Planning
+Related Video/Image Storage Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, and `docs/19-related-video-image-picker-structure-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, and `docs/20-related-video-image-storage-planning.md` before changing code.
