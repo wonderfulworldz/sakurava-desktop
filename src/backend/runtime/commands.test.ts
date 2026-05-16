@@ -104,6 +104,8 @@ describe("repository runtime command invoker", () => {
       title: "Image Runtime",
       folderPath: "D:/images/runtime",
       imageCount: 24,
+      galleryImagePathsJson:
+        '[" D:/images/runtime/one.jpg ","","D:/images/runtime/two.jpg","D:/images/runtime/one.jpg"]',
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
@@ -116,6 +118,8 @@ describe("repository runtime command invoker", () => {
       id: "image-1",
       title: "Image Runtime",
       imageCount: 24,
+      galleryImagePathsJson:
+        '["D:/images/runtime/one.jpg","D:/images/runtime/two.jpg"]',
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
@@ -129,6 +133,7 @@ describe("repository runtime command invoker", () => {
       id: created.id,
       patch: {
         imageCount: null,
+        galleryImagePathsJson: "{bad json",
         categoriesJson: '["Updated Image"]',
         relatedVideosJson:
           '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
@@ -138,6 +143,7 @@ describe("repository runtime command invoker", () => {
     expect(updated).toMatchObject({
       id: created.id,
       imageCount: null,
+      galleryImagePathsJson: "[]",
       categoriesJson: '["Updated Image"]',
       relatedVideosJson:
         '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',

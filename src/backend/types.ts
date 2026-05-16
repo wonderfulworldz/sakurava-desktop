@@ -43,6 +43,7 @@ export interface Image extends BaseCatalogRecord {
   coverPath: string;
   folderPath: string;
   imageCount: number | null;
+  galleryImagePathsJson: JsonText;
   relatedPerformersJson: JsonText;
   relatedVideosJson: JsonText;
 }

@@ -1,11 +1,13 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultGalleryImagePathsJson,
   defaultPerformerThumbnailPathsJson,
   defaultRelatedCatalogRecordsJson,
   defaultRelatedPerformersJson,
   defaultRatingJson,
   normalizeRatingJson,
+  parseGalleryImagePathArray,
   parsePerformerThumbnailPathArray,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
@@ -53,6 +55,7 @@ const baseImage = {
   coverPath: "",
   folderPath: "",
   imageCount: null,
+  galleryImagePathsJson: "",
   categoriesJson: "",
   relatedPerformersJson: "",
   relatedVideosJson: "",
@@ -97,6 +100,7 @@ describe("JSON helpers", () => {
     expect(defaultCategoriesJson()).toBe("[]");
     expect(defaultAliasesJson("{bad json")).toBe("[]");
     expect(defaultPerformerThumbnailPathsJson("{bad json")).toBe("[]");
+    expect(defaultGalleryImagePathsJson("{bad json")).toBe("[]");
     expect(defaultRelatedPerformersJson("{bad json")).toBe("[]");
     expect(defaultRelatedCatalogRecordsJson("{bad json")).toBe("[]");
     expect(defaultRatingJson("[1,2,3]")).toBe("{}");
@@ -116,6 +120,19 @@ describe("JSON helpers", () => {
     ]);
     expect(defaultPerformerThumbnailPathsJson(json)).toBe(
       '["C:/thumb-1.jpg","C:/thumb-2.jpg","C:/thumb-3.jpg","C:/thumb-4.jpg"]',
+    );
+  });
+
+  it("normalizes gallery image paths safely", () => {
+    const json =
+      '[" C:/gallery/one.jpg ","","C:/gallery/two.jpg","C:/gallery/one.jpg",7]';
+
+    expect(parseGalleryImagePathArray(json)).toEqual([
+      "C:/gallery/one.jpg",
+      "C:/gallery/two.jpg",
+    ]);
+    expect(defaultGalleryImagePathsJson(json)).toBe(
+      '["C:/gallery/one.jpg","C:/gallery/two.jpg"]',
     );
   });
 
@@ -228,6 +245,8 @@ describe("default normalization", () => {
       normalizeImageDefaults({
         ...baseImage,
         categoriesJson: "{bad json",
+        galleryImagePathsJson:
+          '[" C:/gallery/one.jpg ","","C:/gallery/two.jpg","C:/gallery/one.jpg",7]',
         relatedPerformersJson: "{bad json",
         relatedVideosJson: "{bad json",
         ratingJson: "",
@@ -235,6 +254,8 @@ describe("default normalization", () => {
     ).toMatchObject({
       title: "Sample Image",
       categoriesJson: "[]",
+      galleryImagePathsJson:
+        '["C:/gallery/one.jpg","C:/gallery/two.jpg"]',
       relatedPerformersJson: "[]",
       relatedVideosJson: "[]",
       ratingJson: "{}",

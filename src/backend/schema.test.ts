@@ -44,6 +44,9 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_IMAGES_TABLE_SQL).toContain("CREATE TABLE IF NOT EXISTS images");
     expect(CREATE_IMAGES_TABLE_SQL).toContain("folderPath TEXT NOT NULL DEFAULT ''");
     expect(CREATE_IMAGES_TABLE_SQL).toContain("imageCount INTEGER");
+    expect(CREATE_IMAGES_TABLE_SQL).toContain(
+      "galleryImagePathsJson TEXT NOT NULL DEFAULT '[]'",
+    );
     expect(CREATE_IMAGES_TABLE_SQL).toContain("categoriesJson TEXT NOT NULL DEFAULT '[]'");
     expect(CREATE_IMAGES_TABLE_SQL).toContain(
       "relatedPerformersJson TEXT NOT NULL DEFAULT '[]'",

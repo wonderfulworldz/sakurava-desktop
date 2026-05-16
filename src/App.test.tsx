@@ -1887,7 +1887,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "9. Related Video" }))
+    expect(screen.getByRole("heading", { name: "10. Related Video" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
     expect(screen.getByText("No related Videos selected.")).toBeInTheDocument();
@@ -4371,6 +4371,9 @@ describe("App", () => {
         if (command === "image_create") {
           expect(args.input.title).toBe("Created Image");
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          expect(args.input.galleryImagePathsJson).toBe(
+            '["C:/Gallery/one.jpg","C:/Gallery/two.jpg"]',
+          );
           expect(args.input.relatedPerformersJson).toBe("[]");
           return created;
         }
@@ -4393,6 +4396,20 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Created Image" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    const galleryInputs = screen.getAllByLabelText(/Gallery Image Path/);
+    fireEvent.change(galleryInputs[0], {
+      target: { value: " C:/Gallery/one.jpg " },
+    });
+    fireEvent.change(galleryInputs[2], {
+      target: { value: "C:/Gallery/two.jpg" },
+    });
+    fireEvent.change(galleryInputs[3], {
+      target: { value: "C:/Gallery/one.jpg" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -4406,11 +4423,14 @@ describe("App", () => {
     setManagedCategories(["Updated"]);
     const existing = persistedImage({
       title: "Existing Image",
+      galleryImagePathsJson:
+        '["C:/Gallery/existing-one.jpg","C:/Gallery/existing-two.jpg"]',
       categoriesJson: '["Portrait"]',
       ratingJson: '{"memorability":3}',
     });
     const updated = persistedImage({
       title: "Updated Image",
+      galleryImagePathsJson: '["C:/Gallery/updated.jpg"]',
       categoriesJson: '["Portrait","Updated"]',
       ratingJson: '{"memorability":5}',
     });
@@ -4425,6 +4445,9 @@ describe("App", () => {
           expect(args.id).toBe("image_test_001");
           expect(args.patch.title).toBe("Updated Image");
           expect(args.patch.categoriesJson).toBe('["Portrait","Updated"]');
+          expect(args.patch.galleryImagePathsJson).toBe(
+            '["C:/Gallery/updated.jpg","C:/Gallery/existing-two.jpg"]',
+          );
           expect(args.patch.relatedPerformersJson).toBe("[]");
           expect(args.patch.ratingJson).toContain('"memorability":5');
           currentImage = updated;
@@ -4444,6 +4467,16 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Image")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("C:/Gallery/existing-one.jpg"),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
+      target: { value: " C:/Gallery/updated.jpg " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    fireEvent.change(screen.getByLabelText("Gallery Image Path 3"), {
+      target: { value: "C:/Gallery/updated.jpg" },
+    });
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Image" },
     });
@@ -4712,8 +4745,8 @@ describe("App", () => {
   it.each([
     ["/videos/new", "8. Related Performer", "9. Related Images"],
     ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
-    ["/images/new", "8. Related Performer", "9. Related Video"],
-    ["/images/sample-id/edit", "8. Related Performer", "9. Related Video"],
+    ["/images/new", "9. Related Performer", "10. Related Video"],
+    ["/images/sample-id/edit", "9. Related Performer", "10. Related Video"],
     ["/performers/new", "8. Related Videos", "9. Related Images"],
     ["/performers/sample-id/edit", "8. Related Videos", "9. Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {
@@ -4772,6 +4805,7 @@ function persistedImage(overrides: Record<string, unknown> = {}) {
     coverPath: "",
     folderPath: "",
     imageCount: 24,
+    galleryImagePathsJson: "[]",
     categoriesJson: '["Portrait"]',
     relatedPerformersJson: "[]",
     relatedVideosJson: "[]",

@@ -76,6 +76,62 @@ export function parsePerformerThumbnailPathArray(
   return paths;
 }
 
+export function parseGalleryImagePathArray(
+  value: string | null | undefined,
+): string[] {
+  const parsed = safeParseJson(value);
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const paths: string[] = [];
+
+  for (const item of parsed) {
+    if (typeof item !== "string") {
+      continue;
+    }
+
+    const path = item.trim();
+    if (!path || seen.has(path)) {
+      continue;
+    }
+
+    seen.add(path);
+    paths.push(path);
+  }
+
+  return paths;
+}
+
+export function stringifyGalleryImagePathArray(paths: readonly string[]): string {
+  return JSON.stringify(normalizeGalleryImagePaths(paths));
+}
+
+export function normalizeGalleryImagePaths(paths: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const item of paths) {
+    const path = item.trim();
+    if (!path || seen.has(path)) {
+      continue;
+    }
+
+    seen.add(path);
+    normalized.push(path);
+  }
+
+  return normalized;
+}
+
+export function normalizeGalleryImagePathsJson(
+  value: string | null | undefined,
+): string {
+  return JSON.stringify(parseGalleryImagePathArray(value));
+}
+
 export function normalizePerformerThumbnailPathsJson(
   value: string | null | undefined,
 ): string {
@@ -214,6 +270,10 @@ export function defaultRelatedPerformersJson(value?: string | null): string {
 
 export function defaultRelatedCatalogRecordsJson(value?: string | null): string {
   return value ? normalizeRelatedCatalogRecordsJson(value) : EMPTY_ARRAY_JSON;
+}
+
+export function defaultGalleryImagePathsJson(value?: string | null): string {
+  return value ? normalizeGalleryImagePathsJson(value) : EMPTY_ARRAY_JSON;
 }
 
 export function defaultPerformerThumbnailPathsJson(value?: string | null): string {

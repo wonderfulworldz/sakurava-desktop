@@ -1,6 +1,7 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultGalleryImagePathsJson,
   defaultPerformerThumbnailPathsJson,
   defaultRelatedCatalogRecordsJson,
   defaultRelatedPerformersJson,
@@ -101,6 +102,9 @@ export function normalizeImageDefaults(image: NewImage): NewImage {
     coverPath: image.coverPath ?? "",
     folderPath: image.folderPath ?? "",
     imageCount: image.imageCount ?? null,
+    galleryImagePathsJson: defaultGalleryImagePathsJson(
+      image.galleryImagePathsJson,
+    ),
     categoriesJson: defaultCategoriesJson(image.categoriesJson),
     relatedPerformersJson: defaultRelatedPerformersJson(
       image.relatedPerformersJson,

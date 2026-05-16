@@ -252,6 +252,8 @@ describe("SQLite repository adapter foundation", () => {
       title: "Image Title",
       folderPath: "D:/images",
       imageCount: 24,
+      galleryImagePathsJson:
+        '[" D:/images/one.jpg ","","D:/images/two.jpg","D:/images/one.jpg",7]',
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
@@ -263,6 +265,7 @@ describe("SQLite repository adapter foundation", () => {
     expect(created).toMatchObject({
       id: "image-id",
       imageCount: 24,
+      galleryImagePathsJson: '["D:/images/one.jpg","D:/images/two.jpg"]',
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
@@ -274,6 +277,7 @@ describe("SQLite repository adapter foundation", () => {
 
     const updated = await repository.update("image-id", {
       imageCount: null,
+      galleryImagePathsJson: "{}",
       categoriesJson: '["Updated Image"]',
       relatedPerformersJson: "{bad json",
       relatedVideosJson:
@@ -282,6 +286,7 @@ describe("SQLite repository adapter foundation", () => {
 
     expect(updated).toMatchObject({
       imageCount: null,
+      galleryImagePathsJson: "[]",
       categoriesJson: '["Updated Image"]',
       relatedPerformersJson: "[]",
       relatedVideosJson:

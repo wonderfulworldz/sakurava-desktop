@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS images (
   coverPath TEXT NOT NULL DEFAULT '',
   folderPath TEXT NOT NULL DEFAULT '',
   imageCount INTEGER,
+  galleryImagePathsJson TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
@@ -146,6 +147,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_text_json_column(connection, "videos", "relatedImagesJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedVideosJson", "[]")?;
+    ensure_text_json_column(connection, "images", "galleryImagePathsJson", "[]")?;
     ensure_text_json_column(
         connection,
         "performers",
@@ -471,6 +473,11 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "images", "relatedVideosJson"));
+        assert!(table_has_column(
+            &connection,
+            "images",
+            "galleryImagePathsJson"
+        ));
         assert!(table_has_column(
             &connection,
             "performers",
