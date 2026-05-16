@@ -49,6 +49,7 @@ export function buildPerformerDetailConfig(
       { label: "Status", value: performer.status || "Unknown" },
       { label: "Cover Path", value: performer.coverPath || "Not set" },
     ],
+    mediaPaths: [{ label: "Cover Path", path: performer.coverPath }],
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(performer.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },

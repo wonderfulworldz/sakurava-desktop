@@ -57,6 +57,10 @@ export function buildVideoDetailConfig(
       { label: "Cover Path", value: video.coverPath || "Not set" },
       { label: "Media Path", value: video.mediaPath || "Not set" },
     ],
+    mediaPaths: [
+      { label: "Cover Path", path: video.coverPath },
+      { label: "Media Path", path: video.mediaPath },
+    ],
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(video.updatedAt) },
