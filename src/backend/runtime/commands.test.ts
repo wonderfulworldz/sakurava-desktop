@@ -52,6 +52,8 @@ describe("repository runtime command invoker", () => {
       categoriesJson: '["Favorite","Runtime"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
       ratingJson: '{"rewatch":4}',
     });
 
@@ -61,6 +63,8 @@ describe("repository runtime command invoker", () => {
       categoriesJson: '["Favorite","Runtime"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
       ratingJson: '{"rewatch":4}',
       favorite: false,
     });
@@ -69,13 +73,20 @@ describe("repository runtime command invoker", () => {
 
     const updated = await invoker.invoke("video_update", {
       id: created.id,
-      patch: { title: "Updated Runtime Video", favorite: true },
+      patch: {
+        title: "Updated Runtime Video",
+        favorite: true,
+        relatedImagesJson:
+          '[{"recordId":"image-2","titleSnapshot":"Image Two"}]',
+      },
     });
 
     expect(updated).toMatchObject({
       id: created.id,
       title: "Updated Runtime Video",
       favorite: true,
+      relatedImagesJson:
+        '[{"recordId":"image-2","titleSnapshot":"Image Two"}]',
     });
 
     expect(await invoker.invoke("video_delete", { id: created.id })).toEqual({
@@ -96,6 +107,8 @@ describe("repository runtime command invoker", () => {
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedVideosJson:
+        '[{"recordId":"video-1","titleSnapshot":"Video One"}]',
       ratingJson: '{"visual":5}',
     });
 
@@ -106,19 +119,28 @@ describe("repository runtime command invoker", () => {
       categoriesJson: '["Pictorial"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedVideosJson:
+        '[{"recordId":"video-1","titleSnapshot":"Video One"}]',
       ratingJson: '{"visual":5}',
     });
     expect(await invoker.invoke("image_list", undefined)).toEqual([created]);
 
     const updated = await invoker.invoke("image_update", {
       id: created.id,
-      patch: { imageCount: null, categoriesJson: '["Updated Image"]' },
+      patch: {
+        imageCount: null,
+        categoriesJson: '["Updated Image"]',
+        relatedVideosJson:
+          '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
+      },
     });
 
     expect(updated).toMatchObject({
       id: created.id,
       imageCount: null,
       categoriesJson: '["Updated Image"]',
+      relatedVideosJson:
+        '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
     });
     expect(await invoker.invoke("image_delete", { id: created.id })).toEqual({
       id: created.id,

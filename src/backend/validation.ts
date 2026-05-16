@@ -1,6 +1,7 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultRelatedCatalogRecordsJson,
   defaultRelatedPerformersJson,
   defaultRatingJson,
 } from "./json";
@@ -79,6 +80,7 @@ export function normalizeVideoDefaults(video: NewVideo): NewVideo {
     relatedPerformersJson: defaultRelatedPerformersJson(
       video.relatedPerformersJson,
     ),
+    relatedImagesJson: defaultRelatedCatalogRecordsJson(video.relatedImagesJson),
     ratingJson: defaultRatingJson(video.ratingJson),
     notes: video.notes ?? "",
     favorite: video.favorite ?? false,
@@ -102,6 +104,7 @@ export function normalizeImageDefaults(image: NewImage): NewImage {
     relatedPerformersJson: defaultRelatedPerformersJson(
       image.relatedPerformersJson,
     ),
+    relatedVideosJson: defaultRelatedCatalogRecordsJson(image.relatedVideosJson),
     ratingJson: defaultRatingJson(image.ratingJson),
     notes: image.notes ?? "",
     favorite: image.favorite ?? false,

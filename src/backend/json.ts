@@ -6,6 +6,11 @@ export type RelatedPerformerReference = {
   nameSnapshot: string;
 };
 
+export type RelatedCatalogRecordReference = {
+  recordId: string;
+  titleSnapshot: string;
+};
+
 export function safeParseJson(value: string | null | undefined): unknown {
   if (!value) {
     return undefined;
@@ -87,6 +92,53 @@ export function normalizeRelatedPerformersJson(
   return JSON.stringify(parseRelatedPerformerArray(value));
 }
 
+export function parseRelatedCatalogRecordArray(
+  value: string | null | undefined,
+): RelatedCatalogRecordReference[] {
+  const parsed = safeParseJson(value);
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const references: RelatedCatalogRecordReference[] = [];
+
+  for (const item of parsed) {
+    if (!item || Array.isArray(item) || typeof item !== "object") {
+      continue;
+    }
+
+    const record = item as Record<string, unknown>;
+    const recordId =
+      typeof record.recordId === "string" ? record.recordId.trim() : "";
+    const titleSnapshot =
+      typeof record.titleSnapshot === "string"
+        ? record.titleSnapshot.trim()
+        : "";
+
+    if (!recordId && !titleSnapshot) {
+      continue;
+    }
+
+    const key = recordId || titleSnapshot.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    references.push({ recordId, titleSnapshot });
+  }
+
+  return references;
+}
+
+export function normalizeRelatedCatalogRecordsJson(
+  value: string | null | undefined,
+): string {
+  return JSON.stringify(parseRelatedCatalogRecordArray(value));
+}
+
 export function parseRatingObject(
   value: string | null | undefined,
 ): Record<string, unknown> {
@@ -117,4 +169,8 @@ export function defaultRatingJson(value?: string | null): string {
 
 export function defaultRelatedPerformersJson(value?: string | null): string {
   return value ? normalizeRelatedPerformersJson(value) : EMPTY_ARRAY_JSON;
+}
+
+export function defaultRelatedCatalogRecordsJson(value?: string | null): string {
+  return value ? normalizeRelatedCatalogRecordsJson(value) : EMPTY_ARRAY_JSON;
 }

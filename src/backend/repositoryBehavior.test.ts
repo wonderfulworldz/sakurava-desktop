@@ -31,6 +31,8 @@ const baseVideo = {
   categoriesJson: '["Favorite","Classic"]',
   relatedPerformersJson:
     '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+  relatedImagesJson:
+    '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
   ratingJson: '{"rewatch":4,"visual":5}',
   notes: "",
   favorite: false,
@@ -50,6 +52,8 @@ const baseImage = {
   categoriesJson: '["Pictorial","Favorite"]',
   relatedPerformersJson:
     '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+  relatedVideosJson:
+    '[{"recordId":"video-1","titleSnapshot":"Video One"}]',
   ratingJson: '{"memorability":4,"visual":5}',
   notes: "",
   favorite: false,
@@ -98,6 +102,8 @@ describe("video repository behavior", () => {
       favorite: false,
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-1","titleSnapshot":"Image One"}]',
       createdAt: "2026-05-11T00:00:00.000Z",
       updatedAt: "2026-05-11T00:00:00.000Z",
     });
@@ -119,6 +125,8 @@ describe("video repository behavior", () => {
       categoriesJson: '["Updated Label"]',
       relatedPerformersJson:
         '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-2","titleSnapshot":"Image Two"}]',
       ratingJson: "{bad json",
       favorite: true,
     });
@@ -132,6 +140,8 @@ describe("video repository behavior", () => {
       categoriesJson: '["Updated Label"]',
       relatedPerformersJson:
         '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
+      relatedImagesJson:
+        '[{"recordId":"image-2","titleSnapshot":"Image Two"}]',
       ratingJson: "{}",
     });
 
@@ -158,6 +168,43 @@ describe("video repository behavior", () => {
   });
 });
 
+describe("related Video/Image storage behavior", () => {
+  it("does not mutate target records when saving current record relations", async () => {
+    const repositories = createInMemoryRepositories(
+      clock(
+        "2026-05-11T03:00:00.000Z",
+        "2026-05-11T03:01:00.000Z",
+        "2026-05-11T03:02:00.000Z",
+        "2026-05-11T03:03:00.000Z",
+      ),
+    );
+
+    const image = await repositories.images.create({
+      ...baseImage,
+      relatedVideosJson: "[]",
+    });
+    const video = await repositories.videos.create({
+      ...baseVideo,
+      relatedImagesJson: "[]",
+    });
+
+    await repositories.videos.update(video.id, {
+      relatedImagesJson: `[{"recordId":"${image.id}","titleSnapshot":"${image.title}"}]`,
+    });
+
+    expect(await repositories.images.getById(image.id)).toEqual(image);
+
+    await repositories.images.update(image.id, {
+      relatedVideosJson: `[{"recordId":"${video.id}","titleSnapshot":"${video.title}"}]`,
+    });
+
+    const videoAfterImageSave = await repositories.videos.getById(video.id);
+    expect(videoAfterImageSave?.relatedImagesJson).toBe(
+      `[{"recordId":"${image.id}","titleSnapshot":"${image.title}"}]`,
+    );
+  });
+});
+
 describe("image repository behavior", () => {
   it("creates, lists, gets, updates, counts, and deletes images", async () => {
     const repository = createInMemoryImageRepository(
@@ -173,6 +220,8 @@ describe("image repository behavior", () => {
       imageCount: 24,
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+      relatedVideosJson:
+        '[{"recordId":"video-1","titleSnapshot":"Video One"}]',
       createdAt: "2026-05-11T01:00:00.000Z",
       updatedAt: "2026-05-11T01:00:00.000Z",
     });
@@ -194,6 +243,8 @@ describe("image repository behavior", () => {
       imageCount: null,
       categoriesJson: '["Updated Image Label"]',
       relatedPerformersJson: "{bad json",
+      relatedVideosJson:
+        '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
       ratingJson: "",
       favorite: true,
     });
@@ -205,6 +256,8 @@ describe("image repository behavior", () => {
       imageCount: null,
       categoriesJson: '["Updated Image Label"]',
       relatedPerformersJson: "[]",
+      relatedVideosJson:
+        '[{"recordId":"video-2","titleSnapshot":"Video Two"}]',
       ratingJson: "{}",
       createdAt: "2026-05-11T01:00:00.000Z",
       updatedAt: "2026-05-11T01:01:00.000Z",
