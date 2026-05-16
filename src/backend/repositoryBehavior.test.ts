@@ -2,7 +2,11 @@ import {
   RepositoryRecordNotFoundError,
   RepositoryValidationError,
 } from "./repositories";
-import { parseRatingObject, parseTextLabelArray } from "./json";
+import {
+  parsePerformerThumbnailPathArray,
+  parseRatingObject,
+  parseTextLabelArray,
+} from "./json";
 import type { NewImage, NewPerformer, NewVideo } from "./types";
 import {
   createInMemoryImageRepository,
@@ -66,6 +70,7 @@ const basePerformer = {
   status: "",
   birthDate: "",
   coverPath: "",
+  performerThumbnailPathsJson: '["D:/thumbs/one.jpg","D:/thumbs/two.jpg"]',
   filmographyCount: null,
   pictorialsCount: null,
   categoriesJson: '["Featured","Classic"]',
@@ -292,6 +297,8 @@ describe("performer repository behavior", () => {
       id: "performer-1",
       name: "Sample Performer",
       favorite: false,
+      performerThumbnailPathsJson:
+        '["D:/thumbs/one.jpg","D:/thumbs/two.jpg"]',
       createdAt: "2026-05-11T02:00:00.000Z",
       updatedAt: "2026-05-11T02:00:00.000Z",
     });
@@ -304,6 +311,9 @@ describe("performer repository behavior", () => {
       "Classic",
     ]);
     expect(parseRatingObject(created.ratingJson)).toEqual({ visual: 5 });
+    expect(
+      parsePerformerThumbnailPathArray(created.performerThumbnailPathsJson),
+    ).toEqual(["D:/thumbs/one.jpg", "D:/thumbs/two.jpg"]);
 
     expect(await repository.list()).toEqual([created]);
     expect(await repository.getById(created.id)).toEqual(created);
@@ -312,6 +322,8 @@ describe("performer repository behavior", () => {
     const updated = await repository.update(created.id, {
       name: "Updated Performer",
       aliasesJson: '["Updated Alias"]',
+      performerThumbnailPathsJson:
+        '[" D:/thumbs/three.jpg ","","D:/thumbs/three.jpg","D:/thumbs/four.jpg","D:/thumbs/five.jpg","D:/thumbs/six.jpg","D:/thumbs/seven.jpg"]',
       categoriesJson: '["Updated Performer Label"]',
       ratingJson: "{bad json",
       favorite: true,
@@ -324,6 +336,8 @@ describe("performer repository behavior", () => {
       name: "Updated Performer",
       favorite: true,
       aliasesJson: '["Updated Alias"]',
+      performerThumbnailPathsJson:
+        '["D:/thumbs/three.jpg","D:/thumbs/four.jpg","D:/thumbs/five.jpg","D:/thumbs/six.jpg"]',
       categoriesJson: '["Updated Performer Label"]',
       ratingJson: "{}",
       filmographyCount: 10,

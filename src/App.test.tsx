@@ -4609,6 +4609,7 @@ function persistedPerformer(overrides: Record<string, unknown> = {}) {
     status: "Active",
     birthDate: "2026-05-11",
     coverPath: "",
+    performerThumbnailPathsJson: "[]",
     filmographyCount: 12,
     pictorialsCount: 8,
     categoriesJson: '["Classic"]',

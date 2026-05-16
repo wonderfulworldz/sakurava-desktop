@@ -1,10 +1,12 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultPerformerThumbnailPathsJson,
   defaultRelatedCatalogRecordsJson,
   defaultRelatedPerformersJson,
   defaultRatingJson,
   normalizeRatingJson,
+  parsePerformerThumbnailPathArray,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseRatingObject,
@@ -66,6 +68,7 @@ const basePerformer = {
   status: "",
   birthDate: "",
   coverPath: "",
+  performerThumbnailPathsJson: "",
   filmographyCount: null,
   pictorialsCount: null,
   categoriesJson: "",
@@ -93,11 +96,27 @@ describe("JSON helpers", () => {
   it("normalizes empty or invalid JSON defaults", () => {
     expect(defaultCategoriesJson()).toBe("[]");
     expect(defaultAliasesJson("{bad json")).toBe("[]");
+    expect(defaultPerformerThumbnailPathsJson("{bad json")).toBe("[]");
     expect(defaultRelatedPerformersJson("{bad json")).toBe("[]");
     expect(defaultRelatedCatalogRecordsJson("{bad json")).toBe("[]");
     expect(defaultRatingJson("[1,2,3]")).toBe("{}");
     expect(normalizeRatingJson('{"visual":5}')).toBe('{"visual":5}');
     expect(parseRatingObject("{bad json")).toEqual({});
+  });
+
+  it("normalizes performer thumbnail paths safely", () => {
+    const json =
+      '[" C:/thumb-1.jpg ","","C:/thumb-2.jpg","C:/thumb-1.jpg",7,"C:/thumb-3.jpg","C:/thumb-4.jpg","C:/thumb-5.jpg"]';
+
+    expect(parsePerformerThumbnailPathArray(json)).toEqual([
+      "C:/thumb-1.jpg",
+      "C:/thumb-2.jpg",
+      "C:/thumb-3.jpg",
+      "C:/thumb-4.jpg",
+    ]);
+    expect(defaultPerformerThumbnailPathsJson(json)).toBe(
+      '["C:/thumb-1.jpg","C:/thumb-2.jpg","C:/thumb-3.jpg","C:/thumb-4.jpg"]',
+    );
   });
 
   it("normalizes related performer references safely", () => {
@@ -228,12 +247,16 @@ describe("default normalization", () => {
       normalizePerformerDefaults({
         ...basePerformer,
         aliasesJson: '["Alias A","Alias B"]',
+        performerThumbnailPathsJson:
+          '[" C:/thumb-1.jpg ","","C:/thumb-2.jpg","C:/thumb-1.jpg","C:/thumb-3.jpg","C:/thumb-4.jpg","C:/thumb-5.jpg"]',
         categoriesJson: '["Classic"]',
         ratingJson: "{bad json",
       }),
     ).toMatchObject({
       name: "Sample Performer",
       aliasesJson: '["Alias A","Alias B"]',
+      performerThumbnailPathsJson:
+        '["C:/thumb-1.jpg","C:/thumb-2.jpg","C:/thumb-3.jpg","C:/thumb-4.jpg"]',
       categoriesJson: '["Classic"]',
       ratingJson: "{}",
       filmographyCount: null,

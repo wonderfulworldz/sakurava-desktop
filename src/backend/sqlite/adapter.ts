@@ -248,6 +248,7 @@ const PERFORMER_COLUMNS = [
   "status",
   "birthDate",
   "coverPath",
+  "performerThumbnailPathsJson",
   "filmographyCount",
   "pictorialsCount",
   "categoriesJson",
@@ -320,6 +321,9 @@ function mapPerformerRow(row: SqliteRow): Performer {
       status: String(row.status ?? "") as Performer["status"],
       birthDate: String(row.birthDate ?? ""),
       coverPath: String(row.coverPath ?? ""),
+      performerThumbnailPathsJson: String(
+        row.performerThumbnailPathsJson ?? "[]",
+      ),
       filmographyCount:
         row.filmographyCount === null ? null : Number(row.filmographyCount),
       pictorialsCount:

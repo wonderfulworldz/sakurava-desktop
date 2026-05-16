@@ -1,6 +1,7 @@
 import {
   defaultAliasesJson,
   defaultCategoriesJson,
+  defaultPerformerThumbnailPathsJson,
   defaultRelatedCatalogRecordsJson,
   defaultRelatedPerformersJson,
   defaultRatingJson,
@@ -120,6 +121,9 @@ export function normalizePerformerDefaults(performer: NewPerformer): NewPerforme
     status: performer.status ?? "",
     birthDate: performer.birthDate ?? "",
     coverPath: performer.coverPath ?? "",
+    performerThumbnailPathsJson: defaultPerformerThumbnailPathsJson(
+      performer.performerThumbnailPathsJson,
+    ),
     filmographyCount: performer.filmographyCount ?? null,
     pictorialsCount: performer.pictorialsCount ?? null,
     categoriesJson: defaultCategoriesJson(performer.categoriesJson),

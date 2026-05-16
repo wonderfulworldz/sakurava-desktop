@@ -303,6 +303,8 @@ describe("SQLite repository adapter foundation", () => {
     const created = await repository.create({
       name: "Performer Name",
       aliasesJson: '["Alias A","Alias B"]',
+      performerThumbnailPathsJson:
+        '[" D:/thumbs/one.jpg ","","D:/thumbs/two.jpg","D:/thumbs/one.jpg","D:/thumbs/three.jpg","D:/thumbs/four.jpg","D:/thumbs/five.jpg"]',
       categoriesJson: '["Featured"]',
       ratingJson: '{"visual":5}',
     });
@@ -310,6 +312,8 @@ describe("SQLite repository adapter foundation", () => {
     expect(created).toMatchObject({
       id: "performer-id",
       aliasesJson: '["Alias A","Alias B"]',
+      performerThumbnailPathsJson:
+        '["D:/thumbs/one.jpg","D:/thumbs/two.jpg","D:/thumbs/three.jpg","D:/thumbs/four.jpg"]',
       categoriesJson: '["Featured"]',
       ratingJson: '{"visual":5}',
       favorite: false,
@@ -317,6 +321,7 @@ describe("SQLite repository adapter foundation", () => {
 
     const updated = await repository.update("performer-id", {
       aliasesJson: "{bad json",
+      performerThumbnailPathsJson: "{bad json",
       categoriesJson: '["Updated Performer"]',
       ratingJson: "{bad json",
       favorite: true,
@@ -324,6 +329,7 @@ describe("SQLite repository adapter foundation", () => {
 
     expect(updated).toMatchObject({
       aliasesJson: "[]",
+      performerThumbnailPathsJson: "[]",
       categoriesJson: '["Updated Performer"]',
       ratingJson: "{}",
       favorite: true,

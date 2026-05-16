@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS performers (
   status TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
   coverPath TEXT NOT NULL DEFAULT '',
+  performerThumbnailPathsJson TEXT NOT NULL DEFAULT '[]',
   filmographyCount INTEGER,
   pictorialsCount INTEGER,
   categoriesJson TEXT NOT NULL DEFAULT '[]',
@@ -145,6 +146,12 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_text_json_column(connection, "videos", "relatedImagesJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedVideosJson", "[]")?;
+    ensure_text_json_column(
+        connection,
+        "performers",
+        "performerThumbnailPathsJson",
+        "[]",
+    )?;
 
     Ok(())
 }
@@ -438,6 +445,14 @@ mod tests {
                   createdAt TEXT NOT NULL,
                   updatedAt TEXT NOT NULL
                 );
+                CREATE TABLE performers (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  name TEXT NOT NULL,
+                  aliasesJson TEXT NOT NULL DEFAULT '[]',
+                  categoriesJson TEXT NOT NULL DEFAULT '[]',
+                  createdAt TEXT NOT NULL,
+                  updatedAt TEXT NOT NULL
+                );
                 "#,
             )
             .expect("legacy tables");
@@ -456,6 +471,11 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "images", "relatedVideosJson"));
+        assert!(table_has_column(
+            &connection,
+            "performers",
+            "performerThumbnailPathsJson"
+        ));
     }
 
     #[test]
