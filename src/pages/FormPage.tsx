@@ -20,10 +20,12 @@ import { getStoredManagedCategories } from "../lib/managedCategories";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
 import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
 import {
+  selectGalleryFolder,
   selectLocalFolder,
   selectLocalImageFile,
   selectLocalMediaFile,
 } from "../runtime/dialogCommands";
+import { listGalleryFolderImages } from "../runtime/galleryFolderCommands";
 import {
   isPerformerRuntimeAvailable,
   listPerformers,
@@ -87,6 +89,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     useState<RelatedCatalogLoadState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
+  const [galleryFolderMessage, setGalleryFolderMessage] = useState("");
   const canBrowsePaths = isTauriRuntimeAvailable();
   const supportsRelatedPerformerPicker =
     config.kind === "videos" || config.kind === "images";
@@ -103,6 +106,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
+    setGalleryFolderMessage("");
   }, [config, mode]);
 
   useEffect(() => {
@@ -258,6 +262,39 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     }
   }
 
+  async function browseGalleryFolder() {
+    if (!canBrowsePaths) {
+      return;
+    }
+
+    try {
+      if (
+        galleryImagePaths.length > 0 &&
+        !window.confirm("Replace current Gallery Images path rows?")
+      ) {
+        return;
+      }
+
+      const selectedFolder = await selectGalleryFolder();
+      if (!selectedFolder) {
+        return;
+      }
+
+      const result = await listGalleryFolderImages(selectedFolder);
+      setGalleryImagePaths(result.imagePaths);
+      setSaveState("idle");
+      setGalleryFolderMessage(
+        result.imagePaths.length === 0
+          ? "No supported image files found in the selected folder."
+          : `Loaded ${result.imagePaths.length} Gallery Images path row${
+              result.imagePaths.length === 1 ? "" : "s"
+            }.`,
+      );
+    } catch {
+      setGalleryFolderMessage("Unable to read the selected gallery folder.");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const requiredValue = values[config.requiredField];
@@ -381,6 +418,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           browsePath={browsePath}
           galleryImagePaths={galleryImagePaths}
           setGalleryImagePaths={setGalleryImagePaths}
+          galleryFolderMessage={galleryFolderMessage}
+          canBrowseGalleryFolder={canBrowsePaths}
+          onBrowseGalleryFolder={browseGalleryFolder}
         />
       )}
 
@@ -534,6 +574,9 @@ function CatalogExtraSections({
   browsePath,
   galleryImagePaths,
   setGalleryImagePaths,
+  galleryFolderMessage,
+  canBrowseGalleryFolder,
+  onBrowseGalleryFolder,
 }: {
   config: FormConfig;
   values: FormValues;
@@ -545,6 +588,9 @@ function CatalogExtraSections({
   browsePath: (field: TextField) => void;
   galleryImagePaths: string[];
   setGalleryImagePaths: Dispatch<SetStateAction<string[]>>;
+  galleryFolderMessage: string;
+  canBrowseGalleryFolder: boolean;
+  onBrowseGalleryFolder: () => void;
 }) {
   const pathTitle =
     config.kind === "images" ? "Cover & Folder Path" : "Cover & File Path";
@@ -604,6 +650,9 @@ function CatalogExtraSections({
           <GalleryImagePathRows
             paths={galleryImagePaths}
             onChange={setGalleryImagePaths}
+            folderMessage={galleryFolderMessage}
+            browseFolderDisabled={!canBrowseGalleryFolder}
+            onBrowseFolder={onBrowseGalleryFolder}
           />
         </FormSection>
       )}
@@ -854,9 +903,15 @@ function PathInput({
 function GalleryImagePathRows({
   paths,
   onChange,
+  folderMessage,
+  browseFolderDisabled,
+  onBrowseFolder,
 }: {
   paths: string[];
   onChange: Dispatch<SetStateAction<string[]>>;
+  folderMessage: string;
+  browseFolderDisabled: boolean;
+  onBrowseFolder: () => void;
 }) {
   function updatePath(index: number, value: string) {
     onChange((current) =>
@@ -884,8 +939,13 @@ function GalleryImagePathRows({
   return (
     <div className="grid gap-3">
       <p className="text-xs font-medium text-slate-500">
-        Add explicit local image paths. Empty and duplicate rows are cleaned on save.
+        Browse one gallery folder or add explicit local image paths. Folder results replace current rows.
       </p>
+      {folderMessage && (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+          {folderMessage}
+        </p>
+      )}
       <div className="grid gap-2">
         {paths.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-500">
@@ -916,6 +976,18 @@ function GalleryImagePathRows({
         )}
       </div>
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={browseFolderDisabled}
+          className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
+            browseFolderDisabled
+              ? "border-slate-200 bg-slate-100 text-slate-400"
+              : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100"
+          }`}
+          onClick={onBrowseFolder}
+        >
+          Browse Gallery Folder
+        </button>
         <button
           type="button"
           className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-sm font-semibold text-sakura-600 hover:bg-sakura-100"

@@ -117,7 +117,9 @@ For category-related work, also inspect:
 - Image Create/Edit forms use structured `Gallery Images` path rows, not raw JSON.
 - Gallery path normalization should trim, remove empty paths, dedupe within one Image record, and preserve first occurrence order.
 - Invalid or missing `galleryImagePathsJson` should parse as an empty array.
-- Native multi-image picker, folder picker/read, Image Detail gallery grid, and gallery next/back remain future work unless explicitly requested.
+- Gallery folder picker/direct read is implemented after Batch 25.4. It reads only direct files from one explicitly selected folder, filters `.jpg`, `.jpeg`, `.png`, `.webp`, and `.gif` case-insensitively, replaces Gallery Images rows, and does not scan child folders.
+- Native multi-image picker remains intentionally unimplemented unless explicitly requested.
+- Image Detail gallery grid and gallery next/back remain future work unless explicitly requested.
 
 ## Preferred Batch Prompt Format
 

@@ -4418,6 +4418,140 @@ describe("App", () => {
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
   });
 
+  it("replaces image Gallery Images rows from a browsed gallery folder", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue("C:/GalleryFolder");
+    const created = persistedImage({
+      title: "Folder Gallery Image",
+      galleryImagePathsJson:
+        '["C:/GalleryFolder/a.JPG","C:/GalleryFolder/b.png","C:/GalleryFolder/c.webp"]',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "gallery_folder_images_list") {
+          expect(args.folderPath).toBe("C:/GalleryFolder");
+          return {
+            folderPath: "C:/GalleryFolder",
+            imagePaths: [
+              "C:/GalleryFolder/a.JPG",
+              "C:/GalleryFolder/b.png",
+              "C:/GalleryFolder/c.webp",
+            ],
+          };
+        }
+        if (command === "image_create") {
+          expect(args.input.title).toBe("Folder Gallery Image");
+          expect(args.input.galleryImagePathsJson).toBe(
+            '["C:/GalleryFolder/a.JPG","C:/GalleryFolder/b.png","C:/GalleryFolder/c.webp"]',
+          );
+          return created;
+        }
+        if (command === "image_get") {
+          return created;
+        }
+        if (command === "performer_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(
+      screen.queryByRole("button", { name: /add images/i }),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Folder Gallery Image" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Browse Gallery Folder" }),
+    );
+
+    expect(
+      await screen.findByDisplayValue("C:/GalleryFolder/a.JPG"),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("C:/GalleryFolder/b.png")).toBeInTheDocument();
+    expect(
+      screen.getByText("Loaded 3 Gallery Images path rows."),
+    ).toBeInTheDocument();
+    expect(dialogMocks.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Browse Gallery Folder",
+        multiple: false,
+        directory: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Folder Gallery Image")).toBeInTheDocument();
+  });
+
+  it("confirms before replacing existing image Gallery Images rows from a folder", async () => {
+    window.history.pushState({}, "", "/images/image_test_001/edit");
+    dialogMocks.open.mockResolvedValue("C:/Replacement");
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const existing = persistedImage({
+      title: "Existing Gallery Image",
+      galleryImagePathsJson: '["C:/Old/one.jpg"]',
+    });
+    const updated = persistedImage({
+      title: "Existing Gallery Image",
+      galleryImagePathsJson: '["C:/Replacement/new.gif"]',
+    });
+    let currentImage = existing;
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "image_get") {
+          return currentImage;
+        }
+        if (command === "gallery_folder_images_list") {
+          expect(args.folderPath).toBe("C:/Replacement");
+          return {
+            folderPath: "C:/Replacement",
+            imagePaths: ["C:/Replacement/new.gif"],
+          };
+        }
+        if (command === "image_update") {
+          expect(args.patch.galleryImagePathsJson).toBe(
+            '["C:/Replacement/new.gif"]',
+          );
+          currentImage = updated;
+          return updated;
+        }
+        if (command === "performer_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("C:/Old/one.jpg")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Browse Gallery Folder" }),
+    );
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Replace current Gallery Images path rows?",
+    );
+    expect(
+      await screen.findByDisplayValue("C:/Replacement/new.gif"),
+    ).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("C:/Old/one.jpg")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Existing Gallery Image")).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
   it("loads and updates an image through Tauri commands", async () => {
     window.history.pushState({}, "", "/images/image_test_001/edit");
     setManagedCategories(["Updated"]);

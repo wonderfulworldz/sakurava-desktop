@@ -256,6 +256,13 @@ pub struct MediaOpenResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GalleryFolderImagesResult {
+    pub folder_path: String,
+    pub image_paths: Vec<String>,
+}
+
 #[tauri::command]
 pub fn database_backup(
     database: State<'_, RuntimeDatabase>,
@@ -423,6 +430,13 @@ pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
     })
 }
 
+#[tauri::command]
+pub fn gallery_folder_images_list(
+    folder_path: String,
+) -> Result<GalleryFolderImagesResult, String> {
+    list_gallery_folder_images(&folder_path)
+}
+
 fn with_connection<T>(
     database: &RuntimeDatabase,
     action: impl FnOnce(&Connection) -> Result<T, String>,
@@ -450,9 +464,7 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
         cover_path: default_text(input.cover_path),
         media_path: default_text(input.media_path),
         categories_json: normalize_string_array_json(input.categories_json),
-        related_performers_json: normalize_related_performers_json(
-            input.related_performers_json,
-        ),
+        related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_images_json: normalize_related_catalog_records_json(input.related_images_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
@@ -612,9 +624,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
             input.gallery_image_paths_json,
         ),
         categories_json: normalize_string_array_json(input.categories_json),
-        related_performers_json: normalize_related_performers_json(
-            input.related_performers_json,
-        ),
+        related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
@@ -1241,6 +1251,70 @@ fn normalize_gallery_image_paths_json(value: Option<String>) -> String {
     serde_json::to_string(&paths).unwrap_or_else(|_| "[]".to_string())
 }
 
+fn list_gallery_folder_images(folder_path: &str) -> Result<GalleryFolderImagesResult, String> {
+    let folder_path = folder_path.trim();
+    if folder_path.is_empty() {
+        return Err("Gallery folder is required".to_string());
+    }
+
+    let folder = PathBuf::from(folder_path);
+    if !folder.is_dir() {
+        return Err("Gallery folder could not be read".to_string());
+    }
+
+    let entries =
+        fs::read_dir(&folder).map_err(|_| "Gallery folder could not be read".to_string())?;
+    let mut image_paths = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let file_type = entry.file_type().ok()?;
+            if !file_type.is_file() {
+                return None;
+            }
+
+            let path = entry.path();
+            if !is_supported_gallery_image_path(&path) {
+                return None;
+            }
+
+            Some(path)
+        })
+        .collect::<Vec<_>>();
+
+    image_paths.sort_by(|left, right| {
+        let left_name = left
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_lowercase();
+        let right_name = right
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_lowercase();
+
+        left_name.cmp(&right_name)
+    });
+
+    Ok(GalleryFolderImagesResult {
+        folder_path: folder.display().to_string(),
+        image_paths: image_paths
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    })
+}
+
+fn is_supported_gallery_image_path(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_lowercase)
+            .as_deref(),
+        Some("jpg" | "jpeg" | "png" | "webp" | "gif")
+    )
+}
+
 fn normalize_object_json(value: Option<String>) -> String {
     let Some(value) = value else {
         return "{}".to_string();
@@ -1516,8 +1590,7 @@ mod tests {
                 ),
                 categories_json: Some(r#"["Portrait","Set"]"#.to_string()),
                 related_performers_json: Some(
-                    r#"[{"performerId":"performer-1","nameSnapshot":"Performer One"}]"#
-                        .to_string(),
+                    r#"[{"performerId":"performer-1","nameSnapshot":"Performer One"}]"#.to_string(),
                 ),
                 related_videos_json: Some(
                     r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#.to_string(),
@@ -1569,8 +1642,7 @@ mod tests {
                 gallery_image_paths_json: Some("{}".to_string()),
                 categories_json: Some("{}".to_string()),
                 related_performers_json: Some(
-                    r#"[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]"#
-                        .to_string(),
+                    r#"[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]"#.to_string(),
                 ),
                 related_videos_json: Some("invalid".to_string()),
                 rating_json: Some(r#"{"quality":"high"}"#.to_string()),
@@ -1599,6 +1671,59 @@ mod tests {
         assert!(get_image(&connection, &created.id)
             .expect("missing image")
             .is_none());
+    }
+
+    #[test]
+    fn gallery_folder_images_list_reads_direct_supported_images_only() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-gallery-folder-test-{}",
+            std::process::id()
+        ));
+        let child_folder = temp_root.join("child");
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&child_folder).expect("create gallery folder");
+
+        for file_name in ["b.PNG", "a.jpg", "c.JPEG", "d.webp", "e.GIF", "ignore.txt"] {
+            std::fs::write(temp_root.join(file_name), "not read").expect("write direct file");
+        }
+        std::fs::write(child_folder.join("nested.jpg"), "not read").expect("write nested file");
+
+        let result = list_gallery_folder_images(temp_root.to_string_lossy().as_ref())
+            .expect("list gallery folder images");
+
+        let file_names = result
+            .image_paths
+            .iter()
+            .map(|path| {
+                PathBuf::from(path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default()
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            file_names,
+            vec!["a.jpg", "b.PNG", "c.JPEG", "d.webp", "e.GIF"]
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn gallery_folder_images_list_rejects_missing_folder_safely() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "sakurava-gallery-folder-missing-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&missing_path);
+
+        assert_eq!(
+            list_gallery_folder_images(missing_path.to_string_lossy().as_ref())
+                .expect_err("missing folder should fail"),
+            "Gallery folder could not be read"
+        );
     }
 
     #[test]
@@ -1707,10 +1832,8 @@ mod tests {
             "Media asset root path is required"
         );
 
-        let temp_root = std::env::temp_dir().join(format!(
-            "sakurava-media-root-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-media-root-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp_root);
         std::fs::create_dir_all(&temp_root).expect("create media root");
 
