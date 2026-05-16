@@ -59,7 +59,7 @@ export function buildVideoDetailConfig(
     ],
     mediaPaths: [
       { label: "Cover Path", path: video.coverPath },
-      { label: "Media Path", path: video.mediaPath },
+      { label: "Media Path", path: video.mediaPath, playable: true },
     ],
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },

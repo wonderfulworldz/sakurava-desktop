@@ -9,6 +9,7 @@ import {
   Heart,
   Image as ImageIcon,
   Info,
+  Play,
   Ruler,
   Star,
   Trash2,
@@ -23,6 +24,7 @@ import type {
   PerformerDetailConfig,
 } from "../lib/detailData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import {
   checkPathStatus,
@@ -417,12 +419,19 @@ function RowsCard({
 
 type PathStatusState = PathStatusResult & {
   label: string;
+  playable?: boolean;
 };
 
 function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
   const [statuses, setStatuses] = useState<PathStatusState[]>(() =>
     initialPathStatuses(items),
   );
+  const [openingLabel, setOpeningLabel] = useState<string | null>(null);
+  const [playFeedback, setPlayFeedback] = useState<{
+    label: string;
+    message: string;
+    tone: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -431,6 +440,7 @@ function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
     Promise.all(
       items.map(async (item) => ({
         label: item.label,
+        playable: item.playable,
         ...(await checkPathStatus(item.path)),
       })),
     ).then((results) => {
@@ -443,6 +453,34 @@ function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
       cancelled = true;
     };
   }, [items]);
+
+  async function handlePlay(status: PathStatusState) {
+    if (status.status !== "exists" || openingLabel) {
+      return;
+    }
+
+    setOpeningLabel(status.label);
+    setPlayFeedback(null);
+
+    try {
+      const result = await openMediaPath(status.path);
+      setPlayFeedback({
+        label: status.label,
+        message: result.opened
+          ? "Opening with default app."
+          : result.message || "Media file could not be opened.",
+        tone: result.opened ? "success" : "error",
+      });
+    } catch {
+      setPlayFeedback({
+        label: status.label,
+        message: "Media file could not be opened.",
+        tone: "error",
+      });
+    } finally {
+      setOpeningLabel(null);
+    }
+  }
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -472,6 +510,30 @@ function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
               {status.message && status.message !== display.detail && (
                 <p className="mt-1 text-xs text-slate-400">{status.message}</p>
               )}
+              {status.playable && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePlay(status)}
+                    disabled={status.status !== "exists" || openingLabel !== null}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Play size={14} fill="currentColor" />
+                    {openingLabel === status.label ? "Opening..." : "Play"}
+                  </button>
+                  {playFeedback?.label === status.label && (
+                    <span
+                      className={`text-xs font-medium ${
+                        playFeedback.tone === "success"
+                          ? "text-emerald-700"
+                          : "text-rose-700"
+                      }`}
+                    >
+                      {playFeedback.message}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -484,6 +546,7 @@ function initialPathStatuses(items: MediaPathItem[]): PathStatusState[] {
   return items.map((item) => ({
     label: item.label,
     path: item.path.trim(),
+    playable: item.playable,
     status: item.path.trim() ? "unknown" : "notSet",
     kind: "unknown",
     message: item.path.trim() ? "Not checked" : "Path is not set",

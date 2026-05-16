@@ -35,6 +35,7 @@ type MetadataItem = {
 export type MediaPathItem = {
   label: string;
   path: string;
+  playable?: boolean;
 };
 
 type BaseDetailConfig = {
@@ -143,7 +144,11 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     ],
     mediaPaths: [
       { label: "Cover Path", path: "Manual cover path placeholder" },
-      { label: "Media Path", path: "Manual media path placeholder" },
+      {
+        label: "Media Path",
+        path: "Manual media path placeholder",
+        playable: true,
+      },
     ],
     systemInfo: [
       { label: "Created in Sakurava", value: "Preview only" },
