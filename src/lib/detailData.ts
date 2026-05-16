@@ -9,10 +9,17 @@ export type RelatedPerformerDetailItem = {
   unresolved: boolean;
 };
 
+export type RelatedCatalogDetailItem = {
+  title: string;
+  originalTitle?: string;
+  unresolved: boolean;
+};
+
 export type DetailSection = {
   title: string;
   description: string;
   relatedPerformers?: RelatedPerformerDetailItem[];
+  relatedCatalogRecords?: RelatedCatalogDetailItem[];
 };
 
 type RatingAxis = {

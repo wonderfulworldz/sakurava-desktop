@@ -1,4 +1,4 @@
-import type { NewVideo, Performer, Video, VideoPatch } from "../backend/types";
+import type { Image, NewVideo, Performer, Video, VideoPatch } from "../backend/types";
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
@@ -36,6 +36,7 @@ export function buildVideoCollectionConfig(videos: Video[]): CollectionConfig {
 export function buildVideoDetailConfig(
   video: Video,
   performers: Performer[] = [],
+  images: Image[] = [],
 ): VideoDetailConfig {
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   const rating = parseRatingObject(video.ratingJson);
@@ -69,6 +70,8 @@ export function buildVideoDetailConfig(
       baseConfig.relatedSections,
       video.relatedPerformersJson,
       performers,
+      video.relatedImagesJson,
+      images,
     ),
   };
 }
@@ -223,6 +226,8 @@ function buildRelatedSections(
   sections: DetailSection[],
   relatedPerformersJson: string | null | undefined,
   performers: Performer[],
+  relatedImagesJson: string | null | undefined,
+  images: Image[],
 ): DetailSection[] {
   return sections.map((section) =>
     section.title === "Related Performer"
@@ -234,6 +239,16 @@ function buildRelatedSections(
             performers,
           ),
         }
+      : section.title === "Related Images"
+        ? {
+            ...section,
+            description: "Read-only Related Image links saved on this record.",
+            relatedCatalogRecords: buildRelatedCatalogItems(
+              relatedImagesJson,
+              images,
+              "Unresolved Image",
+            ),
+          }
       : section,
   );
 }
@@ -263,6 +278,38 @@ function buildRelatedPerformerItems(
 
     return {
       name: relation.nameSnapshot || "Unresolved Performer",
+      unresolved: true,
+    };
+  });
+}
+
+function buildRelatedCatalogItems(
+  relatedCatalogJson: string | null | undefined,
+  records: Array<Pick<Image, "id" | "title" | "originalTitle">>,
+  fallbackTitle: string,
+) {
+  const recordById = new Map(records.map((record) => [record.id, record]));
+
+  return parseRelatedCatalogRecordArray(relatedCatalogJson).map((relation) => {
+    const record = relation.recordId
+      ? recordById.get(relation.recordId)
+      : undefined;
+
+    if (record) {
+      const title =
+        record.title || record.originalTitle || relation.titleSnapshot || fallbackTitle;
+      return {
+        title,
+        originalTitle:
+          record.originalTitle && record.originalTitle !== title
+            ? record.originalTitle
+            : undefined,
+        unresolved: false,
+      };
+    }
+
+    return {
+      title: relation.titleSnapshot || fallbackTitle,
       unresolved: true,
     };
   });
