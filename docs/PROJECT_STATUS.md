@@ -178,6 +178,12 @@ Image Gallery Planning expected checkpoint after merge:
 post-mvp-25-1-image-gallery-planning-v1
 ```
 
+Image Gallery Storage/Form Planning expected checkpoint after merge:
+
+```text
+post-mvp-25-2-image-gallery-storage-form-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -241,6 +247,7 @@ Current app capabilities include:
 - Performer mini thumbnail form fields through Batch 24.11 after merge;
 - Performer Detail mini thumbnail display and preview through Batch 24.12 after merge;
 - Image Gallery planning through Batch 25.1 after merge;
+- Image Gallery Storage/Form planning through Batch 25.2 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -261,7 +268,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 25.1, Image Gallery is documentation/planning only. It recommends an explicit saved image path list such as `galleryImagePathsJson` as the future source of truth, allows manual multi-image selection and controlled one-folder selection, forbids live `folderPath` scans on Image Detail, forbids child folder scans, specifies 1:1 gallery thumbnails, and recommends load-more rendering with 24 initial images and +24 per load more.
+For Batch 25.2, Image Gallery Storage/Form is documentation/planning only. It recommends `galleryImagePathsJson` as the future Image field, stored as a JSON array string of explicit local image paths. Future Image Create/Edit forms should use a structured `Gallery Images` path row list with add/edit/remove/clear behavior, normalize by trimming, removing empty entries, deduping within one Image record, preserving first occurrence order, and defensively parsing invalid or missing JSON as an empty array. `folderPath` must not become the live gallery source.
 
 ## Recommended Next Phase
 
@@ -273,10 +280,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 25.1:
+Recommended next phase after Batch 25.2:
 
 ```text
-Batch 25.2 - Image Gallery Storage/Form Planning
+Batch 25.3 - Image Gallery Storage/Form Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, and `docs/25-image-gallery-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, and `docs/26-image-gallery-storage-form-planning.md` before changing code.
