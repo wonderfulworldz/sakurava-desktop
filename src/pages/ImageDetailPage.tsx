@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
-import type { Performer } from "../backend/types";
+import type { Performer, Video } from "../backend/types";
 import { buildImageDetailConfig } from "../lib/imageIntegration";
 import DetailPage from "./DetailPage";
 import {
@@ -14,6 +14,10 @@ import {
   isPerformerRuntimeAvailable,
   listPerformers,
 } from "../runtime/performerCommands";
+import {
+  isVideoRuntimeAvailable,
+  listVideos,
+} from "../runtime/videoCommands";
 
 function ImageDetailPage() {
   const { itemKey } = useParams();
@@ -51,6 +55,7 @@ function ImageDetailPage() {
 
         setMissing(false);
         let performers: Performer[] = [];
+        let videos: Video[] = [];
         if (isPerformerRuntimeAvailable()) {
           try {
             performers = await listPerformers();
@@ -58,10 +63,17 @@ function ImageDetailPage() {
             performers = [];
           }
         }
+        if (isVideoRuntimeAvailable()) {
+          try {
+            videos = await listVideos();
+          } catch {
+            videos = [];
+          }
+        }
         if (cancelled) {
           return;
         }
-        setConfig(buildImageDetailConfig(image, performers));
+        setConfig(buildImageDetailConfig(image, performers, videos));
         setLoading(false);
       })
       .catch(() => {

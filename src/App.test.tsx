@@ -3315,6 +3315,141 @@ describe("App", () => {
     );
   });
 
+  it("displays resolved Related Images on video detail without raw ids", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Related Image Video",
+          relatedImagesJson:
+            '[{"recordId":"image_hanami","titleSnapshot":"Snapshot Gallery"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_hanami",
+            title: "Hanami Gallery",
+            originalTitle: "Spring Original",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Image Video")).toBeInTheDocument();
+    expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(screen.getByText("Spring Original")).toBeInTheDocument();
+    expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("displays resolved Related Videos on image detail without raw ids", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Related Video Image",
+          relatedVideosJson:
+            '[{"recordId":"video_spring","titleSnapshot":"Snapshot Video"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_spring",
+            title: "Spring Feature",
+            originalTitle: "Feature Original",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Video Image")).toBeInTheDocument();
+    expect(screen.getByText("Spring Feature")).toBeInTheDocument();
+    expect(screen.getByText("Feature Original")).toBeInTheDocument();
+    expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("displays Related Image fallbacks when target records cannot load", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Legacy Image Detail Video",
+          relatedImagesJson:
+            '[{"recordId":"missing_image","titleSnapshot":"Former Gallery"},{"recordId":"empty_snapshot","titleSnapshot":""}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        throw new Error("Image list unavailable");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Legacy Image Detail Video"))
+      .toBeInTheDocument();
+    expect(screen.getByText("Former Gallery")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
+    expect(screen.getAllByText("Unresolved")).toHaveLength(2);
+    expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
+    expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
   it("creates a video through Tauri commands without exposing the internal id", async () => {
     window.history.pushState({}, "", "/videos/new");
     setManagedCategories(["Typed Category"]);

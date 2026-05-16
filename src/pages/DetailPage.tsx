@@ -568,12 +568,52 @@ function RelatedRows({
           </p>
           {section.relatedPerformers ? (
             <RelatedPerformerSummary section={section} />
+          ) : section.relatedCatalogRecords ? (
+            <RelatedCatalogSummary section={section} />
           ) : (
             <p className="text-sm text-slate-500">{section.description}</p>
           )}
         </div>
       ))}
     </section>
+  );
+}
+
+function RelatedCatalogSummary({ section }: { section: DetailSection }) {
+  const relatedCatalogRecords = section.relatedCatalogRecords ?? [];
+  const emptyText = section.title.includes("Image")
+    ? "No related Images saved."
+    : "No related Videos saved.";
+
+  if (relatedCatalogRecords.length === 0) {
+    return <p className="text-sm text-slate-500">{emptyText}</p>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+      {relatedCatalogRecords.map((record, index) => (
+        <span
+          key={`${record.title}-${index}`}
+          className={`inline-flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
+            record.unresolved
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-sakura-100 bg-sakura-50 text-sakura-600"
+          }`}
+        >
+          <span className="min-w-0 break-words">{record.title}</span>
+          {record.originalTitle && (
+            <span className="font-medium text-slate-500">
+              {record.originalTitle}
+            </span>
+          )}
+          {record.unresolved && (
+            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
+              Unresolved
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
   );
 }
 
