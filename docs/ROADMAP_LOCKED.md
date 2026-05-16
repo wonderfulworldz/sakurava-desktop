@@ -59,4 +59,5 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Media File Status / Open File planning is documented in `docs/21-media-file-status-open-file-planning.md`.
 - External Media Open planning is documented in `docs/22-external-media-open-planning.md`.
 - Cover/Thumbnail Full Size Preview planning is documented in `docs/23-cover-thumbnail-full-size-preview-planning.md`.
+- Performer Mini Thumbnail Storage/Form planning is documented in `docs/24-performer-mini-thumbnail-storage-form-planning.md`.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.

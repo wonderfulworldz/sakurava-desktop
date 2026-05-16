@@ -50,6 +50,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Media File Status / Open File planning](docs/21-media-file-status-open-file-planning.md)
 - [External Media Open planning](docs/22-external-media-open-planning.md)
 - [Cover/Thumbnail Full Size Preview planning](docs/23-cover-thumbnail-full-size-preview-planning.md)
+- [Performer Mini Thumbnail Storage/Form planning](docs/24-performer-mini-thumbnail-storage-form-planning.md)
 
 ## Current Status
 
