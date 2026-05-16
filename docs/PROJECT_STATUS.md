@@ -130,6 +130,12 @@ External Media Open Runtime Implementation expected checkpoint after merge:
 post-mvp-24-5-external-media-open-runtime-implementation-v1
 ```
 
+Video Detail Play Button expected checkpoint after merge:
+
+```text
+post-mvp-24-6-video-detail-play-button-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -185,6 +191,7 @@ Current app capabilities include:
 - Detail page Media File Status display through Batch 24.3 after merge;
 - External Media Open planning through Batch 24.4 after merge;
 - External Media Open runtime foundation through Batch 24.5 after merge;
+- Video Detail Play button through Batch 24.6 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -205,7 +212,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 24.5, runtime changes may add an external media open command and frontend wrapper only. Detail page Play UI, image preview behavior, reveal folder behavior, open folder behavior, media player behavior, file scanner behavior, schema, database records, backend record types, forms, Backup/Restore behavior, related picker behavior, category behavior, and broad UI changes should not change.
+For Batch 24.6, UI changes may add a Video Detail Play button for saved `mediaPath` only. Image preview behavior, reveal folder behavior, open folder behavior, embedded media player behavior, scanner behavior, schema, database records, backend record types, Rust/Tauri commands, forms, Backup/Restore behavior, related picker behavior, category behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -217,10 +224,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 24.5:
+Recommended next phase after Batch 24.6:
 
 ```text
-Video Detail Play Button
+Cover/Thumbnail Full Size Preview Planning or Small Implementation
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, and `docs/22-external-media-open-planning.md` before changing code.
