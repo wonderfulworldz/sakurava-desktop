@@ -23,6 +23,7 @@ pub fn run() {
             commands::media_asset_allow_root,
             commands::path_status_check,
             commands::open_media_path,
+            commands::gallery_folder_images_list,
             commands::video_create,
             commands::video_list,
             commands::video_get,

@@ -76,6 +76,13 @@ export async function selectLocalFolder() {
   });
 }
 
+export async function selectGalleryFolder() {
+  return selectLocalPath({
+    title: "Browse Gallery Folder",
+    directory: true,
+  });
+}
+
 async function selectLocalPath(options: {
   title: string;
   directory?: boolean;
