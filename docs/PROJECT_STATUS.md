@@ -82,6 +82,18 @@ Related Performer Picker Implementation expected checkpoint after merge:
 post-mvp-22-4-related-performer-picker-implementation-v1
 ```
 
+Related Performer Detail Display and Smoke Validation expected checkpoint after merge:
+
+```text
+post-mvp-22-5-related-performer-display-smoke-validation-v1
+```
+
+Related Video/Image Picker Structure Planning expected checkpoint after merge:
+
+```text
+post-mvp-23-1-related-video-image-picker-structure-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -129,6 +141,8 @@ Current app capabilities include:
 - Managed Categories-only form category picker;
 - Related Performer JSON storage foundation for Videos and Images;
 - Related Performer picker on Video and Image forms;
+- Related Performer detail display on Video and Image detail pages;
+- Related Video/Image Picker Structure planning through Batch 23.1 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -149,7 +163,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 22.4, frontend code and tests may change only to add the Related Performer Picker UI on Video and Image forms using existing `relatedPerformersJson` storage. Schema, backend, Rust/Tauri, package files, relation tables, Performer mutation from Video/Image saves, category behavior, media behavior, and broad UI changes should not change.
+For Batch 23.1, documentation may change only to add Related Video/Image Picker Structure planning and references. Application code, tests, schema, backend, Rust/Tauri, package files, picker UI, relation storage fields, relation tables, Related Performer behavior, category behavior, media behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -158,13 +172,13 @@ Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 Latest roadmap implementation batch:
 
 ```text
-Batch 22.4 - Related Performer Picker Implementation
+Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 22.4:
+Recommended next phase after Batch 23.1:
 
 ```text
-Related Performer display and smoke validation
+Related Video/Image Storage Planning
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, and `docs/18-related-performer-storage-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, and `docs/19-related-video-image-picker-structure-planning.md` before changing code.
