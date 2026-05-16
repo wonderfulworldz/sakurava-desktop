@@ -47,6 +47,7 @@ Run `cargo test` from `src-tauri`, not from the project root.
 - [Related Performer Storage planning](docs/18-related-performer-storage-planning.md)
 - [Related Video/Image Picker Structure planning](docs/19-related-video-image-picker-structure-planning.md)
 - [Related Video/Image Storage planning](docs/20-related-video-image-storage-planning.md)
+- [Media File Status / Open File planning](docs/21-media-file-status-open-file-planning.md)
 
 ## Current Status
 

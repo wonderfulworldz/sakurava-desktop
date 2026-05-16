@@ -72,6 +72,8 @@ For Related Video/Image Picker Structure planning, read `docs/19-related-video-i
 
 For Related Video/Image Storage planning, read `docs/20-related-video-image-storage-planning.md`.
 
+For Media File Status / Open File planning, read `docs/21-media-file-status-open-file-planning.md`.
+
 ## Backup/Restore Safety Rules
 
 The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
@@ -182,6 +184,7 @@ Only include UI polish when the user requests it or when it blocks usability, co
 - Related Performer Storage planning is documented in `docs/18-related-performer-storage-planning.md`.
 - Related Video/Image Picker Structure planning is documented in `docs/19-related-video-image-picker-structure-planning.md`.
 - Related Video/Image Storage planning is documented in `docs/20-related-video-image-storage-planning.md`.
+- Media File Status / Open File planning is documented in `docs/21-media-file-status-open-file-planning.md`.
 - Related pickers and Media Play are future phases after category page decisions.
 
 ## Verification Commands
