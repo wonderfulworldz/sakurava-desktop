@@ -148,6 +148,12 @@ Cover/Thumbnail Full Size Preview Implementation expected checkpoint after merge
 post-mvp-24-8-cover-thumbnail-full-size-preview-implementation-v1
 ```
 
+Performer Mini Thumbnail Storage/Form Planning expected checkpoint after merge:
+
+```text
+post-mvp-24-9-performer-mini-thumbnail-storage-form-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -206,6 +212,7 @@ Current app capabilities include:
 - Video Detail Play button through Batch 24.6 after merge;
 - Cover/Thumbnail Full Size Preview planning through Batch 24.7 after merge;
 - Cover/Thumbnail Full Size Preview implementation for explicit `coverPath` detail images through Batch 24.8 after merge;
+- Performer Mini Thumbnail Storage/Form planning through Batch 24.9 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -226,7 +233,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 24.8, application changes may add a simple in-app full-size preview modal for explicit existing detail page `coverPath` images only. Gallery behavior, gallery next/back, `folderPath` scanning, Performer mini thumbnail storage, Performer thumbnail form fields, schema, backend, Rust/Tauri, package files, Video Play behavior, related picker behavior, category behavior, and broad UI changes should not change.
+For Batch 24.9, documentation may change only to add Performer Mini Thumbnail Storage/Form planning and references. Application code, tests, schema, backend, Rust/Tauri, package files, thumbnail storage implementation, Performer form fields, detail thumbnail display, gallery behavior, folder scanning, Video Play behavior, related picker behavior, category behavior, and broad UI changes should not change.
 
 ## Recommended Next Phase
 
@@ -238,10 +245,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 24.8:
+Recommended next phase after Batch 24.9:
 
 ```text
-Performer Mini Thumbnail Storage/Form Planning, only if 4 mini thumbnail paths are still desired
+Performer Mini Thumbnail Storage Implementation
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, and `docs/23-cover-thumbnail-full-size-preview-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, and `docs/24-performer-mini-thumbnail-storage-form-planning.md` before changing code.

@@ -49,6 +49,7 @@ Urutan acuan dokumen:
 23. `21-media-file-status-open-file-planning.md` - rencana aman status path media lokal dan aksi open/reveal desktop.
 24. `22-external-media-open-planning.md` - rencana aman membuka media eksternal memakai aplikasi default OS.
 25. `23-cover-thumbnail-full-size-preview-planning.md` - rencana aman preview full-size cover dan thumbnail dari path eksplisit.
+26. `24-performer-mini-thumbnail-storage-form-planning.md` - rencana storage/form aman untuk 4 mini thumbnail Performer.
 
 ## Current Post-MVP Reading Order
 
@@ -71,8 +72,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 15. `21-media-file-status-open-file-planning.md`
 16. `22-external-media-open-planning.md`
 17. `23-cover-thumbnail-full-size-preview-planning.md`
-18. `AGENT_CODE_HANDOFF.md`
-19. `WORKFLOW_GIT.md`
+18. `24-performer-mini-thumbnail-storage-form-planning.md`
+19. `AGENT_CODE_HANDOFF.md`
+20. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
