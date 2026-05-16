@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs, io};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -214,6 +215,33 @@ pub struct MediaAssetRootResult {
     pub success: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum PathStatusKind {
+    NotSet,
+    Exists,
+    Missing,
+    Inaccessible,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum PathKind {
+    File,
+    Folder,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PathStatusResult {
+    pub path: String,
+    pub status: PathStatusKind,
+    pub kind: PathKind,
+    pub message: String,
+}
+
 #[tauri::command]
 pub fn database_backup(
     database: State<'_, RuntimeDatabase>,
@@ -362,6 +390,11 @@ pub fn performer_delete(
     with_connection(&database, |connection| {
         delete_row(connection, "performers", id)
     })
+}
+
+#[tauri::command]
+pub fn path_status_check(path: String) -> Result<PathStatusResult, String> {
+    Ok(check_path_status(&path))
 }
 
 fn with_connection<T>(
@@ -852,6 +885,56 @@ fn delete_row(
         > 0;
 
     Ok(DeleteResult { id, deleted })
+}
+
+fn check_path_status(path: &str) -> PathStatusResult {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return PathStatusResult {
+            path: String::new(),
+            status: PathStatusKind::NotSet,
+            kind: PathKind::Unknown,
+            message: "Path is not set".to_string(),
+        };
+    }
+
+    match fs::metadata(trimmed) {
+        Ok(metadata) => {
+            let kind = if metadata.is_file() {
+                PathKind::File
+            } else if metadata.is_dir() {
+                PathKind::Folder
+            } else {
+                PathKind::Unknown
+            };
+
+            PathStatusResult {
+                path: trimmed.to_string(),
+                status: PathStatusKind::Exists,
+                kind,
+                message: "Path exists".to_string(),
+            }
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => PathStatusResult {
+            path: trimmed.to_string(),
+            status: PathStatusKind::Missing,
+            kind: PathKind::Unknown,
+            message: "Path does not exist".to_string(),
+        },
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => PathStatusResult {
+            path: trimmed.to_string(),
+            status: PathStatusKind::Inaccessible,
+            kind: PathKind::Unknown,
+            message: "Path is inaccessible".to_string(),
+        },
+        Err(_) => PathStatusResult {
+            path: trimmed.to_string(),
+            status: PathStatusKind::Unknown,
+            kind: PathKind::Unknown,
+            message: "Path status could not be checked".to_string(),
+        },
+    }
 }
 
 fn validate_media_asset_root(root_path: &str) -> Result<PathBuf, String> {
@@ -1466,6 +1549,72 @@ mod tests {
         assert_eq!(accepted, temp_root.canonicalize().expect("canonical root"));
 
         let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn path_status_check_reports_not_set_for_empty_paths() {
+        assert_eq!(
+            check_path_status("   "),
+            PathStatusResult {
+                path: String::new(),
+                status: PathStatusKind::NotSet,
+                kind: PathKind::Unknown,
+                message: "Path is not set".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn path_status_check_reports_existing_file() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-path-status-file-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let file_path = temp_root.join("cover.jpg");
+        std::fs::write(&file_path, "not read by status check").expect("write temp file");
+
+        let result = check_path_status(file_path.to_string_lossy().as_ref());
+
+        assert_eq!(result.status, PathStatusKind::Exists);
+        assert_eq!(result.kind, PathKind::File);
+        assert_eq!(result.message, "Path exists");
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn path_status_check_reports_existing_folder() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-path-status-folder-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+
+        let result = check_path_status(temp_root.to_string_lossy().as_ref());
+
+        assert_eq!(result.status, PathStatusKind::Exists);
+        assert_eq!(result.kind, PathKind::Folder);
+        assert_eq!(result.message, "Path exists");
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn path_status_check_reports_missing_path() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "sakurava-path-status-missing-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&missing_path);
+
+        let result = check_path_status(missing_path.to_string_lossy().as_ref());
+
+        assert_eq!(result.status, PathStatusKind::Missing);
+        assert_eq!(result.kind, PathKind::Unknown);
+        assert_eq!(result.message, "Path does not exist");
     }
 
     fn empty_video_input() -> VideoInput {

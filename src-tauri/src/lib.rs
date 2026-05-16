@@ -21,6 +21,7 @@ pub fn run() {
             commands::database_backup,
             commands::database_restore,
             commands::media_asset_allow_root,
+            commands::path_status_check,
             commands::video_create,
             commands::video_list,
             commands::video_get,
