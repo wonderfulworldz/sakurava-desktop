@@ -48,6 +48,7 @@ type FormSubmitData = {
   aliases: string[];
   relatedPerformers: RelatedPerformerFormValue[];
   relatedCatalogRecords: RelatedCatalogRecordFormValue[];
+  galleryImagePaths: string[];
 };
 
 type FormSubmitResult = {
@@ -72,6 +73,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [relatedCatalogRecords, setRelatedCatalogRecords] = useState<
     RelatedCatalogRecordFormValue[]
   >(config.initialRelatedCatalogRecords?.[mode] ?? []);
+  const [galleryImagePaths, setGalleryImagePaths] = useState<string[]>(
+    config.initialGalleryImagePaths?.[mode] ?? [],
+  );
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [availablePerformers, setAvailablePerformers] = useState<Performer[]>([]);
@@ -95,6 +99,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
     setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
+    setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
@@ -224,6 +229,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const formLabel = mode === "create" ? config.createLabel : config.editLabel;
   const cancelTo =
     mode === "create" ? config.createCancelTo : config.editCancelTo;
+  const lastExtraSectionIndex = config.kind === "images" ? 6 : 5;
+  const ratingIndex = lastExtraSectionIndex + 1;
+  const notesIndex = ratingIndex + 1;
+  const relatedPerformerIndex = notesIndex + 1;
+  const relatedCatalogIndex =
+    relatedPerformerIndex + (supportsRelatedPerformerPicker ? 1 : 0);
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -270,6 +281,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         aliases,
         relatedPerformers,
         relatedCatalogRecords,
+        galleryImagePaths,
       });
       setSaveState(result.state);
       setSaveMessage(
@@ -367,10 +379,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
           browsePath={browsePath}
+          galleryImagePaths={galleryImagePaths}
+          setGalleryImagePaths={setGalleryImagePaths}
         />
       )}
 
-      <FormSection index={config.kind === "performers" ? 6 : 6} title="Rating">
+      <FormSection index={ratingIndex} title="Rating">
         <div className="grid gap-3">
           {config.ratingFields.map((field) => (
             <RatingInput
@@ -383,7 +397,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </div>
       </FormSection>
 
-      <FormSection index={config.kind === "performers" ? 7 : 7} title="Notes">
+      <FormSection index={notesIndex} title="Notes">
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
           Notes
           <textarea
@@ -396,7 +410,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       </FormSection>
 
       {supportsRelatedPerformerPicker && (
-        <FormSection index={8} title="Related Performer">
+        <FormSection index={relatedPerformerIndex} title="Related Performer">
           <RelatedPerformerPicker
             performers={availablePerformers}
             selected={relatedPerformers}
@@ -408,7 +422,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
       {supportsRelatedCatalogPicker && (
         <FormSection
-          index={supportsRelatedPerformerPicker ? 9 : 8}
+          index={relatedCatalogIndex}
           title={config.kind === "videos" ? "Related Images" : "Related Video"}
         >
           <RelatedCatalogPicker
@@ -429,12 +443,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         sections={relatedSectionsForConfig(config)}
         startIndex={
           supportsRelatedCatalogPicker
-            ? supportsRelatedPerformerPicker
-              ? 10
-              : 9
+            ? relatedCatalogIndex + 1
             : supportsRelatedPerformerPicker
-              ? 9
-              : 8
+              ? relatedPerformerIndex + 1
+              : relatedPerformerIndex
         }
       />
 
@@ -520,6 +532,8 @@ function CatalogExtraSections({
   canBrowsePaths,
   updateValue,
   browsePath,
+  galleryImagePaths,
+  setGalleryImagePaths,
 }: {
   config: FormConfig;
   values: FormValues;
@@ -529,6 +543,8 @@ function CatalogExtraSections({
   canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
   browsePath: (field: TextField) => void;
+  galleryImagePaths: string[];
+  setGalleryImagePaths: Dispatch<SetStateAction<string[]>>;
 }) {
   const pathTitle =
     config.kind === "images" ? "Cover & Folder Path" : "Cover & File Path";
@@ -583,7 +599,18 @@ function CatalogExtraSections({
           ))}
         </FieldGrid>
       </FormSection>
-      <FormSection index={5} title={config.techTitle ?? "Tech Info"}>
+      {config.kind === "images" && (
+        <FormSection index={5} title="Gallery Images">
+          <GalleryImagePathRows
+            paths={galleryImagePaths}
+            onChange={setGalleryImagePaths}
+          />
+        </FormSection>
+      )}
+      <FormSection
+        index={config.kind === "images" ? 6 : 5}
+        title={config.techTitle ?? "Tech Info"}
+      >
         {config.techMessage && (
           <p className="mb-3 text-xs font-medium text-slate-500">
             {config.techMessage}
@@ -819,6 +846,96 @@ function PathInput({
             {field.helper}
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function GalleryImagePathRows({
+  paths,
+  onChange,
+}: {
+  paths: string[];
+  onChange: Dispatch<SetStateAction<string[]>>;
+}) {
+  function updatePath(index: number, value: string) {
+    onChange((current) =>
+      current.map((path, currentIndex) =>
+        currentIndex === index ? value : path,
+      ),
+    );
+  }
+
+  function removePath(index: number) {
+    onChange((current) =>
+      current.filter((_, currentIndex) => currentIndex !== index),
+    );
+  }
+
+  function clearPaths() {
+    if (
+      paths.length === 0 ||
+      window.confirm("Clear all Gallery Images path rows?")
+    ) {
+      onChange([]);
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      <p className="text-xs font-medium text-slate-500">
+        Add explicit local image paths. Empty and duplicate rows are cleaned on save.
+      </p>
+      <div className="grid gap-2">
+        {paths.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-500">
+            No Gallery Images paths added.
+          </p>
+        ) : (
+          paths.map((path, index) => (
+            <div
+              key={index}
+              className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px]"
+            >
+              <input
+                className={inputClass(false)}
+                aria-label={`Gallery Image Path ${index + 1}`}
+                value={path}
+                onChange={(event) => updatePath(index, event.target.value)}
+              />
+              <button
+                type="button"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+                onClick={() => removePath(index)}
+              >
+                <X size={15} />
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-sm font-semibold text-sakura-600 hover:bg-sakura-100"
+          onClick={() => onChange((current) => [...current, ""])}
+        >
+          <Plus size={15} />
+          Add Path Row
+        </button>
+        <button
+          type="button"
+          disabled={paths.length === 0}
+          className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
+            paths.length === 0
+              ? "border-slate-200 bg-slate-100 text-slate-400"
+              : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:text-rose-600"
+          }`}
+          onClick={clearPaths}
+        >
+          Clear All
+        </button>
       </div>
     </div>
   );

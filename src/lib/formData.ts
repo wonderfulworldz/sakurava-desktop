@@ -73,6 +73,7 @@ export type FormConfig = {
     FormMode,
     RelatedCatalogRecordFormValue[]
   >;
+  initialGalleryImagePaths?: Record<FormMode, string[]>;
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
@@ -189,6 +190,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       edit: [],
     },
     initialRelatedCatalogRecords: {
+      create: [],
+      edit: [],
+    },
+    initialGalleryImagePaths: {
       create: [],
       edit: [],
     },

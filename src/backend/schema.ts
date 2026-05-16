@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS images (
   coverPath TEXT NOT NULL DEFAULT '',
   folderPath TEXT NOT NULL DEFAULT '',
   imageCount INTEGER,
+  galleryImagePathsJson TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',

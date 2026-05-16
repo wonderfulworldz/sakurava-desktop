@@ -184,6 +184,12 @@ Image Gallery Storage/Form Planning expected checkpoint after merge:
 post-mvp-25-2-image-gallery-storage-form-planning-v1
 ```
 
+Image Gallery Storage/Form Implementation expected checkpoint after merge:
+
+```text
+post-mvp-25-3-image-gallery-storage-form-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -248,6 +254,7 @@ Current app capabilities include:
 - Performer Detail mini thumbnail display and preview through Batch 24.12 after merge;
 - Image Gallery planning through Batch 25.1 after merge;
 - Image Gallery Storage/Form planning through Batch 25.2 after merge;
+- Image Gallery storage/form support through Batch 25.3 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -268,7 +275,7 @@ npm.cmd run tauri dev
 
 `cargo test` must be run from `src-tauri`, not from the project root.
 
-For Batch 25.2, Image Gallery Storage/Form is documentation/planning only. It recommends `galleryImagePathsJson` as the future Image field, stored as a JSON array string of explicit local image paths. Future Image Create/Edit forms should use a structured `Gallery Images` path row list with add/edit/remove/clear behavior, normalize by trimming, removing empty entries, deduping within one Image record, preserving first occurrence order, and defensively parsing invalid or missing JSON as an empty array. `folderPath` must not become the live gallery source.
+For Batch 25.3, Image records include `galleryImagePathsJson` as a JSON array string of explicit local image paths. Image Create/Edit forms include structured `Gallery Images` path rows with add/edit/remove/clear behavior. Save normalization trims paths, removes empty entries, dedupes within one Image record, preserves first occurrence order, and defensively parses invalid or missing JSON as an empty array. `folderPath` remains optional metadata/reference only and is not scanned.
 
 ## Recommended Next Phase
 
@@ -280,10 +287,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended next phase after Batch 25.2:
+Recommended next phase after Batch 25.3:
 
 ```text
-Batch 25.3 - Image Gallery Storage/Form Implementation
+Batch 25.4 - Native Multi Image Picker and Folder Picker Planning/Implementation
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, and `docs/26-image-gallery-storage-form-planning.md` before changing code.

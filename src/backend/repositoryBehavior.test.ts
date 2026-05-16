@@ -3,6 +3,7 @@ import {
   RepositoryValidationError,
 } from "./repositories";
 import {
+  parseGalleryImagePathArray,
   parsePerformerThumbnailPathArray,
   parseRatingObject,
   parseTextLabelArray,
@@ -53,6 +54,8 @@ const baseImage = {
   coverPath: "",
   folderPath: "D:/images/sample",
   imageCount: 24,
+  galleryImagePathsJson:
+    '[" D:/images/sample/one.jpg ","","D:/images/sample/two.jpg","D:/images/sample/one.jpg",7]',
   categoriesJson: '["Pictorial","Favorite"]',
   relatedPerformersJson:
     '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
@@ -223,6 +226,8 @@ describe("image repository behavior", () => {
       title: "Sample Image",
       favorite: false,
       imageCount: 24,
+      galleryImagePathsJson:
+        '["D:/images/sample/one.jpg","D:/images/sample/two.jpg"]',
       relatedPerformersJson:
         '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
       relatedVideosJson:
@@ -238,6 +243,10 @@ describe("image repository behavior", () => {
       memorability: 4,
       visual: 5,
     });
+    expect(parseGalleryImagePathArray(created.galleryImagePathsJson)).toEqual([
+      "D:/images/sample/one.jpg",
+      "D:/images/sample/two.jpg",
+    ]);
 
     expect(await repository.list()).toEqual([created]);
     expect(await repository.getById(created.id)).toEqual(created);
@@ -246,6 +255,7 @@ describe("image repository behavior", () => {
     const updated = await repository.update(created.id, {
       title: "Updated Image",
       imageCount: null,
+      galleryImagePathsJson: "{bad json",
       categoriesJson: '["Updated Image Label"]',
       relatedPerformersJson: "{bad json",
       relatedVideosJson:
@@ -259,6 +269,7 @@ describe("image repository behavior", () => {
       title: "Updated Image",
       favorite: true,
       imageCount: null,
+      galleryImagePathsJson: "[]",
       categoriesJson: '["Updated Image Label"]',
       relatedPerformersJson: "[]",
       relatedVideosJson:

@@ -113,10 +113,11 @@ For category-related work, also inspect:
 - Image Gallery thumbnails should be 1:1 square and the grid should use load-more rendering, recommended 24 initial images and +24 per load more.
 - Do not copy, import, move, rename, delete, generate thumbnails, or otherwise mutate user files for Image Gallery.
 - Read `docs/26-image-gallery-storage-form-planning.md` before Image Gallery Storage/Form work.
-- Image Gallery Storage/Form should use `galleryImagePathsJson` as a JSON array string of explicit local image paths.
-- Future Image Create/Edit forms should use structured `Gallery Images` path rows, not raw JSON.
+- Image Gallery Storage/Form uses `galleryImagePathsJson` as a JSON array string of explicit local image paths after Batch 25.3.
+- Image Create/Edit forms use structured `Gallery Images` path rows, not raw JSON.
 - Gallery path normalization should trim, remove empty paths, dedupe within one Image record, and preserve first occurrence order.
 - Invalid or missing `galleryImagePathsJson` should parse as an empty array.
+- Native multi-image picker, folder picker/read, Image Detail gallery grid, and gallery next/back remain future work unless explicitly requested.
 
 ## Preferred Batch Prompt Format
 

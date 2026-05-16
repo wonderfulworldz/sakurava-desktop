@@ -2,10 +2,12 @@ import type { Image, ImagePatch, NewImage, Performer, Video } from "../backend/t
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
+  parseGalleryImagePathArray,
   parseRatingObject,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
+  stringifyGalleryImagePathArray,
   stringifyTextLabelArray,
 } from "../backend/json";
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
@@ -107,6 +109,11 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
       edit: formConfigs.images.initialRelatedCatalogRecords?.edit ?? [],
       [mode]: parseRelatedCatalogRecordArray(image.relatedVideosJson),
     },
+    initialGalleryImagePaths: {
+      create: formConfigs.images.initialGalleryImagePaths?.create ?? [],
+      edit: formConfigs.images.initialGalleryImagePaths?.edit ?? [],
+      [mode]: parseGalleryImagePathArray(image.galleryImagePathsJson),
+    },
   };
 }
 
@@ -115,6 +122,7 @@ export function imageFormToCreateInput(
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
+  galleryImagePaths: string[] = [],
 ): NewImage {
   return {
     title: textValue(values.title),
@@ -128,6 +136,7 @@ export function imageFormToCreateInput(
     releaseDate: textValue(values.releaseDate),
     imageCount: optionalInteger(values.imageCount),
     publisherLabel: textValue(values.publisherLabel),
+    galleryImagePathsJson: stringifyGalleryImagePathArray(galleryImagePaths),
     categoriesJson: stringifyTextLabelArray(categories),
     relatedPerformersJson: normalizeRelatedPerformersJson(
       JSON.stringify(relatedPerformers),
@@ -145,12 +154,14 @@ export function imageFormToPatch(
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
+  galleryImagePaths: string[] = [],
 ): ImagePatch {
   return imageFormToCreateInput(
     values,
     categories,
     relatedPerformers,
     relatedVideos,
+    galleryImagePaths,
   );
 }
 

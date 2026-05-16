@@ -95,6 +95,7 @@ pub struct Image {
     pub cover_path: String,
     pub folder_path: String,
     pub image_count: Option<i64>,
+    pub gallery_image_paths_json: String,
     pub categories_json: String,
     pub related_performers_json: String,
     pub related_videos_json: String,
@@ -118,6 +119,7 @@ pub struct ImageInput {
     pub cover_path: Option<String>,
     pub folder_path: Option<String>,
     pub image_count: Option<i64>,
+    pub gallery_image_paths_json: Option<String>,
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
@@ -139,6 +141,7 @@ pub struct ImagePatch {
     pub cover_path: Option<String>,
     pub folder_path: Option<String>,
     pub image_count: Option<i64>,
+    pub gallery_image_paths_json: Option<String>,
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
@@ -605,6 +608,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
         cover_path: default_text(input.cover_path),
         folder_path: default_text(input.folder_path),
         image_count: input.image_count,
+        gallery_image_paths_json: normalize_gallery_image_paths_json(
+            input.gallery_image_paths_json,
+        ),
         categories_json: normalize_string_array_json(input.categories_json),
         related_performers_json: normalize_related_performers_json(
             input.related_performers_json,
@@ -621,9 +627,10 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
         .execute(
             "INSERT INTO images (
                 id, title, originalTitle, code, censorship, availability, releaseDate,
-                publisherLabel, coverPath, folderPath, imageCount, categoriesJson,
-                relatedPerformersJson, relatedVideosJson, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                publisherLabel, coverPath, folderPath, imageCount, galleryImagePathsJson,
+                categoriesJson, relatedPerformersJson, relatedVideosJson, ratingJson, notes,
+                favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
             params![
                 image.id,
                 image.title,
@@ -636,6 +643,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 image.cover_path,
                 image.folder_path,
                 image.image_count,
+                image.gallery_image_paths_json,
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
@@ -693,6 +701,10 @@ fn update_image(
     if patch.image_count.is_some() {
         image.image_count = patch.image_count;
     }
+    if patch.gallery_image_paths_json.is_some() {
+        image.gallery_image_paths_json =
+            normalize_gallery_image_paths_json(patch.gallery_image_paths_json);
+    }
     if patch.categories_json.is_some() {
         image.categories_json = normalize_string_array_json(patch.categories_json);
     }
@@ -719,9 +731,9 @@ fn update_image(
                 title = ?2, originalTitle = ?3, code = ?4, censorship = ?5,
                 availability = ?6, releaseDate = ?7, publisherLabel = ?8,
                 coverPath = ?9, folderPath = ?10, imageCount = ?11,
-                categoriesJson = ?12, relatedPerformersJson = ?13,
-                relatedVideosJson = ?14, ratingJson = ?15, notes = ?16,
-                favorite = ?17, updatedAt = ?18
+                galleryImagePathsJson = ?12, categoriesJson = ?13,
+                relatedPerformersJson = ?14, relatedVideosJson = ?15,
+                ratingJson = ?16, notes = ?17, favorite = ?18, updatedAt = ?19
             WHERE id = ?1",
             params![
                 image.id,
@@ -735,6 +747,7 @@ fn update_image(
                 image.cover_path,
                 image.folder_path,
                 image.image_count,
+                image.gallery_image_paths_json,
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
@@ -1104,6 +1117,7 @@ fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
         cover_path: row.get("coverPath")?,
         folder_path: row.get("folderPath")?,
         image_count: row.get("imageCount")?,
+        gallery_image_paths_json: row.get("galleryImagePathsJson")?,
         categories_json: row.get("categoriesJson")?,
         related_performers_json: row.get("relatedPerformersJson")?,
         related_videos_json: row.get("relatedVideosJson")?,
@@ -1196,6 +1210,32 @@ fn normalize_performer_thumbnail_paths_json(value: Option<String>) -> String {
         if paths.len() >= MAX_THUMBNAIL_PATHS {
             break;
         }
+    }
+
+    serde_json::to_string(&paths).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn normalize_gallery_image_paths_json(value: Option<String>) -> String {
+    let Some(value) = value else {
+        return "[]".to_string();
+    };
+    let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&value) else {
+        return "[]".to_string();
+    };
+
+    let mut seen = Vec::new();
+    let mut paths = Vec::new();
+
+    for item in items {
+        let Some(path) = item.as_str().map(str::trim) else {
+            continue;
+        };
+        if path.is_empty() || seen.iter().any(|existing| existing == path) {
+            continue;
+        }
+
+        seen.push(path.to_string());
+        paths.push(path.to_string());
     }
 
     serde_json::to_string(&paths).unwrap_or_else(|_| "[]".to_string())
@@ -1470,6 +1510,10 @@ mod tests {
                 cover_path: None,
                 folder_path: Some("C:/Images".to_string()),
                 image_count: Some(24),
+                gallery_image_paths_json: Some(
+                    r#"[" C:/Images/one.jpg ","","C:/Images/two.jpg","C:/Images/one.jpg",7]"#
+                        .to_string(),
+                ),
                 categories_json: Some(r#"["Portrait","Set"]"#.to_string()),
                 related_performers_json: Some(
                     r#"[{"performerId":"performer-1","nameSnapshot":"Performer One"}]"#
@@ -1486,6 +1530,10 @@ mod tests {
         .expect("create image");
 
         assert_eq!(created.categories_json, r#"["Portrait","Set"]"#);
+        assert_eq!(
+            created.gallery_image_paths_json,
+            r#"["C:/Images/one.jpg","C:/Images/two.jpg"]"#
+        );
         assert_eq!(
             created.related_performers_json,
             r#"[{"nameSnapshot":"Performer One","performerId":"performer-1"}]"#
@@ -1518,6 +1566,7 @@ mod tests {
                 cover_path: None,
                 folder_path: None,
                 image_count: Some(30),
+                gallery_image_paths_json: Some("{}".to_string()),
                 categories_json: Some("{}".to_string()),
                 related_performers_json: Some(
                     r#"[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]"#
@@ -1532,6 +1581,7 @@ mod tests {
         .expect("update image")
         .expect("updated image");
         assert_eq!(updated.image_count, Some(30));
+        assert_eq!(updated.gallery_image_paths_json, "[]");
         assert_eq!(updated.categories_json, "[]");
         assert_eq!(
             updated.related_performers_json,
@@ -1850,6 +1900,7 @@ mod tests {
             cover_path: None,
             folder_path: None,
             image_count: None,
+            gallery_image_paths_json: None,
             categories_json: None,
             related_performers_json: None,
             related_videos_json: None,
