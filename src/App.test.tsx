@@ -3337,6 +3337,95 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "Video Cover" })).not.toBeInTheDocument();
   });
 
+  it("renders saved Performer mini thumbnails and opens thumbnail preview", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const record = persistedPerformer({
+      name: "Thumbnail Performer Detail",
+      performerThumbnailPathsJson: JSON.stringify([
+        "D:/Sakurava/thumb-1.jpg",
+        "D:/Sakurava/thumb-2.jpg",
+      ]),
+    });
+    const invoke = vi.fn(
+      async (incomingCommand: string, args: Record<string, any> = {}) => {
+        if (incomingCommand === "performer_get") {
+          expect(args.id).toBe("performer_test_001");
+          return record;
+        }
+
+        if (
+          incomingCommand === "path_status_check" ||
+          incomingCommand === "video_list" ||
+          incomingCommand === "image_list"
+        ) {
+          if (incomingCommand === "path_status_check") {
+            return {
+              path: args.path,
+              status: args.path ? "exists" : "notSet",
+              kind: args.path ? "file" : "unknown",
+              message: args.path ? "Path exists" : "Path is not set",
+            };
+          }
+
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${incomingCommand}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Thumbnail Performer Detail")).toBeInTheDocument();
+    expect(await screen.findByAltText("Performer Thumbnail 1")).toHaveAttribute(
+      "src",
+      "asset://localhost/D:/Sakurava/thumb-1.jpg",
+    );
+    expect(screen.getByAltText("Performer Thumbnail 2")).toHaveAttribute(
+      "src",
+      "asset://localhost/D:/Sakurava/thumb-2.jpg",
+    );
+    expect(screen.getByLabelText("Performer Thumbnail 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Performer Thumbnail 4")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Preview Performer Thumbnail 3" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview Performer Thumbnail 1" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Performer Thumbnail 1",
+    });
+    expect(
+      within(dialog).getByAltText("Performer Thumbnail 1 full size"),
+    ).toHaveAttribute("src", "asset://localhost/D:/Sakurava/thumb-1.jpg");
+    expect(within(dialog).queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Previous" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Performer Thumbnail 1" }),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.error(screen.getByAltText("Performer Thumbnail 2"));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Performer Thumbnail 2")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: "Preview Performer Thumbnail 2" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps collection placeholder when cover conversion is unavailable", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
