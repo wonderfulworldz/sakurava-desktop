@@ -618,7 +618,7 @@ function PerformerExtraSections({
     <>
       <FormSection index={2} title="Media">
         <p className="mb-3 text-xs font-medium text-slate-500">
-          Cover path is saved as manual text. Thumbnail paths are planned and not saved in MVP.
+          Cover and mini thumbnail paths are saved as manual text. Browse selects a local image path only.
         </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
@@ -633,12 +633,14 @@ function PerformerExtraSections({
             />
           ))}
           {sections.media.map((field) => (
-            <TextInput
+            <PathInput
               key={field.name}
               field={field}
               value={String(values[field.name] ?? "")}
+              browseLabel={`Browse ${field.label}`}
+              browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
-              inactive
+              onBrowse={() => browsePath(field)}
             />
           ))}
         </FieldGrid>

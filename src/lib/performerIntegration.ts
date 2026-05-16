@@ -1,5 +1,11 @@
 import type { NewPerformer, Performer, PerformerPatch } from "../backend/types";
-import { parseRatingObject, parseTextLabelArray, stringifyTextLabelArray } from "../backend/json";
+import {
+  normalizePerformerThumbnailPathsJson,
+  parsePerformerThumbnailPathArray,
+  parseRatingObject,
+  parseTextLabelArray,
+  stringifyTextLabelArray,
+} from "../backend/json";
 import type { CollectionConfig, PerformerCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import type { PerformerDetailConfig } from "./detailData";
@@ -115,6 +121,7 @@ export function performerFormToCreateInput(
     status: textValue(values.status) as NewPerformer["status"],
     birthDate: textValue(values.birthDate),
     coverPath: textValue(values.coverPath),
+    performerThumbnailPathsJson: formThumbnailPathsJson(values),
     filmographyCount: optionalInteger(values.filmography),
     pictorialsCount: optionalInteger(values.pictorials),
     categoriesJson: stringifyTextLabelArray(categories),
@@ -150,16 +157,19 @@ function toPerformerCollectionItem(
 
 function performerToFormValues(performer: Performer): FormValues {
   const rating = parseRatingObject(performer.ratingJson);
+  const thumbnailPaths = parsePerformerThumbnailPathArray(
+    performer.performerThumbnailPathsJson,
+  );
   return {
     name: performer.name,
     originalName: performer.originalName,
     favorite: performer.favorite,
     status: performer.status || "Active",
     coverPath: performer.coverPath,
-    thumbnail1: "Not saved in MVP",
-    thumbnail2: "Not saved in MVP",
-    thumbnail3: "Not saved in MVP",
-    thumbnail4: "Not saved in MVP",
+    thumbnail1: thumbnailPaths[0] ?? "",
+    thumbnail2: thumbnailPaths[1] ?? "",
+    thumbnail3: thumbnailPaths[2] ?? "",
+    thumbnail4: thumbnailPaths[3] ?? "",
     yearsActive: "Not saved in MVP",
     filmography: performer.filmographyCount?.toString() ?? "",
     pictorials: performer.pictorialsCount?.toString() ?? "",
@@ -180,6 +190,17 @@ function performerToFormValues(performer: Performer): FormValues {
       ]),
     ),
   };
+}
+
+function formThumbnailPathsJson(values: FormValues) {
+  return normalizePerformerThumbnailPathsJson(
+    JSON.stringify([
+      textValue(values.thumbnail1),
+      textValue(values.thumbnail2),
+      textValue(values.thumbnail3),
+      textValue(values.thumbnail4),
+    ]),
+  );
 }
 
 function formRating(values: FormValues): Record<string, number> {

@@ -1758,7 +1758,7 @@ describe("App", () => {
       "/performers/new",
       "Performer Create Form",
       "Browse Cover",
-      "Thumbnail 1 (planned)",
+      "Mini Thumbnail 1",
       "Related Videos",
       "Related Images",
       "Attraction",
@@ -1767,7 +1767,7 @@ describe("App", () => {
       "/performers/sample-id/edit",
       "Performer Edit Form",
       "Browse Cover",
-      "Thumbnail 1 (planned)",
+      "Mini Thumbnail 1",
       "Related Videos",
       "Related Images",
       "Attraction",
@@ -2337,6 +2337,22 @@ describe("App", () => {
         ],
       },
     },
+    {
+      path: "/performers/new",
+      buttonName: "Browse Mini Thumbnail 2",
+      inputLabel: "Mini Thumbnail 2",
+      selectedPath: "D:/Sakurava/Performers/performer-thumb-2.webp",
+      expectedDialog: {
+        title: "Select Image File",
+        directory: false,
+        filters: [
+          {
+            name: "Image",
+            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+          },
+        ],
+      },
+    },
   ])(
     "fills $inputLabel from native picker on $path",
     async ({ path, buttonName, inputLabel, selectedPath, expectedDialog }) => {
@@ -2380,6 +2396,19 @@ describe("App", () => {
     expect(coverPathInput).toHaveValue("D:/Typed/cover.jpg");
   });
 
+  it("keeps mini thumbnail fields off Video and Image forms", () => {
+    window.history.pushState({}, "", "/videos/new");
+    const { unmount } = render(<App />);
+
+    expect(screen.queryByLabelText("Mini Thumbnail 1")).not.toBeInTheDocument();
+    unmount();
+
+    window.history.pushState({}, "", "/images/new");
+    render(<App />);
+
+    expect(screen.queryByLabelText("Mini Thumbnail 1")).not.toBeInTheDocument();
+  });
+
   it("does not open native picker from browser preview", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
@@ -2395,6 +2424,10 @@ describe("App", () => {
     window.history.pushState({}, "", "/performers/new");
     render(<App />);
 
+    expect(screen.getByLabelText("Mini Thumbnail 1")).not.toBeDisabled();
+    expect(screen.getByLabelText("Mini Thumbnail 2")).not.toBeDisabled();
+    expect(screen.getByLabelText("Mini Thumbnail 3")).not.toBeDisabled();
+    expect(screen.getByLabelText("Mini Thumbnail 4")).not.toBeDisabled();
     expect(screen.getByLabelText("Filmography")).not.toBeDisabled();
     expect(screen.getByLabelText("Pictorials")).not.toBeDisabled();
     expect(screen.getByLabelText("Birth Date")).not.toBeDisabled();
@@ -4402,6 +4435,9 @@ describe("App", () => {
           expect(args.input.name).toBe("Created Performer");
           expect(args.input.aliasesJson).toBe('["Typed Alias"]');
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          expect(args.input.performerThumbnailPathsJson).toBe(
+            '["D:/Thumbs/created-1.jpg","D:/Thumbs/created-2.jpg"]',
+          );
           return created;
         }
         if (command === "performer_get") {
@@ -4425,6 +4461,15 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail 1"), {
+      target: { value: " D:/Thumbs/created-1.jpg " },
+    });
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail 2"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail 3"), {
+      target: { value: "D:/Thumbs/created-2.jpg" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Performer")).toBeInTheDocument();
@@ -4433,12 +4478,45 @@ describe("App", () => {
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
   });
 
+  it("saves empty performer mini thumbnail fields safely", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const created = persistedPerformer({ name: "Empty Thumbnail Performer" });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "performer_create") {
+          expect(args.input.name).toBe("Empty Thumbnail Performer");
+          expect(args.input.performerThumbnailPathsJson).toBe("[]");
+          return created;
+        }
+        if (command === "performer_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Empty Thumbnail Performer" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Empty Thumbnail Performer")).toBeInTheDocument();
+  });
+
   it("loads and updates a performer through Tauri commands", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001/edit");
     setManagedCategories(["Updated"]);
     const existing = persistedPerformer({
       name: "Existing Performer",
       aliasesJson: '["Alias One"]',
+      performerThumbnailPathsJson:
+        '["D:/Thumbs/existing-1.jpg","D:/Thumbs/existing-2.jpg"]',
       categoriesJson: '["Classic"]',
       ratingJson: '{"attraction":3}',
     });
@@ -4459,6 +4537,9 @@ describe("App", () => {
           expect(args.id).toBe("performer_test_001");
           expect(args.patch.name).toBe("Updated Performer");
           expect(args.patch.aliasesJson).toBe('["Alias One","Alias Two"]');
+          expect(args.patch.performerThumbnailPathsJson).toBe(
+            '["D:/Thumbs/existing-1.jpg","D:/Thumbs/updated-3.jpg"]',
+          );
           expect(args.patch.categoriesJson).toBe('["Classic","Updated"]');
           expect(args.patch.ratingJson).toContain('"attraction":5');
           currentPerformer = updated;
@@ -4475,6 +4556,14 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Performer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mini Thumbnail 1")).toHaveValue(
+      "D:/Thumbs/existing-1.jpg",
+    );
+    expect(screen.getByLabelText("Mini Thumbnail 2")).toHaveValue(
+      "D:/Thumbs/existing-2.jpg",
+    );
+    expect(screen.getByLabelText("Mini Thumbnail 3")).toHaveValue("");
+    expect(screen.getByLabelText("Mini Thumbnail 4")).toHaveValue("");
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Updated Performer" },
     });
@@ -4485,6 +4574,12 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fireEvent.change(screen.getByLabelText("Attraction"), {
       target: { value: "5" },
+    });
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail 2"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail 3"), {
+      target: { value: "D:/Thumbs/updated-3.jpg" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
