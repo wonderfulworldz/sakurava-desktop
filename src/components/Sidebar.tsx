@@ -1,7 +1,6 @@
 import {
   Home,
   Image,
-  LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -42,8 +41,13 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           collapsed ? "justify-center px-3" : "px-5",
         ].join(" ")}
       >
-        <div className="flex size-10 items-center justify-center rounded-2xl bg-sakura-500 text-white shadow-sm shadow-sakura-200">
-          <LayoutGrid size={20} strokeWidth={2.3} />
+        <div className="flex size-11 items-center justify-center">
+          <img
+            src="/assets/sakurava-icon.svg"
+            alt="Sakurava logo"
+            className="size-10 object-contain"
+            draggable={false}
+          />
         </div>
         {!collapsed && (
           <div>
@@ -77,8 +81,8 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
               key={item.to}
               to={item.to}
               end={item.to === "/"}
-              aria-label={collapsed ? item.label : undefined}
-              title={collapsed ? item.label : undefined}
+              aria-label={collapsed ? `Navigate to ${item.label}` : undefined}
+              title={collapsed ? `Navigate to ${item.label}` : undefined}
               className={({ isActive }) =>
                 [
                   "flex h-11 items-center rounded-lg text-sm font-medium transition",
@@ -95,17 +99,6 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           );
         })}
       </nav>
-
-      {!collapsed && (
-        <div className="m-4 rounded-lg border border-sakura-100 bg-white/80 p-4">
-          <p className="text-xs font-medium uppercase tracking-[0.12em] text-sakura-600">
-            Offline first
-          </p>
-          <p className="mt-2 text-sm leading-5 text-slate-500">
-            Static frontend preview for the MVP shell.
-          </p>
-        </div>
-      )}
     </aside>
   );
 }
