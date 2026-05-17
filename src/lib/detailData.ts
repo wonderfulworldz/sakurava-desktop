@@ -144,9 +144,9 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Publisher / Label", value: "Sakura Studio" },
     ],
     mediaPaths: [
-      { label: "Cover Path", path: "Manual cover path placeholder" },
+      { label: "Cover status", path: "Manual cover path placeholder" },
       {
-        label: "Media Path",
+        label: "Media status",
         path: "Manual media path placeholder",
         playable: true,
       },
@@ -168,9 +168,9 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     techMessage: "Tech info is data-dependent and not available yet.",
     techItems: [
       { label: "Duration", value: "124 min" },
-      { label: "Resolution", value: "Not detected" },
-      { label: "File Size", value: "Not detected" },
-      { label: "File Type", value: "Not detected" },
+      { label: "Resolution", value: "Not available" },
+      { label: "File Size", value: "Not available" },
+      { label: "File Type", value: "Not available" },
     ],
     notes:
       "No notes saved.",
@@ -206,12 +206,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Publisher / Label", value: "Urban Light Studio" },
     ],
     mediaPaths: [
-      { label: "Cover Path", path: "Manual path placeholder" },
-      { label: "Folder Path", path: "Manual folder placeholder" },
+      { label: "Cover status", path: "Manual path placeholder" },
     ],
     systemInfo: [
       { label: "Created in Sakurava", value: "Preview only" },
       { label: "Last edited", value: "Preview only" },
+      { label: "Gallery status", value: "Set" },
     ],
     ratingTitle: "Rating Summary",
     rating: [
@@ -225,11 +225,10 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     techTitle: "Tech Info",
     techMessage: "Gallery tech info is data-dependent and not available yet.",
     techItems: [
-      { label: "Image Count", value: "84 images" },
-      { label: "Folder Size", value: "Not detected" },
-      { label: "Detected Image Count", value: "Not detected" },
-      { label: "Main Resolution", value: "Not detected" },
-      { label: "File Types", value: "Not detected" },
+      { label: "Gallery Count", value: "84 images" },
+      { label: "Resolution", value: "Not available" },
+      { label: "File Size", value: "Not available" },
+      { label: "File Type", value: "Not available" },
     ],
     notes:
       "No notes saved.",
@@ -271,7 +270,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Birth Date", value: "1999-04-12" },
       { label: "Status", value: "Active" },
     ],
-    mediaPaths: [{ label: "Cover Path", path: "Manual cover path placeholder" }],
+    mediaPaths: [{ label: "Profile image status", path: "Manual cover path placeholder" }],
     systemInfo: [
       { label: "Created in Sakurava", value: "Preview only" },
       { label: "Last edited", value: "Preview only" },

@@ -58,7 +58,7 @@ export function buildPerformerDetailConfig(
       { label: "Birth Date", value: performer.birthDate || "Not set" },
       { label: "Status", value: performer.status || "Unknown" },
     ],
-    mediaPaths: [{ label: "Cover Path", path: performer.coverPath }],
+    mediaPaths: [{ label: "Profile image status", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
       label: `Performer Thumbnail ${index + 1}`,
       value: thumbnailPaths[index] ? "Saved" : "Not set",

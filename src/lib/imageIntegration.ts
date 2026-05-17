@@ -42,6 +42,7 @@ export function buildImageDetailConfig(
   videos: Video[] = [],
 ): ImageDetailConfig {
   const baseConfig = detailConfigs.images as ImageDetailConfig;
+  const galleryImagePaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
   return {
     ...baseConfig,
     editTo: `/images/${image.id}/edit`,
@@ -57,23 +58,22 @@ export function buildImageDetailConfig(
       { label: "Publisher / Label", value: image.publisherLabel || "Not set" },
     ],
     mediaPaths: [
-      { label: "Cover Path", path: image.coverPath },
-      { label: "Folder Path", path: image.folderPath },
+      { label: "Cover status", path: image.coverPath },
     ],
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(image.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
+      { label: "Gallery status", value: formatSavedListStatus(galleryImagePaths) },
     ],
     rating: getRatingDimensions(image.ratingJson, imageRatingFields),
     techItems: [
-      { label: "Image Count", value: formatImageCount(image.imageCount) },
-      { label: "Folder Size", value: "Not detected" },
-      { label: "Detected Image Count", value: "Not detected" },
-      { label: "Main Resolution", value: "Not detected" },
-      { label: "File Types", value: "Not detected" },
+      { label: "Gallery Count", value: formatGalleryCount(image.imageCount, galleryImagePaths) },
+      { label: "Resolution", value: "Not available" },
+      { label: "File Size", value: "Not available" },
+      { label: "File Type", value: "Not available" },
     ],
     notes: image.notes || "No notes saved.",
-    galleryImagePaths: parseGalleryImagePathArray(image.galleryImagePathsJson),
+    galleryImagePaths,
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       image.relatedPerformersJson,
@@ -227,6 +227,25 @@ function optionalInteger(value: FormValues[string]) {
 
   const number = Number(value);
   return Number.isInteger(number) ? number : null;
+}
+
+function formatGalleryCount(count: number | null, galleryImagePaths: string[]) {
+  const safeCount =
+    typeof count === "number" && Number.isInteger(count) && count > 0
+      ? count
+      : galleryImagePaths.length > 0
+        ? galleryImagePaths.length
+        : null;
+
+  if (!safeCount) {
+    return "Not available";
+  }
+
+  return `${safeCount} ${safeCount === 1 ? "image" : "images"}`;
+}
+
+function formatSavedListStatus(values: string[]) {
+  return values.length > 0 ? "Set" : "Not set";
 }
 
 function formatImageCount(count: number | null) {
