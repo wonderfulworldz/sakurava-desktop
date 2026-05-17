@@ -17,12 +17,14 @@ export type HomeRecentItem = {
   key: string;
   title: string;
   detail: string;
+  typeLabel: "Video" | "Image" | "Performer";
   coverPath?: string;
   favorite: boolean;
 };
 
 type HomeRecentCandidate = HomeRecentItem & {
-  createdAt?: string | null;
+  createdAt?: number | string | null;
+  updatedAt?: number | string | null;
 };
 
 export const summaryCards: HomeSummaryCard[] = [
@@ -114,12 +116,9 @@ export const quickActions = [
   },
 ];
 
-// Continue Cataloging is intended for incomplete records, such as items missing
-// thumbnails, categories, or important metadata. Keep it static until that
-// definition has a safe repository/query path instead of ad hoc scoring.
-export const continueItems: string[] = [];
-
 export const recentlyAdded: HomeRecentItem[] = [];
+
+export const lastEdited: HomeRecentItem[] = [];
 
 export function buildRecentlyAdded({
   videos,
@@ -130,47 +129,71 @@ export function buildRecentlyAdded({
   images: ImageRecord[];
   performers: Performer[];
 }): HomeRecentItem[] {
-  const videoItems: HomeRecentCandidate[] = videos.map((video) => ({
-    kind: "videos" as const,
-    key: video.id,
-    title: video.title,
-    detail: video.code || video.originalTitle || "Video",
-    coverPath: video.coverPath,
-    favorite: video.favorite,
-    createdAt: video.createdAt,
-  }));
-  const imageItems: HomeRecentCandidate[] = images.map((image) => ({
-    kind: "images" as const,
-    key: image.id,
-    title: image.title,
-    detail: image.code || image.originalTitle || "Image",
-    coverPath: image.coverPath,
-    favorite: image.favorite,
-    createdAt: image.createdAt,
-  }));
-  const performerItems: HomeRecentCandidate[] = performers.map((performer) => ({
-    kind: "performers" as const,
-    key: performer.id,
-    title: performer.name,
-    detail: performer.originalName || performer.status || "Performer",
-    coverPath: performer.coverPath,
-    favorite: performer.favorite,
-    createdAt: performer.createdAt,
-  }));
+  return sortRecentlyAddedItems(normalizeHomeItems({ videos, images, performers }))
+    .slice(0, 4)
+    .map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...item }) => item);
+}
 
-  const sortedGroups: HomeRecentCandidate[][] = [
-    videoItems,
-    imageItems,
-    performerItems,
-  ].map(sortRecentItems);
-  const selected = sortedGroups.flatMap((items) => items.slice(0, 1));
-  const selectedKeys = new Set(selected.map((item) => `${item.kind}-${item.key}`));
-  const remaining = sortRecentItems(sortedGroups.flat()).filter(
-    (item) => !selectedKeys.has(`${item.kind}-${item.key}`),
-  );
+export function buildLastEdited({
+  videos,
+  images,
+  performers,
+}: {
+  videos: VideoRecord[];
+  images: ImageRecord[];
+  performers: Performer[];
+}): HomeRecentItem[] {
+  return sortContinueCatalogingItems(
+    normalizeHomeItems({ videos, images, performers }),
+  )
+    .slice(0, 3)
+    .map(({ updatedAt: _updatedAt, createdAt: _createdAt, ...item }) => item);
+}
 
-  return sortRecentItems([...selected, ...remaining.slice(0, 4 - selected.length)])
-    .map(({ createdAt: _createdAt, ...item }) => item);
+function normalizeHomeItems({
+  videos,
+  images,
+  performers,
+}: {
+  videos: VideoRecord[];
+  images: ImageRecord[];
+  performers: Performer[];
+}): HomeRecentCandidate[] {
+  return [
+    ...videos.map((video) => ({
+      kind: "videos" as const,
+      key: video.id,
+      title: video.title,
+      detail: video.code || video.originalTitle || "Video",
+      typeLabel: "Video" as const,
+      coverPath: video.coverPath,
+      favorite: video.favorite,
+      createdAt: video.createdAt,
+      updatedAt: video.updatedAt,
+    })),
+    ...images.map((image) => ({
+      kind: "images" as const,
+      key: image.id,
+      title: image.title,
+      detail: image.code || image.originalTitle || "Image",
+      typeLabel: "Image" as const,
+      coverPath: image.coverPath,
+      favorite: image.favorite,
+      createdAt: image.createdAt,
+      updatedAt: image.updatedAt,
+    })),
+    ...performers.map((performer) => ({
+      kind: "performers" as const,
+      key: performer.id,
+      title: performer.name,
+      detail: performer.originalName || performer.status || "Performer",
+      typeLabel: "Performer" as const,
+      coverPath: performer.coverPath,
+      favorite: performer.favorite,
+      createdAt: performer.createdAt,
+      updatedAt: performer.updatedAt,
+    })),
+  ];
 }
 
 function countDetail(count: number, singularLabel: string) {
@@ -181,17 +204,54 @@ function countDetail(count: number, singularLabel: string) {
   return `${count} ${singularLabel}${count === 1 ? "" : "s"}`;
 }
 
-function sortRecentItems<T extends HomeRecentCandidate>(items: T[]) {
+function sortRecentlyAddedItems<T extends HomeRecentCandidate>(items: T[]) {
   return items
     .slice()
-    .sort((left, right) => timestamp(right.createdAt) - timestamp(left.createdAt));
+    .sort((left, right) => {
+      const rightTime = timestamp(right.createdAt) || timestamp(right.updatedAt);
+      const leftTime = timestamp(left.createdAt) || timestamp(left.updatedAt);
+
+      return rightTime - leftTime;
+    });
 }
 
-function timestamp(value: string | null | undefined) {
+function sortContinueCatalogingItems<T extends HomeRecentCandidate>(items: T[]) {
+  return items
+    .slice()
+    .sort((left, right) => {
+      const rightTime = timestamp(right.updatedAt) || timestamp(right.createdAt);
+      const leftTime = timestamp(left.updatedAt) || timestamp(left.createdAt);
+
+      return rightTime - leftTime;
+    });
+}
+
+function timestamp(value: number | string | null | undefined) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
   if (typeof value !== "string") {
     return 0;
   }
 
-  const time = Date.parse(value);
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    return 0;
+  }
+
+  const numericTime = Number(trimmed);
+  const numericLike = /^[-+]?(?:\d+|\d*\.\d+)$/.test(trimmed);
+
+  if (Number.isFinite(numericTime) && numericTime > 0) {
+    return numericTime;
+  }
+
+  if (numericLike) {
+    return 0;
+  }
+
+  const time = Date.parse(trimmed);
   return Number.isFinite(time) ? time : 0;
 }
