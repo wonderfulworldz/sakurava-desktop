@@ -56,6 +56,7 @@ Urutan acuan dokumen:
 30. `28-ui-ux-v1-audit-prioritization-plan.md` - audit dan prioritas roadmap UI/UX V1 setelah Image Gallery initial complete.
 31. `29-catalog-toolbar-v1-planning.md` - rencana Catalog Toolbar V1 untuk Videos, Images, dan Performers sebelum implementasi.
 32. `30-detail-page-v1-layout-planning.md` - rencana Detail Page V1 untuk Video Detail, Image Detail, dan Performer Detail sebelum implementasi.
+33. `31-functional-spider-chart-rating-planning.md` - rencana Functional Spider Chart Rating sebelum implementasi.
 
 ## Current Post-MVP Reading Order
 
@@ -85,8 +86,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 22. `28-ui-ux-v1-audit-prioritization-plan.md`
 23. `29-catalog-toolbar-v1-planning.md`
 24. `30-detail-page-v1-layout-planning.md`
-25. `AGENT_CODE_HANDOFF.md`
-26. `WORKFLOW_GIT.md`
+25. `31-functional-spider-chart-rating-planning.md`
+26. `AGENT_CODE_HANDOFF.md`
+27. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
