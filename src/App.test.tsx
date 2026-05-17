@@ -153,15 +153,26 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Categories" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search categories...")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Name A-Z")).toBeInTheDocument();
+    expect(screen.queryByText("Catalog Browse")).not.toBeInTheDocument();
+    expect(screen.queryByText("catalog browse")).not.toBeInTheDocument();
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
+    expect(screen.getByText("Total Category")).toBeInTheDocument();
+    expect(screen.getByText("Videos Category")).toBeInTheDocument();
+    expect(screen.getByText("Images Category")).toBeInTheDocument();
+    expect(screen.getByText("Performers Category")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open Category Management" }),
+      screen.getByRole("link", { name: "Manage Category" }),
     ).toHaveAttribute("href", "/settings/category-management");
+    expect(
+      screen.queryByRole("link", { name: "Open Category Management" }),
+    ).not.toBeInTheDocument();
 
     const categoryCard = screen.getByRole("article", {
       name: "Category Unused Local",
     });
     expect(within(categoryCard).getByText("Unused Managed")).toBeInTheDocument();
     expect(within(categoryCard).getByText("No record usage yet.")).toBeInTheDocument();
+    expect(within(categoryCard).queryByText(/^Open\b/)).not.toBeInTheDocument();
 
     expect(
       screen.queryByRole("button", { name: /add category/i }),
@@ -211,18 +222,16 @@ describe("App", () => {
     });
     expect(within(dramaCard).getByText("Managed")).toBeInTheDocument();
     expect(within(dramaCard).getByText("3")).toBeInTheDocument();
-    expect(within(dramaCard).getByText("Open Videos")).toHaveAttribute(
-      "href",
-      "/videos",
-    );
-    expect(within(dramaCard).getByText("Open Images")).toHaveAttribute(
-      "href",
-      "/images",
-    );
-    expect(within(dramaCard).getByText("Open Performers")).toHaveAttribute(
-      "href",
-      "/performers",
-    );
+    expect(within(dramaCard).getByText("Used by saved catalog records.")).toBeInTheDocument();
+    expect(within(dramaCard).queryByText(/^Open\b/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Open Videos")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open Images")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open Performers")).not.toBeInTheDocument();
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
+    expect(screen.getByText("Total Category")).toBeInTheDocument();
+    expect(screen.getByText("Videos Category")).toBeInTheDocument();
+    expect(screen.getByText("Images Category")).toBeInTheDocument();
+    expect(screen.getByText("Performers Category")).toBeInTheDocument();
 
     const classicCard = screen.getByRole("article", {
       name: "Category Classic",
