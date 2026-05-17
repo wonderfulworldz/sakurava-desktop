@@ -71,6 +71,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Catalog Toolbar V1 Planning is documented in `docs/29-catalog-toolbar-v1-planning.md`; implementation should keep the toolbar scoped to Search, Filter, Sorting, and one View toggle, with data-dependent filters disabled/planned until reliable fields/helpers exist.
 - Catalog Toolbar V1 Implementation is complete through Batch 26.5 after merge; Videos, Images, and Performers use Search, Filter, Sorting, and one View toggle while data-dependent filters remain planned/disabled.
 - Categories Page V1 Cleanup is complete through Batch 26.6 after merge; Categories remains browse-only and Category Management CRUD remains on the dedicated management page.
+- Detail Page V1 Layout Planning is documented in `docs/30-detail-page-v1-layout-planning.md`; implementation should keep Detail cleanup scoped to hero order, metadata cleanup, System Info, related cards, and Image Gallery placement while keeping spider chart and Tech Info detection in separate batches.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## UI/UX V1 Alignment Sequence
