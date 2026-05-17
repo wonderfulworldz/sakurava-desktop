@@ -53,6 +53,7 @@ Urutan acuan dokumen:
 27. `25-image-gallery-planning.md` - rencana aman Image Gallery dari daftar path gambar eksplisit.
 28. `26-image-gallery-storage-form-planning.md` - rencana storage/form aman untuk daftar path Image Gallery.
 29. `27-image-gallery-qa-safety-review.md` - QA dan safety review Image Gallery setelah viewer controls.
+30. `28-ui-ux-v1-audit-prioritization-plan.md` - audit dan prioritas roadmap UI/UX V1 setelah Image Gallery initial complete.
 
 ## Current Post-MVP Reading Order
 
@@ -79,8 +80,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 19. `25-image-gallery-planning.md`
 20. `26-image-gallery-storage-form-planning.md`
 21. `27-image-gallery-qa-safety-review.md`
-22. `AGENT_CODE_HANDOFF.md`
-23. `WORKFLOW_GIT.md`
+22. `28-ui-ux-v1-audit-prioritization-plan.md`
+23. `AGENT_CODE_HANDOFF.md`
+24. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

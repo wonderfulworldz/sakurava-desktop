@@ -67,4 +67,21 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Image Detail Gallery Grid renders from saved `galleryImagePathsJson` paths with 24 item batches.
 - Gallery Full-size Viewer opens from Image Detail gallery tiles and uses only saved `galleryImagePathsJson` paths, with overlay Previous/Next, counter, close, zoom, and browser fullscreen with in-app fallback.
 - Image Gallery QA and Safety Review is documented in `docs/27-image-gallery-qa-safety-review.md`; after clean QA, Image Gallery can be treated as post-MVP initial complete.
+- UI/UX V1 Audit and Prioritization Plan is documented in `docs/28-ui-ux-v1-audit-prioritization-plan.md`; it is the active planning source for UI/UX V1 alignment after Image Gallery initial completion.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
+
+## UI/UX V1 Alignment Sequence
+
+Use `docs/28-ui-ux-v1-audit-prioritization-plan.md` for the active UI/UX V1 draft roadmap. Earlier or superseded UI/UX V1 adjustment files should be ignored unless the user explicitly promotes them again.
+
+Recommended sequence:
+
+1. 26.1 - UI/UX V1 Audit & Prioritization Plan
+2. 26.2 - App Shell V1 Cleanup
+3. 26.3 - Home Page V1 Cleanup
+4. 26.4 - Catalog Toolbar V1 Planning
+5. 26.5 - Catalog Toolbar V1 Implementation
+6. 26.6 - Categories Page V1 Cleanup
+7. 27.1 through 31.5 as defined in `docs/28-ui-ux-v1-audit-prioritization-plan.md`.
+
+Keep UI/UX V1 batches scoped. Do not mix App Shell, Home, Catalog, Categories, Detail, Form, Settings, Category Management, or V1 cleanup implementation in one batch.
