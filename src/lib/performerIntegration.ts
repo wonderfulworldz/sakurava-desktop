@@ -50,14 +50,13 @@ export function buildPerformerDetailConfig(
     thumbnailPaths,
     categories: parseTextLabelArray(performer.categoriesJson),
     summary: [
-      { label: "Years Active", value: "Not tracked in MVP" },
+      { label: "Years Active", value: "Not tracked" },
       { label: "Filmography", value: formatCount(performer.filmographyCount) },
       { label: "Pictorials", value: formatCount(performer.pictorialsCount) },
     ],
     metadata: [
       { label: "Birth Date", value: performer.birthDate || "Not set" },
       { label: "Status", value: performer.status || "Unknown" },
-      { label: "Cover Path", value: performer.coverPath || "Not set" },
     ],
     mediaPaths: [{ label: "Cover Path", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
@@ -71,16 +70,16 @@ export function buildPerformerDetailConfig(
     ],
     personal: [
       { label: "Birth Date", value: performer.birthDate || "Not set" },
-      { label: "Birthplace", value: "Not saved in MVP" },
-      { label: "Nationality", value: "Not saved in MVP" },
-      { label: "Astrological Sign", value: "Not saved in MVP" },
-      { label: "Blood Type", value: "Not saved in MVP" },
+      { label: "Birthplace", value: "Not saved" },
+      { label: "Nationality", value: "Not saved" },
+      { label: "Astrological Sign", value: "Not saved" },
+      { label: "Blood Type", value: "Not saved" },
     ],
     physical: [
-      { label: "Height", value: "Not saved in MVP" },
-      { label: "Weight", value: "Not saved in MVP" },
-      { label: "Measurement", value: "Not saved in MVP" },
-      { label: "Cup Size", value: "Not saved in MVP" },
+      { label: "Height", value: "Not saved" },
+      { label: "Weight", value: "Not saved" },
+      { label: "Measurement", value: "Not saved" },
+      { label: "Cup Size", value: "Not saved" },
     ],
     rating: performerRatingFields.map((field) => ({
       label: field.label,

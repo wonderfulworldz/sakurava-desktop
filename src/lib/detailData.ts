@@ -140,7 +140,6 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     categories: ["Drama", "Soft Tone", "Favorite"],
     metadata: [
       { label: "Release Date", value: "2025-03-14" },
-      { label: "Duration", value: "124 min" },
       { label: "Publisher / Label", value: "Sakura Studio" },
     ],
     mediaPaths: [
@@ -165,14 +164,15 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Chemistry", value: 4 },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info is not detected or saved in MVP.",
+    techMessage: "Tech info is data-dependent and not available yet.",
     techItems: [
+      { label: "Duration", value: "124 min" },
       { label: "Resolution", value: "Not detected" },
       { label: "File Size", value: "Not detected" },
       { label: "File Type", value: "Not detected" },
     ],
     notes:
-      "Static notes preview for the selected video. Real saved notes arrive in a later integration batch.",
+      "No notes saved.",
     relatedTitle: "Related Content",
     relatedSections: [
       {
@@ -202,10 +202,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     categories: ["Portrait", "Night", "Private"],
     metadata: [
       { label: "Release Date", value: "2025-01-22" },
-      { label: "Image Count", value: "84 images" },
       { label: "Publisher / Label", value: "Urban Light Studio" },
-      { label: "Cover Path", value: "Manual path placeholder" },
-      { label: "Folder Path", value: "Manual folder placeholder" },
     ],
     mediaPaths: [
       { label: "Cover Path", path: "Manual path placeholder" },
@@ -225,15 +222,16 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Signature", value: 5 },
     ],
     techTitle: "Tech Info",
-    techMessage: "Folder analysis is not detected or saved in MVP.",
+    techMessage: "Gallery tech info is data-dependent and not available yet.",
     techItems: [
+      { label: "Image Count", value: "84 images" },
       { label: "Folder Size", value: "Not detected" },
       { label: "Detected Image Count", value: "Not detected" },
       { label: "Main Resolution", value: "Not detected" },
       { label: "File Types", value: "Not detected" },
     ],
     notes:
-      "Static notes preview for a local image set. Folder scanning and saved edits are intentionally out of scope here.",
+      "No notes saved.",
     relatedTitle: "Related Content",
     relatedSections: [
       {
@@ -264,14 +262,13 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     thumbnailPaths: [],
     categories: ["Favorite", "Lead", "Studio"],
     summary: [
-      { label: "Years Active", value: "2015 - present" },
+      { label: "Years Active", value: "2015-present\n(19 - 30 y)" },
       { label: "Filmography", value: "18" },
       { label: "Pictorials", value: "9" },
     ],
     metadata: [
       { label: "Birth Date", value: "1999-04-12" },
       { label: "Status", value: "Active" },
-      { label: "Profile Source", value: "Manual placeholder" },
     ],
     mediaPaths: [{ label: "Cover Path", path: "Manual cover path placeholder" }],
     systemInfo: [
@@ -279,16 +276,16 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Last edited", value: "Preview only" },
     ],
     personal: [
-      { label: "Birthplace", value: "Not saved in MVP" },
-      { label: "Nationality", value: "Not saved in MVP" },
-      { label: "Astrological Sign", value: "Not saved in MVP" },
-      { label: "Blood Type", value: "Not saved in MVP" },
+      { label: "Birthplace", value: "Not saved" },
+      { label: "Nationality", value: "Not saved" },
+      { label: "Astrological Sign", value: "Not saved" },
+      { label: "Blood Type", value: "Not saved" },
     ],
     physical: [
-      { label: "Height", value: "Not saved in MVP" },
-      { label: "Weight", value: "Not saved in MVP" },
-      { label: "Measurement", value: "Not saved in MVP" },
-      { label: "Cup Size", value: "Not saved in MVP" },
+      { label: "Height", value: "Not saved" },
+      { label: "Weight", value: "Not saved" },
+      { label: "Measurement", value: "Not saved" },
+      { label: "Cup Size", value: "Not saved" },
     ],
     ratingTitle: "Rating Summary",
     rating: [
@@ -308,7 +305,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Performer Thumbnail 4", value: "Not set" },
     ],
     notes:
-      "Static performer notes preview. Advanced profile fields are visual placeholders until a later approved phase.",
+      "No notes saved.",
     relatedTitle: "Related Content",
     relatedSections: [
       {
