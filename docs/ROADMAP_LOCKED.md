@@ -65,4 +65,5 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Image Gallery Storage/Form implementation adds `galleryImagePathsJson` and structured Image form path rows.
 - Gallery Folder Picker / Direct Image Read implements folder-based gallery input only; multi-image file picker remains intentionally unimplemented unless explicitly requested later.
 - Image Detail Gallery Grid renders from saved `galleryImagePathsJson` paths with 24 item batches.
+- Gallery Full-size Viewer opens from Image Detail gallery tiles and uses only saved `galleryImagePathsJson` paths, with overlay Previous/Next, counter, close, zoom, and browser fullscreen with in-app fallback.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.

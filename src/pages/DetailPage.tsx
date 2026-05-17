@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowRight,
   Calendar,
   Clapperboard,
   Edit3,
@@ -9,7 +10,11 @@ import {
   Heart,
   Image as ImageIcon,
   Info,
+  Maximize2,
+  Minimize2,
+  Minus,
   Play,
+  Plus,
   Ruler,
   Star,
   Trash2,
@@ -1005,117 +1010,414 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
 }
 
 const GALLERY_BATCH_SIZE = 24;
+const MIN_GALLERY_ZOOM = 0.5;
+const MAX_GALLERY_ZOOM = 3;
+const GALLERY_ZOOM_STEP = 0.25;
 
 function GalleryGrid({ paths }: { paths: string[] }) {
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const visiblePaths = paths.slice(0, visibleCount);
   const canLoadMore = visibleCount < paths.length;
 
   useEffect(() => {
     setVisibleCount(GALLERY_BATCH_SIZE);
+    setViewerIndex(null);
   }, [paths]);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitle title="Gallery" icon={ImageIcon} />
-        {paths.length > 0 && (
-          <p className="text-xs font-medium text-slate-500">
-            Showing {visiblePaths.length} of {paths.length} images
-          </p>
-        )}
-      </div>
-      {paths.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-          No Gallery Images saved.
-        </p>
-      ) : (
-        <>
-          <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
-            {visiblePaths.map((path, index) => (
-              <GalleryImageTile
-                key={`${path}-${index}`}
-                path={path}
-                label={`Gallery image ${index + 1}`}
-              />
-            ))}
-          </div>
-          {canLoadMore && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleCount((current) => current + GALLERY_BATCH_SIZE)
-                }
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
-              >
-                Load More
-              </button>
-            </div>
+    <>
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle title="Gallery" icon={ImageIcon} />
+          {paths.length > 0 && (
+            <p className="text-xs font-medium text-slate-500">
+              Showing {visiblePaths.length} of {paths.length} images
+            </p>
           )}
-        </>
+        </div>
+        {paths.length === 0 ? (
+          <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
+            No Gallery Images saved.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+              {visiblePaths.map((path, index) => (
+                <GalleryImageTile
+                  key={`${path}-${index}`}
+                  path={path}
+                  label={`Gallery image ${index + 1}`}
+                  onPreview={() => setViewerIndex(index)}
+                />
+              ))}
+            </div>
+            {canLoadMore && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleCount((current) => current + GALLERY_BATCH_SIZE)
+                  }
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+      {viewerIndex !== null && paths[viewerIndex] && (
+        <GalleryViewer
+          initialIndex={viewerIndex}
+          paths={paths}
+          onClose={() => setViewerIndex(null)}
+        />
       )}
-    </section>
+    </>
   );
 }
 
-function GalleryImageTile({ path, label }: { path: string; label: string }) {
+function GalleryImageTile({
+  path,
+  label,
+  onPreview,
+}: {
+  path: string;
+  label: string;
+  onPreview: () => void;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(path);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   useEffect(() => {
     setImageFailed(false);
-    setPreviewOpen(false);
   }, [assetSrc, mediaAssetScopeReady]);
 
   return (
-    <>
-      <div
-        className="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50"
-        role={showImage ? undefined : "img"}
-        aria-label={showImage ? undefined : label}
-      >
-        {showImage ? (
+    <div
+      className="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50"
+      role={showImage ? undefined : "img"}
+      aria-label={showImage ? undefined : label}
+    >
+      {showImage ? (
+        <button
+          type="button"
+          aria-label={`Preview ${label}`}
+          className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
+          onClick={onPreview}
+        >
+          <img
+            src={assetSrc ?? undefined}
+            alt={label}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
+        </button>
+      ) : (
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-300">
+          <ImageIcon size={28} />
+          <span className="text-xs font-medium text-slate-400">
+            Image unavailable
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GalleryViewer({
+  initialIndex,
+  paths,
+  onClose,
+}: {
+  initialIndex: number;
+  paths: string[];
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [isFitMode, setIsFitMode] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const path = paths[currentIndex] ?? "";
+  const assetSrc = localImagePathToAssetSrc(path);
+  const canShowImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+  const canGoPrevious = currentIndex > 0;
+  const canGoNext = currentIndex < paths.length - 1;
+  const zoomLabel = isFitMode ? "Fit" : `${Math.round(zoom * 100)}%`;
+  const isFullscreenActive = isBrowserFullscreen || isExpanded;
+
+  async function closeViewer() {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // Closing the viewer should still work if the browser denies exit.
+      }
+    }
+
+    setIsExpanded(false);
+    onClose();
+  }
+
+  function goToIndex(nextIndex: number) {
+    if (nextIndex < 0 || nextIndex >= paths.length) {
+      return;
+    }
+
+    setCurrentIndex(nextIndex);
+    setImageFailed(false);
+    setIsFitMode(true);
+    setZoom(1);
+  }
+
+  function zoomIn() {
+    setIsFitMode(false);
+    setZoom((current) => Math.min(MAX_GALLERY_ZOOM, current + GALLERY_ZOOM_STEP));
+  }
+
+  function zoomOut() {
+    setIsFitMode(false);
+    setZoom((current) => Math.max(MIN_GALLERY_ZOOM, current - GALLERY_ZOOM_STEP));
+  }
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+        setIsExpanded(false);
+      } catch {
+        setIsExpanded(false);
+      }
+      return;
+    }
+
+    if (isExpanded) {
+      setIsExpanded(false);
+      return;
+    }
+
+    if (document.documentElement.requestFullscreen) {
+      try {
+        await document.documentElement.requestFullscreen();
+        return;
+      } catch {
+        setIsExpanded(true);
+        return;
+      }
+    }
+
+    setIsExpanded(true);
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (document.fullscreenElement) {
+          return;
+        }
+
+        if (isExpanded) {
+          setIsExpanded(false);
+          return;
+        }
+
+        void closeViewer();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        goToIndex(currentIndex - 1);
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        goToIndex(currentIndex + 1);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, isExpanded, onClose, paths.length]);
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsBrowserFullscreen(Boolean(document.fullscreenElement));
+    }
+
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    syncFullscreenState();
+    return () =>
+      document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Gallery full-size viewer"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-950 text-white"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          void closeViewer();
+        }
+      }}
+    >
+        <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-5.5rem)] flex-wrap items-center gap-2 sm:left-4 sm:top-4">
+          <span className="rounded-full bg-slate-950/70 px-3 py-1 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10">
+            {currentIndex + 1} / {paths.length}
+          </span>
+          <span className="max-w-[52vw] truncate rounded-full bg-slate-950/70 px-3 py-1 text-xs font-medium text-slate-200 shadow-lg ring-1 ring-white/10">
+            {fileNameFromPath(path) || "Gallery image"}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          aria-label="Close gallery viewer"
+          onClick={() => void closeViewer()}
+          className="absolute right-3 top-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-950/70 text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:right-4 sm:top-4"
+        >
+          <X size={18} />
+        </button>
+
+        {canGoPrevious && (
           <button
             type="button"
-            aria-label={`Preview ${label}`}
-            className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
-            onClick={() => setPreviewOpen(true)}
+            aria-label="Previous gallery image"
+            onClick={() => goToIndex(currentIndex - 1)}
+            className="absolute left-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/65 text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:left-4"
           >
-            <img
-              src={assetSrc ?? undefined}
-              alt={label}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              onError={() => setImageFailed(true)}
-            />
+            <ArrowLeft size={22} />
           </button>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-300">
-            <ImageIcon size={28} />
-            <span className="text-xs font-medium text-slate-400">
-              Image unavailable
-            </span>
-          </div>
         )}
-      </div>
-      {showImage && assetSrc && previewOpen && (
-        <ImagePreviewModal
-          alt={`${label} full size`}
-          src={assetSrc}
-          title={label}
-          onClose={() => setPreviewOpen(false)}
-          onImageError={() => {
-            setImageFailed(true);
-            setPreviewOpen(false);
-          }}
-        />
-      )}
-    </>
+
+        {canGoNext && (
+          <button
+            type="button"
+            aria-label="Next gallery image"
+            onClick={() => goToIndex(currentIndex + 1)}
+            className="absolute right-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/65 text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:right-4"
+          >
+            <ArrowRight size={22} />
+          </button>
+        )}
+
+        <div className="h-full w-full overflow-auto">
+          <div className="flex min-h-full min-w-full items-center justify-center">
+            {canShowImage && assetSrc ? (
+              <img
+                src={assetSrc}
+                alt={`Gallery image ${currentIndex + 1} full size`}
+                className={isFitMode ? "max-h-screen max-w-full object-contain" : ""}
+                style={
+                  isFitMode
+                    ? undefined
+                    : {
+                        maxWidth: "none",
+                        width: `${zoom * 100}%`,
+                        height: "auto",
+                      }
+                }
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <div
+                role="img"
+                aria-label={`Gallery image ${currentIndex + 1} unavailable`}
+                className="flex min-h-52 min-w-64 flex-col items-center justify-center gap-3 rounded-lg border border-white/10 bg-white/5 px-8 py-10 text-center text-slate-300"
+              >
+                <ImageIcon size={42} />
+                <p className="text-sm font-semibold">Image unavailable</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-full bg-slate-950/75 px-2 py-2 shadow-lg ring-1 ring-white/10 sm:bottom-4">
+          <button
+            type="button"
+            onClick={() => {
+              setIsFitMode(true);
+              setZoom(1);
+            }}
+            aria-label="Fit gallery image"
+            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 ${
+              isFitMode
+                ? "bg-white text-slate-950"
+                : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            Fit
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsFitMode(false);
+              setZoom(1);
+            }}
+            aria-label="Show gallery image at 100 percent"
+            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 ${
+              !isFitMode && zoom === 1
+                ? "bg-white text-slate-950"
+                : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            100%
+          </button>
+          <button
+            type="button"
+            onClick={zoomOut}
+            disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
+            aria-label="Zoom out gallery image"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Minus size={16} />
+          </button>
+          <span className="min-w-12 text-center text-xs font-semibold text-slate-200">
+            {zoomLabel}
+          </span>
+          <button
+            type="button"
+            onClick={zoomIn}
+            disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
+            aria-label="Zoom in gallery image"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={
+              isFullscreenActive
+                ? "Exit fullscreen gallery mode"
+                : "Enter fullscreen gallery mode"
+            }
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+          >
+            {isFullscreenActive ? (
+              <Minimize2 size={16} />
+            ) : (
+              <Maximize2 size={16} />
+            )}
+          </button>
+        </div>
+    </div>
   );
+}
+
+function fileNameFromPath(path: string) {
+  const normalized = path.trim().replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "";
 }
 
 function CardTitle({

@@ -202,6 +202,12 @@ Image Detail Gallery Grid expected checkpoint after merge:
 post-mvp-25-5-image-detail-gallery-grid-v1
 ```
 
+Gallery Full-size Viewer with Next/Back expected checkpoint after merge:
+
+```text
+post-mvp-25-6-gallery-full-size-viewer-controls-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -269,6 +275,7 @@ Current app capabilities include:
 - Image Gallery storage/form support through Batch 25.3 after merge;
 - Gallery folder picker / direct image read support through Batch 25.4 after merge;
 - Image Detail gallery grid display through Batch 25.5 after merge;
+- Image Detail gallery full-size viewer controls through Batch 25.6 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -295,6 +302,8 @@ For Batch 25.4, Image Create/Edit `Gallery Images` can use `Browse Gallery Folde
 
 For Batch 25.5, Image Detail renders a `Gallery` section from saved `galleryImagePathsJson` paths. The grid starts with 24 items, adds 24 per `Load More` action, and keeps empty or invalid saved gallery data safe. It uses saved explicit paths only.
 
+For Batch 25.6, Image Detail gallery tiles open a low-bezel full-size viewer backed only by the saved `galleryImagePathsJson` path list. The viewer adds overlay Previous/Next controls, overlay counter/status, close control, simple Fit/100%/Zoom In/Zoom Out controls, browser fullscreen with in-app fallback, scoped keyboard controls, and safe missing-image fallback behavior. It does not add folder refresh behavior, file mutation behavior, derived image files, or storage changes.
+
 ## Recommended Next Phase
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
@@ -305,10 +314,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended phase after Batch 25.5:
+Recommended phase after Batch 25.6:
 
 ```text
-Future Image Gallery viewer batch when explicitly requested
+Future Image Gallery enhancements only when explicitly requested
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, and `docs/26-image-gallery-storage-form-planning.md` before changing code.

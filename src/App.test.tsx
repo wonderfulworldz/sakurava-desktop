@@ -19,6 +19,18 @@ describe("App", () => {
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
     window.localStorage.clear();
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    Object.defineProperty(document.documentElement, "requestFullscreen", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: undefined,
+    });
     dialogMocks.open.mockReset();
     dialogMocks.save.mockReset();
   });
@@ -4689,6 +4701,254 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("opens image detail gallery images in a navigable overlay viewer", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const galleryPaths = [
+      "C:/Gallery/one.jpg",
+      "C:/Gallery/two.jpg",
+      "C:/Gallery/three.jpg",
+    ];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Viewer Gallery Image",
+          galleryImagePathsJson: JSON.stringify(galleryPaths),
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+    let fullscreenElement: Element | null = null;
+    const requestFullscreen = vi.fn(async () => {
+      fullscreenElement = document.documentElement;
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    const exitFullscreen = vi.fn(async () => {
+      fullscreenElement = null;
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => fullscreenElement,
+    });
+    Object.defineProperty(document.documentElement, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    });
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: exitFullscreen,
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Viewer Gallery Image")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview Gallery image 2" }),
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    expect(within(viewer).queryByRole("heading")).not.toBeInTheDocument();
+    expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
+    expect(within(viewer).getByText("two.jpg")).toBeInTheDocument();
+    expect(
+      within(viewer).getByAltText("Gallery image 2 full size"),
+    ).toHaveAttribute("src", "asset://localhost/C:/Gallery/two.jpg");
+    expect(
+      within(viewer).getByRole("button", { name: "Previous gallery image" }),
+    ).toBeInTheDocument();
+    expect(
+      within(viewer).getByRole("button", { name: "Next gallery image" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Next gallery image" }),
+    );
+
+    expect(within(viewer).getByText("3 / 3")).toBeInTheDocument();
+    expect(
+      within(viewer).queryByRole("button", { name: "Next gallery image" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+
+    expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Show gallery image at 100 percent",
+      }),
+    );
+    expect(within(viewer).getAllByText("100%").length).toBeGreaterThan(0);
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+    expect(within(viewer).getByText("125%")).toBeInTheDocument();
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+    expect(within(viewer).getByText("150%")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Enter fullscreen gallery mode",
+      }),
+    );
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Exit fullscreen gallery mode",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Exit fullscreen gallery mode",
+      }),
+    );
+    expect(exitFullscreen).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Previous gallery image" }),
+    );
+    expect(within(viewer).getByText("1 / 3")).toBeInTheDocument();
+    expect(within(viewer).getAllByText("Fit").length).toBeGreaterThan(0);
+    expect(
+      within(viewer).queryByRole("button", { name: "Previous gallery image" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Gallery full-size viewer" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(invoke).not.toHaveBeenCalledWith(
+      "gallery_folder_images_list",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("falls back to in-app fullscreen-like gallery mode when browser fullscreen is unavailable", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Fallback Fullscreen Gallery Image",
+          galleryImagePathsJson: '["C:/Gallery/fallback.jpg"]',
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    Object.defineProperty(document.documentElement, "requestFullscreen", {
+      configurable: true,
+      value: undefined,
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("Fallback Fullscreen Gallery Image"),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview Gallery image 1" }),
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Enter fullscreen gallery mode",
+      }),
+    );
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Exit fullscreen gallery mode",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Enter fullscreen gallery mode",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Gallery full-size viewer" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a gallery viewer fallback when the selected full-size image fails", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Viewer Broken Gallery Image",
+          galleryImagePathsJson: '["C:/Gallery/broken.jpg"]',
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("Viewer Broken Gallery Image"),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview Gallery image 1" }),
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    fireEvent.error(within(viewer).getByAltText("Gallery image 1 full size"));
+
+    expect(
+      within(viewer).getByRole("img", {
+        name: "Gallery image 1 unavailable",
+      }),
+    ).toBeInTheDocument();
+    expect(within(viewer).getByText("Image unavailable")).toBeInTheDocument();
   });
 
   it("shows an empty image detail gallery state for invalid saved gallery data", async () => {
