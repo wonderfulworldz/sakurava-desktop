@@ -208,6 +208,12 @@ Gallery Full-size Viewer with Next/Back expected checkpoint after merge:
 post-mvp-25-6-gallery-full-size-viewer-controls-v1
 ```
 
+Image Gallery QA and Safety Review expected checkpoint after merge:
+
+```text
+post-mvp-25-7-image-gallery-qa-safety-review-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -276,6 +282,7 @@ Current app capabilities include:
 - Gallery folder picker / direct image read support through Batch 25.4 after merge;
 - Image Detail gallery grid display through Batch 25.5 after merge;
 - Image Detail gallery full-size viewer controls through Batch 25.6 after merge;
+- Image Gallery QA and safety review through Batch 25.7 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -304,6 +311,8 @@ For Batch 25.5, Image Detail renders a `Gallery` section from saved `galleryImag
 
 For Batch 25.6, Image Detail gallery tiles open a low-bezel full-size viewer backed only by the saved `galleryImagePathsJson` path list. The viewer adds overlay Previous/Next controls, overlay counter/status, close control, simple Fit/100%/Zoom In/Zoom Out controls, browser fullscreen with in-app fallback, scoped keyboard controls, and safe missing-image fallback behavior. It does not add folder refresh behavior, file mutation behavior, derived image files, or storage changes.
 
+For Batch 25.7, Image Gallery QA/safety review confirms `galleryImagePathsJson` remains the source of truth, `folderPath` is not live scanned, `Browse Gallery Folder` remains a controlled direct-files-only input on Image Create/Edit, child folders are ignored, multi-image picker remains unimplemented, and no file mutation, thumbnail generation, watcher/live sync, broad scanner, or schema/database change is added.
+
 ## Recommended Next Phase
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
@@ -314,10 +323,10 @@ Latest roadmap implementation batch:
 Batch 22.5 - Related Performer Detail Display and Smoke Validation
 ```
 
-Recommended phase after Batch 25.6:
+Recommended phase after Batch 25.7:
 
 ```text
-Future Image Gallery enhancements only when explicitly requested
+Image Gallery can be treated as post-MVP initial complete if QA remains clean
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, and `docs/26-image-gallery-storage-form-planning.md` before changing code.
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, and `docs/27-image-gallery-qa-safety-review.md` before changing code.

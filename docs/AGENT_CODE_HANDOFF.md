@@ -9,7 +9,7 @@ Use these docs as compressed project memory. Do not reconstruct the full histori
 ```text
 You are working on the Sakurava desktop app.
 
-Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/17-related-performer-picker-structure-planning.md, docs/18-related-performer-storage-planning.md, docs/19-related-video-image-picker-structure-planning.md, docs/20-related-video-image-storage-planning.md, docs/21-media-file-status-open-file-planning.md, docs/22-external-media-open-planning.md, docs/23-cover-thumbnail-full-size-preview-planning.md, docs/24-performer-mini-thumbnail-storage-form-planning.md, docs/25-image-gallery-planning.md, docs/26-image-gallery-storage-form-planning.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/17-related-performer-picker-structure-planning.md, docs/18-related-performer-storage-planning.md, docs/19-related-video-image-picker-structure-planning.md, docs/20-related-video-image-storage-planning.md, docs/21-media-file-status-open-file-planning.md, docs/22-external-media-open-planning.md, docs/23-cover-thumbnail-full-size-preview-planning.md, docs/24-performer-mini-thumbnail-storage-form-planning.md, docs/25-image-gallery-planning.md, docs/26-image-gallery-storage-form-planning.md, docs/27-image-gallery-qa-safety-review.md, docs/WORKFLOW_GIT.md, and docs/AGENT_CODE_HANDOFF.md.
 
 Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, Settings persistence planning rules, Category Management dedicated page planning rules, Form Category Picker Lockdown planning rules, Categories Sidebar Page planning rules, Related Performer Picker Structure planning rules, Related Performer Storage planning rules, Related Video/Image Picker Structure planning rules, Related Video/Image Storage planning rules, Media File Status / Open File planning rules, External Media Open planning rules, Performer Mini Thumbnail Storage/Form planning rules, Image Gallery planning rules, and Image Gallery Storage/Form planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
 
@@ -42,6 +42,7 @@ Read these before planning or editing:
 - `docs/24-performer-mini-thumbnail-storage-form-planning.md`
 - `docs/25-image-gallery-planning.md`
 - `docs/26-image-gallery-storage-form-planning.md`
+- `docs/27-image-gallery-qa-safety-review.md`
 - `docs/WORKFLOW_GIT.md`
 - `docs/AGENT_CODE_HANDOFF.md`
 - `package.json`
@@ -121,6 +122,7 @@ For category-related work, also inspect:
 - Native multi-image picker remains intentionally unimplemented unless explicitly requested.
 - Image Detail gallery grid is implemented after Batch 25.5.
 - Image Detail gallery full-size viewer controls are implemented after Batch 25.6. The viewer opens from saved gallery tiles, uses only `galleryImagePathsJson`-derived paths, keeps controls/status as overlays, supports Previous/Next, Fit/100%/Zoom In/Zoom Out, browser fullscreen with in-app fallback, scoped ArrowLeft/ArrowRight/Escape keyboard handling, and safe missing-image fallback behavior.
+- Image Gallery QA/safety review is documented after Batch 25.7. Treat `galleryImagePathsJson` as the confirmed source of truth, keep `folderPath` metadata/reference only, keep `Browse Gallery Folder` direct-files-only, and do not add multi-image picker, recursive scan, watcher/live sync, file mutation, thumbnail generation, broad scanner, or schema/database changes unless a later batch explicitly asks.
 
 ## Preferred Batch Prompt Format
 
