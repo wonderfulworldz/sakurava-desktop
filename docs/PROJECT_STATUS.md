@@ -214,6 +214,12 @@ Image Gallery QA and Safety Review expected checkpoint after merge:
 post-mvp-25-7-image-gallery-qa-safety-review-v1
 ```
 
+UI/UX V1 Audit and Prioritization Plan expected checkpoint after merge:
+
+```text
+post-mvp-26-1-ui-ux-v1-audit-prioritization-plan-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -283,6 +289,7 @@ Current app capabilities include:
 - Image Detail gallery grid display through Batch 25.5 after merge;
 - Image Detail gallery full-size viewer controls through Batch 25.6 after merge;
 - Image Gallery QA and safety review through Batch 25.7 after merge;
+- UI/UX V1 audit and prioritization planning through Batch 26.1 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -329,4 +336,10 @@ Recommended phase after Batch 25.7:
 Image Gallery can be treated as post-MVP initial complete if QA remains clean
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, and `docs/27-image-gallery-qa-safety-review.md` before changing code.
+Recommended phase after Batch 26.1:
+
+```text
+Proceed with UI/UX V1 alignment batches from docs/28-ui-ux-v1-audit-prioritization-plan.md
+```
+
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, and `docs/28-ui-ux-v1-audit-prioritization-plan.md` before changing code.
