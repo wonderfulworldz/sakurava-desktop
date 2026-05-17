@@ -6,6 +6,7 @@ type BaseCollectionItem = {
   originalTitle: string;
   coverPath?: string;
   favorite: boolean;
+  updatedAt?: number | string | null;
   availability?: string;
   censorship?: string;
   categories: string[];
@@ -29,6 +30,7 @@ export type PerformerCollectionItem = {
   originalName: string;
   coverPath?: string;
   favorite: boolean;
+  updatedAt?: number | string | null;
   status: string;
   filmographyCount: string;
   pictorialsCount: string;
@@ -169,7 +171,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Recently Added", "Title A-Z", "Release Date", "Duration"],
+    sortOptions: ["Last Updated", "Title A-Z"],
     placeholderLabel: "Cover Placeholder",
     items: videoDurations.map((duration, index) => ({
       kind: "videos",
@@ -194,7 +196,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Newest First", "Recently Added", "Title A-Z", "Image Count"],
+    sortOptions: ["Last Updated", "Title A-Z"],
     placeholderLabel: "Image Placeholder",
     items: imageCounts.map((imageCount, index) => ({
       kind: "images",
@@ -220,7 +222,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Name A-Z", "Recently Added", "Filmography", "Pictorials"],
+    sortOptions: ["Last Updated", "Name A-Z"],
     placeholderLabel: "Profile Placeholder",
     items: performerStats.map(([status, filmographyCount, pictorialsCount], index) => ({
       kind: "performers",

@@ -238,6 +238,12 @@ Catalog Toolbar V1 Planning expected checkpoint after merge:
 post-mvp-26-4-catalog-toolbar-v1-planning-v1
 ```
 
+Catalog Toolbar V1 Implementation expected checkpoint after merge:
+
+```text
+post-mvp-26-5-catalog-toolbar-v1-implementation-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -311,6 +317,7 @@ Current app capabilities include:
 - App Shell V1 cleanup through Batch 26.2 after merge;
 - Home Page V1 cleanup through Batch 26.3 after merge;
 - Catalog Toolbar V1 planning through Batch 26.4 after merge;
+- Catalog Toolbar V1 implementation through Batch 26.5 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -373,6 +380,12 @@ Recommended checkpoint after Batch 26.4:
 
 ```text
 post-mvp-26-4-catalog-toolbar-v1-planning-v1
+```
+
+Recommended checkpoint after Batch 26.5:
+
+```text
+post-mvp-26-5-catalog-toolbar-v1-implementation-v1
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, and `docs/29-catalog-toolbar-v1-planning.md` before changing code.

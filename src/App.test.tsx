@@ -279,7 +279,11 @@ describe("App", () => {
     expect(screen.getByText(count)).toBeInTheDocument();
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
-    expect(screen.getAllByText("Categories").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Updated");
+    expect(screen.queryByDisplayValue("Add category filter")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    expect(screen.getByText("Categories")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("30");
     for (const pageSize of ["30", "60", "90", "120"]) {
@@ -288,9 +292,61 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Previous" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
     expect(screen.getAllByText(/Sample/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Grid view" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "List view" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Switch to list view" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Grid view" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "List view" }),
+    ).not.toBeInTheDocument();
   });
+
+  it.each([
+    {
+      path: "/videos",
+      panelName: "Videos filters",
+      planned: ["Quality", "Rating", "Year", "Duration"],
+      absent: ["Count", "Debut Year", "Status", "Favorite"],
+    },
+    {
+      path: "/images",
+      panelName: "Images filters",
+      planned: ["Quality", "Rating", "Year", "Count"],
+      absent: ["Duration", "Debut Year", "Status", "Favorite"],
+    },
+    {
+      path: "/performers",
+      panelName: "Performers filters",
+      planned: ["Rating", "Debut Year", "Status", "Favorite"],
+      absent: ["Quality", "Duration", "Count", "Year"],
+    },
+  ])(
+    "renders Catalog Toolbar V1 filter panel for $path",
+    ({ path, panelName, planned, absent }) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      expect(screen.getByPlaceholderText(/Search .*\.{3}/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
+      expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Updated");
+      expect(
+        screen.getByRole("button", { name: "Switch to list view" }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+      const panel = within(screen.getByRole("region", { name: panelName }));
+
+      expect(panel.getByLabelText("Categories")).toBeInTheDocument();
+      for (const label of planned) {
+        expect(panel.getByText(label).closest("button")).toBeDisabled();
+      }
+      for (const label of absent) {
+        expect(panel.queryByText(label)).not.toBeInTheDocument();
+      }
+    },
+  );
 
   it.each([
     [
@@ -2666,9 +2722,21 @@ describe("App", () => {
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list") {
         return [
-          persistedVideo({ id: "video_1", title: "Zulu Video" }),
-          persistedVideo({ id: "video_2", title: "Alpha Video" }),
-          persistedVideo({ id: "video_3", title: "Beta Video" }),
+          persistedVideo({
+            id: "video_1",
+            title: "Zulu Video",
+            updatedAt: "1800000000000",
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Alpha Video",
+            updatedAt: "2026-05-11T00:00:00.000Z",
+          }),
+          persistedVideo({
+            id: "video_3",
+            title: "Beta Video",
+            updatedAt: "2024",
+          }),
         ];
       }
 
@@ -2681,8 +2749,12 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Zulu Video")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Updated");
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
+      heading.textContent,
+    )).toEqual(["Zulu Video", "Alpha Video", "Beta Video"]);
 
-    fireEvent.change(screen.getByLabelText("Sort by"), {
+    fireEvent.change(screen.getByLabelText("Sorting"), {
       target: { value: "Title A-Z" },
     });
 
@@ -2690,8 +2762,8 @@ describe("App", () => {
       heading.textContent,
     )).toEqual(["Alpha Video", "Beta Video", "Zulu Video"]);
 
-    fireEvent.change(screen.getByLabelText("Sort by"), {
-      target: { value: "Recently Added" },
+    fireEvent.change(screen.getByLabelText("Sorting"), {
+      target: { value: "Last Updated" },
     });
 
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
@@ -2764,6 +2836,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Classic Video")).toBeInTheDocument();
     expect(screen.getByText("Modern Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
 
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
@@ -2819,6 +2892,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Zulu Archive")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
 
     fireEvent.change(screen.getByLabelText("Videos search"), {
       target: { value: "archive" },
@@ -2826,7 +2900,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
     });
-    fireEvent.change(screen.getByLabelText("Sort by"), {
+    fireEvent.change(screen.getByLabelText("Sorting"), {
       target: { value: "Title A-Z" },
     });
 
@@ -2880,6 +2954,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Two Category Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
 
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
@@ -2936,6 +3011,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Category A Video 01")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
 
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
@@ -2978,7 +3054,7 @@ describe("App", () => {
     expect(await screen.findByLabelText("Cover Placeholder")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
 
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
@@ -2993,7 +3069,7 @@ describe("App", () => {
     ).toHaveAttribute("href", "/videos/video_1");
     expect(screen.queryByLabelText("Cover Placeholder")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to grid view" }));
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
@@ -3040,14 +3116,15 @@ describe("App", () => {
 
     expect(await screen.findByText("Zulu Archive 01")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
     fireEvent.change(screen.getByLabelText("Videos search"), {
       target: { value: "archive" },
     });
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
     });
-    fireEvent.change(screen.getByLabelText("Sort by"), {
+    fireEvent.change(screen.getByLabelText("Sorting"), {
       target: { value: "Title A-Z" },
     });
 
@@ -3084,7 +3161,7 @@ describe("App", () => {
     const imageRender = render(<App />);
 
     expect(await screen.findByText("Table Image")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Image Count" }),
@@ -3114,7 +3191,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Table Performer")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Filmography" }),
@@ -4380,6 +4457,9 @@ describe("App", () => {
           expect(args.patch.ratingJson).toContain('"rewatch":5');
           currentVideo = updated;
           return updated;
+        }
+        if (command === "video_list") {
+          return [currentVideo];
         }
         if (command === "performer_list") {
           return [];

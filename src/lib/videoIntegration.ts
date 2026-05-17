@@ -161,6 +161,7 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     title: video.title,
     originalTitle: video.originalTitle,
     coverPath: video.coverPath,
+    updatedAt: video.updatedAt,
     duration: formatDuration(video.durationMinutes),
     availability: video.availability || "Unspecified",
     censorship: video.censorship || "Unspecified",

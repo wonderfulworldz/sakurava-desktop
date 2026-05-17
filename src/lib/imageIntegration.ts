@@ -173,6 +173,7 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
     title: image.title,
     originalTitle: image.originalTitle,
     coverPath: image.coverPath,
+    updatedAt: image.updatedAt,
     code: image.code || "No code",
     imageCount: formatImageCount(image.imageCount),
     availability: image.availability || "Unspecified",

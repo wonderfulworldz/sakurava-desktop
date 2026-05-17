@@ -156,6 +156,7 @@ function toPerformerCollectionItem(
     name: performer.name,
     originalName: performer.originalName,
     coverPath: performer.coverPath,
+    updatedAt: performer.updatedAt,
     status: performer.status || "Unknown",
     filmographyCount: `Filmography ${formatCount(performer.filmographyCount)}`,
     pictorialsCount: `Pictorials ${formatCount(performer.pictorialsCount)}`,

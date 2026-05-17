@@ -1,11 +1,14 @@
 import {
   Clock3,
+  ChevronDown,
+  Filter,
   Grid2X2,
   Heart,
   Image as ImageIcon,
   List,
   Plus,
   Search,
+  SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -24,6 +27,7 @@ function CollectionPage({ config }: CollectionPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
   const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pageSize, setPageSize] = useState("30");
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>("card");
@@ -94,10 +98,12 @@ function CollectionPage({ config }: CollectionPageProps) {
         activeCategoryFilters={activeCategoryFilters}
         sortValue={sortValue}
         viewMode={viewMode}
+        filterPanelOpen={filterPanelOpen}
         onSearchChange={(value) => {
           setSearchQuery(value);
           resetToFirstPage();
         }}
+        onToggleFilterPanel={() => setFilterPanelOpen((open) => !open)}
         onAddCategoryFilter={addCategoryFilter}
         onRemoveCategoryFilter={removeCategoryFilter}
         onClearCategoryFilters={clearCategoryFilters}
@@ -177,7 +183,9 @@ function CollectionToolbar({
   activeCategoryFilters,
   sortValue,
   viewMode,
+  filterPanelOpen,
   onSearchChange,
+  onToggleFilterPanel,
   onAddCategoryFilter,
   onRemoveCategoryFilter,
   onClearCategoryFilters,
@@ -189,7 +197,9 @@ function CollectionToolbar({
   activeCategoryFilters: string[];
   sortValue: string;
   viewMode: ViewMode;
+  filterPanelOpen: boolean;
   onSearchChange: (value: string) => void;
+  onToggleFilterPanel: () => void;
   onAddCategoryFilter: (value: string) => void;
   onRemoveCategoryFilter: (value: string) => void;
   onClearCategoryFilters: () => void;
@@ -202,10 +212,13 @@ function CollectionToolbar({
   const reachedCategoryLimit = activeCategoryFilters.length >= 5;
   const categorySelectDisabled =
     reachedCategoryLimit || selectableCategories.length === 0;
+  const viewAction = viewMode === "card" ? "table" : "card";
+  const viewLabel = viewMode === "card" ? "Switch to list view" : "Switch to grid view";
+  const ViewIcon = viewMode === "card" ? List : Grid2X2;
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_minmax(180px,230px)_minmax(180px,230px)_auto] xl:items-center">
+    <section className="rounded-lg border border-slate-200 bg-white p-3" aria-label={`${config.title} catalog toolbar`}>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_auto_minmax(180px,230px)_auto] xl:items-center">
         <label className="relative block">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -220,53 +233,78 @@ function CollectionToolbar({
           />
         </label>
 
-        <SelectBox
-          id={`${config.kind}-filter`}
-          label={config.filterLabel}
-          options={["Add category filter", ...selectableCategories]}
-          value="Add category filter"
-          onChange={onAddCategoryFilter}
-          disabled={categorySelectDisabled}
-        />
+        <button
+          type="button"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
+          aria-expanded={filterPanelOpen}
+          aria-controls={`${config.kind}-filter-panel`}
+          onClick={onToggleFilterPanel}
+        >
+          <Filter size={18} />
+          Filter
+          <ChevronDown
+            size={16}
+            className={filterPanelOpen ? "rotate-180 transition" : "transition"}
+          />
+        </button>
+
         <SelectBox
           id={`${config.kind}-sort`}
-          label={config.sortLabel}
+          label="Sorting"
           options={config.sortOptions}
           value={sortValue}
           onChange={onSortChange}
         />
 
-        <div className="flex h-11 items-center justify-center justify-self-start rounded-lg border border-slate-200 bg-white p-1 md:justify-self-end xl:justify-self-auto">
-          <button
-            className={[
-              "flex size-9 items-center justify-center rounded-md",
-              viewMode === "card"
-                ? "bg-sakura-50 text-sakura-500"
-                : "text-slate-400",
-            ].join(" ")}
-            type="button"
-            aria-label="Grid view"
-            aria-pressed={viewMode === "card"}
-            onClick={() => onViewModeChange("card")}
-          >
-            <Grid2X2 size={18} />
-          </button>
-          <button
-            className={[
-              "flex size-9 items-center justify-center rounded-md",
-              viewMode === "table"
-                ? "bg-sakura-50 text-sakura-500"
-                : "text-slate-400",
-            ].join(" ")}
-            type="button"
-            aria-label="List view"
-            aria-pressed={viewMode === "table"}
-            onClick={() => onViewModeChange("table")}
-          >
-            <List size={18} />
-          </button>
-        </div>
+        <button
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600 md:justify-self-end xl:justify-self-auto"
+          type="button"
+          aria-label={viewLabel}
+          onClick={() => onViewModeChange(viewAction)}
+        >
+          <ViewIcon size={18} />
+          View
+        </button>
       </div>
+
+      {filterPanelOpen && (
+        <div
+          id={`${config.kind}-filter-panel`}
+          role="region"
+          aria-label={`${config.title} filters`}
+          className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+        >
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <SelectBox
+              id={`${config.kind}-category-filter`}
+              label={config.filterLabel}
+              options={["Add category filter", ...selectableCategories]}
+              value="Add category filter"
+              onChange={onAddCategoryFilter}
+              disabled={categorySelectDisabled}
+            />
+            {plannedFilterItems(config.kind).map((filter) => (
+              <button
+                key={filter.label}
+                type="button"
+                className="flex h-11 min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 bg-white px-3 text-left disabled:cursor-not-allowed disabled:text-slate-400"
+                disabled
+              >
+                <span className="truncate text-sm font-semibold">
+                  {filter.label}
+                </span>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-normal text-slate-500">
+                  Planned
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 flex items-start gap-2 text-xs font-medium text-slate-500">
+            <SlidersHorizontal className="mt-0.5 shrink-0" size={14} />
+            Data-dependent filters are unavailable until reliable fields or helpers exist.
+          </p>
+        </div>
+      )}
 
       {(activeCategoryFilters.length > 0 || reachedCategoryLimit) && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
@@ -347,6 +385,33 @@ function SelectBox({
       </select>
     </label>
   );
+}
+
+function plannedFilterItems(kind: CollectionConfig["kind"]) {
+  if (kind === "performers") {
+    return [
+      { label: "Rating" },
+      { label: "Debut Year" },
+      { label: "Status" },
+      { label: "Favorite" },
+    ];
+  }
+
+  if (kind === "images") {
+    return [
+      { label: "Quality" },
+      { label: "Rating" },
+      { label: "Year" },
+      { label: "Count" },
+    ];
+  }
+
+  return [
+    { label: "Quality" },
+    { label: "Rating" },
+    { label: "Year" },
+    { label: "Duration" },
+  ];
 }
 
 function CollectionTable({
@@ -728,6 +793,18 @@ function filterByCategories(items: CollectionItem[], categoryFilters: string[]) 
 function sortItems(items: CollectionItem[], sortValue: string) {
   const indexedItems = items.map((item, index) => ({ item, index }));
 
+  if (sortValue === "Last Updated") {
+    return indexedItems
+      .slice()
+      .sort((left, right) => {
+        const rightTime = timestamp(right.item.updatedAt);
+        const leftTime = timestamp(left.item.updatedAt);
+
+        return rightTime - leftTime || left.index - right.index;
+      })
+      .map(({ item }) => item);
+  }
+
   if (sortValue === "Title A-Z" || sortValue === "Name A-Z") {
     return indexedItems
       .slice()
@@ -865,6 +942,36 @@ function getPrimaryTitle(item: CollectionItem) {
 function numberFromDisplayText(value: string) {
   const match = value.match(/\d+/);
   return match ? Number(match[0]) : null;
+}
+
+function timestamp(value: number | string | null | undefined) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value !== "string") {
+    return 0;
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    return 0;
+  }
+
+  const numericTime = Number(trimmed);
+  const numericLike = /^[-+]?(?:\d+|\d*\.\d+)$/.test(trimmed);
+
+  if (Number.isFinite(numericTime) && numericTime > 0) {
+    return numericTime;
+  }
+
+  if (numericLike) {
+    return 0;
+  }
+
+  const time = Date.parse(trimmed);
+  return Number.isFinite(time) ? time : 0;
 }
 
 function normalizeSearchText(value: string) {
