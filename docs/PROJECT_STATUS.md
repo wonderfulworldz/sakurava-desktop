@@ -220,6 +220,12 @@ UI/UX V1 Audit and Prioritization Plan expected checkpoint after merge:
 post-mvp-26-1-ui-ux-v1-audit-prioritization-plan-v1
 ```
 
+App Shell V1 Cleanup expected checkpoint after merge:
+
+```text
+post-mvp-26-2-app-shell-v1-cleanup-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -290,6 +296,7 @@ Current app capabilities include:
 - Image Detail gallery full-size viewer controls through Batch 25.6 after merge;
 - Image Gallery QA and safety review through Batch 25.7 after merge;
 - UI/UX V1 audit and prioritization planning through Batch 26.1 after merge;
+- App Shell V1 cleanup through Batch 26.2 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;

@@ -39,7 +39,11 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getAllByText("Sakurava")).toHaveLength(1);
+    expect(screen.queryByText("Sakurava")).not.toBeInTheDocument();
+    const logo = screen.getByRole("img", { name: "Sakurava logo" });
+    expect(logo).toBeInTheDocument();
+    expect(logo).toHaveAttribute("src", "/assets/sakurava-icon.svg");
+    expect(logo.parentElement).not.toHaveClass("bg-sakura-500");
     expect(screen.getByPlaceholderText("Home search planned")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Home filters planned" }))
       .toBeDisabled();
@@ -55,9 +59,11 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Collapse sidebar" }),
+      screen.getByRole("button", { name: "Expand sidebar" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Local mode")).toBeInTheDocument();
+    expect(screen.getByText("Storage status placeholder")).toBeInTheDocument();
+    expect(screen.getByText("Last update placeholder")).toBeInTheDocument();
     expect(screen.getByText("Quick Actions")).toBeInTheDocument();
     expect(
       screen.getByText(/incomplete records that need thumbnails/i),
@@ -71,21 +77,18 @@ describe("App", () => {
   it("collapses and expands the sidebar without changing navigation", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
-
     expect(
       screen.getByRole("button", { name: "Expand sidebar" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Navigate to Home" })).toHaveAttribute(
       "aria-current",
       "page",
     );
     expect(screen.queryByText("Private local catalog")).not.toBeInTheDocument();
     expect(screen.queryByText("Offline first")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
-      "href",
-      "/settings",
-    );
+    expect(
+      screen.getByRole("link", { name: "Navigate to Settings" }),
+    ).toHaveAttribute("href", "/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
 
@@ -93,7 +96,27 @@ describe("App", () => {
       screen.getByRole("button", { name: "Collapse sidebar" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Private local catalog")).toBeInTheDocument();
-    expect(screen.getByText("Offline first")).toBeInTheDocument();
+    expect(screen.queryByText("Offline first")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Static frontend preview/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["/", "Sakurava - Home"],
+    ["/videos", "Sakurava - Videos"],
+    ["/videos/sample-id", "Sakurava - Videos"],
+    ["/images", "Sakurava - Images"],
+    ["/performers", "Sakurava - Performers"],
+    ["/categories", "Sakurava - Categories"],
+    ["/settings", "Sakurava - Settings"],
+    ["/settings/category-management", "Sakurava - Category Management"],
+  ])("sets page title for %s", async (path, expectedTitle) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    await waitFor(() => {
+      expect(document.title).toBe(expectedTitle);
+    });
+    expect(document.title).not.toContain("sample-id");
   });
 
   it.each([
@@ -349,7 +372,7 @@ describe("App", () => {
     expect(screen.getByText("Language")).toBeInTheDocument();
     expect(screen.getByText("Welcome Slider")).toBeInTheDocument();
     expect(screen.getByText("About Sakurava")).toBeInTheDocument();
-    expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
     expect(screen.getByText("Local / Offline")).toBeInTheDocument();
     expect(screen.getByText("Windows Desktop")).toBeInTheDocument();
