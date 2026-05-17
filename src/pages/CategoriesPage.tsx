@@ -1,4 +1,4 @@
-import { Search, Tags } from "lucide-react";
+import { Image, Search, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -77,40 +77,41 @@ function CategoriesPage() {
     () => sortCategoryRows(filterCategoryRows(categories, searchQuery), sortValue),
     [categories, searchQuery, sortValue],
   );
-  const usedCategories = categories.filter((category) => category.total > 0);
-  const managedCount = categories.filter((category) => category.isManaged).length;
-  const recordOnlyCount = categories.filter(
-    (category) => category.status === "Record-only",
+  const videoCategoryCount = categories.filter((category) => category.videos > 0).length;
+  const imageCategoryCount = categories.filter((category) => category.images > 0).length;
+  const performerCategoryCount = categories.filter(
+    (category) => category.performers > 0,
   ).length;
 
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-sakura-500">
-            Catalog Browse
-          </p>
           <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
             Categories
           </h1>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-500">
-            Browse category usage across Videos, Images, and Performers. Manage
-            category names and record maintenance from Category Management.
+            Browse category usage across Videos, Images, and Performers.
           </p>
         </div>
         <Link
           to="/settings/category-management"
-          className="inline-flex h-11 w-fit items-center justify-center rounded-lg border border-sakura-200 bg-white px-4 text-sm font-semibold text-sakura-600 shadow-sm transition hover:bg-sakura-50"
+          className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
         >
-          Open Category Management
+          <Tags size={20} />
+          Manage Category
         </Link>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Total Categories" value={categories.length} />
-        <SummaryCard label="Used Categories" value={usedCategories.length} />
-        <SummaryCard label="Managed Categories" value={managedCount} />
-        <SummaryCard label="Record-only Categories" value={recordOnlyCount} />
+        <SummaryCard label="Total Category" value={categories.length} icon={Tags} />
+        <SummaryCard label="Videos Category" value={videoCategoryCount} icon={Video} />
+        <SummaryCard label="Images Category" value={imageCategoryCount} icon={Image} />
+        <SummaryCard
+          label="Performers Category"
+          value={performerCategoryCount}
+          icon={UserRound}
+        />
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-3">
@@ -177,13 +178,26 @@ function CategoriesPage() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+        <Icon size={20} />
+      </span>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+          {label}
+        </p>
+        <p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
+      </div>
     </div>
   );
 }
@@ -192,23 +206,23 @@ function CategoryCard({ category }: { category: CategoryBrowseRow }) {
   return (
     <article
       aria-label={`Category ${category.name}`}
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sakura-200"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
-              <Tags size={18} />
-            </span>
+        <div className="flex min-w-0 gap-3">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sakura-50 to-white text-sakura-500 ring-1 ring-sakura-100">
+            <Tags size={22} />
+          </span>
+          <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
               {category.name}
             </h2>
+            <StatusBadge status={category.status} />
           </div>
-          <StatusBadge status={category.status} />
         </div>
         <div className="text-right">
           <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-            Total
+            Records
           </p>
           <p className="text-2xl font-semibold text-slate-950">
             {category.total}
@@ -222,15 +236,15 @@ function CategoryCard({ category }: { category: CategoryBrowseRow }) {
         <CountBlock label="Performers" value={category.performers} />
       </dl>
 
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-        {category.videos > 0 && <BrowseLink to="/videos" label="Open Videos" />}
-        {category.images > 0 && <BrowseLink to="/images" label="Open Images" />}
-        {category.performers > 0 && (
-          <BrowseLink to="/performers" label="Open Performers" />
-        )}
+      <div className="mt-4 border-t border-slate-100 pt-4">
         {category.total === 0 && (
           <span className="text-xs font-medium text-slate-500">
             No record usage yet.
+          </span>
+        )}
+        {category.total > 0 && (
+          <span className="text-xs font-medium text-slate-500">
+            Used by saved catalog records.
           </span>
         )}
       </div>
@@ -264,24 +278,13 @@ function CountBlock({ label, value }: { label: string; value: number }) {
   );
 }
 
-function BrowseLink({ to, label }: { to: string; label: string }) {
-  return (
-    <Link
-      to={to}
-      className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600"
-    >
-      {label}
-    </Link>
-  );
-}
-
 function CategoryEmptyState({ message }: { message: string }) {
   return (
     <section className="rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center">
       <p className="text-base font-semibold text-slate-700">{message}</p>
       <p className="mt-2 text-sm text-slate-500">
-        Record Categories come from saved `categoriesJson` labels. Managed
-        Categories can be reviewed in Category Management.
+        Record Categories come from saved catalog labels. Managed Categories can
+        be reviewed in Category Management.
       </p>
     </section>
   );
