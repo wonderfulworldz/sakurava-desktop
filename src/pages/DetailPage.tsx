@@ -6,7 +6,6 @@ import {
   Edit3,
   FileImage,
   Film,
-  Folder,
   Heart,
   Image as ImageIcon,
   Info,
@@ -34,7 +33,6 @@ import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import {
   checkPathStatus,
-  type PathKind,
   type PathStatusKind,
   type PathStatusResult,
 } from "../runtime/pathStatusCommands";
@@ -177,14 +175,13 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
         />
       </section>
 
-      <MediaPathStatusCard items={config.mediaPaths} />
       <NotesCard notes={config.notes} />
       <RelatedRows sections={config.relatedSections} />
 
       {config.kind === "images" && (
         <GalleryGrid paths={config.galleryImagePaths} />
       )}
-      <SystemInfoCard items={config.systemInfo} />
+      <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
   );
 }
@@ -266,7 +263,6 @@ function PerformerDetailPage({
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
           <RowsCard title="Profile Metadata" icon={Calendar} items={config.metadata} />
-          <MediaPathStatusCard items={config.mediaPaths} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
@@ -277,7 +273,7 @@ function PerformerDetailPage({
       </div>
 
       <RelatedRows sections={config.relatedSections} />
-      <SystemInfoCard items={config.systemInfo} />
+      <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
   );
 }
@@ -701,16 +697,10 @@ type PathStatusState = PathStatusResult & {
   playable?: boolean;
 };
 
-function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
+function MediaPathStatusRows({ items }: { items: MediaPathItem[] }) {
   const [statuses, setStatuses] = useState<PathStatusState[]>(() =>
     initialPathStatuses(items),
   );
-  const [openingLabel, setOpeningLabel] = useState<string | null>(null);
-  const [playFeedback, setPlayFeedback] = useState<{
-    label: string;
-    message: string;
-    tone: "success" | "error";
-  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -733,91 +723,19 @@ function MediaPathStatusCard({ items }: { items: MediaPathItem[] }) {
     };
   }, [items]);
 
-  async function handlePlay(status: PathStatusState) {
-    if (status.status !== "exists" || openingLabel) {
-      return;
-    }
-
-    setOpeningLabel(status.label);
-    setPlayFeedback(null);
-
-    try {
-      const result = await openMediaPath(status.path);
-      setPlayFeedback({
-        label: status.label,
-        message: result.opened
-          ? "Opening with default app."
-          : result.message || "Media file could not be opened.",
-        tone: result.opened ? "success" : "error",
-      });
-    } catch {
-      setPlayFeedback({
-        label: status.label,
-        message: "Media file could not be opened.",
-        tone: "error",
-      });
-    } finally {
-      setOpeningLabel(null);
-    }
-  }
-
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Media File Status" icon={Folder} />
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {statuses.map((status) => {
-          const display = pathStatusDisplay(status.status, status.kind);
+    <>
+      {statuses.map((status) => {
+        const display = pathStatusDisplay(status.status);
 
-          return (
-            <div
-              key={status.label}
-              className={`rounded-lg border px-3 py-3 ${display.containerClass}`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-700">
-                  {status.label}
-                </p>
-                <span
-                  className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${display.badgeClass}`}
-                >
-                  {display.label}
-                </span>
-              </div>
-              <p className="mt-2 text-xs font-medium text-slate-500">
-                {display.detail}
-              </p>
-              {status.message && status.message !== display.detail && (
-                <p className="mt-1 text-xs text-slate-400">{status.message}</p>
-              )}
-              {status.playable && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePlay(status)}
-                    disabled={status.status !== "exists" || openingLabel !== null}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Play size={14} fill="currentColor" />
-                    {openingLabel === status.label ? "Opening..." : "Play"}
-                  </button>
-                  {playFeedback?.label === status.label && (
-                    <span
-                      className={`text-xs font-medium ${
-                        playFeedback.tone === "success"
-                          ? "text-emerald-700"
-                          : "text-rose-700"
-                      }`}
-                    >
-                      {playFeedback.message}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </section>
+        return (
+          <div key={status.label} className="text-sm">
+            <p className="font-medium text-slate-600">{status.label}</p>
+            <p className="mt-1 text-slate-500">{display.label}</p>
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -832,60 +750,42 @@ function initialPathStatuses(items: MediaPathItem[]): PathStatusState[] {
   }));
 }
 
-function pathStatusDisplay(status: PathStatusKind, kind: PathKind) {
+function pathStatusDisplay(status: PathStatusKind) {
   if (status === "exists") {
     return {
-      label: "Exists",
-      detail:
-        kind === "folder"
-          ? "Folder path found"
-          : kind === "file"
-            ? "File path found"
-            : "Path found",
-      badgeClass: "border-emerald-100 bg-emerald-50 text-emerald-700",
-      containerClass: "border-emerald-100 bg-emerald-50/30",
+      label: "Available",
     };
   }
 
   if (status === "missing") {
     return {
       label: "Missing",
-      detail: "Saved path was not found",
-      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
-      containerClass: "border-amber-200 bg-amber-50/40",
     };
   }
 
   if (status === "inaccessible") {
     return {
-      label: "Inaccessible",
-      detail: "Path cannot be accessed",
-      badgeClass: "border-rose-200 bg-rose-50 text-rose-700",
-      containerClass: "border-rose-200 bg-rose-50/40",
+      label: "Missing",
     };
   }
 
   if (status === "notSet") {
     return {
-      label: "Not Set",
-      detail: "No path saved",
-      badgeClass: "border-slate-200 bg-slate-100 text-slate-600",
-      containerClass: "border-slate-200 bg-slate-50/70",
+      label: "Not set",
     };
   }
 
   return {
     label: "Unknown",
-    detail: "Not checked",
-    badgeClass: "border-slate-200 bg-white text-slate-600",
-    containerClass: "border-slate-200 bg-white",
   };
 }
 
 function SystemInfoCard({
   items,
+  mediaPaths = [],
 }: {
   items: { label: string; value: string }[];
+  mediaPaths?: MediaPathItem[];
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -897,6 +797,7 @@ function SystemInfoCard({
             <p className="mt-1 text-slate-500">{item.value}</p>
           </div>
         ))}
+        <MediaPathStatusRows items={mediaPaths} />
       </div>
     </section>
   );

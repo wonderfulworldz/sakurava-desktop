@@ -502,7 +502,7 @@ describe("App", () => {
       path: "/images/sample-id",
       heading: "Metadata",
       hiddenLabels: ["Cover Path", "Folder Path", "Image Count"],
-      techLabels: ["Image Count"],
+      techLabels: ["Gallery Count"],
     },
     {
       path: "/performers/sample-id",
@@ -543,6 +543,81 @@ describe("App", () => {
       expect(screen.queryByText(/galleryImagePathsJson/)).not.toBeInTheDocument();
     },
   );
+
+  it("renders Video Tech Info from safe saved values only", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    const techSection = screen
+      .getByRole("heading", { name: "Tech Info" })
+      .closest("section");
+    expect(techSection).not.toBeNull();
+    const tech = within(techSection as HTMLElement);
+
+    expect(tech.getByText("Duration")).toBeInTheDocument();
+    expect(tech.getByText("124 min")).toBeInTheDocument();
+    expect(tech.getByText("Resolution")).toBeInTheDocument();
+    expect(tech.getByText("File Size")).toBeInTheDocument();
+    expect(tech.getByText("File Type")).toBeInTheDocument();
+    expect(tech.getAllByText("Not available")).toHaveLength(3);
+    expect(tech.queryByText("Quality")).not.toBeInTheDocument();
+  });
+
+  it("renders Image Gallery Count from safe saved gallery data", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (command === "image_get") {
+          return persistedImage({
+            title: "Gallery Count Image",
+            imageCount: null,
+            galleryImagePathsJson:
+              '["C:/Gallery/one.jpg","C:/Gallery/two.jpg","C:/Gallery/three.jpg"]',
+          });
+        }
+        if (command === "performer_list" || command === "video_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Gallery Count Image")).toBeInTheDocument();
+    const techSection = screen
+      .getByRole("heading", { name: "Tech Info" })
+      .closest("section");
+    expect(techSection).not.toBeNull();
+    const tech = within(techSection as HTMLElement);
+
+    expect(tech.getByText("Gallery Count")).toBeInTheDocument();
+    expect(tech.getByText("3 images")).toBeInTheDocument();
+    expect(tech.getAllByText("Not available")).toHaveLength(3);
+    const systemInfo = within(
+      screen.getByText("System Info").closest("section") as HTMLElement,
+    );
+    expect(systemInfo.getByText("Gallery status")).toBeInTheDocument();
+    expect(systemInfo.getByText("Set")).toBeInTheDocument();
+    expect(screen.queryByText("C:/Gallery/one.jpg")).not.toBeInTheDocument();
+  });
+
+  it("keeps Performer free of Video/Image-style Tech Info", () => {
+    window.history.pushState({}, "", "/performers/sample-id");
+    render(<App />);
+
+    expect(
+      screen.queryByRole("heading", { name: "Tech Info" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Duration")).not.toBeInTheDocument();
+    expect(screen.queryByText("Resolution")).not.toBeInTheDocument();
+    expect(screen.queryByText("File Size")).not.toBeInTheDocument();
+    expect(screen.queryByText("File Type")).not.toBeInTheDocument();
+    expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
+    expect(screen.getByText("Last edited")).toBeInTheDocument();
+  });
 
   it.each([
     {
@@ -4174,18 +4249,19 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Status Video")).toBeInTheDocument();
-    const statusSection = screen.getByText("Media File Status").closest("section");
+    const statusSection = screen.getByText("System Info").closest("section");
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
-    expect(await status.findByText("Cover Path")).toBeInTheDocument();
-    expect(status.getByText("Media Path")).toBeInTheDocument();
-    await waitFor(() => expect(status.getAllByText("Exists")).toHaveLength(2));
-    expect(status.getAllByText("File path found")).toHaveLength(2);
-    const playButton = status.getByRole("button", { name: "Play" });
+    expect(await status.findByText("Cover status")).toBeInTheDocument();
+    expect(status.getByText("Media status")).toBeInTheDocument();
+    await waitFor(() => expect(status.getAllByText("Available")).toHaveLength(2));
+    expect(status.queryByText("File is available")).not.toBeInTheDocument();
+    expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
+    const playButton = screen.getByRole("button", { name: "Play" });
     expect(playButton).toBeEnabled();
     fireEvent.click(playButton);
-    expect(await status.findByText("Opening with default app.")).toBeInTheDocument();
+    expect(await screen.findByText("Opening with default app.")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "open_media_path",
       { path: "D:/Sakurava/videos/status-video.mp4" },
@@ -4231,12 +4307,13 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Missing Media Video")).toBeInTheDocument();
-    const statusSection = screen.getByText("Media File Status").closest("section");
+    const statusSection = screen.getByText("System Info").closest("section");
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
     await waitFor(() => expect(status.getByText("Missing")).toBeInTheDocument());
-    expect(status.getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
     expect(invoke).not.toHaveBeenCalledWith(
       "open_media_path",
       expect.anything(),
@@ -4277,19 +4354,20 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Open Failure Video")).toBeInTheDocument();
-    const statusSection = screen.getByText("Media File Status").closest("section");
+    const statusSection = screen.getByText("System Info").closest("section");
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
-    const playButton = await status.findByRole("button", { name: "Play" });
+    expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
+    const playButton = await screen.findByRole("button", { name: "Play" });
     await waitFor(() => expect(playButton).toBeEnabled());
     fireEvent.click(playButton);
 
-    expect(await status.findByText("Media file could not be opened")).toBeInTheDocument();
+    expect(await screen.findByText("Media file could not be opened")).toBeInTheDocument();
     expect(screen.queryByText("raw platform error")).not.toBeInTheDocument();
   });
 
-  it("shows Image detail missing and not set path status safely", async () => {
+  it("shows Image detail compact not set statuses safely", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "image_get") {
@@ -4297,6 +4375,7 @@ describe("App", () => {
           title: "Status Image",
           coverPath: "",
           folderPath: "D:/Sakurava/images/missing-folder",
+          galleryImagePathsJson: "[]",
         });
       }
       if (command === "performer_list" || command === "video_list") {
@@ -4318,14 +4397,17 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Status Image")).toBeInTheDocument();
-    const statusSection = screen.getByText("Media File Status").closest("section");
+    const statusSection = screen.getByText("System Info").closest("section");
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
-    await waitFor(() => expect(status.getByText("Not Set")).toBeInTheDocument());
-    await waitFor(() => expect(status.getByText("Missing")).toBeInTheDocument());
-    expect(status.getByText("No path saved")).toBeInTheDocument();
-    expect(status.getByText("Saved path was not found")).toBeInTheDocument();
+    expect(await status.findByText("Cover status")).toBeInTheDocument();
+    expect(status.getByText("Gallery status")).toBeInTheDocument();
+    await waitFor(() => expect(status.getAllByText("Not set")).toHaveLength(2));
+    expect(status.queryByText("Folder status")).not.toBeInTheDocument();
+    expect(status.queryByText("Missing")).not.toBeInTheDocument();
+    expect(status.queryByText("No path saved")).not.toBeInTheDocument();
+    expect(status.queryByText("Saved path was not found")).not.toBeInTheDocument();
     expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "image_update",
@@ -4359,13 +4441,13 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Status Performer")).toBeInTheDocument();
-    const statusSection = screen.getByText("Media File Status").closest("section");
+    const statusSection = screen.getByText("System Info").closest("section");
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
-    expect(await status.findByText("Cover Path")).toBeInTheDocument();
-    await waitFor(() => expect(status.getByText("Exists")).toBeInTheDocument());
-    expect(status.getByText("File path found")).toBeInTheDocument();
+    expect(await status.findByText("Profile image status")).toBeInTheDocument();
+    await waitFor(() => expect(status.getByText("Available")).toBeInTheDocument());
+    expect(status.queryByText("File is available")).not.toBeInTheDocument();
     expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "performer_update",
@@ -4379,13 +4461,14 @@ describe("App", () => {
 
     render(<App />);
 
-    const statusSection = screen.getByText("Media File Status").closest("section");
+    const statusSection = screen.getByText("System Info").closest("section");
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
     expect(await status.findAllByText("Unknown")).toHaveLength(2);
-    expect(status.getAllByText("Available in desktop runtime")).toHaveLength(2);
-    expect(status.getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(status.queryByText("Status check not available")).not.toBeInTheDocument();
+    expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
   });
 
   it("hides destructive delete controls in browser preview detail pages", () => {

@@ -55,8 +55,8 @@ export function buildVideoDetailConfig(
       { label: "Publisher / Label", value: video.publisherLabel || "Not set" },
     ],
     mediaPaths: [
-      { label: "Cover Path", path: video.coverPath },
-      { label: "Media Path", path: video.mediaPath, playable: true },
+      { label: "Cover status", path: video.coverPath },
+      { label: "Media status", path: video.mediaPath, playable: true },
     ],
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },
@@ -65,9 +65,9 @@ export function buildVideoDetailConfig(
     rating: getRatingDimensions(video.ratingJson, videoRatingFields),
     techItems: [
       { label: "Duration", value: formatDuration(video.durationMinutes) },
-      { label: "Resolution", value: "Not detected" },
-      { label: "File Size", value: "Not detected" },
-      { label: "File Type", value: "Not detected" },
+      { label: "Resolution", value: "Not available" },
+      { label: "File Size", value: "Not available" },
+      { label: "File Type", value: "Not available" },
     ],
     notes: video.notes || "No notes saved.",
     relatedSections: buildRelatedSections(
@@ -216,8 +216,8 @@ function optionalInteger(value: FormValues[string]) {
 }
 
 function formatDuration(minutes: number | null) {
-  if (!minutes) {
-    return "Not set";
+  if (!minutes || minutes <= 0) {
+    return "Not available";
   }
 
   return `${minutes} min`;

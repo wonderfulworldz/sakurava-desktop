@@ -139,6 +139,7 @@ For category-related work, also inspect:
 - Functional Spider Chart Rating Planning is documented after Batch 27.3 in `docs/31-functional-spider-chart-rating-planning.md`. Rating Summary V1 target is polygon spider chart only, not generic radial chart or star/chart hybrid; side count follows valid `ratingJson` dimension count, and Average / Final Score must be a shared helper for future Detail and Catalog reuse.
 - Functional Spider Chart Rating Implementation is complete after Batch 27.4 if merged. Detail Rating Summary should remain spider-chart-only; do not restore star blocks or hybrid star/chart layouts. Shared rating helper behavior should be reused later for Catalog Rating sorting/filtering instead of duplicating score logic.
 - Tech Info + Media Status Planning is documented after Batch 27.5 in `docs/32-tech-info-media-status-planning.md`. Tech Info must use data-backed values only; do not fake resolution/file size/file type/Quality, do not scan `folderPath` from Image Detail, and keep runtime metadata detection, persistence, and schema changes in separate approved batches.
+- Tech Info + Media Status Implementation is complete after Batch 27.6 if merged. Video/Image Detail Tech Info should remain limited to existing safe values and honest unavailable states, Performer should not use media-style Tech Info, and Media Status should stay summarized under System Info without raw path values or new scanner/runtime metadata behavior.
 
 ## Preferred Batch Prompt Format
 
