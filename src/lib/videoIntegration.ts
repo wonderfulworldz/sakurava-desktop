@@ -52,10 +52,7 @@ export function buildVideoDetailConfig(
     categories: parseTextLabelArray(video.categoriesJson),
     metadata: [
       { label: "Release Date", value: video.releaseDate || "Not set" },
-      { label: "Duration", value: formatDuration(video.durationMinutes) },
       { label: "Publisher / Label", value: video.publisherLabel || "Not set" },
-      { label: "Cover Path", value: video.coverPath || "Not set" },
-      { label: "Media Path", value: video.mediaPath || "Not set" },
     ],
     mediaPaths: [
       { label: "Cover Path", path: video.coverPath },
@@ -69,6 +66,12 @@ export function buildVideoDetailConfig(
       label: field.label,
       value: numberFromRating(rating[field.name]),
     })),
+    techItems: [
+      { label: "Duration", value: formatDuration(video.durationMinutes) },
+      { label: "Resolution", value: "Not detected" },
+      { label: "File Size", value: "Not detected" },
+      { label: "File Type", value: "Not detected" },
+    ],
     notes: video.notes || "No notes saved.",
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,

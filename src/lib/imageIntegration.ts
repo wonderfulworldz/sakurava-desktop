@@ -54,10 +54,7 @@ export function buildImageDetailConfig(
     categories: parseTextLabelArray(image.categoriesJson),
     metadata: [
       { label: "Release Date", value: image.releaseDate || "Not set" },
-      { label: "Image Count", value: formatImageCount(image.imageCount) },
       { label: "Publisher / Label", value: image.publisherLabel || "Not set" },
-      { label: "Cover Path", value: image.coverPath || "Not set" },
-      { label: "Folder Path", value: image.folderPath || "Not set" },
     ],
     mediaPaths: [
       { label: "Cover Path", path: image.coverPath },
@@ -71,6 +68,13 @@ export function buildImageDetailConfig(
       label: field.label,
       value: numberFromRating(rating[field.name]),
     })),
+    techItems: [
+      { label: "Image Count", value: formatImageCount(image.imageCount) },
+      { label: "Folder Size", value: "Not detected" },
+      { label: "Detected Image Count", value: "Not detected" },
+      { label: "Main Resolution", value: "Not detected" },
+      { label: "File Types", value: "Not detected" },
+    ],
     notes: image.notes || "No notes saved.",
     galleryImagePaths: parseGalleryImagePathArray(image.galleryImagePathsJson),
     relatedSections: buildRelatedSections(

@@ -366,7 +366,7 @@ describe("App", () => {
         "Rewatch",
         "Related Performer",
         "Related Images",
-        "Tech info is not detected or saved in MVP.",
+        "Tech info is data-dependent and not available yet.",
       ],
       true,
     ],
@@ -378,7 +378,7 @@ describe("App", () => {
         "Memorability",
         "Related Video",
         "Related Performer",
-        "Folder analysis is not detected or saved in MVP.",
+        "Gallery tech info is data-dependent and not available yet.",
       ],
       true,
     ],
@@ -406,11 +406,139 @@ describe("App", () => {
       for (const text of expectedTexts) {
         expect(screen.getAllByText(text).length).toBeGreaterThan(0);
       }
-      const readOnlyPlaceholder = screen.queryByText("Read-only placeholder");
+      const readOnlyPlaceholder = screen.queryByText("Data-dependent fields only");
       if (expectsReadOnly) {
         expect(readOnlyPlaceholder).toBeInTheDocument();
       } else {
         expect(readOnlyPlaceholder).not.toBeInTheDocument();
+      }
+      expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    {
+      path: "/videos/sample-id",
+      heading: "Metadata",
+      hiddenLabels: ["Cover Path", "Media Path", "Duration"],
+      techLabels: ["Duration"],
+    },
+    {
+      path: "/images/sample-id",
+      heading: "Metadata",
+      hiddenLabels: ["Cover Path", "Folder Path", "Image Count"],
+      techLabels: ["Image Count"],
+    },
+    {
+      path: "/performers/sample-id",
+      heading: "Profile Metadata",
+      hiddenLabels: ["Cover Path"],
+      techLabels: [],
+    },
+  ])(
+    "keeps raw path fields out of normal metadata for $path",
+    ({ path, heading, hiddenLabels, techLabels }) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      const metadataSection = screen
+        .getByRole("heading", { name: heading })
+        .closest("section");
+      expect(metadataSection).not.toBeNull();
+      const metadata = within(metadataSection as HTMLElement);
+
+      for (const label of hiddenLabels) {
+        expect(metadata.queryByText(label)).not.toBeInTheDocument();
+      }
+
+      if (techLabels.length > 0) {
+        const techSection = screen
+          .getByRole("heading", { name: "Tech Info" })
+          .closest("section");
+        expect(techSection).not.toBeNull();
+        const tech = within(techSection as HTMLElement);
+
+        for (const label of techLabels) {
+          expect(tech.getByText(label)).toBeInTheDocument();
+        }
+      }
+
+      expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
+      expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/galleryImagePathsJson/)).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    {
+      path: "/videos/sample-id",
+      title: "Morning Archive",
+      original: "Asa no Archive",
+      code: "VID-024",
+      category: "Drama",
+      status: "Owned",
+    },
+    {
+      path: "/images/sample-id",
+      title: "City Light Set",
+      original: "Machi no Hikari",
+      code: "IMG-014",
+      category: "Portrait",
+      status: "Owned",
+    },
+    {
+      path: "/performers/sample-id",
+      title: "Aoi Hanami",
+      original: "Hanami Aoi",
+      code: null,
+      category: "Lead",
+      status: "Active",
+    },
+  ])(
+    "renders Detail V1 hero identity for $path",
+    ({ path, title, original, code, category, status }) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      expect(screen.getByText(original)).toBeInTheDocument();
+      expect(screen.getAllByText(status).length).toBeGreaterThan(0);
+      expect(screen.getByText(category)).toBeInTheDocument();
+      expect(screen.getAllByText("Favorite").length).toBeGreaterThan(0);
+      if (code) {
+        expect(screen.getByText(code)).toBeInTheDocument();
+      }
+      if (path === "/performers/sample-id") {
+        const name = screen.getByRole("heading", { name: title });
+        const originalName = screen.getByText(original);
+        const heroChips = screen.getByLabelText("Performer hero chips");
+
+        expect(
+          name.compareDocumentPosition(originalName) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+          originalName.compareDocumentPosition(heroChips) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(within(heroChips).getByText("Favorite")).toBeInTheDocument();
+        expect(within(heroChips).getByText(status)).toBeInTheDocument();
+        expect(within(heroChips).queryByText("Years Active")).not.toBeInTheDocument();
+        expect(within(heroChips).queryByText(category)).not.toBeInTheDocument();
+
+        const categoriesSection = screen.getByText("Categories").closest("div");
+        expect(categoriesSection).not.toBeNull();
+        expect(within(categoriesSection as HTMLElement).getByText(category))
+          .toBeInTheDocument();
+
+        const activeYears = screen.getByText("Years Active");
+        expect(activeYears).toBeInTheDocument();
+        expect(
+          heroChips.compareDocumentPosition(activeYears) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(screen.getByText(/2015-present/)).toBeInTheDocument();
+        expect(screen.getByText(/\(19 - 30 y\)/)).toBeInTheDocument();
       }
       expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
     },
@@ -5407,7 +5535,9 @@ describe("App", () => {
     expect(screen.getByText("May 12, 2026, 10:11 AM UTC")).toBeInTheDocument();
     expect(screen.queryByText("2026-05-09T01:02:03.000Z")).not.toBeInTheDocument();
     expect(screen.queryByText("2026-05-12T10:11:12.000Z")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Not saved in MVP").length).toBeGreaterThan(0);
+    expect(screen.getByText("Years Active")).toBeInTheDocument();
+    expect(screen.getByText("Not tracked")).toBeInTheDocument();
+    expect(screen.getAllByText("Not saved").length).toBeGreaterThan(0);
   });
 
   it.each([

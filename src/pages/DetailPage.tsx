@@ -190,38 +190,61 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
 }
 
 function CatalogIdentity({ config }: DetailPageProps) {
+  const playableMedia =
+    config.kind === "videos"
+      ? config.mediaPaths.find((item) => item.playable)
+      : undefined;
+
   return (
-    <div className="flex min-h-full flex-col justify-start py-2">
-      <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
-        {config.displayTitle}
-      </h2>
-      <p className="mt-2 text-base text-slate-500">{config.originalTitle}</p>
-
-      {"code" in config && (
-        <div className="mt-4">
-          <Chip label={config.code} tone="neutral" />
+    <div className="flex min-h-full flex-col justify-between gap-6 py-1">
+      <div>
+        <div className="flex min-h-7 flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            {"code" in config && config.code && config.code !== "No code" && (
+              <Chip label={config.code} tone="neutral" />
+            )}
+          </div>
+          {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
         </div>
-      )}
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        <Chip label="Favorite" icon={Heart} tone="pink" />
-        {config.chips.map((chip) => (
-          <Chip
-            key={chip}
-            label={chip}
-            tone={chip === "Owned" || chip === "Active" ? "green" : "orange"}
-          />
-        ))}
-      </div>
+        <div className="mt-4 min-w-0">
+          <h2 className="break-words text-3xl font-semibold tracking-normal text-slate-950">
+            {config.displayTitle}
+          </h2>
+          {config.originalTitle && (
+            <p className="mt-2 break-words text-base text-slate-500">
+              {config.originalTitle}
+            </p>
+          )}
+        </div>
 
-      <div className="mt-6 border-t border-slate-100 pt-4">
-        <p className="text-sm font-semibold text-slate-800">Categories:</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {config.categories.map((category) => (
-            <Chip key={category} label={category} tone="pinkSoft" />
+        <div className="mt-5 flex flex-wrap gap-2">
+          {config.chips.map((chip) => (
+            <Chip
+              key={chip}
+              label={chip}
+              tone={chip === "Owned" || chip === "Active" ? "green" : "orange"}
+            />
           ))}
         </div>
+
+        {playableMedia && (
+          <div className="mt-5">
+            <HeroPlayButton item={playableMedia} />
+          </div>
+        )}
       </div>
+
+      {config.categories.length > 0 && (
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-semibold text-slate-800">Categories</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {config.categories.map((category) => (
+              <Chip key={category} label={category} tone="pinkSoft" />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -279,14 +302,22 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
         })}
       </div>
 
-      <div className="mt-5">
-        <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
+      <div className="mt-5 min-w-0">
+        <h2 className="break-words text-3xl font-semibold tracking-normal text-slate-950">
           {config.displayTitle}
         </h2>
-        <p className="mt-2 text-sm text-slate-500">{config.originalTitle}</p>
+        {config.originalTitle && (
+          <p className="mt-2 break-words text-sm text-slate-500">
+            {config.originalTitle}
+          </p>
+        )}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div
+        aria-label="Performer hero chips"
+        className="mt-4 flex flex-wrap gap-2"
+      >
+        {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
         {config.chips.map((chip) => (
           <Chip
             key={chip}
@@ -294,13 +325,20 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
             tone={chip === "Active" ? "green" : "orange"}
           />
         ))}
-        {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
       </div>
 
-      <Divider />
-      <LabelBlock title="Aliases" labels={config.aliases} />
-      <Divider />
-      <LabelBlock title="Categories" labels={config.categories} />
+      {config.aliases.length > 0 && (
+        <>
+          <Divider />
+          <LabelBlock title="Aliases" labels={config.aliases} />
+        </>
+      )}
+      {config.categories.length > 0 && (
+        <>
+          <Divider />
+          <LabelBlock title="Categories" labels={config.categories} />
+        </>
+      )}
     </section>
   );
 }
@@ -325,7 +363,7 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
               <p className="text-sm font-semibold text-slate-600">
                 {item.label}
               </p>
-              <p className="mt-1 text-xl font-semibold text-slate-950">
+              <p className="mt-1 whitespace-pre-line text-xl font-semibold leading-tight text-slate-950">
                 {item.value}
               </p>
             </div>
@@ -570,10 +608,91 @@ function RowsCard({
       </div>
       {readOnly && (
         <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-          Read-only placeholder
+          Data-dependent fields only
         </p>
       )}
     </section>
+  );
+}
+
+function HeroPlayButton({ item }: { item: MediaPathItem }) {
+  const [status, setStatus] = useState<PathStatusState>(() => ({
+    label: item.label,
+    path: item.path.trim(),
+    playable: item.playable,
+    status: item.path.trim() ? "unknown" : "notSet",
+    kind: "unknown",
+    message: item.path.trim() ? "Not checked" : "Path is not set",
+  }));
+  const [opening, setOpening] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFeedback(null);
+    setStatus({
+      label: item.label,
+      path: item.path.trim(),
+      playable: item.playable,
+      status: item.path.trim() ? "unknown" : "notSet",
+      kind: "unknown",
+      message: item.path.trim() ? "Not checked" : "Path is not set",
+    });
+
+    checkPathStatus(item.path).then((result) => {
+      if (!cancelled) {
+        setStatus({
+          label: item.label,
+          playable: item.playable,
+          ...result,
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  async function handlePlay() {
+    if (status.status !== "exists" || opening) {
+      return;
+    }
+
+    setOpening(true);
+    setFeedback(null);
+
+    try {
+      const result = await openMediaPath(status.path);
+      setFeedback(
+        result.opened
+          ? "Opening with default app."
+          : result.message || "Media file could not be opened.",
+      );
+    } catch {
+      setFeedback("Media file could not be opened.");
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  const disabled = status.status !== "exists" || opening;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={handlePlay}
+        disabled={disabled}
+        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none"
+      >
+        <Play size={16} fill="currentColor" />
+        {opening ? "Opening..." : "Play"}
+      </button>
+      {feedback && (
+        <span className="text-xs font-medium text-slate-500">{feedback}</span>
+      )}
+    </div>
   );
 }
 
