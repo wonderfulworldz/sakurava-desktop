@@ -52,6 +52,7 @@ Urutan acuan dokumen:
 26. `24-performer-mini-thumbnail-storage-form-planning.md` - rencana storage/form aman untuk 4 mini thumbnail Performer.
 27. `25-image-gallery-planning.md` - rencana aman Image Gallery dari daftar path gambar eksplisit.
 28. `26-image-gallery-storage-form-planning.md` - rencana storage/form aman untuk daftar path Image Gallery.
+29. `27-image-gallery-qa-safety-review.md` - QA dan safety review Image Gallery setelah viewer controls.
 
 ## Current Post-MVP Reading Order
 
@@ -77,8 +78,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 18. `24-performer-mini-thumbnail-storage-form-planning.md`
 19. `25-image-gallery-planning.md`
 20. `26-image-gallery-storage-form-planning.md`
-21. `AGENT_CODE_HANDOFF.md`
-22. `WORKFLOW_GIT.md`
+21. `27-image-gallery-qa-safety-review.md`
+22. `AGENT_CODE_HANDOFF.md`
+23. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
