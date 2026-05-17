@@ -69,6 +69,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Image Gallery QA and Safety Review is documented in `docs/27-image-gallery-qa-safety-review.md`; after clean QA, Image Gallery can be treated as post-MVP initial complete.
 - UI/UX V1 Audit and Prioritization Plan is documented in `docs/28-ui-ux-v1-audit-prioritization-plan.md`; it is the active planning source for UI/UX V1 alignment after Image Gallery initial completion.
 - Catalog Toolbar V1 Planning is documented in `docs/29-catalog-toolbar-v1-planning.md`; implementation should keep the toolbar scoped to Search, Filter, Sorting, and one View toggle, with data-dependent filters disabled/planned until reliable fields/helpers exist.
+- Catalog Toolbar V1 Implementation is complete through Batch 26.5 after merge; Videos, Images, and Performers use Search, Filter, Sorting, and one View toggle while data-dependent filters remain planned/disabled.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## UI/UX V1 Alignment Sequence
