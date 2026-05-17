@@ -2,18 +2,16 @@ import {
   ArrowRight,
   Heart,
   Image,
-  Search,
-  SlidersHorizontal,
   UserRound,
   Video,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import PageHeader from "../components/PageHeader";
 import {
+  buildLastEdited,
   buildHomeSummaryCards,
   buildRecentlyAdded,
-  continueItems,
+  lastEdited,
   quickActions,
   recentlyAdded,
   summaryCards,
@@ -29,6 +27,7 @@ import { listVideos } from "../runtime/videoCommands";
 
 type HomeData = {
   summaryCards: HomeSummaryCard[];
+  lastEdited: HomeRecentItem[];
   recentlyAdded: HomeRecentItem[];
   loading: boolean;
 };
@@ -36,6 +35,7 @@ type HomeData = {
 function HomePage() {
   const [homeData, setHomeData] = useState<HomeData>({
     summaryCards,
+    lastEdited,
     recentlyAdded,
     loading: isTauriRuntimeAvailable(),
   });
@@ -44,7 +44,7 @@ function HomePage() {
     let cancelled = false;
 
     if (!isTauriRuntimeAvailable()) {
-      setHomeData({ summaryCards, recentlyAdded, loading: false });
+      setHomeData({ summaryCards, lastEdited, recentlyAdded, loading: false });
       return;
     }
 
@@ -53,6 +53,7 @@ function HomePage() {
         if (!cancelled) {
           setHomeData({
             summaryCards: buildHomeSummaryCards({ videos, images, performers }),
+            lastEdited: buildLastEdited({ videos, images, performers }),
             recentlyAdded: buildRecentlyAdded({ videos, images, performers }),
             loading: false,
           });
@@ -60,7 +61,7 @@ function HomePage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setHomeData({ summaryCards, recentlyAdded, loading: false });
+          setHomeData({ summaryCards, lastEdited, recentlyAdded, loading: false });
         }
       });
 
@@ -71,36 +72,6 @@ function HomePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Home"
-        subtitle="Local private catalog for Videos, Images, and Performers"
-        action={
-          <div className="flex w-full items-center gap-3 sm:w-auto">
-            <label className="relative block w-full sm:w-[420px]">
-              <Search
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                size={19}
-              />
-              <input
-                className="h-12 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-medium text-slate-500 outline-none placeholder:text-slate-400"
-                placeholder="Home search planned"
-                aria-label="Home search planned"
-                disabled
-              />
-            </label>
-            <button
-              type="button"
-              className="flex size-12 shrink-0 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 shadow-sm"
-              aria-label="Home filters planned"
-              disabled
-              title="Home filters planned"
-            >
-              <SlidersHorizontal size={19} />
-            </button>
-          </div>
-        }
-      />
-
       <section className="relative overflow-hidden rounded-lg border border-sakura-100 bg-white">
         <div className="absolute inset-0 bg-gradient-to-r from-white via-white to-sakura-50/80" />
         <div className="relative grid min-h-56 gap-0 lg:grid-cols-[1fr_1fr]">
@@ -194,35 +165,42 @@ function HomePage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-base font-semibold text-slate-950">
+        <section
+          className="rounded-lg border border-slate-200 bg-white p-5"
+          aria-labelledby="continue-cataloging-heading"
+        >
+          <h2
+            id="continue-cataloging-heading"
+            className="text-base font-semibold text-slate-950"
+          >
             Continue Cataloging
           </h2>
-          {continueItems.length > 0 ? (
+          {homeData.loading ? (
+            <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
+              Loading catalog items...
+            </p>
+          ) : homeData.lastEdited.length > 0 ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {continueItems.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4"
-                >
-                  <div className="h-16 rounded-md bg-white" />
-                  <p className="mt-3 text-sm font-medium text-slate-700">
-                    {item}
-                  </p>
-                </div>
+              {homeData.lastEdited.map((item) => (
+                <HomeRecordCard key={`${item.kind}-${item.key}`} item={item} />
               ))}
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-6 text-slate-500">
-              Planned: incomplete records that need thumbnails, categories, or
-              important metadata will appear here.
+              No records yet.
             </p>
           )}
-        </div>
+        </section>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="text-base font-semibold text-slate-950">
+      <section
+        className="rounded-lg border border-slate-200 bg-white p-5"
+        aria-labelledby="recently-added-heading"
+      >
+        <h2
+          id="recently-added-heading"
+          className="text-base font-semibold text-slate-950"
+        >
           Recently Added
         </h2>
         {homeData.loading ? (
@@ -232,7 +210,7 @@ function HomePage() {
         ) : homeData.recentlyAdded.length > 0 ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {homeData.recentlyAdded.map((item) => (
-              <RecentCard key={`${item.kind}-${item.key}`} item={item} />
+              <HomeRecordCard key={`${item.kind}-${item.key}`} item={item} />
             ))}
           </div>
         ) : (
@@ -241,37 +219,36 @@ function HomePage() {
             here after they are saved.
           </p>
         )}
-        <p className="mt-3 text-xs font-medium text-slate-400">
-          Thumbnails outside the configured local asset scope may show an icon
-          placeholder.
-        </p>
       </section>
     </div>
   );
 }
 
-function RecentCard({ item }: { item: HomeRecentItem }) {
+function HomeRecordCard({ item }: { item: HomeRecentItem }) {
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(item.coverPath);
   const Icon = recentIcon(item.kind);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc, mediaAssetScopeReady]);
+
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   return (
     <Link
       to={`/${item.kind}/${item.key}`}
       className="group rounded-lg border border-slate-200 bg-white p-3 transition hover:border-sakura-200 hover:shadow-sm"
     >
-      <div
-        className={[
-          "relative overflow-hidden rounded-md bg-slate-100",
-          item.kind === "performers" ? "aspect-[4/5]" : "aspect-video",
-        ].join(" ")}
-      >
-        {assetSrc && mediaAssetScopeReady ? (
+      <div className="relative aspect-square overflow-hidden rounded-md bg-slate-100">
+        {showImage ? (
           <img
-            src={assetSrc}
+            src={assetSrc ?? undefined}
             alt={`${item.title} cover`}
             className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-300">
@@ -291,7 +268,7 @@ function RecentCard({ item }: { item: HomeRecentItem }) {
         {item.title}
       </p>
       <p className="mt-1 truncate text-xs font-medium text-slate-500">
-        {item.detail}
+        {item.typeLabel}
       </p>
     </Link>
   );

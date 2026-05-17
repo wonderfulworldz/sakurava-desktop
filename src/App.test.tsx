@@ -38,15 +38,20 @@ describe("App", () => {
   it("renders the app shell and Home page", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Home" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Sakurava")).not.toBeInTheDocument();
     const logo = screen.getByRole("img", { name: "Sakurava logo" });
     expect(logo).toBeInTheDocument();
     expect(logo).toHaveAttribute("src", "/assets/sakurava-icon.svg");
     expect(logo.parentElement).not.toHaveClass("bg-sakura-500");
-    expect(screen.getByPlaceholderText("Home search planned")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Home filters planned" }))
-      .toBeDisabled();
+    expect(
+      screen.queryByPlaceholderText("Home search planned"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Home filters planned" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Welcome to Sakurava")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /home/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /videos/i })).toBeInTheDocument();
@@ -65,13 +70,9 @@ describe("App", () => {
     expect(screen.getByText("Storage status placeholder")).toBeInTheDocument();
     expect(screen.getByText("Last update placeholder")).toBeInTheDocument();
     expect(screen.getByText("Quick Actions")).toBeInTheDocument();
-    expect(
-      screen.getByText(/incomplete records that need thumbnails/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Continue Cataloging")).toBeInTheDocument();
+    expect(screen.getByText("No records yet.")).toBeInTheDocument();
     expect(screen.getByText(/No recent records yet/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/configured local asset scope/i),
-    ).toBeInTheDocument();
   });
 
   it("collapses and expands the sidebar without changing navigation", () => {
@@ -120,7 +121,7 @@ describe("App", () => {
   });
 
   it.each([
-    ["/", "Home"],
+    ["/", "Welcome to Sakurava"],
     ["/videos", "Videos"],
     ["/videos/new", "Add Video"],
     ["/videos/sample-id", "Video Detail"],
@@ -2506,25 +2507,29 @@ describe("App", () => {
           persistedVideo({
             id: "video_1",
             title: "Recent Video",
-            createdAt: "2026-05-12T00:00:00.000Z",
+            createdAt: "2026-05-14T00:00:00.000Z",
+            updatedAt: "2026-05-14T00:00:00.000Z",
           }),
           persistedVideo({
             id: "video_2",
             title: "Older Video",
             favorite: false,
-            createdAt: "2026-05-11T00:00:00.000Z",
+            createdAt: "2026-05-16T00:00:00.000Z",
+            updatedAt: "2026-05-18T00:00:00.000Z",
           }),
           persistedVideo({
             id: "video_3",
             title: "Third Video",
             favorite: false,
             createdAt: "2026-05-10T00:00:00.000Z",
+            updatedAt: "2026-05-19T00:00:00.000Z",
           }),
           persistedVideo({
             id: "video_4",
             title: "Fourth Video",
             favorite: false,
             createdAt: "2026-05-09T00:00:00.000Z",
+            updatedAt: "2026-05-20T00:00:00.000Z",
           }),
         ];
       }
@@ -2533,7 +2538,8 @@ describe("App", () => {
           persistedImage({
             id: "image_1",
             title: "Recent Image",
-            createdAt: "not-a-date",
+            createdAt: "2026-05-15T00:00:00.000Z",
+            updatedAt: "2026-05-15T00:00:00.000Z",
           }),
         ];
       }
@@ -2543,7 +2549,8 @@ describe("App", () => {
             id: "performer_1",
             name: "Recent Performer",
             favorite: false,
-            createdAt: undefined,
+            createdAt: "2026-05-13T00:00:00.000Z",
+            updatedAt: "2026-05-17T00:00:00.000Z",
           }),
         ];
       }
@@ -2559,6 +2566,36 @@ describe("App", () => {
     expect(await screen.findByText("Recent Video")).toBeInTheDocument();
     expect(screen.getByText("Recent Image")).toBeInTheDocument();
     expect(screen.getByText("Recent Performer")).toBeInTheDocument();
+    expect(screen.queryByText(/No edited records yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("No records yet.")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Video").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Image").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Performer").length).toBeGreaterThan(0);
+    const continueCataloging = screen.getByRole("region", {
+      name: "Continue Cataloging",
+    });
+    expect(
+      within(continueCataloging).getAllByRole("link").map((link) =>
+        link.textContent,
+      ),
+    ).toEqual([
+      "Fourth VideoVideo",
+      "Third VideoVideo",
+      "Older VideoVideo",
+    ]);
+    const recentlyAddedSection = screen.getByRole("region", {
+      name: "Recently Added",
+    });
+    expect(
+      within(recentlyAddedSection).getAllByRole("link").map((link) =>
+        link.textContent,
+      ),
+    ).toEqual([
+      "Older VideoVideo",
+      "Recent ImageImage",
+      "Recent VideoVideo",
+      "Recent PerformerPerformer",
+    ]);
     expect(screen.getByText("4 saved videos")).toBeInTheDocument();
     expect(screen.getByText("1 saved image")).toBeInTheDocument();
     expect(screen.getByText("1 saved performer")).toBeInTheDocument();
