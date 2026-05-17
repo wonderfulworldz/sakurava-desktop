@@ -57,6 +57,7 @@ Urutan acuan dokumen:
 31. `29-catalog-toolbar-v1-planning.md` - rencana Catalog Toolbar V1 untuk Videos, Images, dan Performers sebelum implementasi.
 32. `30-detail-page-v1-layout-planning.md` - rencana Detail Page V1 untuk Video Detail, Image Detail, dan Performer Detail sebelum implementasi.
 33. `31-functional-spider-chart-rating-planning.md` - rencana Functional Spider Chart Rating sebelum implementasi.
+34. `32-tech-info-media-status-planning.md` - rencana Tech Info + Media Status sebelum implementasi.
 
 ## Current Post-MVP Reading Order
 
@@ -87,8 +88,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 23. `29-catalog-toolbar-v1-planning.md`
 24. `30-detail-page-v1-layout-planning.md`
 25. `31-functional-spider-chart-rating-planning.md`
-26. `AGENT_CODE_HANDOFF.md`
-27. `WORKFLOW_GIT.md`
+26. `32-tech-info-media-status-planning.md`
+27. `AGENT_CODE_HANDOFF.md`
+28. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
