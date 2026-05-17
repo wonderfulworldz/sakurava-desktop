@@ -16,7 +16,6 @@ import {
   Play,
   Plus,
   Ruler,
-  Star,
   Trash2,
   UserRound,
   X,
@@ -29,6 +28,7 @@ import type {
   MediaPathItem,
   PerformerDetailConfig,
 } from "../lib/detailData";
+import { calculateAverageRating } from "../lib/ratingSummary";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
@@ -909,102 +909,157 @@ function RatingSummaryCard({
   title: string;
   rating: { label: string; value: number }[];
 }) {
+  const average = calculateAverageRating(rating);
+  const canRenderChart =
+    average !== null && rating.length >= 3 && rating.length <= 8;
+
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title={title} icon={Star} />
-      <div className="mt-4 grid gap-6 [@media(min-width:1800px)]:grid-cols-[minmax(0,1fr)_260px] [@media(min-width:1800px)]:gap-8">
-        <RadarPlaceholder rating={rating} />
-        <div className="min-w-0 space-y-3 [@media(min-width:1800px)]:order-first">
-          {rating.map((axis) => (
-            <div
-              key={axis.label}
-              className="grid grid-cols-[minmax(0,1fr)_3rem_7rem] items-center gap-3 text-sm"
-            >
-              <span className="min-w-0 break-words font-medium leading-5 text-slate-700">
-                {axis.label}
-              </span>
-              <span className="shrink-0 text-right text-slate-600">
-                {axis.value.toFixed(1)}
-              </span>
-              <Stars value={axis.value} />
-            </div>
-          ))}
+      <CardTitle title={title} icon={Info} />
+      {canRenderChart ? (
+        <SpiderChart dimensions={rating} average={average} />
+      ) : (
+        <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center">
+          <p className="text-sm font-semibold text-slate-700">Not rated</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Rating not available for a readable spider chart.
+          </p>
         </div>
-      </div>
+      )}
     </section>
   );
 }
 
-function RadarPlaceholder({
-  rating,
+function SpiderChart({
+  dimensions,
+  average,
 }: {
-  rating: { label: string; value: number }[];
+  dimensions: { label: string; value: number }[];
+  average: number;
 }) {
-  const labels = rating.slice(0, 6);
+  const center = 130;
+  const radius = 72;
+  const labelRadius = 105;
+  const levels = [0.2, 0.4, 0.6, 0.8, 1];
+  const dimensionCount = dimensions.length;
+  const shapeName = spiderShapeName(dimensionCount);
+  const outerPoints = dimensions.map((_, index) =>
+    polarPoint(index, dimensionCount, radius, center),
+  );
+  const scorePoints = dimensions.map((dimension, index) =>
+    polarPoint(index, dimensionCount, radius * (dimension.value / 5), center),
+  );
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[230px]">
-      <div className="absolute inset-8 rounded-full border border-sakura-100 bg-sakura-50/45" />
-      <div className="absolute inset-14 rounded-full border border-sakura-100" />
-      <div className="absolute inset-[4.5rem] rounded-full border border-sakura-100" />
-      <div
-        className="absolute inset-11 bg-sakura-300/35"
-        style={{
-          clipPath:
-            "polygon(50% 0%, 82% 20%, 83% 72%, 50% 94%, 18% 76%, 17% 24%)",
-        }}
-      />
-      <div
-        className="absolute inset-11 border-2 border-sakura-400"
-        style={{
-          clipPath:
-            "polygon(50% 0%, 82% 20%, 83% 72%, 50% 94%, 18% 76%, 17% 24%)",
-        }}
-      />
-      {labels.map((axis, index) => (
-        <span
-          key={axis.label}
-          className={[
-            "absolute text-[11px] font-medium text-slate-500",
-            radarLabelClass(index),
-          ].join(" ")}
+    <div className="mt-4 flex justify-center">
+      <svg
+        viewBox="0 0 260 260"
+        className="aspect-square w-full max-w-[310px]"
+        role="img"
+        aria-label={`${dimensionCount}-dimension spider chart`}
+        data-testid="spider-chart"
+        data-dimension-count={dimensionCount}
+        data-shape={shapeName}
+      >
+        {levels.map((level) => (
+          <polygon
+            key={level}
+            points={dimensions
+              .map((_, index) =>
+                pointString(
+                  polarPoint(index, dimensionCount, radius * level, center),
+                ),
+              )
+              .join(" ")}
+            fill={level === 1 ? "rgb(255 241 246 / 0.55)" : "none"}
+            stroke="rgb(251 207 232)"
+            strokeWidth="1"
+          />
+        ))}
+        {outerPoints.map((point, index) => (
+          <line
+            key={dimensions[index].label}
+            x1={center}
+            y1={center}
+            x2={point.x}
+            y2={point.y}
+            stroke="rgb(226 232 240)"
+            strokeWidth="1"
+          />
+        ))}
+        <polygon
+          points={scorePoints.map(pointString).join(" ")}
+          fill="rgb(244 114 182 / 0.28)"
+          stroke="rgb(244 114 182)"
+          strokeLinejoin="round"
+          strokeWidth="2.5"
+        />
+        {dimensions.map((dimension, index) => {
+          const point = polarPoint(index, dimensionCount, labelRadius, center);
+          return (
+            <text
+              key={dimension.label}
+              x={point.x}
+              y={point.y}
+              textAnchor={labelAnchor(point.x, center)}
+              dominantBaseline="middle"
+              className="fill-slate-500 text-[10px] font-medium"
+            >
+              {dimension.label}
+            </text>
+          );
+        })}
+        <circle cx={center} cy={center} r="25" fill="white" stroke="rgb(251 207 232)" />
+        <text
+          x={center}
+          y={center}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-slate-900 text-[13px] font-bold"
         >
-          {axis.label}
-        </span>
-      ))}
+          {average.toFixed(1)} / 5
+        </text>
+      </svg>
     </div>
   );
 }
 
-function radarLabelClass(index: number) {
-  const classes = [
-    "left-1/2 top-0 -translate-x-1/2",
-    "right-0 top-1/4",
-    "right-1 bottom-1/4",
-    "bottom-0 left-1/2 -translate-x-1/2",
-    "bottom-1/4 left-0",
-    "left-0 top-1/4",
-  ];
-
-  return classes[index] ?? "";
+function polarPoint(
+  index: number,
+  total: number,
+  radius: number,
+  center: number,
+) {
+  const angle = -Math.PI / 2 + (index * 2 * Math.PI) / total;
+  return {
+    x: center + radius * Math.cos(angle),
+    y: center + radius * Math.sin(angle),
+  };
 }
 
-function Stars({ value }: { value: number }) {
-  return (
-    <span
-      className="flex shrink-0 justify-end gap-1 text-sakura-500"
-      aria-label={`${value}/5`}
-    >
-      {Array.from({ length: 5 }, (_, index) => (
-        <Star
-          key={index}
-          size={15}
-          fill={index + 1 <= Math.round(value) ? "currentColor" : "none"}
-          className={index + 1 <= Math.round(value) ? "" : "text-slate-300"}
-        />
-      ))}
-    </span>
-  );
+function pointString(point: { x: number; y: number }) {
+  return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
+}
+
+function labelAnchor(x: number, center: number) {
+  if (Math.abs(x - center) < 8) {
+    return "middle";
+  }
+
+  return x > center ? "start" : "end";
+}
+
+function spiderShapeName(dimensionCount: number) {
+  const names: Record<number, string> = {
+    3: "triangle",
+    4: "quadrilateral",
+    5: "pentagon",
+    6: "hexagon",
+    7: "heptagon",
+    8: "octagon",
+  };
+
+  return names[dimensionCount] ?? "unsupported";
 }
 
 function NotesCard({ notes }: { notes: string }) {

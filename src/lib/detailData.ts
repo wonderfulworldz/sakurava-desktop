@@ -23,6 +23,7 @@ export type DetailSection = {
 };
 
 type RatingAxis = {
+  key?: string;
   label: string;
   value: number;
 };
