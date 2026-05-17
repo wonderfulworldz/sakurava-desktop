@@ -417,6 +417,81 @@ describe("App", () => {
   );
 
   it.each([
+    ["/videos/sample-id", "hexagon", "3.8 / 5"],
+    ["/images/sample-id", "hexagon", "4.2 / 5"],
+    ["/performers/sample-id", "hexagon", "3.8 / 5"],
+  ])(
+    "renders spider chart only for static detail rating summary at %s",
+    (path, shape, score) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      const section = screen.getByText("Rating Summary").closest("section");
+      expect(section).not.toBeNull();
+      const ratingSection = within(section as HTMLElement);
+      const chart = ratingSection.getByTestId("spider-chart");
+
+      expect(chart).toHaveAttribute("data-dimension-count", "6");
+      expect(chart).toHaveAttribute("data-shape", shape);
+      expect(ratingSection.getByText(score)).toBeInTheDocument();
+      expect(ratingSection.queryByLabelText("4/5")).not.toBeInTheDocument();
+      expect(ratingSection.queryByLabelText("5/5")).not.toBeInTheDocument();
+    },
+  );
+
+  it("renders a pentagon spider chart for five valid persisted rating dimensions", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (command === "video_get") {
+          return persistedVideo({
+            ratingJson:
+              '{"rewatch":4,"performance":5,"visual":4,"intensity":3,"story":5}',
+          });
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Video")).toBeInTheDocument();
+    const section = screen.getByText("Rating Summary").closest("section");
+    expect(section).not.toBeNull();
+    const chart = within(section as HTMLElement).getByTestId("spider-chart");
+
+    expect(chart).toHaveAttribute("data-dimension-count", "5");
+    expect(chart).toHaveAttribute("data-shape", "pentagon");
+    expect(within(section as HTMLElement).getByText("4.2 / 5")).toBeInTheDocument();
+  });
+
+  it("shows an honest empty state when detail ratingJson has no valid rating", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (command === "video_get") {
+          return persistedVideo({ ratingJson: '{"rewatch":0,"visual":"5"}' });
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Video")).toBeInTheDocument();
+    const section = screen.getByText("Rating Summary").closest("section");
+    expect(section).not.toBeNull();
+    const ratingSection = within(section as HTMLElement);
+
+    expect(ratingSection.queryByTestId("spider-chart")).not.toBeInTheDocument();
+    expect(ratingSection.getByText("Not rated")).toBeInTheDocument();
+  });
+
+  it.each([
     {
       path: "/videos/sample-id",
       heading: "Metadata",

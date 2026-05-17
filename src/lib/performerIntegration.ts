@@ -13,6 +13,7 @@ import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
+import { getRatingDimensions } from "./ratingSummary";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -34,7 +35,6 @@ export function buildPerformerDetailConfig(
   performer: Performer,
 ): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
-  const rating = parseRatingObject(performer.ratingJson);
   const thumbnailPaths = parsePerformerThumbnailPathArray(
     performer.performerThumbnailPathsJson,
   );
@@ -81,10 +81,7 @@ export function buildPerformerDetailConfig(
       { label: "Measurement", value: "Not saved" },
       { label: "Cup Size", value: "Not saved" },
     ],
-    rating: performerRatingFields.map((field) => ({
-      label: field.label,
-      value: numberFromRating(rating[field.name]),
-    })),
+    rating: getRatingDimensions(performer.ratingJson, performerRatingFields),
     notes: performer.notes || "No notes saved.",
   };
 }
@@ -218,10 +215,6 @@ function formRating(values: FormValues): Record<string, number> {
       .map((field) => [field.name, Number(values[field.name])] as const)
       .filter(([, value]) => Number.isFinite(value) && value >= 1 && value <= 5),
   );
-}
-
-function numberFromRating(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function textValue(value: FormValues[string]) {

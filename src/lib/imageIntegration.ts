@@ -22,6 +22,7 @@ import type {
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
+import { getRatingDimensions } from "./ratingSummary";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -41,7 +42,6 @@ export function buildImageDetailConfig(
   videos: Video[] = [],
 ): ImageDetailConfig {
   const baseConfig = detailConfigs.images as ImageDetailConfig;
-  const rating = parseRatingObject(image.ratingJson);
   return {
     ...baseConfig,
     editTo: `/images/${image.id}/edit`,
@@ -64,10 +64,7 @@ export function buildImageDetailConfig(
       { label: "Created in Sakurava", value: formatSystemTimestamp(image.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
     ],
-    rating: imageRatingFields.map((field) => ({
-      label: field.label,
-      value: numberFromRating(rating[field.name]),
-    })),
+    rating: getRatingDimensions(image.ratingJson, imageRatingFields),
     techItems: [
       { label: "Image Count", value: formatImageCount(image.imageCount) },
       { label: "Folder Size", value: "Not detected" },
@@ -217,10 +214,6 @@ function formRating(values: FormValues): Record<string, number> {
       .map((field) => [field.name, Number(values[field.name])] as const)
       .filter(([, value]) => Number.isFinite(value) && value >= 1 && value <= 5),
   );
-}
-
-function numberFromRating(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function textValue(value: FormValues[string]) {

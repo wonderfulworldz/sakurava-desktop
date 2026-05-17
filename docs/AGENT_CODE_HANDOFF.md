@@ -136,6 +136,7 @@ For category-related work, also inspect:
 - Detail Hero + Metadata Cleanup is complete after Batch 27.2 if merged. Video/Image/Performer Detail heroes use cleaner title/original/code/favorite/status/category presentation, raw path fields are no longer shown in normal metadata, and existing media status/play, Image Gallery, performer thumbnail, related, edit, and delete behavior should remain preserved.
 - Performer Detail Favorite should remain a chip with status chips, not a separate top-right action. Years Active remains visible; do not use Birth Date as Debut Year. Full `2015-present` and age-range calculation needs future Debut Date / Retired Date data support.
 - Functional Spider Chart Rating Planning is documented after Batch 27.3 in `docs/31-functional-spider-chart-rating-planning.md`. Rating Summary V1 target is polygon spider chart only, not generic radial chart or star/chart hybrid; side count follows valid `ratingJson` dimension count, and Average / Final Score must be a shared helper for future Detail and Catalog reuse.
+- Functional Spider Chart Rating Implementation is complete after Batch 27.4 if merged. Detail Rating Summary should remain spider-chart-only; do not restore star blocks or hybrid star/chart layouts. Shared rating helper behavior should be reused later for Catalog Rating sorting/filtering instead of duplicating score logic.
 
 ## Preferred Batch Prompt Format
 
