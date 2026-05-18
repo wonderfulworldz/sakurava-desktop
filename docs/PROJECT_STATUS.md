@@ -410,6 +410,7 @@ Current app capabilities include:
 - Category Management V1 audit and planning through Batch 30.1 after merge, with the revised WordPress-inspired Sakurava direction: Add / Edit form, inline table toolbar, full-width table with pagination footer, separate Bulk Edit, minimal Safety Notes, no separate Category Detail or Modify Records section, and no normal Record-only UI.
 - Category Management Data Model Safety Plan through Batch 30.2 after merge, recommending SQLite-managed category metadata while keeping record-level categories in `categoriesJson`.
 - Category Management CRUD foundation through Batch 30.3 after merge: SQLite-managed category metadata, localStorage managed-category migration/cache compatibility, Add/Edit form, one-level parent/child selection, path-only thumbnail metadata with narrow image picker support, plain-text description, safe unused delete checks, no Modify Records section, no separate Category Detail section, and no normal unmanaged-label category status.
+- Category Management table refinement through Batch 30.4 after merge: full-width columns, integrated detail display through table/form fields, search/filter/sort composition, and pagination footer with 25/50/100 row options.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -671,3 +672,9 @@ Recommended next implementation batch after Batch 30.3:
 ```
 
 Keep Batch 30.4 scoped to the full-width Category Table, integrated table/detail information, and pagination footer. Do not reintroduce a separate Category Detail section or Modify Records section unless the user explicitly changes the approved V1 direction.
+
+Recommended checkpoint after Batch 30.4:
+
+```text
+post-mvp-30-4-category-management-table-detail-pagination-v1
+```

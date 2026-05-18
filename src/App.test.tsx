@@ -847,6 +847,129 @@ describe("App", () => {
     expect(screen.getByText("Database Available")).toBeInTheDocument();
   });
 
+  it("renders Category Management table columns and pagination controls", () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    setManagedCategories(
+      Array.from(
+        { length: 30 },
+        (_, index) => `Category ${String(index + 1).padStart(2, "0")}`,
+      ),
+    );
+
+    render(<App />);
+
+    const table = screen.getByRole("table");
+    for (const column of [
+      "Name",
+      "Parent",
+      "Description",
+      "Videos",
+      "Images",
+      "Performers",
+      "Usage",
+      "Edit",
+    ]) {
+      expect(within(table).getByRole("columnheader", { name: column }))
+        .toBeInTheDocument();
+    }
+
+    expect(screen.getByText("Showing 1-25 of 30 categories")).toBeInTheDocument();
+    expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("25");
+    for (const option of ["25", "50", "100"]) {
+      expect(screen.getByRole("option", { name: option })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+
+    expect(screen.getByText("Showing 26-30 of 30 categories")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Rows per page"), {
+      target: { value: "50" },
+    });
+
+    expect(screen.getByText("Showing 1-30 of 30 categories")).toBeInTheDocument();
+  });
+
+  it("keeps Category Management filters and table status text scoped", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    const managedCategories = [
+      managedCategoryFixture({
+        key: "cat_parent",
+        name: "Parent Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_child",
+        name: "Child Category",
+        parentKey: "cat_parent",
+      }),
+      managedCategoryFixture({
+        key: "cat_solo",
+        name: "Solo Category",
+      }),
+    ];
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Parent Video",
+            categoriesJson: '["Parent Category"]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            title: "Child Image",
+            categoriesJson: '["Child Category"]',
+          }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return managedCategories;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    await screen.findAllByText("Parent Category");
+    const table = screen.getByRole("table");
+    expect(screen.queryByText(/Record.only/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Needs\s+Review/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Missing\s+thumbnail/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Has\s+children/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Filter categories"), {
+      target: { value: "parent-only" },
+    });
+
+    let bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(1);
+    expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
+    expect(within(bodyRows[0]).queryByText("Child Category"))
+      .not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Filter categories"), {
+      target: { value: "child-only" },
+    });
+
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(1);
+    expect(within(bodyRows[0]).getByText("Child Category")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
+    expect(within(bodyRows[0]).queryByText("Solo Category"))
+      .not.toBeInTheDocument();
+  });
+
   it("adds a configured media root from the Settings folder picker", async () => {
     window.history.pushState({}, "", "/settings");
     const selectedRoot = "D:/Sakurava Media";
@@ -5525,6 +5648,19 @@ function setManagedCategories(categories: string[]) {
     "sakurava.managedCategories.v1",
     JSON.stringify(categories),
   );
+}
+
+function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    key: "cat_test",
+    name: "Managed Category",
+    parentKey: null,
+    description: "",
+    thumbnailPath: "",
+    createdAt: "2026-05-11T00:00:00.000Z",
+    updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
 }
 
 function persistedVideo(overrides: Record<string, unknown> = {}) {
