@@ -91,28 +91,46 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Category Management Data Model Safety Plan is documented in `docs/36-category-management-data-model-safety-plan.md`; it recommends SQLite-managed category metadata with stable internal keys while preserving record-level `categoriesJson` labels, exact filtering by default, CSV-first bulk edit planning, conditional XLSX support, minimal thumbnail path storage, and no normal Record-only UI.
 - Category Management CRUD Implementation is complete through Batch 30.3 after merge; Category Management uses SQLite-managed category metadata for `key`, `name`, `parentKey`, `description`, `thumbnailPath`, `createdAt`, and `updatedAt`, limits hierarchy to No Parent plus one child level, supports thumbnail path entry with a narrow image picker, migrates legacy localStorage managed category labels without deleting the legacy cache, keeps records on `categoriesJson` labels, blocks unsafe delete when children or record usage exist, and drops normal unmanaged-label rows/statuses, Modify Records, and separate Category Detail UI from the management surface.
 - Category Management Table + Detail + Pagination is complete through Batch 30.4 after merge; the management surface uses full-width table columns, table/form detail presentation, composed search/filter/sort, and a pagination footer with 25/50/100 row options.
+- V1 Smoke Test Gap Audit and Efficient Roadmap is documented in `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md`; Batch 31.1 is docs-only, supersedes the premature release-cleanup path, and locks 32.1 as the next implementation batch.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
-## UI/UX V1 Alignment Sequence
+## Current Locked V1 Roadmap
 
-Use `docs/28-ui-ux-v1-audit-prioritization-plan.md` for the active UI/UX V1 draft roadmap. Earlier or superseded UI/UX V1 adjustment files should be ignored unless the user explicitly promotes them again.
+The older 31.1-31.4 release-cleanup path is superseded because smoke-test gaps remain. Use `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md` as the active continuation after Batch 30.4.
 
 Recommended sequence:
 
-1. 26.1 - UI/UX V1 Audit & Prioritization Plan
-2. 26.2 - App Shell V1 Cleanup
-3. 26.3 - Home Page V1 Cleanup
-4. 26.4 - Catalog Toolbar V1 Planning
-5. 26.5 - Catalog Toolbar V1 Implementation
-6. 26.6 - Categories Page V1 Cleanup
-7. 27.1 through 27.8 as defined in `docs/28-ui-ux-v1-audit-prioritization-plan.md`.
-8. 28.1 - Form Field UX V1 Planning
-9. 28.2 - Category Picker Field Redesign
-10. 28.3 - Related Picker Field Redesign
-11. 28.4 - Video/Image Form Layout Cleanup
-12. 28.5 - Performer Form Data Completion
-13. 28.6 - Form Validation and Save Safety Review
-14. 28.7 - Form UX Smoke Test
-15. Continue 29.1 through 31.5 as defined in `docs/28-ui-ux-v1-audit-prioritization-plan.md`.
+1. 31.1 - Smoke Test Gap Audit + Efficient Roadmap Lock
+2. 32.1 - Catalog Filter/Sort V1 Implementation
+3. 32.2 - Categories Catalog/Collection V1 Implementation
+4. 33.1 - Media Tech Info + Availability Safety Plan
+5. 33.2 - Video/Picture Form + Detail Tech Info Implementation
+6. 33.3 - Performer Form + Detail Data Completion
+7. 33.4 - Performer Related Detail Sections Implementation
+8. 34.1 - Category Visibility + Thumbnail Cache Safety Plan
+9. 34.2 - Category Visibility Implementation
+10. 34.3 - Thumbnail Cache / Low-res Regeneration Implementation
+11. 35.1 - Settings Functional Redesign + Data Operations Planning
+12. 35.2 - Settings Layout Redesign Implementation
+13. 35.3 - Backup/Restore + Clear Cache Implementation
+14. 35.4 - Import/Export Bulk Data Planning
+15. 35.5 - Appearance + Dark Mode Implementation
+16. 35.6 - Language System Planning
+17. 35.7 - Language Picker/Editor Implementation
+18. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+19. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+20. 36.3 - Full Smoke Test + Release Candidate
 
-Keep UI/UX V1 batches scoped. Do not mix App Shell, Home, Catalog, Categories, Detail, Form, Settings, Category Management, or V1 cleanup implementation in one batch.
+Current batch:
+
+```text
+31.1 - Smoke Test Gap Audit + Efficient Roadmap Lock
+```
+
+Next implementation batch after 31.1:
+
+```text
+32.1 - Catalog Filter/Sort V1 Implementation
+```
+
+Batch 31.1 is documentation-only. Do not start 32.1 implementation inside 31.1.
