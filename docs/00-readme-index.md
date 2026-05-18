@@ -63,6 +63,7 @@ Urutan acuan dokumen:
 37. `35-category-management-v1-audit-and-planning.md` - audit dan rencana Category Management V1 untuk Batch 30.1.
 38. `36-category-management-data-model-safety-plan.md` - rencana aman data model Category Management V1 untuk Batch 30.2.
 39. `37-v1-smoke-test-gap-audit-efficient-roadmap.md` - audit gap smoke test V1 dan roadmap efisien Batch 31.1 sampai 36.3.
+40. `38-media-tech-info-availability-safety-plan.md` - rencana aman Media Tech Info dan Availability untuk Batch 33.1 sebelum implementasi 33.2.
 
 ## Current Post-MVP Reading Order
 
@@ -99,8 +100,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 29. `35-category-management-v1-audit-and-planning.md`
 30. `36-category-management-data-model-safety-plan.md`
 31. `37-v1-smoke-test-gap-audit-efficient-roadmap.md`
-32. `AGENT_CODE_HANDOFF.md`
-33. `WORKFLOW_GIT.md`
+32. `38-media-tech-info-availability-safety-plan.md`
+33. `AGENT_CODE_HANDOFF.md`
+34. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

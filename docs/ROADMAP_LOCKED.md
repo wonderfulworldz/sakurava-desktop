@@ -92,6 +92,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Category Management CRUD Implementation is complete through Batch 30.3 after merge; Category Management uses SQLite-managed category metadata for `key`, `name`, `parentKey`, `description`, `thumbnailPath`, `createdAt`, and `updatedAt`, limits hierarchy to No Parent plus one child level, supports thumbnail path entry with a narrow image picker, migrates legacy localStorage managed category labels without deleting the legacy cache, keeps records on `categoriesJson` labels, blocks unsafe delete when children or record usage exist, and drops normal unmanaged-label rows/statuses, Modify Records, and separate Category Detail UI from the management surface.
 - Category Management Table + Detail + Pagination is complete through Batch 30.4 after merge; the management surface uses full-width table columns, table/form detail presentation, composed search/filter/sort, and a pagination footer with 25/50/100 row options.
 - V1 Smoke Test Gap Audit and Efficient Roadmap is documented in `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md`; Batch 31.1 is docs-only, supersedes the premature release-cleanup path, and locks 32.1 as the next implementation batch.
+- Media Tech Info + Availability Safety Plan is documented in `docs/38-media-tech-info-availability-safety-plan.md`; Batch 33.1 is docs-only and defines read-only metadata detection, availability semantics, runtime/storage boundaries, and 33.2 implementation guidance.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## Current Locked V1 Roadmap
@@ -124,13 +125,13 @@ Recommended sequence:
 Current batch:
 
 ```text
-32.2 - Categories Catalog/Collection V1 Implementation
-```
-
-Next implementation batch after 32.2:
-
-```text
 33.1 - Media Tech Info + Availability Safety Plan
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 32.2 should stay scoped to Categories Catalog/Collection V1.
+Next implementation batch after 33.1:
+
+```text
+33.2 - Video/Picture Form + Detail Tech Info Implementation
+```
+
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and must not implement runtime metadata detection, schema changes, or source changes.
