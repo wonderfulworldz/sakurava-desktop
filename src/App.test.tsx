@@ -2191,7 +2191,7 @@ describe("App", () => {
       "/performers/new",
       "Performer Create Form",
       "Browse Cover",
-      "Mini Thumbnail 1",
+      "Thumbnail 1",
       "No related Videos selected.",
       "No related Images selected.",
       "Attraction",
@@ -2200,7 +2200,7 @@ describe("App", () => {
       "/performers/sample-id/edit",
       "Performer Edit Form",
       "Browse Cover",
-      "Mini Thumbnail 1",
+      "Thumbnail 1",
       "No related Videos selected.",
       "No related Images selected.",
       "Attraction",
@@ -2987,8 +2987,9 @@ describe("App", () => {
     },
     {
       path: "/performers/new",
-      buttonName: "Browse Mini Thumbnail 2",
-      inputLabel: "Mini Thumbnail 2",
+      buttonName: "Browse Thumbnail",
+      buttonIndex: 1,
+      inputLabel: "Thumbnail 2",
       selectedPath: "D:/Sakurava/Performers/performer-thumb-2.webp",
       expectedDialog: {
         title: "Select Image File",
@@ -3003,7 +3004,7 @@ describe("App", () => {
     },
   ])(
     "fills $inputLabel from native picker on $path",
-    async ({ path, buttonName, inputLabel, selectedPath, expectedDialog }) => {
+    async ({ path, buttonName, buttonIndex = 0, inputLabel, selectedPath, expectedDialog }) => {
       window.history.pushState({}, "", path);
       window.__TAURI_INTERNALS__ = {
         invoke: vi.fn(),
@@ -3012,7 +3013,9 @@ describe("App", () => {
 
       render(<App />);
 
-      const browseButton = screen.getByRole("button", { name: buttonName });
+      const browseButton = screen.getAllByRole("button", { name: buttonName })[
+        buttonIndex
+      ];
       expect(browseButton).toBeEnabled();
       fireEvent.click(browseButton);
 
@@ -3048,13 +3051,13 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     const { unmount } = render(<App />);
 
-    expect(screen.queryByLabelText("Mini Thumbnail 1")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Thumbnail 1")).not.toBeInTheDocument();
     unmount();
 
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.queryByLabelText("Mini Thumbnail 1")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Thumbnail 1")).not.toBeInTheDocument();
   });
 
   it("does not open native picker from browser preview", () => {
@@ -3068,25 +3071,66 @@ describe("App", () => {
     expect(dialogMocks.open).not.toHaveBeenCalled();
   });
 
-  it("labels performer persisted and planned fields distinctly", () => {
+  it("labels Performer form completed and deferred fields distinctly", () => {
     window.history.pushState({}, "", "/performers/new");
     render(<App />);
 
-    expect(screen.getByLabelText("Mini Thumbnail 1")).not.toBeDisabled();
-    expect(screen.getByLabelText("Mini Thumbnail 2")).not.toBeDisabled();
-    expect(screen.getByLabelText("Mini Thumbnail 3")).not.toBeDisabled();
-    expect(screen.getByLabelText("Mini Thumbnail 4")).not.toBeDisabled();
-    expect(screen.getByLabelText("Filmography")).not.toBeDisabled();
-    expect(screen.getByLabelText("Pictorials")).not.toBeDisabled();
+    expect(screen.getByLabelText("Thumbnail 1")).not.toBeDisabled();
+    expect(screen.getByLabelText("Thumbnail 2")).not.toBeDisabled();
+    expect(screen.getByLabelText("Thumbnail 3")).not.toBeDisabled();
+    expect(screen.getByLabelText("Thumbnail 4")).not.toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Browse Thumbnail" }))
+      .toHaveLength(4);
+    expect(screen.getByLabelText("Filmography")).toBeDisabled();
+    expect(screen.getByLabelText("Pictorials")).toBeDisabled();
     expect(screen.getByLabelText("Birth Date")).not.toBeDisabled();
-    expect(screen.getByLabelText("Years Active (planned)")).toBeDisabled();
-    expect(screen.getByLabelText("Birthplace (planned)")).toBeDisabled();
-    expect(screen.getByLabelText("Height (planned)")).toBeDisabled();
+    expect(screen.getByLabelText("Birthplace")).toBeDisabled();
+    expect(screen.getByLabelText("Height")).toBeDisabled();
+    expect(screen.queryByLabelText("Years Active (planned)")).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "Birth date is saved. Other personal fields are planned and not saved in MVP.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("orders Performer form completed data sections without duplicate related placeholders", () => {
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    expectSectionOrder([
+      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "2. Profile / Thumbnail Fields" }).closest("section"),
+      screen.getByRole("heading", { name: "3. Status / Activity" }).closest("section"),
+      screen.getByRole("heading", { name: "4. Aliases" }).closest("section"),
+      screen.getByRole("heading", { name: "5. Summary" }).closest("section"),
+      screen.getByRole("heading", { name: "6. Personal" }).closest("section"),
+      screen.getByRole("heading", { name: "7. Physical" }).closest("section"),
+      screen.getByRole("heading", { name: "8. Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "9. Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "10. Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "11. Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "12. Notes" }).closest("section"),
+    ]);
+
+    expect(screen.queryByText("Available after relation features are added."))
+      .not.toBeInTheDocument();
+  });
+
+  it("derives Performer Astrological Sign from Birth Date only", () => {
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    expect(screen.getByLabelText("Astrological Sign")).toHaveValue("Not set");
+    fireEvent.change(screen.getByLabelText("Birth Date"), {
+      target: { value: "1998-01-20" },
+    });
+
+    expect(screen.getByLabelText("Astrological Sign")).toHaveValue("Aquarius");
+    expect(screen.getByText("Debut Date").closest("label"))
+      ?.toHaveTextContent("Debut Date");
+    expect(screen.getByText("Retired Date").closest("label"))
+      ?.toHaveTextContent("Retired Date");
   });
 
   it("allows local form typing, category chips, aliases, and ratings", () => {
@@ -6075,13 +6119,13 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
-    fireEvent.change(screen.getByLabelText("Mini Thumbnail 1"), {
+    fireEvent.change(screen.getByLabelText("Thumbnail 1"), {
       target: { value: " D:/Thumbs/created-1.jpg " },
     });
-    fireEvent.change(screen.getByLabelText("Mini Thumbnail 2"), {
+    fireEvent.change(screen.getByLabelText("Thumbnail 2"), {
       target: { value: "" },
     });
-    fireEvent.change(screen.getByLabelText("Mini Thumbnail 3"), {
+    fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
       target: { value: "D:/Thumbs/created-2.jpg" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -6188,14 +6232,14 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Performer")).toBeInTheDocument();
-    expect(screen.getByLabelText("Mini Thumbnail 1")).toHaveValue(
+    expect(screen.getByLabelText("Thumbnail 1")).toHaveValue(
       "D:/Thumbs/existing-1.jpg",
     );
-    expect(screen.getByLabelText("Mini Thumbnail 2")).toHaveValue(
+    expect(screen.getByLabelText("Thumbnail 2")).toHaveValue(
       "D:/Thumbs/existing-2.jpg",
     );
-    expect(screen.getByLabelText("Mini Thumbnail 3")).toHaveValue("");
-    expect(screen.getByLabelText("Mini Thumbnail 4")).toHaveValue("");
+    expect(screen.getByLabelText("Thumbnail 3")).toHaveValue("");
+    expect(screen.getByLabelText("Thumbnail 4")).toHaveValue("");
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Updated Performer" },
     });
@@ -6207,10 +6251,10 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Attraction"), {
       target: { value: "5" },
     });
-    fireEvent.change(screen.getByLabelText("Mini Thumbnail 2"), {
+    fireEvent.change(screen.getByLabelText("Thumbnail 2"), {
       target: { value: "" },
     });
-    fireEvent.change(screen.getByLabelText("Mini Thumbnail 3"), {
+    fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
       target: { value: "D:/Thumbs/updated-3.jpg" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -6259,8 +6303,8 @@ describe("App", () => {
     ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
     ["/images/new", "8. Related Performer", "9. Related Video"],
     ["/images/sample-id/edit", "8. Related Performer", "9. Related Video"],
-    ["/performers/new", "8. Related Videos", "9. Related Images"],
-    ["/performers/sample-id/edit", "8. Related Videos", "9. Related Images"],
+    ["/performers/new", "10. Related Videos", "11. Related Images"],
+    ["/performers/sample-id/edit", "10. Related Videos", "11. Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {
     window.history.pushState({}, "", path);
     render(<App />);
@@ -6277,16 +6321,16 @@ describe("App", () => {
       window.history.pushState({}, "", path);
       render(<App />);
 
-      expect(screen.getAllByRole("heading", { name: "8. Related Videos" }))
+      expect(screen.getAllByRole("heading", { name: "10. Related Videos" }))
         .toHaveLength(1);
-      expect(screen.getAllByRole("heading", { name: "9. Related Images" }))
+      expect(screen.getAllByRole("heading", { name: "11. Related Images" }))
         .toHaveLength(1);
       expect(
         screen.queryByText("Available after relation features are added."),
       ).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "10. Related Videos" }))
+      expect(screen.queryByRole("heading", { name: "13. Related Videos" }))
         .not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "11. Related Images" }))
+      expect(screen.queryByRole("heading", { name: "14. Related Images" }))
         .not.toBeInTheDocument();
       expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
       expect(screen.getByLabelText("Search related images")).toBeInTheDocument();

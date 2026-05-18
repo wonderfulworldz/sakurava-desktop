@@ -290,15 +290,16 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const cancelTo =
     mode === "create" ? config.createCancelTo : config.editCancelTo;
   const isCatalogForm = config.kind === "videos" || config.kind === "images";
-  const lastExtraSectionIndex = isCatalogForm ? 6 : 5;
+  const isPerformerForm = config.kind === "performers";
+  const lastExtraSectionIndex = isCatalogForm ? 6 : 8;
   const ratingIndex = lastExtraSectionIndex + 1;
-  const relatedPerformerIndex = isCatalogForm ? ratingIndex + 1 : ratingIndex + 2;
+  const relatedPerformerIndex = ratingIndex + 1;
   const relatedCatalogIndex =
     relatedPerformerIndex + (supportsRelatedPerformerPicker ? 1 : 0);
   const performerRelatedImagesIndex = relatedPerformerIndex + 1;
   const notesIndex = isCatalogForm
     ? relatedCatalogIndex + (supportsRelatedCatalogPicker ? 1 : 0)
-    : ratingIndex + 1;
+    : performerRelatedImagesIndex + (supportsPerformerRelatedCatalogPickers ? 1 : 0);
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -420,41 +421,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             label="Favorite"
             onChange={(checked) => updateValue("favorite", checked)}
           />
-          {config.kind === "performers" && (
-            <>
-              {config.selectFields.map((field) => (
-                <SelectInput
-                  key={field.name}
-                  label={field.label}
-                  value={String(values[field.name] ?? field.options[0])}
-                  options={field.options}
-                  onChange={(value) => updateValue(field.name, value)}
-                />
-              ))}
-              {config.showAliases && (
-                <ChipInput
-                  label="Aliases"
-                  draft={aliasDraft}
-                  chips={aliases}
-                  placeholder="Add alias..."
-                  onDraftChange={setAliasDraft}
-                  onAdd={() =>
-                    addChip(aliasDraft, aliases, setAliases, setAliasDraft)
-                  }
-                  onRemove={(chip) =>
-                    setAliases((current) =>
-                      current.filter((item) => item !== chip),
-                    )
-                  }
-                />
-              )}
-              <CategoryPicker
-                selected={categories}
-                managedCategories={managedCategories}
-                onChange={setCategories}
-              />
-            </>
-          )}
         </FieldGrid>
       </FormSection>
 
@@ -462,8 +428,15 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         <PerformerExtraSections
           config={config}
           values={values}
+          aliases={aliases}
+          aliasDraft={aliasDraft}
+          categories={categories}
+          managedCategories={managedCategories}
           canBrowsePaths={canBrowsePaths}
           updateValue={updateValue}
+          setAliases={setAliases}
+          setAliasDraft={setAliasDraft}
+          setCategories={setCategories}
           browsePath={browsePath}
         />
       ) : (
@@ -496,14 +469,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           ))}
         </div>
       </FormSection>
-
-      {!isCatalogForm && (
-        <NotesSection
-          index={notesIndex}
-          value={String(values.notes ?? "")}
-          onChange={(value) => updateValue("notes", value)}
-        />
-      )}
 
       {supportsRelatedPerformerPicker && (
         <FormSection index={relatedPerformerIndex} title="Related Performer">
@@ -571,7 +536,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         }
       />
 
-      {isCatalogForm && (
+      {(isCatalogForm || isPerformerForm) && (
         <NotesSection
           index={notesIndex}
           value={String(values.notes ?? "")}
@@ -810,14 +775,28 @@ function CatalogExtraSections({
 function PerformerExtraSections({
   config,
   values,
+  aliases,
+  aliasDraft,
+  categories,
+  managedCategories,
   canBrowsePaths,
   updateValue,
+  setAliases,
+  setAliasDraft,
+  setCategories,
   browsePath,
 }: {
   config: FormConfig;
   values: FormValues;
+  aliases: string[];
+  aliasDraft: string;
+  categories: string[];
+  managedCategories: string[];
   canBrowsePaths: boolean;
   updateValue: (name: string, value: string | boolean) => void;
+  setAliases: Dispatch<SetStateAction<string[]>>;
+  setAliasDraft: Dispatch<SetStateAction<string>>;
+  setCategories: Dispatch<SetStateAction<string[]>>;
   browsePath: (field: TextField) => void;
 }) {
   const sections = config.performerSections;
@@ -828,9 +807,9 @@ function PerformerExtraSections({
 
   return (
     <>
-      <FormSection index={2} title="Media">
+      <FormSection index={2} title="Profile / Thumbnail Fields">
         <p className="mb-3 text-xs font-medium text-slate-500">
-          Cover and mini thumbnail paths are saved as manual text. Browse selects a local image path only.
+          Cover and thumbnail paths are saved as manual text. Browse selects a local image path only.
         </p>
         <FieldGrid>
           {config.pathFields.map((field) => (
@@ -849,7 +828,7 @@ function PerformerExtraSections({
               key={field.name}
               field={field}
               value={String(values[field.name] ?? "")}
-              browseLabel={`Browse ${field.label}`}
+              browseLabel="Browse Thumbnail"
               browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
               onBrowse={() => browsePath(field)}
@@ -857,37 +836,118 @@ function PerformerExtraSections({
           ))}
         </FieldGrid>
       </FormSection>
-      <FormSection index={3} title="Summary">
+      <FormSection index={3} title="Status / Activity">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Status is saved directly. Debut Date and Retired Date are not stored in the current data model.
+        </p>
+        <FieldGrid>
+          {config.selectFields.map((field) => (
+            <SelectInput
+              key={field.name}
+              value={String(values[field.name] ?? "")}
+              label={field.label}
+              options={field.options}
+              onChange={(value) => updateValue(field.name, value)}
+            />
+          ))}
+          <ReadOnlyTextInput label="Debut Date" value="Not saved" />
+          <ReadOnlyTextInput label="Retired Date" value="Not saved" />
+        </FieldGrid>
+      </FormSection>
+      {config.showAliases && (
+        <FormSection index={4} title="Aliases">
+          <ChipInput
+            label="Aliases"
+            draft={aliasDraft}
+            chips={aliases}
+            placeholder="Add alias..."
+            onDraftChange={setAliasDraft}
+            onAdd={() =>
+              addChip(aliasDraft, aliases, setAliases, setAliasDraft)
+            }
+            onRemove={(chip) =>
+              setAliases((current) => current.filter((item) => item !== chip))
+            }
+          />
+        </FormSection>
+      )}
+      <FormSection index={5} title="Summary">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Summary counts use existing saved Performer values only.
+        </p>
         <FieldGrid>
           {sections.summary.map((field) => (
             <TextInput
               key={field.name}
               field={field}
               value={String(values[field.name] ?? "")}
-              onChange={(value) => updateValue(field.name, value)}
-              inactive={field.name === "yearsActive"}
+              onChange={() => undefined}
+              inactive
             />
           ))}
         </FieldGrid>
       </FormSection>
-      <FormSection index={4} title="Personal">
+      <FormSection index={6} title="Personal">
         <p className="mb-3 text-xs font-medium text-slate-500">
           Birth date is saved. Other personal fields are planned and not saved in MVP.
         </p>
         <FieldGrid>
           {sections.personal.map((field) => (
-            <TextInput
-              key={field.name}
-              field={field}
-              value={String(values[field.name] ?? "")}
-              onChange={(value) => updateValue(field.name, value)}
-              inactive={field.name !== "birthDate"}
-            />
+            field.name === "astrologicalSign" ? (
+              <ReadOnlyTextInput
+                key={field.name}
+                label={field.label}
+                value={deriveAstrologicalSign(String(values.birthDate ?? ""))}
+                helper={field.helper}
+              />
+            ) : (
+              <TextInput
+                key={field.name}
+                field={field}
+                value={String(values[field.name] ?? "")}
+                onChange={(value) => updateValue(field.name, value)}
+                inactive={field.name !== "birthDate"}
+              />
+            )
           ))}
         </FieldGrid>
       </FormSection>
-      <InactiveFieldSection index={5} title="Physical" fields={sections.physical} values={values} />
+      <InactiveFieldSection index={7} title="Physical" fields={sections.physical} values={values} />
+      <FormSection index={8} title="Categories">
+        <CategoryPicker
+          selected={categories}
+          managedCategories={managedCategories}
+          onChange={setCategories}
+        />
+      </FormSection>
     </>
+  );
+}
+
+function ReadOnlyTextInput({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      {label}
+      <div className="grid gap-1">
+        <input
+          className={inputClass(true)}
+          readOnly
+          value={value}
+          aria-label={label}
+        />
+        {helper && (
+          <span className="text-xs font-medium text-slate-500">{helper}</span>
+        )}
+      </div>
+    </label>
   );
 }
 
@@ -1493,6 +1553,36 @@ function relatedSectionsForConfig(config: FormConfig) {
       section.label !== "Related Videos" &&
       section.label !== "Related Video",
   );
+}
+
+function deriveAstrologicalSign(birthDate: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+
+  if (!match) {
+    return "Not set";
+  }
+
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (!Number.isInteger(month) || !Number.isInteger(day)) {
+    return "Not set";
+  }
+
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
+  if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return "Taurus";
+  if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return "Gemini";
+  if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return "Cancer";
+  if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return "Leo";
+  if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return "Virgo";
+  if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return "Libra";
+  if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return "Scorpio";
+  if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return "Sagittarius";
+  if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return "Capricorn";
+  if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "Aquarius";
+  if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return "Pisces";
+
+  return "Not set";
 }
 
 function addChip(
