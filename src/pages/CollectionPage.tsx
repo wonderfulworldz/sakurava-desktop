@@ -11,7 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
@@ -24,6 +24,7 @@ type ViewMode = "card" | "table";
 type DataFilterValues = Record<string, string>;
 
 function CollectionPage({ config }: CollectionPageProps) {
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
   const [dataFilters, setDataFilters] = useState<DataFilterValues>({});
@@ -98,6 +99,18 @@ function CollectionPage({ config }: CollectionPageProps) {
       filters.filter((filter) => hasCategoryFilter(categoryOptions, filter)),
     );
   }, [categoryOptions]);
+
+  useEffect(() => {
+    const requestedCategory = searchParams.get("category")?.trim();
+    if (!requestedCategory || !hasCategoryFilter(categoryOptions, requestedCategory)) {
+      return;
+    }
+
+    setActiveCategoryFilters((filters) =>
+      hasCategoryFilter(filters, requestedCategory) ? filters : [requestedCategory],
+    );
+    setPage(1);
+  }, [categoryOptions, searchParams]);
 
   useEffect(() => {
     setSortValue(config.sortOptions[0] ?? "");

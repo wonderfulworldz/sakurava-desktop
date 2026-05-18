@@ -1,22 +1,33 @@
 import { Image, Search, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import type { ManagedCategory } from "../backend/types";
 import {
   buildCategoryAudit,
   type CategoryAuditRow,
 } from "../lib/categoryAudit";
 import { getStoredManagedCategories } from "../lib/managedCategories";
+import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import { listManagedCategories } from "../runtime/managedCategoryCommands";
+import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import { listImages } from "../runtime/imageCommands";
 import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { listVideos } from "../runtime/videoCommands";
 
 type CategoryStatus = "Managed" | "Unused Managed";
-type SortValue = "name" | "usage-desc" | "usage-asc";
+type SortValue = "name" | "usage-desc" | "usage-asc" | "updated-desc" | "created-desc";
+type UsageFilter = "all" | "videos" | "images" | "performers";
 
 type CategoryBrowseRow = CategoryAuditRow & {
   status: CategoryStatus;
   isManaged: boolean;
+  key: string;
+  parentName: string | null;
+  description: string;
+  thumbnailPath: string;
+  createdAt?: number | string | null;
+  updatedAt?: number | string | null;
 };
 
 const emptyAudit = buildCategoryAudit({
@@ -27,17 +38,26 @@ const emptyAudit = buildCategoryAudit({
 
 function CategoriesPage() {
   const [auditRows, setAuditRows] = useState<CategoryAuditRow[]>([]);
-  const [managedCategories, setManagedCategories] = useState<string[]>([]);
+  const [managedCategories, setManagedCategories] = useState<ManagedCategory[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>("all");
   const [sortValue, setSortValue] = useState<SortValue>("name");
+  const [pageSize, setPageSize] = useState("24");
+  const [page, setPage] = useState(1);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
   const isDesktopRuntime = isTauriRuntimeAvailable();
 
   useEffect(() => {
-    setManagedCategories(getStoredManagedCategories());
-  }, []);
+    if (!isDesktopRuntime) {
+      setManagedCategories(legacyManagedCategories());
+    }
+  }, [isDesktopRuntime]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, usageFilter, sortValue, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,16 +70,18 @@ function CategoriesPage() {
 
     setLoadState("loading");
 
-    Promise.all([listVideos(), listImages(), listPerformers()])
-      .then(([videos, images, performers]) => {
+    Promise.all([listVideos(), listImages(), listPerformers(), listManagedCategories()])
+      .then(([videos, images, performers, categories]) => {
         if (!cancelled) {
           setAuditRows(buildCategoryAudit({ videos, images, performers }).rows);
+          setManagedCategories(categories);
           setLoadState("idle");
         }
       })
       .catch(() => {
         if (!cancelled) {
           setAuditRows(emptyAudit.rows);
+          setManagedCategories(legacyManagedCategories());
           setLoadState("error");
         }
       });
@@ -74,9 +96,18 @@ function CategoriesPage() {
     [auditRows, managedCategories],
   );
   const visibleCategories = useMemo(
-    () => sortCategoryRows(filterCategoryRows(categories, searchQuery), sortValue),
-    [categories, searchQuery, sortValue],
+    () =>
+      sortCategoryRows(
+        filterCategoryRows(categories, searchQuery, usageFilter),
+        sortValue,
+      ),
+    [categories, searchQuery, usageFilter, sortValue],
   );
+  const numericPageSize = Number(pageSize);
+  const pageCount = Math.max(1, Math.ceil(visibleCategories.length / numericPageSize));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * numericPageSize;
+  const pageCategories = visibleCategories.slice(startIndex, startIndex + numericPageSize);
   const videoCategoryCount = categories.filter((category) => category.videos > 0).length;
   const imageCategoryCount = categories.filter((category) => category.images > 0).length;
   const performerCategoryCount = categories.filter(
@@ -115,7 +146,7 @@ function CategoriesPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_220px]">
           <label className="relative block">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -128,6 +159,26 @@ function CategoriesPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
+          </label>
+
+          <label
+            className="flex h-11 min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3"
+            htmlFor="categories-usage-filter"
+          >
+            <span className="shrink-0 text-xs font-semibold text-slate-500">
+              Filter
+            </span>
+            <select
+              id="categories-usage-filter"
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none"
+              value={usageFilter}
+              onChange={(event) => setUsageFilter(event.target.value as UsageFilter)}
+            >
+              <option value="all">All</option>
+              <option value="videos">Video Only</option>
+              <option value="images">Image Only</option>
+              <option value="performers">Performer Only</option>
+            </select>
           </label>
 
           <label
@@ -146,6 +197,8 @@ function CategoriesPage() {
               <option value="name">Name A-Z</option>
               <option value="usage-desc">Usage high-low</option>
               <option value="usage-asc">Usage low-high</option>
+              <option value="updated-desc">Last Updated</option>
+              <option value="created-desc">Last Added</option>
             </select>
           </label>
         </div>
@@ -160,16 +213,28 @@ function CategoriesPage() {
       {loadState === "loading" ? (
         <CategoryEmptyState message="Loading category usage..." />
       ) : visibleCategories.length > 0 ? (
-        <section className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
-          {visibleCategories.map((category) => (
-            <CategoryCard key={category.name.toLowerCase()} category={category} />
-          ))}
-        </section>
+        <>
+          <section className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+            {pageCategories.map((category) => (
+              <CategoryCard key={category.key} category={category} />
+            ))}
+          </section>
+          <CategoryPaginationBar
+            page={currentPage}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            totalCount={visibleCategories.length}
+            startIndex={startIndex}
+            visibleCount={pageCategories.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       ) : (
         <CategoryEmptyState
           message={
-            searchQuery.trim()
-              ? "No categories match the current search."
+            searchQuery.trim() || usageFilter !== "all"
+              ? "No categories match the current search and filter."
               : "No categories to browse yet."
           }
         />
@@ -206,72 +271,135 @@ function CategoryCard({ category }: { category: CategoryBrowseRow }) {
   return (
     <article
       aria-label={`Category ${category.name}`}
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sakura-200"
+      className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-sakura-200"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-3">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sakura-50 to-white text-sakura-500 ring-1 ring-sakura-100">
-            <Tags size={22} />
-          </span>
+      <CategoryThumbnail category={category} />
+
+      <div className="px-3 pb-3 pt-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
               {category.name}
             </h2>
-            <StatusBadge status={category.status} />
+            <p className="mt-1 truncate text-sm font-medium text-slate-500">
+              {category.parentName ?? "No Parent"}
+            </p>
+          </div>
+          <div className="min-w-12 text-right">
+            <p className="text-xs font-semibold text-slate-500">Records</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">
+              {category.total}
+            </p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-            Records
-          </p>
-          <p className="text-2xl font-semibold text-slate-950">
-            {category.total}
-          </p>
-        </div>
-      </div>
 
-      <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4">
-        <CountBlock label="Videos" value={category.videos} />
-        <CountBlock label="Images" value={category.images} />
-        <CountBlock label="Performers" value={category.performers} />
-      </dl>
+        <dl className="mt-4 grid grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 pt-4">
+          <CountBlock
+            label="Videos"
+            value={category.videos}
+            categoryName={category.name}
+            to={categoryRoute("videos", category.name)}
+          />
+          <CountBlock
+            label="Images"
+            value={category.images}
+            categoryName={category.name}
+            to={categoryRoute("images", category.name)}
+          />
+          <CountBlock
+            label="Performers"
+            value={category.performers}
+            categoryName={category.name}
+            to={categoryRoute("performers", category.name)}
+          />
+        </dl>
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        {category.total === 0 && (
-          <span className="text-xs font-medium text-slate-500">
-            No record usage yet.
-          </span>
-        )}
-        {category.total > 0 && (
-          <span className="text-xs font-medium text-slate-500">
-            Used by saved catalog records.
-          </span>
-        )}
+        <p className="mt-5 max-h-12 overflow-hidden text-sm font-medium leading-6 text-slate-500">
+          {formatDescription(category.description)}
+        </p>
       </div>
     </article>
   );
 }
 
-function StatusBadge({ status }: { status: CategoryStatus }) {
-  const className =
-    status === "Managed"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : "border-slate-200 bg-slate-50 text-slate-600";
+function CategoryThumbnail({ category }: { category: CategoryBrowseRow }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const assetSrc = localImagePathToAssetSrc(category.thumbnailPath);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc, mediaAssetScopeReady]);
 
   return (
+    <div className="relative flex aspect-[3/2] w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-sakura-50 via-white to-sakura-100 text-sakura-500 ring-1 ring-sakura-100">
+      {showImage ? (
+        <img
+          src={assetSrc ?? undefined}
+          alt={`${category.name} thumbnail`}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_35%,rgba(244,114,182,0.22),transparent_28%),radial-gradient(circle_at_70%_45%,rgba(251,207,232,0.45),transparent_34%)]" aria-hidden="true" />
+      )}
+      {!showImage && (
+        <Tags className="relative z-10 opacity-70" size={28} />
+      )}
+      <StatusBadge status={category.status} />
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: CategoryStatus }) {
+  return (
     <span
-      className={`mt-3 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${className}`}
+      className="absolute right-3 top-3 z-10 inline-flex rounded-md border border-sakura-200 bg-white/90 px-2.5 py-1 text-xs font-semibold text-sakura-600 shadow-sm backdrop-blur"
     >
       {status}
     </span>
   );
 }
 
-function CountBlock({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
+function CountBlock({
+  label,
+  value,
+  categoryName,
+  to,
+}: {
+  label: string;
+  value: number;
+  categoryName: string;
+  to: { pathname: string; search: string };
+}) {
+  const content = (
+    <>
       <dt className="text-xs font-semibold text-slate-500">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold text-slate-950">{value}</dd>
+      <dd
+        className={`mt-1 text-lg font-semibold ${
+          value > 0 ? "text-slate-950" : "text-slate-500"
+        }`}
+      >
+        {value}
+      </dd>
+    </>
+  );
+
+  return (
+    <div className="px-3 first:pl-0 last:pr-0">
+      {value > 0 ? (
+        <Link
+          to={to}
+          className="block rounded-md px-2 py-1 transition hover:bg-sakura-50 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+          aria-label={`Open ${label} filtered by category ${categoryName}`}
+        >
+          {content}
+        </Link>
+      ) : (
+        <div className="block rounded-md px-2 py-1">{content}</div>
+      )}
     </div>
   );
 }
@@ -288,17 +416,93 @@ function CategoryEmptyState({ message }: { message: string }) {
   );
 }
 
+function CategoryPaginationBar({
+  page,
+  pageCount,
+  pageSize,
+  totalCount,
+  startIndex,
+  visibleCount,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageCount: number;
+  pageSize: string;
+  totalCount: number;
+  startIndex: number;
+  visibleCount: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: string) => void;
+}) {
+  const firstVisible = totalCount === 0 ? 0 : startIndex + 1;
+  const lastVisible = startIndex + visibleCount;
+
+  return (
+    <nav
+      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      aria-label="Categories pagination"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm font-semibold text-slate-500">
+          Showing {firstVisible}-{lastVisible} of {totalCount} categories
+        </p>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          Per page
+          <select
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(event.target.value)}
+            aria-label="Categories per page"
+          >
+            {["12", "24", "48"].map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
+          disabled={page === 1}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+        >
+          Previous
+        </button>
+        <span className="text-sm font-semibold text-slate-500">
+          Page {page} of {pageCount}
+        </span>
+        <button
+          type="button"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
+          disabled={page === pageCount}
+          onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+        >
+          Next
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 function mergeCategoryRows(
   auditRows: CategoryAuditRow[],
-  managedCategories: string[],
+  managedCategories: ManagedCategory[],
 ): CategoryBrowseRow[] {
   const rowsByKey = new Map<string, CategoryBrowseRow>();
   const auditRowsByKey = new Map(
     auditRows.map((row) => [row.name.trim().toLowerCase(), row]),
   );
 
+  const parentNameByKey = new Map(
+    managedCategories.map((category) => [category.key, category.name]),
+  );
+
   for (const category of managedCategories) {
-    const name = category.trim();
+    const name = category.name.trim();
     const key = name.toLowerCase();
 
     if (!name || rowsByKey.has(key)) {
@@ -312,6 +516,14 @@ function mergeCategoryRows(
       images: auditRow?.images ?? 0,
       performers: auditRow?.performers ?? 0,
       total: auditRow?.total ?? 0,
+      key: category.key,
+      parentName: category.parentKey
+        ? parentNameByKey.get(category.parentKey) ?? null
+        : null,
+      description: category.description.trim(),
+      thumbnailPath: category.thumbnailPath.trim(),
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
       isManaged: true,
       status: auditRow && auditRow.total > 0 ? "Managed" : "Unused Managed",
     });
@@ -323,16 +535,33 @@ function mergeCategoryRows(
 function filterCategoryRows(
   categories: CategoryBrowseRow[],
   searchQuery: string,
+  usageFilter: UsageFilter,
 ) {
   const query = searchQuery.trim().toLowerCase();
 
-  if (!query) {
-    return categories;
-  }
+  return categories.filter((category) => {
+    if (usageFilter === "videos" && category.videos <= 0) {
+      return false;
+    }
 
-  return categories.filter((category) =>
-    category.name.toLowerCase().includes(query),
-  );
+    if (usageFilter === "images" && category.images <= 0) {
+      return false;
+    }
+
+    if (usageFilter === "performers" && category.performers <= 0) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      category.name,
+      category.parentName ?? "",
+      category.description,
+    ].some((value) => value.toLowerCase().includes(query));
+  });
 }
 
 function sortCategoryRows(categories: CategoryBrowseRow[], sortValue: SortValue) {
@@ -345,8 +574,79 @@ function sortCategoryRows(categories: CategoryBrowseRow[], sortValue: SortValue)
       return left.total - right.total || left.name.localeCompare(right.name);
     }
 
+    if (sortValue === "updated-desc") {
+      return (
+        timestamp(right.updatedAt) - timestamp(left.updatedAt) ||
+        left.name.localeCompare(right.name)
+      );
+    }
+
+    if (sortValue === "created-desc") {
+      return (
+        timestamp(right.createdAt) - timestamp(left.createdAt) ||
+        left.name.localeCompare(right.name)
+      );
+    }
+
     return left.name.localeCompare(right.name);
   });
+}
+
+function categoryRoute(kind: "videos" | "images" | "performers", category: string) {
+  return {
+    pathname: `/${kind}`,
+    search: `?category=${encodeURIComponent(category)}`,
+  };
+}
+
+function formatDescription(description: string) {
+  const trimmed = description.trim();
+  if (!trimmed) {
+    return "No description yet.";
+  }
+
+  const maxLength = 118;
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, maxLength).trimEnd()}....`;
+}
+
+function legacyManagedCategories(): ManagedCategory[] {
+  const timestampValue = "0";
+  return getStoredManagedCategories().map((name, index) => ({
+    key: `legacy-category-${index}`,
+    name,
+    parentKey: null,
+    description: "",
+    thumbnailPath: "",
+    createdAt: timestampValue,
+    updatedAt: timestampValue,
+  }));
+}
+
+function timestamp(value: number | string | null | undefined) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value !== "string") {
+    return 0;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return 0;
+  }
+
+  const numericTime = Number(trimmed);
+  if (/^\d+$/.test(trimmed) && Number.isFinite(numericTime)) {
+    return numericTime;
+  }
+
+  const parsed = Date.parse(trimmed);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export default CategoriesPage;
