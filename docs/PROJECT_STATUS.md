@@ -407,6 +407,7 @@ Current app capabilities include:
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
 - Category Management through Batch 16.3.
+- Category Management V1 audit and planning through Batch 30.1 after merge, with the revised WordPress-inspired Sakurava direction: Add / Edit form, inline table toolbar, full-width table with pagination footer, separate Bulk Edit, minimal Safety Notes, no separate Category Detail or Modify Records section, and no normal Record-only UI.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -629,6 +630,18 @@ Recommended next planning batch after Batch 29.2:
 
 ```text
 30.1 - Category Management V1 Planning
+```
+
+Recommended checkpoint after Batch 30.1:
+
+```text
+post-mvp-30-1-category-management-v1-planning-v1
+```
+
+Recommended next planning batch after Batch 30.1:
+
+```text
+30.2 - Category Management Data Model Safety Plan
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, `docs/29-catalog-toolbar-v1-planning.md`, `docs/30-detail-page-v1-layout-planning.md`, `docs/31-functional-spider-chart-rating-planning.md`, `docs/32-tech-info-media-status-planning.md`, `docs/33-form-field-ux-v1-planning.md`, and `docs/34-settings-page-v1-information-architecture.md` before changing code.

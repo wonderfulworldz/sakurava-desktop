@@ -60,6 +60,7 @@ Urutan acuan dokumen:
 34. `32-tech-info-media-status-planning.md` - rencana Tech Info + Media Status sebelum implementasi.
 35. `33-form-field-ux-v1-planning.md` - rencana Form Field UX V1 sebelum implementasi.
 36. `34-settings-page-v1-information-architecture.md` - rencana information architecture Settings Page V1 sebelum implementasi.
+37. `35-category-management-v1-audit-and-planning.md` - audit dan rencana Category Management V1 untuk Batch 30.1.
 
 ## Current Post-MVP Reading Order
 
@@ -93,8 +94,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 26. `32-tech-info-media-status-planning.md`
 27. `33-form-field-ux-v1-planning.md`
 28. `34-settings-page-v1-information-architecture.md`
-29. `AGENT_CODE_HANDOFF.md`
-30. `WORKFLOW_GIT.md`
+29. `35-category-management-v1-audit-and-planning.md`
+30. `AGENT_CODE_HANDOFF.md`
+31. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
