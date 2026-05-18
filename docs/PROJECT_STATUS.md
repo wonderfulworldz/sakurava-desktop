@@ -307,7 +307,13 @@ post-mvp-28-1-form-field-ux-v1-planning-v1
 Category Picker Field Redesign expected checkpoint after merge:
 
 ```text
-post-mvp-28-2-category-picker-field-redesign-v1
+post-mvp-28-2-category-picker-field-redesign-v1.1
+```
+
+Related Picker Field Redesign expected checkpoint after merge:
+
+```text
+post-mvp-28-3-related-picker-field-redesign-v1
 ```
 
 Latest documentation alignment batch:
@@ -396,6 +402,7 @@ Current app capabilities include:
 - Image Detail Gallery placement adjustment through Batch 27.8 after merge;
 - Form Field UX V1 planning through Batch 28.1 after merge;
 - Category Picker Field Redesign through Batch 28.2 after merge;
+- Related Picker Field Redesign through Batch 28.3 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -431,6 +438,8 @@ For Batch 27.8, Image Detail places `Gallery` directly below Hero and before Met
 For Batch 28.1, Form Field UX V1 planning defines safer Video/Image/Performer Create/Edit form direction, Category Picker Field Redesign, Related Picker Field Redesign, file picker field rules, Image Gallery form field rules, rating field rules, metadata cleanup, validation/save safety, and the 28.2 through 28.7 implementation sequence. It preserves `categoriesJson`, related JSON storage, `galleryImagePathsJson`, `ratingJson`, SQLite persistence, and current save behavior.
 
 For Batch 28.2, Video/Image/Performer Create/Edit forms use a searchable Managed Categories-based Category picker with selected chips, duplicate prevention, record-only chip preservation for existing labels not in Managed Categories, no-match guidance, and a Manage Category link to `/settings/category-management`. Form save continues to serialize selected labels to `categoriesJson`; Managed Categories storage, Category Management CRUD, database/schema, related storage, `galleryImagePathsJson`, and `ratingJson` are unchanged.
+
+For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer and Related Video/Image pickers that follow the Category Picker structure: selected chips, search input, scrollable available rows, and bottom inline guidance links. Available rows use compact performer alias display or Code - Title catalog display, while selected chips stay short and removable. Current related JSON storage is preserved. Performer Create/Edit forms expose searchable Related Videos and Related Images picker UI without persisting or back-linking selections because Performer records do not have related JSON storage. No relation table, schema/database, Tauri/runtime, package, category, rating, gallery, or Detail related card behavior changes are added.
 
 ## Recommended Next Phase
 
@@ -541,13 +550,25 @@ Recommended next implementation batch after Batch 28.1:
 Recommended checkpoint after Batch 28.2:
 
 ```text
-post-mvp-28-2-category-picker-field-redesign-v1
+post-mvp-28-2-category-picker-field-redesign-v1.1
 ```
 
 Recommended next implementation batch after Batch 28.2:
 
 ```text
 28.3 - Related Picker Field Redesign
+```
+
+Recommended checkpoint after Batch 28.3:
+
+```text
+post-mvp-28-3-related-picker-field-redesign-v1
+```
+
+Recommended next implementation batch after Batch 28.3:
+
+```text
+28.4 - Video/Image Form Layout Cleanup
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, `docs/29-catalog-toolbar-v1-planning.md`, `docs/30-detail-page-v1-layout-planning.md`, `docs/31-functional-spider-chart-rating-planning.md`, `docs/32-tech-info-media-status-planning.md`, and `docs/33-form-field-ux-v1-planning.md` before changing code.

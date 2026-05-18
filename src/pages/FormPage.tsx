@@ -81,6 +81,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [relatedCatalogRecords, setRelatedCatalogRecords] = useState<
     RelatedCatalogRecordFormValue[]
   >(config.initialRelatedCatalogRecords?.[mode] ?? []);
+  const [performerRelatedVideos, setPerformerRelatedVideos] = useState<
+    RelatedCatalogRecordFormValue[]
+  >([]);
+  const [performerRelatedImages, setPerformerRelatedImages] = useState<
+    RelatedCatalogRecordFormValue[]
+  >([]);
   const [galleryImagePaths, setGalleryImagePaths] = useState<string[]>(
     config.initialGalleryImagePaths?.[mode] ?? [],
   );
@@ -101,6 +107,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     config.kind === "videos" || config.kind === "images";
   const supportsRelatedCatalogPicker =
     config.kind === "videos" || config.kind === "images";
+  const supportsPerformerRelatedCatalogPickers = config.kind === "performers";
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
@@ -108,6 +115,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
     setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
+    setPerformerRelatedVideos([]);
+    setPerformerRelatedImages([]);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
@@ -159,7 +168,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   useEffect(() => {
     let cancelled = false;
 
-    if (!supportsRelatedCatalogPicker) {
+    if (!supportsRelatedCatalogPicker && !supportsPerformerRelatedCatalogPickers) {
       setAvailableRelatedImages([]);
       setAvailableRelatedVideos([]);
       setRelatedCatalogLoadState("idle");
@@ -233,6 +242,47 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     };
   }, [config.kind, supportsRelatedCatalogPicker]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!supportsPerformerRelatedCatalogPickers) {
+      return;
+    }
+
+    if (!isVideoRuntimeAvailable() && !isImageRuntimeAvailable()) {
+      setAvailableRelatedVideos([]);
+      setAvailableRelatedImages([]);
+      setRelatedCatalogLoadState("loaded");
+      return;
+    }
+
+    setRelatedCatalogLoadState("loading");
+    Promise.all([
+      isVideoRuntimeAvailable() ? listVideos() : Promise.resolve([]),
+      isImageRuntimeAvailable() ? listImages() : Promise.resolve([]),
+    ])
+      .then(([videos, images]) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAvailableRelatedVideos(Array.isArray(videos) ? videos : []);
+        setAvailableRelatedImages(Array.isArray(images) ? images : []);
+        setRelatedCatalogLoadState("loaded");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailableRelatedVideos([]);
+          setAvailableRelatedImages([]);
+          setRelatedCatalogLoadState("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supportsPerformerRelatedCatalogPickers]);
+
   const title = mode === "create" ? config.createTitle : config.editTitle;
   const subtitle =
     mode === "create" ? config.createSubtitle : config.editSubtitle;
@@ -245,6 +295,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const relatedPerformerIndex = notesIndex + 1;
   const relatedCatalogIndex =
     relatedPerformerIndex + (supportsRelatedPerformerPicker ? 1 : 0);
+  const performerRelatedImagesIndex = relatedPerformerIndex + 1;
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -485,11 +536,36 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </FormSection>
       )}
 
+      {supportsPerformerRelatedCatalogPickers && (
+        <>
+          <FormSection index={relatedPerformerIndex} title="Related Videos">
+            <RelatedCatalogPicker
+              records={availableRelatedVideos}
+              selected={performerRelatedVideos}
+              loadState={relatedCatalogLoadState}
+              targetKind="videos"
+              onChange={setPerformerRelatedVideos}
+            />
+          </FormSection>
+          <FormSection index={performerRelatedImagesIndex} title="Related Images">
+            <RelatedCatalogPicker
+              records={availableRelatedImages}
+              selected={performerRelatedImages}
+              loadState={relatedCatalogLoadState}
+              targetKind="images"
+              onChange={setPerformerRelatedImages}
+            />
+          </FormSection>
+        </>
+      )}
+
       <RelatedFormSections
         sections={relatedSectionsForConfig(config)}
         startIndex={
           supportsRelatedCatalogPicker
             ? relatedCatalogIndex + 1
+            : supportsPerformerRelatedCatalogPickers
+              ? performerRelatedImagesIndex + 1
             : supportsRelatedPerformerPicker
               ? relatedPerformerIndex + 1
               : relatedPerformerIndex

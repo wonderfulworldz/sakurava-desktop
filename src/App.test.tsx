@@ -2157,7 +2157,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Media",
       "Tech info is not detected or saved in MVP.",
-      "Selected Performers",
+      "No related Performers selected.",
       "Rewatch",
     ],
     [
@@ -2166,7 +2166,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Media",
       "Tech info is not detected or saved in MVP.",
-      "Selected Images",
+      "No related Images selected.",
       "Rewatch",
     ],
     [
@@ -2175,7 +2175,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Folder",
       "Folder analysis is not detected or saved in MVP.",
-      "Selected Videos",
+      "No related Videos selected.",
       "Memorability",
     ],
     [
@@ -2184,7 +2184,7 @@ describe("App", () => {
       "Browse Cover",
       "Browse Folder",
       "Folder analysis is not detected or saved in MVP.",
-      "Selected Performers",
+      "No related Performers selected.",
       "Memorability",
     ],
     [
@@ -2192,8 +2192,8 @@ describe("App", () => {
       "Performer Create Form",
       "Browse Cover",
       "Mini Thumbnail 1",
-      "Related Videos",
-      "Related Images",
+      "No related Videos selected.",
+      "No related Images selected.",
       "Attraction",
     ],
     [
@@ -2201,8 +2201,8 @@ describe("App", () => {
       "Performer Edit Form",
       "Browse Cover",
       "Mini Thumbnail 1",
-      "Related Videos",
-      "Related Images",
+      "No related Videos selected.",
+      "No related Images selected.",
       "Attraction",
     ],
   ])(
@@ -2292,10 +2292,6 @@ describe("App", () => {
       "href",
       "/performers",
     );
-    expect(screen.getByRole("link", { name: "Add Performer" })).toHaveAttribute(
-      "href",
-      "/performers/new",
-    );
     expect(screen.queryByPlaceholderText("Add related performer..."))
       .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create performer/i }))
@@ -2315,10 +2311,6 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Open Images" })).toHaveAttribute(
       "href",
       "/images",
-    );
-    expect(screen.getByRole("link", { name: "Add Image" })).toHaveAttribute(
-      "href",
-      "/images/new",
     );
     expect(screen.queryByPlaceholderText("Add related image..."))
       .not.toBeInTheDocument();
@@ -2340,14 +2332,40 @@ describe("App", () => {
       "href",
       "/videos",
     );
-    expect(screen.getByRole("link", { name: "Add Video" })).toHaveAttribute(
-      "href",
-      "/videos/new",
-    );
     expect(screen.queryByPlaceholderText("Add related video..."))
       .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create video/i }))
       .not.toBeInTheDocument();
+  });
+
+  it("matches the Category Picker structure for related picker fields", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    [
+      "Selected Performers",
+      "Selected Videos",
+      "Selected Images",
+      "Search Performers",
+      "Search Videos",
+      "Search Images",
+      "Available Performers",
+      "Available Videos",
+      "Available Images",
+    ].forEach((label) => {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    });
+    expect(screen.getByPlaceholderText("Search performers..."))
+      .toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search images...")).toBeInTheDocument();
+    expect(screen.getByText("Manage related records in Performers."))
+      .toBeInTheDocument();
+    expect(screen.getByText("Manage related records in Images."))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Performers" }))
+      .toHaveAttribute("href", "/performers");
+    expect(screen.getByRole("link", { name: "Open Images" }))
+      .toHaveAttribute("href", "/images");
   });
 
   it("selects existing Performers on video forms and saves relatedPerformersJson", async () => {
@@ -2365,6 +2383,8 @@ describe("App", () => {
               id: "performer_aoi",
               name: "Aoi Sakura",
               originalName: "Hanami Aoi",
+              aliasesJson:
+                '["Sakura Aoi","Aoi","Cherry","Bloom","Aoi S.","Sakura","Hanami","AS","Aoi-chan","Sakura Bloom"]',
             }),
             persistedPerformer({
               id: "performer_yuki",
@@ -2392,8 +2412,10 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.change(await screen.findByLabelText("Search related performers"), {
-      target: { value: "hanami" },
+      target: { value: "cherry" },
     });
+    expect(screen.getByText("Aoi Sakura - Sakura Aoi, +9 more"))
+      .toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Add related performer Aoi Sakura",
@@ -2401,6 +2423,9 @@ describe("App", () => {
     );
     expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
     expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Video" },
@@ -2460,14 +2485,15 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.change(await screen.findByLabelText("Search related images"), {
-      target: { value: "spring" },
+      target: { value: "img-001" },
     });
+    expect(screen.getByText("IMG-001 - Hanami Gallery")).toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Add related image Hanami Gallery",
       }),
     );
-    expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(screen.getByText("IMG-001")).toBeInTheDocument();
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
@@ -2523,14 +2549,15 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.change(await screen.findByLabelText("Search related videos"), {
-      target: { value: "original" },
+      target: { value: "vid-001" },
     });
+    expect(screen.getByText("VID-001 - Spring Feature")).toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Add related video Spring Feature",
       }),
     );
-    expect(screen.getByText("Spring Feature")).toBeInTheDocument();
+    expect(screen.getByText("VID-001")).toBeInTheDocument();
     expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
@@ -2585,6 +2612,9 @@ describe("App", () => {
       screen.getByRole("button", {
         name: "Remove related image Former Gallery",
       }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Former Gallery")).not.toBeInTheDocument(),
     );
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -2654,6 +2684,99 @@ describe("App", () => {
     expect(await screen.findByText("Related Image")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("renders Performer form Related Videos and Related Images pickers without back-link saves", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const created = persistedPerformer({ name: "Related Performer" });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "video_list") {
+          return [
+            persistedVideo({
+              id: "video_spring",
+              title: "Spring Feature",
+              code: "VID-123",
+            }),
+          ];
+        }
+        if (command === "image_list") {
+          return [
+            persistedImage({
+              id: "image_hanami",
+              title: "Hanami Gallery",
+              code: "IMG-123",
+            }),
+          ];
+        }
+        if (command === "performer_create") {
+          expect(args.input.name).toBe("Related Performer");
+          expect(args.input).not.toHaveProperty("relatedVideosJson");
+          expect(args.input).not.toHaveProperty("relatedImagesJson");
+          return created;
+        }
+        if (command === "performer_get") {
+          return created;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Search related videos"), {
+      target: { value: "vid-123" },
+    });
+    expect(screen.getByText("VID-123 - Spring Feature")).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add related video Spring Feature",
+      }),
+    );
+    expect(screen.getByText("VID-123")).toBeInTheDocument();
+    expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
+
+    fireEvent.change(await screen.findByLabelText("Search related images"), {
+      target: { value: "img-123" },
+    });
+    expect(screen.getByText("IMG-123 - Hanami Gallery")).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add related image Hanami Gallery",
+      }),
+    );
+    expect(screen.getByText("IMG-123")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove related image IMG-123",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Add related image Hanami Gallery",
+        }),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Related Performer" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Related Performer")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
       expect.anything(),
       expect.anything(),
     );
