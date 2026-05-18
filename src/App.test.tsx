@@ -2156,7 +2156,7 @@ describe("App", () => {
       "Video Create Form",
       "Browse Cover",
       "Browse Media",
-      "Tech info is not detected or saved in MVP.",
+      "Tech info uses saved values only. File analysis is not run.",
       "No related Performers selected.",
       "Rewatch",
     ],
@@ -2165,7 +2165,7 @@ describe("App", () => {
       "Video Edit Form",
       "Browse Cover",
       "Browse Media",
-      "Tech info is not detected or saved in MVP.",
+      "Tech info uses saved values only. File analysis is not run.",
       "No related Images selected.",
       "Rewatch",
     ],
@@ -2173,8 +2173,8 @@ describe("App", () => {
       "/images/new",
       "Image Create Form",
       "Browse Cover",
-      "Browse Folder",
-      "Folder analysis is not detected or saved in MVP.",
+      "Browse Gallery Folder",
+      "Tech info uses saved values only. Folder analysis is not run.",
       "No related Videos selected.",
       "Memorability",
     ],
@@ -2182,8 +2182,8 @@ describe("App", () => {
       "/images/sample-id/edit",
       "Image Edit Form",
       "Browse Cover",
-      "Browse Folder",
-      "Folder analysis is not detected or saved in MVP.",
+      "Browse Gallery Folder",
+      "Tech info uses saved values only. Folder analysis is not run.",
       "No related Performers selected.",
       "Memorability",
     ],
@@ -2266,6 +2266,74 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("orders Video form media and Tech Info sections safely", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expectSectionOrder([
+      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "3. Cover" }).closest("section"),
+      screen.getByRole("heading", { name: "4. Media Video" }).closest("section"),
+      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "6. Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "7. Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "8. Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "9. Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "10. Notes" }).closest("section"),
+    ]);
+
+    const metadata = within(
+      screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
+    );
+    const techInfo = within(
+      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section") as HTMLElement,
+    );
+
+    expect(metadata.queryByLabelText("Duration")).not.toBeInTheDocument();
+    expect(techInfo.getByLabelText("Duration")).toBeInTheDocument();
+    expect(techInfo.getByText("Resolution")).toBeInTheDocument();
+    expect(techInfo.getByText("File Size")).toBeInTheDocument();
+    expect(techInfo.getByText("File Type")).toBeInTheDocument();
+    expect(techInfo.getAllByDisplayValue("Not detected")).toHaveLength(3);
+    expect(techInfo.queryByText("Quality")).not.toBeInTheDocument();
+  });
+
+  it("orders Image form gallery and Tech Info sections safely", () => {
+    window.history.pushState({}, "", "/images/new");
+    render(<App />);
+
+    expectSectionOrder([
+      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "3. Cover" }).closest("section"),
+      screen.getByRole("heading", { name: "4. Gallery Images" }).closest("section"),
+      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "6. Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "7. Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "8. Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "9. Related Video" }).closest("section"),
+      screen.getByRole("heading", { name: "10. Notes" }).closest("section"),
+    ]);
+
+    const metadata = within(
+      screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
+    );
+    const techInfo = within(
+      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section") as HTMLElement,
+    );
+
+    expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Images" })).toBeInTheDocument();
+    expect(screen.getByTestId("gallery-image-path-list")).toHaveClass("overflow-y-auto");
+    expect(metadata.queryByLabelText("Image Count")).not.toBeInTheDocument();
+    expect(techInfo.getByLabelText("Image Count")).toBeInTheDocument();
+    expect(techInfo.getByText("Main Resolution")).toBeInTheDocument();
+    expect(techInfo.getByText("Total Size")).toBeInTheDocument();
+    expect(techInfo.getByText("File Type")).toBeInTheDocument();
+    expect(techInfo.getAllByDisplayValue("Not detected")).toHaveLength(3);
+  });
+
   it("shows an empty managed category picker state without free-text fallback", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
@@ -2322,7 +2390,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "10. Related Video" }))
+    expect(screen.getByRole("heading", { name: "9. Related Video" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
     expect(screen.getByText("No related Videos selected.")).toBeInTheDocument();
@@ -2888,16 +2956,6 @@ describe("App", () => {
             extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
           },
         ],
-      },
-    },
-    {
-      path: "/images/new",
-      buttonName: "Browse Folder",
-      inputLabel: "Gallery Folder Path",
-      selectedPath: "D:/Sakurava/Images/Gallery",
-      expectedDialog: {
-        title: "Select Folder",
-        directory: true,
       },
     },
     {
@@ -5264,10 +5322,10 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Created Image" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
     const galleryInputs = screen.getAllByLabelText(/Gallery Image Path/);
     fireEvent.change(galleryInputs[0], {
       target: { value: " C:/Gallery/one.jpg " },
@@ -5346,9 +5404,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(
-      screen.queryByRole("button", { name: /add images/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Images" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Folder Gallery Image" },
     });
@@ -5493,7 +5549,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
       target: { value: " C:/Gallery/updated.jpg " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Path Row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
     fireEvent.change(screen.getByLabelText("Gallery Image Path 3"), {
       target: { value: "C:/Gallery/updated.jpg" },
     });
@@ -6190,8 +6246,8 @@ describe("App", () => {
   it.each([
     ["/videos/new", "8. Related Performer", "9. Related Images"],
     ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
-    ["/images/new", "9. Related Performer", "10. Related Video"],
-    ["/images/sample-id/edit", "9. Related Performer", "10. Related Video"],
+    ["/images/new", "8. Related Performer", "9. Related Video"],
+    ["/images/sample-id/edit", "8. Related Performer", "9. Related Video"],
     ["/performers/new", "8. Related Videos", "9. Related Images"],
     ["/performers/sample-id/edit", "8. Related Videos", "9. Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {

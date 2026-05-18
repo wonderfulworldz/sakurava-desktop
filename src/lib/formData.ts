@@ -55,6 +55,7 @@ export type FormConfig = {
   metadataFields: TextField[];
   techTitle?: string;
   techMessage?: string;
+  techInputFields?: TextField[];
   techFields: ReadOnlyField[];
   ratingFields: RatingField[];
   relatedSections: ReadOnlyField[];
@@ -115,17 +116,17 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     ],
     metadataFields: [
       { name: "releaseDate", label: "Release Date", type: "date" },
-      { name: "durationMinutes", label: "Duration", type: "number", suffix: "minutes" },
       { name: "publisherLabel", label: "Publisher / Label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info is not detected or saved in MVP.",
+    techMessage: "Tech info uses saved values only. File analysis is not run.",
+    techInputFields: [
+      { name: "durationMinutes", label: "Duration", type: "number", suffix: "minutes" },
+    ],
     techFields: [
       { label: "Resolution", value: "Not detected" },
       { label: "File Size", value: "Not detected" },
-      { label: "Codec", value: "Not detected" },
-      { label: "Bitrate", value: "Not detected" },
-      { label: "Frame Rate", value: "Not detected" },
+      { label: "File Type", value: "Not detected" },
     ],
     ratingFields: [
       { name: "rewatch", label: "Rewatch" },
@@ -225,24 +226,20 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         label: "Cover Path",
         helper: "Saved as typed or selected local image path.",
       },
-      {
-        name: "folderPath",
-        label: "Gallery Folder Path",
-        helper: "Saved as typed or selected local folder path. Folder analysis is not run.",
-      },
     ],
     metadataFields: [
       { name: "releaseDate", label: "Release Date", type: "date" },
-      { name: "imageCount", label: "Image Count", type: "number" },
       { name: "publisherLabel", label: "Publisher / Label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Folder analysis is not detected or saved in MVP.",
+    techMessage: "Tech info uses saved values only. Folder analysis is not run.",
+    techInputFields: [
+      { name: "imageCount", label: "Image Count", type: "number" },
+    ],
     techFields: [
-      { label: "Folder Size", value: "Not detected" },
-      { label: "Detected Image Count", value: "Not detected" },
       { label: "Main Resolution", value: "Not detected" },
-      { label: "File Types", value: "Not detected" },
+      { label: "Total Size", value: "Not detected" },
+      { label: "File Type", value: "Not detected" },
     ],
     ratingFields: [
       { name: "memorability", label: "Memorability" },
