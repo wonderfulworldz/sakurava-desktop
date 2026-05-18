@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-30-4-category-management-table-detail-pagination-v1
+post-mvp-32-2-categories-catalog-collection-v1
 ```
 
 Current batch:
 
 ```text
-32.2 - Categories Catalog/Collection V1 Implementation
+33.1 - Media Tech Info + Availability Safety Plan
 ```
 
 Current focus:
 
 ```text
-Implement the Categories Catalog/Collection V1 browse surface with managed category metadata, usage filters, and pagination.
+Document read-only media Tech Info detection, availability auto-set semantics, runtime boundaries, storage impact, and 33.2 implementation guidance.
 ```
 
 Latest known stable category checkpoint:
@@ -432,6 +432,7 @@ Current app capabilities include:
 - V1 Smoke Test Gap Audit and Efficient Roadmap Lock through Batch 31.1 after merge: docs-only audit of remaining V1 gaps and approved roadmap replacement through Batch 36.3.
 - Catalog Filter/Sort V1 through Batch 32.1 after merge: Videos, Images, and Performers use functional catalog data filters and Last Added sorting where safe from current fields/helpers; Quality and Performer Debut Year derive from existing saved fields when present and safely remain unmatched for records without valid saved data.
 - Categories Catalog/Collection V1 through Batch 32.2 after merge: Categories browse uses managed category metadata, thumbnail paths when present, parent context, usage counts, Video/Image/Performer usage filters, sorting, and pagination without Category Management CRUD or record mutation.
+- Media Tech Info + Availability Safety Plan through Batch 33.1 after merge: docs-only safety plan for read-only Video/Image metadata detection, availability auto-set semantics, runtime/Tauri command boundaries, storage considerations, UI/detail/catalog compatibility, tests, and smoke validation before 33.2 implementation.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -470,10 +471,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 32.2:
+Recommended next implementation batch after Batch 33.1:
 
 ```text
-33.1 - Media Tech Info + Availability Safety Plan
+33.2 - Video/Picture Form + Detail Tech Info Implementation
 ```
 
 Latest roadmap implementation batch:
