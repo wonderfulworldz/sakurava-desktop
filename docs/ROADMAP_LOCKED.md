@@ -124,13 +124,13 @@ Recommended sequence:
 Current batch:
 
 ```text
-31.1 - Smoke Test Gap Audit + Efficient Roadmap Lock
-```
-
-Next implementation batch after 31.1:
-
-```text
 32.1 - Catalog Filter/Sort V1 Implementation
 ```
 
-Batch 31.1 is documentation-only. Do not start 32.1 implementation inside 31.1.
+Next implementation batch after 32.1:
+
+```text
+32.2 - Categories Catalog/Collection V1 Implementation
+```
+
+Batch 31.1 is documentation-only and complete. Batch 32.1 should stay scoped to Catalog Filter/Sort V1.

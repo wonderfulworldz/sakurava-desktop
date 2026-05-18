@@ -8,7 +8,6 @@ import {
   List,
   Plus,
   Search,
-  SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -22,10 +21,12 @@ type CollectionPageProps = {
 };
 
 type ViewMode = "card" | "table";
+type DataFilterValues = Record<string, string>;
 
 function CollectionPage({ config }: CollectionPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
+  const [dataFilters, setDataFilters] = useState<DataFilterValues>({});
   const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pageSize, setPageSize] = useState("30");
@@ -37,9 +38,12 @@ function CollectionPage({ config }: CollectionPageProps) {
   );
 
   const sortedItems = sortItems(
-    filterByCategories(
-      filterItems(config.items, searchQuery),
-      activeCategoryFilters,
+    filterByDataFilters(
+      filterByCategories(
+        filterItems(config.items, searchQuery),
+        activeCategoryFilters,
+      ),
+      dataFilters,
     ),
     sortValue,
   );
@@ -82,11 +86,24 @@ function CollectionPage({ config }: CollectionPageProps) {
     resetToFirstPage();
   }
 
+  function clearAllFilters() {
+    setSearchQuery("");
+    setActiveCategoryFilters([]);
+    setDataFilters({});
+    resetToFirstPage();
+  }
+
   useEffect(() => {
     setActiveCategoryFilters((filters) =>
       filters.filter((filter) => hasCategoryFilter(categoryOptions, filter)),
     );
   }, [categoryOptions]);
+
+  useEffect(() => {
+    setSortValue(config.sortOptions[0] ?? "");
+    setDataFilters({});
+    setPage(1);
+  }, [config.kind, config.sortOptions]);
 
   return (
     <div className="space-y-6">
@@ -96,6 +113,7 @@ function CollectionPage({ config }: CollectionPageProps) {
         searchQuery={searchQuery}
         categoryOptions={categoryOptions}
         activeCategoryFilters={activeCategoryFilters}
+        dataFilters={dataFilters}
         sortValue={sortValue}
         viewMode={viewMode}
         filterPanelOpen={filterPanelOpen}
@@ -107,6 +125,11 @@ function CollectionPage({ config }: CollectionPageProps) {
         onAddCategoryFilter={addCategoryFilter}
         onRemoveCategoryFilter={removeCategoryFilter}
         onClearCategoryFilters={clearCategoryFilters}
+        onClearAllFilters={clearAllFilters}
+        onDataFilterChange={(filterId, value) => {
+          setDataFilters((filters) => ({ ...filters, [filterId]: value }));
+          resetToFirstPage();
+        }}
         onSortChange={(value) => {
           setSortValue(value);
           resetToFirstPage();
@@ -181,6 +204,7 @@ function CollectionToolbar({
   searchQuery,
   categoryOptions,
   activeCategoryFilters,
+  dataFilters,
   sortValue,
   viewMode,
   filterPanelOpen,
@@ -189,12 +213,15 @@ function CollectionToolbar({
   onAddCategoryFilter,
   onRemoveCategoryFilter,
   onClearCategoryFilters,
+  onClearAllFilters,
+  onDataFilterChange,
   onSortChange,
   onViewModeChange,
 }: CollectionPageProps & {
   searchQuery: string;
   categoryOptions: string[];
   activeCategoryFilters: string[];
+  dataFilters: DataFilterValues;
   sortValue: string;
   viewMode: ViewMode;
   filterPanelOpen: boolean;
@@ -203,6 +230,8 @@ function CollectionToolbar({
   onAddCategoryFilter: (value: string) => void;
   onRemoveCategoryFilter: (value: string) => void;
   onClearCategoryFilters: () => void;
+  onClearAllFilters: () => void;
+  onDataFilterChange: (filterId: string, value: string) => void;
   onSortChange: (value: string) => void;
   onViewModeChange: (value: ViewMode) => void;
 }) {
@@ -212,6 +241,12 @@ function CollectionToolbar({
   const reachedCategoryLimit = activeCategoryFilters.length >= 5;
   const categorySelectDisabled =
     reachedCategoryLimit || selectableCategories.length === 0;
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    activeCategoryFilters.length > 0 ||
+    Object.entries(dataFilters).some(
+      ([filterId, value]) => !isAllFilterValue(filterId, value),
+    );
   const viewAction = viewMode === "card" ? "table" : "card";
   const viewLabel = viewMode === "card" ? "Switch to list view" : "Switch to grid view";
   const ViewIcon = viewMode === "card" ? List : Grid2X2;
@@ -283,26 +318,28 @@ function CollectionToolbar({
               onChange={onAddCategoryFilter}
               disabled={categorySelectDisabled}
             />
-            {plannedFilterItems(config.kind).map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                className="flex h-11 min-w-0 items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 bg-white px-3 text-left disabled:cursor-not-allowed disabled:text-slate-400"
-                disabled
-              >
-                <span className="truncate text-sm font-semibold">
-                  {filter.label}
-                </span>
-                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-normal text-slate-500">
-                  Planned
-                </span>
-              </button>
+            {catalogFilterGroups(config.kind).map((filter) => (
+              <SelectBox
+                key={filter.id}
+                id={`${config.kind}-${filter.id}-filter`}
+                label={filter.label}
+                options={filter.options}
+                value={dataFilters[filter.id] ?? filter.options[0]}
+                onChange={(value) => onDataFilterChange(filter.id, value)}
+              />
             ))}
           </div>
-          <p className="mt-3 flex items-start gap-2 text-xs font-medium text-slate-500">
-            <SlidersHorizontal className="mt-0.5 shrink-0" size={14} />
-            Data-dependent filters are unavailable until reliable fields or helpers exist.
-          </p>
+          {hasActiveFilters && (
+            <div className="mt-3 border-t border-slate-200 pt-3">
+              <button
+                type="button"
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600"
+                onClick={onClearAllFilters}
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -387,31 +424,62 @@ function SelectBox({
   );
 }
 
-function plannedFilterItems(kind: CollectionConfig["kind"]) {
+function catalogFilterGroups(kind: CollectionConfig["kind"]) {
   if (kind === "performers") {
     return [
-      { label: "Rating" },
-      { label: "Debut Year" },
-      { label: "Status" },
-      { label: "Favorite" },
+      { id: "status", label: "Status", options: ["All status", "Active", "Retired", "Unknown"] },
+      { id: "rating", label: "Rating", options: ratingFilterOptions() },
+      { id: "debutYear", label: "Debut Year", options: yearFilterOptions("All debut years") },
+      { id: "filmography", label: "Filmography", options: countFilterOptions("All filmography") },
+      { id: "pictorials", label: "Pictorial", options: countFilterOptions("All pictorials") },
     ];
   }
 
   if (kind === "images") {
     return [
-      { label: "Quality" },
-      { label: "Rating" },
-      { label: "Year" },
-      { label: "Count" },
+      { id: "quality", label: "Quality", options: qualityFilterOptions() },
+      { id: "rating", label: "Rating", options: ratingFilterOptions() },
+      { id: "year", label: "Year", options: yearFilterOptions("All years") },
+      { id: "imageCount", label: "Image Count", options: countFilterOptions("All image counts") },
     ];
   }
 
   return [
-    { label: "Quality" },
-    { label: "Rating" },
-    { label: "Year" },
-    { label: "Duration" },
+    { id: "quality", label: "Quality", options: qualityFilterOptions() },
+    { id: "rating", label: "Rating", options: ratingFilterOptions() },
+    { id: "year", label: "Year", options: yearFilterOptions("All years") },
+    { id: "duration", label: "Duration", options: ["All durations", "Short", "Medium", "Long"] },
   ];
+}
+
+function qualityFilterOptions() {
+  return ["All quality", "SD", "HD", "FHD", "2K", "4K", "8K"];
+}
+
+function ratingFilterOptions() {
+  return ["All ratings", "1 star", "2 star", "3 star", "4 star", "5 star"];
+}
+
+function yearFilterOptions(allLabel: string) {
+  return [
+    allLabel,
+    "Older",
+    "2000",
+    "2005",
+    "2010",
+    "2015",
+    "2020",
+    "2025",
+    "2030",
+    "2035",
+    "2040",
+    "2045",
+    "2050",
+  ];
+}
+
+function countFilterOptions(allLabel: string) {
+  return [allLabel, "Few", "Some", "Many"];
 }
 
 function CollectionTable({
@@ -790,8 +858,89 @@ function filterByCategories(items: CollectionItem[], categoryFilters: string[]) 
   });
 }
 
+function filterByDataFilters(items: CollectionItem[], filters: DataFilterValues) {
+  const activeFilters = Object.entries(filters).filter(
+    ([filterId, value]) => !isAllFilterValue(filterId, value),
+  );
+
+  if (activeFilters.length === 0) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    activeFilters.every(([filterId, value]) => itemMatchesDataFilter(item, filterId, value)),
+  );
+}
+
+function itemMatchesDataFilter(
+  item: CollectionItem,
+  filterId: string,
+  value: string,
+) {
+  if (filterId === "quality") {
+    return normalizedFilterValue(item.kind === "performers" ? null : item.quality) ===
+      normalizedFilterValue(value);
+  }
+
+  if (filterId === "rating") {
+    const expected = numberFromDisplayText(value);
+    return expected !== null && item.ratingBucket === expected;
+  }
+
+  if (filterId === "year") {
+    return item.kind !== "performers" && yearMatchesBucket(item.releaseYear, value);
+  }
+
+  if (filterId === "debutYear") {
+    return item.kind === "performers" && yearMatchesBucket(item.debutYear, value);
+  }
+
+  if (filterId === "duration") {
+    return item.kind === "videos" && countMatchesBucket(item.durationMinutes, value, "duration");
+  }
+
+  if (filterId === "imageCount") {
+    return item.kind === "images" && countMatchesBucket(item.imageCountValue, value, "count");
+  }
+
+  if (filterId === "filmography") {
+    return (
+      item.kind === "performers" &&
+      countMatchesBucket(item.filmographyCountValue, value, "count")
+    );
+  }
+
+  if (filterId === "pictorials") {
+    return (
+      item.kind === "performers" &&
+      countMatchesBucket(item.pictorialsCountValue, value, "count")
+    );
+  }
+
+  if (filterId === "status") {
+    return (
+      item.kind === "performers" &&
+      normalizedFilterValue(item.status || "Unknown") === normalizedFilterValue(value)
+    );
+  }
+
+  return true;
+}
+
 function sortItems(items: CollectionItem[], sortValue: string) {
   const indexedItems = items.map((item, index) => ({ item, index }));
+
+  if (sortValue === "Last Added") {
+    return indexedItems
+      .slice()
+      .sort((left, right) => {
+        const rightTime = timestamp(right.item.createdAt) || timestamp(right.item.updatedAt);
+        const leftTime = timestamp(left.item.createdAt) || timestamp(left.item.updatedAt);
+
+        return rightTime - leftTime || left.index - right.index;
+      })
+      .map(({ item }) => item);
+  }
 
   if (sortValue === "Last Updated") {
     return indexedItems
@@ -817,20 +966,41 @@ function sortItems(items: CollectionItem[], sortValue: string) {
 
   if (sortValue === "Duration") {
     return sortByNumber(indexedItems, (item) =>
-      item.kind === "videos" ? numberFromDisplayText(item.duration) : null,
+      item.kind === "videos" ? item.durationMinutes ?? null : null,
     );
   }
 
   if (sortValue === "Image Count") {
     return sortByNumber(indexedItems, (item) =>
-      item.kind === "images" ? numberFromDisplayText(item.imageCount) : null,
+      item.kind === "images" ? item.imageCountValue ?? null : null,
     );
+  }
+
+  if (sortValue === "Release Year") {
+    return sortByNumber(indexedItems, (item) =>
+      item.kind === "performers" ? null : item.releaseYear ?? null,
+    );
+  }
+
+  if (sortValue === "Rating") {
+    return sortByNumber(indexedItems, (item) => item.ratingBucket ?? null);
+  }
+
+  if (sortValue === "Status") {
+    return indexedItems
+      .slice()
+      .sort((left, right) => {
+        const leftStatus = left.item.kind === "performers" ? left.item.status : "";
+        const rightStatus = right.item.kind === "performers" ? right.item.status : "";
+        return leftStatus.localeCompare(rightStatus) || left.index - right.index;
+      })
+      .map(({ item }) => item);
   }
 
   if (sortValue === "Filmography") {
     return sortByNumber(indexedItems, (item) =>
       item.kind === "performers"
-        ? numberFromDisplayText(item.filmographyCount)
+        ? item.filmographyCountValue ?? null
         : null,
     );
   }
@@ -838,7 +1008,7 @@ function sortItems(items: CollectionItem[], sortValue: string) {
   if (sortValue === "Pictorials") {
     return sortByNumber(indexedItems, (item) =>
       item.kind === "performers"
-        ? numberFromDisplayText(item.pictorialsCount)
+        ? item.pictorialsCountValue ?? null
         : null,
     );
   }
@@ -942,6 +1112,68 @@ function getPrimaryTitle(item: CollectionItem) {
 function numberFromDisplayText(value: string) {
   const match = value.match(/\d+/);
   return match ? Number(match[0]) : null;
+}
+
+function isAllFilterValue(filterId: string, value: string | undefined) {
+  if (!value) {
+    return true;
+  }
+
+  const normalized = normalizedFilterValue(value);
+  return normalized.startsWith("all ") || normalized === `all ${filterId}`;
+}
+
+function normalizedFilterValue(value: string | null | undefined) {
+  return normalizeSearchText(String(value ?? ""));
+}
+
+function yearMatchesBucket(year: number | null | undefined, value: string) {
+  if (typeof year !== "number" || !Number.isInteger(year)) {
+    return false;
+  }
+
+  if (value === "Older") {
+    return year < 2000;
+  }
+
+  const bucketStart = Number(value);
+  if (!Number.isInteger(bucketStart)) {
+    return false;
+  }
+
+  return year >= bucketStart && year < bucketStart + 5;
+}
+
+function countMatchesBucket(
+  count: number | null | undefined,
+  value: string,
+  kind: "count" | "duration",
+) {
+  if (typeof count !== "number" || !Number.isFinite(count)) {
+    return false;
+  }
+
+  if (value === "Few" || value === "Short") {
+    return count < 15;
+  }
+
+  if (value === "Medium") {
+    return count >= 15 && count < 60;
+  }
+
+  if (value === "Long") {
+    return count >= 60;
+  }
+
+  if (value === "Some") {
+    return count >= 15 && count < 100;
+  }
+
+  if (value === "Many") {
+    return kind === "count" && count >= 100;
+  }
+
+  return false;
 }
 
 function timestamp(value: number | string | null | undefined) {

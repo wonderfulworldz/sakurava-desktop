@@ -10,12 +10,13 @@ import {
 } from "../backend/json";
 import type { CollectionConfig, PerformerCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
+import { deriveDebutYear } from "./catalogDerivedFields";
 import type { PerformerDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
-import { getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -162,10 +163,15 @@ function toPerformerCollectionItem(
     name: performer.name,
     originalName: performer.originalName,
     coverPath: performer.coverPath,
+    createdAt: performer.createdAt,
     updatedAt: performer.updatedAt,
     status: performer.status || "Unknown",
+    debutYear: deriveDebutYear(performer),
+    ratingBucket: createRatingSummary(performer.ratingJson, performerRatingFields).bucket,
     filmographyCount: `Filmography ${formatCount(performer.filmographyCount)}`,
+    filmographyCountValue: performer.filmographyCount,
     pictorialsCount: `Pictorials ${formatCount(performer.pictorialsCount)}`,
+    pictorialsCountValue: performer.pictorialsCount,
     categories: parseTextLabelArray(performer.categoriesJson),
     favorite: performer.favorite,
   };

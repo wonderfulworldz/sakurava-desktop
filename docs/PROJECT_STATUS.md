@@ -11,13 +11,13 @@ post-mvp-30-4-category-management-table-detail-pagination-v1
 Current batch:
 
 ```text
-31.1 - Smoke Test Gap Audit + Efficient Roadmap Lock
+32.1 - Catalog Filter/Sort V1 Implementation
 ```
 
 Current focus:
 
 ```text
-Docs-only smoke-test gap audit and efficient roadmap lock. No implementation in 31.1.
+Implement V1 catalog filter and sort behavior for Videos, Images, and Performers.
 ```
 
 Latest known stable category checkpoint:
@@ -430,6 +430,7 @@ Current app capabilities include:
 - Category Management CRUD foundation through Batch 30.3 after merge: SQLite-managed category metadata, localStorage managed-category migration/cache compatibility, Add/Edit form, one-level parent/child selection, path-only thumbnail metadata with narrow image picker support, plain-text description, safe unused delete checks, no Modify Records section, no separate Category Detail section, and no normal unmanaged-label category status.
 - Category Management table refinement through Batch 30.4 after merge: full-width columns, integrated detail display through table/form fields, search/filter/sort composition, and pagination footer with 25/50/100 row options.
 - V1 Smoke Test Gap Audit and Efficient Roadmap Lock through Batch 31.1 after merge: docs-only audit of remaining V1 gaps and approved roadmap replacement through Batch 36.3.
+- Catalog Filter/Sort V1 through Batch 32.1 after merge: Videos, Images, and Performers use functional catalog data filters and Last Added sorting where safe from current fields/helpers; Quality and Performer Debut Year derive from existing saved fields when present and safely remain unmatched for records without valid saved data.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -467,6 +468,12 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 ## Recommended Next Phase
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
+
+Recommended next implementation batch after Batch 32.1:
+
+```text
+32.2 - Categories Catalog/Collection V1 Implementation
+```
 
 Latest roadmap implementation batch:
 
