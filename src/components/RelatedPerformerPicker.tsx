@@ -1,8 +1,9 @@
-import { Search, UserRound, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { RelatedPerformerReference } from "../backend/json";
 import type { Performer } from "../backend/types";
+import { compactPerformerLabel, performerSearchText } from "../lib/relatedPicker";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -41,13 +42,11 @@ function RelatedPerformerPicker({
         return true;
       }
 
-      return [performer.name, performer.originalName]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery));
+      return performerSearchText(performer).includes(normalizedQuery);
     });
 
   function addPerformer(performer: Performer) {
-    const nameSnapshot = performerDisplayName(performer);
+    const nameSnapshot = performerBaseName(performer);
     onChange([
       ...selected,
       {
@@ -70,32 +69,8 @@ function RelatedPerformerPicker({
   }
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-2">
-        <p className="text-sm font-medium text-slate-500">
-          Select existing Performer records only. Create Performer records first.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/performers"
-            className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600"
-          >
-            Open Performers
-          </Link>
-          <Link
-            to="/performers/new"
-            className="inline-flex h-8 items-center rounded-md border border-sakura-200 bg-sakura-50 px-3 text-xs font-semibold text-sakura-600 transition hover:bg-sakura-100"
-          >
-            Add Performer
-          </Link>
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        <h3 className="text-sm font-semibold text-slate-700">
-          Selected Performers
-        </h3>
-        <div className="flex min-h-12 flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2">
+    <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
           {selected.length === 0 ? (
             <span className="px-1 text-sm font-medium text-slate-400">
               No related Performers selected.
@@ -106,21 +81,20 @@ function RelatedPerformerPicker({
                 ? performerById.get(relation.performerId)
                 : undefined;
               const name = performer
-                ? performerDisplayName(performer)
+                ? performerBaseName(performer)
                 : relation.nameSnapshot || "Unresolved Performer";
               const unresolved = !performer;
 
               return (
                 <span
                   key={relation.performerId || relation.nameSnapshot}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                  className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
                     unresolved
                       ? "border-amber-200 bg-amber-50 text-amber-700"
                       : "border-sakura-100 bg-sakura-50 text-sakura-600"
                   }`}
                 >
-                  <UserRound size={13} />
-                  {name}
+                  <span className="truncate">{name}</span>
                   {unresolved && (
                     <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
                       Unresolved
@@ -137,36 +111,30 @@ function RelatedPerformerPicker({
                     onClick={() => removeRelation(relation)}
                   >
                     <X size={13} />
+                    <span className="sr-only">Remove</span>
                   </button>
                 </span>
               );
             })
           )}
-        </div>
       </div>
 
-      <label className="grid gap-2 text-sm font-semibold text-slate-700">
-        Search Performers
-        <span className="relative">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            size={16}
-          />
-          <input
-            className="h-9 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-            aria-label="Search related performers"
-            placeholder="Search by performer name..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </span>
-      </label>
+      <div className="relative">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          size={16}
+        />
+        <input
+          className="h-9 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          aria-label="Search related performers"
+          placeholder="Search performers..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
 
       <div className="grid gap-2">
-        <h3 className="text-sm font-semibold text-slate-700">
-          Available Performers
-        </h3>
         {loadState === "loading" && (
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-500">
             Loading Performers...
@@ -186,19 +154,20 @@ function RelatedPerformerPicker({
           performers.length > 0 &&
           availablePerformers.length === 0 && (
             <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-500">
-              No matching Performers available.
+              No matching Performers available. Use Performers to add it first.
             </p>
           )}
         {availablePerformers.length > 0 && (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2">
             {availablePerformers.map((performer) => {
-              const name = performerDisplayName(performer);
+              const name = compactPerformerLabel(performer);
+              const baseName = performerBaseName(performer);
               const originalName =
                 performer.originalName && performer.originalName !== name
                   ? performer.originalName
                   : "";
               const alreadySelectedByName = selectedNames.has(
-                name.trim().toLowerCase(),
+                baseName.trim().toLowerCase(),
               );
 
               return (
@@ -206,16 +175,15 @@ function RelatedPerformerPicker({
                   key={performer.id}
                   type="button"
                   disabled={alreadySelectedByName}
-                  className="grid gap-1 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-sakura-200 hover:bg-sakura-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                  aria-label={`Add related performer ${name}`}
+                  className="flex min-h-9 w-full items-center justify-between gap-3 border-b border-slate-200 px-2 py-1.5 text-left text-sm last:border-b-0 hover:text-sakura-600 disabled:cursor-not-allowed disabled:text-slate-400"
+                  aria-label={`Add related performer ${baseName}`}
                   onClick={() => addPerformer(performer)}
                 >
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <UserRound size={15} />
+                  <span className="min-w-0 truncate font-medium text-slate-800">
                     {name}
                   </span>
                   {originalName && (
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className="shrink-0 text-xs font-medium text-slate-500">
                       {originalName}
                     </span>
                   )}
@@ -225,11 +193,21 @@ function RelatedPerformerPicker({
           </div>
         )}
       </div>
+
+      <p className="text-xs font-medium text-slate-500">
+        Manage related records in Performers.{" "}
+        <Link
+          to="/performers"
+          className="font-semibold text-sakura-600 hover:text-sakura-700"
+        >
+          Open Performers
+        </Link>
+      </p>
     </div>
   );
 }
 
-function performerDisplayName(performer: Performer) {
+function performerBaseName(performer: Performer) {
   return performer.name || performer.originalName || "Unnamed Performer";
 }
 
