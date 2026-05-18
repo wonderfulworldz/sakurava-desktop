@@ -117,7 +117,7 @@ For category-related work, also inspect:
 - Do not live-scan `folderPath` when opening Image Detail.
 - Do not scan child folders/subfolders for Image Gallery.
 - Folder reading for Image Gallery must happen only after explicit user action and direct files only.
-- Image Gallery thumbnails should be 1:1 square and the grid should use load-more rendering, recommended 24 initial images and +24 per load more.
+- Image Gallery thumbnails should be 1:1 square and the grid should use load-more rendering. After Batch 27.8, Image Detail uses 16 initial images and +16 per Load More to approximate two visible desktop rows.
 - Do not copy, import, move, rename, delete, generate thumbnails, or otherwise mutate user files for Image Gallery.
 - Read `docs/26-image-gallery-storage-form-planning.md` before Image Gallery Storage/Form work.
 - Image Gallery Storage/Form uses `galleryImagePathsJson` as a JSON array string of explicit local image paths after Batch 25.3.
@@ -141,6 +141,7 @@ For category-related work, also inspect:
 - Tech Info + Media Status Planning is documented after Batch 27.5 in `docs/32-tech-info-media-status-planning.md`. Tech Info must use data-backed values only; do not fake resolution/file size/file type/Quality, do not scan `folderPath` from Image Detail, and keep runtime metadata detection, persistence, and schema changes in separate approved batches.
 - Tech Info + Media Status Implementation is complete after Batch 27.6 if merged. Video/Image Detail Tech Info should remain limited to existing safe values and honest unavailable states, Performer should not use media-style Tech Info, and Media Status should stay summarized under System Info without raw path values or new scanner/runtime metadata behavior.
 - Related Cards on Detail Pages is complete after Batch 27.7 if merged. Related sections should stay display-only card/empty-state surfaces; do not add relation picker, add/remove controls, auto-linking, related JSON storage changes, schema changes, or raw ID/JSON/path exposure from Detail pages.
+- Image Detail Gallery Placement Adjustment is complete after Batch 27.8 if merged. Image Detail Gallery should appear directly below Hero and before Metadata, Notes should remain before Related sections, System Info should remain last, and the Gallery should use 16-item initial/load-more batches while preserving the full-size viewer and saved `galleryImagePathsJson` paths only without scanning `folderPath`.
 
 ## Preferred Batch Prompt Format
 

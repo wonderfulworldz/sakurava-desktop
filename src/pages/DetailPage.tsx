@@ -19,7 +19,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type {
   DetailConfig,
@@ -152,35 +152,49 @@ function DetailHeader({ config, deleteAction }: DetailPageProps) {
 }
 
 function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
+  const heroSection = (
+    <section className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
+        <LargePlaceholder config={config} />
+        <CatalogIdentity config={config} />
+      </div>
+    </section>
+  );
+  const detailSummarySection = (
+    <section className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)]">
+      <RowsCard title="Metadata" icon={Calendar} items={config.metadata} />
+      <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
+      <RowsCard
+        title={config.techTitle}
+        icon={Info}
+        items={config.techItems}
+        message={config.techMessage}
+        readOnly
+      />
+    </section>
+  );
+
+  if (config.kind === "images") {
+    return (
+      <div className="space-y-5">
+        <DetailHeader config={config} deleteAction={deleteAction} />
+        {heroSection}
+        <GalleryGrid paths={config.galleryImagePaths} />
+        {detailSummarySection}
+        <NotesCard notes={config.notes} />
+        <RelatedRows sections={config.relatedSections} />
+        <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <DetailHeader config={config} deleteAction={deleteAction} />
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
-          <LargePlaceholder config={config} />
-          <CatalogIdentity config={config} />
-        </div>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)]">
-        <RowsCard title="Metadata" icon={Calendar} items={config.metadata} />
-        <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
-        <RowsCard
-          title={config.techTitle}
-          icon={Info}
-          items={config.techItems}
-          message={config.techMessage}
-          readOnly
-        />
-      </section>
-
+      {heroSection}
+      {detailSummarySection}
       <NotesCard notes={config.notes} />
       <RelatedRows sections={config.relatedSections} />
-
-      {config.kind === "images" && (
-        <GalleryGrid paths={config.galleryImagePaths} />
-      )}
       <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
   );
@@ -1404,7 +1418,8 @@ function RelatedEmptyState({
   );
 }
 
-const GALLERY_BATCH_SIZE = 24;
+const GALLERY_BATCH_SIZE = 16;
+const GALLERY_CONTROLS_IDLE_DELAY_MS = 2000;
 const MIN_GALLERY_ZOOM = 0.5;
 const MAX_GALLERY_ZOOM = 3;
 const GALLERY_ZOOM_STEP = 0.25;
@@ -1540,6 +1555,11 @@ function GalleryViewer({
   const [zoom, setZoom] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const viewerRef = useRef<HTMLDivElement | null>(null);
+  const hideControlsTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
+    null,
+  );
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const path = paths[currentIndex] ?? "";
   const assetSrc = localImagePathToAssetSrc(path);
@@ -1548,6 +1568,47 @@ function GalleryViewer({
   const canGoNext = currentIndex < paths.length - 1;
   const zoomLabel = isFitMode ? "Fit" : `${Math.round(zoom * 100)}%`;
   const isFullscreenActive = isBrowserFullscreen || isExpanded;
+  const controlsVisibilityClass = controlsVisible
+    ? "opacity-100"
+    : "pointer-events-none opacity-0";
+  const overlayPillClass =
+    "bg-white/85 text-slate-800 shadow-lg shadow-slate-950/10 ring-1 ring-sakura-100/80 backdrop-blur-md";
+  const overlayButtonBaseClass =
+    "inline-flex items-center justify-center rounded-full bg-white/85 text-slate-700 shadow-lg shadow-slate-950/10 ring-1 ring-sakura-100/80 backdrop-blur-md transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45";
+  const overlayToggleClass =
+    "inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300";
+  const activeToggleClass = "bg-sakura-500 text-white shadow-sm";
+  const inactiveToggleClass = "bg-white/70 text-slate-700 hover:bg-sakura-50 hover:text-sakura-600";
+
+  function clearHideControlsTimer() {
+    if (hideControlsTimerRef.current) {
+      window.clearTimeout(hideControlsTimerRef.current);
+      hideControlsTimerRef.current = null;
+    }
+  }
+
+  function scheduleHideControls() {
+    clearHideControlsTimer();
+    hideControlsTimerRef.current = window.setTimeout(() => {
+      const activeElement = document.activeElement;
+      if (
+        viewerRef.current &&
+        activeElement instanceof HTMLElement &&
+        viewerRef.current.contains(activeElement) &&
+        activeElement !== viewerRef.current
+      ) {
+        scheduleHideControls();
+        return;
+      }
+
+      setControlsVisible(false);
+    }, GALLERY_CONTROLS_IDLE_DELAY_MS);
+  }
+
+  function showControlsAndResetIdleTimer() {
+    setControlsVisible(true);
+    scheduleHideControls();
+  }
 
   async function closeViewer() {
     if (document.fullscreenElement && document.exitFullscreen) {
@@ -1571,14 +1632,17 @@ function GalleryViewer({
     setImageFailed(false);
     setIsFitMode(true);
     setZoom(1);
+    showControlsAndResetIdleTimer();
   }
 
   function zoomIn() {
+    showControlsAndResetIdleTimer();
     setIsFitMode(false);
     setZoom((current) => Math.min(MAX_GALLERY_ZOOM, current + GALLERY_ZOOM_STEP));
   }
 
   function zoomOut() {
+    showControlsAndResetIdleTimer();
     setIsFitMode(false);
     setZoom((current) => Math.max(MIN_GALLERY_ZOOM, current - GALLERY_ZOOM_STEP));
   }
@@ -1613,7 +1677,14 @@ function GalleryViewer({
   }
 
   useEffect(() => {
+    scheduleHideControls();
+    return clearHideControlsTimer;
+  }, []);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      showControlsAndResetIdleTimer();
+
       if (event.key === "Escape") {
         if (document.fullscreenElement) {
           return;
@@ -1658,18 +1729,26 @@ function GalleryViewer({
       role="dialog"
       aria-modal="true"
       aria-label="Gallery full-size viewer"
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-950 text-white"
+      ref={viewerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 m-0 h-screen w-screen overflow-hidden bg-slate-950 text-white"
+      onMouseMove={showControlsAndResetIdleTimer}
+      onMouseEnter={showControlsAndResetIdleTimer}
+      onPointerDown={showControlsAndResetIdleTimer}
+      onFocusCapture={showControlsAndResetIdleTimer}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           void closeViewer();
         }
       }}
     >
-        <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-5.5rem)] flex-wrap items-center gap-2 sm:left-4 sm:top-4">
-          <span className="rounded-full bg-slate-950/70 px-3 py-1 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10">
+        <div
+          className={`pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-5.5rem)] flex-wrap items-center gap-2 transition-opacity duration-300 sm:left-4 sm:top-4 ${controlsVisibilityClass}`}
+        >
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${overlayPillClass}`}>
             {currentIndex + 1} / {paths.length}
           </span>
-          <span className="max-w-[52vw] truncate rounded-full bg-slate-950/70 px-3 py-1 text-xs font-medium text-slate-200 shadow-lg ring-1 ring-white/10">
+          <span className={`max-w-[52vw] truncate rounded-full px-3 py-1 text-xs font-medium ${overlayPillClass}`}>
             {fileNameFromPath(path) || "Gallery image"}
           </span>
         </div>
@@ -1678,7 +1757,7 @@ function GalleryViewer({
           type="button"
           aria-label="Close gallery viewer"
           onClick={() => void closeViewer()}
-          className="absolute right-3 top-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-950/70 text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:right-4 sm:top-4"
+          className={`absolute right-3 top-3 z-20 h-10 w-10 transition-opacity duration-300 sm:right-4 sm:top-4 ${overlayButtonBaseClass} ${controlsVisibilityClass}`}
         >
           <X size={18} />
         </button>
@@ -1688,7 +1767,7 @@ function GalleryViewer({
             type="button"
             aria-label="Previous gallery image"
             onClick={() => goToIndex(currentIndex - 1)}
-            className="absolute left-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/65 text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:left-4"
+            className={`absolute left-3 top-1/2 z-20 h-11 w-11 -translate-y-1/2 transition-opacity duration-300 sm:left-4 ${overlayButtonBaseClass} ${controlsVisibilityClass}`}
           >
             <ArrowLeft size={22} />
           </button>
@@ -1699,19 +1778,19 @@ function GalleryViewer({
             type="button"
             aria-label="Next gallery image"
             onClick={() => goToIndex(currentIndex + 1)}
-            className="absolute right-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/65 text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:right-4"
+            className={`absolute right-3 top-1/2 z-20 h-11 w-11 -translate-y-1/2 transition-opacity duration-300 sm:right-4 ${overlayButtonBaseClass} ${controlsVisibilityClass}`}
           >
             <ArrowRight size={22} />
           </button>
         )}
 
-        <div className="h-full w-full overflow-auto">
+        <div className="absolute inset-0 h-full w-full overflow-auto">
           <div className="flex min-h-full min-w-full items-center justify-center">
             {canShowImage && assetSrc ? (
               <img
                 src={assetSrc}
                 alt={`Gallery image ${currentIndex + 1} full size`}
-                className={isFitMode ? "max-h-screen max-w-full object-contain" : ""}
+                className={isFitMode ? "block max-h-screen max-w-full object-contain" : "block"}
                 style={
                   isFitMode
                     ? undefined
@@ -1736,7 +1815,9 @@ function GalleryViewer({
           </div>
         </div>
 
-        <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-full bg-slate-950/75 px-2 py-2 shadow-lg ring-1 ring-white/10 sm:bottom-4">
+        <div
+          className={`absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-full bg-white/85 px-2 py-2 text-slate-700 shadow-lg shadow-slate-950/10 ring-1 ring-sakura-100/80 backdrop-blur-md transition-opacity duration-300 sm:bottom-4 ${controlsVisibilityClass}`}
+        >
           <button
             type="button"
             onClick={() => {
@@ -1744,10 +1825,10 @@ function GalleryViewer({
               setZoom(1);
             }}
             aria-label="Fit gallery image"
-            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 ${
+            className={`${overlayToggleClass} ${
               isFitMode
-                ? "bg-white text-slate-950"
-                : "bg-white/10 text-white hover:bg-white/20"
+                ? activeToggleClass
+                : inactiveToggleClass
             }`}
           >
             Fit
@@ -1759,10 +1840,10 @@ function GalleryViewer({
               setZoom(1);
             }}
             aria-label="Show gallery image at 100 percent"
-            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 ${
+            className={`${overlayToggleClass} ${
               !isFitMode && zoom === 1
-                ? "bg-white text-slate-950"
-                : "bg-white/10 text-white hover:bg-white/20"
+                ? activeToggleClass
+                : inactiveToggleClass
             }`}
           >
             100%
@@ -1772,11 +1853,11 @@ function GalleryViewer({
             onClick={zoomOut}
             disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
             aria-label="Zoom out gallery image"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-700 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Minus size={16} />
           </button>
-          <span className="min-w-12 text-center text-xs font-semibold text-slate-200">
+          <span className="min-w-12 text-center text-xs font-semibold text-slate-700">
             {zoomLabel}
           </span>
           <button
@@ -1784,7 +1865,7 @@ function GalleryViewer({
             onClick={zoomIn}
             disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
             aria-label="Zoom in gallery image"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-700 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Plus size={16} />
           </button>
@@ -1796,7 +1877,7 @@ function GalleryViewer({
                 ? "Exit fullscreen gallery mode"
                 : "Enter fullscreen gallery mode"
             }
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-700 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
           >
             {isFullscreenActive ? (
               <Minimize2 size={16} />

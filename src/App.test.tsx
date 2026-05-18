@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
 
@@ -438,6 +445,53 @@ describe("App", () => {
       expect(ratingSection.queryByLabelText("5/5")).not.toBeInTheDocument();
     },
   );
+
+  it("renders Image Detail Gallery directly below Hero and before Metadata", () => {
+    window.history.pushState({}, "", "/images/sample-id");
+    render(<App />);
+
+    expectSectionOrder([
+      screen.getByRole("heading", { name: "City Light Set" }).closest("section"),
+      screen.getByRole("heading", { name: "Gallery" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating Summary" }).closest("section"),
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "System Info" }).closest("section"),
+    ]);
+  });
+
+  it("keeps Video Detail section order unchanged", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    expectSectionOrder([
+      screen.getByRole("heading", { name: "Morning Archive" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating Summary" }).closest("section"),
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
+      screen.getByRole("heading", { name: "System Info" }).closest("section"),
+    ]);
+  });
+
+  it("keeps Performer Detail section order unchanged", () => {
+    window.history.pushState({}, "", "/performers/sample-id");
+    render(<App />);
+
+    expectSectionOrder([
+      screen.getByRole("heading", { name: "Aoi Hanami" }).closest("section"),
+      screen.getByRole("heading", { name: "Profile Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating Summary" }).closest("section"),
+      screen.getByRole("heading", { name: "Personal" }).closest("section"),
+      screen.getByRole("heading", { name: "Physical" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "System Info" }).closest("section"),
+    ]);
+  });
 
   it("renders a pentagon spider chart for five valid persisted rating dimensions", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
@@ -5194,7 +5248,7 @@ describe("App", () => {
   it("renders image detail gallery paths with load more from saved data", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const galleryPaths = Array.from(
-      { length: 30 },
+      { length: 40 },
       (_, index) =>
         `C:/Gallery/${String(index + 1).padStart(2, "0")}.jpg`,
     );
@@ -5227,11 +5281,11 @@ describe("App", () => {
 
     expect(await screen.findByText("Gallery Detail Image")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Gallery" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 24 of 30 images")).toBeInTheDocument();
+    expect(screen.getByText("Showing 16 of 40 images")).toBeInTheDocument();
     const initialImages = screen.getAllByRole("img", {
       name: /Gallery image/i,
     });
-    expect(initialImages).toHaveLength(24);
+    expect(initialImages).toHaveLength(16);
     expect(initialImages[0]).toHaveAttribute(
       "src",
       "asset://localhost/C:/Gallery/01.jpg",
@@ -5245,8 +5299,16 @@ describe("App", () => {
 
     expect(
       screen.getAllByRole("img", { name: /Gallery image/i }),
-    ).toHaveLength(30);
-    expect(screen.getByText("Showing 30 of 30 images")).toBeInTheDocument();
+    ).toHaveLength(32);
+    expect(screen.getByText("Showing 32 of 40 images")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load More" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load More" }));
+
+    expect(
+      screen.getAllByRole("img", { name: /Gallery image/i }),
+    ).toHaveLength(40);
+    expect(screen.getByText("Showing 40 of 40 images")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Load More" }),
     ).not.toBeInTheDocument();
@@ -5327,6 +5389,10 @@ describe("App", () => {
     expect(
       within(viewer).getByRole("button", { name: "Next gallery image" }),
     ).toBeInTheDocument();
+    const closeButton = within(viewer).getByRole("button", {
+      name: "Close gallery viewer",
+    });
+    expect(closeButton).toHaveClass("opacity-100");
 
     fireEvent.click(
       within(viewer).getByRole("button", { name: "Next gallery image" }),
@@ -5383,6 +5449,26 @@ describe("App", () => {
     expect(
       within(viewer).queryByRole("button", { name: "Previous gallery image" }),
     ).not.toBeInTheDocument();
+
+    vi.useFakeTimers();
+    fireEvent.mouseMove(viewer);
+    act(() => {
+      vi.advanceTimersByTime(2100);
+    });
+    expect(closeButton).toHaveClass("opacity-0");
+
+    fireEvent.mouseMove(viewer);
+    expect(closeButton).toHaveClass("opacity-100");
+
+    act(() => {
+      vi.advanceTimersByTime(2100);
+    });
+    expect(closeButton).toHaveClass("opacity-0");
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(closeButton).toHaveClass("opacity-100");
+    expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
+    vi.useRealTimers();
 
     fireEvent.keyDown(window, { key: "Escape" });
 
@@ -5834,6 +5920,21 @@ describe("App", () => {
       .not.toBeInTheDocument();
   });
 });
+
+function expectSectionOrder(sections: Array<HTMLElement | null>) {
+  for (const section of sections) {
+    expect(section).not.toBeNull();
+  }
+
+  const resolvedSections = sections as HTMLElement[];
+
+  for (let index = 0; index < resolvedSections.length - 1; index += 1) {
+    expect(
+      resolvedSections[index].compareDocumentPosition(resolvedSections[index + 1]) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  }
+}
 
 function setManagedCategories(categories: string[]) {
   window.localStorage.setItem(
