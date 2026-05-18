@@ -1,20 +1,12 @@
 import CategoryManagementPanel from "../components/CategoryManagementPanel";
-import { Link } from "react-router-dom";
 
 function CategoryManagementPage() {
   return (
     <div className="mx-auto max-w-[1180px] space-y-4">
       <header className="px-1 py-2">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4">
           <div className="min-w-0">
-            <nav className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-              <Link to="/settings" className="hover:text-sakura-600">
-                Settings
-              </Link>
-              <span>/</span>
-              <span>Catalog Settings</span>
-            </nav>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
+            <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
               Category Management
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
@@ -22,9 +14,6 @@ function CategoryManagementPage() {
               Performers.
             </p>
           </div>
-          <span className="inline-flex w-fit items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-            Preview required for record changes
-          </span>
         </div>
       </header>
       <CategoryManagementPanel />

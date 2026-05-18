@@ -11,7 +11,7 @@ import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { listVideos } from "../runtime/videoCommands";
 
-type CategoryStatus = "Managed" | "Record-only" | "Unused Managed";
+type CategoryStatus = "Managed" | "Unused Managed";
 type SortValue = "name" | "usage-desc" | "usage-asc";
 
 type CategoryBrowseRow = CategoryAuditRow & {
@@ -256,9 +256,7 @@ function StatusBadge({ status }: { status: CategoryStatus }) {
   const className =
     status === "Managed"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : status === "Record-only"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-        : "border-slate-200 bg-slate-50 text-slate-600";
+      : "border-slate-200 bg-slate-50 text-slate-600";
 
   return (
     <span
@@ -295,19 +293,9 @@ function mergeCategoryRows(
   managedCategories: string[],
 ): CategoryBrowseRow[] {
   const rowsByKey = new Map<string, CategoryBrowseRow>();
-  const managedKeys = new Set(
-    managedCategories.map((category) => category.trim().toLowerCase()),
+  const auditRowsByKey = new Map(
+    auditRows.map((row) => [row.name.trim().toLowerCase(), row]),
   );
-
-  for (const row of auditRows) {
-    const key = row.name.trim().toLowerCase();
-    const isManaged = managedKeys.has(key);
-    rowsByKey.set(key, {
-      ...row,
-      isManaged,
-      status: isManaged ? "Managed" : "Record-only",
-    });
-  }
 
   for (const category of managedCategories) {
     const name = category.trim();
@@ -317,14 +305,15 @@ function mergeCategoryRows(
       continue;
     }
 
+    const auditRow = auditRowsByKey.get(key);
     rowsByKey.set(key, {
       name,
-      videos: 0,
-      images: 0,
-      performers: 0,
-      total: 0,
+      videos: auditRow?.videos ?? 0,
+      images: auditRow?.images ?? 0,
+      performers: auditRow?.performers ?? 0,
+      total: auditRow?.total ?? 0,
       isManaged: true,
-      status: "Unused Managed",
+      status: auditRow && auditRow.total > 0 ? "Managed" : "Unused Managed",
     });
   }
 

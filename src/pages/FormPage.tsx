@@ -1395,11 +1395,6 @@ function CategoryPicker({
                   }`}
                 >
                   {category}
-                  {!isManaged && (
-                    <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
-                      Record-only
-                    </span>
-                  )}
                   <button
                     type="button"
                     className={

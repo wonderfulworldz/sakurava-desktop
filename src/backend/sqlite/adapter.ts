@@ -3,14 +3,24 @@ import {
   RepositoryValidationError,
   type CatalogRepository,
   type ImageRepository,
+  type ManagedCategoryRepository,
   type PerformerRepository,
   type SakuravaRepositories,
   type VideoRepository,
 } from "../repositories";
+import {
+  applyManagedCategoryPatch,
+  countManagedCategoryUsage,
+  normalizeManagedCategoryInput,
+  validateManagedCategoryInput,
+} from "../managedCategoryModel";
 import type {
   EntityId,
   Image,
   ImagePatch,
+  ManagedCategory,
+  ManagedCategoryPatch,
+  NewManagedCategory,
   NewImage,
   NewPerformer,
   NewVideo,
@@ -260,6 +270,16 @@ const PERFORMER_COLUMNS = [
   "updatedAt",
 ] as const;
 
+const MANAGED_CATEGORY_COLUMNS = [
+  "key",
+  "name",
+  "parentKey",
+  "description",
+  "thumbnailPath",
+  "createdAt",
+  "updatedAt",
+] as const;
+
 function mapVideoRow(row: SqliteRow): Video {
   return {
     ...normalizeVideoDefaults({
@@ -341,6 +361,18 @@ function mapPerformerRow(row: SqliteRow): Performer {
   } as Performer;
 }
 
+function mapManagedCategoryRow(row: SqliteRow): ManagedCategory {
+  return {
+    key: String(row.key),
+    name: String(row.name ?? ""),
+    parentKey: row.parentKey === null ? null : String(row.parentKey ?? "") || null,
+    description: String(row.description ?? ""),
+    thumbnailPath: String(row.thumbnailPath ?? ""),
+    createdAt: String(row.createdAt),
+    updatedAt: String(row.updatedAt),
+  };
+}
+
 export function createSqliteVideoRepository(
   database: SqliteDatabase,
   options: SqliteRepositoryFactoryOptions = {},
@@ -389,6 +421,167 @@ export function createSqlitePerformerRepository(
   });
 }
 
+export function createSqliteManagedCategoryRepository(
+  database: SqliteDatabase,
+  options: SqliteRepositoryFactoryOptions = {},
+): ManagedCategoryRepository {
+  const now = options.now ?? (() => new Date().toISOString());
+  const columnList = MANAGED_CATEGORY_COLUMNS.join(", ");
+  const insertSql = `INSERT INTO managedCategories (${columnList}) VALUES (${createPlaceholders(
+    MANAGED_CATEGORY_COLUMNS.length,
+  )})`;
+  const updateColumns = MANAGED_CATEGORY_COLUMNS.filter(
+    (column) => column !== "key" && column !== "createdAt",
+  );
+  const setList = updateColumns.map((column) => `${column} = ?`).join(", ");
+
+  async function listCategories() {
+    const rows = await database.queryAll<SqliteRow>(
+      "SELECT * FROM managedCategories ORDER BY name COLLATE NOCASE ASC",
+    );
+
+    return rows.map(mapManagedCategoryRow);
+  }
+
+  async function listUsageRows(tableName: "videos" | "images" | "performers") {
+    return database.queryAll<{ categoriesJson: string }>(
+      `SELECT categoriesJson FROM ${tableName}`,
+    );
+  }
+
+  return {
+    async create(input) {
+      const existingCategories = await listCategories();
+      const normalized = normalizeManagedCategoryInput(input);
+      assertValid(validateManagedCategoryInput(normalized, existingCategories));
+
+      const timestamp = now();
+      const record: ManagedCategory = {
+        key: normalized.key ?? "",
+        name: normalized.name,
+        parentKey: normalized.parentKey ?? null,
+        description: normalized.description ?? "",
+        thumbnailPath: normalized.thumbnailPath ?? "",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      await database.execute(
+        insertSql,
+        valuesForColumns(record, MANAGED_CATEGORY_COLUMNS),
+      );
+      return record;
+    },
+
+    async getByKey(key) {
+      const row = await database.queryOne<SqliteRow>(
+        "SELECT * FROM managedCategories WHERE key = ?",
+        [key],
+      );
+
+      return row ? mapManagedCategoryRow(row) : null;
+    },
+
+    async getByName(name) {
+      const row = await database.queryOne<SqliteRow>(
+        "SELECT * FROM managedCategories WHERE lower(name) = lower(?)",
+        [name.trim()],
+      );
+
+      return row ? mapManagedCategoryRow(row) : null;
+    },
+
+    list: listCategories,
+
+    async update(key, patch: ManagedCategoryPatch) {
+      const current = await this.getByKey(key);
+      if (!current) {
+        throw new RepositoryRecordNotFoundError(key);
+      }
+
+      const existingCategories = await listCategories();
+      const merged = normalizeManagedCategoryInput(
+        applyManagedCategoryPatch(current, patch),
+      );
+      assertValid(validateManagedCategoryInput(merged, existingCategories, key));
+
+      const updated: ManagedCategory = {
+        ...current,
+        ...merged,
+        key: current.key,
+        createdAt: current.createdAt,
+        updatedAt: now(),
+      };
+
+      await database.execute(
+        `UPDATE managedCategories SET ${setList} WHERE key = ?`,
+        [...valuesForColumns(updated, updateColumns), key],
+      );
+
+      return updated;
+    },
+
+    async deleteIfUnused(key) {
+      const current = await this.getByKey(key);
+      if (!current) {
+        throw new RepositoryRecordNotFoundError(key);
+      }
+
+      const childCount = (
+        await database.queryAll<SqliteRow>(
+          "SELECT * FROM managedCategories WHERE parentKey = ?",
+          [key],
+        )
+      ).length;
+      if (childCount > 0) {
+        throw new RepositoryValidationError({
+          valid: false,
+          errors: [
+            {
+              field: "parentKey",
+              message: "Category cannot be deleted while it has child categories.",
+            },
+          ],
+        });
+      }
+
+      const [videos, images, performers] = await Promise.all([
+        listUsageRows("videos"),
+        listUsageRows("images"),
+        listUsageRows("performers"),
+      ]);
+      const usage = countManagedCategoryUsage(current.name, {
+        videos,
+        images,
+        performers,
+      });
+
+      if (usage.total > 0) {
+        throw new RepositoryValidationError({
+          valid: false,
+          errors: [
+            {
+              field: "categoriesJson",
+              message: "Category cannot be deleted while records use it.",
+            },
+          ],
+        });
+      }
+
+      await database.execute("DELETE FROM managedCategories WHERE key = ?", [key]);
+      return { key, deleted: true };
+    },
+
+    async count() {
+      const row = await database.queryOne<{ count: number }>(
+        "SELECT COUNT(*) as count FROM managedCategories",
+      );
+
+      return row?.count ?? 0;
+    },
+  };
+}
+
 export function createSqliteRepositories(
   database: SqliteDatabase,
   options: SqliteRepositoryFactoryOptions = {},
@@ -397,5 +590,6 @@ export function createSqliteRepositories(
     videos: createSqliteVideoRepository(database, options),
     images: createSqliteImageRepository(database, options),
     performers: createSqlitePerformerRepository(database, options),
+    managedCategories: createSqliteManagedCategoryRepository(database, options),
   };
 }

@@ -82,10 +82,25 @@ CREATE TABLE IF NOT EXISTS performers (
 );
 "#;
 
-const SCHEMA_SQL: [&str; 3] = [
+const CREATE_MANAGED_CATEGORIES_TABLE_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS managedCategories (
+  key TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  parentKey TEXT,
+  description TEXT NOT NULL DEFAULT '',
+  thumbnailPath TEXT NOT NULL DEFAULT '',
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL,
+  UNIQUE(name COLLATE NOCASE),
+  FOREIGN KEY(parentKey) REFERENCES managedCategories(key)
+);
+"#;
+
+const SCHEMA_SQL: [&str; 4] = [
     CREATE_VIDEOS_TABLE_SQL,
     CREATE_IMAGES_TABLE_SQL,
     CREATE_PERFORMERS_TABLE_SQL,
+    CREATE_MANAGED_CATEGORIES_TABLE_SQL,
 ];
 
 #[derive(Debug, Clone)]
@@ -408,7 +423,10 @@ mod tests {
             .collect::<rusqlite::Result<Vec<_>>>()
             .expect("table names");
 
-        assert_eq!(table_names, vec!["images", "performers", "videos"]);
+        assert_eq!(
+            table_names,
+            vec!["images", "managedCategories", "performers", "videos"]
+        );
 
         let _ = fs::remove_dir_all(app_data_dir);
     }

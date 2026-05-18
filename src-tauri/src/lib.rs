@@ -38,7 +38,12 @@ pub fn run() {
             commands::performer_list,
             commands::performer_get,
             commands::performer_update,
-            commands::performer_delete
+            commands::performer_delete,
+            commands::managed_category_create,
+            commands::managed_category_list,
+            commands::managed_category_get,
+            commands::managed_category_update,
+            commands::managed_category_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sakurava");
