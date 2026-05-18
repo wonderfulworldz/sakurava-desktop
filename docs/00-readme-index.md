@@ -62,6 +62,7 @@ Urutan acuan dokumen:
 36. `34-settings-page-v1-information-architecture.md` - rencana information architecture Settings Page V1 sebelum implementasi.
 37. `35-category-management-v1-audit-and-planning.md` - audit dan rencana Category Management V1 untuk Batch 30.1.
 38. `36-category-management-data-model-safety-plan.md` - rencana aman data model Category Management V1 untuk Batch 30.2.
+39. `37-v1-smoke-test-gap-audit-efficient-roadmap.md` - audit gap smoke test V1 dan roadmap efisien Batch 31.1 sampai 36.3.
 
 ## Current Post-MVP Reading Order
 
@@ -97,8 +98,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 28. `34-settings-page-v1-information-architecture.md`
 29. `35-category-management-v1-audit-and-planning.md`
 30. `36-category-management-data-model-safety-plan.md`
-31. `AGENT_CODE_HANDOFF.md`
-32. `WORKFLOW_GIT.md`
+31. `37-v1-smoke-test-gap-audit-efficient-roadmap.md`
+32. `AGENT_CODE_HANDOFF.md`
+33. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
