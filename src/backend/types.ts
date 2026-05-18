@@ -60,7 +60,18 @@ export interface Performer extends BaseCatalogRecord {
   pictorialsCount: number | null;
 }
 
+export interface ManagedCategory {
+  key: EntityId;
+  name: string;
+  parentKey: EntityId | null;
+  description: string;
+  thumbnailPath: string;
+  createdAt: IsoDateTimeString;
+  updatedAt: IsoDateTimeString;
+}
+
 type GeneratedFields = "id" | "createdAt" | "updatedAt";
+type ManagedCategoryGeneratedFields = "createdAt" | "updatedAt";
 
 export type NewVideo = Pick<Video, "title"> &
   Partial<Omit<Video, GeneratedFields | "title">>;
@@ -73,6 +84,12 @@ export type ImagePatch = Partial<NewImage>;
 export type NewPerformer = Pick<Performer, "name"> &
   Partial<Omit<Performer, GeneratedFields | "name">>;
 export type PerformerPatch = Partial<NewPerformer>;
+
+export type NewManagedCategory = Pick<ManagedCategory, "name"> &
+  Partial<Omit<ManagedCategory, ManagedCategoryGeneratedFields | "name">>;
+export type ManagedCategoryPatch = Partial<
+  Omit<ManagedCategory, ManagedCategoryGeneratedFields | "key">
+>;
 
 export interface ValidationError {
   field: string;

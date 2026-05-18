@@ -240,10 +240,11 @@ describe("App", () => {
     expect(screen.getByText("Images Category")).toBeInTheDocument();
     expect(screen.getByText("Performers Category")).toBeInTheDocument();
 
-    const classicCard = screen.getByRole("article", {
+    expect(
+      screen.queryByRole("article", {
       name: "Category Classic",
-    });
-    expect(within(classicCard).getByText("Record-only")).toBeInTheDocument();
+      }),
+    ).not.toBeInTheDocument();
 
     const unusedCard = screen.getByRole("article", {
       name: "Category Unused Local",
@@ -253,8 +254,8 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Categories search"), {
       target: { value: "classic" },
     });
-    expect(screen.getByRole("article", { name: "Category Classic" }))
-      .toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Category Classic" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Category Drama" }))
       .not.toBeInTheDocument();
 
@@ -2078,7 +2079,7 @@ describe("App", () => {
 
     expect(screen.getByText("Category A")).toBeInTheDocument();
     expect(screen.getByText("Category B")).toBeInTheDocument();
-    expect(screen.getAllByText("Record-only")).toHaveLength(2);
+    expect(screen.queryByText(/Record.only/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Category A" }));
 
@@ -3877,7 +3878,7 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(screen.getAllByText("Classic")).toHaveLength(1);
     expect(screen.getByText("Legacy")).toBeInTheDocument();
-    expect(screen.getAllByText("Record-only").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Record.only/)).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
 

@@ -31,6 +31,11 @@ describe("runtime command contracts", () => {
       "performer_get",
       "performer_update",
       "performer_delete",
+      "managed_category_create",
+      "managed_category_list",
+      "managed_category_get",
+      "managed_category_update",
+      "managed_category_delete",
     ]);
   });
 
@@ -227,6 +232,42 @@ describe("repository runtime command invoker", () => {
       id: "image-1",
       title: "Direct Image",
     });
+  });
+
+  it("routes managed category CRUD commands without touching record category storage", async () => {
+    const repositories = createInMemoryRepositories(() => "2026-05-11T00:00:00.000Z");
+    const invoker = createRepositoryRuntimeCommandInvoker(repositories);
+
+    const created = await invoker.invoke("managed_category_create", {
+      name: "Drama",
+      description: "Plain text",
+      thumbnailPath: "D:/thumbs/drama.jpg",
+      parentKey: null,
+    });
+
+    expect(created).toMatchObject({
+      name: "Drama",
+      parentKey: null,
+      description: "Plain text",
+      thumbnailPath: "D:/thumbs/drama.jpg",
+    });
+    expect(created.key).toMatch(/^cat-drama-/);
+    expect(await invoker.invoke("managed_category_list", undefined)).toEqual([
+      created,
+    ]);
+
+    const updated = await invoker.invoke("managed_category_update", {
+      key: created.key,
+      patch: { name: "Drama Updated", description: "Updated" },
+    });
+
+    expect(updated).toMatchObject({
+      key: created.key,
+      name: "Drama Updated",
+      description: "Updated",
+    });
+    expect(await invoker.invoke("managed_category_delete", { key: created.key }))
+      .toEqual({ key: created.key, deleted: true });
   });
 });
 

@@ -2,6 +2,9 @@ import type {
   EntityId,
   Image,
   ImagePatch,
+  ManagedCategory,
+  ManagedCategoryPatch,
+  NewManagedCategory,
   NewImage,
   NewPerformer,
   NewVideo,
@@ -29,10 +32,26 @@ export type PerformerRepository = CatalogRepository<
   PerformerPatch
 >;
 
+export type ManagedCategoryDeleteResult = {
+  key: EntityId;
+  deleted: true;
+};
+
+export interface ManagedCategoryRepository {
+  create(input: NewManagedCategory): Promise<ManagedCategory>;
+  getByKey(key: EntityId): Promise<ManagedCategory | null>;
+  getByName(name: string): Promise<ManagedCategory | null>;
+  list(): Promise<ManagedCategory[]>;
+  update(key: EntityId, patch: ManagedCategoryPatch): Promise<ManagedCategory>;
+  deleteIfUnused(key: EntityId): Promise<ManagedCategoryDeleteResult>;
+  count(): Promise<number>;
+}
+
 export interface SakuravaRepositories {
   videos: VideoRepository;
   images: ImageRepository;
   performers: PerformerRepository;
+  managedCategories: ManagedCategoryRepository;
 }
 
 export class RepositoryNotConnectedError extends Error {
@@ -80,5 +99,22 @@ export function createRepositorySkeletons(): SakuravaRepositories {
     performers: createDisconnectedRepository<Performer, NewPerformer, PerformerPatch>(
       "performers",
     ),
+    managedCategories: createDisconnectedManagedCategoryRepository(),
+  };
+}
+
+function createDisconnectedManagedCategoryRepository(): ManagedCategoryRepository {
+  const fail = async () => {
+    throw new RepositoryNotConnectedError("managedCategories");
+  };
+
+  return {
+    create: fail,
+    getByKey: fail,
+    getByName: fail,
+    list: fail,
+    update: fail,
+    deleteIfUnused: fail,
+    count: fail,
   };
 }

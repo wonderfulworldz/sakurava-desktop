@@ -7,6 +7,7 @@ import type { SqliteDatabase, SqliteValue } from "./database";
 import { initializeSakuravaSchema } from "./database";
 import {
   createSqliteImageRepository,
+  createSqliteManagedCategoryRepository,
   createSqlitePerformerRepository,
   createSqliteRepositories,
   createSqliteVideoRepository,
@@ -47,12 +48,12 @@ class FakeSqliteDatabase implements SqliteDatabase {
     const trimmed = sql.trim();
 
     if (trimmed.startsWith("SELECT COUNT(*)")) {
-      const tableName = this.matchTable(trimmed, /FROM ([a-z]+)/);
+      const tableName = this.matchTable(trimmed, /FROM ([A-Za-z_]+)/);
       return { count: this.table(tableName).size } as TRecord;
     }
 
     if (trimmed.startsWith("SELECT *")) {
-      const tableName = this.matchTable(trimmed, /FROM ([a-z]+)/);
+      const tableName = this.matchTable(trimmed, /FROM ([A-Za-z_]+)/);
       const id = String(params[0]);
       const row = this.table(tableName).get(id);
       return row ? (structuredClone(row) as TRecord) : null;
@@ -63,7 +64,14 @@ class FakeSqliteDatabase implements SqliteDatabase {
 
   async queryAll<TRecord>(sql: string, params: readonly SqliteValue[] = []) {
     this.executed.push({ sql, params });
-    const tableName = this.matchTable(sql.trim(), /FROM ([a-z]+)/);
+    const trimmed = sql.trim();
+    const tableName = this.matchTable(trimmed, /FROM ([A-Za-z_]+)/);
+
+    if (trimmed.includes("WHERE parentKey = ?")) {
+      return Array.from(this.table(tableName).values())
+        .filter((row) => row.parentKey === params[0])
+        .map((row) => structuredClone(row) as TRecord);
+    }
 
     return Array.from(this.table(tableName).values())
       .sort((first, second) =>
@@ -73,19 +81,19 @@ class FakeSqliteDatabase implements SqliteDatabase {
   }
 
   private insert(sql: string, params: readonly SqliteValue[]) {
-    const tableName = this.matchTable(sql, /INSERT INTO ([a-z]+)/);
+    const tableName = this.matchTable(sql, /INSERT INTO ([A-Za-z_]+)/);
     const columns = this.matchColumns(sql);
     const row = Object.fromEntries(
       columns.map((column, index) => [column, params[index] ?? null]),
     );
 
-    this.table(tableName).set(String(row.id), row);
+    this.table(tableName).set(String(row.id ?? row.key), row);
   }
 
   private update(sql: string, params: readonly SqliteValue[]) {
-    const tableName = this.matchTable(sql, /UPDATE ([a-z]+)/);
-    const id = String(params[params.length - 1]);
-    const existing = this.table(tableName).get(id);
+    const tableName = this.matchTable(sql, /UPDATE ([A-Za-z_]+)/);
+    const key = String(params[params.length - 1]);
+    const existing = this.table(tableName).get(key);
 
     if (!existing) {
       return;
@@ -102,7 +110,7 @@ class FakeSqliteDatabase implements SqliteDatabase {
   }
 
   private delete(sql: string, params: readonly SqliteValue[]) {
-    const tableName = this.matchTable(sql, /DELETE FROM ([a-z]+)/);
+    const tableName = this.matchTable(sql, /DELETE FROM ([A-Za-z_]+)/);
     this.table(tableName).delete(String(params[0]));
   }
 
@@ -353,6 +361,106 @@ describe("SQLite repository adapter foundation", () => {
     );
     await expect(repository.update("missing-id", { title: "Nope" })).rejects.toThrow(
       RepositoryRecordNotFoundError,
+    );
+  });
+
+  it("persists managed category metadata and blocks unsafe delete", async () => {
+    const database = new FakeSqliteDatabase();
+    const repositories = createSqliteRepositories(database, {
+      idFactory: sequence(["video-id"]),
+      now: sequence([
+        "2026-05-11T05:00:00.000Z",
+        "2026-05-11T05:01:00.000Z",
+        "2026-05-11T05:02:00.000Z",
+      ]),
+    });
+    const repository = repositories.managedCategories;
+
+    const parent = await repository.create({
+      name: "Drama",
+      description: "Plain text",
+      thumbnailPath: "D:/thumbs/drama.jpg",
+    });
+    const child = await repository.create({
+      name: "Modern Drama",
+      parentKey: parent.key,
+    });
+
+    expect(parent).toMatchObject({
+      key: expect.stringMatching(/^cat-drama-/),
+      name: "Drama",
+      parentKey: null,
+      description: "Plain text",
+      thumbnailPath: "D:/thumbs/drama.jpg",
+    });
+    expect(child.parentKey).toBe(parent.key);
+
+    await expect(repository.deleteIfUnused(parent.key)).rejects.toThrow(
+      RepositoryValidationError,
+    );
+
+    await repository.deleteIfUnused(child.key);
+    const updated = await repository.update(parent.key, {
+      description: "Updated",
+      thumbnailPath: "",
+    });
+
+    expect(updated).toMatchObject({
+      key: parent.key,
+      name: "Drama",
+      description: "Updated",
+      thumbnailPath: "",
+      updatedAt: "2026-05-11T05:02:00.000Z",
+    });
+  });
+
+  it("enforces one-level managed category hierarchy", async () => {
+    const repository = createSqliteManagedCategoryRepository(
+      new FakeSqliteDatabase(),
+      {
+        now: sequence([
+          "2026-05-11T05:10:00.000Z",
+          "2026-05-11T05:11:00.000Z",
+        ]),
+      },
+    );
+
+    const parent = await repository.create({ name: "Parent" });
+    const child = await repository.create({
+      name: "Child",
+      parentKey: parent.key,
+    });
+
+    await expect(
+      repository.create({
+        name: "Sub Child",
+        parentKey: child.key,
+      }),
+    ).rejects.toThrow(RepositoryValidationError);
+
+    await expect(
+      repository.update(parent.key, { parentKey: child.key }),
+    ).rejects.toThrow(RepositoryValidationError);
+  });
+
+  it("blocks managed category delete while records use the category label", async () => {
+    const database = new FakeSqliteDatabase();
+    const videoRepository = createSqliteVideoRepository(database, {
+      idFactory: sequence(["video-id"]),
+      now: sequence(["2026-05-11T06:00:00.000Z"]),
+    });
+    const categoryRepository = createSqliteManagedCategoryRepository(database, {
+      now: sequence(["2026-05-11T06:01:00.000Z"]),
+    });
+
+    await videoRepository.create({
+      title: "Drama Video",
+      categoriesJson: '["drama"]',
+    });
+    const category = await categoryRepository.create({ name: "Drama" });
+
+    await expect(categoryRepository.deleteIfUnused(category.key)).rejects.toThrow(
+      RepositoryValidationError,
     );
   });
 });

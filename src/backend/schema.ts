@@ -71,10 +71,30 @@ CREATE TABLE IF NOT EXISTS performers (
 );
 `;
 
+export const CREATE_MANAGED_CATEGORIES_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS managedCategories (
+  key TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  parentKey TEXT,
+  description TEXT NOT NULL DEFAULT '',
+  thumbnailPath TEXT NOT NULL DEFAULT '',
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL,
+  UNIQUE(name COLLATE NOCASE),
+  FOREIGN KEY(parentKey) REFERENCES managedCategories(key)
+);
+`;
+
 export const SCHEMA_SQL = [
   CREATE_VIDEOS_TABLE_SQL,
   CREATE_IMAGES_TABLE_SQL,
   CREATE_PERFORMERS_TABLE_SQL,
+  CREATE_MANAGED_CATEGORIES_TABLE_SQL,
 ] as const;
 
-export const TABLE_NAMES = ["videos", "images", "performers"] as const;
+export const TABLE_NAMES = [
+  "videos",
+  "images",
+  "performers",
+  "managedCategories",
+] as const;

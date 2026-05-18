@@ -7,9 +7,15 @@ describe("repository foundation", () => {
   it("creates isolated repositories for each entity", () => {
     const repositories = createRepositorySkeletons();
 
-    expect(Object.keys(repositories)).toEqual(["videos", "images", "performers"]);
+    expect(Object.keys(repositories)).toEqual([
+      "videos",
+      "images",
+      "performers",
+      "managedCategories",
+    ]);
     expect(repositories.videos).not.toBe(repositories.images);
     expect(repositories.images).not.toBe(repositories.performers);
+    expect(repositories.performers).not.toBe(repositories.managedCategories);
   });
 
   it("fails explicitly until a SQLite adapter is connected", async () => {
@@ -23,6 +29,9 @@ describe("repository foundation", () => {
     );
     await expect(repositories.performers.getById("sample-id")).rejects.toThrow(
       "performers repository is not connected to SQLite yet.",
+    );
+    await expect(repositories.managedCategories.list()).rejects.toThrow(
+      "managedCategories repository is not connected to SQLite yet.",
     );
   });
 });

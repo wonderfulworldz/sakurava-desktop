@@ -3,6 +3,9 @@ import type {
   EntityId,
   Image,
   ImagePatch,
+  ManagedCategory,
+  ManagedCategoryPatch,
+  NewManagedCategory,
   NewImage,
   NewPerformer,
   NewVideo,
@@ -28,6 +31,11 @@ export const RUNTIME_COMMAND_NAMES = [
   "performer_get",
   "performer_update",
   "performer_delete",
+  "managed_category_create",
+  "managed_category_list",
+  "managed_category_get",
+  "managed_category_update",
+  "managed_category_delete",
 ] as const;
 
 export type RuntimeCommandName = (typeof RUNTIME_COMMAND_NAMES)[number];
@@ -52,6 +60,19 @@ export interface DeleteResult extends IdPayload {
   deleted: true;
 }
 
+export interface ManagedCategoryKeyPayload {
+  key: EntityId;
+}
+
+export interface ManagedCategoryUpdatePayload extends ManagedCategoryKeyPayload {
+  patch: ManagedCategoryPatch;
+}
+
+export interface ManagedCategoryRuntimeDeleteResult
+  extends ManagedCategoryKeyPayload {
+  deleted: true;
+}
+
 export interface RuntimeCommandContracts {
   video_create: { payload: NewVideo; result: Video };
   video_list: { payload: undefined; result: Video[] };
@@ -68,6 +89,23 @@ export interface RuntimeCommandContracts {
   performer_get: { payload: IdPayload; result: Performer | null };
   performer_update: { payload: PerformerUpdatePayload; result: Performer };
   performer_delete: { payload: IdPayload; result: DeleteResult };
+  managed_category_create: {
+    payload: NewManagedCategory;
+    result: ManagedCategory;
+  };
+  managed_category_list: { payload: undefined; result: ManagedCategory[] };
+  managed_category_get: {
+    payload: ManagedCategoryKeyPayload;
+    result: ManagedCategory | null;
+  };
+  managed_category_update: {
+    payload: ManagedCategoryUpdatePayload;
+    result: ManagedCategory;
+  };
+  managed_category_delete: {
+    payload: ManagedCategoryKeyPayload;
+    result: ManagedCategoryRuntimeDeleteResult;
+  };
 }
 
 export type RuntimeCommandPayload<TName extends RuntimeCommandName> =
@@ -193,6 +231,29 @@ export async function executeRepositoryRuntimeCommand<
         id: (payload as IdPayload).id,
         deleted: true,
       } as RuntimeCommandResult<TName>;
+    case "managed_category_create":
+      return repositories.managedCategories.create(
+        payload as NewManagedCategory,
+      ) as Promise<RuntimeCommandResult<TName>>;
+    case "managed_category_list":
+      return repositories.managedCategories.list() as Promise<
+        RuntimeCommandResult<TName>
+      >;
+    case "managed_category_get":
+      return repositories.managedCategories.getByKey(
+        (payload as ManagedCategoryKeyPayload).key,
+      ) as Promise<RuntimeCommandResult<TName>>;
+    case "managed_category_update": {
+      const updatePayload = payload as ManagedCategoryUpdatePayload;
+      return repositories.managedCategories.update(
+        updatePayload.key,
+        updatePayload.patch,
+      ) as Promise<RuntimeCommandResult<TName>>;
+    }
+    case "managed_category_delete":
+      return repositories.managedCategories.deleteIfUnused(
+        (payload as ManagedCategoryKeyPayload).key,
+      ) as Promise<RuntimeCommandResult<TName>>;
     default:
       throw new UnknownRuntimeCommandError(command);
   }

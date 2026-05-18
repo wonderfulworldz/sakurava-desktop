@@ -5,14 +5,24 @@ import {
 import type {
   CatalogRepository,
   ImageRepository,
+  ManagedCategoryRepository,
   PerformerRepository,
   SakuravaRepositories,
   VideoRepository,
 } from "../repositories";
+import {
+  applyManagedCategoryPatch,
+  countManagedCategoryUsage,
+  normalizeManagedCategoryInput,
+  validateManagedCategoryInput,
+} from "../managedCategoryModel";
 import type {
   EntityId,
   Image,
   ImagePatch,
+  ManagedCategory,
+  ManagedCategoryPatch,
+  NewManagedCategory,
   NewImage,
   NewPerformer,
   NewVideo,
@@ -180,10 +190,140 @@ export function createInMemoryPerformerRepository(
   });
 }
 
-export function createInMemoryRepositories(now?: () => string): SakuravaRepositories {
+export function createInMemoryManagedCategoryRepository(
+  repositories: {
+    videos: VideoRepository;
+    images: ImageRepository;
+    performers: PerformerRepository;
+  },
+  now: () => string = () => new Date().toISOString(),
+): ManagedCategoryRepository {
+  const records = new Map<EntityId, ManagedCategory>();
+
+  async function list() {
+    return Array.from(records.values(), clone).sort((first, second) =>
+      first.name.localeCompare(second.name),
+    );
+  }
+
   return {
-    videos: createInMemoryVideoRepository(now),
-    images: createInMemoryImageRepository(now),
-    performers: createInMemoryPerformerRepository(now),
+    async create(input: NewManagedCategory) {
+      const existing = await list();
+      const normalized = normalizeManagedCategoryInput(input);
+      assertValid(validateManagedCategoryInput(normalized, existing));
+      const timestamp = now();
+      const record: ManagedCategory = {
+        key: normalized.key ?? "",
+        name: normalized.name,
+        parentKey: normalized.parentKey ?? null,
+        description: normalized.description ?? "",
+        thumbnailPath: normalized.thumbnailPath ?? "",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      records.set(record.key, clone(record));
+      return clone(record);
+    },
+
+    async getByKey(key) {
+      const record = records.get(key);
+      return record ? clone(record) : null;
+    },
+
+    async getByName(name) {
+      const key = name.trim().toLowerCase();
+      return (
+        (await list()).find(
+          (category) => category.name.trim().toLowerCase() === key,
+        ) ?? null
+      );
+    },
+
+    list,
+
+    async update(key, patch: ManagedCategoryPatch) {
+      const current = records.get(key);
+      if (!current) {
+        throw new RepositoryRecordNotFoundError(key);
+      }
+
+      const existing = await list();
+      const merged = normalizeManagedCategoryInput(
+        applyManagedCategoryPatch(current, patch),
+      );
+      assertValid(validateManagedCategoryInput(merged, existing, key));
+
+      const updated: ManagedCategory = {
+        ...current,
+        ...merged,
+        key: current.key,
+        createdAt: current.createdAt,
+        updatedAt: now(),
+      };
+
+      records.set(key, clone(updated));
+      return clone(updated);
+    },
+
+    async deleteIfUnused(key) {
+      const current = records.get(key);
+      if (!current) {
+        throw new RepositoryRecordNotFoundError(key);
+      }
+
+      if ((await list()).some((category) => category.parentKey === key)) {
+        throw new RepositoryValidationError({
+          valid: false,
+          errors: [
+            {
+              field: "parentKey",
+              message: "Category cannot be deleted while it has child categories.",
+            },
+          ],
+        });
+      }
+
+      const usage = countManagedCategoryUsage(current.name, {
+        videos: await repositories.videos.list(),
+        images: await repositories.images.list(),
+        performers: await repositories.performers.list(),
+      });
+
+      if (usage.total > 0) {
+        throw new RepositoryValidationError({
+          valid: false,
+          errors: [
+            {
+              field: "categoriesJson",
+              message: "Category cannot be deleted while records use it.",
+            },
+          ],
+        });
+      }
+
+      records.delete(key);
+      return { key, deleted: true };
+    },
+
+    async count() {
+      return records.size;
+    },
+  };
+}
+
+export function createInMemoryRepositories(now?: () => string): SakuravaRepositories {
+  const videos = createInMemoryVideoRepository(now);
+  const images = createInMemoryImageRepository(now);
+  const performers = createInMemoryPerformerRepository(now);
+
+  return {
+    videos,
+    images,
+    performers,
+    managedCategories: createInMemoryManagedCategoryRepository(
+      { videos, images, performers },
+      now,
+    ),
   };
 }

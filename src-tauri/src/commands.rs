@@ -216,6 +216,44 @@ pub struct DeleteResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct ManagedCategory {
+    pub key: String,
+    pub name: String,
+    pub parent_key: Option<String>,
+    pub description: String,
+    pub thumbnail_path: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedCategoryInput {
+    pub key: Option<String>,
+    pub name: String,
+    pub parent_key: Option<String>,
+    pub description: Option<String>,
+    pub thumbnail_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedCategoryPatch {
+    pub name: Option<String>,
+    pub parent_key: Option<Option<String>>,
+    pub description: Option<String>,
+    pub thumbnail_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedCategoryDeleteResult {
+    pub key: String,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct MediaAssetRootResult {
     pub root_path: String,
     pub success: bool,
@@ -410,6 +448,54 @@ pub fn performer_delete(
 ) -> Result<DeleteResult, String> {
     with_connection(&database, |connection| {
         delete_row(connection, "performers", id)
+    })
+}
+
+#[tauri::command]
+pub fn managed_category_create(
+    database: State<'_, RuntimeDatabase>,
+    input: ManagedCategoryInput,
+) -> Result<ManagedCategory, String> {
+    with_connection(&database, |connection| {
+        create_managed_category(connection, input)
+    })
+}
+
+#[tauri::command]
+pub fn managed_category_list(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<Vec<ManagedCategory>, String> {
+    with_connection(&database, list_managed_categories)
+}
+
+#[tauri::command]
+pub fn managed_category_get(
+    database: State<'_, RuntimeDatabase>,
+    key: String,
+) -> Result<Option<ManagedCategory>, String> {
+    with_connection(&database, |connection| {
+        get_managed_category(connection, &key)
+    })
+}
+
+#[tauri::command]
+pub fn managed_category_update(
+    database: State<'_, RuntimeDatabase>,
+    key: String,
+    patch: ManagedCategoryPatch,
+) -> Result<Option<ManagedCategory>, String> {
+    with_connection(&database, |connection| {
+        update_managed_category(connection, &key, patch)
+    })
+}
+
+#[tauri::command]
+pub fn managed_category_delete(
+    database: State<'_, RuntimeDatabase>,
+    key: String,
+) -> Result<ManagedCategoryDeleteResult, String> {
+    with_connection(&database, |connection| {
+        delete_managed_category_if_unused(connection, key)
     })
 }
 
@@ -923,6 +1009,159 @@ fn update_performer(
     get_performer(connection, id)
 }
 
+fn create_managed_category(
+    connection: &Connection,
+    input: ManagedCategoryInput,
+) -> Result<ManagedCategory, String> {
+    let name = require_text(input.name, "Category name is required")?;
+    ensure_unique_managed_category_name(connection, &name, None)?;
+    let parent_key = normalize_parent_key(input.parent_key);
+    if let Some(parent_key) = &parent_key {
+        validate_managed_category_parent(connection, "", Some(parent_key))?;
+    }
+
+    let timestamp = current_timestamp();
+    let category = ManagedCategory {
+        key: input
+            .key
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| build_managed_category_key(&name)),
+        name,
+        parent_key,
+        description: default_text(input.description)
+            .chars()
+            .take(500)
+            .collect::<String>(),
+        thumbnail_path: default_text(input.thumbnail_path),
+        created_at: timestamp.clone(),
+        updated_at: timestamp,
+    };
+
+    connection
+        .execute(
+            "INSERT INTO managedCategories (
+                key, name, parentKey, description, thumbnailPath, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                category.key,
+                category.name,
+                category.parent_key,
+                category.description,
+                category.thumbnail_path,
+                category.created_at,
+                category.updated_at
+            ],
+        )
+        .map_err(database_error)?;
+
+    get_managed_category(connection, &category.key)?
+        .ok_or_else(|| "Created category could not be read".to_string())
+}
+
+fn list_managed_categories(connection: &Connection) -> Result<Vec<ManagedCategory>, String> {
+    let mut statement = connection
+        .prepare("SELECT * FROM managedCategories ORDER BY name COLLATE NOCASE ASC")
+        .map_err(database_error)?;
+    let rows = statement
+        .query_map([], managed_category_from_row)
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+    Ok(rows)
+}
+
+fn get_managed_category(
+    connection: &Connection,
+    key: &str,
+) -> Result<Option<ManagedCategory>, String> {
+    connection
+        .query_row(
+            "SELECT * FROM managedCategories WHERE key = ?1",
+            [key],
+            managed_category_from_row,
+        )
+        .optional()
+        .map_err(database_error)
+}
+
+fn update_managed_category(
+    connection: &Connection,
+    key: &str,
+    patch: ManagedCategoryPatch,
+) -> Result<Option<ManagedCategory>, String> {
+    let Some(mut category) = get_managed_category(connection, key)? else {
+        return Ok(None);
+    };
+
+    if let Some(name) = patch.name {
+        category.name = require_text(name, "Category name is required")?;
+    }
+    ensure_unique_managed_category_name(connection, &category.name, Some(key))?;
+
+    if let Some(parent_key) = patch.parent_key {
+        category.parent_key = normalize_parent_key(parent_key);
+    }
+    validate_managed_category_parent(connection, key, category.parent_key.as_deref())?;
+
+    if let Some(description) = patch.description {
+        category.description = description.trim().chars().take(500).collect();
+    }
+    if let Some(thumbnail_path) = patch.thumbnail_path {
+        category.thumbnail_path = thumbnail_path.trim().to_string();
+    }
+    category.updated_at = current_timestamp();
+
+    connection
+        .execute(
+            "UPDATE managedCategories SET
+                name = ?1, parentKey = ?2, description = ?3, thumbnailPath = ?4, updatedAt = ?5
+             WHERE key = ?6",
+            params![
+                category.name,
+                category.parent_key,
+                category.description,
+                category.thumbnail_path,
+                category.updated_at,
+                key
+            ],
+        )
+        .map_err(database_error)?;
+
+    get_managed_category(connection, key)
+}
+
+fn delete_managed_category_if_unused(
+    connection: &Connection,
+    key: String,
+) -> Result<ManagedCategoryDeleteResult, String> {
+    let Some(category) = get_managed_category(connection, &key)? else {
+        return Err("Managed category was not found".to_string());
+    };
+
+    let child_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM managedCategories WHERE parentKey = ?1",
+            [&key],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if child_count > 0 {
+        return Err("Category cannot be deleted while it has child categories.".to_string());
+    }
+
+    if category_usage_count(connection, &category.name)? > 0 {
+        return Err("Category cannot be deleted while records use it.".to_string());
+    }
+
+    let deleted = connection
+        .execute("DELETE FROM managedCategories WHERE key = ?1", [&key])
+        .map_err(database_error)?
+        > 0;
+
+    Ok(ManagedCategoryDeleteResult { key, deleted })
+}
+
 fn delete_row(
     connection: &Connection,
     table_name: &str,
@@ -1160,12 +1399,199 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
     })
 }
 
+fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ManagedCategory> {
+    Ok(ManagedCategory {
+        key: row.get("key")?,
+        name: row.get("name")?,
+        parent_key: row.get("parentKey")?,
+        description: row.get("description")?,
+        thumbnail_path: row.get("thumbnailPath")?,
+        created_at: row.get("createdAt")?,
+        updated_at: row.get("updatedAt")?,
+    })
+}
+
 fn require_text(value: String, message: &str) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return Err(message.to_string());
     }
     Ok(trimmed.to_string())
+}
+
+fn normalize_parent_key(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn ensure_unique_managed_category_name(
+    connection: &Connection,
+    name: &str,
+    current_key: Option<&str>,
+) -> Result<(), String> {
+    let existing: Option<String> = connection
+        .query_row(
+            "SELECT key FROM managedCategories WHERE lower(name) = lower(?1)",
+            [name],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(database_error)?;
+
+    if let Some(existing_key) = existing {
+        if current_key != Some(existing_key.as_str()) {
+            return Err("That category name already exists.".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_managed_category_parent(
+    connection: &Connection,
+    key: &str,
+    parent_key: Option<&str>,
+) -> Result<(), String> {
+    let Some(parent_key) = parent_key else {
+        return Ok(());
+    };
+
+    if !key.is_empty() && parent_key == key {
+        return Err("A category cannot be its own parent.".to_string());
+    }
+
+    let parent = get_managed_category(connection, parent_key)?
+        .ok_or_else(|| "Parent category could not be found.".to_string())?;
+    if parent.parent_key.is_some() {
+        return Err("Only categories with No Parent can be selected as a parent.".to_string());
+    }
+
+    if !key.is_empty() && managed_category_child_count(connection, key)? > 0 {
+        return Err("A category with child categories must stay at No Parent.".to_string());
+    }
+
+    let mut next_parent_key = Some(parent_key.to_string());
+    let mut visited: Vec<String> = Vec::new();
+
+    while let Some(parent) = next_parent_key {
+        if parent == key || visited.iter().any(|item| item == &parent) {
+            return Err("Parent category would create a circular hierarchy.".to_string());
+        }
+        visited.push(parent.clone());
+        next_parent_key = connection
+            .query_row(
+                "SELECT parentKey FROM managedCategories WHERE key = ?1",
+                [&parent],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(database_error)?
+            .flatten();
+    }
+
+    Ok(())
+}
+
+fn managed_category_child_count(connection: &Connection, key: &str) -> Result<i64, String> {
+    connection
+        .query_row(
+            "SELECT COUNT(*) FROM managedCategories WHERE parentKey = ?1",
+            [key],
+            |row| row.get(0),
+        )
+        .map_err(database_error)
+}
+
+fn category_usage_count(connection: &Connection, category_name: &str) -> Result<i64, String> {
+    let target = category_name.trim().to_lowercase();
+    let mut total = 0;
+
+    for table_name in ["videos", "images", "performers"] {
+        let mut statement = connection
+            .prepare(&format!("SELECT categoriesJson FROM {table_name}"))
+            .map_err(database_error)?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(database_error)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(database_error)?;
+
+        for categories_json in rows {
+            if parse_text_label_array(&categories_json)
+                .iter()
+                .any(|label| label.trim().to_lowercase() == target)
+            {
+                total += 1;
+            }
+        }
+    }
+
+    Ok(total)
+}
+
+fn parse_text_label_array(value: &str) -> Vec<String> {
+    let parsed: Value = match serde_json::from_str(value) {
+        Ok(value) => value,
+        Err(_) => return Vec::new(),
+    };
+
+    parsed
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(|value| value.to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn build_managed_category_key(name: &str) -> String {
+    let slug = name
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    let slug = if slug.is_empty() {
+        "category".to_string()
+    } else {
+        slug
+    };
+
+    format!("cat-{slug}-{}", hash_text(name))
+}
+
+fn hash_text(value: &str) -> String {
+    let mut hash: u32 = 2166136261;
+    for byte in value.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(16777619);
+    }
+    base36(hash)
+}
+
+fn base36(mut value: u32) -> String {
+    const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    if value == 0 {
+        return "0".to_string();
+    }
+
+    let mut output = Vec::new();
+    while value > 0 {
+        output.push(DIGITS[(value % 36) as usize] as char);
+        value /= 36;
+    }
+    output.iter().rev().collect()
 }
 
 fn default_text(value: Option<String>) -> String {

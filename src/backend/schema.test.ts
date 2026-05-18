@@ -1,6 +1,7 @@
 import {
   APP_DATA_FOLDER_NAME,
   CREATE_IMAGES_TABLE_SQL,
+  CREATE_MANAGED_CATEGORIES_TABLE_SQL,
   CREATE_PERFORMERS_TABLE_SQL,
   CREATE_VIDEOS_TABLE_SQL,
   DATABASE_FILE_NAME,
@@ -14,9 +15,14 @@ describe("SQLite schema foundation", () => {
     expect(APP_DATA_FOLDER_NAME).toBe("app.sakurava.desktop");
   });
 
-  it("defines only the MVP entity tables", () => {
-    expect(TABLE_NAMES).toEqual(["videos", "images", "performers"]);
-    expect(SCHEMA_SQL).toHaveLength(3);
+  it("defines the catalog record tables plus managed category metadata", () => {
+    expect(TABLE_NAMES).toEqual([
+      "videos",
+      "images",
+      "performers",
+      "managedCategories",
+    ]);
+    expect(SCHEMA_SQL).toHaveLength(4);
   });
 
   it("defines the videos table with JSON text fields and no relation tables", () => {
@@ -81,7 +87,18 @@ describe("SQLite schema foundation", () => {
   it("does not define relational category or content tables", () => {
     const schemaText = SCHEMA_SQL.join("\n").toLowerCase();
 
-    expect(schemaText).not.toContain("create table if not exists categories");
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "CREATE TABLE IF NOT EXISTS managedCategories",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "key TEXT PRIMARY KEY NOT NULL",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "thumbnailPath TEXT NOT NULL DEFAULT ''",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "FOREIGN KEY(parentKey) REFERENCES managedCategories(key)",
+    );
     expect(schemaText).not.toContain("video_categories");
     expect(schemaText).not.toContain("image_categories");
     expect(schemaText).not.toContain("performer_categories");
