@@ -58,6 +58,7 @@ Urutan acuan dokumen:
 32. `30-detail-page-v1-layout-planning.md` - rencana Detail Page V1 untuk Video Detail, Image Detail, dan Performer Detail sebelum implementasi.
 33. `31-functional-spider-chart-rating-planning.md` - rencana Functional Spider Chart Rating sebelum implementasi.
 34. `32-tech-info-media-status-planning.md` - rencana Tech Info + Media Status sebelum implementasi.
+35. `33-form-field-ux-v1-planning.md` - rencana Form Field UX V1 sebelum implementasi.
 
 ## Current Post-MVP Reading Order
 
@@ -89,8 +90,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 24. `30-detail-page-v1-layout-planning.md`
 25. `31-functional-spider-chart-rating-planning.md`
 26. `32-tech-info-media-status-planning.md`
-27. `AGENT_CODE_HANDOFF.md`
-28. `WORKFLOW_GIT.md`
+27. `33-form-field-ux-v1-planning.md`
+28. `AGENT_CODE_HANDOFF.md`
+29. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

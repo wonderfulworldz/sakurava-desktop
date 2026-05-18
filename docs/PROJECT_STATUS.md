@@ -298,6 +298,12 @@ Image Detail Gallery Placement Adjustment expected checkpoint after merge:
 post-mvp-27-8-image-detail-gallery-placement-adjustment-v1
 ```
 
+Form Field UX V1 Planning expected checkpoint after merge:
+
+```text
+post-mvp-28-1-form-field-ux-v1-planning-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -382,6 +388,7 @@ Current app capabilities include:
 - Tech Info + Media Status implementation through Batch 27.6 after merge;
 - Related Cards on Detail Pages through Batch 27.7 after merge;
 - Image Detail Gallery placement adjustment through Batch 27.8 after merge;
+- Form Field UX V1 planning through Batch 28.1 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -413,6 +420,8 @@ For Batch 25.6, Image Detail gallery tiles open a low-bezel full-size viewer bac
 For Batch 25.7, Image Gallery QA/safety review confirms `galleryImagePathsJson` remains the source of truth, `folderPath` is not live scanned, `Browse Gallery Folder` remains a controlled direct-files-only input on Image Create/Edit, child folders are ignored, multi-image picker remains unimplemented, and no file mutation, thumbnail generation, watcher/live sync, broad scanner, or schema/database change is added.
 
 For Batch 27.8, Image Detail places `Gallery` directly below Hero and before Metadata, keeps Notes before Related sections, and keeps System Info last. The gallery now starts with 16 saved images and adds 16 per `Load More`, preserving saved `galleryImagePathsJson` paths only, full-size viewer behavior, and the no-folder-scan rule. Video Detail and Performer Detail section order remain unchanged.
+
+For Batch 28.1, Form Field UX V1 planning defines safer Video/Image/Performer Create/Edit form direction, Category Picker Field Redesign, Related Picker Field Redesign, file picker field rules, Image Gallery form field rules, rating field rules, metadata cleanup, validation/save safety, and the 28.2 through 28.7 implementation sequence. It preserves `categoriesJson`, related JSON storage, `galleryImagePathsJson`, `ratingJson`, SQLite persistence, and current save behavior.
 
 ## Recommended Next Phase
 
@@ -508,4 +517,16 @@ Recommended checkpoint after Batch 27.8:
 post-mvp-27-8-image-detail-gallery-placement-adjustment-v1
 ```
 
-Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, `docs/29-catalog-toolbar-v1-planning.md`, `docs/30-detail-page-v1-layout-planning.md`, `docs/31-functional-spider-chart-rating-planning.md`, and `docs/32-tech-info-media-status-planning.md` before changing code.
+Recommended checkpoint after Batch 28.1:
+
+```text
+post-mvp-28-1-form-field-ux-v1-planning-v1
+```
+
+Recommended next implementation batch after Batch 28.1:
+
+```text
+28.2 - Category Picker Field Redesign
+```
+
+Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, `docs/29-catalog-toolbar-v1-planning.md`, `docs/30-detail-page-v1-layout-planning.md`, `docs/31-functional-spider-chart-rating-planning.md`, `docs/32-tech-info-media-status-planning.md`, and `docs/33-form-field-ux-v1-planning.md` before changing code.
