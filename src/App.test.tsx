@@ -297,7 +297,7 @@ describe("App", () => {
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
     expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Updated");
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Added");
     expect(screen.queryByDisplayValue("Add category filter")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /filter/i }));
     expect(screen.getByText("Categories")).toBeInTheDocument();
@@ -324,30 +324,30 @@ describe("App", () => {
     {
       path: "/videos",
       panelName: "Videos filters",
-      planned: ["Quality", "Rating", "Year", "Duration"],
-      absent: ["Count", "Debut Year", "Status", "Favorite"],
+      filters: ["Quality", "Rating", "Year", "Duration"],
+      absent: ["Image Count", "Debut Year", "Status", "Filmography", "Pictorial"],
     },
     {
       path: "/images",
       panelName: "Images filters",
-      planned: ["Quality", "Rating", "Year", "Count"],
-      absent: ["Duration", "Debut Year", "Status", "Favorite"],
+      filters: ["Quality", "Rating", "Year", "Image Count"],
+      absent: ["Duration", "Debut Year", "Status", "Filmography", "Pictorial"],
     },
     {
       path: "/performers",
       panelName: "Performers filters",
-      planned: ["Rating", "Debut Year", "Status", "Favorite"],
-      absent: ["Quality", "Duration", "Count", "Year"],
+      filters: ["Status", "Rating", "Debut Year", "Filmography", "Pictorial"],
+      absent: ["Quality", "Duration", "Image Count", "Year"],
     },
   ])(
     "renders Catalog Toolbar V1 filter panel for $path",
-    ({ path, panelName, planned, absent }) => {
+    ({ path, panelName, filters, absent }) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       expect(screen.getByPlaceholderText(/Search .*\.{3}/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
-      expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Updated");
+      expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Added");
       expect(
         screen.getByRole("button", { name: "Switch to list view" }),
       ).toBeInTheDocument();
@@ -356,12 +356,17 @@ describe("App", () => {
       const panel = within(screen.getByRole("region", { name: panelName }));
 
       expect(panel.getByLabelText("Categories")).toBeInTheDocument();
-      for (const label of planned) {
-        expect(panel.getByText(label).closest("button")).toBeDisabled();
+      for (const label of filters) {
+        expect(panel.getByLabelText(label)).toBeInTheDocument();
       }
       for (const label of absent) {
         expect(panel.queryByText(label)).not.toBeInTheDocument();
       }
+      expect(
+        panel.queryByText(
+          "Data-dependent filters are unavailable until reliable fields or helpers exist.",
+        ),
+      ).not.toBeInTheDocument();
     },
   );
 
@@ -2639,7 +2644,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Zulu Video")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Updated");
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Added");
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
       heading.textContent,
     )).toEqual(["Zulu Video", "Alpha Video", "Beta Video"]);
@@ -2659,6 +2664,157 @@ describe("App", () => {
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
       heading.textContent,
     )).toEqual(["Zulu Video", "Alpha Video", "Beta Video"]);
+  });
+
+  it("filters Video Catalog by rating, year, and duration", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Long Rated Video",
+            releaseDate: "2026-05-11",
+            durationMinutes: 120,
+            ratingJson: '{"rewatch":4,"performance":4}',
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Short Low Video",
+            releaseDate: "1999-05-11",
+            durationMinutes: 10,
+            ratingJson: '{"rewatch":2}',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Long Rated Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    const panel = within(screen.getByRole("region", { name: "Videos filters" }));
+
+    fireEvent.change(panel.getByLabelText("Rating"), {
+      target: { value: "4 star" },
+    });
+    fireEvent.change(panel.getByLabelText("Year"), {
+      target: { value: "2025" },
+    });
+    fireEvent.change(panel.getByLabelText("Duration"), {
+      target: { value: "Long" },
+    });
+
+    expect(screen.getByText("Long Rated Video")).toBeInTheDocument();
+    expect(screen.queryByText("Short Low Video")).not.toBeInTheDocument();
+  });
+
+  it("filters Image Catalog by rating, year, and Image Count", async () => {
+    window.history.pushState({}, "", "/images");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_1",
+            title: "Some Rated Image",
+            releaseDate: "2024-03-15",
+            imageCount: 42,
+            ratingJson: '{"visual":5}',
+          }),
+          persistedImage({
+            id: "image_2",
+            title: "Large Older Image",
+            releaseDate: "1998-03-15",
+            imageCount: 120,
+            ratingJson: '{"visual":2}',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Some Rated Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    const panel = within(screen.getByRole("region", { name: "Images filters" }));
+
+    expect(panel.getByLabelText("Image Count")).toBeInTheDocument();
+    expect(panel.queryByLabelText("Duration")).not.toBeInTheDocument();
+    fireEvent.change(panel.getByLabelText("Rating"), {
+      target: { value: "5 star" },
+    });
+    fireEvent.change(panel.getByLabelText("Year"), {
+      target: { value: "2020" },
+    });
+    fireEvent.change(panel.getByLabelText("Image Count"), {
+      target: { value: "Some" },
+    });
+
+    expect(screen.getByText("Some Rated Image")).toBeInTheDocument();
+    expect(screen.queryByText("Large Older Image")).not.toBeInTheDocument();
+  });
+
+  it("filters Performer Catalog by status, rating, filmography, and pictorial counts", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_1",
+            name: "Active Rated Performer",
+            status: "Active",
+            filmographyCount: 20,
+            pictorialsCount: 120,
+            ratingJson: '{"visual":5}',
+          }),
+          persistedPerformer({
+            id: "performer_2",
+            name: "Retired Smaller Performer",
+            status: "Retired",
+            filmographyCount: 5,
+            pictorialsCount: 10,
+            ratingJson: '{"visual":2}',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Active Rated Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+
+    fireEvent.change(panel.getByLabelText("Status"), {
+      target: { value: "Active" },
+    });
+    fireEvent.change(panel.getByLabelText("Rating"), {
+      target: { value: "5 star" },
+    });
+    fireEvent.change(panel.getByLabelText("Filmography"), {
+      target: { value: "Some" },
+    });
+    fireEvent.change(panel.getByLabelText("Pictorial"), {
+      target: { value: "Many" },
+    });
+
+    expect(screen.getByText("Active Rated Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Retired Smaller Performer")).not.toBeInTheDocument();
   });
 
   it("slices collection cards by page size and navigates pages", async () => {
@@ -2804,6 +2960,71 @@ describe("App", () => {
     });
 
     expect(screen.getByText("No matching items")).toBeInTheDocument();
+  });
+
+  it("clears catalog search, category filters, and data filters without resetting sort or page size", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Alpha Archive",
+            categoriesJson: '["Category A"]',
+            durationMinutes: 120,
+            ratingJson: '{"rewatch":4}',
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Beta Clip",
+            categoriesJson: '["Category B"]',
+            durationMinutes: 10,
+            ratingJson: '{"rewatch":2}',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Alpha Archive")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "alpha" },
+    });
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+    fireEvent.change(screen.getByLabelText("Duration"), {
+      target: { value: "Long" },
+    });
+    fireEvent.change(screen.getByLabelText("Sorting"), {
+      target: { value: "Title A-Z" },
+    });
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "60" },
+    });
+
+    expect(screen.getByLabelText("Videos search")).toHaveValue("alpha");
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("60");
+    expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Clip")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+    expect(screen.getByLabelText("Videos search")).toHaveValue("");
+    expect(screen.getByLabelText("Duration")).toHaveDisplayValue("All durations");
+    expect(screen.queryByRole("button", { name: "Remove Category A" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("60");
+    expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
+    expect(screen.getByText("Beta Clip")).toBeInTheDocument();
   });
 
   it("applies category multi-filter with AND behavior and caps active filters", async () => {

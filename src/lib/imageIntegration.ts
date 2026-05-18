@@ -12,6 +12,7 @@ import {
 } from "../backend/json";
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
+import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, ImageDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
@@ -22,7 +23,7 @@ import type {
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
-import { getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -174,9 +175,14 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
     title: image.title,
     originalTitle: image.originalTitle,
     coverPath: image.coverPath,
+    createdAt: image.createdAt,
     updatedAt: image.updatedAt,
     code: image.code || "No code",
     imageCount: formatImageCount(image.imageCount),
+    imageCountValue: image.imageCount,
+    releaseYear: deriveReleaseYear(image.releaseDate),
+    ratingBucket: createRatingSummary(image.ratingJson, imageRatingFields).bucket,
+    quality: deriveQualityBucket(image),
     availability: image.availability || "Unspecified",
     censorship: image.censorship || "Unspecified",
     categories: parseTextLabelArray(image.categoriesJson),

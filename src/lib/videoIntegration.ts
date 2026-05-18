@@ -10,6 +10,7 @@ import {
 } from "../backend/json";
 import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
+import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, VideoDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
@@ -20,7 +21,7 @@ import type {
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
-import { getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -161,8 +162,13 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     title: video.title,
     originalTitle: video.originalTitle,
     coverPath: video.coverPath,
+    createdAt: video.createdAt,
     updatedAt: video.updatedAt,
     duration: formatDuration(video.durationMinutes),
+    durationMinutes: video.durationMinutes,
+    releaseYear: deriveReleaseYear(video.releaseDate),
+    ratingBucket: createRatingSummary(video.ratingJson, videoRatingFields).bucket,
+    quality: deriveQualityBucket(video),
     availability: video.availability || "Unspecified",
     censorship: video.censorship || "Unspecified",
     categories: parseTextLabelArray(video.categoriesJson),

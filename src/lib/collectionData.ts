@@ -6,21 +6,27 @@ type BaseCollectionItem = {
   originalTitle: string;
   coverPath?: string;
   favorite: boolean;
+  createdAt?: number | string | null;
   updatedAt?: number | string | null;
   availability?: string;
   censorship?: string;
+  releaseYear?: number | null;
+  ratingBucket?: number | null;
+  quality?: string | null;
   categories: string[];
 };
 
 export type VideoCollectionItem = BaseCollectionItem & {
   kind: "videos";
   duration: string;
+  durationMinutes?: number | null;
 };
 
 export type ImageCollectionItem = BaseCollectionItem & {
   kind: "images";
   code: string;
   imageCount: string;
+  imageCountValue?: number | null;
 };
 
 export type PerformerCollectionItem = {
@@ -30,10 +36,15 @@ export type PerformerCollectionItem = {
   originalName: string;
   coverPath?: string;
   favorite: boolean;
+  createdAt?: number | string | null;
   updatedAt?: number | string | null;
   status: string;
+  debutYear?: number | null;
+  ratingBucket?: number | null;
   filmographyCount: string;
+  filmographyCountValue?: number | null;
   pictorialsCount: string;
+  pictorialsCountValue?: number | null;
   categories: string[];
 };
 
@@ -171,7 +182,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Updated", "Title A-Z"],
+    sortOptions: ["Last Added", "Last Updated", "Title A-Z", "Release Year", "Rating", "Duration"],
     placeholderLabel: "Cover Placeholder",
     items: videoDurations.map((duration, index) => ({
       kind: "videos",
@@ -179,6 +190,9 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       title: "Sample Video Title",
       originalTitle: "Original Title Placeholder",
       duration,
+      durationMinutes: numberFromDisplayText(duration),
+      releaseYear: null,
+      ratingBucket: null,
       availability: "Owned",
       censorship: "Censored",
       categories,
@@ -196,7 +210,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Updated", "Title A-Z"],
+    sortOptions: ["Last Added", "Last Updated", "Title A-Z", "Release Year", "Rating", "Image Count"],
     placeholderLabel: "Image Placeholder",
     items: imageCounts.map((imageCount, index) => ({
       kind: "images",
@@ -205,6 +219,9 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       originalTitle: "Original Title Placeholder",
       code: `IMG-${String(index + 1).padStart(3, "0")}`,
       imageCount,
+      imageCountValue: numberFromDisplayText(imageCount),
+      releaseYear: null,
+      ratingBucket: null,
       availability: "Owned",
       censorship: "Censored",
       categories,
@@ -222,7 +239,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Updated", "Name A-Z"],
+    sortOptions: ["Last Added", "Last Updated", "Name A-Z", "Rating", "Status", "Filmography", "Pictorials"],
     placeholderLabel: "Profile Placeholder",
     items: performerStats.map(([status, filmographyCount, pictorialsCount], index) => ({
       kind: "performers",
@@ -230,10 +247,18 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       name: "Sample Performer Name",
       originalName: "Original Name Placeholder",
       status,
+      ratingBucket: null,
       filmographyCount,
+      filmographyCountValue: numberFromDisplayText(filmographyCount),
       pictorialsCount,
+      pictorialsCountValue: numberFromDisplayText(pictorialsCount),
       categories,
       favorite: index === 0 || index === 2 || index === 5 || index === 7,
     })),
   },
 };
+
+function numberFromDisplayText(value: string) {
+  const match = value.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
