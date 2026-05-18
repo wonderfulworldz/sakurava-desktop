@@ -231,7 +231,7 @@ function buildRelatedSections(
   images: Image[],
 ): DetailSection[] {
   return sections.map((section) =>
-    section.title === "Related Performer"
+    section.title.includes("Performer")
       ? {
           ...section,
           description: "Read-only Related Performer links saved on this record.",
@@ -240,7 +240,7 @@ function buildRelatedSections(
             performers,
           ),
         }
-      : section.title === "Related Images"
+      : section.title.includes("Image")
         ? {
             ...section,
             description: "Read-only Related Image links saved on this record.",
@@ -273,6 +273,9 @@ function buildRelatedPerformerItems(
           performer.originalName && performer.originalName !== name
             ? performer.originalName
             : undefined,
+        coverPath: performer.coverPath,
+        metadata: performer.status || undefined,
+        routeTo: `/performers/${performer.id}`,
         unresolved: false,
       };
     }
@@ -286,7 +289,7 @@ function buildRelatedPerformerItems(
 
 function buildRelatedCatalogItems(
   relatedCatalogJson: string | null | undefined,
-  records: Array<Pick<Image, "id" | "title" | "originalTitle">>,
+  records: Array<Pick<Image, "id" | "title" | "originalTitle" | "coverPath" | "imageCount" | "releaseDate">>,
   fallbackTitle: string,
 ) {
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -305,6 +308,10 @@ function buildRelatedCatalogItems(
           record.originalTitle && record.originalTitle !== title
             ? record.originalTitle
             : undefined,
+        coverPath: record.coverPath,
+        metadata: formatImageCount(record.imageCount),
+        releaseDate: record.releaseDate,
+        routeTo: `/images/${record.id}`,
         unresolved: false,
       };
     }
@@ -314,4 +321,12 @@ function buildRelatedCatalogItems(
       unresolved: true,
     };
   });
+}
+
+function formatImageCount(count: number | null) {
+  if (!count) {
+    return undefined;
+  }
+
+  return `${count} ${count === 1 ? "image" : "images"}`;
 }

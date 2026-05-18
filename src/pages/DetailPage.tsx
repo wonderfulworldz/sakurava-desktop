@@ -980,72 +980,97 @@ function RelatedRows({
   sections: DetailSection[];
 }) {
   return (
-    <section className="space-y-3">
+    <section className="grid gap-4">
       {sections.map((section) => (
-        <div
+        <section
           key={section.title}
-          className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-4"
+          className="rounded-lg border border-slate-200 bg-white p-5"
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-400">
-            {section.title.includes("Image") ? (
-              <ImageIcon size={17} />
-            ) : section.title.includes("Video") ? (
-              <Film size={17} />
-            ) : (
-              <UserRound size={17} />
-            )}
+          <div className="flex items-start justify-between gap-4">
+            <CardTitle title={section.title} icon={relatedSectionIcon(section.title)} />
           </div>
-          <p className="min-w-[150px] text-sm font-semibold text-slate-800">
-            {section.title}
-          </p>
+          <p className="mt-2 text-xs text-slate-500">{section.description}</p>
           {section.relatedPerformers ? (
             <RelatedPerformerSummary section={section} />
           ) : section.relatedCatalogRecords ? (
             <RelatedCatalogSummary section={section} />
           ) : (
-            <p className="text-sm text-slate-500">{section.description}</p>
+            <RelatedEmptyState title={section.title} />
           )}
-        </div>
+        </section>
       ))}
     </section>
   );
 }
 
+function relatedSectionIcon(title: string) {
+  if (title.includes("Image")) {
+    return ImageIcon;
+  }
+
+  if (title.includes("Video")) {
+    return Film;
+  }
+
+  return UserRound;
+}
+
 function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const relatedCatalogRecords = section.relatedCatalogRecords ?? [];
   const emptyText = section.title.includes("Image")
-    ? "No related Images saved."
-    : "No related Videos saved.";
+    ? "No related images saved."
+    : "No related videos saved.";
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [pageSize, setPageSize] = useState(6);
+  const [page, setPage] = useState(1);
+  const hasControls = section.controls === "performer-related";
 
   if (relatedCatalogRecords.length === 0) {
-    return <p className="text-sm text-slate-500">{emptyText}</p>;
+    return <RelatedEmptyState message={emptyText} title={section.title} />;
   }
 
+  const sortedRecords = hasControls
+    ? sortRelatedByReleaseDate(relatedCatalogRecords)
+    : relatedCatalogRecords;
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visibleRecords = hasControls
+    ? sortedRecords.slice((safePage - 1) * pageSize, safePage * pageSize)
+    : sortedRecords;
+
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-      {relatedCatalogRecords.map((record, index) => (
-        <span
-          key={`${record.title}-${index}`}
-          className={`inline-flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
-            record.unresolved
-              ? "border-amber-200 bg-amber-50 text-amber-700"
-              : "border-sakura-100 bg-sakura-50 text-sakura-600"
-          }`}
-        >
-          <span className="min-w-0 break-words">{record.title}</span>
-          {record.originalTitle && (
-            <span className="font-medium text-slate-500">
-              {record.originalTitle}
-            </span>
-          )}
-          {record.unresolved && (
-            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
-              Unresolved
-            </span>
-          )}
-        </span>
-      ))}
-    </div>
+    <>
+      {hasControls && (
+        <RelatedControls
+          page={safePage}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          viewMode={viewMode}
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
+          onViewModeChange={setViewMode}
+        />
+      )}
+      {viewMode === "table" && hasControls ? (
+        <RelatedCatalogTable
+          items={visibleRecords}
+          kind={section.title.includes("Image") ? "images" : "videos"}
+        />
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleRecords.map((record, index) => (
+            <RelatedCatalogCard
+              key={`${record.title}-${index}`}
+              item={record}
+              icon={section.title.includes("Image") ? ImageIcon : Film}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1053,33 +1078,328 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   const relatedPerformers = section.relatedPerformers ?? [];
 
   if (relatedPerformers.length === 0) {
-    return <p className="text-sm text-slate-500">No related Performers saved.</p>;
+    return (
+      <RelatedEmptyState
+        message="No related performers saved."
+        title={section.title}
+      />
+    );
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {relatedPerformers.map((performer, index) => (
-        <span
+        <RelatedPerformerCard
           key={`${performer.name}-${index}`}
-          className={`inline-flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
-            performer.unresolved
-              ? "border-amber-200 bg-amber-50 text-amber-700"
-              : "border-sakura-100 bg-sakura-50 text-sakura-600"
+          item={performer}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RelatedCatalogCard({
+  item,
+  icon,
+}: {
+  item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
+  icon: typeof Info;
+}) {
+  const content = (
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex min-w-0 gap-3">
+        <RelatedThumbnail
+          icon={icon}
+          label="Related item"
+          path={item.coverPath}
+        />
+        <div className="min-w-0 flex-1">
+          {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+          <p className="mt-2 break-words text-sm font-semibold text-slate-900">
+            {item.title}
+          </p>
+          {item.originalTitle && (
+            <p className="mt-1 break-words text-xs text-slate-500">
+              {item.originalTitle}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            {item.unresolved
+              ? "Related item unavailable"
+              : item.metadata || "Saved related item"}
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+
+  if (!item.routeTo || item.unresolved) {
+    return content;
+  }
+
+  return (
+    <Link
+      to={item.routeTo}
+      className="block rounded-lg transition hover:border-sakura-200 hover:shadow-sm"
+    >
+      {content}
+    </Link>
+  );
+}
+
+function RelatedPerformerCard({
+  item,
+}: {
+  item: NonNullable<DetailSection["relatedPerformers"]>[number];
+}) {
+  const content = (
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex min-w-0 gap-3">
+        <RelatedThumbnail
+          icon={UserRound}
+          label="Related performer"
+          path={item.coverPath}
+        />
+        <div className="min-w-0 flex-1">
+          {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+          <p className="mt-2 break-words text-sm font-semibold text-slate-900">
+            {item.name}
+          </p>
+          {item.originalName && (
+            <p className="mt-1 break-words text-xs text-slate-500">
+              {item.originalName}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            {item.unresolved
+              ? "Related item unavailable"
+              : item.metadata || "Saved related performer"}
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+
+  if (!item.routeTo || item.unresolved) {
+    return content;
+  }
+
+  return (
+    <Link
+      to={item.routeTo}
+      className="block rounded-lg transition hover:border-sakura-200 hover:shadow-sm"
+    >
+      {content}
+    </Link>
+  );
+}
+
+function RelatedControls({
+  page,
+  pageSize,
+  totalPages,
+  viewMode,
+  onPageChange,
+  onPageSizeChange,
+  onViewModeChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  viewMode: "grid" | "table";
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onViewModeChange: (viewMode: "grid" | "table") => void;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onViewModeChange("grid")}
+          className={`h-9 rounded-lg px-3 text-xs font-semibold ${
+            viewMode === "grid"
+              ? "bg-sakura-500 text-white"
+              : "border border-slate-200 bg-white text-slate-700"
           }`}
         >
-          <span className="min-w-0 break-words">{performer.name}</span>
-          {performer.originalName && (
-            <span className="font-medium text-slate-500">
-              {performer.originalName}
-            </span>
-          )}
-          {performer.unresolved && (
-            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-normal">
-              Unresolved
-            </span>
-          )}
+          Grid
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange("table")}
+          className={`h-9 rounded-lg px-3 text-xs font-semibold ${
+            viewMode === "table"
+              ? "bg-sakura-500 text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          Table
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-xs font-semibold text-slate-500">
+          Items
+          <select
+            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          >
+            {[6, 12, 24].map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span className="text-xs font-semibold text-slate-500">
+          {page} / {totalPages}
         </span>
-      ))}
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RelatedCatalogTable({
+  items,
+  kind,
+}: {
+  items: NonNullable<DetailSection["relatedCatalogRecords"]>;
+  kind: "videos" | "images";
+}) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
+          <tr>
+            <th className="px-4 py-3">Title</th>
+            <th className="px-4 py-3">Release Date</th>
+            <th className="px-4 py-3">
+              {kind === "images" ? "Total" : "Duration"}
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {items.map((item, index) => (
+            <tr key={`${item.title}-${index}`}>
+              <td className="px-4 py-3 font-semibold text-slate-900">
+                {item.routeTo && !item.unresolved ? (
+                  <Link to={item.routeTo} className="hover:text-sakura-600">
+                    {item.title}
+                  </Link>
+                ) : (
+                  item.title
+                )}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {item.releaseDate || "Not set"}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {item.metadata || "Not available"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function sortRelatedByReleaseDate(
+  items: NonNullable<DetailSection["relatedCatalogRecords"]>,
+) {
+  return items
+    .map((item, index) => ({ item, index, time: releaseDateTime(item.releaseDate) }))
+    .sort((a, b) => {
+      if (a.time !== b.time) {
+        return b.time - a.time;
+      }
+
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
+}
+
+function releaseDateTime(value: string | undefined) {
+  if (!value) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+function RelatedThumbnail({
+  icon: Icon,
+  label,
+  path,
+}: {
+  icon: typeof Info;
+  label: string;
+  path?: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const assetSrc = localImagePathToAssetSrc(path);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc, mediaAssetScopeReady]);
+
+  return (
+    <div
+      className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-slate-400"
+      aria-label={showImage ? undefined : label}
+    >
+      {showImage ? (
+        <img
+          src={assetSrc ?? undefined}
+          alt={label}
+          className="h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <Icon size={24} strokeWidth={1.7} />
+      )}
+    </div>
+  );
+}
+
+function RelatedEmptyState({
+  title,
+  message,
+}: {
+  title: string;
+  message?: string;
+}) {
+  const fallbackMessage =
+    message ??
+    (title.includes("Image")
+      ? "No related images saved."
+      : title.includes("Video")
+        ? "No related videos saved."
+        : "No related performers saved.");
+
+  return (
+    <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4">
+      <p className="text-sm font-medium text-slate-500">{fallbackMessage}</p>
     </div>
   );
 }

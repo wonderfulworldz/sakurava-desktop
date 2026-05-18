@@ -364,7 +364,7 @@ describe("App", () => {
         "Video Detail",
         "Morning Archive",
         "Rewatch",
-        "Related Performer",
+        "Related Performers",
         "Related Images",
         "Tech info is data-dependent and not available yet.",
       ],
@@ -376,8 +376,8 @@ describe("App", () => {
         "Image Detail",
         "City Light Set",
         "Memorability",
-        "Related Video",
-        "Related Performer",
+        "Related Videos",
+        "Related Performers",
         "Gallery tech info is data-dependent and not available yet.",
       ],
       true,
@@ -391,9 +391,9 @@ describe("App", () => {
         "Rating Summary",
         "Personal",
         "Physical",
-        "Related Video",
+        "Related Videos",
         "Related Images",
-        "Available after relation features are added.",
+        "No related videos saved.",
       ],
       false,
     ],
@@ -3951,6 +3951,10 @@ describe("App", () => {
     expect(await screen.findByText("Related Performer Video")).toBeInTheDocument();
     expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
     expect(screen.getByText("Sakura Aoi")).toBeInTheDocument();
+    const relatedCard = screen.getByText("Aoi Sakura").closest("article");
+    expect(relatedCard).not.toBeNull();
+    expect(within(relatedCard as HTMLElement).queryByText("Performer")).not.toBeInTheDocument();
+    expect(relatedCard?.parentElement).toHaveAttribute("href", "/performers/performer_aoi");
     expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "performer_update",
@@ -3988,7 +3992,8 @@ describe("App", () => {
     expect(await screen.findByText("Legacy Performer Image")).toBeInTheDocument();
     expect(screen.getByText("Former Performer")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Performer")).toBeInTheDocument();
-    expect(screen.getAllByText("Unresolved")).toHaveLength(2);
+    expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+    expect(screen.getAllByText("Related item unavailable")).toHaveLength(2);
     expect(screen.queryByText("missing_performer")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4036,6 +4041,10 @@ describe("App", () => {
     expect(await screen.findByText("Related Image Video")).toBeInTheDocument();
     expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
     expect(screen.getByText("Spring Original")).toBeInTheDocument();
+    const relatedCard = screen.getByText("Hanami Gallery").closest("article");
+    expect(relatedCard).not.toBeNull();
+    expect(within(relatedCard as HTMLElement).queryByText("Image")).not.toBeInTheDocument();
+    expect(relatedCard?.parentElement).toHaveAttribute("href", "/images/image_hanami");
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "image_update",
@@ -4082,6 +4091,10 @@ describe("App", () => {
     expect(await screen.findByText("Related Video Image")).toBeInTheDocument();
     expect(screen.getByText("Spring Feature")).toBeInTheDocument();
     expect(screen.getByText("Feature Original")).toBeInTheDocument();
+    const relatedCard = screen.getByText("Spring Feature").closest("article");
+    expect(relatedCard).not.toBeNull();
+    expect(within(relatedCard as HTMLElement).queryByText("Video")).not.toBeInTheDocument();
+    expect(relatedCard?.parentElement).toHaveAttribute("href", "/videos/video_spring");
     expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_update",
@@ -4123,7 +4136,8 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(screen.getByText("Former Gallery")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
-    expect(screen.getAllByText("Unresolved")).toHaveLength(2);
+    expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+    expect(screen.getAllByText("Related item unavailable")).toHaveLength(2);
     expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4136,6 +4150,111 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("renders Performer related Videos and Images with local controls and release sorting", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const relatedVideos = [
+      persistedVideo({
+        id: "video_old",
+        title: "Old Related Video",
+        releaseDate: "2020-01-01",
+        durationMinutes: 80,
+        relatedPerformersJson:
+          '[{"performerId":"performer_test_001","nameSnapshot":"Persisted Performer"}]',
+      }),
+      persistedVideo({
+        id: "video_new",
+        title: "New Related Video",
+        releaseDate: "2024-01-01",
+        durationMinutes: 110,
+        relatedPerformersJson:
+          '[{"performerId":"performer_test_001","nameSnapshot":"Persisted Performer"}]',
+      }),
+      persistedVideo({
+        id: "video_missing_date",
+        title: "Undated Related Video",
+        releaseDate: "",
+        durationMinutes: 95,
+        relatedPerformersJson:
+          '[{"performerId":"performer_test_001","nameSnapshot":"Persisted Performer"}]',
+      }),
+      ...[2019, 2018, 2017, 2016].map((year) =>
+        persistedVideo({
+          id: `video_${year}`,
+          title: `${year} Related Video`,
+          releaseDate: `${year}-01-01`,
+          durationMinutes: 70,
+          relatedPerformersJson:
+            '[{"performerId":"performer_test_001","nameSnapshot":"Persisted Performer"}]',
+        }),
+      ),
+    ];
+    const relatedImages = [
+      persistedImage({
+        id: "image_new",
+        title: "New Related Image",
+        releaseDate: "2025-01-01",
+        imageCount: 18,
+        relatedPerformersJson:
+          '[{"performerId":"performer_test_001","nameSnapshot":"Persisted Performer"}]',
+      }),
+    ];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({ name: "Persisted Performer" });
+      }
+      if (command === "video_list") {
+        return relatedVideos;
+      }
+      if (command === "image_list") {
+        return relatedImages;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Performer")).toBeInTheDocument();
+    const videosSection = screen.getByText("Related Videos").closest("section");
+    expect(videosSection).not.toBeNull();
+    const videos = within(videosSection as HTMLElement);
+
+    expect(videos.getByText("Grid")).toBeInTheDocument();
+    expect(videos.getByText("Table")).toBeInTheDocument();
+    expect(videos.getByText("New Related Video").closest("article")?.parentElement)
+      .toHaveAttribute("href", "/videos/video_new");
+    expect(videos.getByText("110 min")).toBeInTheDocument();
+    expect(
+      within(videos.getByText("New Related Video").closest("article") as HTMLElement)
+        .queryByText("Video"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(videos.getByRole("button", { name: "Table" }));
+    const tableRows = videos.getAllByRole("row");
+    expect(within(tableRows[1]).getByText("New Related Video")).toBeInTheDocument();
+    expect(within(tableRows[2]).getByText("Old Related Video")).toBeInTheDocument();
+    expect(within(tableRows[3]).getByText("2019 Related Video")).toBeInTheDocument();
+    expect(videos.queryByText("Undated Related Video")).not.toBeInTheDocument();
+    fireEvent.click(videos.getByRole("button", { name: "Next" }));
+    expect(videos.getByText("Undated Related Video")).toBeInTheDocument();
+    expect(videos.getByText("Not set")).toBeInTheDocument();
+
+    const imagesSection = screen.getByText("Related Images").closest("section");
+    expect(imagesSection).not.toBeNull();
+    const images = within(imagesSection as HTMLElement);
+    expect(images.getByText("New Related Image").closest("article")?.parentElement)
+      .toHaveAttribute("href", "/images/image_new");
+    expect(images.getByText("Total 18 images")).toBeInTheDocument();
+    expect(
+      within(images.getByText("New Related Image").closest("article") as HTMLElement)
+        .queryByText("Image"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("video_new")).not.toBeInTheDocument();
+    expect(screen.queryByText("image_new")).not.toBeInTheDocument();
   });
 
   it("creates a video through Tauri commands without exposing the internal id", async () => {

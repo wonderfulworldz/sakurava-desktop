@@ -264,7 +264,7 @@ function buildRelatedSections(
   videos: Video[],
 ): DetailSection[] {
   return sections.map((section) =>
-    section.title === "Related Performer"
+    section.title.includes("Performer")
       ? {
           ...section,
           description: "Read-only Related Performer links saved on this record.",
@@ -273,7 +273,7 @@ function buildRelatedSections(
             performers,
           ),
         }
-      : section.title === "Related Video"
+      : section.title.includes("Video")
         ? {
             ...section,
             description: "Read-only Related Video links saved on this record.",
@@ -306,6 +306,9 @@ function buildRelatedPerformerItems(
           performer.originalName && performer.originalName !== name
             ? performer.originalName
             : undefined,
+        coverPath: performer.coverPath,
+        metadata: performer.status || undefined,
+        routeTo: `/performers/${performer.id}`,
         unresolved: false,
       };
     }
@@ -319,7 +322,7 @@ function buildRelatedPerformerItems(
 
 function buildRelatedCatalogItems(
   relatedCatalogJson: string | null | undefined,
-  records: Array<Pick<Video, "id" | "title" | "originalTitle">>,
+  records: Array<Pick<Video, "id" | "title" | "originalTitle" | "coverPath" | "durationMinutes" | "releaseDate">>,
   fallbackTitle: string,
 ) {
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -338,6 +341,10 @@ function buildRelatedCatalogItems(
           record.originalTitle && record.originalTitle !== title
             ? record.originalTitle
             : undefined,
+        coverPath: record.coverPath,
+        metadata: formatVideoDuration(record.durationMinutes),
+        releaseDate: record.releaseDate,
+        routeTo: `/videos/${record.id}`,
         unresolved: false,
       };
     }
@@ -347,4 +354,12 @@ function buildRelatedCatalogItems(
       unresolved: true,
     };
   });
+}
+
+function formatVideoDuration(minutes: number | null) {
+  if (!minutes || minutes <= 0) {
+    return undefined;
+  }
+
+  return `${minutes} min`;
 }
