@@ -289,13 +289,16 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const formLabel = mode === "create" ? config.createLabel : config.editLabel;
   const cancelTo =
     mode === "create" ? config.createCancelTo : config.editCancelTo;
-  const lastExtraSectionIndex = config.kind === "images" ? 6 : 5;
+  const isCatalogForm = config.kind === "videos" || config.kind === "images";
+  const lastExtraSectionIndex = isCatalogForm ? 6 : 5;
   const ratingIndex = lastExtraSectionIndex + 1;
-  const notesIndex = ratingIndex + 1;
-  const relatedPerformerIndex = notesIndex + 1;
+  const relatedPerformerIndex = isCatalogForm ? ratingIndex + 1 : ratingIndex + 2;
   const relatedCatalogIndex =
     relatedPerformerIndex + (supportsRelatedPerformerPicker ? 1 : 0);
   const performerRelatedImagesIndex = relatedPerformerIndex + 1;
+  const notesIndex = isCatalogForm
+    ? relatedCatalogIndex + (supportsRelatedCatalogPicker ? 1 : 0)
+    : ratingIndex + 1;
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -494,17 +497,13 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </div>
       </FormSection>
 
-      <FormSection index={notesIndex} title="Notes">
-        <label className="grid gap-2 text-sm font-semibold text-slate-700">
-          Notes
-          <textarea
-            className="min-h-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-            value={String(values.notes ?? "")}
-            onChange={(event) => updateValue("notes", event.target.value)}
-            placeholder="Write local notes..."
-          />
-        </label>
-      </FormSection>
+      {!isCatalogForm && (
+        <NotesSection
+          index={notesIndex}
+          value={String(values.notes ?? "")}
+          onChange={(value) => updateValue("notes", value)}
+        />
+      )}
 
       {supportsRelatedPerformerPicker && (
         <FormSection index={relatedPerformerIndex} title="Related Performer">
@@ -571,6 +570,14 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               : relatedPerformerIndex
         }
       />
+
+      {isCatalogForm && (
+        <NotesSection
+          index={notesIndex}
+          value={String(values.notes ?? "")}
+          onChange={(value) => updateValue("notes", value)}
+        />
+      )}
 
       <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-slate-50/95 py-4 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -645,6 +652,30 @@ function FormHeader({
   );
 }
 
+function NotesSection({
+  index,
+  value,
+  onChange,
+}: {
+  index: number;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <FormSection index={index} title="Notes">
+      <label className="grid gap-2 text-sm font-semibold text-slate-700">
+        Notes
+        <textarea
+          className="min-h-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Write local notes..."
+        />
+      </label>
+    </FormSection>
+  );
+}
+
 function CatalogExtraSections({
   config,
   values,
@@ -674,12 +705,12 @@ function CatalogExtraSections({
   canBrowseGalleryFolder: boolean;
   onBrowseGalleryFolder: () => void;
 }) {
-  const pathTitle =
-    config.kind === "images" ? "Cover & Folder Path" : "Cover & File Path";
+  const coverField = config.pathFields.find((field) => field.name === "coverPath");
+  const mediaField = config.pathFields.find((field) => field.name === "mediaPath");
 
   return (
     <>
-      <FormSection index={2} title="Quick Classification">
+      <FormSection index={2} title="Metadata">
         <FieldGrid>
           {config.selectFields.map((field) => (
             <SelectInput
@@ -690,33 +721,6 @@ function CatalogExtraSections({
               onChange={(value) => updateValue(field.name, value)}
             />
           ))}
-          <CategoryPicker
-            selected={categories}
-            managedCategories={managedCategories}
-            onChange={setCategories}
-          />
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={3} title={pathTitle}>
-        <p className="mb-3 text-xs font-medium text-slate-500">
-          Paths are saved as manual text. Browse selects a local path only.
-        </p>
-        <FieldGrid>
-          {config.pathFields.map((field) => (
-            <PathInput
-              key={field.name}
-              field={field}
-              value={String(values[field.name] ?? "")}
-              browseLabel={field.name === "mediaPath" ? "Browse Media" : field.name === "folderPath" ? "Browse Folder" : "Browse Cover"}
-              browseDisabled={!canBrowsePaths}
-              onChange={(value) => updateValue(field.name, value)}
-              onBrowse={() => browsePath(field)}
-            />
-          ))}
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={4} title="Release Metadata">
-        <FieldGrid>
           {config.metadataFields.map((field) => (
             <TextInput
               key={field.name}
@@ -727,8 +731,42 @@ function CatalogExtraSections({
           ))}
         </FieldGrid>
       </FormSection>
+      <FormSection index={3} title="Cover">
+        <p className="mb-3 text-xs font-medium text-slate-500">
+          Cover path is saved as manual text. Browse selects a local image path only.
+        </p>
+        {coverField && (
+          <FieldGrid>
+            <PathInput
+              field={coverField}
+              value={String(values[coverField.name] ?? "")}
+              browseLabel="Browse Cover"
+              browseDisabled={!canBrowsePaths}
+              onChange={(value) => updateValue(coverField.name, value)}
+              onBrowse={() => browsePath(coverField)}
+            />
+          </FieldGrid>
+        )}
+      </FormSection>
+      {config.kind === "videos" && mediaField && (
+        <FormSection index={4} title="Media Video">
+          <p className="mb-3 text-xs font-medium text-slate-500">
+            Media path is saved as manual text. Browse selects a local media path only.
+          </p>
+          <FieldGrid>
+            <PathInput
+              field={mediaField}
+              value={String(values[mediaField.name] ?? "")}
+              browseLabel="Browse Media"
+              browseDisabled={!canBrowsePaths}
+              onChange={(value) => updateValue(mediaField.name, value)}
+              onBrowse={() => browsePath(mediaField)}
+            />
+          </FieldGrid>
+        </FormSection>
+      )}
       {config.kind === "images" && (
-        <FormSection index={5} title="Gallery Images">
+        <FormSection index={4} title="Gallery Images">
           <GalleryImagePathRows
             paths={galleryImagePaths}
             onChange={setGalleryImagePaths}
@@ -738,16 +776,32 @@ function CatalogExtraSections({
           />
         </FormSection>
       )}
-      <FormSection
-        index={config.kind === "images" ? 6 : 5}
-        title={config.techTitle ?? "Tech Info"}
-      >
+      <FormSection index={5} title={config.techTitle ?? "Tech Info"}>
         {config.techMessage && (
           <p className="mb-3 text-xs font-medium text-slate-500">
             {config.techMessage}
           </p>
         )}
+        {config.techInputFields && config.techInputFields.length > 0 && (
+          <FieldGrid>
+            {config.techInputFields.map((field) => (
+              <TextInput
+                key={field.name}
+                field={field}
+                value={String(values[field.name] ?? "")}
+                onChange={(value) => updateValue(field.name, value)}
+              />
+            ))}
+          </FieldGrid>
+        )}
         <ReadOnlyRows fields={config.techFields} />
+      </FormSection>
+      <FormSection index={6} title="Categories">
+        <CategoryPicker
+          selected={categories}
+          managedCategories={managedCategories}
+          onChange={setCategories}
+        />
       </FormSection>
     </>
   );
@@ -1028,9 +1082,12 @@ function GalleryImagePathRows({
           {folderMessage}
         </p>
       )}
-      <div className="grid gap-2">
+      <div
+        className="grid max-h-80 gap-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2"
+        data-testid="gallery-image-path-list"
+      >
         {paths.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-500">
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
             No Gallery Images paths added.
           </p>
         ) : (
@@ -1076,7 +1133,7 @@ function GalleryImagePathRows({
           onClick={() => onChange((current) => [...current, ""])}
         >
           <Plus size={15} />
-          Add Path Row
+          Add Images
         </button>
         <button
           type="button"
