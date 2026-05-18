@@ -59,6 +59,7 @@ Urutan acuan dokumen:
 33. `31-functional-spider-chart-rating-planning.md` - rencana Functional Spider Chart Rating sebelum implementasi.
 34. `32-tech-info-media-status-planning.md` - rencana Tech Info + Media Status sebelum implementasi.
 35. `33-form-field-ux-v1-planning.md` - rencana Form Field UX V1 sebelum implementasi.
+36. `34-settings-page-v1-information-architecture.md` - rencana information architecture Settings Page V1 sebelum implementasi.
 
 ## Current Post-MVP Reading Order
 
@@ -91,8 +92,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 25. `31-functional-spider-chart-rating-planning.md`
 26. `32-tech-info-media-status-planning.md`
 27. `33-form-field-ux-v1-planning.md`
-28. `AGENT_CODE_HANDOFF.md`
-29. `WORKFLOW_GIT.md`
+28. `34-settings-page-v1-information-architecture.md`
+29. `AGENT_CODE_HANDOFF.md`
+30. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 
