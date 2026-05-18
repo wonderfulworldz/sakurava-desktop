@@ -18,6 +18,7 @@ import {
   ImageUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Image, Performer, Video as VideoRecord } from "../backend/types";
@@ -127,10 +128,11 @@ const featureStatusRows: SettingsRow[] = [
 ];
 
 const plannedActionRows: SettingsRow[] = [
-  { label: "Backup / Restore", value: "Planned / disabled", icon: FileArchive },
   { label: "Import / Export", value: "Planned / disabled", icon: FileInput },
-  { label: "Native File Picker", value: "Planned / disabled", icon: Folder },
-  { label: "Advanced Settings", value: "Planned / disabled", icon: SlidersHorizontal },
+  { label: "Bulk Editor", value: "Deferred", icon: SlidersHorizontal },
+  { label: "Optimize / Cleanup", value: "Deferred", icon: ShieldCheck },
+  { label: "Analytics", value: "Deferred", icon: FileText },
+  { label: "Advanced Category Hierarchy", value: "Deferred", icon: Tag },
 ];
 
 const appearanceRows: SettingsRow[] = [
@@ -642,97 +644,134 @@ function SettingsPage() {
           Settings
         </h1>
         <p className="mt-3 text-base text-slate-500">
-          Read-only runtime status for the local Sakurava desktop app.
+          Local/offline app information, safe data controls, and planned tools.
         </p>
       </header>
 
-      <SettingsCard title="App Overview" rows={appOverviewRows} />
-      <SettingsCard
-        title="Runtime & Database"
-        rows={runtimeRows}
-        badges={[
-          isDesktopRuntime ? "Desktop Runtime" : "Browser Preview",
-          isDesktopRuntime ? "Database Available" : "Database Unavailable",
-        ]}
-      />
-      <SettingsCard
-        title="Thumbnails & Local Assets"
-        rows={thumbnailRows}
-        actions={[
-          {
-            label: isMediaRootPending ? "Adding Media Root..." : "Add Media Root",
-            disabled: !canAddMediaRoot,
-            onClick: handleAddMediaRoot,
-          },
-        ]}
-        mediaRootStatus={mediaRootStatus}
-        mediaRoots={mediaRoots}
-        onRemoveMediaRoot={handleRemoveMediaRoot}
-      />
-      <SettingsCard
-        title="Data Safety"
-        rows={dataSafetyRows}
-        actions={[
-          {
-            label: isBackupPending ? "Backing Up..." : "Backup Data",
-            disabled: !canBackUpDatabase,
-            onClick: handleBackupData,
-          },
-          {
-            label: isRestorePending ? "Restoring..." : "Restore Data",
-            disabled: !canRestoreDatabase,
-            onClick: handleRestoreData,
-          },
-        ]}
-        backupStatus={backupStatus}
-        restoreStatus={restoreStatus}
-        onCancelRestore={() => setRestoreStatus({ state: "idle" })}
-        onConfirmRestore={handleConfirmRestore}
-      />
-      <CatalogManagementEntry />
-      <CatalogSettingsCard
-        audit={categoryAudit}
-        renamePreviewRecords={categoryRenamePreviewRecords}
-        managedCategories={managedCategories}
-        managedCategoryInput={managedCategoryInput}
-        managedCategoryStatus={managedCategoryStatus}
-        onManagedCategoryInputChange={(value) => {
-          setManagedCategoryInput(value);
-          setManagedCategoryStatus({ state: "idle" });
-        }}
-        onAddManagedCategory={handleAddManagedCategory}
-        onRenameManagedCategory={handleRenameManagedCategory}
-        onApplyRecordCategoryRename={handleApplyRecordCategoryRename}
-        onDeleteManagedCategory={handleDeleteManagedCategory}
-        onApplyRecordCategoryRemove={handleApplyRecordCategoryRemove}
-      />
-      <SettingsCard title="MVP Feature Status" rows={featureStatusRows} />
-      <SettingsCard
-        title="Planned Tools"
-        rows={plannedActionRows}
-        disabledActions={[
-          "Backup / Restore",
-          "Import / Export",
-          "Native File Picker",
-          "Open Data Folder",
-          "Advanced Settings",
-        ]}
-      />
-      <SettingsCard
+      <SettingsGroup
+        title="App Information"
+        description="Basic local app status. No new runtime detection is added here."
+      >
+        <SettingsCard title="App Overview" rows={appOverviewRows} />
+        <SettingsCard
+          title="Runtime & Database"
+          rows={runtimeRows}
+          badges={[
+            isDesktopRuntime ? "Desktop Runtime" : "Browser Preview",
+            isDesktopRuntime ? "Database Available" : "Database Unavailable",
+          ]}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Data & Safety"
+        description="Existing local data safety controls and clear planned states."
+      >
+        <SettingsCard
+          title="Backup / Restore"
+          rows={dataSafetyRows}
+          actions={[
+            {
+              label: isBackupPending ? "Backing Up..." : "Backup Data",
+              disabled: !canBackUpDatabase,
+              onClick: handleBackupData,
+            },
+            {
+              label: isRestorePending ? "Restoring..." : "Restore Data",
+              disabled: !canRestoreDatabase,
+              onClick: handleRestoreData,
+            },
+          ]}
+          backupStatus={backupStatus}
+          restoreStatus={restoreStatus}
+          onCancelRestore={() => setRestoreStatus({ state: "idle" })}
+          onConfirmRestore={handleConfirmRestore}
+          note="Backup and Restore handle the local database only. Media files are not included."
+        />
+        <SettingsCard
+          title="Import / Export"
+          rows={[
+            { label: "Import", value: "Planned / disabled", icon: FileInput },
+            { label: "Export", value: "Planned / disabled", icon: FileArchive },
+          ]}
+          disabledActions={["Import Data", "Export Data"]}
+          note="Import and Export require separate planning before implementation."
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Categories"
+        description="Category management lives on the dedicated Category Management page."
+      >
+        <CatalogManagementEntry />
+      </SettingsGroup>
+
+      <SettingsGroup
         title="Appearance"
-        rows={appearanceRows}
-        note="Appearance switching is planned and not active in this batch."
-      />
-      <SettingsCard
-        title="Language"
-        rows={languageRows}
-        note="Language switching is planned and not active in this batch."
-      />
-      <SettingsCard
-        title="Welcome Slider"
-        rows={welcomeSliderRows}
-        note="Welcome slider customization is planned and not active in this batch."
-      />
+        description="Light mode is the current stable baseline. Other preferences are planned."
+      >
+        <SettingsCard
+          title="Theme / Appearance"
+          rows={appearanceRows}
+          note="Appearance switching is planned and not active in this batch."
+        />
+        <SettingsCard
+          title="Language"
+          rows={languageRows}
+          note="Language switching is planned and not active in this batch."
+        />
+        <SettingsCard
+          title="Welcome Slider"
+          rows={welcomeSliderRows}
+          note="Welcome slider customization is planned and not active in this batch."
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Media & Files"
+        description="Local media paths remain explicit. No scanner, watcher, copy, move, or delete automation is added."
+      >
+        <SettingsCard
+          title="Media Roots & Local Assets"
+          rows={thumbnailRows}
+          actions={[
+            {
+              label: isMediaRootPending ? "Adding Media Root..." : "Add Media Root",
+              disabled: !canAddMediaRoot,
+              onClick: handleAddMediaRoot,
+            },
+          ]}
+          mediaRootStatus={mediaRootStatus}
+          mediaRoots={mediaRoots}
+          onRemoveMediaRoot={handleRemoveMediaRoot}
+        />
+        <SettingsCard
+          title="File Status"
+          rows={[
+            { label: "Missing File Scanner", value: "Deferred", icon: CloudOff },
+            { label: "Media Metadata Extraction", value: "Deferred", icon: FileText },
+          ]}
+          note="File status automation is deferred. This page does not scan folders or files."
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Advanced / Maintenance"
+        description="Future maintenance tools stay planned until their own safe implementation batches."
+      >
+        <SettingsCard title="Current Runtime Features" rows={featureStatusRows} />
+        <SettingsCard
+          title="Planned Maintenance"
+          rows={plannedActionRows}
+          disabledActions={[
+            "Bulk Editor",
+            "Optimize / Cleanup",
+            "Analytics",
+            "Advanced Category Hierarchy",
+          ]}
+        />
+      </SettingsGroup>
+
       <AboutCard />
     </div>
   );
@@ -744,10 +783,10 @@ function CatalogManagementEntry() {
       <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-normal text-slate-950">
-            Catalog Management
+            Category Management
           </h2>
           <p className="mt-1 text-sm font-medium text-slate-500">
-            Open dedicated catalog management tools for Categories.
+            Open the dedicated Category Management page. Full Category Management V1 work belongs in Batch 30.x.
           </p>
         </div>
         <Link
@@ -757,6 +796,30 @@ function CatalogManagementEntry() {
           Open Category Management
         </Link>
       </div>
+    </section>
+  );
+}
+
+function SettingsGroup({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
+          {title}
+        </h2>
+        <p className="mt-1 text-sm font-medium text-slate-500">
+          {description}
+        </p>
+      </div>
+      <div className="grid gap-4">{children}</div>
     </section>
   );
 }

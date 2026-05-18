@@ -619,4 +619,16 @@ Recommended next implementation batch after Batch 29.1:
 29.2 - Settings Page V1 Menu Cleanup
 ```
 
+Recommended checkpoint after Batch 29.2:
+
+```text
+post-mvp-29-2-settings-page-v1-menu-cleanup-v1
+```
+
+Recommended next planning batch after Batch 29.2:
+
+```text
+30.1 - Category Management V1 Planning
+```
+
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, `docs/29-catalog-toolbar-v1-planning.md`, `docs/30-detail-page-v1-layout-planning.md`, `docs/31-functional-spider-chart-rating-planning.md`, `docs/32-tech-info-media-status-planning.md`, `docs/33-form-field-ux-v1-planning.md`, and `docs/34-settings-page-v1-information-architecture.md` before changing code.
