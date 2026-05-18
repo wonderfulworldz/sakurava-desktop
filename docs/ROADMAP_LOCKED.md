@@ -64,7 +64,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Image Gallery Storage/Form planning is documented in `docs/26-image-gallery-storage-form-planning.md`.
 - Image Gallery Storage/Form implementation adds `galleryImagePathsJson` and structured Image form path rows.
 - Gallery Folder Picker / Direct Image Read implements folder-based gallery input only; multi-image file picker remains intentionally unimplemented unless explicitly requested later.
-- Image Detail Gallery Grid renders from saved `galleryImagePathsJson` paths with 24 item batches.
+- Image Detail Gallery Grid renders from saved `galleryImagePathsJson` paths. Batch 27.8 places Gallery directly below Image Hero and uses 16-item initial/load-more batches to approximate two visible desktop rows.
 - Gallery Full-size Viewer opens from Image Detail gallery tiles and uses only saved `galleryImagePathsJson` paths, with overlay Previous/Next, counter, close, zoom, and browser fullscreen with in-app fallback.
 - Image Gallery QA and Safety Review is documented in `docs/27-image-gallery-qa-safety-review.md`; after clean QA, Image Gallery can be treated as post-MVP initial complete.
 - UI/UX V1 Audit and Prioritization Plan is documented in `docs/28-ui-ux-v1-audit-prioritization-plan.md`; it is the active planning source for UI/UX V1 alignment after Image Gallery initial completion.
@@ -78,6 +78,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Tech Info + Media Status Planning is documented in `docs/32-tech-info-media-status-planning.md`; Tech Info should use data-backed values only, Media Status should consolidate into System Info where safe, and runtime metadata detection/storage/schema work remains deferred unless explicitly approved.
 - Tech Info + Media Status Implementation is complete through Batch 27.6 after merge; Detail Tech Info uses existing safe data only, Media Status is summarized under System Info, and no runtime metadata detection, folder scan, or schema change is added.
 - Related Cards on Detail Pages is complete through Batch 27.7 after merge; Detail related sections use compact cards or honest empty states, preserve related JSON storage, and do not add relation picker/add/remove behavior.
+- Image Detail Gallery Placement Adjustment is complete through Batch 27.8 after merge; Image Detail Gallery appears below Hero and before Metadata, Notes remains before Related sections, System Info remains last, and Video Detail and Performer Detail section order remain unchanged.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## UI/UX V1 Alignment Sequence

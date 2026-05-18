@@ -292,6 +292,12 @@ Related Cards on Detail Pages expected checkpoint after merge:
 post-mvp-27-7-related-cards-on-detail-pages-v1
 ```
 
+Image Detail Gallery Placement Adjustment expected checkpoint after merge:
+
+```text
+post-mvp-27-8-image-detail-gallery-placement-adjustment-v1
+```
+
 Latest documentation alignment batch:
 
 ```text
@@ -375,6 +381,7 @@ Current app capabilities include:
 - Tech Info + Media Status planning through Batch 27.5 after merge;
 - Tech Info + Media Status implementation through Batch 27.6 after merge;
 - Related Cards on Detail Pages through Batch 27.7 after merge;
+- Image Detail Gallery placement adjustment through Batch 27.8 after merge;
 - Settings runtime/status areas;
 - backup/restore foundation and UI from earlier batches;
 - native file picker and manual thumbnail handling from earlier batches;
@@ -399,11 +406,13 @@ For Batch 25.3, Image records include `galleryImagePathsJson` as a JSON array st
 
 For Batch 25.4, Image Create/Edit `Gallery Images` can use `Browse Gallery Folder` to select one folder and replace gallery rows with supported direct image files from that folder. Supported extensions are `.jpg`, `.jpeg`, `.png`, `.webp`, and `.gif`, matched case-insensitively. The folder read is direct-files-only, not recursive, not watched, not synced, and does not mutate files. Multi-image file picker and Image Detail gallery grid remain unimplemented.
 
-For Batch 25.5, Image Detail renders a `Gallery` section from saved `galleryImagePathsJson` paths. The grid starts with 24 items, adds 24 per `Load More` action, and keeps empty or invalid saved gallery data safe. It uses saved explicit paths only.
+For Batch 25.5, Image Detail renders a `Gallery` section from saved `galleryImagePathsJson` paths. The grid used 24-item load-more batches at implementation time, keeps empty or invalid saved gallery data safe, and uses saved explicit paths only.
 
 For Batch 25.6, Image Detail gallery tiles open a low-bezel full-size viewer backed only by the saved `galleryImagePathsJson` path list. The viewer adds overlay Previous/Next controls, overlay counter/status, close control, simple Fit/100%/Zoom In/Zoom Out controls, browser fullscreen with in-app fallback, scoped keyboard controls, and safe missing-image fallback behavior. It does not add folder refresh behavior, file mutation behavior, derived image files, or storage changes.
 
 For Batch 25.7, Image Gallery QA/safety review confirms `galleryImagePathsJson` remains the source of truth, `folderPath` is not live scanned, `Browse Gallery Folder` remains a controlled direct-files-only input on Image Create/Edit, child folders are ignored, multi-image picker remains unimplemented, and no file mutation, thumbnail generation, watcher/live sync, broad scanner, or schema/database change is added.
+
+For Batch 27.8, Image Detail places `Gallery` directly below Hero and before Metadata, keeps Notes before Related sections, and keeps System Info last. The gallery now starts with 16 saved images and adds 16 per `Load More`, preserving saved `galleryImagePathsJson` paths only, full-size viewer behavior, and the no-folder-scan rule. Video Detail and Performer Detail section order remain unchanged.
 
 ## Recommended Next Phase
 
@@ -491,6 +500,12 @@ Recommended checkpoint after Batch 27.7:
 
 ```text
 post-mvp-27-7-related-cards-on-detail-pages-v1
+```
+
+Recommended checkpoint after Batch 27.8:
+
+```text
+post-mvp-27-8-image-detail-gallery-placement-adjustment-v1
 ```
 
 Keep the next batch narrow. Start from a clean branch, read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/WORKFLOW_GIT.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`, `docs/13-settings-persistence-planning.md`, `docs/14-category-management-dedicated-page-planning.md`, `docs/15-form-category-picker-lockdown-planning.md`, `docs/16-categories-sidebar-page-planning.md`, `docs/17-related-performer-picker-structure-planning.md`, `docs/18-related-performer-storage-planning.md`, `docs/19-related-video-image-picker-structure-planning.md`, `docs/20-related-video-image-storage-planning.md`, `docs/21-media-file-status-open-file-planning.md`, `docs/22-external-media-open-planning.md`, `docs/23-cover-thumbnail-full-size-preview-planning.md`, `docs/24-performer-mini-thumbnail-storage-form-planning.md`, `docs/25-image-gallery-planning.md`, `docs/26-image-gallery-storage-form-planning.md`, `docs/27-image-gallery-qa-safety-review.md`, `docs/28-ui-ux-v1-audit-prioritization-plan.md`, `docs/29-catalog-toolbar-v1-planning.md`, `docs/30-detail-page-v1-layout-planning.md`, `docs/31-functional-spider-chart-rating-planning.md`, and `docs/32-tech-info-media-status-planning.md` before changing code.
