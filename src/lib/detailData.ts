@@ -6,12 +6,19 @@ export type DetailKind = "videos" | "images" | "performers";
 export type RelatedPerformerDetailItem = {
   name: string;
   originalName?: string;
+  coverPath?: string;
+  metadata?: string;
+  routeTo?: string;
   unresolved: boolean;
 };
 
 export type RelatedCatalogDetailItem = {
   title: string;
   originalTitle?: string;
+  coverPath?: string;
+  metadata?: string;
+  releaseDate?: string;
+  routeTo?: string;
   unresolved: boolean;
 };
 
@@ -20,6 +27,7 @@ export type DetailSection = {
   description: string;
   relatedPerformers?: RelatedPerformerDetailItem[];
   relatedCatalogRecords?: RelatedCatalogDetailItem[];
+  controls?: "performer-related";
 };
 
 type RatingAxis = {
@@ -177,7 +185,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedTitle: "Related Content",
     relatedSections: [
       {
-        title: "Related Performer",
+        title: "Related Performers",
         description: "Available after relation features are added.",
       },
       {
@@ -235,11 +243,11 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedTitle: "Related Content",
     relatedSections: [
       {
-        title: "Related Video",
+        title: "Related Videos",
         description: "Available after relation features are added.",
       },
       {
-        title: "Related Performer",
+        title: "Related Performers",
         description: "Available after relation features are added.",
       },
     ],
@@ -309,7 +317,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedTitle: "Related Content",
     relatedSections: [
       {
-        title: "Related Video",
+        title: "Related Videos",
         description: "Available after relation features are added.",
       },
       {

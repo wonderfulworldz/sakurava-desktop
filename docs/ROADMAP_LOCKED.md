@@ -77,6 +77,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Functional Spider Chart Rating Implementation is complete through Batch 27.4 after merge; Detail Rating Summary uses polygon spider chart only, with shared average/final score and rating bucket helpers ready for future Catalog reuse.
 - Tech Info + Media Status Planning is documented in `docs/32-tech-info-media-status-planning.md`; Tech Info should use data-backed values only, Media Status should consolidate into System Info where safe, and runtime metadata detection/storage/schema work remains deferred unless explicitly approved.
 - Tech Info + Media Status Implementation is complete through Batch 27.6 after merge; Detail Tech Info uses existing safe data only, Media Status is summarized under System Info, and no runtime metadata detection, folder scan, or schema change is added.
+- Related Cards on Detail Pages is complete through Batch 27.7 after merge; Detail related sections use compact cards or honest empty states, preserve related JSON storage, and do not add relation picker/add/remove behavior.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## UI/UX V1 Alignment Sequence

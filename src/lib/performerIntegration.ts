@@ -1,8 +1,10 @@
-import type { NewPerformer, Performer, PerformerPatch } from "../backend/types";
+import type { Image, NewPerformer, Performer, PerformerPatch, Video } from "../backend/types";
 import {
   normalizePerformerThumbnailPathsJson,
+  parseGalleryImagePathArray,
   parsePerformerThumbnailPathArray,
   parseRatingObject,
+  parseRelatedPerformerArray,
   parseTextLabelArray,
   stringifyTextLabelArray,
 } from "../backend/json";
@@ -33,6 +35,8 @@ export function buildPerformerCollectionConfig(
 
 export function buildPerformerDetailConfig(
   performer: Performer,
+  videos: Video[] = [],
+  images: Image[] = [],
 ): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
   const thumbnailPaths = parsePerformerThumbnailPathArray(
@@ -83,6 +87,12 @@ export function buildPerformerDetailConfig(
     ],
     rating: getRatingDimensions(performer.ratingJson, performerRatingFields),
     notes: performer.notes || "No notes saved.",
+    relatedSections: buildRelatedSections(
+      baseConfig.relatedSections,
+      performer.id,
+      videos,
+      images,
+    ),
   };
 }
 
@@ -232,4 +242,98 @@ function optionalInteger(value: FormValues[string]) {
 
 function formatCount(count: number | null) {
   return count === null ? "Not set" : String(count);
+}
+
+function buildRelatedSections(
+  sections: PerformerDetailConfig["relatedSections"],
+  performerId: string,
+  videos: Video[],
+  images: Image[],
+) {
+  return sections.map((section) =>
+    section.title.includes("Video")
+      ? {
+          ...section,
+          description: "Read-only Related Video links connected to this performer.",
+          relatedCatalogRecords: buildRelatedVideos(performerId, videos),
+          controls: "performer-related" as const,
+        }
+      : section.title.includes("Image")
+        ? {
+            ...section,
+            description: "Read-only Related Image links connected to this performer.",
+            relatedCatalogRecords: buildRelatedImages(performerId, images),
+            controls: "performer-related" as const,
+          }
+        : section,
+  );
+}
+
+function buildRelatedVideos(performerId: string, videos: Video[]) {
+  return videos
+    .filter((video) => recordReferencesPerformer(video.relatedPerformersJson, performerId))
+    .map((video) => ({
+      title: video.title || video.originalTitle || "Untitled video",
+      originalTitle:
+        video.originalTitle && video.originalTitle !== video.title
+          ? video.originalTitle
+          : undefined,
+      coverPath: video.coverPath,
+      metadata: formatDuration(video.durationMinutes),
+      releaseDate: video.releaseDate,
+      routeTo: `/videos/${video.id}`,
+      unresolved: false,
+    }));
+}
+
+function buildRelatedImages(performerId: string, images: Image[]) {
+  return images
+    .filter((image) => recordReferencesPerformer(image.relatedPerformersJson, performerId))
+    .map((image) => {
+      const galleryPaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
+      return {
+        title: image.title || image.originalTitle || "Untitled image",
+        originalTitle:
+          image.originalTitle && image.originalTitle !== image.title
+            ? image.originalTitle
+            : undefined,
+        coverPath: image.coverPath,
+        metadata: formatGalleryCount(image.imageCount, galleryPaths),
+        releaseDate: image.releaseDate,
+        routeTo: `/images/${image.id}`,
+        unresolved: false,
+      };
+    });
+}
+
+function recordReferencesPerformer(
+  relatedPerformersJson: string | null | undefined,
+  performerId: string,
+) {
+  return parseRelatedPerformerArray(relatedPerformersJson).some(
+    (relation) => relation.performerId === performerId,
+  );
+}
+
+function formatDuration(minutes: number | null) {
+  if (!minutes || minutes <= 0) {
+    return undefined;
+  }
+
+  return `${minutes} min`;
+}
+
+function formatGalleryCount(count: number | null, galleryImagePaths: string[]) {
+  const safeCount =
+    typeof count === "number" && Number.isInteger(count) && count > 0
+      ? count
+      : galleryImagePaths.length > 0
+        ? galleryImagePaths.length
+        : null;
+
+  if (!safeCount) {
+    return undefined;
+  }
+
+  return `Total ${safeCount} ${safeCount === 1 ? "image" : "images"}`;
 }

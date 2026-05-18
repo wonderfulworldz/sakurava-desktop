@@ -9,6 +9,8 @@ import {
   getPerformer,
   isPerformerRuntimeAvailable,
 } from "../runtime/performerCommands";
+import { listImages } from "../runtime/imageCommands";
+import { listVideos } from "../runtime/videoCommands";
 
 function PerformerDetailPage() {
   const { itemKey } = useParams();
@@ -33,7 +35,7 @@ function PerformerDetailPage() {
 
     setLoading(true);
     getPerformer(itemKey)
-      .then((performer) => {
+      .then(async (performer) => {
         if (cancelled) {
           return;
         }
@@ -44,8 +46,21 @@ function PerformerDetailPage() {
           return;
         }
 
+        const [videosResult, imagesResult] = await Promise.allSettled([
+          listVideos(),
+          listImages(),
+        ]);
+        const videos =
+          videosResult.status === "fulfilled" ? videosResult.value : [];
+        const images =
+          imagesResult.status === "fulfilled" ? imagesResult.value : [];
+
+        if (cancelled) {
+          return;
+        }
+
         setMissing(false);
-        setConfig(buildPerformerDetailConfig(performer));
+        setConfig(buildPerformerDetailConfig(performer, videos, images));
         setLoading(false);
       })
       .catch(() => {
