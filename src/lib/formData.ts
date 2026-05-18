@@ -353,31 +353,26 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       media: [
         {
           name: "thumbnail1",
-          label: "Mini Thumbnail 1",
+          label: "Thumbnail 1",
           helper: "Optional saved local image path.",
         },
         {
           name: "thumbnail2",
-          label: "Mini Thumbnail 2",
+          label: "Thumbnail 2",
           helper: "Optional saved local image path.",
         },
         {
           name: "thumbnail3",
-          label: "Mini Thumbnail 3",
+          label: "Thumbnail 3",
           helper: "Optional saved local image path.",
         },
         {
           name: "thumbnail4",
-          label: "Mini Thumbnail 4",
+          label: "Thumbnail 4",
           helper: "Optional saved local image path.",
         },
       ],
       summary: [
-        {
-          name: "yearsActive",
-          label: "Years Active (planned)",
-          helper: "Not saved in MVP.",
-        },
         { name: "filmography", label: "Filmography", type: "number" },
         { name: "pictorials", label: "Pictorials", type: "number" },
       ],
@@ -385,34 +380,34 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         { name: "birthDate", label: "Birth Date", type: "date" },
         {
           name: "birthplace",
-          label: "Birthplace (planned)",
+          label: "Birthplace",
           helper: "Not saved in MVP.",
         },
         {
           name: "nationality",
-          label: "Nationality (planned)",
+          label: "Nationality",
           helper: "Not saved in MVP.",
         },
         {
           name: "astrologicalSign",
-          label: "Astrological Sign (planned)",
-          helper: "Not saved in MVP.",
+          label: "Astrological Sign",
+          helper: "Derived from Birth Date for form display only.",
         },
         {
           name: "bloodType",
-          label: "Blood Type (planned)",
+          label: "Blood Type",
           helper: "Not saved in MVP.",
         },
       ],
       physical: [
-        { name: "height", label: "Height (planned)", helper: "Not saved in MVP." },
-        { name: "weight", label: "Weight (planned)", helper: "Not saved in MVP." },
+        { name: "height", label: "Height", helper: "Not saved in MVP. Use cm when storage is added." },
+        { name: "weight", label: "Weight", helper: "Not saved in MVP. Use kg when storage is added." },
         {
           name: "measurement",
-          label: "Measurement (planned)",
-          helper: "Not saved in MVP.",
+          label: "Measurement",
+          helper: "Bust / Waist / Hip in cm is planned, not saved in MVP.",
         },
-        { name: "cupSize", label: "Cup Size (planned)", helper: "Not saved in MVP." },
+        { name: "cupSize", label: "Cup Size", helper: "Not saved in MVP." },
       ],
     },
     initialValues: {
