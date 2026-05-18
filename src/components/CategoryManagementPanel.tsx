@@ -40,6 +40,8 @@ type SortValue =
   | "updated-desc"
   | "created-desc";
 
+const rowsPerPageOptions = [25, 50, 100] as const;
+
 const emptyForm: FormState = {
   name: "",
   thumbnailPath: "",
@@ -62,6 +64,10 @@ function CategoryManagementPanel() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("all");
   const [sort, setSort] = useState<SortValue>("name");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<(typeof rowsPerPageOptions)[number]>(
+    25,
+  );
   const [status, setStatus] = useState<StatusState>({ state: "idle" });
   const formSectionRef = useRef<HTMLElement | null>(null);
 
@@ -153,6 +159,25 @@ function CategoryManagementPanel() {
         });
       });
   }, [categories, filter, records, search, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safeCurrentPage - 1) * rowsPerPage;
+  const paginatedRows = rows.slice(pageStartIndex, pageStartIndex + rowsPerPage);
+  const rangeStart = rows.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + rowsPerPage, rows.length);
+  const rangeText =
+    rows.length === 0
+      ? "Showing 0 of 0 categories"
+      : `Showing ${rangeStart}-${rangeEnd} of ${rows.length} categories`;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, rowsPerPage, search, sort]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   useEffect(() => {
     let cancelled = false;
@@ -524,7 +549,7 @@ function CategoryManagementPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map(({ category, parent, usage }) => (
+              {paginatedRows.map(({ category, parent, usage }) => (
                 <tr key={category.key} className="align-top">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-3">
@@ -568,9 +593,72 @@ function CategoryManagementPanel() {
           </table>
           {rows.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-slate-500">
-              No categories match the current view.
+              {categories.length === 0
+                ? "No categories yet. Add a category to start managing the catalog vocabulary."
+                : "No categories match the current search, filter, and sort view."}
             </div>
           )}
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-3 py-3 text-sm text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+            <div>{rangeText}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2">
+                <span>Rows per page</span>
+                <select
+                  aria-label="Rows per page"
+                  value={rowsPerPage}
+                  onChange={(event) =>
+                    setRowsPerPage(
+                      Number(event.target.value) as (typeof rowsPerPageOptions)[number],
+                    )
+                  }
+                  className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                >
+                  {rowsPerPageOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-1">
+                {buildPaginationPages(safeCurrentPage, totalPages).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    aria-current={page === safeCurrentPage ? "page" : undefined}
+                    className={`h-8 min-w-8 rounded-md border px-2 text-xs font-semibold ${
+                      page === safeCurrentPage
+                        ? "border-sakura-600 bg-sakura-50 text-sakura-700"
+                        : "border-slate-300 text-slate-700"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={safeCurrentPage === 1}
+                aria-label="Previous page"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                disabled={safeCurrentPage === totalPages}
+                aria-label="Next page"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -699,6 +787,15 @@ function parseCategoryTimestamp(value: string) {
 
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function buildPaginationPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: 5 }, (_, index) => start + index);
 }
 
 export default CategoryManagementPanel;
