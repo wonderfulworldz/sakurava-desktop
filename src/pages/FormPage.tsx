@@ -16,6 +16,12 @@ import type {
   RelatedPerformerFormValue,
   TextField,
 } from "../lib/formData";
+import {
+  addFormCategory,
+  hasFormCategory,
+  normalizeFormCategories,
+  removeFormCategory,
+} from "../lib/formCategories";
 import { getStoredManagedCategories } from "../lib/managedCategories";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
 import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
@@ -64,7 +70,7 @@ type RelatedCatalogLoadState = "idle" | "loading" | "loaded" | "error";
 function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
-    config.initialCategories[mode],
+    normalizeFormCategories(config.initialCategories[mode]),
   );
   const [aliases, setAliases] = useState<string[]>(
     config.initialAliases?.[mode] ?? [],
@@ -98,7 +104,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
-    setCategories(config.initialCategories[mode]);
+    setCategories(normalizeFormCategories(config.initialCategories[mode]));
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
     setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
@@ -314,7 +320,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     try {
       const result = await onSubmit({
         values,
-        categories,
+        categories: normalizeFormCategories(categories),
         aliases,
         relatedPerformers,
         relatedCatalogRecords,
@@ -1145,22 +1151,46 @@ function CategoryPicker({
   managedCategories: string[];
   onChange: Dispatch<SetStateAction<string[]>>;
 }) {
-  const availableCategories = managedCategories.filter(
-    (category) => !hasCategory(selected, category),
+  const normalizedSelected = normalizeFormCategories(selected);
+  const normalizedManagedCategories = normalizeFormCategories(managedCategories);
+  const availableCategories = normalizedManagedCategories.filter(
+    (category) => !hasFormCategory(normalizedSelected, category),
+  );
+  const [categorySearch, setCategorySearch] = useState("");
+  const categorySearchKey = categorySearch.trim().toLowerCase();
+  const filteredCategories = availableCategories.filter((category) =>
+    category.toLowerCase().includes(categorySearchKey),
   );
 
+  useEffect(() => {
+    if (
+      selected.length !== normalizedSelected.length ||
+      selected.some((category, index) => category !== normalizedSelected[index])
+    ) {
+      onChange(normalizedSelected);
+    }
+  }, [normalizedSelected, onChange, selected]);
+
+  function addSelectedCategory(category: string) {
+    onChange((current) => addFormCategory(current, category));
+    setCategorySearch("");
+  }
+
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div
+      className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]"
+      data-testid="category-picker-field"
+    >
       <span className="pt-2">Categories</span>
       <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3">
         <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
-          {selected.length === 0 ? (
+          {normalizedSelected.length === 0 ? (
             <span className="px-1 text-sm font-medium text-slate-400">
               No categories selected.
             </span>
           ) : (
-            selected.map((category) => {
-              const isManaged = hasCategory(managedCategories, category);
+            normalizedSelected.map((category) => {
+              const isManaged = hasFormCategory(normalizedManagedCategories, category);
 
               return (
                 <span
@@ -1186,9 +1216,7 @@ function CategoryPicker({
                     }
                     aria-label={`Remove ${category}`}
                     onClick={() =>
-                      onChange((current) =>
-                        current.filter((item) => item !== category),
-                      )
+                      onChange((current) => removeFormCategory(current, category))
                     }
                   >
                     <X size={13} />
@@ -1200,38 +1228,54 @@ function CategoryPicker({
         </div>
 
         <div className="grid gap-2">
-          <div className="flex flex-wrap gap-2">
-            {availableCategories.length > 0 ? (
-              availableCategories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className="inline-flex h-8 items-center rounded-md border border-sakura-100 bg-sakura-50 px-3 text-xs font-semibold text-sakura-600 transition hover:border-sakura-200 hover:bg-sakura-100"
-                  aria-label={`Add ${category}`}
-                  onClick={() =>
-                    onChange((current) =>
-                      hasCategory(current, category)
-                        ? current
-                        : [...current, category],
-                    )
-                  }
-                >
-                  {category}
-                </button>
-              ))
+          {normalizedManagedCategories.length > 0 ? (
+            availableCategories.length > 0 ? (
+              <div className="grid gap-2">
+                <input
+                  className={inputClass(false)}
+                  aria-label="Search categories"
+                  value={categorySearch}
+                  placeholder="Search Managed Categories..."
+                  onChange={(event) => setCategorySearch(event.target.value)}
+                />
+                {filteredCategories.length > 0 ? (
+                  <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2">
+                    {filteredCategories.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-sakura-100 bg-white px-3 text-xs font-semibold text-sakura-600 hover:border-sakura-200 hover:bg-sakura-50"
+                        aria-label={`Add ${category}`}
+                        onClick={() => addSelectedCategory(category)}
+                      >
+                        <Plus size={13} />
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+                    No matching Managed Categories. Use Manage Category to add it first.
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="text-xs font-medium text-slate-500">
-                No Managed Categories available.
+                All Managed Categories are selected.
               </p>
-            )}
-          </div>
+            )
+          ) : (
+            <p className="text-xs font-medium text-slate-500">
+              No Managed Categories available.
+            </p>
+          )}
           <p className="text-xs font-medium text-slate-500">
-            Create categories in Category Management first.{" "}
+            Manage categories in Category Management.{" "}
             <Link
               to="/settings/category-management"
               className="font-semibold text-sakura-600 hover:text-sakura-700"
             >
-              Open Category Management
+              Manage Category
             </Link>
           </p>
         </div>
@@ -1335,12 +1379,6 @@ function addChip(
 
   setChips((current) => [...current, nextChip]);
   setDraft("");
-}
-
-function hasCategory(categories: string[], category: string) {
-  const categoryKey = category.trim().toLowerCase();
-
-  return categories.some((item) => item.trim().toLowerCase() === categoryKey);
 }
 
 function inputClass(inactive: boolean) {

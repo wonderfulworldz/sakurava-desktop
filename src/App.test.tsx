@@ -2233,21 +2233,31 @@ describe("App", () => {
 
     expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Create categories in Category Management first."),
+      screen.getByText(/Manage categories in Category Management./),
     ).toBeInTheDocument();
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Add Managed Category" }),
+        screen.getByRole("textbox", { name: "Search categories" }),
       ).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole("button", { name: "Add Trimmed Category" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Add managed category" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Managed Category" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Trimmed Category" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add managed category" }))
+      .not.toBeInTheDocument();
 
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "trim" },
+    });
+    expect(screen.queryByRole("button", { name: "Add Managed Category" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Trimmed Category" }))
+      .toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Managed Category" }));
 
     expect(screen.getByText("Managed Category")).toBeInTheDocument();
@@ -2264,7 +2274,7 @@ describe("App", () => {
     expect(screen.getByText("No categories selected.")).toBeInTheDocument();
     expect(screen.getByText("No Managed Categories available.")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open Category Management" }),
+      screen.getByRole("link", { name: "Manage Category" }),
     ).toHaveAttribute("href", "/settings/category-management");
   });
 
@@ -2578,8 +2588,21 @@ describe("App", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("Legacy Image Relation Video"))
-      .toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        vi.mocked(invoke).mock.calls.some(([command, args]) => {
+          const updateArgs = args as {
+            id?: string;
+            patch?: { relatedImagesJson?: string };
+          };
+          return (
+            command === "video_update" &&
+            updateArgs.id === "video_test_001" &&
+            updateArgs.patch?.relatedImagesJson === "[]"
+          );
+        }),
+      ).toBe(true);
+    });
   });
 
   it("selects existing Performers on image forms and saves relatedPerformersJson", async () => {
@@ -4354,6 +4377,108 @@ describe("App", () => {
     expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
   });
 
+  it("renders the Video form category picker and serializes selected labels", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    setManagedCategories(["Classic", "Drama"]);
+    const created = persistedVideo({
+      title: "Picker Video",
+      categoriesJson: '["Drama"]',
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "video_create") {
+          expect(args.input.categoriesJson).toBe('["Drama"]');
+          expect(args.input).not.toHaveProperty("categoryIds");
+          return created;
+        }
+        if (command === "video_get") {
+          return created;
+        }
+        if (command === "performer_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
+    expect(screen.getByText("No categories selected.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Classic" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+      "href",
+      "/settings/category-management",
+    );
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/categoryIds|category_ids/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: /category/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Classic" }));
+    expect(screen.getByText("Classic")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Classic" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Classic" }));
+    expect(screen.getByText("No categories selected.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "missing" },
+    });
+    expect(screen.getByText(
+      "No matching Managed Categories. Use Manage Category to add it first.",
+    )).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add missing" }))
+      .not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "Drama" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Drama" }));
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Picker Video" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Picker Video")).toBeInTheDocument();
+    expect(screen.getByText("Drama")).toBeInTheDocument();
+  });
+
+  it("renders existing Video record categories as normalized managed and record-only chips", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    setManagedCategories(["Classic", "Updated"]);
+    const existing = persistedVideo({
+      title: "Existing Picker Video",
+      categoriesJson: '[" Classic ","classic","Legacy",""]',
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return existing;
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Existing Picker Video"))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("Classic")).toHaveLength(1);
+    expect(screen.getByText("Legacy")).toBeInTheDocument();
+    expect(screen.getAllByText("Record-only").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
+  });
+
   it("shows persisted timestamps on video detail", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
@@ -5036,6 +5161,24 @@ describe("App", () => {
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
+  });
+
+  it("renders the Image form category picker", () => {
+    window.history.pushState({}, "", "/images/new");
+    setManagedCategories(["Portrait"]);
+
+    render(<App />);
+
+    expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Portrait" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+      "href",
+      "/settings/category-management",
+    );
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
 
   it("replaces image Gallery Images rows from a browsed gallery folder", async () => {
@@ -5757,6 +5900,24 @@ describe("App", () => {
     expect(screen.getByText("Typed Alias")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
+  });
+
+  it("renders the Performer form category picker", () => {
+    window.history.pushState({}, "", "/performers/new");
+    setManagedCategories(["Featured"]);
+
+    render(<App />);
+
+    expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Featured" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+      "href",
+      "/settings/category-management",
+    );
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
 
   it("saves empty performer mini thumbnail fields safely", async () => {

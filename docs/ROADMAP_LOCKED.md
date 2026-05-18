@@ -80,6 +80,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Related Cards on Detail Pages is complete through Batch 27.7 after merge; Detail related sections use compact cards or honest empty states, preserve related JSON storage, and do not add relation picker/add/remove behavior.
 - Image Detail Gallery Placement Adjustment is complete through Batch 27.8 after merge; Image Detail Gallery appears below Hero and before Metadata, Notes remains before Related sections, System Info remains last, and Video Detail and Performer Detail section order remain unchanged.
 - Form Field UX V1 Planning is documented in `docs/33-form-field-ux-v1-planning.md`; implementation should keep forms cleaner and closer to Detail Page V1 while preserving current save behavior, SQLite persistence, `categoriesJson`, related JSON storage, `galleryImagePathsJson`, `ratingJson`, and no-file-mutation rules.
+- Category Picker Field Redesign is complete through Batch 28.2 after merge; forms use searchable Managed Categories picker options, selected chips, duplicate prevention, record-only chip preservation, no-match Manage Category guidance, and `categoriesJson` serialization without changing Managed Category storage or Category Management CRUD.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## UI/UX V1 Alignment Sequence
