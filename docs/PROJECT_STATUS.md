@@ -11,13 +11,13 @@ post-mvp-30-4-category-management-table-detail-pagination-v1
 Current batch:
 
 ```text
-32.1 - Catalog Filter/Sort V1 Implementation
+32.2 - Categories Catalog/Collection V1 Implementation
 ```
 
 Current focus:
 
 ```text
-Implement V1 catalog filter and sort behavior for Videos, Images, and Performers.
+Implement the Categories Catalog/Collection V1 browse surface with managed category metadata, usage filters, and pagination.
 ```
 
 Latest known stable category checkpoint:
@@ -431,6 +431,7 @@ Current app capabilities include:
 - Category Management table refinement through Batch 30.4 after merge: full-width columns, integrated detail display through table/form fields, search/filter/sort composition, and pagination footer with 25/50/100 row options.
 - V1 Smoke Test Gap Audit and Efficient Roadmap Lock through Batch 31.1 after merge: docs-only audit of remaining V1 gaps and approved roadmap replacement through Batch 36.3.
 - Catalog Filter/Sort V1 through Batch 32.1 after merge: Videos, Images, and Performers use functional catalog data filters and Last Added sorting where safe from current fields/helpers; Quality and Performer Debut Year derive from existing saved fields when present and safely remain unmatched for records without valid saved data.
+- Categories Catalog/Collection V1 through Batch 32.2 after merge: Categories browse uses managed category metadata, thumbnail paths when present, parent context, usage counts, Video/Image/Performer usage filters, sorting, and pagination without Category Management CRUD or record mutation.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -469,10 +470,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 32.1:
+Recommended next implementation batch after Batch 32.2:
 
 ```text
-32.2 - Categories Catalog/Collection V1 Implementation
+33.1 - Media Tech Info + Availability Safety Plan
 ```
 
 Latest roadmap implementation batch:

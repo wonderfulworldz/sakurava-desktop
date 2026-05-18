@@ -124,13 +124,13 @@ Recommended sequence:
 Current batch:
 
 ```text
-32.1 - Catalog Filter/Sort V1 Implementation
-```
-
-Next implementation batch after 32.1:
-
-```text
 32.2 - Categories Catalog/Collection V1 Implementation
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 32.1 should stay scoped to Catalog Filter/Sort V1.
+Next implementation batch after 32.2:
+
+```text
+33.1 - Media Tech Info + Availability Safety Plan
+```
+
+Batch 31.1 is documentation-only and complete. Batch 32.2 should stay scoped to Categories Catalog/Collection V1.
