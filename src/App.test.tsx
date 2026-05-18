@@ -2334,6 +2334,17 @@ describe("App", () => {
     expect(techInfo.getAllByDisplayValue("Not detected")).toHaveLength(3);
   });
 
+  it("keeps Form pages on the AppShell scroll owner", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    const main = screen.getByRole("main");
+    const form = screen.getByText("Video Create Form").closest("form");
+
+    expect(main).toHaveClass("overflow-y-auto");
+    expect(form).not.toHaveClass("overflow-y-auto");
+  });
+
   it("shows an empty managed category picker state without free-text fallback", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
@@ -6259,6 +6270,28 @@ describe("App", () => {
     expect(screen.queryByRole("heading", { name: "8. Related Content" }))
       .not.toBeInTheDocument();
   });
+
+  it.each(["/performers/new", "/performers/sample-id/edit"])(
+    "renders only functional Performer related sections for %s",
+    (path) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      expect(screen.getAllByRole("heading", { name: "8. Related Videos" }))
+        .toHaveLength(1);
+      expect(screen.getAllByRole("heading", { name: "9. Related Images" }))
+        .toHaveLength(1);
+      expect(
+        screen.queryByText("Available after relation features are added."),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "10. Related Videos" }))
+        .not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "11. Related Images" }))
+        .not.toBeInTheDocument();
+      expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
+      expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
+    },
+  );
 });
 
 function expectSectionOrder(sections: Array<HTMLElement | null>) {

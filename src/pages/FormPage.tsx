@@ -1486,14 +1486,11 @@ function RelatedFormSections({
 }
 
 function relatedSectionsForConfig(config: FormConfig) {
-  if (config.kind !== "videos" && config.kind !== "images") {
-    return config.relatedSections;
-  }
-
   return config.relatedSections.filter(
     (section) =>
       section.label !== "Related Performer" &&
       section.label !== "Related Images" &&
+      section.label !== "Related Videos" &&
       section.label !== "Related Video",
   );
 }
