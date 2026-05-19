@@ -9,7 +9,7 @@ export type MediaMetadataProbeResult = {
   durationMinutes?: number | null;
   width: number | null;
   height: number | null;
-  resolution: string;
+  resolution: string | null;
   message: string;
 };
 
@@ -52,7 +52,7 @@ function emptyProbe(
     durationMinutes: null,
     width: null,
     height: null,
-    resolution: "",
+    resolution: null,
     message,
   };
 }
