@@ -96,11 +96,13 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Video/Picture Form + Detail Tech Info Implementation is complete through Batch 33.2 after merge; Video/Image forms support explicit Detect plus save-time read-only metadata checks, persisted safe metadata fields, availability derivation from explicit paths, and detail/catalog display from saved values without broad scanning or file mutation.
 - Video Duration/Resolution Detector Implementation is complete through Batch 33.2.1 after merge; Video duration and resolution detection uses read-only Windows Shell media properties for one explicit file path and keeps safe fallback behavior when properties are unavailable.
 - Performer Form + Detail Data Completion is complete through Batch 33.3 after merge; Performer forms and detail now use saved performer dates, personal fields, physical fields, derived Status, derived Filmography/Pictorial counts from performer-owned related Video/Image selections, and neutral fallbacks while preserving categoriesJson, ratingJson, mini thumbnails, existing related picker behavior, and no Video/Image Tech Info changes.
+- Performer Related Detail Sections Implementation is complete through Batch 33.4 after merge; Performer Detail now displays performer-owned Related Videos and Related Images as mini collections with card/table views, sorting, pagination, safe unresolved fallbacks, neutral empty states, and no back-link writes or Video/Image mutation.
+- Settings Functional Redesign + Data Operations Planning is documented in `docs/39-settings-functional-redesign-data-operations-plan.md`; Batch 34.1 is docs-only and locks the approved roadmap swap where 34.x is Settings + Data Operations and 35.x is Category Visibility + Thumbnail Cache / Low-res.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## Current Locked V1 Roadmap
 
-The older 31.1-31.4 release-cleanup path is superseded because smoke-test gaps remain. Use `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md` as the active continuation after Batch 30.4.
+The older 31.1-31.4 release-cleanup path is superseded because smoke-test gaps remain. Use `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md` as the active continuation after Batch 30.4, amended by `docs/39-settings-functional-redesign-data-operations-plan.md` for the approved 34/35 roadmap swap.
 
 Recommended sequence:
 
@@ -109,32 +111,33 @@ Recommended sequence:
 3. 32.2 - Categories Catalog/Collection V1 Implementation
 4. 33.1 - Media Tech Info + Availability Safety Plan
 5. 33.2 - Video/Picture Form + Detail Tech Info Implementation
-6. 33.3 - Performer Form + Detail Data Completion
-7. 33.4 - Performer Related Detail Sections Implementation
-8. 34.1 - Category Visibility + Thumbnail Cache Safety Plan
-9. 34.2 - Category Visibility Implementation
-10. 34.3 - Thumbnail Cache / Low-res Regeneration Implementation
-11. 35.1 - Settings Functional Redesign + Data Operations Planning
-12. 35.2 - Settings Layout Redesign Implementation
-13. 35.3 - Backup/Restore + Clear Cache Implementation
-14. 35.4 - Import/Export Bulk Data Planning
-15. 35.5 - Appearance + Dark Mode Implementation
-16. 35.6 - Language System Planning
-17. 35.7 - Language Picker/Editor Implementation
-18. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-19. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-20. 36.3 - Full Smoke Test + Release Candidate
+6. 33.2.1 - Video Duration/Resolution Detector Implementation
+7. 33.3 - Performer Form + Detail Data Completion
+8. 33.4 - Performer Related Detail Sections Implementation
+9. 34.1 - Settings Functional Redesign + Data Operations Planning
+10. 34.2 - Settings Layout Redesign Implementation
+11. 34.3 - Backup/Restore + Clear Cache Implementation
+12. 34.4 - Import/Export Bulk Data Planning
+13. 34.5 - Appearance + Dark Mode Implementation
+14. 34.6 - Language System Planning
+15. 34.7 - Language Picker/Editor Implementation
+16. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+17. 35.2 - Category Visibility Implementation
+18. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+19. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+20. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+21. 36.3 - Full Smoke Test + Release Candidate
 
 Current batch:
 
 ```text
-33.3 - Performer Form + Detail Data Completion
+34.1 - Settings Functional Redesign + Data Operations Planning
 ```
 
-Next implementation batch after 33.3:
+Next implementation batch after 34.1:
 
 ```text
-33.4 - Performer Related Detail Sections Implementation
+34.2 - Settings Layout Redesign Implementation
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only; Performer related detail sections remain Batch 33.4.
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Do not revert to the old 34/35 order.

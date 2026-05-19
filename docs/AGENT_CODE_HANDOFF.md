@@ -9,7 +9,7 @@ Use these docs as compressed project memory. Do not reconstruct the full histori
 ```text
 You are working on the Sakurava desktop app.
 
-Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md, docs/38-media-tech-info-availability-safety-plan.md, docs/AGENT_CODE_HANDOFF.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/17-related-performer-picker-structure-planning.md, docs/18-related-performer-storage-planning.md, docs/19-related-video-image-picker-structure-planning.md, docs/20-related-video-image-storage-planning.md, docs/21-media-file-status-open-file-planning.md, docs/22-external-media-open-planning.md, docs/23-cover-thumbnail-full-size-preview-planning.md, docs/24-performer-mini-thumbnail-storage-form-planning.md, docs/25-image-gallery-planning.md, docs/26-image-gallery-storage-form-planning.md, docs/27-image-gallery-qa-safety-review.md, docs/28-ui-ux-v1-audit-prioritization-plan.md, docs/29-catalog-toolbar-v1-planning.md, docs/30-detail-page-v1-layout-planning.md, docs/31-functional-spider-chart-rating-planning.md, docs/32-tech-info-media-status-planning.md, docs/33-form-field-ux-v1-planning.md, docs/35-category-management-v1-audit-and-planning.md, docs/36-category-management-data-model-safety-plan.md, and docs/WORKFLOW_GIT.md.
+Read AGENTS.md first, then docs/PROJECT_STATUS.md, docs/ROADMAP_LOCKED.md, docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md, docs/38-media-tech-info-availability-safety-plan.md, docs/39-settings-functional-redesign-data-operations-plan.md, docs/AGENT_CODE_HANDOFF.md, docs/11-prd-alignment-and-development-plan.md, docs/10-category-management-safety.md, docs/12-backup-restore-ux-safety.md, docs/13-settings-persistence-planning.md, docs/14-category-management-dedicated-page-planning.md, docs/15-form-category-picker-lockdown-planning.md, docs/16-categories-sidebar-page-planning.md, docs/17-related-performer-picker-structure-planning.md, docs/18-related-performer-storage-planning.md, docs/19-related-video-image-picker-structure-planning.md, docs/20-related-video-image-storage-planning.md, docs/21-media-file-status-open-file-planning.md, docs/22-external-media-open-planning.md, docs/23-cover-thumbnail-full-size-preview-planning.md, docs/24-performer-mini-thumbnail-storage-form-planning.md, docs/25-image-gallery-planning.md, docs/26-image-gallery-storage-form-planning.md, docs/27-image-gallery-qa-safety-review.md, docs/28-ui-ux-v1-audit-prioritization-plan.md, docs/29-catalog-toolbar-v1-planning.md, docs/30-detail-page-v1-layout-planning.md, docs/31-functional-spider-chart-rating-planning.md, docs/32-tech-info-media-status-planning.md, docs/33-form-field-ux-v1-planning.md, docs/35-category-management-v1-audit-and-planning.md, docs/36-category-management-data-model-safety-plan.md, and docs/WORKFLOW_GIT.md.
 
 Follow the locked terminology, no auto-commit rule, category safety rules, Backup/Restore safety rules, Settings persistence planning rules, Category Management dedicated page planning rules, Form Category Picker Lockdown planning rules, Categories Sidebar Page planning rules, Related Performer Picker Structure planning rules, Related Performer Storage planning rules, Related Video/Image Picker Structure planning rules, Related Video/Image Storage planning rules, Media File Status / Open File planning rules, External Media Open planning rules, Performer Mini Thumbnail Storage/Form planning rules, Image Gallery planning rules, and Image Gallery Storage/Form planning rules. Keep the batch scoped. Do not change application code, tests, schema, backend/Rust/Tauri, UI, or category behavior unless this specific batch asks for it.
 
@@ -27,6 +27,7 @@ Read these before planning or editing:
 - `docs/ROADMAP_LOCKED.md`
 - `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md`
 - `docs/38-media-tech-info-availability-safety-plan.md`
+- `docs/39-settings-functional-redesign-data-operations-plan.md`
 - `docs/AGENT_CODE_HANDOFF.md`
 - `docs/11-prd-alignment-and-development-plan.md`
 - `docs/10-category-management-safety.md`
@@ -163,6 +164,8 @@ For category-related work, also inspect:
 - Media Tech Info + Availability Safety Plan is documented after Batch 33.1 in `docs/38-media-tech-info-availability-safety-plan.md` if merged. Batch 33.1 is docs-only and must not change source files, Tauri/Rust files, schema, package files, runtime behavior, or UI. The next implementation batch is 33.2 - Video/Picture Form + Detail Tech Info Implementation. Do not start 33.2 inside 33.1.
 - Video/Picture Form + Detail Tech Info Implementation is complete after Batch 33.2 if merged. Video/Image forms use explicit Detect plus save-time read-only metadata checks, persist safe metadata values, and derive availability from explicit media/gallery paths. Do not expand this into Performer form completion, category visibility, thumbnail cache, media player, broad scanning, or file mutation work. The next implementation batch is 33.3 - Performer Form + Detail Data Completion.
 - Performer Form + Detail Data Completion is complete after Batch 33.3 if merged. Performer Create/Edit persists debut/retired dates, birthplace, nationality, blood type, height, weight, structured Bust/Waist/Hip measurements, cup size, and performer-owned related Video/Image selections; Status is derived from debut/retired dates, Filmography/Pictorial counts are derived from performer-owned related selections, and Performer Detail displays those derived/saved values with neutral fallbacks. Do not expand this into Performer related detail sections, back-link saves, relation tables, category visibility, thumbnail cache, Video/Image Tech Info, or file mutation work. The next implementation batch is 33.4 - Performer Related Detail Sections Implementation.
+- Performer Related Detail Sections Implementation is complete after Batch 33.4 if merged. Performer Detail displays performer-owned Related Videos and Related Images as safe mini collections with card/table views, sorting, pagination, per-page controls, unresolved fallbacks, and no Video/Image mutation or back-link saves. The user approved swapping the old 34/35 order: Batch 34 is now Settings + Data Operations, and Batch 35 is now Category Visibility + Thumbnail Cache / Low-res. Do not revert to the old order.
+- Settings Functional Redesign + Data Operations Planning is documented in `docs/39-settings-functional-redesign-data-operations-plan.md` if merged. Batch 34.1 is docs-only and must not change source files, Tauri/Rust files, schema, package files, runtime behavior, or UI. The next implementation batch is 34.2 - Settings Layout Redesign Implementation. Do not start 34.2 inside 34.1.
 
 ## Current Efficient Roadmap
 
@@ -173,21 +176,22 @@ Follow this sequence unless the user explicitly changes it:
 3. 32.2 - Categories Catalog/Collection V1 Implementation
 4. 33.1 - Media Tech Info + Availability Safety Plan
 5. 33.2 - Video/Picture Form + Detail Tech Info Implementation
-6. 33.3 - Performer Form + Detail Data Completion
-7. 33.4 - Performer Related Detail Sections Implementation
-8. 34.1 - Category Visibility + Thumbnail Cache Safety Plan
-9. 34.2 - Category Visibility Implementation
-10. 34.3 - Thumbnail Cache / Low-res Regeneration Implementation
-11. 35.1 - Settings Functional Redesign + Data Operations Planning
-12. 35.2 - Settings Layout Redesign Implementation
-13. 35.3 - Backup/Restore + Clear Cache Implementation
-14. 35.4 - Import/Export Bulk Data Planning
-15. 35.5 - Appearance + Dark Mode Implementation
-16. 35.6 - Language System Planning
-17. 35.7 - Language Picker/Editor Implementation
-18. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-19. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-20. 36.3 - Full Smoke Test + Release Candidate
+6. 33.2.1 - Video Duration/Resolution Detector Implementation
+7. 33.3 - Performer Form + Detail Data Completion
+8. 33.4 - Performer Related Detail Sections Implementation
+9. 34.1 - Settings Functional Redesign + Data Operations Planning
+10. 34.2 - Settings Layout Redesign Implementation
+11. 34.3 - Backup/Restore + Clear Cache Implementation
+12. 34.4 - Import/Export Bulk Data Planning
+13. 34.5 - Appearance + Dark Mode Implementation
+14. 34.6 - Language System Planning
+15. 34.7 - Language Picker/Editor Implementation
+16. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+17. 35.2 - Category Visibility Implementation
+18. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+19. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+20. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+21. 36.3 - Full Smoke Test + Release Candidate
 
 ## Preferred Batch Prompt Format
 
