@@ -16,8 +16,10 @@ export type RelatedCatalogDetailItem = {
   title: string;
   originalTitle?: string;
   coverPath?: string;
+  publisherLabel?: string;
   metadata?: string;
   releaseDate?: string;
+  rating?: number | null;
   routeTo?: string;
   unresolved: boolean;
 };
@@ -39,6 +41,7 @@ type RatingAxis = {
 type MetadataItem = {
   label: string;
   value: string;
+  secondaryValue?: string;
 };
 
 export type MediaPathItem = {
@@ -321,11 +324,13 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedSections: [
       {
         title: "Related Videos",
-        description: "Available after relation features are added.",
+        description: "Read-only Related Video links saved on this performer.",
+        relatedCatalogRecords: [],
       },
       {
         title: "Related Images",
-        description: "Available after relation features are added.",
+        description: "Read-only Related Image links saved on this performer.",
+        relatedCatalogRecords: [],
       },
     ],
   },

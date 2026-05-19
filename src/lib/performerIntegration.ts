@@ -1,4 +1,4 @@
-import type { NewPerformer, Performer, PerformerPatch } from "../backend/types";
+import type { Image, NewPerformer, Performer, PerformerPatch, Video } from "../backend/types";
 import {
   normalizePerformerThumbnailPathsJson,
   parsePerformerThumbnailPathArray,
@@ -12,7 +12,7 @@ import type { RelatedCatalogRecordFormValue } from "./formData";
 import type { CollectionConfig, PerformerCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveDebutYear } from "./catalogDerivedFields";
-import type { PerformerDetailConfig } from "./detailData";
+import type { DetailSection, PerformerDetailConfig } from "./detailData";
 import { formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
@@ -36,7 +36,11 @@ export function buildPerformerCollectionConfig(
   };
 }
 
-export function buildPerformerDetailConfig(performer: Performer): PerformerDetailConfig {
+export function buildPerformerDetailConfig(
+  performer: Performer,
+  videos: Video[] = [],
+  images: Image[] = [],
+): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
   const thumbnailPaths = parsePerformerThumbnailPathArray(
     performer.performerThumbnailPathsJson,
@@ -56,7 +60,11 @@ export function buildPerformerDetailConfig(performer: Performer): PerformerDetai
     thumbnailPaths,
     categories: parseTextLabelArray(performer.categoriesJson),
     summary: [
-      { label: "Years Active", value: formatYearsActive(performer) },
+      {
+        label: "Years Active",
+        value: formatYearsActive(performer),
+        secondaryValue: formatYearsActiveAges(performer),
+      },
       { label: "Filmography", value: String(filmographyCount) },
       { label: "Pictorials", value: String(pictorialsCount) },
     ],
@@ -64,7 +72,6 @@ export function buildPerformerDetailConfig(performer: Performer): PerformerDetai
       { label: "Debut Date", value: performer.debutDate || "Not set" },
       { label: "Retired Date", value: performer.retiredDate || "Not set" },
       { label: "Birth Date", value: performer.birthDate || "Not set" },
-      { label: "Status", value: derivedStatus },
     ],
     mediaPaths: [{ label: "Profile image status", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
@@ -91,7 +98,13 @@ export function buildPerformerDetailConfig(performer: Performer): PerformerDetai
     ],
     rating: getRatingDimensions(performer.ratingJson, performerRatingFields),
     notes: performer.notes || "No notes saved.",
-    relatedSections: baseConfig.relatedSections,
+    relatedSections: buildRelatedSections(
+      baseConfig.relatedSections,
+      performer.relatedVideosJson,
+      videos,
+      performer.relatedImagesJson,
+      images,
+    ),
   };
 }
 
@@ -305,6 +318,118 @@ function derivedRelatedCount(value: string | null | undefined) {
   return parseRelatedCatalogRecordArray(value).length;
 }
 
+function buildRelatedSections(
+  sections: DetailSection[],
+  relatedVideosJson: string | null | undefined,
+  videos: Video[],
+  relatedImagesJson: string | null | undefined,
+  images: Image[],
+): DetailSection[] {
+  return sections.map((section) =>
+    section.title.includes("Video")
+      ? {
+          ...section,
+          description: "Read-only Related Video links saved on this performer.",
+          controls: "performer-related" as const,
+          relatedCatalogRecords: buildRelatedVideoItems(relatedVideosJson, videos),
+        }
+      : section.title.includes("Image")
+        ? {
+            ...section,
+            description: "Read-only Related Image links saved on this performer.",
+            controls: "performer-related" as const,
+            relatedCatalogRecords: buildRelatedImageItems(relatedImagesJson, images),
+          }
+        : section,
+  );
+}
+
+function buildRelatedVideoItems(
+  relatedCatalogJson: string | null | undefined,
+  videos: Video[],
+) {
+  const videoById = new Map(videos.map((video) => [video.id, video]));
+
+  return parseRelatedCatalogRecordArray(relatedCatalogJson).map((relation) => {
+    const video = relation.recordId ? videoById.get(relation.recordId) : undefined;
+
+    if (video) {
+      const title =
+        video.title || video.originalTitle || relation.titleSnapshot || "Unresolved Video";
+      return {
+        title,
+        originalTitle:
+          video.originalTitle && video.originalTitle !== title
+            ? video.originalTitle
+            : undefined,
+        coverPath: video.coverPath,
+        publisherLabel: video.publisherLabel,
+        metadata: formatVideoDuration(video.durationMinutes),
+        releaseDate: video.releaseDate,
+        rating: createRatingSummary(video.ratingJson).average,
+        routeTo: `/videos/${video.id}`,
+        unresolved: false,
+      };
+    }
+
+    return {
+      title: relation.titleSnapshot || "Unresolved Video",
+      unresolved: true,
+    };
+  });
+}
+
+function buildRelatedImageItems(
+  relatedCatalogJson: string | null | undefined,
+  images: Image[],
+) {
+  const imageById = new Map(images.map((image) => [image.id, image]));
+
+  return parseRelatedCatalogRecordArray(relatedCatalogJson).map((relation) => {
+    const image = relation.recordId ? imageById.get(relation.recordId) : undefined;
+
+    if (image) {
+      const title =
+        image.title || image.originalTitle || relation.titleSnapshot || "Unresolved Image";
+      return {
+        title,
+        originalTitle:
+          image.originalTitle && image.originalTitle !== title
+            ? image.originalTitle
+            : undefined,
+        coverPath: image.coverPath,
+        publisherLabel: image.publisherLabel,
+        metadata: formatImageCount(image.imageCount),
+        releaseDate: image.releaseDate,
+        rating: createRatingSummary(image.ratingJson).average,
+        routeTo: `/images/${image.id}`,
+        unresolved: false,
+      };
+    }
+
+    return {
+      title: relation.titleSnapshot || "Unresolved Image",
+      unresolved: true,
+    };
+  });
+}
+
+function formatVideoDuration(minutes: number | null) {
+  if (!minutes || minutes <= 0) {
+    return undefined;
+  }
+
+  return `${minutes} min`;
+}
+
+function formatImageCount(count: number | null) {
+  if (!count) {
+    return undefined;
+  }
+
+  return `${count} ${count === 1 ? "image" : "images"}`;
+}
+
 function formatUnit(value: number | null, unit: string) {
   return value === null ? "Not set" : `${value} ${unit}`;
 }
@@ -320,6 +445,24 @@ function formatYearsActive(performer: Performer) {
   const start = debutYear ? String(debutYear) : "Unknown";
   const end = retiredYear ? String(retiredYear) : "Now";
   return `${start} - ${end}`;
+}
+
+function formatYearsActiveAges(performer: Performer) {
+  const birthYear = yearFromIsoDate(performer.birthDate);
+  const debutYear = yearFromIsoDate(performer.debutDate);
+  const retiredYear = yearFromIsoDate(performer.retiredDate);
+
+  if (!birthYear || !debutYear) {
+    return "Age range not set";
+  }
+
+  const endYear = retiredYear ?? new Date().getFullYear();
+
+  if (endYear < debutYear || debutYear < birthYear) {
+    return "Age range not set";
+  }
+
+  return `(${debutYear - birthYear} - ${endYear - birthYear} y)`;
 }
 
 function formatMeasurements(values: FormValues) {
