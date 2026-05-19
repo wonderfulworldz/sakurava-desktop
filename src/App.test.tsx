@@ -1041,89 +1041,116 @@ describe("App", () => {
     },
   );
 
-  it("renders the read-only Settings page", () => {
+  it("renders the compact Settings control center", () => {
     window.history.pushState({}, "", "/settings");
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "App Information" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data & Safety" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Categories" }))
-      .toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Manage application preferences, optimization, data safety, and app information.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Appearance" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Media & Files" }))
+    expect(screen.getByRole("heading", { name: "Language" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Advanced / Maintenance" }))
+    expect(screen.getByRole("heading", { name: "Optimization" }))
       .toBeInTheDocument();
-    expect(screen.getByText("App Overview")).toBeInTheDocument();
-    expect(screen.getByText("Runtime & Database")).toBeInTheDocument();
-    expect(screen.getByText("Media Roots & Local Assets")).toBeInTheDocument();
-    expect(screen.getByText("Backup / Restore")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Category Management" }))
+    expect(screen.getByRole("heading", { name: "Data Safety & Migration" }))
       .toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "App Information" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Theme" })).toBeInTheDocument();
+    expect(screen.getByText("Accent Style")).toBeInTheDocument();
+    expect(screen.getByText("UI Density")).toBeInTheDocument();
+    expect(screen.getAllByText("App Language").length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("link", { name: "Open Category Management" }),
-    ).toHaveAttribute("href", "/settings/category-management");
+      screen.getByText("Translation Tools / Language Editor"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Installed Languages")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Media & Library" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cache" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Catalog Preferences" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Scanning & Updates" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Backup & Restore" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Import & Export" })).toBeInTheDocument();
+    expect(screen.getByText("App Version")).toBeInTheDocument();
+    expect(screen.getByText("Database Status")).toBeInTheDocument();
+    expect(screen.getByText("System")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Category Management" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open Category Management" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByText("Catalog Settings")).not.toBeInTheDocument();
     expect(screen.queryByText("Categories Audit")).not.toBeInTheDocument();
-    expect(screen.getByText("Current Runtime Features")).toBeInTheDocument();
-    expect(screen.getByText("Planned Maintenance")).toBeInTheDocument();
-    expect(screen.getByText("Theme / Appearance")).toBeInTheDocument();
-    expect(screen.getByText("Language")).toBeInTheDocument();
-    expect(screen.getByText("Welcome Slider")).toBeInTheDocument();
-    expect(screen.getByText("About Sakurava")).toBeInTheDocument();
     expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
     expect(screen.getByText("Local / Offline")).toBeInTheDocument();
     expect(screen.getByText("Windows Desktop")).toBeInTheDocument();
     expect(screen.getAllByText("Browser preview").length).toBeGreaterThan(0);
     expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getByText("sakurava.sqlite")).toBeInTheDocument();
-    expect(screen.getByText("app.sakurava.desktop")).toBeInTheDocument();
-    expect(screen.getByText("Database Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Local SQLite database")).toBeInTheDocument();
+    expect(screen.getByText("All data is stored locally on this device.")).toBeInTheDocument();
+    expect(screen.getByText("Good")).toBeInTheDocument();
+    expect(screen.getByText("Not tracked yet")).toBeInTheDocument();
     expect(screen.getByText("Manual thumbnail rendering")).toBeInTheDocument();
-    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getAllByText("Enabled").length).toBeGreaterThan(0);
     expect(
-      screen.getByText("Pictures, Videos, Documents, and Downloads"),
+      screen.getByText(/Pictures, Videos, Documents, and Downloads/),
     ).toBeInTheDocument();
-    expect(screen.getByText("Placeholders only")).toBeInTheDocument();
-    expect(screen.getByText("Local device only")).toBeInTheDocument();
+    expect(screen.getByText("Media Loading")).toBeInTheDocument();
+    expect(screen.getByText("Hardware Acceleration")).toBeInTheDocument();
+    expect(screen.getByText("Parallel Processing")).toBeInTheDocument();
+    expect(screen.getByText("Default View")).toBeInTheDocument();
+    expect(screen.getByText("Default Sort")).toBeInTheDocument();
+    expect(screen.getByText("Items per Page")).toBeInTheDocument();
+    expect(screen.getByText("Auto Scan New Folders")).toBeInTheDocument();
+    expect(screen.getByText("Scan Interval")).toBeInTheDocument();
+    expect(screen.getByText("Ignore Short Videos")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Category name")).not.toBeInTheDocument();
     expect(screen.queryByText("Apply Rename")).not.toBeInTheDocument();
     expect(screen.queryByText("Apply Delete")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Runtime CRUD enabled")).toHaveLength(3);
-    expect(screen.getByText("Light Mode")).toBeInTheDocument();
-    expect(screen.getByText("Dark Mode")).toBeInTheDocument();
+    expect(screen.queryByText("Runtime CRUD enabled")).not.toBeInTheDocument();
+    expect(screen.getByText("Cache Size")).toBeInTheDocument();
+    expect(screen.getByText("Thumbnail Cache")).toBeInTheDocument();
+    expect(screen.getByText("Batch 35 planning")).toBeInTheDocument();
+    expect(screen.getByText("Preview Cache")).toBeInTheDocument();
+    expect(screen.getByText("CSV/XLSX data exchange for Videos, Images, and Performers. No media files are included.")).toBeInTheDocument();
+    expect(screen.getByText("Light")).toBeInTheDocument();
+    expect(screen.getByText("Dark")).toBeInTheDocument();
     expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
-    expect(screen.getByText("Sakura Pink")).toBeInTheDocument();
+    expect(screen.getByText(/Sakura Pink/)).toBeInTheDocument();
+    expect(screen.getByText("Compact")).toBeInTheDocument();
+    expect(screen.getByText("Comfortable")).toBeInTheDocument();
+    expect(screen.getByText("Spacious")).toBeInTheDocument();
+    expect(screen.getAllByText("English (United States)").length).toBeGreaterThan(0);
+    expect(screen.getByText("Planned editor direction: CSV/XLSX/notepad-friendly.")).toBeInTheDocument();
     expect(
-      screen.getByText("Appearance switching is planned and not active in this batch."),
+      screen.getByText(
+        "Clearing cache does not delete your source media.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText("English")).toBeInTheDocument();
-    expect(screen.getByText("Indonesian")).toBeInTheDocument();
     expect(
-      screen.getByText("Language switching is planned and not active in this batch."),
+      screen.getByText(
+        "Full app data safety for database/sql-like backups. Generated thumbnails/cache-like app data may be included later; original media files are not included.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Default Welcome Image")).toBeInTheDocument();
-    expect(screen.getAllByText("Current / default")).toHaveLength(3);
-    expect(screen.getByText("Custom Slider Images")).toBeInTheDocument();
-    expect(screen.getByText("Slider Management")).toBeInTheDocument();
     expect(
-      screen.getByText("Welcome slider customization is planned and not active in this batch."),
+      screen.getByText(
+        "Sakurava works completely offline. Back up your database regularly to prevent data loss. Clearing cache will not delete your source media or catalog data.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Backup Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Restore Data" })).toBeDisabled();
+    expect(screen.getByText("Keep your data safe")).toBeInTheDocument();
+    expect(screen.queryByText("Welcome Slider")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset to Defaults" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Backup Database" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Restore Database" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Clear Cache" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Bulk Editor" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Optimize / Cleanup" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Analytics" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Advanced Category Hierarchy" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Dark/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeDisabled();
   });
 
   it("shows desktop runtime database status when Tauri is available", () => {
@@ -1136,7 +1163,7 @@ describe("App", () => {
 
     expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
     expect(screen.getByText("Available")).toBeInTheDocument();
-    expect(screen.getByText("Database Available")).toBeInTheDocument();
+    expect(screen.getByText("Runtime Status")).toBeInTheDocument();
   });
 
   it("renders Category Management table columns and pagination controls", () => {
@@ -1367,7 +1394,7 @@ describe("App", () => {
 
     render(<App />);
 
-    const backupButton = screen.getByRole("button", { name: "Backup Data" });
+    const backupButton = screen.getByRole("button", { name: "Backup Database" });
     expect(backupButton).toBeEnabled();
     fireEvent.click(backupButton);
 
@@ -1378,7 +1405,7 @@ describe("App", () => {
       undefined,
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Restore Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
   });
 
   it("backs up the database to the selected destination", async () => {
@@ -1400,7 +1427,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Backup Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Backup Database" }));
 
     await screen.findByText(`Backup created at ${destinationPath}`);
     expect(dialogMocks.save).toHaveBeenCalledWith(
@@ -1445,7 +1472,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Backup Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Backup Database" }));
 
     const pendingButton = await screen.findByRole("button", {
       name: "Backing Up...",
@@ -1477,13 +1504,13 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Backup Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Backup Database" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Unable to back up SQLite database",
     );
-    expect(screen.getByRole("button", { name: "Backup Data" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Restore Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Backup Database" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
   });
 
   it("cancels restore source selection without calling the restore command", async () => {
@@ -1496,7 +1523,7 @@ describe("App", () => {
 
     render(<App />);
 
-    const restoreButton = screen.getByRole("button", { name: "Restore Data" });
+    const restoreButton = screen.getByRole("button", { name: "Restore Database" });
     expect(restoreButton).toBeEnabled();
     fireEvent.click(restoreButton);
 
@@ -1533,7 +1560,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
 
     expect(await screen.findByText("Confirm database restore")).toBeInTheDocument();
     expect(
@@ -1564,7 +1591,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
     await screen.findByText("Confirm database restore");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -1599,7 +1626,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
     await screen.findByText("Confirm database restore");
     fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
 
@@ -1633,7 +1660,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
     await screen.findByText("Confirm database restore");
     fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
 
@@ -1672,7 +1699,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
     await screen.findByText("Confirm database restore");
     fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
 
@@ -1711,14 +1738,14 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
     await screen.findByText("Confirm database restore");
     fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Restore source failed SQLite integrity check",
     );
-    expect(screen.getByRole("button", { name: "Restore Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
   });
 
   it("keeps create routes separate from detail route stubs", () => {

@@ -166,6 +166,7 @@ For category-related work, also inspect:
 - Performer Form + Detail Data Completion is complete after Batch 33.3 if merged. Performer Create/Edit persists debut/retired dates, birthplace, nationality, blood type, height, weight, structured Bust/Waist/Hip measurements, cup size, and performer-owned related Video/Image selections; Status is derived from debut/retired dates, Filmography/Pictorial counts are derived from performer-owned related selections, and Performer Detail displays those derived/saved values with neutral fallbacks. Do not expand this into Performer related detail sections, back-link saves, relation tables, category visibility, thumbnail cache, Video/Image Tech Info, or file mutation work. The next implementation batch is 33.4 - Performer Related Detail Sections Implementation.
 - Performer Related Detail Sections Implementation is complete after Batch 33.4 if merged. Performer Detail displays performer-owned Related Videos and Related Images as safe mini collections with card/table views, sorting, pagination, per-page controls, unresolved fallbacks, and no Video/Image mutation or back-link saves. The user approved swapping the old 34/35 order: Batch 34 is now Settings + Data Operations, and Batch 35 is now Category Visibility + Thumbnail Cache / Low-res. Do not revert to the old order.
 - Settings Functional Redesign + Data Operations Planning is documented in `docs/39-settings-functional-redesign-data-operations-plan.md` if merged. Batch 34.1 is docs-only and must not change source files, Tauri/Rust files, schema, package files, runtime behavior, or UI. The next implementation batch is 34.2 - Settings Layout Redesign Implementation. Do not start 34.2 inside 34.1.
+- Settings Layout Redesign Implementation is complete after Batch 34.2 if merged. Settings should present the approved five-section control center: Appearance, Language, Optimization, Data Safety & Migration, and App Information. Existing Backup/Restore and media root behavior must remain unchanged, and future operations remain disabled/planned until their dedicated batches. The next implementation batch is 34.3 - Backup/Restore + Clear Cache Implementation.
 
 ## Current Efficient Roadmap
 
@@ -186,12 +187,13 @@ Follow this sequence unless the user explicitly changes it:
 13. 34.5 - Appearance + Dark Mode Implementation
 14. 34.6 - Language System Planning
 15. 34.7 - Language Picker/Editor Implementation
-16. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
-17. 35.2 - Category Visibility Implementation
-18. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
-19. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-20. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-21. 36.3 - Full Smoke Test + Release Candidate
+16. 34.8 - Settings Full Smoke Test + Cleanup
+17. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+18. 35.2 - Category Visibility Implementation
+19. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+20. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+21. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+22. 36.3 - Full Smoke Test + Release Candidate
 
 ## Preferred Batch Prompt Format
 

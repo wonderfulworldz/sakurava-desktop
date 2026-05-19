@@ -4,9 +4,10 @@
 
 - Batch 33.4 - Performer Related Detail Sections Implementation is complete.
 - Tag exists: `post-mvp-33-4-performer-related-detail-sections-v1`.
-- Current batch: 34.1 - Settings Functional Redesign + Data Operations Planning.
-- Batch 34.1 is docs-only.
-- Next batch: 34.2 - Settings Layout Redesign Implementation.
+- Batch 34.1 - Settings Functional Redesign + Data Operations Planning is complete.
+- Tag exists: `post-mvp-34-1-settings-functional-redesign-data-ops-plan-v1`.
+- Current batch: 34.2 - Settings Layout Redesign Implementation.
+- Next batch: 34.3 - Backup/Restore + Clear Cache Implementation.
 
 ## Roadmap Renumbering
 
@@ -31,6 +32,7 @@ Approved sequence:
 34.5 - Appearance + Dark Mode Implementation
 34.6 - Language System Planning
 34.7 - Language Picker/Editor Implementation
+34.8 - Settings Full Smoke Test + Cleanup
 
 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 35.2 - Category Visibility Implementation
@@ -51,38 +53,28 @@ Settings and data operations now come before Category Visibility and Thumbnail C
 
 34.2 should redesign Settings as a functional navigation and operations page, not a mixed placeholder/info surface.
 
-Recommended sections:
+Locked top-level sections for 34.2:
 
-- General / App Information
-  - App name and version.
-  - Local/offline status.
-  - Short explanation of private local catalog behavior.
-- Data & Backup
-  - Backup database.
-  - Restore database.
-  - Safety status and last backup guidance when available.
-- Cache
-  - Clear generated cache.
-  - Cache location/status where safe.
-  - Future thumbnail/low-res cache status after Batch 35.
-- Import / Export
-  - Export catalog data for bulk editing.
-  - Import catalog data with preview and validation.
-  - Keep separate from Backup/Restore.
 - Appearance
-  - Light/Dark mode entry point.
-  - Future low-risk UI preferences.
+  - Theme.
+  - Light/Dark Mode.
 - Language
-  - Language picker entry point.
-  - Language editor entry point after planning.
-- System Information
-  - Database location/status.
-  - Runtime status.
-  - Storage/cache location if safe to show.
-  - App version/build information.
-- Safety / Diagnostics
-  - Only if needed for explicit diagnostics.
-  - Must not become a dumping ground for raw internal data.
+  - App Language.
+  - Language Editor.
+  - Editor direction should remain friendly to CSV, XLSX, and plain notepad-style editing.
+- Optimization
+  - Media & Library.
+  - Cache.
+- Data Safety & Migration
+  - Backup Database and Restore Database.
+  - Import Data and Export Data.
+  - Backup/Restore remains full app data safety and must stay separate from CSV/XLSX Import/Export.
+  - Import/Export is data exchange only and does not include media files.
+- App Information
+  - App Version.
+  - Database Status.
+  - System Information.
+  - Safety / Diagnostics.
 
 ## Data Operations Boundaries
 
@@ -191,6 +183,12 @@ Recommended sections:
 - Keep language editing local/offline.
 - Provide fallback behavior for missing keys.
 
+### 34.8 - Settings Full Smoke Test + Cleanup
+
+- Run the full Settings smoke pass after Backup/Restore, Clear Cache, Import/Export planning, Appearance, and Language batches.
+- Clean up stale planned labels only where their implementation has landed.
+- Keep Category Visibility and Thumbnail Cache work in Batch 35.
+
 ### 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 
 - Plan category visibility fields and thumbnail cache/low-res regeneration after Settings/Data Operations have a safe home.
@@ -240,10 +238,10 @@ Do not run `npm.cmd run test` or `npm.cmd run build` for 34.1 unless source file
 ## Next Batch
 
 ```text
-34.2 - Settings Layout Redesign Implementation
+34.3 - Backup/Restore + Clear Cache Implementation
 ```
 
-34.2 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs.
+34.3 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs.
 
 ## Agent Continuation Rule
 

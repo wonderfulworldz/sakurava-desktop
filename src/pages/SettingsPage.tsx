@@ -16,11 +16,11 @@ import {
   UserRound,
   FilePenLine,
   ImageUp,
+  Plus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import type { Image, Performer, Video as VideoRecord } from "../backend/types";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
 import {
@@ -110,9 +110,6 @@ const appOverviewRows: SettingsRow[] = [
   { label: "Platform Target", value: "Windows Desktop", icon: Monitor },
 ];
 
-const DATABASE_FILE_NAME = "sakurava.sqlite";
-const APP_DATA_FOLDER_LABEL = "app.sakurava.desktop";
-
 const dataSafetyRows: SettingsRow[] = [
   { label: "Data Privacy", value: "Local device only", icon: ShieldCheck },
   { label: "Internet Required", value: "No", icon: CloudOff },
@@ -128,30 +125,43 @@ const featureStatusRows: SettingsRow[] = [
 ];
 
 const plannedActionRows: SettingsRow[] = [
-  { label: "Import / Export", value: "Planned / disabled", icon: FileInput },
-  { label: "Bulk Editor", value: "Deferred", icon: SlidersHorizontal },
+  { label: "Catalog Preferences", value: "Current defaults", icon: SlidersHorizontal },
+  { label: "Bulk Editor", value: "Deferred", icon: FilePenLine },
   { label: "Optimize / Cleanup", value: "Deferred", icon: ShieldCheck },
   { label: "Analytics", value: "Deferred", icon: FileText },
-  { label: "Advanced Category Hierarchy", value: "Deferred", icon: Tag },
+];
+
+const cacheRows: SettingsRow[] = [
+  { label: "Generated cache", value: "Planned / disabled", icon: HardDrive },
+  { label: "Source media", value: "Never cleared here", icon: ShieldCheck },
+  { label: "Thumbnail cache", value: "Batch 35 planning", icon: ImageUp },
+];
+
+const importExportRows: SettingsRow[] = [
+  { label: "Import Data", value: "CSV/XLSX planned", icon: FileInput },
+  { label: "Export Data", value: "CSV/XLSX planned", icon: FileArchive },
+  { label: "Record types", value: "Videos, Images, Performers", icon: Tag },
+  { label: "Media files", value: "Not included", icon: ShieldCheck },
 ];
 
 const appearanceRows: SettingsRow[] = [
-  { label: "Light Mode", value: "Current / default", icon: Monitor },
-  { label: "Dark Mode", value: "Planned / disabled", icon: Palette },
-  { label: "Accent Color", value: "Sakura Pink", icon: Palette },
-  { label: "Density", value: "Compact", icon: SlidersHorizontal },
-  { label: "Sidebar", value: "Expanded by default", icon: Folder },
+  { label: "Theme", value: "Sakurava default", icon: Palette },
+  { label: "Light/Dark Mode", value: "Light active; Dark planned", icon: Monitor },
+  { label: "Accent Style", value: "Sakura Pink", icon: Palette },
+  { label: "UI Density", value: "Compact", icon: SlidersHorizontal },
 ];
 
 const languageRows: SettingsRow[] = [
-  { label: "English", value: "Current / default", icon: FileText },
-  { label: "Indonesian", value: "Planned / disabled", icon: FileText },
+  { label: "App Language", value: "English current", icon: FileText },
+  { label: "Language Editor", value: "Planned / disabled", icon: FilePenLine },
+  { label: "Editing direction", value: "CSV/XLSX/notepad-friendly", icon: FileArchive },
 ];
 
-const welcomeSliderRows: SettingsRow[] = [
-  { label: "Default Welcome Image", value: "Current / default", icon: ImageIcon },
-  { label: "Custom Slider Images", value: "Planned / disabled", icon: ImageUp },
-  { label: "Slider Management", value: "Planned / disabled", icon: SlidersHorizontal },
+const safetyDiagnosticRows: SettingsRow[] = [
+  { label: "Local/offline behavior", value: "Enabled", icon: CloudOff },
+  { label: "Destructive operations", value: "Confirmation required", icon: ShieldCheck },
+  { label: "Source media safety", value: "No file mutation", icon: HardDrive },
+  { label: "Diagnostics", value: "Planned / disabled", icon: FileText },
 ];
 
 function SettingsPage() {
@@ -218,13 +228,13 @@ function SettingsPage() {
       icon: Database,
     },
     {
-      label: "Database file name",
-      value: DATABASE_FILE_NAME,
+      label: "Database file",
+      value: "Local SQLite database",
       icon: Database,
     },
     {
-      label: "App data folder label",
-      value: APP_DATA_FOLDER_LABEL,
+      label: "Data storage",
+      value: "Stored locally on this device",
       icon: Folder,
     },
     { label: "Storage mode", value: "Local only", icon: HardDrive },
@@ -639,187 +649,662 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-          Settings
-        </h1>
-        <p className="mt-3 text-base text-slate-500">
-          Local/offline app information, safe data controls, and planned tools.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
+            Settings
+          </h1>
+          <p className="mt-2 text-base text-slate-500">
+            Manage application preferences, optimization, data safety, and app information.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sakura-200 bg-white px-6 text-base font-semibold text-sakura-300"
+        >
+          <Plus size={20} />
+          Reset to Defaults
+        </button>
       </header>
 
-      <SettingsGroup
-        title="App Information"
-        description="Basic local app status. No new runtime detection is added here."
-      >
-        <SettingsCard title="App Overview" rows={appOverviewRows} />
-        <SettingsCard
-          title="Runtime & Database"
-          rows={runtimeRows}
-          badges={[
-            isDesktopRuntime ? "Desktop Runtime" : "Browser Preview",
-            isDesktopRuntime ? "Database Available" : "Database Unavailable",
-          ]}
-        />
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Data & Safety"
-        description="Existing local data safety controls and clear planned states."
-      >
-        <SettingsCard
-          title="Backup / Restore"
-          rows={dataSafetyRows}
-          actions={[
-            {
-              label: isBackupPending ? "Backing Up..." : "Backup Data",
-              disabled: !canBackUpDatabase,
-              onClick: handleBackupData,
-            },
-            {
-              label: isRestorePending ? "Restoring..." : "Restore Data",
-              disabled: !canRestoreDatabase,
-              onClick: handleRestoreData,
-            },
-          ]}
-          backupStatus={backupStatus}
-          restoreStatus={restoreStatus}
-          onCancelRestore={() => setRestoreStatus({ state: "idle" })}
-          onConfirmRestore={handleConfirmRestore}
-          note="Backup and Restore handle the local database only. Media files are not included."
-        />
-        <SettingsCard
-          title="Import / Export"
-          rows={[
-            { label: "Import", value: "Planned / disabled", icon: FileInput },
-            { label: "Export", value: "Planned / disabled", icon: FileArchive },
-          ]}
-          disabledActions={["Import Data", "Export Data"]}
-          note="Import and Export require separate planning before implementation."
-        />
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Categories"
-        description="Category management lives on the dedicated Category Management page."
-      >
-        <CatalogManagementEntry />
-      </SettingsGroup>
-
-      <SettingsGroup
+      <SettingsSection
+        number="1"
         title="Appearance"
-        description="Light mode is the current stable baseline. Other preferences are planned."
+        description="Customize how Sakurava looks and feels."
+        icon={Palette}
       >
-        <SettingsCard
-          title="Theme / Appearance"
-          rows={appearanceRows}
-          note="Appearance switching is planned and not active in this batch."
-        />
-        <SettingsCard
-          title="Language"
-          rows={languageRows}
-          note="Language switching is planned and not active in this batch."
-        />
-        <SettingsCard
-          title="Welcome Slider"
-          rows={welcomeSliderRows}
-          note="Welcome slider customization is planned and not active in this batch."
-        />
-      </SettingsGroup>
+        <SettingsPanel>
+          <SettingsControlRow
+            title="Theme"
+            helper="Choose your preferred application theme."
+          >
+            <div className="grid gap-2 sm:grid-cols-2">
+              <OptionButton label="Light" status="Selected" />
+              <OptionButton label="Dark" status="Soon" disabled />
+            </div>
+          </SettingsControlRow>
+          <SettingsControlRow
+            title="Accent Style"
+            helper="Select the accent color used across the app."
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-slate-600">
+                Sakura Pink selected
+              </span>
+              <AccentDots />
+            </div>
+          </SettingsControlRow>
+          <SettingsControlRow
+            title="UI Density"
+            helper="Control the size of UI elements and spacing."
+          >
+            <div className="grid gap-2 sm:grid-cols-3">
+              <OptionButton label="Compact" status="Selected" />
+              <OptionButton label="Comfortable" status="Planned" disabled />
+              <OptionButton label="Spacious" status="Soon" disabled />
+            </div>
+          </SettingsControlRow>
+        </SettingsPanel>
+      </SettingsSection>
 
-      <SettingsGroup
-        title="Media & Files"
-        description="Local media paths remain explicit. No scanner, watcher, copy, move, or delete automation is added."
+      <SettingsSection
+        number="2"
+        title="Language"
+        description="Choose app language and prepare local translation editing."
+        icon={FileText}
       >
-        <SettingsCard
-          title="Media Roots & Local Assets"
-          rows={thumbnailRows}
-          actions={[
-            {
-              label: isMediaRootPending ? "Adding Media Root..." : "Add Media Root",
-              disabled: !canAddMediaRoot,
-              onClick: handleAddMediaRoot,
-            },
-          ]}
-          mediaRootStatus={mediaRootStatus}
-          mediaRoots={mediaRoots}
-          onRemoveMediaRoot={handleRemoveMediaRoot}
-        />
-        <SettingsCard
-          title="File Status"
-          rows={[
-            { label: "Missing File Scanner", value: "Deferred", icon: CloudOff },
-            { label: "Media Metadata Extraction", value: "Deferred", icon: FileText },
-          ]}
-          note="File status automation is deferred. This page does not scan folders or files."
-        />
-      </SettingsGroup>
+        <SettingsPanel>
+          <SettingsControlRow
+            title="App Language"
+            helper="Choose the language used in the application."
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                disabled
+                className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-600"
+                value="English (United States)"
+                onChange={() => undefined}
+              >
+                <option>English (United States)</option>
+              </select>
+              <StatusPill tone="success">Up to date</StatusPill>
+            </div>
+          </SettingsControlRow>
+          <SettingsControlRow
+            title="Translation Tools / Language Editor"
+            helper="Create and edit translations for supported languages."
+          >
+            <div className="grid gap-2">
+              <button
+                type="button"
+                disabled
+                className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+              >
+                Open Language Editor
+              </button>
+              <p className="text-xs font-semibold text-slate-500">
+                Planned editor direction: CSV/XLSX/notepad-friendly.
+              </p>
+            </div>
+          </SettingsControlRow>
+          <SettingsControlRow
+            title="Installed Languages"
+            helper="Manage downloaded language packs."
+          >
+            <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-600">
+              <span>English (United States)</span>
+              <StatusPill tone="success">Up to date</StatusPill>
+            </div>
+          </SettingsControlRow>
+        </SettingsPanel>
+      </SettingsSection>
 
-      <SettingsGroup
-        title="Advanced / Maintenance"
-        description="Future maintenance tools stay planned until their own safe implementation batches."
+      <SettingsSection
+        number="3"
+        title="Optimization"
+        description="Manage media access, cache status, and future library optimization."
+        icon={SlidersHorizontal}
       >
-        <SettingsCard title="Current Runtime Features" rows={featureStatusRows} />
-        <SettingsCard
-          title="Planned Maintenance"
-          rows={plannedActionRows}
-          disabledActions={[
-            "Bulk Editor",
-            "Optimize / Cleanup",
-            "Analytics",
-            "Advanced Category Hierarchy",
-          ]}
-        />
-      </SettingsGroup>
+        <SettingsPanel>
+          <OptimizationBlock
+            icon={Video}
+            title="Media & Library"
+            helper="Manage how media files are loaded and processed."
+          >
+            <MiniSettingRows
+              rows={[
+                ["Media Loading", "Balanced (Recommended)"],
+                ["Hardware Acceleration", "Auto (Recommended)"],
+                ["Parallel Processing", "Enabled"],
+              ]}
+            />
+            <InfoNote>These settings help optimize playback and media scanning performance.</InfoNote>
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={!canAddMediaRoot}
+                  onClick={handleAddMediaRoot}
+                  className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
+                    canAddMediaRoot
+                      ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+                      : "border-slate-200 bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  {isMediaRootPending ? "Adding Media Root..." : "Add Media Root"}
+                </button>
+              </div>
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                Manual thumbnail rendering is enabled. Asset access scope:{" "}
+                {mediaRoots.length > 0
+                  ? "Pictures, Videos, Documents, Downloads, and configured media roots"
+                  : "Pictures, Videos, Documents, and Downloads"}
+                .
+              </p>
+              <div className="mt-2 divide-y divide-slate-100">
+                <div className="grid gap-2 py-2 text-sm sm:grid-cols-[minmax(150px,0.8fr)_minmax(0,1.2fr)]">
+                  <span className="font-semibold text-slate-700">
+                    Manual thumbnail rendering
+                  </span>
+                  <span className="font-semibold text-slate-500">Enabled</span>
+                </div>
+                <div className="grid gap-2 py-2 text-sm sm:grid-cols-[minmax(150px,0.8fr)_minmax(0,1.2fr)]">
+                  <span className="font-semibold text-slate-700">
+                    Configured media roots
+                  </span>
+                  <span className="font-semibold text-slate-500">
+                    {mediaRoots.length > 0 ? `${mediaRoots.length} configured` : "None"}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                Choose a folder, not a drive root. Example: D:\Sakurava Media.
+                Files inside that folder and its subfolders can be used for thumbnails.
+              </p>
+              <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
+              <MediaRootList roots={mediaRoots} onRemove={handleRemoveMediaRoot} />
+            </div>
+          </OptimizationBlock>
 
-      <AboutCard />
+          <OptimizationBlock
+            icon={HardDrive}
+            title="Cache"
+            helper="Manage temporary files used to speed up the app."
+          >
+            <MiniSettingRows
+              rows={[
+                ["Cache Size", "Planned"],
+                ["Thumbnail Cache", "Batch 35 planning"],
+                ["Preview Cache", "Planned"],
+              ]}
+            />
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                disabled
+                className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+              >
+                Clear Cache
+              </button>
+            </div>
+            <InfoNote>Clearing cache does not delete your source media.</InfoNote>
+          </OptimizationBlock>
+
+          <OptimizationBlock
+            icon={FileText}
+            title="Catalog Preferences"
+            helper="Control how your catalog data is displayed."
+          >
+            <MiniSettingRows
+              rows={[
+                ["Default View", "Card View"],
+                ["Default Sort", "Date Added (Newest)"],
+                ["Items per Page", "50"],
+              ]}
+            />
+            <InfoNote>These preferences are visible now and remain safe/planned where persistence is not implemented.</InfoNote>
+          </OptimizationBlock>
+
+          <OptimizationBlock
+            icon={SlidersHorizontal}
+            title="Scanning & Updates"
+            helper="Configure how Sakurava scans and updates your library."
+          >
+            <MiniSettingRows
+              rows={[
+                ["Auto Scan New Folders", "Planned / disabled"],
+                ["Scan Interval", "Planned"],
+                ["Ignore Short Videos", "Planned"],
+              ]}
+            />
+            <InfoNote>Auto scan controls are planned only and do not scan folders in this batch.</InfoNote>
+          </OptimizationBlock>
+        </SettingsPanel>
+      </SettingsSection>
+
+      <SettingsSection
+        number="4"
+        title="Data Safety & Migration"
+        description="Back up, restore, import, and export data safely."
+        icon={ShieldCheck}
+      >
+        <div className="grid gap-4 xl:grid-cols-2">
+          <DataOperationCard
+            title="Backup & Restore"
+            helper="Full app data safety for database/sql-like backups. Generated thumbnails/cache-like app data may be included later; original media files are not included."
+          >
+            <ActionTile
+              icon={FileArchive}
+              title={isBackupPending ? "Backing Up..." : "Backup Database"}
+              helper="Create a full backup of your local database."
+              disabled={!canBackUpDatabase}
+              onClick={handleBackupData}
+            />
+            <ActionTile
+              icon={ShieldCheck}
+              title={isRestorePending ? "Restoring..." : "Restore Database"}
+              helper="Restore database from a backup file."
+              disabled={!canRestoreDatabase}
+              onClick={handleRestoreData}
+            />
+            <SettingsStatusMessage status={backupStatus} kind="backup" />
+            {restoreStatus?.state === "confirming" && (
+              <RestoreConfirmPanel
+                restoreStatus={restoreStatus}
+                onCancelRestore={() => setRestoreStatus({ state: "idle" })}
+                onConfirmRestore={handleConfirmRestore}
+              />
+            )}
+            <SettingsStatusMessage status={restoreStatus} kind="restore" />
+          </DataOperationCard>
+
+          <DataOperationCard
+            title="Import & Export"
+            helper="CSV/XLSX data exchange for Videos, Images, and Performers. No media files are included."
+          >
+            <ActionTile
+              icon={FileInput}
+              title="Import Data"
+              helper="Import catalog data from CSV/XLSX sources."
+              disabled
+            />
+            <ActionTile
+              icon={FileArchive}
+              title="Export Data"
+              helper="Export catalog data to CSV/XLSX files."
+              disabled
+            />
+          </DataOperationCard>
+        </div>
+        <WarningBox
+          title="Keep your data safe"
+          text="We recommend creating a backup before performing major operations or importing external data."
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        number="5"
+        title="App Information"
+        description="View application status, system information, and safety notes."
+        icon={Database}
+      >
+        <div className="grid gap-4 xl:grid-cols-2">
+          <InfoPanel
+            title="System Information"
+            rows={[
+              ["App Name", "Sakurava"],
+              ["App Version", "1.0.0 MVP"],
+              ["Database Status", isDesktopRuntime ? "Available" : "Unavailable"],
+              ["Database Location", "Local SQLite database"],
+              ["Runtime Status", isDesktopRuntime ? "Desktop runtime" : "Browser preview"],
+            ]}
+          />
+          <InfoPanel
+            title="Safety / Diagnostics"
+            rows={[
+              ["Mode", "Local / Offline"],
+              ["Data Storage", "All data is stored locally on this device."],
+              ["Performance", "Good"],
+              ["Last Backup", "Not tracked yet"],
+              ["System", "Windows Desktop"],
+            ]}
+          />
+        </div>
+        <InfoNote>
+          Sakurava works completely offline. Back up your database regularly to prevent data loss. Clearing cache will not delete your source media or catalog data.
+        </InfoNote>
+      </SettingsSection>
     </div>
   );
 }
 
-function CatalogManagementEntry() {
+function SettingsSection({
+  number,
+  title,
+  description,
+  icon,
+  children,
+}: {
+  number: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  const Icon = icon;
+
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-4 border-b border-slate-200 px-4 py-4">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+          <Icon size={18} />
+        </span>
         <div>
-          <h2 className="text-xl font-semibold tracking-normal text-slate-950">
-            Category Management
+          <h2
+            aria-label={title}
+            className="text-lg font-semibold tracking-normal text-slate-950"
+          >
+            {number}. {title}
           </h2>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Open the dedicated Category Management page. Full Category Management V1 work belongs in Batch 30.x.
+          <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+            {description}
           </p>
         </div>
-        <Link
-          to="/settings/category-management"
-          className="inline-flex h-10 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-4 text-sm font-semibold text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
-        >
-          Open Category Management
-        </Link>
       </div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
 
-function SettingsGroup({
+function SettingsPanel({ children }: { children: ReactNode }) {
+  return <div className="divide-y divide-slate-100">{children}</div>;
+}
+
+function SettingsControlRow({
   title,
-  description,
+  helper,
   children,
 }: {
   title: string;
-  description: string;
+  helper: string;
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <div className="grid gap-4 py-3 md:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.45fr)] md:items-center">
       <div>
-        <h2 className="text-2xl font-semibold tracking-normal text-slate-950">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm font-medium text-slate-500">
-          {description}
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+          {helper}
         </p>
       </div>
-      <div className="grid gap-4">{children}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function OptionButton({
+  label,
+  status,
+  disabled = false,
+}: {
+  label: string;
+  status: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className={[
+        "h-9 rounded-lg border px-3 text-sm font-semibold",
+        disabled
+          ? "border-slate-200 bg-slate-50 text-slate-400"
+          : "border-sakura-300 bg-sakura-50 text-sakura-600",
+      ].join(" ")}
+    >
+      <span>{label}</span>
+      <span className="ml-2 text-xs font-semibold text-slate-400">
+        {status}
+      </span>
+    </button>
+  );
+}
+
+function AccentDots() {
+  const colors = [
+    "bg-sakura-500 ring-sakura-200",
+    "bg-violet-500 ring-violet-100",
+    "bg-blue-500 ring-blue-100",
+    "bg-cyan-500 ring-cyan-100",
+    "bg-green-500 ring-green-100",
+    "bg-orange-500 ring-orange-100",
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-3" aria-label="Accent color options">
+      {colors.map((color, index) => (
+        <span
+          key={color}
+          className={`size-5 rounded-full ring-4 ${color} ${
+            index === 0 ? "outline outline-2 outline-sakura-500" : "opacity-60"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StatusPill({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "success" | "neutral";
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold",
+        tone === "success"
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-slate-100 text-slate-600",
+      ].join(" ")}
+    >
+      {children}
+    </span>
+  );
+}
+
+function OptimizationBlock({
+  icon,
+  title,
+  helper,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  helper: string;
+  children: ReactNode;
+}) {
+  const Icon = icon;
+
+  return (
+    <div className="grid gap-4 py-3 md:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.45fr)]">
+      <div className="flex gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+          <Icon size={18} />
+        </span>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+            {helper}
+          </p>
+        </div>
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function MiniSettingRows({ rows }: { rows: Array<[string, string]> }) {
+  return (
+    <div className="divide-y divide-slate-100">
+      {rows.map(([label, value]) => (
+        <div
+          key={label}
+            className="grid gap-2 py-2 text-sm md:grid-cols-[minmax(140px,0.8fr)_minmax(0,1.2fr)] md:items-center"
+        >
+          <span className="font-semibold text-slate-700">{label}</span>
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600">
+            {value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InfoNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-semibold leading-5 text-sky-700">
+      {children}
+    </p>
+  );
+}
+
+function DataOperationCard({
+  title,
+  helper,
+  children,
+}: {
+  title: string;
+  helper: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="p-0">
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+        {helper}
+      </p>
+      <div className="mt-3 grid gap-2">{children}</div>
+    </section>
+  );
+}
+
+function ActionTile({
+  icon,
+  title,
+  helper,
+  disabled = false,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  helper: string;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  const Icon = icon;
+
+  return (
+    <button
+      type="button"
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left",
+        disabled
+          ? "border-slate-200 bg-slate-50 text-slate-400"
+          : "border-sakura-200 bg-white text-slate-800 hover:border-sakura-300 hover:bg-sakura-50",
+      ].join(" ")}
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+        <Icon size={18} />
+      </span>
+      <span>
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="mt-1 block text-xs font-medium leading-5 text-slate-500">
+          {helper}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function RestoreConfirmPanel({
+  restoreStatus,
+  onCancelRestore,
+  onConfirmRestore,
+}: {
+  restoreStatus: Extract<RestoreStatus, { state: "confirming" }>;
+  onCancelRestore: () => void;
+  onConfirmRestore: () => void;
+}) {
+  return (
+    <div className="rounded-lg bg-rose-50 px-3 py-3">
+      <div className="space-y-2 text-sm leading-6 text-slate-600">
+        <p className="font-semibold text-slate-800">Confirm database restore</p>
+        <p>Current Sakurava database will be replaced.</p>
+        <p>Only records are restored.</p>
+        <p>Local media files are not restored or deleted.</p>
+        <p>A safety backup will be created first.</p>
+        <p className="break-all font-medium text-slate-500">
+          Source: {restoreStatus.sourcePath}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onCancelRestore}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirmRestore}
+          className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+        >
+          Restore database
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WarningBox({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3">
+      <p className="text-sm font-semibold text-amber-800">{title}</p>
+      <p className="mt-1 text-sm font-medium leading-6 text-amber-700">{text}</p>
+    </div>
+  );
+}
+
+function InfoPanel({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<[string, string]>;
+}) {
+  return (
+    <section className="p-0">
+      <h3 className="mb-2 text-sm font-semibold text-slate-900">{title}</h3>
+      <div className="divide-y divide-slate-100">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="grid gap-2 py-3 text-sm sm:grid-cols-[minmax(130px,0.55fr)_minmax(0,1.45fr)]"
+          >
+            <span className="font-semibold text-slate-700">{label}</span>
+            <span className="font-medium text-slate-500">{value}</span>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -855,10 +1340,10 @@ function SettingsCard({
 }) {
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-base font-semibold tracking-normal text-slate-950">
           {title}
-        </h2>
+        </h3>
         {badges && (
           <div className="flex flex-wrap gap-2">
             {badges.map((badge) => (
@@ -872,7 +1357,7 @@ function SettingsCard({
           </div>
         )}
       </div>
-      <div className="divide-y divide-slate-200 px-4">
+      <div className="divide-y divide-slate-100 px-4">
         {rows.map((row) => (
           <SettingsInfoRow key={row.label} row={row} />
         ))}
@@ -883,7 +1368,7 @@ function SettingsCard({
       <SettingsStatusMessage status={backupStatus} kind="backup" />
       <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
       {restoreStatus?.state === "confirming" && (
-        <div className="space-y-4 border-t border-slate-200 px-6 py-4">
+        <div className="space-y-4 border-t border-slate-200 px-4 py-4">
           <div className="space-y-2 text-sm leading-6 text-slate-600">
             <p className="font-semibold text-slate-800">Confirm database restore</p>
             <p>Current Sakurava database will be replaced.</p>
@@ -914,7 +1399,7 @@ function SettingsCard({
       )}
       <SettingsStatusMessage status={restoreStatus} kind="restore" />
       {actions && (
-        <div className="space-y-3 border-t border-slate-200 px-4 py-4">
+        <div className="space-y-3 border-t border-slate-200 px-4 py-3">
           {mediaRoots && (
             <p className="text-sm font-medium leading-6 text-slate-500">
               Choose a folder, not a drive root. Example: D:\Sakurava Media.
@@ -941,7 +1426,7 @@ function SettingsCard({
         </div>
       )}
       {disabledActions && (
-        <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-4">
+        <div className="flex flex-wrap gap-3 border-t border-slate-200 px-4 py-3">
           {disabledActions.map((action) => (
             <button
               key={action}
@@ -955,7 +1440,7 @@ function SettingsCard({
         </div>
       )}
       {note && (
-        <p className="border-t border-slate-200 px-6 py-4 text-sm font-medium text-slate-500">
+        <p className="border-t border-slate-200 px-4 py-3 text-sm font-medium text-slate-500">
           {note}
         </p>
       )}
@@ -1653,7 +2138,7 @@ function SettingsStatusMessage({
       ? `mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold ${
           isError ? "text-rose-600" : "text-slate-600"
         }`
-      : `border-t border-slate-200 px-6 py-4 text-sm font-semibold ${
+      : `border-t border-slate-200 px-4 py-3 text-sm font-semibold ${
           isError ? "text-rose-600" : "text-slate-600"
         }`;
 
@@ -1671,45 +2156,17 @@ function SettingsInfoRow({ row }: { row: SettingsRow }) {
   const Icon = row.icon;
 
   return (
-    <div className="grid gap-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
-      <div className="flex min-w-0 items-center gap-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
-          <Icon size={20} />
+    <div className="grid gap-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+          <Icon size={18} />
         </span>
-        <p className="text-base font-semibold text-slate-700">{row.label}</p>
+        <p className="text-sm font-semibold text-slate-700">{row.label}</p>
       </div>
-      <p className="text-base font-semibold text-slate-500 sm:text-right">
+      <p className="text-sm font-semibold text-slate-500 sm:text-right">
         {row.value}
       </p>
     </div>
-  );
-}
-
-function AboutCard() {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6">
-      <div className="flex items-start gap-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
-          <FileText size={20} />
-        </span>
-        <div>
-          <h2 className="text-xl font-semibold tracking-normal text-slate-950">
-            About Sakurava
-          </h2>
-          <div className="mt-6 space-y-2 text-base leading-7 text-slate-500">
-            <p>
-              Sakurava is a private local desktop catalog app for Videos,
-              Images, and Performers.
-            </p>
-            <p>
-              Runtime data is stored locally, and manually saved thumbnails are
-              rendered from approved local asset locations when running in
-              Tauri.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 

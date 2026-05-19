@@ -5,19 +5,31 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-33-4-performer-related-detail-sections-v1
+post-mvp-34-1-settings-functional-redesign-data-ops-plan-v1
 ```
 
 Current batch:
 
 ```text
-34.1 - Settings Functional Redesign + Data Operations Planning
+34.2 - Settings Layout Redesign Implementation
 ```
 
 Current focus:
 
 ```text
-Docs-only planning for Settings functional redesign, data operations boundaries, and the approved roadmap swap where 34.x is Settings/Data Operations and 35.x is Category Visibility/Thumbnail Cache.
+Settings layout redesign implementation based on the approved 34.1 plan. Settings should become a compact functional control center while preserving existing behavior and keeping future operations disabled/planned.
+```
+
+Current locked Settings roadmap:
+
+```text
+34.2 - Settings Layout Redesign Implementation
+34.3 - Backup/Restore + Clear Cache Implementation
+34.4 - Import/Export Bulk Data Planning
+34.5 - Appearance + Dark Mode Implementation
+34.6 - Language System Planning
+34.7 - Language Picker/Editor Implementation
+34.8 - Settings Full Smoke Test + Cleanup
 ```
 
 Latest known stable category checkpoint:
@@ -476,10 +488,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 34.1:
+Recommended next implementation batch after Batch 34.2:
 
 ```text
-34.2 - Settings Layout Redesign Implementation
+34.3 - Backup/Restore + Clear Cache Implementation
 ```
 
 Latest roadmap implementation batch:
