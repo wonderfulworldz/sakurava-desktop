@@ -65,6 +65,7 @@ Urutan acuan dokumen:
 39. `37-v1-smoke-test-gap-audit-efficient-roadmap.md` - audit gap smoke test V1 dan roadmap efisien Batch 31.1 sampai 36.3.
 40. `38-media-tech-info-availability-safety-plan.md` - rencana aman Media Tech Info dan Availability untuk Batch 33.1 sebelum implementasi 33.2.
 41. `39-settings-functional-redesign-data-operations-plan.md` - rencana Settings Functional Redesign dan Data Operations untuk Batch 34.1 sebelum implementasi 34.2.
+42. `40-import-export-bulk-data-plan.md` - rencana Import/Export Bulk Data untuk CSV/XLSX Videos, Images, dan Performers sebelum implementasi.
 
 ## Current Post-MVP Reading Order
 
@@ -103,8 +104,9 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 31. `37-v1-smoke-test-gap-audit-efficient-roadmap.md`
 32. `38-media-tech-info-availability-safety-plan.md`
 33. `39-settings-functional-redesign-data-operations-plan.md`
-34. `AGENT_CODE_HANDOFF.md`
-35. `WORKFLOW_GIT.md`
+34. `40-import-export-bulk-data-plan.md`
+35. `AGENT_CODE_HANDOFF.md`
+36. `WORKFLOW_GIT.md`
 
 `02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
 

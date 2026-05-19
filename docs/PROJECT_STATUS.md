@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-34-2-settings-layout-redesign-v1
+post-mvp-34-3-backup-restore-clear-cache-v1
 ```
 
 Current batch:
 
 ```text
-34.3 - Backup/Restore + Clear Cache Implementation
+34.4 - Import/Export Bulk Data Planning
 ```
 
 Current focus:
 
 ```text
-Safe Settings data operations: Backup Database, Restore Database, and scoped Clear Cache. Import/Export, Appearance, Language, Category Visibility, and Thumbnail Cache/Low-res remain deferred to their locked batches.
+Docs-only Import/Export Bulk Data planning for CSV/XLSX data exchange across Videos, Images, and Performers. Import/Export remains separate from Backup/Restore and must not include media files or app-generated cache files.
 ```
 
 Current locked Settings roadmap:
@@ -451,6 +451,7 @@ Current app capabilities include:
 - Performer Related Detail Sections Implementation through Batch 33.4 after merge: Performer Detail displays performer-owned Related Videos and Related Images as mini collections with safe card/table views, sorting, pagination, per-page controls, unresolved fallbacks, neutral empty states, and no back-link writes or Video/Image mutation.
 - Settings Functional Redesign + Data Operations Planning through Batch 34.1 after merge: docs-only roadmap and safety plan for Settings structure, Backup/Restore, Clear Cache, Import/Export, Appearance, Language, and System Information; this locks Settings/Data Operations as Batch 34 and moves Category Visibility/Thumbnail Cache to Batch 35.
 - Settings Layout Redesign Implementation through Batch 34.2 after merge: Settings uses the approved five-section control center layout with Appearance, Language, Optimization, Data Safety & Migration, and App Information while preserving existing behavior and keeping future operations planned until their dedicated batches.
+- Backup/Restore + Clear Cache Implementation through Batch 34.3 after merge: Settings Backup/Restore remains database-level app data safety with validation, confirmation, restore safety backup behavior, and no original media file handling; Clear Cache is scoped to app-generated cache folders only and does not delete source media or catalog data.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -489,10 +490,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 34.3:
+Recommended next implementation batch after Batch 34.4:
 
 ```text
-34.4 - Import/Export Bulk Data Planning
+34.5 - Appearance + Dark Mode Implementation
 ```
 
 Latest roadmap implementation batch:
