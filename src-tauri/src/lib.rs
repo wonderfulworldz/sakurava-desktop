@@ -20,6 +20,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::database_backup,
             commands::database_restore,
+            commands::clear_app_cache,
             commands::media_asset_allow_root,
             commands::path_status_check,
             commands::media_metadata_probe,

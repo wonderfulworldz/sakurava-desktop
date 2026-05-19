@@ -6,8 +6,10 @@
 - Tag exists: `post-mvp-33-4-performer-related-detail-sections-v1`.
 - Batch 34.1 - Settings Functional Redesign + Data Operations Planning is complete.
 - Tag exists: `post-mvp-34-1-settings-functional-redesign-data-ops-plan-v1`.
-- Current batch: 34.2 - Settings Layout Redesign Implementation.
-- Next batch: 34.3 - Backup/Restore + Clear Cache Implementation.
+- Batch 34.2 - Settings Layout Redesign Implementation is complete.
+- Tag exists: `post-mvp-34-2-settings-layout-redesign-v1`.
+- Current batch: 34.3 - Backup/Restore + Clear Cache Implementation.
+- Next batch: 34.4 - Import/Export Bulk Data Planning.
 
 ## Roadmap Renumbering
 
@@ -97,6 +99,7 @@ Locked top-level sections for 34.2:
 - Clear Cache must not delete categories, settings, ratings, related picker data, or catalog records.
 - Cache clearing must be scoped and confirmable.
 - Cache clearing should be designed so future thumbnail/low-res regeneration can rebuild generated files safely.
+- Batch 34.3 scopes Clear Cache to app-generated cache folders under Sakurava app data only: `generated-cache`, `thumbnail-cache`, and `preview-cache`. If those folders do not exist, the operation reports that no app-generated cache was found.
 
 ### Import/Export
 
@@ -157,6 +160,7 @@ Locked top-level sections for 34.2:
 - Implement scoped Clear Cache behavior.
 - Must not delete source media or SQLite records.
 - Must provide clear success/failure reporting.
+- Import/Export remains unimplemented and planned for 34.4.
 
 ### 34.4 - Import/Export Bulk Data Planning
 

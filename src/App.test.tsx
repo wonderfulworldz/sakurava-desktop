@@ -1748,6 +1748,146 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
   });
 
+  it("requires confirmation before clearing app-generated cache", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear Cache" }));
+
+    expect(await screen.findByText("Confirm cache cleanup")).toBeInTheDocument();
+    expect(
+      screen.getByText("Only scoped app-generated cache folders will be cleared."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Source media files will not be deleted."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "SQLite records, categories, ratings, related links, and catalog data will not be changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "clear_app_cache",
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("cancels cache cleanup confirmation without calling the runtime command", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear Cache" }));
+    await screen.findByText("Confirm cache cleanup");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Confirm cache cleanup")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "clear_app_cache",
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("clears app-generated cache after confirmation without running future operations", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      if (command === "clear_app_cache") {
+        return {
+          success: true,
+          message:
+            "Cleared app-generated cache. Removed 2 file(s). Source media and catalog records were not changed.",
+          filesRemoved: 2,
+          bytesRemoved: 42,
+          clearedPaths: [
+            "C:/Users/Example/AppData/Roaming/app.sakurava.desktop/generated-cache",
+          ],
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear Cache" }));
+    await screen.findByText("Confirm cache cleanup");
+    fireEvent.click(screen.getByRole("button", { name: "Clear app cache" }));
+
+    expect(
+      await screen.findByText(
+        "Cleared app-generated cache. Removed 2 file(s). Source media and catalog records were not changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("clear_app_cache", {}, undefined);
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_delete",
+      expect.anything(),
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "database_restore",
+      expect.anything(),
+      undefined,
+    );
+    expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
+  });
+
+  it("shows an error when cache cleanup fails safely", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      if (command === "clear_app_cache") {
+        throw new Error(
+          "Cache cleanup failed. Source media and catalog records were not changed.",
+        );
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear Cache" }));
+    await screen.findByText("Confirm cache cleanup");
+    fireEvent.click(screen.getByRole("button", { name: "Clear app cache" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Cache cleanup failed. Source media and catalog records were not changed.",
+    );
+    expect(screen.getByRole("button", { name: "Clear Cache" })).toBeEnabled();
+  });
+
   it("keeps create routes separate from detail route stubs", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);

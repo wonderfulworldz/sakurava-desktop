@@ -39,6 +39,7 @@ import {
   renameStoredManagedCategory,
   validateManagedCategoryRename,
 } from "../lib/managedCategories";
+import { clearAppCache } from "../runtime/cacheCommands";
 import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
   selectDatabaseBackupDestination,
@@ -77,6 +78,13 @@ type RestoreStatus =
   | { state: "idle" }
   | { state: "confirming"; sourcePath: string }
   | { state: "pending"; sourcePath: string }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
+type CacheStatus =
+  | { state: "idle" }
+  | { state: "confirming" }
+  | { state: "pending" }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
@@ -172,6 +180,9 @@ function SettingsPage() {
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>({
     state: "idle",
   });
+  const [cacheStatus, setCacheStatus] = useState<CacheStatus>({
+    state: "idle",
+  });
   const [mediaRoots, setMediaRoots] = useState<string[]>([]);
   const [mediaRootStatus, setMediaRootStatus] = useState<MediaRootStatus>({
     state: "idle",
@@ -186,10 +197,13 @@ function SettingsPage() {
     useState<CategoryStatus>({ state: "idle" });
   const isBackupPending = backupStatus.state === "pending";
   const isRestorePending = restoreStatus.state === "pending";
+  const isCachePending = cacheStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
   const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
   const canRestoreDatabase =
     isDesktopRuntime && !isBackupPending && !isRestorePending;
+  const canClearCache =
+    isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const thumbnailRows: SettingsRow[] = [
     {
@@ -387,6 +401,41 @@ function SettingsPage() {
             : typeof error === "string"
               ? error
               : "Restore failed. The current database was not replaced.",
+      });
+    }
+  }
+
+  async function handleConfirmClearCache() {
+    if (cacheStatus.state !== "confirming") {
+      return;
+    }
+
+    setCacheStatus({ state: "pending" });
+
+    try {
+      const result = await clearAppCache();
+      if (!result.success) {
+        setCacheStatus({
+          state: "error",
+          message:
+            "Cache cleanup did not complete. Source media and catalog records were not changed.",
+        });
+        return;
+      }
+
+      setCacheStatus({
+        state: "success",
+        message: result.message,
+      });
+    } catch (error) {
+      setCacheStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Cache cleanup failed. Source media and catalog records were not changed.",
       });
     }
   }
@@ -842,13 +891,25 @@ function SettingsPage() {
             <div className="mt-3 flex justify-end">
               <button
                 type="button"
-                disabled
-                className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+                disabled={!canClearCache}
+                onClick={() => setCacheStatus({ state: "confirming" })}
+                className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
+                  canClearCache
+                    ? "border-sakura-200 bg-white text-sakura-600 hover:border-sakura-300 hover:bg-sakura-50"
+                    : "border-slate-200 bg-slate-100 text-slate-400"
+                }`}
               >
-                Clear Cache
+                {isCachePending ? "Clearing Cache..." : "Clear Cache"}
               </button>
             </div>
             <InfoNote>Clearing cache does not delete your source media.</InfoNote>
+            {cacheStatus.state === "confirming" && (
+              <ClearCacheConfirmPanel
+                onCancelClearCache={() => setCacheStatus({ state: "idle" })}
+                onConfirmClearCache={handleConfirmClearCache}
+              />
+            )}
+            <SettingsStatusMessage status={cacheStatus} kind="cache" />
           </OptimizationBlock>
 
           <OptimizationBlock
@@ -1269,6 +1330,41 @@ function RestoreConfirmPanel({
           className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-600 hover:bg-rose-100"
         >
           Restore database
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ClearCacheConfirmPanel({
+  onCancelClearCache,
+  onConfirmClearCache,
+}: {
+  onCancelClearCache: () => void;
+  onConfirmClearCache: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-lg bg-amber-50 px-3 py-3">
+      <div className="space-y-2 text-sm leading-6 text-slate-600">
+        <p className="font-semibold text-slate-800">Confirm cache cleanup</p>
+        <p>Only scoped app-generated cache folders will be cleared.</p>
+        <p>Source media files will not be deleted.</p>
+        <p>SQLite records, categories, ratings, related links, and catalog data will not be changed.</p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onCancelClearCache}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirmClearCache}
+          className="h-9 rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+        >
+          Clear app cache
         </button>
       </div>
     </div>
@@ -2117,8 +2213,8 @@ function SettingsStatusMessage({
   status,
   kind,
 }: {
-  status?: BackupStatus | RestoreStatus | MediaRootStatus | CategoryStatus;
-  kind: "backup" | "restore" | "mediaRoot" | "category";
+  status?: BackupStatus | RestoreStatus | CacheStatus | MediaRootStatus | CategoryStatus;
+  kind: "backup" | "restore" | "cache" | "mediaRoot" | "category";
 }) {
   if (!status || status.state === "idle" || status.state === "confirming") {
     return null;
@@ -2130,9 +2226,11 @@ function SettingsStatusMessage({
       ? "Creating database backup..."
       : kind === "restore"
         ? "Restoring database..."
-        : kind === "mediaRoot"
-          ? "Adding media root..."
-          : "Updating category data...";
+        : kind === "cache"
+          ? "Clearing app-generated cache..."
+          : kind === "mediaRoot"
+            ? "Adding media root..."
+            : "Updating category data...";
   const messageClassName =
     kind === "category"
       ? `mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold ${

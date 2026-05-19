@@ -32,8 +32,8 @@ use windows::{
 };
 
 use crate::database::{
-    backup_runtime_database, restore_runtime_database, DatabaseBackupResult, DatabaseRestoreResult,
-    RuntimeDatabase,
+    backup_runtime_database, clear_app_generated_cache, restore_runtime_database, ClearCacheResult,
+    DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -404,6 +404,11 @@ pub fn database_restore(
     source_path: String,
 ) -> Result<DatabaseRestoreResult, String> {
     restore_runtime_database(&database, source_path)
+}
+
+#[tauri::command]
+pub fn clear_app_cache(database: State<'_, RuntimeDatabase>) -> Result<ClearCacheResult, String> {
+    clear_app_generated_cache(&database)
 }
 
 #[tauri::command]
