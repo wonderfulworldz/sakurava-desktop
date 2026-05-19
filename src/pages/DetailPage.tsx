@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Calendar,
   Clapperboard,
+  Clock,
   Edit3,
   FileImage,
   Film,
@@ -15,6 +16,7 @@ import {
   Play,
   Plus,
   Ruler,
+  Star,
   Trash2,
   UserRound,
   X,
@@ -373,9 +375,14 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
               <p className="text-sm font-semibold text-slate-600">
                 {item.label}
               </p>
-              <p className="mt-1 whitespace-pre-line text-xl font-semibold leading-tight text-slate-950">
+              <p className="mt-1 whitespace-pre-line text-2xl font-semibold leading-tight text-slate-950">
                 {item.value}
               </p>
+              {item.secondaryValue && (
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {item.secondaryValue}
+                </p>
+              )}
             </div>
           </div>
         );
@@ -1034,17 +1041,19 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const emptyText = section.title.includes("Image")
     ? "No related images saved."
     : "No related videos saved.";
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [pageSize, setPageSize] = useState(6);
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [sortMode, setSortMode] = useState<RelatedSortMode>("new");
+  const [pageSize, setPageSize] = useState(12);
   const [page, setPage] = useState(1);
   const hasControls = section.controls === "performer-related";
+  const kind = section.title.includes("Image") ? "images" : "videos";
 
   if (relatedCatalogRecords.length === 0) {
     return <RelatedEmptyState message={emptyText} title={section.title} />;
   }
 
   const sortedRecords = hasControls
-    ? sortRelatedByReleaseDate(relatedCatalogRecords)
+    ? sortRelatedCatalogRecords(relatedCatalogRecords, sortMode)
     : relatedCatalogRecords;
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -1056,8 +1065,10 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
     <>
       {hasControls && (
         <RelatedControls
+          itemCount={relatedCatalogRecords.length}
           page={safePage}
           pageSize={pageSize}
+          sortMode={sortMode}
           totalPages={totalPages}
           viewMode={viewMode}
           onPageChange={setPage}
@@ -1065,28 +1076,42 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
             setPageSize(nextPageSize);
             setPage(1);
           }}
-          onViewModeChange={setViewMode}
+          onSortModeChange={(nextSortMode) => {
+            setSortMode(nextSortMode);
+            setPage(1);
+          }}
+          onViewModeChange={(nextViewMode) => {
+            setViewMode(nextViewMode);
+            setPage(1);
+          }}
         />
       )}
       {viewMode === "table" && hasControls ? (
-        <RelatedCatalogTable
-          items={visibleRecords}
-          kind={section.title.includes("Image") ? "images" : "videos"}
-        />
+        <PerformerRelatedCatalogTable items={visibleRecords} kind={kind} />
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {visibleRecords.map((record, index) => (
-            <RelatedCatalogCard
-              key={`${record.title}-${index}`}
-              item={record}
-              icon={section.title.includes("Image") ? ImageIcon : Film}
-            />
+            hasControls ? (
+              <PerformerRelatedCatalogCard
+                key={`${record.title}-${index}`}
+                item={record}
+                kind={kind}
+              />
+            ) : (
+              <RelatedCatalogCard
+                key={`${record.title}-${index}`}
+                item={record}
+                icon={section.title.includes("Image") ? ImageIcon : Film}
+              />
+            )
           ))}
         </div>
       )}
     </>
   );
 }
+
+type RelatedSortMode = "az" | "za" | "new" | "old";
 
 function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   const relatedPerformers = section.relatedPerformers ?? [];
@@ -1208,36 +1233,127 @@ function RelatedPerformerCard({
   );
 }
 
+function PerformerRelatedCatalogCard({
+  item,
+  kind,
+}: {
+  item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
+  kind: "videos" | "images";
+}) {
+  const content = (
+    <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-950/[0.03]">
+      <div className="relative">
+        <RelatedWideThumbnail
+          aspectClass={kind === "videos" ? "aspect-video" : "aspect-[4/3]"}
+          icon={kind === "videos" ? Film : ImageIcon}
+          label={kind === "videos" ? "Related video cover" : "Related image cover"}
+          path={item.coverPath}
+        />
+        {kind === "videos" && (
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-md bg-slate-900/70 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+            <Clock size={13} />
+            {item.metadata || "Duration not set"}
+          </span>
+        )}
+        {kind === "images" && (
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-md bg-slate-900/70 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+            <ImageIcon size={13} />
+            {item.metadata || "Images not set"}
+          </span>
+        )}
+      </div>
+      <div className="p-4">
+        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        <p className="mt-2 break-words text-base font-semibold text-slate-950">
+          {item.title}
+        </p>
+        <p className="mt-1 break-words text-sm text-slate-500">
+          {item.unresolved
+            ? "Related item unavailable"
+            : item.publisherLabel || "Publisher / Label not set"}
+        </p>
+        <div className="mt-4 grid grid-cols-[auto_1px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-100 pt-3">
+          <p className="text-sm font-semibold text-slate-800">
+            {releaseYearLabel(item.releaseDate)}
+          </p>
+          <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
+          <span aria-hidden="true" />
+          <RatingPill rating={item.rating} />
+        </div>
+      </div>
+    </article>
+  );
+
+  if (!item.routeTo || item.unresolved) {
+    return content;
+  }
+
+  return (
+    <Link
+      to={item.routeTo}
+      className="block rounded-lg transition hover:border-sakura-200 hover:shadow-sm"
+    >
+      {content}
+    </Link>
+  );
+}
+
+function RatingPill({ rating }: { rating?: number | null }) {
+  const label =
+    typeof rating === "number" && Number.isFinite(rating)
+      ? rating.toFixed(1)
+      : "Not rated";
+
+  return (
+    <span
+      aria-label={`Rating ${label}`}
+      className="inline-flex items-center gap-1.5 rounded-md bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-600"
+    >
+      <Star size={14} fill="currentColor" />
+      {label}
+    </span>
+  );
+}
+
 function RelatedControls({
+  itemCount,
   page,
   pageSize,
+  sortMode,
   totalPages,
   viewMode,
   onPageChange,
   onPageSizeChange,
+  onSortModeChange,
   onViewModeChange,
 }: {
+  itemCount: number;
   page: number;
   pageSize: number;
+  sortMode: RelatedSortMode;
   totalPages: number;
-  viewMode: "grid" | "table";
+  viewMode: "card" | "table";
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onViewModeChange: (viewMode: "grid" | "table") => void;
+  onSortModeChange: (sortMode: RelatedSortMode) => void;
+  onViewModeChange: (viewMode: "card" | "table") => void;
 }) {
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
-      <div className="flex flex-wrap gap-2">
+      <p className="text-xs font-semibold text-slate-500">
+        {itemCount} {itemCount === 1 ? "item" : "items"}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => onViewModeChange("grid")}
+          onClick={() => onViewModeChange("card")}
           className={`h-9 rounded-lg px-3 text-xs font-semibold ${
-            viewMode === "grid"
+            viewMode === "card"
               ? "bg-sakura-500 text-white"
               : "border border-slate-200 bg-white text-slate-700"
           }`}
         >
-          Grid
+          Card
         </button>
         <button
           type="button"
@@ -1250,16 +1366,30 @@ function RelatedControls({
         >
           Table
         </button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs font-semibold text-slate-500">
-          Items
+          Sort
           <select
+            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+            value={sortMode}
+            onChange={(event) =>
+              onSortModeChange(event.target.value as RelatedSortMode)
+            }
+          >
+            <option value="az">A-Z</option>
+            <option value="za">Z-A</option>
+            <option value="new">New Release</option>
+            <option value="old">Old Release</option>
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-slate-500">
+          Per page
+          <select
+            aria-label="Per page"
             className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
           >
-            {[6, 12, 24].map((option) => (
+            {[12, 24, 48, 96].map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -1335,14 +1465,99 @@ function RelatedCatalogTable({
   );
 }
 
-function sortRelatedByReleaseDate(
+function PerformerRelatedCatalogTable({
+  items,
+  kind,
+}: {
+  items: NonNullable<DetailSection["relatedCatalogRecords"]>;
+  kind: "videos" | "images";
+}) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
+          <tr>
+            <th className="px-4 py-3">Title</th>
+            <th className="px-4 py-3">Publisher / Label</th>
+            <th className="px-4 py-3">Release Year</th>
+            <th className="px-4 py-3">
+              {kind === "images" ? "Images Total" : "Duration"}
+            </th>
+            <th className="px-4 py-3">Rating</th>
+            <th className="px-4 py-3">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {items.map((item, index) => (
+            <tr key={`${item.title}-${index}`}>
+              <td className="px-4 py-3 font-semibold text-slate-900">
+                {item.title}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {item.publisherLabel || "Not set"}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {releaseYearLabel(item.releaseDate)}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {item.metadata || "Not set"}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {typeof item.rating === "number" && Number.isFinite(item.rating)
+                  ? item.rating.toFixed(1)
+                  : "Not rated"}
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {item.routeTo && !item.unresolved ? (
+                  <Link
+                    to={item.routeTo}
+                    className="text-xs font-semibold text-sakura-600 hover:text-sakura-700"
+                  >
+                    View
+                  </Link>
+                ) : (
+                  "Unavailable"
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function sortRelatedCatalogRecords(
   items: NonNullable<DetailSection["relatedCatalogRecords"]>,
+  sortMode: RelatedSortMode,
 ) {
   return items
-    .map((item, index) => ({ item, index, time: releaseDateTime(item.releaseDate) }))
+    .map((item, index) => ({
+      item,
+      index,
+      title: item.title.toLocaleLowerCase(),
+      time: releaseDateTime(item.releaseDate),
+    }))
     .sort((a, b) => {
+      if (sortMode === "az" || sortMode === "za") {
+        const titleComparison = a.title.localeCompare(b.title);
+        if (titleComparison !== 0) {
+          return sortMode === "az" ? titleComparison : -titleComparison;
+        }
+
+        return a.index - b.index;
+      }
+
+      const aMissing = a.time === null;
+      const bMissing = b.time === null;
+      if (aMissing !== bMissing) {
+        return aMissing ? 1 : -1;
+      }
+
       if (a.time !== b.time) {
-        return b.time - a.time;
+        return sortMode === "new"
+          ? (b.time ?? 0) - (a.time ?? 0)
+          : (a.time ?? 0) - (b.time ?? 0);
       }
 
       return a.index - b.index;
@@ -1352,11 +1567,20 @@ function sortRelatedByReleaseDate(
 
 function releaseDateTime(value: string | undefined) {
   if (!value) {
-    return Number.NEGATIVE_INFINITY;
+    return null;
   }
 
   const time = new Date(value).getTime();
-  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+  return Number.isNaN(time) ? null : time;
+}
+
+function releaseYearLabel(value: string | undefined) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const match = /^(\d{4})/.exec(value.trim());
+  return match?.[1] ?? "Not set";
 }
 
 function RelatedThumbnail({
@@ -1391,6 +1615,45 @@ function RelatedThumbnail({
         />
       ) : (
         <Icon size={24} strokeWidth={1.7} />
+      )}
+    </div>
+  );
+}
+
+function RelatedWideThumbnail({
+  aspectClass,
+  icon: Icon,
+  label,
+  path,
+}: {
+  aspectClass: string;
+  icon: typeof Info;
+  label: string;
+  path?: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const mediaAssetScopeReady = useMediaAssetScopeReady();
+  const assetSrc = localImagePathToAssetSrc(path);
+  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc, mediaAssetScopeReady]);
+
+  return (
+    <div
+      className={`${aspectClass} flex w-full items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+      aria-label={showImage ? undefined : label}
+    >
+      {showImage ? (
+        <img
+          src={assetSrc ?? undefined}
+          alt={label}
+          className="h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <Icon size={36} strokeWidth={1.6} />
       )}
     </div>
   );

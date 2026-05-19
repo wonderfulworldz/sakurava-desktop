@@ -4639,12 +4639,44 @@ describe("App", () => {
     );
   });
 
-  it("keeps Performer related detail sections deferred to the next batch", async () => {
+  it("displays resolved Performer Related Videos and Related Images without raw ids", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "performer_get") {
         expect(args.id).toBe("performer_test_001");
-        return persistedPerformer({ name: "Persisted Performer" });
+        return persistedPerformer({
+          name: "Persisted Performer",
+          relatedVideosJson:
+            '[{"recordId":"video_hanami","titleSnapshot":"Snapshot Video"}]',
+          relatedImagesJson:
+            '[{"recordId":"image_hanami","titleSnapshot":"Snapshot Gallery"}]',
+        });
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_hanami",
+            title: "Hanami Feature",
+            originalTitle: "Video Original",
+            publisherLabel: "Hanami Video Label",
+            releaseDate: "2024-04-05",
+            durationMinutes: 86,
+            ratingJson: '{"rewatch":5,"visual":4}',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_hanami",
+            title: "Hanami Gallery",
+            originalTitle: "Gallery Original",
+            publisherLabel: "Hanami Image Label",
+            releaseDate: "2023-03-04",
+            imageCount: 42,
+            ratingJson: '{"memorability":4,"visual":4}',
+          }),
+        ];
       }
 
       throw new Error(`Unexpected command ${command}`);
@@ -4654,22 +4686,337 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Persisted Performer")).toBeInTheDocument();
-    const videosSection = screen.getByText("Related Videos").closest("section");
+    const videosSection = screen.getByRole("heading", { name: "Related Videos" }).closest("section");
     expect(videosSection).not.toBeNull();
     const videos = within(videosSection as HTMLElement);
+    expect(videos.getByRole("button", { name: "Card" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Table" })).toBeInTheDocument();
+    expect(videos.getByLabelText("Sort")).toBeInTheDocument();
+    expect(videos.getByLabelText("Per page")).toHaveValue("12");
+    expect(
+      within(videos.getByLabelText("Per page")).getByRole("option", { name: "12" }),
+    ).toBeInTheDocument();
+    expect(
+      within(videos.getByLabelText("Per page")).getByRole("option", { name: "24" }),
+    ).toBeInTheDocument();
+    expect(
+      within(videos.getByLabelText("Per page")).getByRole("option", { name: "48" }),
+    ).toBeInTheDocument();
+    expect(
+      within(videos.getByLabelText("Per page")).getByRole("option", { name: "96" }),
+    ).toBeInTheDocument();
+    expect(videos.getByText("Hanami Feature")).toBeInTheDocument();
+    expect(videos.getByText("Hanami Video Label")).toBeInTheDocument();
+    expect(videos.getByText("2024")).toBeInTheDocument();
+    const videoDurationOverlay = videos.getByText("86 min").closest("span");
+    expect(videoDurationOverlay).toHaveClass("absolute");
+    expect(videoDurationOverlay).toHaveClass("bottom-2");
+    expect(videoDurationOverlay).toHaveClass("right-2");
+    const videoRating = videos.getByLabelText("Rating 4.5");
+    expect(videoRating).toHaveClass("bg-sakura-50");
+    expect(videoRating).toHaveClass("text-sakura-600");
+    expect(videoRating).not.toHaveClass("bg-sakura-500");
+    const relatedVideoCard = videos.getByText("Hanami Feature").closest("article");
+    expect(relatedVideoCard?.parentElement).toHaveAttribute("href", "/videos/video_hanami");
+    fireEvent.click(videos.getByRole("button", { name: "Table" }));
+    expect(videos.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "Publisher / Label" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "Release Year" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
+    expect(videos.getByRole("link", { name: "View" })).toHaveAttribute("href", "/videos/video_hanami");
 
-    expect(videos.getByText("Available after relation features are added."))
-      .toBeInTheDocument();
-    expect(videos.queryByText("Grid")).not.toBeInTheDocument();
-    expect(videos.queryByText("Table")).not.toBeInTheDocument();
-
-    const imagesSection = screen.getByText("Related Images").closest("section");
+    const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
     expect(imagesSection).not.toBeNull();
     const images = within(imagesSection as HTMLElement);
-    expect(images.getByText("Available after relation features are added."))
+    expect(images.getByRole("button", { name: "Card" })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Table" })).toBeInTheDocument();
+    expect(images.getByLabelText("Sort")).toBeInTheDocument();
+    expect(images.getByLabelText("Per page")).toHaveValue("12");
+    expect(images.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(images.getByText("Hanami Image Label")).toBeInTheDocument();
+    expect(images.getByText("2023")).toBeInTheDocument();
+    const imageTotalOverlay = images.getByText("42 images").closest("span");
+    expect(imageTotalOverlay).toHaveClass("absolute");
+    expect(imageTotalOverlay).toHaveClass("bottom-2");
+    expect(imageTotalOverlay).toHaveClass("right-2");
+    const relatedImageCard = images.getByText("Hanami Gallery").closest("article");
+    expect(relatedImageCard).not.toBeNull();
+    const imageBottomRow = within(relatedImageCard as HTMLElement)
+      .getByText("2023")
+      .closest("div");
+    expect(imageBottomRow).not.toBeNull();
+    expect(within(imageBottomRow as HTMLElement).queryByText("42 images"))
+      .not.toBeInTheDocument();
+    const imageRating = images.getByLabelText("Rating 4.0");
+    expect(imageRating).toHaveClass("bg-sakura-50");
+    expect(imageRating).toHaveClass("text-sakura-600");
+    expect(imageRating).not.toHaveClass("bg-sakura-500");
+    expect(relatedImageCard?.parentElement).toHaveAttribute("href", "/images/image_hanami");
+    fireEvent.click(images.getByRole("button", { name: "Table" }));
+    expect(images.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "Publisher / Label" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "Release Year" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "Images Total" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
+    expect(images.getByRole("link", { name: "View" })).toHaveAttribute("href", "/images/image_hanami");
+
+    expect(screen.queryByText("video_hanami")).not.toBeInTheDocument();
+    expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
+    expect(screen.queryByText("Snapshot Video")).not.toBeInTheDocument();
+    expect(screen.queryByText("Snapshot Gallery")).not.toBeInTheDocument();
+    expect(screen.queryByText("Available after relation features are added."))
+      .not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("keeps unresolved Performer related catalog items visible as safe fallbacks", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({
+          name: "Fallback Performer",
+          relatedVideosJson:
+            '[{"recordId":"missing_video","titleSnapshot":"Former Video"},{"recordId":"empty_video","titleSnapshot":""}]',
+          relatedImagesJson:
+            '[{"recordId":"missing_image","titleSnapshot":"Former Gallery"},{"recordId":"empty_image","titleSnapshot":""}]',
+        });
+      }
+      if (command === "video_list" || command === "image_list") {
+        throw new Error("Related target list unavailable");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Fallback Performer")).toBeInTheDocument();
+    expect(screen.getByText("Former Video")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved Video")).toBeInTheDocument();
+    expect(screen.getByText("Former Gallery")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
+    expect(screen.getAllByText("Unavailable")).toHaveLength(4);
+    expect(screen.getAllByText("Related item unavailable")).toHaveLength(4);
+    expect(screen.queryByText("missing_video")).not.toBeInTheDocument();
+    expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
+    expect(screen.queryByText("empty_video")).not.toBeInTheDocument();
+    expect(screen.queryByText("empty_image")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("shows neutral empty states for empty Performer related sections", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({ name: "Empty Related Performer" });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Empty Related Performer")).toBeInTheDocument();
+    const videosSection = screen.getByRole("heading", { name: "Related Videos" }).closest("section");
+    expect(videosSection).not.toBeNull();
+    expect(within(videosSection as HTMLElement).getByText("No related videos saved."))
       .toBeInTheDocument();
+
+    const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(imagesSection).not.toBeNull();
+    expect(within(imagesSection as HTMLElement).getByText("No related images saved."))
+      .toBeInTheDocument();
+    expect(screen.queryByText("Available after relation features are added."))
+      .not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith("video_list", {}, undefined);
     expect(invoke).not.toHaveBeenCalledWith("image_list", {}, undefined);
+  });
+
+  it("sorts and paginates Performer Related Videos locally", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const relatedVideos = [
+      { id: "video_alpha", title: "Alpha Video", releaseDate: "2024-01-01" },
+      { id: "video_zulu", title: "Zulu Video", releaseDate: "2022-01-01" },
+      { id: "video_middle", title: "Middle Video", releaseDate: "2023-01-01" },
+      { id: "video_page_4", title: "Page Video 4", releaseDate: "2021-01-01" },
+      { id: "video_page_5", title: "Page Video 5", releaseDate: "2020-01-01" },
+      { id: "video_page_6", title: "Page Video 6", releaseDate: "2019-01-01" },
+      { id: "video_page_7", title: "Page Video 7", releaseDate: "2018-01-01" },
+      { id: "video_page_8", title: "Page Video 8", releaseDate: "2017-01-01" },
+      { id: "video_page_9", title: "Page Video 9", releaseDate: "2016-01-01" },
+      { id: "video_page_10", title: "Page Video 10", releaseDate: "2015-01-01" },
+      { id: "video_page_11", title: "Page Video 11", releaseDate: "2014-01-01" },
+      { id: "video_page_12", title: "Page Video 12", releaseDate: "2013-01-01" },
+      { id: "video_missing", title: "Missing Date Video", releaseDate: "" },
+    ];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({
+          name: "Sorted Video Performer",
+          relatedVideosJson: JSON.stringify(
+            relatedVideos.map((video) => ({
+              recordId: video.id,
+              titleSnapshot: video.title,
+            })),
+          ),
+        });
+      }
+      if (command === "video_list") {
+        return relatedVideos.map((video) =>
+          persistedVideo({
+            id: video.id,
+            title: video.title,
+            releaseDate: video.releaseDate,
+            publisherLabel: `${video.title} Label`,
+            durationMinutes: 70,
+          }),
+        );
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Sorted Video Performer")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Videos" }).closest("section");
+    expect(section).not.toBeNull();
+    const videos = within(section as HTMLElement);
+
+    expect(videos.getByText("Alpha Video")).toBeInTheDocument();
+    expect(videos.queryByText("Missing Date Video")).not.toBeInTheDocument();
+    expect(videos.getByText("1 / 2")).toBeInTheDocument();
+    fireEvent.click(videos.getByRole("button", { name: "Next" }));
+    expect(videos.getByText("Missing Date Video")).toBeInTheDocument();
+    fireEvent.click(videos.getByRole("button", { name: "Previous" }));
+    fireEvent.change(videos.getByLabelText("Per page"), { target: { value: "24" } });
+    expect(videos.getByText("Missing Date Video")).toBeInTheDocument();
+    expect(videos.getByText("1 / 1")).toBeInTheDocument();
+    fireEvent.change(videos.getByLabelText("Per page"), { target: { value: "12" } });
+
+    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "az" } });
+    expectPrecedes(section as HTMLElement, "Alpha Video", "Middle Video");
+    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "za" } });
+    expectPrecedes(section as HTMLElement, "Zulu Video", "Page Video 9");
+    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "new" } });
+    expectPrecedes(section as HTMLElement, "Alpha Video", "Middle Video");
+    expect(videos.queryByText("Missing Date Video")).not.toBeInTheDocument();
+    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "old" } });
+    expectPrecedes(section as HTMLElement, "Page Video 9", "Page Video 8");
+    expect(videos.queryByText("Missing Date Video")).not.toBeInTheDocument();
+  });
+
+  it("sorts and paginates Performer Related Images locally", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const relatedImages = [
+      { id: "image_alpha", title: "Alpha Gallery", releaseDate: "2024-01-01" },
+      { id: "image_zulu", title: "Zulu Gallery", releaseDate: "2022-01-01" },
+      { id: "image_middle", title: "Middle Gallery", releaseDate: "2023-01-01" },
+      { id: "image_page_4", title: "Page Gallery 4", releaseDate: "2021-01-01" },
+      { id: "image_page_5", title: "Page Gallery 5", releaseDate: "2020-01-01" },
+      { id: "image_page_6", title: "Page Gallery 6", releaseDate: "2019-01-01" },
+      { id: "image_page_7", title: "Page Gallery 7", releaseDate: "2018-01-01" },
+      { id: "image_page_8", title: "Page Gallery 8", releaseDate: "2017-01-01" },
+      { id: "image_page_9", title: "Page Gallery 9", releaseDate: "2016-01-01" },
+      { id: "image_page_10", title: "Page Gallery 10", releaseDate: "2015-01-01" },
+      { id: "image_page_11", title: "Page Gallery 11", releaseDate: "2014-01-01" },
+      { id: "image_page_12", title: "Page Gallery 12", releaseDate: "2013-01-01" },
+      { id: "image_missing", title: "Missing Date Gallery", releaseDate: "" },
+    ];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({
+          name: "Sorted Image Performer",
+          relatedImagesJson: JSON.stringify(
+            relatedImages.map((image) => ({
+              recordId: image.id,
+              titleSnapshot: image.title,
+            })),
+          ),
+        });
+      }
+      if (command === "image_list") {
+        return relatedImages.map((image) =>
+          persistedImage({
+            id: image.id,
+            title: image.title,
+            releaseDate: image.releaseDate,
+            publisherLabel: `${image.title} Label`,
+            imageCount: 20,
+          }),
+        );
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Sorted Image Performer")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(section).not.toBeNull();
+    const images = within(section as HTMLElement);
+
+    expect(images.getByText("Alpha Gallery")).toBeInTheDocument();
+    expect(images.queryByText("Missing Date Gallery")).not.toBeInTheDocument();
+    expect(images.getByText("1 / 2")).toBeInTheDocument();
+    fireEvent.click(images.getByRole("button", { name: "Next" }));
+    expect(images.getByText("Missing Date Gallery")).toBeInTheDocument();
+    fireEvent.click(images.getByRole("button", { name: "Previous" }));
+    fireEvent.change(images.getByLabelText("Per page"), { target: { value: "24" } });
+    expect(images.getByText("Missing Date Gallery")).toBeInTheDocument();
+    expect(images.getByText("1 / 1")).toBeInTheDocument();
+    fireEvent.change(images.getByLabelText("Per page"), { target: { value: "12" } });
+
+    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "az" } });
+    expectPrecedes(section as HTMLElement, "Alpha Gallery", "Middle Gallery");
+    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "za" } });
+    expectPrecedes(section as HTMLElement, "Zulu Gallery", "Page Gallery 9");
+    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "new" } });
+    expectPrecedes(section as HTMLElement, "Alpha Gallery", "Middle Gallery");
+    expect(images.queryByText("Missing Date Gallery")).not.toBeInTheDocument();
+    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "old" } });
+    expectPrecedes(section as HTMLElement, "Page Gallery 9", "Page Gallery 8");
+    expect(images.queryByText("Missing Date Gallery")).not.toBeInTheDocument();
   });
 
   it("creates a video through Tauri commands without exposing the internal id", async () => {
@@ -6781,6 +7128,9 @@ describe("App", () => {
           updatedAt: "2026-05-12T10:11:12.000Z",
         });
       }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
 
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
@@ -6813,10 +7163,18 @@ describe("App", () => {
     expect(screen.queryByText("2026-05-12T10:11:12.000Z")).not.toBeInTheDocument();
     expect(screen.getByText("Years Active")).toBeInTheDocument();
     expect(screen.getByText("2020 - 2024")).toBeInTheDocument();
+    expect(screen.getByText("(22 - 26 y)")).toBeInTheDocument();
+    const metadataSection = screen
+      .getByRole("heading", { name: "Profile Metadata" })
+      .closest("section");
+    expect(metadataSection).not.toBeNull();
+    const metadata = within(metadataSection as HTMLElement);
     expect(screen.getByText("Debut Date")).toBeInTheDocument();
-    expect(screen.getByText("2020-01-02")).toBeInTheDocument();
-    expect(screen.getByText("Retired Date")).toBeInTheDocument();
-    expect(screen.getByText("2024-03-04")).toBeInTheDocument();
+    expect(metadata.getByText("2020-01-02")).toBeInTheDocument();
+    expect(metadata.getByText("Retired Date")).toBeInTheDocument();
+    expect(metadata.getByText("2024-03-04")).toBeInTheDocument();
+    expect(metadata.getByText("Birth Date")).toBeInTheDocument();
+    expect(metadata.queryByText("Status")).not.toBeInTheDocument();
     expect(screen.getByText("Birthplace")).toBeInTheDocument();
     expect(screen.getByText("Tokyo")).toBeInTheDocument();
     expect(screen.getByText("Japanese")).toBeInTheDocument();
@@ -6880,6 +7238,15 @@ function expectSectionOrder(sections: Array<HTMLElement | null>) {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   }
+}
+
+function expectPrecedes(container: HTMLElement, firstText: string, secondText: string) {
+  const first = within(container).getByText(firstText);
+  const second = within(container).getByText(secondText);
+
+  expect(
+    first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 }
 
 function setManagedCategories(categories: string[]) {

@@ -1,14 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { parseRelatedCatalogRecordArray } from "../backend/json";
+import type { Image, Video } from "../backend/types";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import { buildPerformerDetailConfig } from "../lib/performerIntegration";
 import DetailPage from "./DetailPage";
 import {
+  isImageRuntimeAvailable,
+  listImages,
+} from "../runtime/imageCommands";
+import {
   deletePerformer,
   getPerformer,
   isPerformerRuntimeAvailable,
 } from "../runtime/performerCommands";
+import {
+  isVideoRuntimeAvailable,
+  listVideos,
+} from "../runtime/videoCommands";
 
 function PerformerDetailPage() {
   const { itemKey } = useParams();
@@ -45,7 +55,32 @@ function PerformerDetailPage() {
         }
 
         setMissing(false);
-        setConfig(buildPerformerDetailConfig(performer));
+        let videos: Video[] = [];
+        let images: Image[] = [];
+        if (
+          parseRelatedCatalogRecordArray(performer.relatedVideosJson).length > 0 &&
+          isVideoRuntimeAvailable()
+        ) {
+          try {
+            videos = await listVideos();
+          } catch {
+            videos = [];
+          }
+        }
+        if (
+          parseRelatedCatalogRecordArray(performer.relatedImagesJson).length > 0 &&
+          isImageRuntimeAvailable()
+        ) {
+          try {
+            images = await listImages();
+          } catch {
+            images = [];
+          }
+        }
+        if (cancelled) {
+          return;
+        }
+        setConfig(buildPerformerDetailConfig(performer, videos, images));
         setLoading(false);
       })
       .catch(() => {
