@@ -452,3 +452,9 @@ Expected checkpoint tag after merge:
 ```text
 post-mvp-33-1-media-tech-info-availability-safety-plan-v1
 ```
+
+## 33.2 Implementation Note
+
+Batch 33.2 implemented the planned Video/Image-only V1 behavior with a read-only `media_metadata_probe` command for one explicit path at a time. The implementation persists Video `resolution`, `fileSizeBytes`, and `fileType`, and Image `mainResolution`, `totalFileSizeBytes`, and `mainFileType`, while reusing existing `durationMinutes`, `imageCount`, and `availability`.
+
+Detection is explicit through a small Detect action and also runs at save time. It reads file existence, file size, extension-derived type, and basic image dimensions for supported image files. It does not add video duration/resolution probing, package dependencies, recursive scanning, file mutation, thumbnail/cache generation, or hidden database writes before save.

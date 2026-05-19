@@ -22,6 +22,7 @@ import type {
 } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -66,9 +67,9 @@ export function buildVideoDetailConfig(
     rating: getRatingDimensions(video.ratingJson, videoRatingFields),
     techItems: [
       { label: "Duration", value: formatDuration(video.durationMinutes) },
-      { label: "Resolution", value: "Not available" },
-      { label: "File Size", value: "Not available" },
-      { label: "File Type", value: "Not available" },
+      { label: "Resolution", value: formatDetectedText(video.resolution) },
+      { label: "File Size", value: formatFileSize(video.fileSizeBytes) },
+      { label: "File Type", value: formatOptionalText(video.fileType) },
     ],
     notes: video.notes || "No notes saved.",
     relatedSections: buildRelatedSections(
@@ -127,7 +128,10 @@ export function videoFormToCreateInput(
     coverPath: textValue(values.coverPath),
     mediaPath: textValue(values.mediaPath),
     releaseDate: textValue(values.releaseDate),
-    durationMinutes: optionalInteger(values.durationMinutes),
+    durationMinutes: optionalPositiveInteger(values.durationMinutes),
+    resolution: textValue(values.resolution),
+    fileSizeBytes: optionalInteger(values.fileSizeBytes),
+    fileType: textValue(values.fileType),
     publisherLabel: textValue(values.publisherLabel),
     categoriesJson: stringifyTextLabelArray(categories),
     relatedPerformersJson: normalizeRelatedPerformersJson(
@@ -166,6 +170,7 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     updatedAt: video.updatedAt,
     duration: formatDuration(video.durationMinutes),
     durationMinutes: video.durationMinutes,
+    resolution: video.resolution,
     releaseYear: deriveReleaseYear(video.releaseDate),
     ratingBucket: createRatingSummary(video.ratingJson, videoRatingFields).bucket,
     quality: deriveQualityBucket(video),
@@ -188,7 +193,13 @@ function videoToFormValues(video: Video): FormValues {
     coverPath: video.coverPath,
     mediaPath: video.mediaPath,
     releaseDate: video.releaseDate,
-    durationMinutes: video.durationMinutes?.toString() ?? "",
+    durationMinutes:
+      typeof video.durationMinutes === "number" && video.durationMinutes > 0
+        ? video.durationMinutes.toString()
+        : "",
+    resolution: video.resolution,
+    fileSizeBytes: video.fileSizeBytes?.toString() ?? "",
+    fileType: video.fileType,
     publisherLabel: video.publisherLabel,
     notes: video.notes,
     ...Object.fromEntries(
@@ -221,12 +232,21 @@ function optionalInteger(value: FormValues[string]) {
   return Number.isInteger(number) ? number : null;
 }
 
+function optionalPositiveInteger(value: FormValues[string]) {
+  const number = optionalInteger(value);
+  return number !== null && number > 0 ? number : null;
+}
+
 function formatDuration(minutes: number | null) {
   if (!minutes || minutes <= 0) {
-    return "Not available";
+    return "Not detected yet";
   }
 
   return `${minutes} min`;
+}
+
+function formatDetectedText(value: string | null | undefined) {
+  return value?.trim() || "Not detected yet";
 }
 
 function buildRelatedSections(

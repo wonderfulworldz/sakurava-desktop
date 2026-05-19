@@ -22,6 +22,7 @@ pub fn run() {
             commands::database_restore,
             commands::media_asset_allow_root,
             commands::path_status_check,
+            commands::media_metadata_probe,
             commands::open_media_path,
             commands::gallery_folder_images_list,
             commands::video_create,

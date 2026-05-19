@@ -40,6 +40,10 @@ import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
 import type { Image, Performer, Video } from "../backend/types";
+import {
+  detectImageTechInfo,
+  detectVideoTechInfo,
+} from "../lib/mediaTechInfo";
 
 type FormPageProps = {
   config: FormConfig;
@@ -102,6 +106,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const [galleryFolderMessage, setGalleryFolderMessage] = useState("");
+  const [techInfoMessage, setTechInfoMessage] = useState("");
   const canBrowsePaths = isTauriRuntimeAvailable();
   const supportsRelatedPerformerPicker =
     config.kind === "videos" || config.kind === "images";
@@ -122,6 +127,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setSaveState("idle");
     setSaveMessage("");
     setGalleryFolderMessage("");
+    setTechInfoMessage("");
   }, [config, mode]);
 
   useEffect(() => {
@@ -316,6 +322,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
       if (selectedPath) {
         updateValue(field.name, selectedPath);
+        if (config.kind === "videos" && field.name === "mediaPath") {
+          void detectTechInfo({ mediaPath: selectedPath });
+        }
       }
     } catch {
       setSaveState("error");
@@ -351,6 +360,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               result.imagePaths.length === 1 ? "" : "s"
             }.`,
       );
+      void detectTechInfo(undefined, result.imagePaths);
     } catch {
       setGalleryFolderMessage("Unable to read the selected gallery folder.");
     }
@@ -389,6 +399,33 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     } catch {
       setSaveState("error");
       setSaveMessage("Unable to save.");
+    }
+  }
+
+  async function detectTechInfo(
+    valuePatch: FormValues = {},
+    galleryPathOverride?: string[],
+  ) {
+    const nextBaseValues = { ...values, ...valuePatch };
+    const nextGalleryPaths = galleryPathOverride ?? galleryImagePaths;
+
+    try {
+      const detectedValues =
+        config.kind === "videos"
+          ? await detectVideoTechInfo(nextBaseValues)
+          : config.kind === "images"
+            ? await detectImageTechInfo(nextBaseValues, nextGalleryPaths)
+            : nextBaseValues;
+
+      setValues(detectedValues);
+      setSaveState("idle");
+      setTechInfoMessage(
+        config.kind === "videos"
+          ? "Tech Info checked from the Media Path. Save to persist these values."
+          : "Tech Info checked from Gallery Images. Save to persist these values.",
+      );
+    } catch {
+      setTechInfoMessage("Tech Info could not be checked.");
     }
   }
 
@@ -454,6 +491,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           galleryFolderMessage={galleryFolderMessage}
           canBrowseGalleryFolder={canBrowsePaths}
           onBrowseGalleryFolder={browseGalleryFolder}
+          techInfoMessage={techInfoMessage}
+          onDetectTechInfo={() => void detectTechInfo()}
         />
       )}
 
@@ -655,6 +694,8 @@ function CatalogExtraSections({
   galleryFolderMessage,
   canBrowseGalleryFolder,
   onBrowseGalleryFolder,
+  techInfoMessage,
+  onDetectTechInfo,
 }: {
   config: FormConfig;
   values: FormValues;
@@ -669,6 +710,8 @@ function CatalogExtraSections({
   galleryFolderMessage: string;
   canBrowseGalleryFolder: boolean;
   onBrowseGalleryFolder: () => void;
+  techInfoMessage: string;
+  onDetectTechInfo: () => void;
 }) {
   const coverField = config.pathFields.find((field) => field.name === "coverPath");
   const mediaField = config.pathFields.find((field) => field.name === "mediaPath");
@@ -742,9 +785,23 @@ function CatalogExtraSections({
         </FormSection>
       )}
       <FormSection index={5} title={config.techTitle ?? "Tech Info"}>
-        {config.techMessage && (
-          <p className="mb-3 text-xs font-medium text-slate-500">
-            {config.techMessage}
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {config.techMessage && (
+            <p className="text-xs font-medium text-slate-500">
+              {config.techMessage}
+            </p>
+          )}
+          <button
+            type="button"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-sm font-semibold text-sakura-600 hover:bg-sakura-100"
+            onClick={onDetectTechInfo}
+          >
+            Detect
+          </button>
+        </div>
+        {techInfoMessage && (
+          <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+            {techInfoMessage}
           </p>
         )}
         {config.techInputFields && config.techInputFields.length > 0 && (
@@ -1027,6 +1084,7 @@ function TextInput({
               aria-label={field.label}
               type={field.type ?? "text"}
               value={value}
+              placeholder={field.placeholder}
               disabled={inactive}
               onChange={(event) => onChange(event.target.value)}
             />

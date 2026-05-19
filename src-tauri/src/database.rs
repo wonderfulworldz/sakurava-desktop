@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS videos (
   availability TEXT NOT NULL DEFAULT '',
   releaseDate TEXT NOT NULL DEFAULT '',
   durationMinutes INTEGER,
+  resolution TEXT NOT NULL DEFAULT '',
+  fileSizeBytes INTEGER,
+  fileType TEXT NOT NULL DEFAULT '',
   publisherLabel TEXT NOT NULL DEFAULT '',
   coverPath TEXT NOT NULL DEFAULT '',
   mediaPath TEXT NOT NULL DEFAULT '',
@@ -49,6 +52,9 @@ CREATE TABLE IF NOT EXISTS images (
   coverPath TEXT NOT NULL DEFAULT '',
   folderPath TEXT NOT NULL DEFAULT '',
   imageCount INTEGER,
+  mainResolution TEXT NOT NULL DEFAULT '',
+  totalFileSizeBytes INTEGER,
+  mainFileType TEXT NOT NULL DEFAULT '',
   galleryImagePathsJson TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
@@ -160,9 +166,15 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
 
     ensure_text_json_column(connection, "videos", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "videos", "relatedImagesJson", "[]")?;
+    ensure_text_column(connection, "videos", "resolution", "")?;
+    ensure_integer_column(connection, "videos", "fileSizeBytes")?;
+    ensure_text_column(connection, "videos", "fileType", "")?;
     ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedVideosJson", "[]")?;
     ensure_text_json_column(connection, "images", "galleryImagePathsJson", "[]")?;
+    ensure_text_column(connection, "images", "mainResolution", "")?;
+    ensure_integer_column(connection, "images", "totalFileSizeBytes")?;
+    ensure_text_column(connection, "images", "mainFileType", "")?;
     ensure_text_json_column(
         connection,
         "performers",
@@ -173,24 +185,61 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn ensure_text_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+    default_text: &str,
+) -> rusqlite::Result<()> {
+    if !table_has_column(connection, table_name, column_name)? {
+        connection.execute_batch(&format!(
+            "ALTER TABLE {table_name} ADD COLUMN {column_name} TEXT NOT NULL DEFAULT '{default_text}'"
+        ))?;
+    }
+
+    Ok(())
+}
+
+fn ensure_integer_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+) -> rusqlite::Result<()> {
+    if !table_has_column(connection, table_name, column_name)? {
+        connection.execute_batch(&format!(
+            "ALTER TABLE {table_name} ADD COLUMN {column_name} INTEGER"
+        ))?;
+    }
+
+    Ok(())
+}
+
 fn ensure_text_json_column(
     connection: &Connection,
     table_name: &str,
     column_name: &str,
     default_json: &str,
 ) -> rusqlite::Result<()> {
-    let mut statement = connection.prepare(&format!("PRAGMA table_info({table_name})"))?;
-    let columns = statement
-        .query_map([], |row| row.get::<_, String>(1))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-
-    if !columns.iter().any(|column| column == column_name) {
+    if !table_has_column(connection, table_name, column_name)? {
         connection.execute_batch(&format!(
             "ALTER TABLE {table_name} ADD COLUMN {column_name} TEXT NOT NULL DEFAULT '{default_json}'"
         ))?;
     }
 
     Ok(())
+}
+
+fn table_has_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+) -> rusqlite::Result<bool> {
+    let mut statement = connection.prepare(&format!("PRAGMA table_info({table_name})"))?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok(columns.iter().any(|column| column == column_name))
 }
 
 pub fn open_runtime_database(paths: RuntimeDatabasePaths) -> rusqlite::Result<RuntimeDatabase> {
@@ -485,6 +534,9 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "videos", "relatedImagesJson"));
+        assert!(table_has_column(&connection, "videos", "resolution"));
+        assert!(table_has_column(&connection, "videos", "fileSizeBytes"));
+        assert!(table_has_column(&connection, "videos", "fileType"));
         assert!(table_has_column(
             &connection,
             "images",
@@ -496,6 +548,9 @@ mod tests {
             "images",
             "galleryImagePathsJson"
         ));
+        assert!(table_has_column(&connection, "images", "mainResolution"));
+        assert!(table_has_column(&connection, "images", "totalFileSizeBytes"));
+        assert!(table_has_column(&connection, "images", "mainFileType"));
         assert!(table_has_column(
             &connection,
             "performers",

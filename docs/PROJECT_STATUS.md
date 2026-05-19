@@ -11,13 +11,13 @@ post-mvp-32-2-categories-catalog-collection-v1
 Current batch:
 
 ```text
-33.1 - Media Tech Info + Availability Safety Plan
+33.2 - Video/Picture Form + Detail Tech Info Implementation
 ```
 
 Current focus:
 
 ```text
-Document read-only media Tech Info detection, availability auto-set semantics, runtime boundaries, storage impact, and 33.2 implementation guidance.
+Implement safe Video/Image form Tech Info, detail display, availability auto-set from explicit media paths, and saved resolution compatibility for catalog Quality filters.
 ```
 
 Latest known stable category checkpoint:
@@ -433,6 +433,7 @@ Current app capabilities include:
 - Catalog Filter/Sort V1 through Batch 32.1 after merge: Videos, Images, and Performers use functional catalog data filters and Last Added sorting where safe from current fields/helpers; Quality and Performer Debut Year derive from existing saved fields when present and safely remain unmatched for records without valid saved data.
 - Categories Catalog/Collection V1 through Batch 32.2 after merge: Categories browse uses managed category metadata, thumbnail paths when present, parent context, usage counts, Video/Image/Performer usage filters, sorting, and pagination without Category Management CRUD or record mutation.
 - Media Tech Info + Availability Safety Plan through Batch 33.1 after merge: docs-only safety plan for read-only Video/Image metadata detection, availability auto-set semantics, runtime/Tauri command boundaries, storage considerations, UI/detail/catalog compatibility, tests, and smoke validation before 33.2 implementation.
+- Video/Picture Form + Detail Tech Info Implementation through Batch 33.2 after merge: Video/Image forms provide explicit Detect plus save-time read-only metadata checks, derive availability from explicit media/gallery paths, persist safe metadata fields, and detail/catalog views use saved resolution/file metadata without file mutation, recursive scanning, media probing dependencies, or raw JSON/path exposure in normal metadata.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -471,10 +472,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 33.1:
+Recommended next implementation batch after Batch 33.2:
 
 ```text
-33.2 - Video/Picture Form + Detail Tech Info Implementation
+33.3 - Performer Form + Detail Data Completion
 ```
 
 Latest roadmap implementation batch:

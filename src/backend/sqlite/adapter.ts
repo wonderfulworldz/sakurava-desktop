@@ -215,6 +215,9 @@ const VIDEO_COLUMNS = [
   "availability",
   "releaseDate",
   "durationMinutes",
+  "resolution",
+  "fileSizeBytes",
+  "fileType",
   "publisherLabel",
   "coverPath",
   "mediaPath",
@@ -240,6 +243,9 @@ const IMAGE_COLUMNS = [
   "coverPath",
   "folderPath",
   "imageCount",
+  "mainResolution",
+  "totalFileSizeBytes",
+  "mainFileType",
   "galleryImagePathsJson",
   "categoriesJson",
   "relatedPerformersJson",
@@ -291,7 +297,13 @@ function mapVideoRow(row: SqliteRow): Video {
       releaseDate: String(row.releaseDate ?? ""),
       durationMinutes:
         row.durationMinutes === null ? null : Number(row.durationMinutes),
+      resolution: String(row.resolution ?? ""),
+      fileSizeBytes:
+        row.fileSizeBytes === null || row.fileSizeBytes === undefined
+          ? null
+          : Number(row.fileSizeBytes),
       publisherLabel: String(row.publisherLabel ?? ""),
+      fileType: String(row.fileType ?? ""),
       coverPath: String(row.coverPath ?? ""),
       mediaPath: String(row.mediaPath ?? ""),
       categoriesJson: String(row.categoriesJson ?? "[]"),
@@ -320,6 +332,12 @@ function mapImageRow(row: SqliteRow): Image {
       coverPath: String(row.coverPath ?? ""),
       folderPath: String(row.folderPath ?? ""),
       imageCount: row.imageCount === null ? null : Number(row.imageCount),
+      mainResolution: String(row.mainResolution ?? ""),
+      totalFileSizeBytes:
+        row.totalFileSizeBytes === null || row.totalFileSizeBytes === undefined
+          ? null
+          : Number(row.totalFileSizeBytes),
+      mainFileType: String(row.mainFileType ?? ""),
       galleryImagePathsJson: String(row.galleryImagePathsJson ?? "[]"),
       categoriesJson: String(row.categoriesJson ?? "[]"),
       relatedPerformersJson: String(row.relatedPerformersJson ?? "[]"),

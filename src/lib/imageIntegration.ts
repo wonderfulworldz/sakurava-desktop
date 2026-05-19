@@ -24,6 +24,7 @@ import type {
 } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -68,10 +69,10 @@ export function buildImageDetailConfig(
     ],
     rating: getRatingDimensions(image.ratingJson, imageRatingFields),
     techItems: [
-      { label: "Gallery Count", value: formatGalleryCount(image.imageCount, galleryImagePaths) },
-      { label: "Resolution", value: "Not available" },
-      { label: "File Size", value: "Not available" },
-      { label: "File Type", value: "Not available" },
+      { label: "Image Count", value: formatGalleryCount(image.imageCount, galleryImagePaths) },
+      { label: "Main Resolution", value: formatOptionalText(image.mainResolution) },
+      { label: "Total File Size", value: formatFileSize(image.totalFileSizeBytes) },
+      { label: "Main File Type", value: formatOptionalText(image.mainFileType) },
     ],
     notes: image.notes || "No notes saved.",
     galleryImagePaths,
@@ -138,6 +139,9 @@ export function imageFormToCreateInput(
     folderPath: textValue(values.folderPath),
     releaseDate: textValue(values.releaseDate),
     imageCount: optionalInteger(values.imageCount),
+    mainResolution: textValue(values.mainResolution),
+    totalFileSizeBytes: optionalInteger(values.totalFileSizeBytes),
+    mainFileType: textValue(values.mainFileType),
     publisherLabel: textValue(values.publisherLabel),
     galleryImagePathsJson: stringifyGalleryImagePathArray(galleryImagePaths),
     categoriesJson: stringifyTextLabelArray(categories),
@@ -180,6 +184,7 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
     code: image.code || "No code",
     imageCount: formatImageCount(image.imageCount),
     imageCountValue: image.imageCount,
+    mainResolution: image.mainResolution,
     releaseYear: deriveReleaseYear(image.releaseDate),
     ratingBucket: createRatingSummary(image.ratingJson, imageRatingFields).bucket,
     quality: deriveQualityBucket(image),
@@ -203,6 +208,9 @@ function imageToFormValues(image: Image): FormValues {
     folderPath: image.folderPath,
     releaseDate: image.releaseDate,
     imageCount: image.imageCount?.toString() ?? "",
+    mainResolution: image.mainResolution,
+    totalFileSizeBytes: image.totalFileSizeBytes?.toString() ?? "",
+    mainFileType: image.mainFileType,
     publisherLabel: image.publisherLabel,
     notes: image.notes,
     ...Object.fromEntries(

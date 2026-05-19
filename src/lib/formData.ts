@@ -19,6 +19,7 @@ export type TextField = {
   required?: boolean;
   suffix?: string;
   helper?: string;
+  placeholder?: string;
 };
 
 export type SelectField = {
@@ -119,15 +120,20 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "publisherLabel", label: "Publisher / Label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info uses saved values only. File analysis is not run.",
+    techMessage: "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
     techInputFields: [
-      { name: "durationMinutes", label: "Duration", type: "number", suffix: "minutes" },
+      {
+        name: "durationMinutes",
+        label: "Duration",
+        type: "number",
+        suffix: "minutes",
+        placeholder: "Not detected yet",
+      },
+      { name: "resolution", label: "Resolution", placeholder: "Not detected yet" },
+      { name: "fileSizeBytes", label: "File Size", type: "number", suffix: "bytes" },
+      { name: "fileType", label: "File Type" },
     ],
-    techFields: [
-      { label: "Resolution", value: "Not detected" },
-      { label: "File Size", value: "Not detected" },
-      { label: "File Type", value: "Not detected" },
-    ],
+    techFields: [],
     ratingFields: [
       { name: "rewatch", label: "Rewatch" },
       { name: "performance", label: "Performance" },
@@ -152,6 +158,9 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         mediaPath: "",
         releaseDate: "",
         durationMinutes: "",
+        resolution: "",
+        fileSizeBytes: "",
+        fileType: "",
         publisherLabel: "",
         notes: "",
         rewatch: "3",
@@ -172,6 +181,9 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         mediaPath: "D:/Videos/Sample Video/sample.mp4",
         releaseDate: "2024-05-15",
         durationMinutes: "120",
+        resolution: "",
+        fileSizeBytes: "",
+        fileType: "",
         publisherLabel: "Sample Publisher",
         notes: "This is a sample note for the video.",
         rewatch: "4",
@@ -232,15 +244,14 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "publisherLabel", label: "Publisher / Label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info uses saved values only. Folder analysis is not run.",
+    techMessage: "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
     techInputFields: [
       { name: "imageCount", label: "Image Count", type: "number" },
+      { name: "mainResolution", label: "Main Resolution" },
+      { name: "totalFileSizeBytes", label: "Total File Size", type: "number", suffix: "bytes" },
+      { name: "mainFileType", label: "Main File Type" },
     ],
-    techFields: [
-      { label: "Main Resolution", value: "Not detected" },
-      { label: "Total Size", value: "Not detected" },
-      { label: "File Type", value: "Not detected" },
-    ],
+    techFields: [],
     ratingFields: [
       { name: "memorability", label: "Memorability" },
       { name: "visual", label: "Visual" },
@@ -265,6 +276,9 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         folderPath: "",
         releaseDate: "",
         imageCount: "",
+        mainResolution: "",
+        totalFileSizeBytes: "",
+        mainFileType: "",
         publisherLabel: "",
         notes: "",
         memorability: "3",
@@ -285,6 +299,9 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         folderPath: "D:/Images/Sample Set/",
         releaseDate: "2024-03-15",
         imageCount: "128",
+        mainResolution: "",
+        totalFileSizeBytes: "",
+        mainFileType: "",
         publisherLabel: "Sample Publisher",
         notes: "This is a sample notes section.",
         memorability: "4",
