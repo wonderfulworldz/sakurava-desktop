@@ -11,6 +11,8 @@ use tauri::Manager;
 
 pub const APP_DATA_FOLDER_NAME: &str = "app.sakurava.desktop";
 pub const DATABASE_FILE_NAME: &str = "sakurava.sqlite";
+const APP_GENERATED_CACHE_DIR_NAMES: [&str; 3] =
+    ["generated-cache", "thumbnail-cache", "preview-cache"];
 
 const CREATE_VIDEOS_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS videos (
@@ -146,6 +148,16 @@ pub struct DatabaseRestoreResult {
     pub success: bool,
     pub safety_backup_path: String,
     pub restart_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearCacheResult {
+    pub success: bool,
+    pub message: String,
+    pub files_removed: u64,
+    pub bytes_removed: u64,
+    pub cleared_paths: Vec<String>,
 }
 
 impl RuntimeDatabase {
@@ -378,6 +390,52 @@ pub fn restore_runtime_database(
     })
 }
 
+pub fn clear_app_generated_cache(database: &RuntimeDatabase) -> Result<ClearCacheResult, String> {
+    let mut files_removed = 0_u64;
+    let mut bytes_removed = 0_u64;
+    let mut cleared_paths = Vec::new();
+
+    for dir_name in APP_GENERATED_CACHE_DIR_NAMES {
+        let cache_dir = database.paths.app_data_dir.join(dir_name);
+        if !cache_dir.exists() {
+            continue;
+        }
+        if !cache_dir.is_dir() {
+            return Err(format!(
+                "App-generated cache path is not a folder: {dir_name}"
+            ));
+        }
+        if !is_path_inside(&cache_dir, &database.paths.app_data_dir) {
+            return Err("Cache cleanup path is outside Sakurava app data".to_string());
+        }
+
+        let (dir_files, dir_bytes) = count_directory_files_and_bytes(&cache_dir)?;
+        fs::remove_dir_all(&cache_dir)
+            .map_err(|error| format!("Unable to clear app-generated cache: {error}"))?;
+
+        files_removed += dir_files;
+        bytes_removed += dir_bytes;
+        cleared_paths.push(cache_dir.display().to_string());
+    }
+
+    let message = if cleared_paths.is_empty() {
+        "No app-generated cache found. Source media and catalog records were not changed."
+            .to_string()
+    } else {
+        format!(
+            "Cleared app-generated cache. Removed {files_removed} file(s). Source media and catalog records were not changed."
+        )
+    };
+
+    Ok(ClearCacheResult {
+        success: true,
+        message,
+        files_removed,
+        bytes_removed,
+        cleared_paths,
+    })
+}
+
 fn validate_restore_source(source_path: &Path) -> Result<(), String> {
     if source_path.as_os_str().is_empty() {
         return Err("Restore source path is required".to_string());
@@ -430,6 +488,39 @@ fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
         (Ok(left), Ok(right)) => left == right,
         _ => left == right,
     }
+}
+
+fn is_path_inside(path: &Path, parent: &Path) -> bool {
+    match (path.canonicalize(), parent.canonicalize()) {
+        (Ok(path), Ok(parent)) => path.starts_with(parent),
+        _ => path.starts_with(parent),
+    }
+}
+
+fn count_directory_files_and_bytes(path: &Path) -> Result<(u64, u64), String> {
+    let mut files = 0_u64;
+    let mut bytes = 0_u64;
+
+    for entry in fs::read_dir(path)
+        .map_err(|error| format!("Unable to inspect app-generated cache: {error}"))?
+    {
+        let entry =
+            entry.map_err(|error| format!("Unable to inspect app-generated cache: {error}"))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|error| format!("Unable to inspect app-generated cache: {error}"))?;
+
+        if metadata.is_dir() {
+            let (child_files, child_bytes) = count_directory_files_and_bytes(&entry.path())?;
+            files += child_files;
+            bytes += child_bytes;
+        } else if metadata.is_file() {
+            files += 1;
+            bytes += metadata.len();
+        }
+    }
+
+    Ok((files, bytes))
 }
 
 #[cfg(test)]
@@ -831,6 +922,77 @@ mod tests {
 
         let _ = fs::remove_dir_all(app_data_dir);
         let _ = fs::remove_dir_all(source_dir);
+    }
+
+    #[test]
+    fn clear_cache_reports_no_cache_without_changing_database() {
+        let app_data_dir = unique_test_dir("clear-cache-empty").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "current_video", "Current Video");
+
+        let result = clear_app_generated_cache(&database).expect("clear cache");
+
+        assert_eq!(
+            result,
+            ClearCacheResult {
+                success: true,
+                message:
+                    "No app-generated cache found. Source media and catalog records were not changed."
+                        .to_string(),
+                files_removed: 0,
+                bytes_removed: 0,
+                cleared_paths: vec![],
+            }
+        );
+        assert_eq!(
+            read_video_title(&database, "current_video"),
+            Some("Current Video".to_string())
+        );
+        assert!(database.paths.database_file.is_file());
+
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn clear_cache_removes_only_scoped_app_generated_cache() {
+        let app_data_dir = unique_test_dir("clear-cache-scoped").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "current_video", "Current Video");
+
+        let generated_cache = app_data_dir.join("generated-cache");
+        let thumbnail_cache = app_data_dir.join("thumbnail-cache").join("nested");
+        let unrelated_app_file = app_data_dir.join("keep-me.txt");
+        let source_media_dir = unique_test_dir("clear-cache-source-media");
+        let source_media_file = source_media_dir.join("source-video.mp4");
+
+        fs::create_dir_all(&generated_cache).expect("generated cache dir");
+        fs::create_dir_all(&thumbnail_cache).expect("thumbnail cache dir");
+        fs::create_dir_all(&source_media_dir).expect("source media dir");
+        fs::write(generated_cache.join("one.cache"), "12345").expect("cache file");
+        fs::write(thumbnail_cache.join("two.cache"), "1234567").expect("nested cache file");
+        fs::write(&unrelated_app_file, "keep").expect("unrelated app file");
+        fs::write(&source_media_file, "media").expect("source media file");
+
+        let result = clear_app_generated_cache(&database).expect("clear cache");
+
+        assert!(result.success);
+        assert_eq!(result.files_removed, 2);
+        assert_eq!(result.bytes_removed, 12);
+        assert_eq!(result.cleared_paths.len(), 2);
+        assert!(!generated_cache.exists());
+        assert!(!app_data_dir.join("thumbnail-cache").exists());
+        assert!(unrelated_app_file.is_file());
+        assert!(source_media_file.is_file());
+        assert!(database.paths.database_file.is_file());
+        assert_eq!(
+            read_video_title(&database, "current_video"),
+            Some("Current Video".to_string())
+        );
+
+        let _ = fs::remove_dir_all(app_data_dir);
+        let _ = fs::remove_dir_all(source_media_dir);
     }
 
     fn insert_video_title(database: &RuntimeDatabase, id: &str, title: &str) {
