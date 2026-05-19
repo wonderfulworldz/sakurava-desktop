@@ -93,6 +93,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Category Management Table + Detail + Pagination is complete through Batch 30.4 after merge; the management surface uses full-width table columns, table/form detail presentation, composed search/filter/sort, and a pagination footer with 25/50/100 row options.
 - V1 Smoke Test Gap Audit and Efficient Roadmap is documented in `docs/37-v1-smoke-test-gap-audit-efficient-roadmap.md`; Batch 31.1 is docs-only, supersedes the premature release-cleanup path, and locks 32.1 as the next implementation batch.
 - Media Tech Info + Availability Safety Plan is documented in `docs/38-media-tech-info-availability-safety-plan.md`; Batch 33.1 is docs-only and defines read-only metadata detection, availability semantics, runtime/storage boundaries, and 33.2 implementation guidance.
+- Video/Picture Form + Detail Tech Info Implementation is complete through Batch 33.2 after merge; Video/Image forms support explicit Detect plus save-time read-only metadata checks, persisted safe metadata fields, availability derivation from explicit paths, and detail/catalog display from saved values without broad scanning or file mutation.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## Current Locked V1 Roadmap
@@ -125,13 +126,13 @@ Recommended sequence:
 Current batch:
 
 ```text
-33.1 - Media Tech Info + Availability Safety Plan
-```
-
-Next implementation batch after 33.1:
-
-```text
 33.2 - Video/Picture Form + Detail Tech Info Implementation
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and must not implement runtime metadata detection, schema changes, or source changes.
+Next implementation batch after 33.2:
+
+```text
+33.3 - Performer Form + Detail Data Completion
+```
+
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only; Performer completion remains Batch 33.3.

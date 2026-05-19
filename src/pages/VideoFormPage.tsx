@@ -8,6 +8,7 @@ import {
   videoFormToPatch,
 } from "../lib/videoIntegration";
 import FormPage from "./FormPage";
+import { prepareVideoValuesForSave } from "../lib/mediaTechInfo";
 import {
   createVideo,
   getVideo,
@@ -108,10 +109,12 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
           };
         }
 
+        const preparedValues = await prepareVideoValuesForSave(values);
+
         if (mode === "create") {
           const created = await createVideo(
             videoFormToCreateInput(
-              values,
+              preparedValues,
               categories,
               relatedPerformers,
               relatedCatalogRecords,
@@ -128,7 +131,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
         const updated = await updateVideo(
           itemKey,
           videoFormToPatch(
-            values,
+            preparedValues,
             categories,
             relatedPerformers,
             relatedCatalogRecords,

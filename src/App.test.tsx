@@ -795,8 +795,82 @@ describe("App", () => {
     expect(tech.getByText("Resolution")).toBeInTheDocument();
     expect(tech.getByText("File Size")).toBeInTheDocument();
     expect(tech.getByText("File Type")).toBeInTheDocument();
-    expect(tech.getAllByText("Not available")).toHaveLength(3);
+    expect(tech.getByText("Not detected yet")).toBeInTheDocument();
+    expect(tech.getAllByText("Not available")).toHaveLength(2);
     expect(tech.queryByText("Quality")).not.toBeInTheDocument();
+  });
+
+  it("renders honest Video Tech Info fallbacks when duration and resolution are not detected", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (command === "video_get") {
+          return persistedVideo({
+            title: "Undetected Tech Video",
+            durationMinutes: 0,
+            resolution: "",
+            fileSizeBytes: 4096,
+            fileType: "MP4",
+          });
+        }
+        if (command === "performer_list" || command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Undetected Tech Video")).toBeInTheDocument();
+    const techSection = screen
+      .getByRole("heading", { name: "Tech Info" })
+      .closest("section");
+    expect(techSection).not.toBeNull();
+    const tech = within(techSection as HTMLElement);
+
+    expect(tech.getAllByText("Not detected yet")).toHaveLength(2);
+    expect(tech.queryByText("0 min")).not.toBeInTheDocument();
+    expect(tech.queryByText("0 minutes")).not.toBeInTheDocument();
+    expect(tech.getByText("4.0 KB")).toBeInTheDocument();
+    expect(tech.getByText("MP4")).toBeInTheDocument();
+  });
+
+  it("renders saved Video Tech Info values from the Tauri detail record", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (command === "video_get") {
+          return persistedVideo({
+            title: "Saved Tech Video",
+            durationMinutes: 95,
+            resolution: "1920 x 1080",
+            fileSizeBytes: 4096,
+            fileType: "MP4",
+          });
+        }
+        if (command === "performer_list" || command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Saved Tech Video")).toBeInTheDocument();
+    const techSection = screen
+      .getByRole("heading", { name: "Tech Info" })
+      .closest("section");
+    expect(techSection).not.toBeNull();
+    const tech = within(techSection as HTMLElement);
+
+    expect(tech.getByText("95 min")).toBeInTheDocument();
+    expect(tech.getByText("1920 x 1080")).toBeInTheDocument();
+    expect(tech.getByText("4.0 KB")).toBeInTheDocument();
+    expect(tech.getByText("MP4")).toBeInTheDocument();
   });
 
   it("renders Image Gallery Count from safe saved gallery data", async () => {
@@ -829,7 +903,7 @@ describe("App", () => {
     expect(techSection).not.toBeNull();
     const tech = within(techSection as HTMLElement);
 
-    expect(tech.getByText("Gallery Count")).toBeInTheDocument();
+    expect(tech.getByText("Image Count")).toBeInTheDocument();
     expect(tech.getByText("3 images")).toBeInTheDocument();
     expect(tech.getAllByText("Not available")).toHaveLength(3);
     const systemInfo = within(
@@ -838,6 +912,43 @@ describe("App", () => {
     expect(systemInfo.getByText("Gallery status")).toBeInTheDocument();
     expect(systemInfo.getByText("Set")).toBeInTheDocument();
     expect(screen.queryByText("C:/Gallery/one.jpg")).not.toBeInTheDocument();
+  });
+
+  it("renders saved Image Tech Info values from the Tauri detail record", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (command === "image_get") {
+          return persistedImage({
+            title: "Saved Tech Image",
+            imageCount: 1,
+            galleryImagePathsJson: '["D:/Images/one.jpg"]',
+            mainResolution: "1200 x 800",
+            totalFileSizeBytes: 2048,
+            mainFileType: "JPG",
+          });
+        }
+        if (command === "performer_list" || command === "video_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Saved Tech Image")).toBeInTheDocument();
+    const techSection = screen
+      .getByRole("heading", { name: "Tech Info" })
+      .closest("section");
+    expect(techSection).not.toBeNull();
+    const tech = within(techSection as HTMLElement);
+
+    expect(tech.getByText("1 image")).toBeInTheDocument();
+    expect(tech.getByText("1200 x 800")).toBeInTheDocument();
+    expect(tech.getByText("2.0 KB")).toBeInTheDocument();
+    expect(tech.getByText("JPG")).toBeInTheDocument();
   });
 
   it("keeps Performer free of Video/Image-style Tech Info", () => {
@@ -1627,7 +1738,7 @@ describe("App", () => {
       "Video Create Form",
       "Browse Cover",
       "Browse Media",
-      "Tech info uses saved values only. File analysis is not run.",
+      "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
       "No related Performers selected.",
       "Rewatch",
     ],
@@ -1636,7 +1747,7 @@ describe("App", () => {
       "Video Edit Form",
       "Browse Cover",
       "Browse Media",
-      "Tech info uses saved values only. File analysis is not run.",
+      "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
       "No related Images selected.",
       "Rewatch",
     ],
@@ -1645,7 +1756,7 @@ describe("App", () => {
       "Image Create Form",
       "Browse Cover",
       "Browse Gallery Folder",
-      "Tech info uses saved values only. Folder analysis is not run.",
+      "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
       "No related Videos selected.",
       "Memorability",
     ],
@@ -1654,7 +1765,7 @@ describe("App", () => {
       "Image Edit Form",
       "Browse Cover",
       "Browse Gallery Folder",
-      "Tech info uses saved values only. Folder analysis is not run.",
+      "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
       "No related Performers selected.",
       "Memorability",
     ],
@@ -1763,10 +1874,19 @@ describe("App", () => {
 
     expect(metadata.queryByLabelText("Duration")).not.toBeInTheDocument();
     expect(techInfo.getByLabelText("Duration")).toBeInTheDocument();
+    expect(techInfo.getByLabelText("Duration")).toHaveAttribute(
+      "placeholder",
+      "Not detected yet",
+    );
     expect(techInfo.getByText("Resolution")).toBeInTheDocument();
+    expect(techInfo.getByLabelText("Resolution")).toHaveAttribute(
+      "placeholder",
+      "Not detected yet",
+    );
     expect(techInfo.getByText("File Size")).toBeInTheDocument();
     expect(techInfo.getByText("File Type")).toBeInTheDocument();
-    expect(techInfo.getAllByDisplayValue("Not detected")).toHaveLength(3);
+    expect(techInfo.getAllByDisplayValue("")).toHaveLength(4);
+    expect(techInfo.getByRole("button", { name: "Detect" })).toBeInTheDocument();
     expect(techInfo.queryByText("Quality")).not.toBeInTheDocument();
   });
 
@@ -1800,9 +1920,10 @@ describe("App", () => {
     expect(metadata.queryByLabelText("Image Count")).not.toBeInTheDocument();
     expect(techInfo.getByLabelText("Image Count")).toBeInTheDocument();
     expect(techInfo.getByText("Main Resolution")).toBeInTheDocument();
-    expect(techInfo.getByText("Total Size")).toBeInTheDocument();
-    expect(techInfo.getByText("File Type")).toBeInTheDocument();
-    expect(techInfo.getAllByDisplayValue("Not detected")).toHaveLength(3);
+    expect(techInfo.getByText("Total File Size")).toBeInTheDocument();
+    expect(techInfo.getByText("Main File Type")).toBeInTheDocument();
+    expect(techInfo.getAllByDisplayValue("")).toHaveLength(4);
+    expect(techInfo.getByRole("button", { name: "Detect" })).toBeInTheDocument();
   });
 
   it("keeps Form pages on the AppShell scroll owner", () => {
@@ -4300,6 +4421,122 @@ describe("App", () => {
     expect(screen.queryByText("video_test_001")).not.toBeInTheDocument();
   });
 
+  it("saves detected Video Tech Info and availability from a typed media path", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const created = persistedVideo({
+      title: "Detected Video",
+      availability: "Owned",
+      mediaPath: "D:/Media/detected.mp4",
+      fileSizeBytes: 4096,
+      fileType: "MP4",
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "media_metadata_probe") {
+          expect(args.path).toBe("D:/Media/detected.mp4");
+          return {
+            path: args.path,
+            status: "exists",
+            kind: "file",
+            fileSizeBytes: 4096,
+            fileType: "MP4",
+            width: null,
+            height: null,
+            resolution: "",
+            message: "Metadata checked",
+          };
+        }
+        if (command === "video_create") {
+          expect(args.input.availability).toBe("Owned");
+          expect(args.input.mediaPath).toBe("D:/Media/detected.mp4");
+          expect(args.input.durationMinutes).toBeNull();
+          expect(args.input.resolution).toBe("");
+          expect(args.input.fileSizeBytes).toBe(4096);
+          expect(args.input.fileType).toBe("MP4");
+          return created;
+        }
+        if (command === "video_get") {
+          return created;
+        }
+        if (command === "performer_list" || command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Detected Video" },
+    });
+    fireEvent.change(screen.getByLabelText("Media Path"), {
+      target: { value: "D:/Media/detected.mp4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Detected Video")).toBeInTheDocument();
+  });
+
+  it("shows Video detection fallbacks without hiding detected file size and type", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "media_metadata_probe") {
+          expect(args.path).toBe("D:/Media/detected.mp4");
+          return {
+            path: args.path,
+            status: "exists",
+            kind: "file",
+            fileSizeBytes: 4096,
+            fileType: "MP4",
+            durationMinutes: null,
+            width: null,
+            height: null,
+            resolution: "",
+            message: "Metadata checked",
+          };
+        }
+        if (command === "performer_list" || command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Media Path"), {
+      target: { value: "D:/Media/detected.mp4" },
+    });
+    fireEvent.change(screen.getByLabelText("Duration"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Detect" }));
+
+    expect(
+      await screen.findByText(
+        "Tech Info checked from the Media Path. Save to persist these values.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Duration")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Duration")).toHaveAttribute(
+      "placeholder",
+      "Not detected yet",
+    );
+    expect(screen.getByLabelText("Resolution")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Resolution")).toHaveAttribute(
+      "placeholder",
+      "Not detected yet",
+    );
+    expect(screen.getByLabelText("File Size")).toHaveDisplayValue("4096");
+    expect(screen.getByLabelText("File Type")).toHaveDisplayValue("MP4");
+  });
+
   it("renders the Video form category picker and serializes selected labels", async () => {
     window.history.pushState({}, "", "/videos/new");
     setManagedCategories(["Classic", "Drama"]);
@@ -4960,7 +5197,21 @@ describe("App", () => {
     });
     let currentVideo = existing;
     const invoke = vi.fn(
-      async (command: string, args: Record<string, any>) => {
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "media_metadata_probe") {
+          return {
+            path: args.path,
+            status: "notSet",
+            kind: "unknown",
+            fileSizeBytes: null,
+            fileType: "",
+            durationMinutes: null,
+            width: null,
+            height: null,
+            resolution: "",
+            message: "No path set",
+          };
+        }
         if (command === "video_get") {
           expect(args.id).toBe("video_test_001");
           return currentVideo;
@@ -5084,6 +5335,68 @@ describe("App", () => {
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
+  });
+
+  it("saves detected Image Tech Info and availability from a typed image path", async () => {
+    window.history.pushState({}, "", "/images/new");
+    const created = persistedImage({
+      title: "Detected Image",
+      availability: "Owned",
+      imageCount: 1,
+      galleryImagePathsJson: '["D:/Images/one.jpg"]',
+      mainResolution: "1200 x 800",
+      totalFileSizeBytes: 2048,
+      mainFileType: "JPG",
+    });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "media_metadata_probe") {
+          expect(args.path).toBe("D:/Images/one.jpg");
+          return {
+            path: args.path,
+            status: "exists",
+            kind: "file",
+            fileSizeBytes: 2048,
+            fileType: "JPG",
+            width: 1200,
+            height: 800,
+            resolution: "1200 x 800",
+            message: "Metadata checked",
+          };
+        }
+        if (command === "image_create") {
+          expect(args.input.availability).toBe("Owned");
+          expect(args.input.imageCount).toBe(1);
+          expect(args.input.galleryImagePathsJson).toBe('["D:/Images/one.jpg"]');
+          expect(args.input.mainResolution).toBe("1200 x 800");
+          expect(args.input.totalFileSizeBytes).toBe(2048);
+          expect(args.input.mainFileType).toBe("JPG");
+          return created;
+        }
+        if (command === "image_get") {
+          return created;
+        }
+        if (command === "performer_list" || command === "video_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Detected Image" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+    fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
+      target: { value: "D:/Images/one.jpg" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Detected Image")).toBeInTheDocument();
   });
 
   it("renders the Image form category picker", () => {
@@ -6070,6 +6383,9 @@ function persistedVideo(overrides: Record<string, unknown> = {}) {
     availability: "Owned",
     releaseDate: "2026-05-11",
     durationMinutes: 120,
+    resolution: "",
+    fileSizeBytes: null,
+    fileType: "",
     publisherLabel: "Sakura Label",
     coverPath: "",
     mediaPath: "",
@@ -6098,6 +6414,9 @@ function persistedImage(overrides: Record<string, unknown> = {}) {
     coverPath: "",
     folderPath: "",
     imageCount: 24,
+    mainResolution: "",
+    totalFileSizeBytes: null,
+    mainFileType: "",
     galleryImagePathsJson: "[]",
     categoriesJson: '["Portrait"]',
     relatedPerformersJson: "[]",

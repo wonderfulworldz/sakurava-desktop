@@ -25,6 +25,9 @@ export interface Video extends BaseCatalogRecord {
   availability: Availability;
   releaseDate: IsoDateString;
   durationMinutes: number | null;
+  resolution: string;
+  fileSizeBytes: number | null;
+  fileType: string;
   publisherLabel: string;
   coverPath: string;
   mediaPath: string;
@@ -43,6 +46,9 @@ export interface Image extends BaseCatalogRecord {
   coverPath: string;
   folderPath: string;
   imageCount: number | null;
+  mainResolution: string;
+  totalFileSizeBytes: number | null;
+  mainFileType: string;
   galleryImagePathsJson: JsonText;
   relatedPerformersJson: JsonText;
   relatedVideosJson: JsonText;

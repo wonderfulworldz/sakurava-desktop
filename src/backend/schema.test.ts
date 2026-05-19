@@ -31,6 +31,9 @@ describe("SQLite schema foundation", () => {
       "id TEXT PRIMARY KEY NOT NULL",
       "title TEXT NOT NULL",
       "durationMinutes INTEGER",
+      "resolution TEXT NOT NULL DEFAULT ''",
+      "fileSizeBytes INTEGER",
+      "fileType TEXT NOT NULL DEFAULT ''",
       "categoriesJson TEXT NOT NULL DEFAULT '[]'",
       "relatedPerformersJson TEXT NOT NULL DEFAULT '[]'",
       "relatedImagesJson TEXT NOT NULL DEFAULT '[]'",
@@ -50,6 +53,9 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_IMAGES_TABLE_SQL).toContain("CREATE TABLE IF NOT EXISTS images");
     expect(CREATE_IMAGES_TABLE_SQL).toContain("folderPath TEXT NOT NULL DEFAULT ''");
     expect(CREATE_IMAGES_TABLE_SQL).toContain("imageCount INTEGER");
+    expect(CREATE_IMAGES_TABLE_SQL).toContain("mainResolution TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_IMAGES_TABLE_SQL).toContain("totalFileSizeBytes INTEGER");
+    expect(CREATE_IMAGES_TABLE_SQL).toContain("mainFileType TEXT NOT NULL DEFAULT ''");
     expect(CREATE_IMAGES_TABLE_SQL).toContain(
       "galleryImagePathsJson TEXT NOT NULL DEFAULT '[]'",
     );

@@ -176,7 +176,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     techMessage: "Tech info is data-dependent and not available yet.",
     techItems: [
       { label: "Duration", value: "124 min" },
-      { label: "Resolution", value: "Not available" },
+      { label: "Resolution", value: "Not detected yet" },
       { label: "File Size", value: "Not available" },
       { label: "File Type", value: "Not available" },
     ],

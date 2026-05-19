@@ -8,6 +8,7 @@ import {
   imageFormToPatch,
 } from "../lib/imageIntegration";
 import FormPage from "./FormPage";
+import { prepareImageValuesForSave } from "../lib/mediaTechInfo";
 import {
   createImage,
   getImage,
@@ -109,10 +110,12 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
           };
         }
 
+        const preparedValues = await prepareImageValuesForSave(values, galleryImagePaths);
+
         if (mode === "create") {
           const created = await createImage(
             imageFormToCreateInput(
-              values,
+              preparedValues,
               categories,
               relatedPerformers,
               relatedCatalogRecords,
@@ -130,7 +133,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
         const updated = await updateImage(
           itemKey,
           imageFormToPatch(
-            values,
+            preparedValues,
             categories,
             relatedPerformers,
             relatedCatalogRecords,

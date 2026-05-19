@@ -26,6 +26,9 @@ pub struct Video {
     pub availability: String,
     pub release_date: String,
     pub duration_minutes: Option<i64>,
+    pub resolution: String,
+    pub file_size_bytes: Option<i64>,
+    pub file_type: String,
     pub publisher_label: String,
     pub cover_path: String,
     pub media_path: String,
@@ -49,6 +52,9 @@ pub struct VideoInput {
     pub availability: Option<String>,
     pub release_date: Option<String>,
     pub duration_minutes: Option<i64>,
+    pub resolution: Option<String>,
+    pub file_size_bytes: Option<i64>,
+    pub file_type: Option<String>,
     pub publisher_label: Option<String>,
     pub cover_path: Option<String>,
     pub media_path: Option<String>,
@@ -70,6 +76,9 @@ pub struct VideoPatch {
     pub availability: Option<String>,
     pub release_date: Option<String>,
     pub duration_minutes: Option<i64>,
+    pub resolution: Option<String>,
+    pub file_size_bytes: Option<i64>,
+    pub file_type: Option<String>,
     pub publisher_label: Option<String>,
     pub cover_path: Option<String>,
     pub media_path: Option<String>,
@@ -95,6 +104,9 @@ pub struct Image {
     pub cover_path: String,
     pub folder_path: String,
     pub image_count: Option<i64>,
+    pub main_resolution: String,
+    pub total_file_size_bytes: Option<i64>,
+    pub main_file_type: String,
     pub gallery_image_paths_json: String,
     pub categories_json: String,
     pub related_performers_json: String,
@@ -119,6 +131,9 @@ pub struct ImageInput {
     pub cover_path: Option<String>,
     pub folder_path: Option<String>,
     pub image_count: Option<i64>,
+    pub main_resolution: Option<String>,
+    pub total_file_size_bytes: Option<i64>,
+    pub main_file_type: Option<String>,
     pub gallery_image_paths_json: Option<String>,
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
@@ -141,6 +156,9 @@ pub struct ImagePatch {
     pub cover_path: Option<String>,
     pub folder_path: Option<String>,
     pub image_count: Option<i64>,
+    pub main_resolution: Option<String>,
+    pub total_file_size_bytes: Option<i64>,
+    pub main_file_type: Option<String>,
     pub gallery_image_paths_json: Option<String>,
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
@@ -299,6 +317,20 @@ pub struct MediaOpenResult {
 pub struct GalleryFolderImagesResult {
     pub folder_path: String,
     pub image_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaMetadataProbeResult {
+    pub path: String,
+    pub status: PathStatusKind,
+    pub kind: PathKind,
+    pub file_size_bytes: Option<i64>,
+    pub file_type: String,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+    pub resolution: String,
+    pub message: String,
 }
 
 #[tauri::command]
@@ -505,6 +537,11 @@ pub fn path_status_check(path: String) -> Result<PathStatusResult, String> {
 }
 
 #[tauri::command]
+pub fn media_metadata_probe(path: String) -> Result<MediaMetadataProbeResult, String> {
+    Ok(probe_media_metadata(&path))
+}
+
+#[tauri::command]
 pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
     let media_path = validate_media_open_file_path(&path)?;
     open_media_file_with_default_app(&media_path)?;
@@ -546,6 +583,9 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
         availability: default_text(input.availability),
         release_date: default_text(input.release_date),
         duration_minutes: input.duration_minutes,
+        resolution: default_text(input.resolution),
+        file_size_bytes: input.file_size_bytes,
+        file_type: default_text(input.file_type),
         publisher_label: default_text(input.publisher_label),
         cover_path: default_text(input.cover_path),
         media_path: default_text(input.media_path),
@@ -563,9 +603,10 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
         .execute(
             "INSERT INTO videos (
                 id, title, originalTitle, code, censorship, availability, releaseDate,
-                durationMinutes, publisherLabel, coverPath, mediaPath, categoriesJson,
+                durationMinutes, resolution, fileSizeBytes, fileType,
+                publisherLabel, coverPath, mediaPath, categoriesJson,
                 relatedPerformersJson, relatedImagesJson, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
             params![
                 video.id,
                 video.title,
@@ -575,6 +616,9 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 video.availability,
                 video.release_date,
                 video.duration_minutes,
+                video.resolution,
+                video.file_size_bytes,
+                video.file_type,
                 video.publisher_label,
                 video.cover_path,
                 video.media_path,
@@ -632,6 +676,11 @@ fn update_video(
     if patch.duration_minutes.is_some() {
         video.duration_minutes = patch.duration_minutes;
     }
+    apply_text(&mut video.resolution, patch.resolution);
+    if patch.file_size_bytes.is_some() {
+        video.file_size_bytes = patch.file_size_bytes;
+    }
+    apply_text(&mut video.file_type, patch.file_type);
     apply_text(&mut video.publisher_label, patch.publisher_label);
     apply_text(&mut video.cover_path, patch.cover_path);
     apply_text(&mut video.media_path, patch.media_path);
@@ -660,10 +709,11 @@ fn update_video(
             "UPDATE videos SET
                 title = ?2, originalTitle = ?3, code = ?4, censorship = ?5,
                 availability = ?6, releaseDate = ?7, durationMinutes = ?8,
-                publisherLabel = ?9, coverPath = ?10, mediaPath = ?11,
-                categoriesJson = ?12, relatedPerformersJson = ?13,
-                relatedImagesJson = ?14, ratingJson = ?15, notes = ?16,
-                favorite = ?17, updatedAt = ?18
+                resolution = ?9, fileSizeBytes = ?10, fileType = ?11,
+                publisherLabel = ?12, coverPath = ?13, mediaPath = ?14,
+                categoriesJson = ?15, relatedPerformersJson = ?16,
+                relatedImagesJson = ?17, ratingJson = ?18, notes = ?19,
+                favorite = ?20, updatedAt = ?21
             WHERE id = ?1",
             params![
                 video.id,
@@ -674,6 +724,9 @@ fn update_video(
                 video.availability,
                 video.release_date,
                 video.duration_minutes,
+                video.resolution,
+                video.file_size_bytes,
+                video.file_type,
                 video.publisher_label,
                 video.cover_path,
                 video.media_path,
@@ -706,6 +759,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
         cover_path: default_text(input.cover_path),
         folder_path: default_text(input.folder_path),
         image_count: input.image_count,
+        main_resolution: default_text(input.main_resolution),
+        total_file_size_bytes: input.total_file_size_bytes,
+        main_file_type: default_text(input.main_file_type),
         gallery_image_paths_json: normalize_gallery_image_paths_json(
             input.gallery_image_paths_json,
         ),
@@ -724,9 +780,10 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
             "INSERT INTO images (
                 id, title, originalTitle, code, censorship, availability, releaseDate,
                 publisherLabel, coverPath, folderPath, imageCount, galleryImagePathsJson,
+                mainResolution, totalFileSizeBytes, mainFileType,
                 categoriesJson, relatedPerformersJson, relatedVideosJson, ratingJson, notes,
                 favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 image.id,
                 image.title,
@@ -740,6 +797,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 image.folder_path,
                 image.image_count,
                 image.gallery_image_paths_json,
+                image.main_resolution,
+                image.total_file_size_bytes,
+                image.main_file_type,
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
@@ -797,6 +857,11 @@ fn update_image(
     if patch.image_count.is_some() {
         image.image_count = patch.image_count;
     }
+    apply_text(&mut image.main_resolution, patch.main_resolution);
+    if patch.total_file_size_bytes.is_some() {
+        image.total_file_size_bytes = patch.total_file_size_bytes;
+    }
+    apply_text(&mut image.main_file_type, patch.main_file_type);
     if patch.gallery_image_paths_json.is_some() {
         image.gallery_image_paths_json =
             normalize_gallery_image_paths_json(patch.gallery_image_paths_json);
@@ -827,9 +892,10 @@ fn update_image(
                 title = ?2, originalTitle = ?3, code = ?4, censorship = ?5,
                 availability = ?6, releaseDate = ?7, publisherLabel = ?8,
                 coverPath = ?9, folderPath = ?10, imageCount = ?11,
-                galleryImagePathsJson = ?12, categoriesJson = ?13,
-                relatedPerformersJson = ?14, relatedVideosJson = ?15,
-                ratingJson = ?16, notes = ?17, favorite = ?18, updatedAt = ?19
+                galleryImagePathsJson = ?12, mainResolution = ?13,
+                totalFileSizeBytes = ?14, mainFileType = ?15, categoriesJson = ?16,
+                relatedPerformersJson = ?17, relatedVideosJson = ?18,
+                ratingJson = ?19, notes = ?20, favorite = ?21, updatedAt = ?22
             WHERE id = ?1",
             params![
                 image.id,
@@ -844,6 +910,9 @@ fn update_image(
                 image.folder_path,
                 image.image_count,
                 image.gallery_image_paths_json,
+                image.main_resolution,
+                image.total_file_size_bytes,
+                image.main_file_type,
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
@@ -1231,6 +1300,187 @@ fn check_path_status(path: &str) -> PathStatusResult {
     }
 }
 
+fn probe_media_metadata(path: &str) -> MediaMetadataProbeResult {
+    let status = check_path_status(path);
+    if status.status != PathStatusKind::Exists || status.kind != PathKind::File {
+        return MediaMetadataProbeResult {
+            path: status.path,
+            status: status.status,
+            kind: status.kind,
+            file_size_bytes: None,
+            file_type: String::new(),
+            width: None,
+            height: None,
+            resolution: String::new(),
+            message: status.message,
+        };
+    }
+
+    let file_size_bytes = fs::metadata(&status.path)
+        .ok()
+        .and_then(|metadata| i64::try_from(metadata.len()).ok());
+    let file_type = file_type_from_path(Path::new(&status.path));
+    let (width, height) = image_dimensions_from_path(Path::new(&status.path)).unwrap_or((None, None));
+    let resolution = match (width, height) {
+        (Some(width), Some(height)) => format!("{width} x {height}"),
+        _ => String::new(),
+    };
+
+    MediaMetadataProbeResult {
+        path: status.path,
+        status: status.status,
+        kind: status.kind,
+        file_size_bytes,
+        file_type,
+        width,
+        height,
+        resolution,
+        message: "Metadata checked".to_string(),
+    }
+}
+
+fn file_type_from_path(path: &Path) -> String {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.trim().to_uppercase())
+        .filter(|extension| !extension.is_empty())
+        .unwrap_or_default()
+}
+
+fn image_dimensions_from_path(path: &Path) -> Result<(Option<i64>, Option<i64>), String> {
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_lowercase)
+        .unwrap_or_default();
+    if !matches!(extension.as_str(), "png" | "gif" | "jpg" | "jpeg" | "webp") {
+        return Ok((None, None));
+    }
+
+    let bytes = read_file_prefix(path, 512 * 1024)?;
+    let dimensions = match extension.as_str() {
+        "png" => png_dimensions(&bytes),
+        "gif" => gif_dimensions(&bytes),
+        "jpg" | "jpeg" => jpeg_dimensions(&bytes),
+        "webp" => webp_dimensions(&bytes),
+        _ => None,
+    };
+
+    Ok(dimensions
+        .map(|(width, height)| (Some(width), Some(height)))
+        .unwrap_or((None, None)))
+}
+
+fn read_file_prefix(path: &Path, max_bytes: usize) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+
+    let mut file = fs::File::open(path).map_err(|_| "Image dimensions could not be read".to_string())?;
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(max_bytes as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "Image dimensions could not be read".to_string())?;
+    Ok(bytes)
+}
+
+fn png_dimensions(bytes: &[u8]) -> Option<(i64, i64)> {
+    if bytes.len() < 24 || &bytes[0..8] != b"\x89PNG\r\n\x1a\n" {
+        return None;
+    }
+
+    Some((
+        u32::from_be_bytes(bytes[16..20].try_into().ok()?) as i64,
+        u32::from_be_bytes(bytes[20..24].try_into().ok()?) as i64,
+    ))
+}
+
+fn gif_dimensions(bytes: &[u8]) -> Option<(i64, i64)> {
+    if bytes.len() < 10 || (&bytes[0..6] != b"GIF87a" && &bytes[0..6] != b"GIF89a") {
+        return None;
+    }
+
+    Some((
+        u16::from_le_bytes(bytes[6..8].try_into().ok()?) as i64,
+        u16::from_le_bytes(bytes[8..10].try_into().ok()?) as i64,
+    ))
+}
+
+fn jpeg_dimensions(bytes: &[u8]) -> Option<(i64, i64)> {
+    if bytes.len() < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8 {
+        return None;
+    }
+
+    let mut index = 2usize;
+    while index + 9 < bytes.len() {
+        if bytes[index] != 0xFF {
+            index += 1;
+            continue;
+        }
+
+        while index < bytes.len() && bytes[index] == 0xFF {
+            index += 1;
+        }
+        if index >= bytes.len() {
+            return None;
+        }
+
+        let marker = bytes[index];
+        index += 1;
+        if marker == 0xD9 || marker == 0xDA {
+            return None;
+        }
+        if index + 2 > bytes.len() {
+            return None;
+        }
+
+        let segment_length = u16::from_be_bytes(bytes[index..index + 2].try_into().ok()?) as usize;
+        if segment_length < 2 || index + segment_length > bytes.len() {
+            return None;
+        }
+
+        if matches!(marker, 0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC5 | 0xC6 | 0xC7 | 0xC9 | 0xCA | 0xCB | 0xCD | 0xCE | 0xCF) {
+            if index + 7 > bytes.len() {
+                return None;
+            }
+            let height = u16::from_be_bytes(bytes[index + 3..index + 5].try_into().ok()?) as i64;
+            let width = u16::from_be_bytes(bytes[index + 5..index + 7].try_into().ok()?) as i64;
+            return Some((width, height));
+        }
+
+        index += segment_length;
+    }
+
+    None
+}
+
+fn webp_dimensions(bytes: &[u8]) -> Option<(i64, i64)> {
+    if bytes.len() < 30 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WEBP" {
+        return None;
+    }
+
+    match &bytes[12..16] {
+        b"VP8 " if bytes.len() >= 30 => Some((
+            (u16::from_le_bytes(bytes[26..28].try_into().ok()?) & 0x3fff) as i64,
+            (u16::from_le_bytes(bytes[28..30].try_into().ok()?) & 0x3fff) as i64,
+        )),
+        b"VP8L" if bytes.len() >= 25 => {
+            let b0 = bytes[21] as u32;
+            let b1 = bytes[22] as u32;
+            let b2 = bytes[23] as u32;
+            let b3 = bytes[24] as u32;
+            Some((
+                (((b1 & 0x3f) << 8) | b0) as i64 + 1,
+                (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)) as i64 + 1,
+            ))
+        }
+        b"VP8X" if bytes.len() >= 30 => Some((
+            1 + u32::from_le_bytes([bytes[24], bytes[25], bytes[26], 0]) as i64,
+            1 + u32::from_le_bytes([bytes[27], bytes[28], bytes[29], 0]) as i64,
+        )),
+        _ => None,
+    }
+}
+
 fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
     let trimmed = path.trim();
 
@@ -1339,6 +1589,9 @@ fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
         availability: row.get("availability")?,
         release_date: row.get("releaseDate")?,
         duration_minutes: row.get("durationMinutes")?,
+        resolution: row.get("resolution")?,
+        file_size_bytes: row.get("fileSizeBytes")?,
+        file_type: row.get("fileType")?,
         publisher_label: row.get("publisherLabel")?,
         cover_path: row.get("coverPath")?,
         media_path: row.get("mediaPath")?,
@@ -1366,6 +1619,9 @@ fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
         cover_path: row.get("coverPath")?,
         folder_path: row.get("folderPath")?,
         image_count: row.get("imageCount")?,
+        main_resolution: row.get("mainResolution")?,
+        total_file_size_bytes: row.get("totalFileSizeBytes")?,
+        main_file_type: row.get("mainFileType")?,
         gallery_image_paths_json: row.get("galleryImagePathsJson")?,
         categories_json: row.get("categoriesJson")?,
         related_performers_json: row.get("relatedPerformersJson")?,
@@ -1906,6 +2162,9 @@ mod tests {
                 availability: None,
                 release_date: None,
                 duration_minutes: Some(90),
+                resolution: Some("1920 x 1080".to_string()),
+                file_size_bytes: Some(1024),
+                file_type: Some("MP4".to_string()),
                 publisher_label: None,
                 cover_path: None,
                 media_path: None,
@@ -1956,6 +2215,9 @@ mod tests {
                 availability: None,
                 release_date: None,
                 duration_minutes: None,
+                resolution: None,
+                file_size_bytes: None,
+                file_type: None,
                 publisher_label: None,
                 cover_path: None,
                 media_path: None,
@@ -2010,6 +2272,9 @@ mod tests {
                 cover_path: None,
                 folder_path: Some("C:/Images".to_string()),
                 image_count: Some(24),
+                main_resolution: Some("1200 x 800".to_string()),
+                total_file_size_bytes: Some(2048),
+                main_file_type: Some("JPG".to_string()),
                 gallery_image_paths_json: Some(
                     r#"[" C:/Images/one.jpg ","","C:/Images/two.jpg","C:/Images/one.jpg",7]"#
                         .to_string(),
@@ -2065,6 +2330,9 @@ mod tests {
                 cover_path: None,
                 folder_path: None,
                 image_count: Some(30),
+                main_resolution: None,
+                total_file_size_bytes: None,
+                main_file_type: None,
                 gallery_image_paths_json: Some("{}".to_string()),
                 categories_json: Some("{}".to_string()),
                 related_performers_json: Some(
@@ -2425,6 +2693,9 @@ mod tests {
             availability: None,
             release_date: None,
             duration_minutes: None,
+            resolution: None,
+            file_size_bytes: None,
+            file_type: None,
             publisher_label: None,
             cover_path: None,
             media_path: None,
@@ -2449,6 +2720,9 @@ mod tests {
             cover_path: None,
             folder_path: None,
             image_count: None,
+            main_resolution: None,
+            total_file_size_bytes: None,
+            main_file_type: None,
             gallery_image_paths_json: None,
             categories_json: None,
             related_performers_json: None,

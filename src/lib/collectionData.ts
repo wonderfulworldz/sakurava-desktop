@@ -20,6 +20,7 @@ export type VideoCollectionItem = BaseCollectionItem & {
   kind: "videos";
   duration: string;
   durationMinutes?: number | null;
+  resolution?: string;
 };
 
 export type ImageCollectionItem = BaseCollectionItem & {
@@ -27,6 +28,7 @@ export type ImageCollectionItem = BaseCollectionItem & {
   code: string;
   imageCount: string;
   imageCountValue?: number | null;
+  mainResolution?: string;
 };
 
 export type PerformerCollectionItem = {

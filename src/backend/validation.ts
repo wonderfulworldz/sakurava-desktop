@@ -45,6 +45,7 @@ export function validateVideoInput(input: Pick<NewVideo, "title"> & Partial<NewV
   return result([
     ...requiredText(input.title, "title"),
     ...optionalInteger(input.durationMinutes, "durationMinutes"),
+    ...optionalInteger(input.fileSizeBytes, "fileSizeBytes"),
   ]);
 }
 
@@ -52,6 +53,7 @@ export function validateImageInput(input: Pick<NewImage, "title"> & Partial<NewI
   return result([
     ...requiredText(input.title, "title"),
     ...optionalInteger(input.imageCount, "imageCount"),
+    ...optionalInteger(input.totalFileSizeBytes, "totalFileSizeBytes"),
   ]);
 }
 
@@ -75,6 +77,9 @@ export function normalizeVideoDefaults(video: NewVideo): NewVideo {
     availability: video.availability ?? "",
     releaseDate: video.releaseDate ?? "",
     durationMinutes: video.durationMinutes ?? null,
+    resolution: video.resolution ?? "",
+    fileSizeBytes: video.fileSizeBytes ?? null,
+    fileType: video.fileType ?? "",
     publisherLabel: video.publisherLabel ?? "",
     coverPath: video.coverPath ?? "",
     mediaPath: video.mediaPath ?? "",
@@ -102,6 +107,9 @@ export function normalizeImageDefaults(image: NewImage): NewImage {
     coverPath: image.coverPath ?? "",
     folderPath: image.folderPath ?? "",
     imageCount: image.imageCount ?? null,
+    mainResolution: image.mainResolution ?? "",
+    totalFileSizeBytes: image.totalFileSizeBytes ?? null,
+    mainFileType: image.mainFileType ?? "",
     galleryImagePathsJson: defaultGalleryImagePathsJson(
       image.galleryImagePathsJson,
     ),
