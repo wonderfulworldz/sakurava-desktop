@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-32-2-categories-catalog-collection-v1
+post-mvp-33-2-video-picture-tech-info-foundation-v1
 ```
 
 Current batch:
 
 ```text
-33.2 - Video/Picture Form + Detail Tech Info Implementation
+33.2.1 - Video Duration/Resolution Detector Implementation
 ```
 
 Current focus:
 
 ```text
-Implement safe Video/Image form Tech Info, detail display, availability auto-set from explicit media paths, and saved resolution compatibility for catalog Quality filters.
+Implement read-only Windows Shell property detection for Video Duration and Video Resolution while preserving 33.2 file size/type and availability behavior.
 ```
 
 Latest known stable category checkpoint:
@@ -434,6 +434,7 @@ Current app capabilities include:
 - Categories Catalog/Collection V1 through Batch 32.2 after merge: Categories browse uses managed category metadata, thumbnail paths when present, parent context, usage counts, Video/Image/Performer usage filters, sorting, and pagination without Category Management CRUD or record mutation.
 - Media Tech Info + Availability Safety Plan through Batch 33.1 after merge: docs-only safety plan for read-only Video/Image metadata detection, availability auto-set semantics, runtime/Tauri command boundaries, storage considerations, UI/detail/catalog compatibility, tests, and smoke validation before 33.2 implementation.
 - Video/Picture Form + Detail Tech Info Implementation through Batch 33.2 after merge: Video/Image forms provide explicit Detect plus save-time read-only metadata checks, derive availability from explicit media/gallery paths, persist safe metadata fields, and detail/catalog views use saved resolution/file metadata without file mutation, recursive scanning, media probing dependencies, or raw JSON/path exposure in normal metadata.
+- Video Duration/Resolution Detector Implementation through Batch 33.2.1 after merge: Video metadata probing reads Windows Shell media properties for one explicit video path at a time, persists detected duration minutes and resolution when Windows exposes valid values, and safely falls back to "Not detected yet" without file mutation, ffmpeg/ffprobe, shelling out, or recursive scanning.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -472,7 +473,7 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 33.2:
+Recommended next implementation batch after Batch 33.2.1:
 
 ```text
 33.3 - Performer Form + Detail Data Completion

@@ -4427,6 +4427,8 @@ describe("App", () => {
       title: "Detected Video",
       availability: "Owned",
       mediaPath: "D:/Media/detected.mp4",
+      durationMinutes: 24,
+      resolution: "1920x1080",
       fileSizeBytes: 4096,
       fileType: "MP4",
     });
@@ -4440,17 +4442,18 @@ describe("App", () => {
             kind: "file",
             fileSizeBytes: 4096,
             fileType: "MP4",
-            width: null,
-            height: null,
-            resolution: "",
+            durationMinutes: 24,
+            width: 1920,
+            height: 1080,
+            resolution: "1920x1080",
             message: "Metadata checked",
           };
         }
         if (command === "video_create") {
           expect(args.input.availability).toBe("Owned");
           expect(args.input.mediaPath).toBe("D:/Media/detected.mp4");
-          expect(args.input.durationMinutes).toBeNull();
-          expect(args.input.resolution).toBe("");
+          expect(args.input.durationMinutes).toBe(24);
+          expect(args.input.resolution).toBe("1920x1080");
           expect(args.input.fileSizeBytes).toBe(4096);
           expect(args.input.fileType).toBe("MP4");
           return created;
@@ -4495,7 +4498,7 @@ describe("App", () => {
             durationMinutes: null,
             width: null,
             height: null,
-            resolution: "",
+            resolution: null,
             message: "Metadata checked",
           };
         }
@@ -4533,6 +4536,52 @@ describe("App", () => {
       "placeholder",
       "Not detected yet",
     );
+    expect(screen.getByLabelText("File Size")).toHaveDisplayValue("4096");
+    expect(screen.getByLabelText("File Type")).toHaveDisplayValue("MP4");
+  });
+
+  it("shows detected Video duration and resolution from the metadata command", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "media_metadata_probe") {
+          expect(args.path).toBe("D:/Media/detected.mp4");
+          return {
+            path: args.path,
+            status: "exists",
+            kind: "file",
+            fileSizeBytes: 4096,
+            fileType: "MP4",
+            durationMinutes: 24,
+            width: 1920,
+            height: 1080,
+            resolution: "1920x1080",
+            message: "Metadata checked",
+          };
+        }
+        if (command === "performer_list" || command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Media Path"), {
+      target: { value: "D:/Media/detected.mp4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Detect" }));
+
+    expect(
+      await screen.findByText(
+        "Tech Info checked from the Media Path. Save to persist these values.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Duration")).toHaveDisplayValue("24");
+    expect(screen.getByLabelText("Resolution")).toHaveDisplayValue("1920x1080");
     expect(screen.getByLabelText("File Size")).toHaveDisplayValue("4096");
     expect(screen.getByLabelText("File Type")).toHaveDisplayValue("MP4");
   });
@@ -5208,7 +5257,7 @@ describe("App", () => {
             durationMinutes: null,
             width: null,
             height: null,
-            resolution: "",
+            resolution: null,
             message: "No path set",
           };
         }

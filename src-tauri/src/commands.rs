@@ -8,6 +8,29 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{Scopes, State};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStrExt;
+#[cfg(target_os = "windows")]
+use windows::{
+    core::PCWSTR,
+    Win32::{
+        Foundation::{PROPERTYKEY, RPC_E_CHANGED_MODE, S_FALSE, S_OK},
+        Storage::EnhancedStorage::{
+            PKEY_Media_Duration, PKEY_Video_FrameHeight, PKEY_Video_FrameWidth,
+        },
+        System::Com::{
+            CoInitializeEx, CoUninitialize, IBindCtx,
+            StructuredStorage::{
+                PropVariantClear, PropVariantToUInt32, PropVariantToUInt64, PROPVARIANT,
+            },
+            COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
+        },
+        UI::Shell::PropertiesSystem::{
+            IPropertyStore, SHGetPropertyStoreFromParsingName, GPS_DEFAULT,
+        },
+    },
+};
+
 use crate::database::{
     backup_runtime_database, restore_runtime_database, DatabaseBackupResult, DatabaseRestoreResult,
     RuntimeDatabase,
@@ -327,9 +350,10 @@ pub struct MediaMetadataProbeResult {
     pub kind: PathKind,
     pub file_size_bytes: Option<i64>,
     pub file_type: String,
+    pub duration_minutes: Option<i64>,
     pub width: Option<i64>,
     pub height: Option<i64>,
-    pub resolution: String,
+    pub resolution: Option<String>,
     pub message: String,
 }
 
@@ -1309,9 +1333,10 @@ fn probe_media_metadata(path: &str) -> MediaMetadataProbeResult {
             kind: status.kind,
             file_size_bytes: None,
             file_type: String::new(),
+            duration_minutes: None,
             width: None,
             height: None,
-            resolution: String::new(),
+            resolution: None,
             message: status.message,
         };
     }
@@ -1320,11 +1345,13 @@ fn probe_media_metadata(path: &str) -> MediaMetadataProbeResult {
         .ok()
         .and_then(|metadata| i64::try_from(metadata.len()).ok());
     let file_type = file_type_from_path(Path::new(&status.path));
-    let (width, height) = image_dimensions_from_path(Path::new(&status.path)).unwrap_or((None, None));
-    let resolution = match (width, height) {
-        (Some(width), Some(height)) => format!("{width} x {height}"),
-        _ => String::new(),
-    };
+    let path = Path::new(&status.path);
+    let image_dimensions = image_dimensions_from_path(path).unwrap_or((None, None));
+    let video_properties = video_shell_properties_from_path(path);
+    let duration_minutes = video_properties.duration_minutes;
+    let width = image_dimensions.0.or(video_properties.width);
+    let height = image_dimensions.1.or(video_properties.height);
+    let resolution = resolution_text_from_dimensions(width, height);
 
     MediaMetadataProbeResult {
         path: status.path,
@@ -1332,11 +1359,160 @@ fn probe_media_metadata(path: &str) -> MediaMetadataProbeResult {
         kind: status.kind,
         file_size_bytes,
         file_type,
+        duration_minutes,
         width,
         height,
         resolution,
         message: "Metadata checked".to_string(),
     }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct VideoShellProperties {
+    duration_minutes: Option<i64>,
+    width: Option<i64>,
+    height: Option<i64>,
+}
+
+fn resolution_text_from_dimensions(width: Option<i64>, height: Option<i64>) -> Option<String> {
+    match (width, height) {
+        (Some(width), Some(height)) if width > 0 && height > 0 => Some(format!("{width}x{height}")),
+        _ => None,
+    }
+}
+
+fn duration_minutes_from_100ns(duration_100ns: u64) -> Option<i64> {
+    if duration_100ns == 0 {
+        return None;
+    }
+
+    const ONE_MINUTE_100NS: u64 = 600_000_000;
+    let rounded_up = duration_100ns.checked_add(ONE_MINUTE_100NS - 1)? / ONE_MINUTE_100NS;
+    i64::try_from(rounded_up)
+        .ok()
+        .filter(|minutes| *minutes > 0)
+}
+
+fn is_supported_video_metadata_path(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_lowercase)
+            .as_deref(),
+        Some("mp4" | "m4v" | "mov" | "wmv" | "avi" | "mkv" | "webm")
+    )
+}
+
+#[cfg(not(target_os = "windows"))]
+fn video_shell_properties_from_path(_path: &Path) -> VideoShellProperties {
+    VideoShellProperties::default()
+}
+
+#[cfg(target_os = "windows")]
+fn video_shell_properties_from_path(path: &Path) -> VideoShellProperties {
+    if !is_supported_video_metadata_path(path) {
+        return VideoShellProperties::default();
+    }
+
+    read_windows_shell_video_properties(path).unwrap_or_default()
+}
+
+#[cfg(target_os = "windows")]
+fn read_windows_shell_video_properties(path: &Path) -> Option<VideoShellProperties> {
+    let _com = ComApartment::initialize()?;
+    let wide_path = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+
+    // This is the only Shell/COM boundary in metadata probing. It opens a
+    // read-only property store for one explicit file path and reads scalar
+    // media properties; it never writes or commits property values.
+    let store: IPropertyStore = unsafe {
+        SHGetPropertyStoreFromParsingName(
+            PCWSTR(wide_path.as_ptr()),
+            None::<&IBindCtx>,
+            GPS_DEFAULT,
+        )
+        .ok()?
+    };
+
+    let duration_minutes =
+        read_u64_property(&store, &PKEY_Media_Duration).and_then(duration_minutes_from_100ns);
+    let width = read_u32_property(&store, &PKEY_Video_FrameWidth)
+        .and_then(|value| i64::try_from(value).ok())
+        .filter(|value| *value > 0);
+    let height = read_u32_property(&store, &PKEY_Video_FrameHeight)
+        .and_then(|value| i64::try_from(value).ok())
+        .filter(|value| *value > 0);
+
+    Some(VideoShellProperties {
+        duration_minutes,
+        width,
+        height,
+    })
+}
+
+#[cfg(target_os = "windows")]
+struct ComApartment {
+    should_uninitialize: bool,
+}
+
+#[cfg(target_os = "windows")]
+impl ComApartment {
+    fn initialize() -> Option<Self> {
+        let flags = COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE;
+        // COM initialization is required before opening the Windows Shell
+        // property store. If the thread is already initialized with another
+        // model, keep using that existing apartment and avoid CoUninitialize.
+        let result = unsafe { CoInitializeEx(None, flags) };
+        if result == S_OK || result == S_FALSE {
+            return Some(Self {
+                should_uninitialize: true,
+            });
+        }
+
+        if result == RPC_E_CHANGED_MODE {
+            return Some(Self {
+                should_uninitialize: false,
+            });
+        }
+
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl Drop for ComApartment {
+    fn drop(&mut self) {
+        if self.should_uninitialize {
+            unsafe {
+                CoUninitialize();
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn read_u64_property(store: &IPropertyStore, key: &PROPERTYKEY) -> Option<u64> {
+    let mut value = unsafe { store.GetValue(key).ok()? };
+    let converted = unsafe { PropVariantToUInt64(&value).ok() };
+    clear_prop_variant(&mut value);
+    converted.filter(|value| *value > 0)
+}
+
+#[cfg(target_os = "windows")]
+fn read_u32_property(store: &IPropertyStore, key: &PROPERTYKEY) -> Option<u32> {
+    let mut value = unsafe { store.GetValue(key).ok()? };
+    let converted = unsafe { PropVariantToUInt32(&value).ok() };
+    clear_prop_variant(&mut value);
+    converted.filter(|value| *value > 0)
+}
+
+#[cfg(target_os = "windows")]
+fn clear_prop_variant(value: &mut PROPVARIANT) {
+    let _ = unsafe { PropVariantClear(value) };
 }
 
 fn file_type_from_path(path: &Path) -> String {
@@ -1374,7 +1550,8 @@ fn image_dimensions_from_path(path: &Path) -> Result<(Option<i64>, Option<i64>),
 fn read_file_prefix(path: &Path, max_bytes: usize) -> Result<Vec<u8>, String> {
     use std::io::Read;
 
-    let mut file = fs::File::open(path).map_err(|_| "Image dimensions could not be read".to_string())?;
+    let mut file =
+        fs::File::open(path).map_err(|_| "Image dimensions could not be read".to_string())?;
     let mut bytes = Vec::new();
     file.by_ref()
         .take(max_bytes as u64)
@@ -1438,7 +1615,21 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<(i64, i64)> {
             return None;
         }
 
-        if matches!(marker, 0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC5 | 0xC6 | 0xC7 | 0xC9 | 0xCA | 0xCB | 0xCD | 0xCE | 0xCF) {
+        if matches!(
+            marker,
+            0xC0 | 0xC1
+                | 0xC2
+                | 0xC3
+                | 0xC5
+                | 0xC6
+                | 0xC7
+                | 0xC9
+                | 0xCA
+                | 0xCB
+                | 0xCD
+                | 0xCE
+                | 0xCF
+        ) {
             if index + 7 > bytes.len() {
                 return None;
             }
@@ -2623,6 +2814,65 @@ mod tests {
         assert_eq!(result.status, PathStatusKind::Missing);
         assert_eq!(result.kind, PathKind::Unknown);
         assert_eq!(result.message, "Path does not exist");
+    }
+
+    #[test]
+    fn media_metadata_probe_reports_missing_path_without_crashing() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "sakurava-metadata-missing-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&missing_path);
+
+        let result = probe_media_metadata(missing_path.to_string_lossy().as_ref());
+
+        assert_eq!(result.status, PathStatusKind::Missing);
+        assert_eq!(result.kind, PathKind::Unknown);
+        assert_eq!(result.duration_minutes, None);
+        assert_eq!(result.width, None);
+        assert_eq!(result.height, None);
+        assert_eq!(result.resolution, None);
+    }
+
+    #[test]
+    fn media_metadata_probe_keeps_size_and_type_for_unsupported_file() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-metadata-unsupported-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let file_path = temp_root.join("sample.bin");
+        std::fs::write(&file_path, b"not a supported media file").expect("write temp file");
+
+        let result = probe_media_metadata(file_path.to_string_lossy().as_ref());
+
+        assert_eq!(result.status, PathStatusKind::Exists);
+        assert_eq!(result.kind, PathKind::File);
+        assert_eq!(result.file_size_bytes, Some(26));
+        assert_eq!(result.file_type, "BIN");
+        assert_eq!(result.duration_minutes, None);
+        assert_eq!(result.resolution, None);
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn video_duration_conversion_never_returns_zero_fallback() {
+        assert_eq!(duration_minutes_from_100ns(0), None);
+        assert_eq!(duration_minutes_from_100ns(1), Some(1));
+        assert_eq!(duration_minutes_from_100ns(600_000_000), Some(1));
+        assert_eq!(duration_minutes_from_100ns(600_000_001), Some(2));
+    }
+
+    #[test]
+    fn resolution_text_requires_valid_width_and_height() {
+        assert_eq!(
+            resolution_text_from_dimensions(Some(1920), Some(1080)),
+            Some("1920x1080".to_string())
+        );
+        assert_eq!(resolution_text_from_dimensions(Some(1920), None), None);
+        assert_eq!(resolution_text_from_dimensions(Some(0), Some(1080)), None);
     }
 
     #[test]

@@ -458,3 +458,9 @@ post-mvp-33-1-media-tech-info-availability-safety-plan-v1
 Batch 33.2 implemented the planned Video/Image-only V1 behavior with a read-only `media_metadata_probe` command for one explicit path at a time. The implementation persists Video `resolution`, `fileSizeBytes`, and `fileType`, and Image `mainResolution`, `totalFileSizeBytes`, and `mainFileType`, while reusing existing `durationMinutes`, `imageCount`, and `availability`.
 
 Detection is explicit through a small Detect action and also runs at save time. It reads file existence, file size, extension-derived type, and basic image dimensions for supported image files. It does not add video duration/resolution probing, package dependencies, recursive scanning, file mutation, thumbnail/cache generation, or hidden database writes before save.
+
+## 33.2.1 Implementation Note
+
+Batch 33.2.1 adds true Video Duration and Video Resolution detection for normal Windows-readable video files through Windows Shell media properties. The detector remains read-only, checks one explicit file path at a time, does not shell out to `ffmpeg`/`ffprobe`, and does not copy, move, rename, delete, rewrite, tag, index, or scan media files.
+
+Windows Shell may not expose media properties for every container, codec, corrupt file, or inaccessible path. In those cases the app keeps the 33.2 honest fallback behavior: Duration and Resolution show "Not detected yet", while File Size, File Type, and Availability continue to use the existing safe path metadata behavior.
