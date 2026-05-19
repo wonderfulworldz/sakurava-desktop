@@ -1,13 +1,14 @@
-import type { Image, NewPerformer, Performer, PerformerPatch, Video } from "../backend/types";
+import type { NewPerformer, Performer, PerformerPatch } from "../backend/types";
 import {
   normalizePerformerThumbnailPathsJson,
-  parseGalleryImagePathArray,
   parsePerformerThumbnailPathArray,
   parseRatingObject,
-  parseRelatedPerformerArray,
+  parseRelatedCatalogRecordArray,
   parseTextLabelArray,
+  normalizeRelatedCatalogRecordsJson,
   stringifyTextLabelArray,
 } from "../backend/json";
+import type { RelatedCatalogRecordFormValue } from "./formData";
 import type { CollectionConfig, PerformerCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveDebutYear } from "./catalogDerivedFields";
@@ -21,6 +22,7 @@ import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
 type FormValues = Record<string, string | boolean>;
 
 const performerRatingFields = formConfigs.performers.ratingFields;
+export type DerivedPerformerStatus = "Unknown" | "Active" | "Retired";
 
 export function buildPerformerCollectionConfig(
   performers: Performer[],
@@ -34,15 +36,14 @@ export function buildPerformerCollectionConfig(
   };
 }
 
-export function buildPerformerDetailConfig(
-  performer: Performer,
-  videos: Video[] = [],
-  images: Image[] = [],
-): PerformerDetailConfig {
+export function buildPerformerDetailConfig(performer: Performer): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
   const thumbnailPaths = parsePerformerThumbnailPathArray(
     performer.performerThumbnailPathsJson,
   );
+  const derivedStatus = derivePerformerStatus(performer);
+  const filmographyCount = derivedRelatedCount(performer.relatedVideosJson);
+  const pictorialsCount = derivedRelatedCount(performer.relatedImagesJson);
   return {
     ...baseConfig,
     editTo: `/performers/${performer.id}/edit`,
@@ -50,18 +51,20 @@ export function buildPerformerDetailConfig(
     displayTitle: performer.name,
     originalTitle: performer.originalName,
     favorite: performer.favorite,
-    chips: [performer.status || "Unknown"],
+    chips: [derivedStatus],
     aliases: parseTextLabelArray(performer.aliasesJson),
     thumbnailPaths,
     categories: parseTextLabelArray(performer.categoriesJson),
     summary: [
-      { label: "Years Active", value: "Not tracked" },
-      { label: "Filmography", value: formatCount(performer.filmographyCount) },
-      { label: "Pictorials", value: formatCount(performer.pictorialsCount) },
+      { label: "Years Active", value: formatYearsActive(performer) },
+      { label: "Filmography", value: String(filmographyCount) },
+      { label: "Pictorials", value: String(pictorialsCount) },
     ],
     metadata: [
+      { label: "Debut Date", value: performer.debutDate || "Not set" },
+      { label: "Retired Date", value: performer.retiredDate || "Not set" },
       { label: "Birth Date", value: performer.birthDate || "Not set" },
-      { label: "Status", value: performer.status || "Unknown" },
+      { label: "Status", value: derivedStatus },
     ],
     mediaPaths: [{ label: "Profile image status", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
@@ -75,25 +78,20 @@ export function buildPerformerDetailConfig(
     ],
     personal: [
       { label: "Birth Date", value: performer.birthDate || "Not set" },
-      { label: "Birthplace", value: "Not saved" },
-      { label: "Nationality", value: "Not saved" },
-      { label: "Astrological Sign", value: "Not saved" },
-      { label: "Blood Type", value: "Not saved" },
+      { label: "Birthplace", value: performer.birthplace || "Not set" },
+      { label: "Nationality", value: performer.nationality || "Not set" },
+      { label: "Astrological Sign", value: deriveAstrologicalSign(performer.birthDate) },
+      { label: "Blood Type", value: performer.bloodType || "Not set" },
     ],
     physical: [
-      { label: "Height", value: "Not saved" },
-      { label: "Weight", value: "Not saved" },
-      { label: "Measurement", value: "Not saved" },
-      { label: "Cup Size", value: "Not saved" },
+      { label: "Height", value: formatUnit(performer.heightCm, "cm") },
+      { label: "Weight", value: formatUnit(performer.weightKg, "kg") },
+      { label: "Measurement", value: performer.measurements || "Not set" },
+      { label: "Cup Size", value: performer.cupSize || "Not set" },
     ],
     rating: getRatingDimensions(performer.ratingJson, performerRatingFields),
     notes: performer.notes || "No notes saved.",
-    relatedSections: buildRelatedSections(
-      baseConfig.relatedSections,
-      performer.id,
-      videos,
-      images,
-    ),
+    relatedSections: baseConfig.relatedSections,
   };
 }
 
@@ -121,6 +119,20 @@ export function buildPerformerFormConfig(
       ...(formConfigs.performers.initialAliases ?? { create: [], edit: [] }),
       [mode]: parseTextLabelArray(performer.aliasesJson),
     },
+    initialPerformerRelatedVideos: {
+      ...(formConfigs.performers.initialPerformerRelatedVideos ?? {
+        create: [],
+        edit: [],
+      }),
+      [mode]: parseRelatedCatalogRecordArray(performer.relatedVideosJson),
+    },
+    initialPerformerRelatedImages: {
+      ...(formConfigs.performers.initialPerformerRelatedImages ?? {
+        create: [],
+        edit: [],
+      }),
+      [mode]: parseRelatedCatalogRecordArray(performer.relatedImagesJson),
+    },
   };
 }
 
@@ -128,18 +140,38 @@ export function performerFormToCreateInput(
   values: FormValues,
   categories: string[],
   aliases: string[],
+  relatedVideos: RelatedCatalogRecordFormValue[] = [],
+  relatedImages: RelatedCatalogRecordFormValue[] = [],
 ): NewPerformer {
   return {
     name: textValue(values.name),
     originalName: textValue(values.originalName),
     aliasesJson: stringifyTextLabelArray(aliases),
     favorite: Boolean(values.favorite),
-    status: textValue(values.status) as NewPerformer["status"],
+    status: derivePerformerStatusFromDates(
+      textValue(values.debutDate),
+      textValue(values.retiredDate),
+    ),
+    debutDate: textValue(values.debutDate),
+    retiredDate: textValue(values.retiredDate),
     birthDate: textValue(values.birthDate),
+    birthplace: textValue(values.birthplace),
+    nationality: textValue(values.nationality),
+    bloodType: textValue(values.bloodType),
+    heightCm: optionalInteger(values.heightCm),
+    weightKg: optionalInteger(values.weightKg),
+    measurements: formatMeasurements(values),
+    cupSize: textValue(values.cupSize),
     coverPath: textValue(values.coverPath),
     performerThumbnailPathsJson: formThumbnailPathsJson(values),
-    filmographyCount: optionalInteger(values.filmography),
-    pictorialsCount: optionalInteger(values.pictorials),
+    filmographyCount: relatedVideos.length,
+    pictorialsCount: relatedImages.length,
+    relatedVideosJson: normalizeRelatedCatalogRecordsJson(
+      JSON.stringify(relatedVideos),
+    ),
+    relatedImagesJson: normalizeRelatedCatalogRecordsJson(
+      JSON.stringify(relatedImages),
+    ),
     categoriesJson: stringifyTextLabelArray(categories),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
@@ -150,8 +182,10 @@ export function performerFormToPatch(
   values: FormValues,
   categories: string[],
   aliases: string[],
+  relatedVideos: RelatedCatalogRecordFormValue[] = [],
+  relatedImages: RelatedCatalogRecordFormValue[] = [],
 ): PerformerPatch {
-  return performerFormToCreateInput(values, categories, aliases);
+  return performerFormToCreateInput(values, categories, aliases, relatedVideos, relatedImages);
 }
 
 function toPerformerCollectionItem(
@@ -165,13 +199,13 @@ function toPerformerCollectionItem(
     coverPath: performer.coverPath,
     createdAt: performer.createdAt,
     updatedAt: performer.updatedAt,
-    status: performer.status || "Unknown",
+    status: derivePerformerStatus(performer),
     debutYear: deriveDebutYear(performer),
     ratingBucket: createRatingSummary(performer.ratingJson, performerRatingFields).bucket,
-    filmographyCount: `Filmography ${formatCount(performer.filmographyCount)}`,
-    filmographyCountValue: performer.filmographyCount,
-    pictorialsCount: `Pictorials ${formatCount(performer.pictorialsCount)}`,
-    pictorialsCountValue: performer.pictorialsCount,
+    filmographyCount: `Filmography ${derivedRelatedCount(performer.relatedVideosJson)}`,
+    filmographyCountValue: derivedRelatedCount(performer.relatedVideosJson),
+    pictorialsCount: `Pictorials ${derivedRelatedCount(performer.relatedImagesJson)}`,
+    pictorialsCountValue: derivedRelatedCount(performer.relatedImagesJson),
     categories: parseTextLabelArray(performer.categoriesJson),
     favorite: performer.favorite,
   };
@@ -186,24 +220,22 @@ function performerToFormValues(performer: Performer): FormValues {
     name: performer.name,
     originalName: performer.originalName,
     favorite: performer.favorite,
-    status: performer.status || "Active",
+    debutDate: performer.debutDate,
+    retiredDate: performer.retiredDate,
     coverPath: performer.coverPath,
     thumbnail1: thumbnailPaths[0] ?? "",
     thumbnail2: thumbnailPaths[1] ?? "",
     thumbnail3: thumbnailPaths[2] ?? "",
     thumbnail4: thumbnailPaths[3] ?? "",
-    yearsActive: "Not saved in MVP",
-    filmography: performer.filmographyCount?.toString() ?? "",
-    pictorials: performer.pictorialsCount?.toString() ?? "",
     birthDate: performer.birthDate,
-    birthplace: "Not saved in MVP",
-    nationality: "Not saved in MVP",
-    astrologicalSign: "Not saved in MVP",
-    bloodType: "Not saved in MVP",
-    height: "Not saved in MVP",
-    weight: "Not saved in MVP",
-    measurement: "Not saved in MVP",
-    cupSize: "Not saved in MVP",
+    birthplace: performer.birthplace,
+    nationality: performer.nationality,
+    astrologicalSign: deriveAstrologicalSign(performer.birthDate),
+    bloodType: performer.bloodType,
+    heightCm: performer.heightCm?.toString() ?? "",
+    weightKg: performer.weightKg?.toString() ?? "",
+    measurements: performer.measurements,
+    cupSize: performer.cupSize,
     notes: performer.notes,
     ...Object.fromEntries(
       performerRatingFields.map((field) => [
@@ -250,96 +282,115 @@ function formatCount(count: number | null) {
   return count === null ? "Not set" : String(count);
 }
 
-function buildRelatedSections(
-  sections: PerformerDetailConfig["relatedSections"],
-  performerId: string,
-  videos: Video[],
-  images: Image[],
-) {
-  return sections.map((section) =>
-    section.title.includes("Video")
-      ? {
-          ...section,
-          description: "Read-only Related Video links connected to this performer.",
-          relatedCatalogRecords: buildRelatedVideos(performerId, videos),
-          controls: "performer-related" as const,
-        }
-      : section.title.includes("Image")
-        ? {
-            ...section,
-            description: "Read-only Related Image links connected to this performer.",
-            relatedCatalogRecords: buildRelatedImages(performerId, images),
-            controls: "performer-related" as const,
-          }
-        : section,
-  );
+export function derivePerformerStatus(performer: Pick<Performer, "debutDate" | "retiredDate">) {
+  return derivePerformerStatusFromDates(performer.debutDate, performer.retiredDate);
 }
 
-function buildRelatedVideos(performerId: string, videos: Video[]) {
-  return videos
-    .filter((video) => recordReferencesPerformer(video.relatedPerformersJson, performerId))
-    .map((video) => ({
-      title: video.title || video.originalTitle || "Untitled video",
-      originalTitle:
-        video.originalTitle && video.originalTitle !== video.title
-          ? video.originalTitle
-          : undefined,
-      coverPath: video.coverPath,
-      metadata: formatDuration(video.durationMinutes),
-      releaseDate: video.releaseDate,
-      routeTo: `/videos/${video.id}`,
-      unresolved: false,
-    }));
-}
-
-function buildRelatedImages(performerId: string, images: Image[]) {
-  return images
-    .filter((image) => recordReferencesPerformer(image.relatedPerformersJson, performerId))
-    .map((image) => {
-      const galleryPaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
-      return {
-        title: image.title || image.originalTitle || "Untitled image",
-        originalTitle:
-          image.originalTitle && image.originalTitle !== image.title
-            ? image.originalTitle
-            : undefined,
-        coverPath: image.coverPath,
-        metadata: formatGalleryCount(image.imageCount, galleryPaths),
-        releaseDate: image.releaseDate,
-        routeTo: `/images/${image.id}`,
-        unresolved: false,
-      };
-    });
-}
-
-function recordReferencesPerformer(
-  relatedPerformersJson: string | null | undefined,
-  performerId: string,
-) {
-  return parseRelatedPerformerArray(relatedPerformersJson).some(
-    (relation) => relation.performerId === performerId,
-  );
-}
-
-function formatDuration(minutes: number | null) {
-  if (!minutes || minutes <= 0) {
-    return undefined;
+export function derivePerformerStatusFromDates(
+  debutDate: string,
+  retiredDate: string,
+): DerivedPerformerStatus {
+  if (retiredDate.trim()) {
+    return "Retired";
   }
 
-  return `${minutes} min`;
-}
-
-function formatGalleryCount(count: number | null, galleryImagePaths: string[]) {
-  const safeCount =
-    typeof count === "number" && Number.isInteger(count) && count > 0
-      ? count
-      : galleryImagePaths.length > 0
-        ? galleryImagePaths.length
-        : null;
-
-  if (!safeCount) {
-    return undefined;
+  if (debutDate.trim()) {
+    return "Active";
   }
 
-  return `Total ${safeCount} ${safeCount === 1 ? "image" : "images"}`;
+  return "Unknown";
 }
+
+function derivedRelatedCount(value: string | null | undefined) {
+  return parseRelatedCatalogRecordArray(value).length;
+}
+
+function formatUnit(value: number | null, unit: string) {
+  return value === null ? "Not set" : `${value} ${unit}`;
+}
+
+function formatYearsActive(performer: Performer) {
+  const debutYear = yearFromIsoDate(performer.debutDate);
+  const retiredYear = yearFromIsoDate(performer.retiredDate);
+
+  if (!debutYear && !retiredYear) {
+    return "Not set";
+  }
+
+  const start = debutYear ? String(debutYear) : "Unknown";
+  const end = retiredYear ? String(retiredYear) : "Now";
+  return `${start} - ${end}`;
+}
+
+function formatMeasurements(values: FormValues) {
+  const measurementValue = textValue(values.measurements).trim();
+  if (!measurementValue) {
+    return "";
+  }
+
+  return normalizeMeasurements(measurementValue) ?? "";
+}
+
+function normalizeMeasurements(value: string) {
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/\bcm\b/g, "")
+    .trim();
+  const compactMatch = /^(\d{2,3})(\d{2,3})(\d{2,3})$/.exec(normalizedValue);
+  const parts = compactMatch
+    ? compactMatch.slice(1)
+    : normalizedValue
+    .split(/[\/\s]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (
+    parts.length !== 3 ||
+    parts.some((part) => !/^\d+$/.test(part))
+  ) {
+    return null;
+  }
+
+  return `${Number(parts[0])} / ${Number(parts[1])} / ${Number(parts[2])} cm`;
+}
+
+function yearFromIsoDate(value: string) {
+  const match = /^(\d{4})-\d{2}-\d{2}$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  return Number.isInteger(year) ? year : null;
+}
+
+function deriveAstrologicalSign(birthDate: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+
+  if (!match) {
+    return "Not set";
+  }
+
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (!Number.isInteger(month) || !Number.isInteger(day)) {
+    return "Not set";
+  }
+
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
+  if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return "Taurus";
+  if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return "Gemini";
+  if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return "Cancer";
+  if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return "Leo";
+  if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return "Virgo";
+  if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return "Libra";
+  if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return "Scorpio";
+  if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return "Sagittarius";
+  if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return "Capricorn";
+  if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "Aquarius";
+  if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return "Pisces";
+
+  return "Not set";
+}
+

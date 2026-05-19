@@ -81,13 +81,27 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain(
       "performerThumbnailPathsJson TEXT NOT NULL DEFAULT '[]'",
     );
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("debutDate TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("retiredDate TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("birthplace TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("nationality TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("bloodType TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("heightCm INTEGER");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("weightKg INTEGER");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("measurements TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("cupSize TEXT NOT NULL DEFAULT ''");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("filmographyCount INTEGER");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("pictorialsCount INTEGER");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain(
+      "relatedVideosJson TEXT NOT NULL DEFAULT '[]'",
+    );
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain(
+      "relatedImagesJson TEXT NOT NULL DEFAULT '[]'",
+    );
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain(
       "categoriesJson TEXT NOT NULL DEFAULT '[]'",
     );
     expect(CREATE_PERFORMERS_TABLE_SQL).not.toContain("categoryIds");
-    expect(CREATE_PERFORMERS_TABLE_SQL).not.toContain("related");
   });
 
   it("does not define relational category or content tables", () => {

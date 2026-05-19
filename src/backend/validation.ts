@@ -64,6 +64,8 @@ export function validatePerformerInput(
     ...requiredText(input.name, "name"),
     ...optionalInteger(input.filmographyCount, "filmographyCount"),
     ...optionalInteger(input.pictorialsCount, "pictorialsCount"),
+    ...optionalInteger(input.heightCm, "heightCm"),
+    ...optionalInteger(input.weightKg, "weightKg"),
   ]);
 }
 
@@ -131,13 +133,28 @@ export function normalizePerformerDefaults(performer: NewPerformer): NewPerforme
     originalName: performer.originalName ?? "",
     aliasesJson: defaultAliasesJson(performer.aliasesJson),
     status: performer.status ?? "",
+    debutDate: performer.debutDate ?? "",
+    retiredDate: performer.retiredDate ?? "",
     birthDate: performer.birthDate ?? "",
+    birthplace: performer.birthplace ?? "",
+    nationality: performer.nationality ?? "",
+    bloodType: performer.bloodType ?? "",
+    heightCm: performer.heightCm ?? null,
+    weightKg: performer.weightKg ?? null,
+    measurements: performer.measurements ?? "",
+    cupSize: performer.cupSize ?? "",
     coverPath: performer.coverPath ?? "",
     performerThumbnailPathsJson: defaultPerformerThumbnailPathsJson(
       performer.performerThumbnailPathsJson,
     ),
     filmographyCount: performer.filmographyCount ?? null,
     pictorialsCount: performer.pictorialsCount ?? null,
+    relatedVideosJson: defaultRelatedCatalogRecordsJson(
+      performer.relatedVideosJson,
+    ),
+    relatedImagesJson: defaultRelatedCatalogRecordsJson(
+      performer.relatedImagesJson,
+    ),
     categoriesJson: defaultCategoriesJson(performer.categoriesJson),
     ratingJson: defaultRatingJson(performer.ratingJson),
     notes: performer.notes ?? "",

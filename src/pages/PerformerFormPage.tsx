@@ -95,7 +95,13 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
-      onSubmit={async ({ values, categories, aliases }) => {
+      onSubmit={async ({
+        values,
+        categories,
+        aliases,
+        performerRelatedVideos,
+        performerRelatedImages,
+      }) => {
         if (!isPerformerRuntimeAvailable()) {
           return {
             state: "saved",
@@ -106,7 +112,13 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
 
         if (mode === "create") {
           const created = await createPerformer(
-            performerFormToCreateInput(values, categories, aliases),
+            performerFormToCreateInput(
+              values,
+              categories,
+              aliases,
+              performerRelatedVideos,
+              performerRelatedImages,
+            ),
           );
           navigate(`/performers/${created.id}`);
           return { state: "saved", message: "Performer saved." };
@@ -118,7 +130,13 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
 
         const updated = await updatePerformer(
           itemKey,
-          performerFormToPatch(values, categories, aliases),
+          performerFormToPatch(
+            values,
+            categories,
+            aliases,
+            performerRelatedVideos,
+            performerRelatedImages,
+          ),
         );
         if (!updated) {
           return { state: "error", message: "Performer could not be found." };

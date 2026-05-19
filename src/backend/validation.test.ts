@@ -75,11 +75,22 @@ const basePerformer = {
   originalName: "",
   aliasesJson: "",
   status: "",
+  debutDate: "",
+  retiredDate: "",
   birthDate: "",
+  birthplace: "",
+  nationality: "",
+  bloodType: "",
+  heightCm: null,
+  weightKg: null,
+  measurements: "",
+  cupSize: "",
   coverPath: "",
   performerThumbnailPathsJson: "",
   filmographyCount: null,
   pictorialsCount: null,
+  relatedVideosJson: "",
+  relatedImagesJson: "",
   categoriesJson: "",
   ratingJson: "",
   notes: "",
@@ -208,6 +219,8 @@ describe("validation helpers", () => {
         ...basePerformer,
         filmographyCount: 1.5,
         pictorialsCount: 2.25,
+        heightCm: 160.5,
+        weightKg: 47.25,
       }).errors,
     ).toEqual([
       {
@@ -217,6 +230,14 @@ describe("validation helpers", () => {
       {
         field: "pictorialsCount",
         message: "pictorialsCount must be an integer when provided.",
+      },
+      {
+        field: "heightCm",
+        message: "heightCm must be an integer when provided.",
+      },
+      {
+        field: "weightKg",
+        message: "weightKg must be an integer when provided.",
       },
     ]);
   });
@@ -288,6 +309,10 @@ describe("default normalization", () => {
       ratingJson: "{}",
       filmographyCount: null,
       pictorialsCount: null,
+      relatedVideosJson: "[]",
+      relatedImagesJson: "[]",
+      heightCm: null,
+      weightKg: null,
     });
   });
 });

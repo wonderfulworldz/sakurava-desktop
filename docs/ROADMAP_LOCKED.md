@@ -95,6 +95,7 @@ Batch 17.3 is a documentation-only PRD alignment batch. It clarifies that `02-mv
 - Media Tech Info + Availability Safety Plan is documented in `docs/38-media-tech-info-availability-safety-plan.md`; Batch 33.1 is docs-only and defines read-only metadata detection, availability semantics, runtime/storage boundaries, and 33.2 implementation guidance.
 - Video/Picture Form + Detail Tech Info Implementation is complete through Batch 33.2 after merge; Video/Image forms support explicit Detect plus save-time read-only metadata checks, persisted safe metadata fields, availability derivation from explicit paths, and detail/catalog display from saved values without broad scanning or file mutation.
 - Video Duration/Resolution Detector Implementation is complete through Batch 33.2.1 after merge; Video duration and resolution detection uses read-only Windows Shell media properties for one explicit file path and keeps safe fallback behavior when properties are unavailable.
+- Performer Form + Detail Data Completion is complete through Batch 33.3 after merge; Performer forms and detail now use saved performer dates, personal fields, physical fields, derived Status, derived Filmography/Pictorial counts from performer-owned related Video/Image selections, and neutral fallbacks while preserving categoriesJson, ratingJson, mini thumbnails, existing related picker behavior, and no Video/Image Tech Info changes.
 - Related Performer Picker Structure, Related Video/Image Picker Structure, and Media File Status / Open File should wait until category page decisions are settled.
 
 ## Current Locked V1 Roadmap
@@ -127,13 +128,13 @@ Recommended sequence:
 Current batch:
 
 ```text
-33.2.1 - Video Duration/Resolution Detector Implementation
-```
-
-Next implementation batch after 33.2.1:
-
-```text
 33.3 - Performer Form + Detail Data Completion
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only; Performer completion remains Batch 33.3.
+Next implementation batch after 33.3:
+
+```text
+33.4 - Performer Related Detail Sections Implementation
+```
+
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only; Performer related detail sections remain Batch 33.4.

@@ -74,11 +74,22 @@ CREATE TABLE IF NOT EXISTS performers (
   originalName TEXT NOT NULL DEFAULT '',
   aliasesJson TEXT NOT NULL DEFAULT '[]',
   status TEXT NOT NULL DEFAULT '',
+  debutDate TEXT NOT NULL DEFAULT '',
+  retiredDate TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
+  birthplace TEXT NOT NULL DEFAULT '',
+  nationality TEXT NOT NULL DEFAULT '',
+  bloodType TEXT NOT NULL DEFAULT '',
+  heightCm INTEGER,
+  weightKg INTEGER,
+  measurements TEXT NOT NULL DEFAULT '',
+  cupSize TEXT NOT NULL DEFAULT '',
   coverPath TEXT NOT NULL DEFAULT '',
   performerThumbnailPathsJson TEXT NOT NULL DEFAULT '[]',
   filmographyCount INTEGER,
   pictorialsCount INTEGER,
+  relatedVideosJson TEXT NOT NULL DEFAULT '[]',
+  relatedImagesJson TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
@@ -181,6 +192,17 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
         "performerThumbnailPathsJson",
         "[]",
     )?;
+    ensure_text_column(connection, "performers", "debutDate", "")?;
+    ensure_text_column(connection, "performers", "retiredDate", "")?;
+    ensure_text_column(connection, "performers", "birthplace", "")?;
+    ensure_text_column(connection, "performers", "nationality", "")?;
+    ensure_text_column(connection, "performers", "bloodType", "")?;
+    ensure_integer_column(connection, "performers", "heightCm")?;
+    ensure_integer_column(connection, "performers", "weightKg")?;
+    ensure_text_column(connection, "performers", "measurements", "")?;
+    ensure_text_column(connection, "performers", "cupSize", "")?;
+    ensure_text_json_column(connection, "performers", "relatedVideosJson", "[]")?;
+    ensure_text_json_column(connection, "performers", "relatedImagesJson", "[]")?;
 
     Ok(())
 }
@@ -555,6 +577,25 @@ mod tests {
             &connection,
             "performers",
             "performerThumbnailPathsJson"
+        ));
+        assert!(table_has_column(&connection, "performers", "debutDate"));
+        assert!(table_has_column(&connection, "performers", "retiredDate"));
+        assert!(table_has_column(&connection, "performers", "birthplace"));
+        assert!(table_has_column(&connection, "performers", "nationality"));
+        assert!(table_has_column(&connection, "performers", "bloodType"));
+        assert!(table_has_column(&connection, "performers", "heightCm"));
+        assert!(table_has_column(&connection, "performers", "weightKg"));
+        assert!(table_has_column(&connection, "performers", "measurements"));
+        assert!(table_has_column(&connection, "performers", "cupSize"));
+        assert!(table_has_column(
+            &connection,
+            "performers",
+            "relatedVideosJson"
+        ));
+        assert!(table_has_column(
+            &connection,
+            "performers",
+            "relatedImagesJson"
         ));
     }
 

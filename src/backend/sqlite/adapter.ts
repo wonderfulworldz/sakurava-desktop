@@ -263,11 +263,22 @@ const PERFORMER_COLUMNS = [
   "originalName",
   "aliasesJson",
   "status",
+  "debutDate",
+  "retiredDate",
   "birthDate",
+  "birthplace",
+  "nationality",
+  "bloodType",
+  "heightCm",
+  "weightKg",
+  "measurements",
+  "cupSize",
   "coverPath",
   "performerThumbnailPathsJson",
   "filmographyCount",
   "pictorialsCount",
+  "relatedVideosJson",
+  "relatedImagesJson",
   "categoriesJson",
   "ratingJson",
   "notes",
@@ -359,7 +370,22 @@ function mapPerformerRow(row: SqliteRow): Performer {
       originalName: String(row.originalName ?? ""),
       aliasesJson: String(row.aliasesJson ?? "[]"),
       status: String(row.status ?? "") as Performer["status"],
+      debutDate: String(row.debutDate ?? ""),
+      retiredDate: String(row.retiredDate ?? ""),
       birthDate: String(row.birthDate ?? ""),
+      birthplace: String(row.birthplace ?? ""),
+      nationality: String(row.nationality ?? ""),
+      bloodType: String(row.bloodType ?? ""),
+      heightCm:
+        row.heightCm === null || row.heightCm === undefined
+          ? null
+          : Number(row.heightCm),
+      weightKg:
+        row.weightKg === null || row.weightKg === undefined
+          ? null
+          : Number(row.weightKg),
+      measurements: String(row.measurements ?? ""),
+      cupSize: String(row.cupSize ?? ""),
       coverPath: String(row.coverPath ?? ""),
       performerThumbnailPathsJson: String(
         row.performerThumbnailPathsJson ?? "[]",
@@ -368,6 +394,8 @@ function mapPerformerRow(row: SqliteRow): Performer {
         row.filmographyCount === null ? null : Number(row.filmographyCount),
       pictorialsCount:
         row.pictorialsCount === null ? null : Number(row.pictorialsCount),
+      relatedVideosJson: String(row.relatedVideosJson ?? "[]"),
+      relatedImagesJson: String(row.relatedImagesJson ?? "[]"),
       categoriesJson: String(row.categoriesJson ?? "[]"),
       ratingJson: String(row.ratingJson ?? "{}"),
       notes: String(row.notes ?? ""),
