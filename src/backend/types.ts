@@ -59,11 +59,22 @@ export interface Performer extends BaseCatalogRecord {
   originalName: string;
   aliasesJson: JsonText;
   status: PerformerStatus;
+  debutDate: IsoDateString;
+  retiredDate: IsoDateString;
   birthDate: IsoDateString;
+  birthplace: string;
+  nationality: string;
+  bloodType: string;
+  heightCm: number | null;
+  weightKg: number | null;
+  measurements: string;
+  cupSize: string;
   coverPath: string;
   performerThumbnailPathsJson: JsonText;
   filmographyCount: number | null;
   pictorialsCount: number | null;
+  relatedVideosJson: JsonText;
+  relatedImagesJson: JsonText;
 }
 
 export interface ManagedCategory {

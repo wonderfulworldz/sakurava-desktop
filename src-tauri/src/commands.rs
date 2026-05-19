@@ -199,11 +199,22 @@ pub struct Performer {
     pub original_name: String,
     pub aliases_json: String,
     pub status: String,
+    pub debut_date: String,
+    pub retired_date: String,
     pub birth_date: String,
+    pub birthplace: String,
+    pub nationality: String,
+    pub blood_type: String,
+    pub height_cm: Option<i64>,
+    pub weight_kg: Option<i64>,
+    pub measurements: String,
+    pub cup_size: String,
     pub cover_path: String,
     pub performer_thumbnail_paths_json: String,
     pub filmography_count: Option<i64>,
     pub pictorials_count: Option<i64>,
+    pub related_videos_json: String,
+    pub related_images_json: String,
     pub categories_json: String,
     pub rating_json: String,
     pub notes: String,
@@ -219,11 +230,22 @@ pub struct PerformerInput {
     pub original_name: Option<String>,
     pub aliases_json: Option<String>,
     pub status: Option<String>,
+    pub debut_date: Option<String>,
+    pub retired_date: Option<String>,
     pub birth_date: Option<String>,
+    pub birthplace: Option<String>,
+    pub nationality: Option<String>,
+    pub blood_type: Option<String>,
+    pub height_cm: Option<i64>,
+    pub weight_kg: Option<i64>,
+    pub measurements: Option<String>,
+    pub cup_size: Option<String>,
     pub cover_path: Option<String>,
     pub performer_thumbnail_paths_json: Option<String>,
     pub filmography_count: Option<i64>,
     pub pictorials_count: Option<i64>,
+    pub related_videos_json: Option<String>,
+    pub related_images_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
@@ -237,11 +259,22 @@ pub struct PerformerPatch {
     pub original_name: Option<String>,
     pub aliases_json: Option<String>,
     pub status: Option<String>,
+    pub debut_date: Option<String>,
+    pub retired_date: Option<String>,
     pub birth_date: Option<String>,
+    pub birthplace: Option<String>,
+    pub nationality: Option<String>,
+    pub blood_type: Option<String>,
+    pub height_cm: Option<Option<i64>>,
+    pub weight_kg: Option<Option<i64>>,
+    pub measurements: Option<String>,
+    pub cup_size: Option<String>,
     pub cover_path: Option<String>,
     pub performer_thumbnail_paths_json: Option<String>,
-    pub filmography_count: Option<i64>,
-    pub pictorials_count: Option<i64>,
+    pub filmography_count: Option<Option<i64>>,
+    pub pictorials_count: Option<Option<i64>>,
+    pub related_videos_json: Option<String>,
+    pub related_images_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
@@ -960,13 +993,28 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         original_name: default_text(input.original_name),
         aliases_json: normalize_string_array_json(input.aliases_json),
         status: default_text(input.status),
+        debut_date: default_text(input.debut_date),
+        retired_date: default_text(input.retired_date),
         birth_date: default_text(input.birth_date),
+        birthplace: default_text(input.birthplace),
+        nationality: default_text(input.nationality),
+        blood_type: default_text(input.blood_type),
+        height_cm: input.height_cm,
+        weight_kg: input.weight_kg,
+        measurements: default_text(input.measurements),
+        cup_size: default_text(input.cup_size),
         cover_path: default_text(input.cover_path),
         performer_thumbnail_paths_json: normalize_performer_thumbnail_paths_json(
             input.performer_thumbnail_paths_json,
         ),
         filmography_count: input.filmography_count,
         pictorials_count: input.pictorials_count,
+        related_videos_json: normalize_related_catalog_records_json(
+            input.related_videos_json,
+        ),
+        related_images_json: normalize_related_catalog_records_json(
+            input.related_images_json,
+        ),
         categories_json: normalize_string_array_json(input.categories_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
@@ -978,21 +1026,35 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
     connection
         .execute(
             "INSERT INTO performers (
-                id, name, originalName, aliasesJson, status, birthDate, coverPath,
-                performerThumbnailPathsJson, filmographyCount, pictorialsCount,
-                categoriesJson, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                id, name, originalName, aliasesJson, status, debutDate, retiredDate,
+                birthDate, birthplace, nationality, bloodType, heightCm, weightKg,
+                measurements, cupSize, coverPath, performerThumbnailPathsJson,
+                filmographyCount, pictorialsCount, relatedVideosJson,
+                relatedImagesJson, categoriesJson, ratingJson, notes, favorite,
+                createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
             params![
                 performer.id,
                 performer.name,
                 performer.original_name,
                 performer.aliases_json,
                 performer.status,
+                performer.debut_date,
+                performer.retired_date,
                 performer.birth_date,
+                performer.birthplace,
+                performer.nationality,
+                performer.blood_type,
+                performer.height_cm,
+                performer.weight_kg,
+                performer.measurements,
+                performer.cup_size,
                 performer.cover_path,
                 performer.performer_thumbnail_paths_json,
                 performer.filmography_count,
                 performer.pictorials_count,
+                performer.related_videos_json,
+                performer.related_images_json,
                 performer.categories_json,
                 performer.rating_json,
                 performer.notes,
@@ -1047,17 +1109,38 @@ fn update_performer(
         performer.aliases_json = normalize_string_array_json(patch.aliases_json);
     }
     apply_text(&mut performer.status, patch.status);
+    apply_text(&mut performer.debut_date, patch.debut_date);
+    apply_text(&mut performer.retired_date, patch.retired_date);
     apply_text(&mut performer.birth_date, patch.birth_date);
+    apply_text(&mut performer.birthplace, patch.birthplace);
+    apply_text(&mut performer.nationality, patch.nationality);
+    apply_text(&mut performer.blood_type, patch.blood_type);
+    if let Some(height_cm) = patch.height_cm {
+        performer.height_cm = height_cm;
+    }
+    if let Some(weight_kg) = patch.weight_kg {
+        performer.weight_kg = weight_kg;
+    }
+    apply_text(&mut performer.measurements, patch.measurements);
+    apply_text(&mut performer.cup_size, patch.cup_size);
     apply_text(&mut performer.cover_path, patch.cover_path);
     if patch.performer_thumbnail_paths_json.is_some() {
         performer.performer_thumbnail_paths_json =
             normalize_performer_thumbnail_paths_json(patch.performer_thumbnail_paths_json);
     }
-    if patch.filmography_count.is_some() {
-        performer.filmography_count = patch.filmography_count;
+    if let Some(filmography_count) = patch.filmography_count {
+        performer.filmography_count = filmography_count;
     }
-    if patch.pictorials_count.is_some() {
-        performer.pictorials_count = patch.pictorials_count;
+    if let Some(pictorials_count) = patch.pictorials_count {
+        performer.pictorials_count = pictorials_count;
+    }
+    if patch.related_videos_json.is_some() {
+        performer.related_videos_json =
+            normalize_related_catalog_records_json(patch.related_videos_json);
+    }
+    if patch.related_images_json.is_some() {
+        performer.related_images_json =
+            normalize_related_catalog_records_json(patch.related_images_json);
     }
     if patch.categories_json.is_some() {
         performer.categories_json = normalize_string_array_json(patch.categories_json);
@@ -1075,9 +1158,14 @@ fn update_performer(
         .execute(
             "UPDATE performers SET
                 name = ?2, originalName = ?3, aliasesJson = ?4, status = ?5,
-                birthDate = ?6, coverPath = ?7, performerThumbnailPathsJson = ?8,
-                filmographyCount = ?9, pictorialsCount = ?10, categoriesJson = ?11,
-                ratingJson = ?12, notes = ?13, favorite = ?14, updatedAt = ?15
+                debutDate = ?6, retiredDate = ?7, birthDate = ?8,
+                birthplace = ?9, nationality = ?10, bloodType = ?11,
+                heightCm = ?12, weightKg = ?13, measurements = ?14, cupSize = ?15,
+                coverPath = ?16, performerThumbnailPathsJson = ?17,
+                filmographyCount = ?18, pictorialsCount = ?19,
+                relatedVideosJson = ?20, relatedImagesJson = ?21,
+                categoriesJson = ?22, ratingJson = ?23, notes = ?24,
+                favorite = ?25, updatedAt = ?26
             WHERE id = ?1",
             params![
                 performer.id,
@@ -1085,11 +1173,22 @@ fn update_performer(
                 performer.original_name,
                 performer.aliases_json,
                 performer.status,
+                performer.debut_date,
+                performer.retired_date,
                 performer.birth_date,
+                performer.birthplace,
+                performer.nationality,
+                performer.blood_type,
+                performer.height_cm,
+                performer.weight_kg,
+                performer.measurements,
+                performer.cup_size,
                 performer.cover_path,
                 performer.performer_thumbnail_paths_json,
                 performer.filmography_count,
                 performer.pictorials_count,
+                performer.related_videos_json,
+                performer.related_images_json,
                 performer.categories_json,
                 performer.rating_json,
                 performer.notes,
@@ -1832,11 +1931,22 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         original_name: row.get("originalName")?,
         aliases_json: row.get("aliasesJson")?,
         status: row.get("status")?,
+        debut_date: row.get("debutDate")?,
+        retired_date: row.get("retiredDate")?,
         birth_date: row.get("birthDate")?,
+        birthplace: row.get("birthplace")?,
+        nationality: row.get("nationality")?,
+        blood_type: row.get("bloodType")?,
+        height_cm: row.get("heightCm")?,
+        weight_kg: row.get("weightKg")?,
+        measurements: row.get("measurements")?,
+        cup_size: row.get("cupSize")?,
         cover_path: row.get("coverPath")?,
         performer_thumbnail_paths_json: row.get("performerThumbnailPathsJson")?,
         filmography_count: row.get("filmographyCount")?,
         pictorials_count: row.get("pictorialsCount")?,
+        related_videos_json: row.get("relatedVideosJson")?,
+        related_images_json: row.get("relatedImagesJson")?,
         categories_json: row.get("categoriesJson")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
@@ -2621,13 +2731,28 @@ mod tests {
                 original_name: None,
                 aliases_json: Some(r#"["Alias A","Alias B"]"#.to_string()),
                 status: Some("active".to_string()),
-                birth_date: None,
+                debut_date: Some("2020-01-02".to_string()),
+                retired_date: None,
+                birth_date: Some("1999-04-12".to_string()),
+                birthplace: Some("Tokyo".to_string()),
+                nationality: Some("Japanese".to_string()),
+                blood_type: Some("A".to_string()),
+                height_cm: Some(160),
+                weight_kg: Some(48),
+                measurements: Some("80 / 58 / 84 cm".to_string()),
+                cup_size: Some("C".to_string()),
                 cover_path: None,
                 performer_thumbnail_paths_json: Some(
                     r#"[" C:/thumbs/one.jpg ","","C:/thumbs/two.jpg","C:/thumbs/one.jpg","C:/thumbs/three.jpg","C:/thumbs/four.jpg","C:/thumbs/five.jpg"]"#.to_string(),
                 ),
                 filmography_count: Some(3),
                 pictorials_count: Some(2),
+                related_videos_json: Some(
+                    r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#.to_string(),
+                ),
+                related_images_json: Some(
+                    r#"[{"recordId":"image-1","titleSnapshot":"Image One"}]"#.to_string(),
+                ),
                 categories_json: Some(r#"["Featured"]"#.to_string()),
                 rating_json: Some(r#"{"score":3}"#.to_string()),
                 notes: None,
@@ -2643,6 +2768,17 @@ mod tests {
         );
         assert_eq!(created.categories_json, r#"["Featured"]"#);
         assert_eq!(created.rating_json, r#"{"score":3}"#);
+        assert_eq!(
+            created.related_videos_json,
+            r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#
+        );
+        assert_eq!(
+            created.related_images_json,
+            r#"[{"recordId":"image-1","titleSnapshot":"Image One"}]"#
+        );
+        assert_eq!(created.debut_date, "2020-01-02");
+        assert_eq!(created.birthplace, "Tokyo");
+        assert_eq!(created.height_cm, Some(160));
         assert!(!created.favorite);
 
         assert_eq!(
@@ -2662,11 +2798,24 @@ mod tests {
                 original_name: None,
                 aliases_json: Some(r#"["Alias C", 7]"#.to_string()),
                 status: None,
+                debut_date: Some("2021-03-04".to_string()),
+                retired_date: Some("2024-05-06".to_string()),
                 birth_date: None,
+                birthplace: Some("Osaka".to_string()),
+                nationality: None,
+                blood_type: None,
+                height_cm: Some(None),
+                weight_kg: Some(Some(49)),
+                measurements: Some("81 / 59 / 85 cm".to_string()),
+                cup_size: Some("D".to_string()),
                 cover_path: None,
                 performer_thumbnail_paths_json: Some("{bad json".to_string()),
-                filmography_count: None,
-                pictorials_count: None,
+                filmography_count: Some(None),
+                pictorials_count: Some(Some(4)),
+                related_videos_json: Some("{bad json".to_string()),
+                related_images_json: Some(
+                    r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#.to_string(),
+                ),
                 categories_json: None,
                 rating_json: Some("[]".to_string()),
                 notes: Some("note".to_string()),
@@ -2679,6 +2828,18 @@ mod tests {
         assert_eq!(updated.aliases_json, r#"["Alias C"]"#);
         assert_eq!(updated.performer_thumbnail_paths_json, "[]");
         assert_eq!(updated.rating_json, "{}");
+        assert_eq!(updated.debut_date, "2021-03-04");
+        assert_eq!(updated.retired_date, "2024-05-06");
+        assert_eq!(updated.birthplace, "Osaka");
+        assert_eq!(updated.height_cm, None);
+        assert_eq!(updated.weight_kg, Some(49));
+        assert_eq!(updated.filmography_count, None);
+        assert_eq!(updated.pictorials_count, Some(4));
+        assert_eq!(updated.related_videos_json, "[]");
+        assert_eq!(
+            updated.related_images_json,
+            r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#
+        );
         assert!(updated.favorite);
 
         assert!(
@@ -2989,11 +3150,22 @@ mod tests {
             original_name: None,
             aliases_json: None,
             status: None,
+            debut_date: None,
+            retired_date: None,
             birth_date: None,
+            birthplace: None,
+            nationality: None,
+            blood_type: None,
+            height_cm: None,
+            weight_kg: None,
+            measurements: None,
+            cup_size: None,
             cover_path: None,
             performer_thumbnail_paths_json: None,
             filmography_count: None,
             pictorials_count: None,
+            related_videos_json: None,
+            related_images_json: None,
             categories_json: None,
             rating_json: None,
             notes: None,

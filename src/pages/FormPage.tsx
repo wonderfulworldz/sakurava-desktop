@@ -1,5 +1,6 @@
 import { ArrowLeft, CheckCircle2, Plus, Save, X } from "lucide-react";
 import {
+  type ClipboardEvent,
   type Dispatch,
   type FormEvent,
   type ReactNode,
@@ -60,6 +61,8 @@ type FormSubmitData = {
   aliases: string[];
   relatedPerformers: RelatedPerformerFormValue[];
   relatedCatalogRecords: RelatedCatalogRecordFormValue[];
+  performerRelatedVideos: RelatedCatalogRecordFormValue[];
+  performerRelatedImages: RelatedCatalogRecordFormValue[];
   galleryImagePaths: string[];
 };
 
@@ -70,6 +73,19 @@ type FormSubmitResult = {
 
 type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
 type RelatedCatalogLoadState = "idle" | "loading" | "loaded" | "error";
+
+const performerSuggestionCacheKey = "sakurava.performerSuggestionCache.v1";
+const hiddenPerformerSuggestionsKey = "sakurava.hiddenPerformerSuggestions.v1";
+const legacyPerformerSuggestionCacheResetKey =
+  "sakurava.performerSuggestionCacheReset.v2";
+const performerSuggestionCacheVersionKey =
+  "sakurava.performerSuggestionsCacheVersion";
+const performerSuggestionCacheVersion = "batch-33-3-suggestions-fresh-v1";
+const performerSuggestionCacheKeys = [
+  hiddenPerformerSuggestionsKey,
+  performerSuggestionCacheKey,
+  legacyPerformerSuggestionCacheResetKey,
+];
 
 function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
@@ -87,10 +103,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   >(config.initialRelatedCatalogRecords?.[mode] ?? []);
   const [performerRelatedVideos, setPerformerRelatedVideos] = useState<
     RelatedCatalogRecordFormValue[]
-  >([]);
+  >(config.initialPerformerRelatedVideos?.[mode] ?? []);
   const [performerRelatedImages, setPerformerRelatedImages] = useState<
     RelatedCatalogRecordFormValue[]
-  >([]);
+  >(config.initialPerformerRelatedImages?.[mode] ?? []);
   const [galleryImagePaths, setGalleryImagePaths] = useState<string[]>(
     config.initialGalleryImagePaths?.[mode] ?? [],
   );
@@ -101,6 +117,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     useState<RelatedPerformerLoadState>("idle");
   const [availableRelatedImages, setAvailableRelatedImages] = useState<Image[]>([]);
   const [availableRelatedVideos, setAvailableRelatedVideos] = useState<Video[]>([]);
+  const [performerSuggestionOptions, setPerformerSuggestionOptions] = useState<
+    Record<string, string[]>
+  >({});
   const [relatedCatalogLoadState, setRelatedCatalogLoadState] =
     useState<RelatedCatalogLoadState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -120,8 +139,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
     setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
-    setPerformerRelatedVideos([]);
-    setPerformerRelatedImages([]);
+    setPerformerRelatedVideos(config.initialPerformerRelatedVideos?.[mode] ?? []);
+    setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
@@ -132,6 +151,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
   useEffect(() => {
     setManagedCategories(getStoredManagedCategories());
+    resetPerformerSuggestionCachesOnce();
   }, []);
 
   useEffect(() => {
@@ -170,6 +190,33 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       cancelled = true;
     };
   }, [supportsRelatedPerformerPicker]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (config.kind !== "performers" || !isPerformerRuntimeAvailable()) {
+      setPerformerSuggestionOptions({});
+      return;
+    }
+
+    listPerformers()
+      .then((performers) => {
+        if (cancelled) {
+          return;
+        }
+
+        setPerformerSuggestionOptions(getStoredPerformerSuggestionCache());
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPerformerSuggestionOptions({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config.kind]);
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +359,14 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setSaveState("idle");
   }
 
+  function removePerformerSuggestion(fieldName: string, suggestion: string) {
+    setPerformerSuggestionOptions((current) => {
+      const next = removeCachedPerformerSuggestion(current, fieldName, suggestion);
+      storePerformerSuggestionCache(next);
+      return next;
+    });
+  }
+
   async function browsePath(field: TextField) {
     if (!canBrowsePaths) {
       return;
@@ -389,6 +444,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         aliases,
         relatedPerformers,
         relatedCatalogRecords,
+        performerRelatedVideos,
+        performerRelatedImages,
         galleryImagePaths,
       });
       setSaveState(result.state);
@@ -396,6 +453,13 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         result.message ??
           (result.state === "saved" ? "Saved." : "Unable to save."),
       );
+      if (result.state === "saved" && config.kind === "performers") {
+        setPerformerSuggestionOptions((current) => {
+          const next = addPerformerValuesToSuggestionCache(current, values);
+          storePerformerSuggestionCache(next);
+          return next;
+        });
+      }
     } catch {
       setSaveState("error");
       setSaveMessage("Unable to save.");
@@ -475,6 +539,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           setAliasDraft={setAliasDraft}
           setCategories={setCategories}
           browsePath={browsePath}
+          performerRelatedVideoCount={performerRelatedVideos.length}
+          performerRelatedImageCount={performerRelatedImages.length}
+          suggestions={performerSuggestionOptions}
+          onHideSuggestion={removePerformerSuggestion}
         />
       ) : (
         <CatalogExtraSections
@@ -842,6 +910,10 @@ function PerformerExtraSections({
   setAliasDraft,
   setCategories,
   browsePath,
+  performerRelatedVideoCount,
+  performerRelatedImageCount,
+  suggestions,
+  onHideSuggestion,
 }: {
   config: FormConfig;
   values: FormValues;
@@ -855,6 +927,10 @@ function PerformerExtraSections({
   setAliasDraft: Dispatch<SetStateAction<string>>;
   setCategories: Dispatch<SetStateAction<string[]>>;
   browsePath: (field: TextField) => void;
+  performerRelatedVideoCount: number;
+  performerRelatedImageCount: number;
+  suggestions: Record<string, string[]>;
+  onHideSuggestion: (fieldName: string, suggestion: string) => void;
 }) {
   const sections = config.performerSections;
 
@@ -874,7 +950,7 @@ function PerformerExtraSections({
               key={field.name}
               field={field}
               value={String(values[field.name] ?? "")}
-              browseLabel="Browse Cover"
+              browseLabel="Browse"
               browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
               onBrowse={() => browsePath(field)}
@@ -885,7 +961,7 @@ function PerformerExtraSections({
               key={field.name}
               field={field}
               value={String(values[field.name] ?? "")}
-              browseLabel="Browse Thumbnail"
+              browseLabel="Browse"
               browseDisabled={!canBrowsePaths}
               onChange={(value) => updateValue(field.name, value)}
               onBrowse={() => browsePath(field)}
@@ -894,21 +970,24 @@ function PerformerExtraSections({
         </FieldGrid>
       </FormSection>
       <FormSection index={3} title="Status / Activity">
-        <p className="mb-3 text-xs font-medium text-slate-500">
-          Status is saved directly. Debut Date and Retired Date are not stored in the current data model.
-        </p>
         <FieldGrid>
-          {config.selectFields.map((field) => (
-            <SelectInput
-              key={field.name}
-              value={String(values[field.name] ?? "")}
-              label={field.label}
-              options={field.options}
-              onChange={(value) => updateValue(field.name, value)}
-            />
-          ))}
-          <ReadOnlyTextInput label="Debut Date" value="Not saved" />
-          <ReadOnlyTextInput label="Retired Date" value="Not saved" />
+          <ReadOnlyTextInput
+            label="Status"
+            value={derivePerformerStatusDisplay(
+              String(values.debutDate ?? ""),
+              String(values.retiredDate ?? ""),
+            )}
+          />
+          {sections.personal
+            .filter((field) => field.name === "debutDate" || field.name === "retiredDate")
+            .map((field) => (
+              <TextInput
+                key={field.name}
+                field={field}
+                value={String(values[field.name] ?? "")}
+                onChange={(value) => updateValue(field.name, value)}
+              />
+            ))}
         </FieldGrid>
       </FormSection>
       {config.showAliases && (
@@ -929,27 +1008,22 @@ function PerformerExtraSections({
         </FormSection>
       )}
       <FormSection index={5} title="Summary">
-        <p className="mb-3 text-xs font-medium text-slate-500">
-          Summary counts use existing saved Performer values only.
-        </p>
         <FieldGrid>
-          {sections.summary.map((field) => (
-            <TextInput
-              key={field.name}
-              field={field}
-              value={String(values[field.name] ?? "")}
-              onChange={() => undefined}
-              inactive
-            />
-          ))}
+          <ReadOnlyTextInput
+            label="Filmography"
+            value={String(performerRelatedVideoCount)}
+          />
+          <ReadOnlyTextInput
+            label="Pictorials"
+            value={String(performerRelatedImageCount)}
+          />
         </FieldGrid>
       </FormSection>
       <FormSection index={6} title="Personal">
-        <p className="mb-3 text-xs font-medium text-slate-500">
-          Birth date is saved. Other personal fields are planned and not saved in MVP.
-        </p>
         <FieldGrid>
-          {sections.personal.map((field) => (
+          {sections.personal
+            .filter((field) => field.name !== "debutDate" && field.name !== "retiredDate")
+            .map((field) => (
             field.name === "astrologicalSign" ? (
               <ReadOnlyTextInput
                 key={field.name}
@@ -963,13 +1037,58 @@ function PerformerExtraSections({
                 field={field}
                 value={String(values[field.name] ?? "")}
                 onChange={(value) => updateValue(field.name, value)}
-                inactive={field.name !== "birthDate"}
+                suggestions={suggestions[field.name] ?? []}
+                onHideSuggestion={(suggestion) =>
+                  onHideSuggestion(field.name, suggestion)
+                }
               />
             )
           ))}
         </FieldGrid>
       </FormSection>
-      <InactiveFieldSection index={7} title="Physical" fields={sections.physical} values={values} />
+      <FormSection index={7} title="Physical">
+        <FieldGrid>
+          {sections.physical
+            .filter(
+              (field) =>
+                field.name !== "cupSize",
+            )
+            .map((field) => (
+              field.name === "measurements" ? (
+                <MeasurementsInput
+                  key={field.name}
+                  value={String(values.measurements ?? "")}
+                  onChange={(value) => updateValue("measurements", value)}
+                />
+              ) : (
+                <TextInput
+                  key={field.name}
+                  field={field}
+                  value={String(values[field.name] ?? "")}
+                  onChange={(value) => updateValue(field.name, value)}
+                  suggestions={suggestions[field.name] ?? []}
+                  onHideSuggestion={(suggestion) =>
+                    onHideSuggestion(field.name, suggestion)
+                  }
+                />
+              )
+            ))}
+          {sections.physical
+            .filter((field) => field.name === "cupSize")
+            .map((field) => (
+              <TextInput
+                key={field.name}
+                field={field}
+                value={String(values[field.name] ?? "")}
+                onChange={(value) => updateValue(field.name, value)}
+                suggestions={suggestions[field.name] ?? []}
+                onHideSuggestion={(suggestion) =>
+                  onHideSuggestion(field.name, suggestion)
+                }
+              />
+            ))}
+        </FieldGrid>
+      </FormSection>
       <FormSection index={8} title="Categories">
         <CategoryPicker
           selected={categories}
@@ -1064,12 +1183,19 @@ function TextInput({
   value,
   onChange,
   inactive = false,
+  suggestions = [],
+  onHideSuggestion,
 }: {
   field: TextField;
   value: string;
   onChange: (value: string) => void;
   inactive?: boolean;
+  suggestions?: string[];
+  onHideSuggestion?: (suggestion: string) => void;
 }) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const hasSuggestions = suggestions.length > 0 && onHideSuggestion && !inactive;
+
   return (
     <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
       <span>
@@ -1077,7 +1203,7 @@ function TextInput({
         {field.required && <span className="text-sakura-500"> *</span>}
       </span>
       <span className="flex items-center gap-2">
-        <span className="grid flex-1 gap-1">
+        <span className="relative grid flex-1 gap-1">
           <span className="flex items-center gap-2">
             <input
               className={inputClass(inactive)}
@@ -1086,6 +1212,9 @@ function TextInput({
               value={value}
               placeholder={field.placeholder}
               disabled={inactive}
+              autoComplete="off"
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => window.setTimeout(() => setShowSuggestions(false), 100)}
               onChange={(event) => onChange(event.target.value)}
             />
             {field.suffix && (
@@ -1099,9 +1228,82 @@ function TextInput({
               {field.helper}
             </span>
           )}
+          {hasSuggestions && showSuggestions && (
+            <span
+              className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+              aria-label={`${field.label} suggestions`}
+            >
+              {suggestions.map((suggestion) => (
+                <span
+                  key={suggestion}
+                  className="flex items-center justify-between gap-2 px-2 py-1"
+                >
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onChange(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                    aria-label={`Remove ${field.label} suggestion ${suggestion}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onHideSuggestion(suggestion)}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </span>
+          )}
         </span>
       </span>
     </label>
+  );
+}
+
+function MeasurementsInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const displayValue = formatMeasurementDigits(measurementDigitsFromValue(value));
+
+  function normalizeInputValue(nextValue: string) {
+    onChange(formatMeasurementDigits(measurementDigitsFromValue(nextValue)));
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    normalizeInputValue(event.clipboardData.getData("text"));
+  }
+
+  return (
+    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      <span>Measurements</span>
+      <div className="flex items-center gap-2">
+        <input
+          className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          aria-label="Measurements"
+          inputMode="numeric"
+          value={displayValue}
+          autoComplete="off"
+          onChange={(event) => normalizeInputValue(event.target.value)}
+          onPaste={handlePaste}
+        />
+        <span
+          className="shrink-0 text-xs font-semibold text-slate-500"
+          aria-label="Measurements unit"
+        >
+          cm
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -1636,6 +1838,210 @@ function deriveAstrologicalSign(birthDate: string) {
   if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return "Pisces";
 
   return "Not set";
+}
+
+function derivePerformerStatusDisplay(debutDate: string, retiredDate: string) {
+  if (retiredDate.trim()) {
+    return "Retired";
+  }
+
+  if (debutDate.trim()) {
+    return "Active";
+  }
+
+  return "Unknown";
+}
+
+function buildPerformerSuggestions(performers: Performer[]) {
+  const recentPerformers = [...performers].sort(
+    (left, right) => performerSuggestionTime(right) - performerSuggestionTime(left),
+  );
+
+  return {
+    birthplace: uniqueSuggestions(recentPerformers.map((performer) => performer.birthplace))
+      .slice(0, 10),
+    nationality: uniqueSuggestions(recentPerformers.map((performer) => performer.nationality))
+      .slice(0, 10),
+    bloodType: uniqueSuggestions(recentPerformers.map((performer) => performer.bloodType))
+      .slice(0, 10),
+    cupSize: uniqueSuggestions(recentPerformers.map((performer) => performer.cupSize))
+      .slice(0, 10),
+  };
+}
+
+function performerSuggestionTime(performer: Performer) {
+  const updatedAt = Date.parse(String(performer.updatedAt ?? ""));
+  if (Number.isFinite(updatedAt)) {
+    return updatedAt;
+  }
+
+  const createdAt = Date.parse(String(performer.createdAt ?? ""));
+  return Number.isFinite(createdAt) ? createdAt : 0;
+}
+
+function removeCachedPerformerSuggestion(
+  current: Record<string, string[]>,
+  fieldName: string,
+  suggestion: string,
+) {
+  const normalizedSuggestion = suggestion.trim();
+  if (!normalizedSuggestion) {
+    return current;
+  }
+
+  const currentFieldSuggestions = current[fieldName] ?? [];
+  const normalizedKey = normalizedSuggestion.toLowerCase();
+  const nextFieldSuggestions = currentFieldSuggestions.filter(
+    (currentSuggestion) => currentSuggestion.trim().toLowerCase() !== normalizedKey,
+  );
+
+  if (nextFieldSuggestions.length === currentFieldSuggestions.length) {
+    return current;
+  }
+
+  return {
+    ...current,
+    [fieldName]: nextFieldSuggestions,
+  };
+}
+
+function addPerformerValuesToSuggestionCache(
+  current: Record<string, string[]>,
+  values: FormValues,
+) {
+  return performerSuggestionFieldNames.reduce(
+    (next, fieldName) =>
+      addCachedPerformerSuggestion(next, fieldName, String(values[fieldName] ?? "")),
+    current,
+  );
+}
+
+function addCachedPerformerSuggestion(
+  current: Record<string, string[]>,
+  fieldName: string,
+  suggestion: string,
+) {
+  const normalizedSuggestion = suggestion.trim();
+  if (!normalizedSuggestion) {
+    return current;
+  }
+
+  const remainingSuggestions = (current[fieldName] ?? []).filter(
+    (currentSuggestion) =>
+      currentSuggestion.trim().toLowerCase() !== normalizedSuggestion.toLowerCase(),
+  );
+
+  return {
+    ...current,
+    [fieldName]: [normalizedSuggestion, ...remainingSuggestions].slice(0, 10),
+  };
+}
+
+function mergePerformerSuggestionCaches(
+  primary: Record<string, string[]>,
+  fallback: Record<string, string[]>,
+) {
+  return Object.fromEntries(
+    performerSuggestionFieldNames.map((fieldName) => [
+      fieldName,
+      uniqueSuggestions([
+        ...(primary[fieldName] ?? []),
+        ...(fallback[fieldName] ?? []),
+      ]).slice(0, 10),
+    ]),
+  );
+}
+
+function getStoredPerformerSuggestionCache() {
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(performerSuggestionCacheKey) ?? "{}",
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([, values]) => Array.isArray(values))
+        .map(([fieldName, values]) => [
+          fieldName,
+          uniqueSuggestions(values as string[]).slice(0, 10),
+        ]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function storePerformerSuggestionCache(cache: Record<string, string[]>) {
+  window.localStorage.setItem(performerSuggestionCacheKey, JSON.stringify(cache));
+}
+
+function resetPerformerSuggestionCachesOnce() {
+  if (
+    window.localStorage.getItem(performerSuggestionCacheVersionKey) ===
+    performerSuggestionCacheVersion
+  ) {
+    return;
+  }
+
+  for (const cacheKey of performerSuggestionCacheKeys) {
+    window.localStorage.removeItem(cacheKey);
+  }
+  window.localStorage.setItem(
+    performerSuggestionCacheVersionKey,
+    performerSuggestionCacheVersion,
+  );
+}
+
+const performerSuggestionFieldNames = [
+  "birthplace",
+  "nationality",
+  "bloodType",
+  "cupSize",
+];
+
+function uniqueSuggestions(values: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const suggestions: string[] = [];
+
+  for (const value of values) {
+    const suggestion = value?.trim();
+    if (!suggestion) {
+      continue;
+    }
+
+    const key = suggestion.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    suggestions.push(suggestion);
+  }
+
+  return suggestions;
+}
+
+function normalizeMeasurementInput(value: string) {
+  const digits = measurementDigitsFromValue(value);
+
+  if (digits.length !== 6) {
+    return null;
+  }
+
+  return `${formatMeasurementDigits(digits)} cm`;
+}
+
+function measurementDigitsFromValue(value: string) {
+  return value.replace(/\D/g, "").slice(0, 6);
+}
+
+function formatMeasurementDigits(digits: string) {
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6)]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function addChip(

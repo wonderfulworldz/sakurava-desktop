@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-33-2-video-picture-tech-info-foundation-v1
+post-mvp-33-2-1-video-duration-resolution-detector-v1
 ```
 
 Current batch:
 
 ```text
-33.2.1 - Video Duration/Resolution Detector Implementation
+33.3 - Performer Form + Detail Data Completion
 ```
 
 Current focus:
 
 ```text
-Implement read-only Windows Shell property detection for Video Duration and Video Resolution while preserving 33.2 file size/type and availability behavior.
+Complete Performer form storage/display for dates, saved counts, personal fields, and physical fields while preserving existing category, rating, thumbnail, and related picker behavior.
 ```
 
 Latest known stable category checkpoint:
@@ -435,6 +435,7 @@ Current app capabilities include:
 - Media Tech Info + Availability Safety Plan through Batch 33.1 after merge: docs-only safety plan for read-only Video/Image metadata detection, availability auto-set semantics, runtime/Tauri command boundaries, storage considerations, UI/detail/catalog compatibility, tests, and smoke validation before 33.2 implementation.
 - Video/Picture Form + Detail Tech Info Implementation through Batch 33.2 after merge: Video/Image forms provide explicit Detect plus save-time read-only metadata checks, derive availability from explicit media/gallery paths, persist safe metadata fields, and detail/catalog views use saved resolution/file metadata without file mutation, recursive scanning, media probing dependencies, or raw JSON/path exposure in normal metadata.
 - Video Duration/Resolution Detector Implementation through Batch 33.2.1 after merge: Video metadata probing reads Windows Shell media properties for one explicit video path at a time, persists detected duration minutes and resolution when Windows exposes valid values, and safely falls back to "Not detected yet" without file mutation, ffmpeg/ffprobe, shelling out, or recursive scanning.
+- Performer Form + Detail Data Completion through Batch 33.3 after merge: Performer forms persist debut/retired dates, birthplace, nationality, blood type, height, weight, structured Bust/Waist/Hip measurements, cup size, and performer-owned related Video/Image selections; Status is derived from debut/retired dates, Filmography/Pictorial counts are derived from performer-owned related selections, and Performer Detail displays those derived/saved values with neutral fallbacks without adding back-link saves, relation tables, Video/Image Tech Info changes, category storage changes, or file mutation.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -473,10 +474,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 33.2.1:
+Recommended next implementation batch after Batch 33.3:
 
 ```text
-33.3 - Performer Form + Detail Data Completion
+33.4 - Performer Related Detail Sections Implementation
 ```
 
 Latest roadmap implementation batch:
