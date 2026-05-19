@@ -132,13 +132,13 @@ Recommended sequence:
 Current batch:
 
 ```text
-34.3 - Backup/Restore + Clear Cache Implementation
-```
-
-Next implementation batch after 34.3:
-
-```text
 34.4 - Import/Export Bulk Data Planning
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Batch 34.3 implements Backup/Restore + scoped Clear Cache only. Do not revert to the old 34/35 order.
+Next implementation batch after 34.4:
+
+```text
+34.5 - Appearance + Dark Mode Implementation
+```
+
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Batch 34.3 implements Backup/Restore + scoped Clear Cache only. Batch 34.4 is Import/Export Bulk Data planning only. Do not revert to the old 34/35 order.

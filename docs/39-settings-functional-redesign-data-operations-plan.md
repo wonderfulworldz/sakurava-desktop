@@ -8,8 +8,10 @@
 - Tag exists: `post-mvp-34-1-settings-functional-redesign-data-ops-plan-v1`.
 - Batch 34.2 - Settings Layout Redesign Implementation is complete.
 - Tag exists: `post-mvp-34-2-settings-layout-redesign-v1`.
-- Current batch: 34.3 - Backup/Restore + Clear Cache Implementation.
-- Next batch: 34.4 - Import/Export Bulk Data Planning.
+- Batch 34.3 - Backup/Restore + Clear Cache Implementation is complete.
+- Tag exists: `post-mvp-34-3-backup-restore-clear-cache-v1`.
+- Current batch: 34.4 - Import/Export Bulk Data Planning.
+- Next batch: 34.5 - Appearance + Dark Mode Implementation.
 
 ## Roadmap Renumbering
 
@@ -104,6 +106,7 @@ Locked top-level sections for 34.2:
 ### Import/Export
 
 - Import/Export is for bulk data exchange and editing, not full backup.
+- Detailed planning is documented in `docs/40-import-export-bulk-data-plan.md`.
 - CSV-first is preferred for V1 because it is transparent, diffable, and easier to validate.
 - XLSX is acceptable only if it shares the same safe validation pipeline.
 - Import must include preview, validation, confirmation, and error reporting.
@@ -168,6 +171,7 @@ Locked top-level sections for 34.2:
 - Define schemas, validation, preview, confirmation, errors, and rollback considerations.
 - Define whether XLSX is supported through the same validation pipeline.
 - Keep separate from Backup/Restore.
+- Planning output is `docs/40-import-export-bulk-data-plan.md`.
 
 ### 34.5 - Appearance + Dark Mode Implementation
 
@@ -209,9 +213,9 @@ Locked top-level sections for 34.2:
 - Preserve original media files.
 - Use Clear Cache semantics from Batch 34.3 where applicable.
 
-## Not in 34.1
+## Not in 34.4
 
-Batch 34.1 does not implement code. It must not:
+Batch 34.4 does not implement code. It must not:
 
 - modify `src/`;
 - modify `src-tauri/`;
@@ -220,15 +224,18 @@ Batch 34.1 does not implement code. It must not:
 - implement Settings layout;
 - implement Backup/Restore changes;
 - implement Clear Cache;
-- implement Import/Export;
+- implement Import/Export behavior;
+- implement CSV or XLSX parsing;
+- implement file picker behavior;
+- mutate records;
 - implement Dark Mode;
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration;
-- start Batch 34.2;
+- start Batch 34.5;
 - start Batch 35.1.
 
-## Verification for 34.1
+## Verification for 34.4
 
 Docs-only verification:
 
@@ -237,15 +244,15 @@ git status
 git diff --stat
 ```
 
-Do not run `npm.cmd run test` or `npm.cmd run build` for 34.1 unless source files are accidentally changed.
+Do not run `npm.cmd run test` or `npm.cmd run build` for 34.4 unless source files are accidentally changed.
 
 ## Next Batch
 
 ```text
-34.3 - Backup/Restore + Clear Cache Implementation
+34.5 - Appearance + Dark Mode Implementation
 ```
 
-34.3 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs.
+34.5 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs.
 
 ## Agent Continuation Rule
 
