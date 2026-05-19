@@ -121,23 +121,24 @@ Recommended sequence:
 13. 34.5 - Appearance + Dark Mode Implementation
 14. 34.6 - Language System Planning
 15. 34.7 - Language Picker/Editor Implementation
-16. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
-17. 35.2 - Category Visibility Implementation
-18. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
-19. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-20. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-21. 36.3 - Full Smoke Test + Release Candidate
+16. 34.8 - Settings Full Smoke Test + Cleanup
+17. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+18. 35.2 - Category Visibility Implementation
+19. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+20. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+21. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+22. 36.3 - Full Smoke Test + Release Candidate
 
 Current batch:
-
-```text
-34.1 - Settings Functional Redesign + Data Operations Planning
-```
-
-Next implementation batch after 34.1:
 
 ```text
 34.2 - Settings Layout Redesign Implementation
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Do not revert to the old 34/35 order.
+Next implementation batch after 34.2:
+
+```text
+34.3 - Backup/Restore + Clear Cache Implementation
+```
+
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Do not revert to the old 34/35 order.
