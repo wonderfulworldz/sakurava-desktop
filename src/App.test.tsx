@@ -1069,10 +1069,8 @@ describe("App", () => {
     expect(screen.getByText("Accent Style")).toBeInTheDocument();
     expect(screen.getByText("UI Density")).toBeInTheDocument();
     expect(screen.getAllByText("App Language").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Translation Tools / Language Editor"),
-    ).toBeInTheDocument();
     expect(screen.getByText("Installed Languages")).toBeInTheDocument();
+    expect(screen.getByText("Language CSV Tools")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Media & Library" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cache" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Catalog Preferences" })).toBeInTheDocument();
@@ -1133,9 +1131,10 @@ describe("App", () => {
     expect(
       screen.getByText("Changes apply to app UI only. Catalog data is not translated."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeInTheDocument();
-    expect(screen.getByText("Language CSV Export/Import remains planned for Batch 34.13.")).toBeInTheDocument();
-    expect(screen.getByText("Custom Language Add/Manage remains planned for Batch 34.14.")).toBeInTheDocument();
+    expect(screen.getByText("Export Language CSV")).toBeInTheDocument();
+    expect(screen.getByText("Import Language CSV")).toBeInTheDocument();
+    expect(screen.getByText("Add Language from CSV")).toBeInTheDocument();
+    expect(screen.getByText("Remove Custom Language")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Clearing cache does not delete your source media.",
@@ -1170,10 +1169,14 @@ describe("App", () => {
     expect(screen.queryByRole("region", { name: "Import CSV preview" }))
       .not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeEnabled();
-    // Language Editor table is hidden by default
+    // Language Editor UI is removed — no editor table, search, or region
     expect(screen.queryByRole("region", { name: "Language Editor" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Search translation keys")).not.toBeInTheDocument();
+    // English shown as primary/not removable
+    expect(screen.getByText("Not removable")).toBeInTheDocument();
+    expect(screen.getByText("Primary")).toBeInTheDocument();
+    // Indonesian shown as custom/removable
+    expect(screen.getByText("Custom / Removable")).toBeInTheDocument();
   });
 
   it("defaults Appearance theme to Light and persists Dark/Light selection", () => {

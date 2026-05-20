@@ -56,14 +56,6 @@ const englishDictionary: TranslationDictionary = {
     "Choose the language used in the application.",
   "settings.language.catalogDataHelper":
     "Changes apply to app UI only. Catalog data is not translated.",
-  "settings.language.editorTitle": "Translation Tools / Language Editor",
-  "settings.language.editorHelper":
-    "Create and edit translations for supported languages.",
-  "settings.language.openEditor": "Open Language Editor",
-  "settings.language.csvPlanned":
-    "Language CSV Export/Import remains planned for Batch 34.13.",
-  "settings.language.customLanguagePlanned":
-    "Custom Language Add/Manage remains planned for Batch 34.14.",
   "settings.language.installedLanguages": "Installed Languages",
   "settings.language.installedLanguagesHelper": "Manage installed language packs.",
   "settings.language.upToDate": "Up to date",
@@ -189,14 +181,6 @@ const indonesianDictionary: TranslationDictionary = {
   "settings.language.appLanguageHelper": "Pilih bahasa yang digunakan di aplikasi.",
   "settings.language.catalogDataHelper":
     "Perubahan hanya berlaku untuk UI aplikasi. Data katalog tidak diterjemahkan.",
-  "settings.language.editorTitle": "Alat Terjemahan / Editor Bahasa",
-  "settings.language.editorHelper":
-    "Buat dan edit terjemahan untuk bahasa yang didukung.",
-  "settings.language.openEditor": "Buka Editor Bahasa",
-  "settings.language.csvPlanned":
-    "Ekspor/Impor CSV Bahasa tetap direncanakan untuk Batch 34.13.",
-  "settings.language.customLanguagePlanned":
-    "Tambah/Kelola Bahasa Kustom tetap direncanakan untuk Batch 34.14.",
   "settings.language.installedLanguages": "Bahasa Terpasang",
   "settings.language.installedLanguagesHelper": "Kelola paket bahasa terpasang.",
   "settings.language.upToDate": "Terbaru",

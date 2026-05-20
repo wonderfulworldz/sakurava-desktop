@@ -97,7 +97,6 @@ import {
 } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { createVideo, deleteVideo, listVideos, updateVideo } from "../runtime/videoCommands";
-import { LanguageEditor } from "../components/LanguageEditor";
 
 type SettingsRow = {
   label: string;
@@ -258,7 +257,6 @@ function SettingsPage() {
     state: "idle",
   });
   const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
-  const [isLanguageEditorOpen, setIsLanguageEditorOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<ImportStatus>({
     state: "idle",
   });
@@ -1043,48 +1041,69 @@ function SettingsPage() {
             </div>
           </SettingsControlRow>
           <SettingsControlRow
-            title={t("settings.language.editorTitle")}
-            helper={t("settings.language.editorHelper")}
-          >
-            <div className="grid gap-2">
-              <button
-                type="button"
-                onClick={() => setIsLanguageEditorOpen((open) => !open)}
-                className={[
-                  "h-9 rounded-lg border px-4 text-sm font-semibold transition",
-                  isLanguageEditorOpen
-                    ? "border-sakura-300 bg-sakura-100 text-sakura-700 hover:bg-sakura-200 dark:border-sakura-600 dark:bg-sakura-900 dark:text-sakura-300"
-                    : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100 dark:border-sakura-700 dark:bg-sakura-950 dark:text-sakura-400",
-                ].join(" ")}
-                aria-expanded={isLanguageEditorOpen}
-              >
-                {isLanguageEditorOpen ? "Close Language Editor" : t("settings.language.openEditor")}
-              </button>
-              <p className="text-xs font-semibold text-slate-500">
-                {t("settings.language.csvPlanned")}
-              </p>
-              <p className="text-xs font-semibold text-slate-500">
-                {t("settings.language.customLanguagePlanned")}
-              </p>
-            </div>
-          </SettingsControlRow>
-          <SettingsControlRow
             title={t("settings.language.installedLanguages")}
             helper={t("settings.language.installedLanguagesHelper")}
           >
-            <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-600">
-              {supportedLanguages.map((language) => (
-                <span key={language.code}>{language.label}</span>
-              ))}
-              <StatusPill tone="success">{t("settings.language.upToDate")}</StatusPill>
+            <div className="space-y-2">
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-700">English</span>
+                    <StatusPill tone="info">Primary</StatusPill>
+                    <StatusPill tone="neutral">Built-in</StatusPill>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400">Not removable</span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-700">Indonesian</span>
+                    <StatusPill tone="neutral">Bundled</StatusPill>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400">Custom / Removable</span>
+                </div>
+              </div>
             </div>
           </SettingsControlRow>
+          <SettingsControlRow
+            title="Language CSV Tools"
+            helper="Export, import, and manage language packs via CSV files."
+          >
+            <div className="grid gap-2 sm:grid-cols-2">
+              <LanguageActionCard
+                label="Export Language CSV"
+                detail="Export current language keys and text to CSV."
+                planned
+              />
+              <LanguageActionCard
+                label="Import Language CSV"
+                detail="Import translations from a CSV file."
+                planned
+              />
+              <LanguageActionCard
+                label="Add Language from CSV"
+                detail="Add a new custom language pack from CSV."
+                planned
+              />
+              <LanguageActionCard
+                label="Remove Custom Language"
+                detail="Remove a non-primary language pack."
+                planned
+              />
+            </div>
+          </SettingsControlRow>
+          <SettingsControlRow
+            title="Reset Language Overrides"
+            helper="Clear all custom overrides for the selected language. Built-in text is restored."
+          >
+            <button
+              type="button"
+              disabled
+              className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+            >
+              Reset Overrides
+            </button>
+          </SettingsControlRow>
         </SettingsPanel>
-        {isLanguageEditorOpen && (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800" role="region" aria-label="Language Editor">
-            <LanguageEditor onClose={() => setIsLanguageEditorOpen(false)} />
-          </div>
-        )}
       </SettingsSection>
 
       <SettingsSection
@@ -1509,15 +1528,20 @@ function StatusPill({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "success" | "neutral";
+  tone?: "success" | "neutral" | "info";
 }) {
+  const toneClass =
+    tone === "success"
+      ? "bg-emerald-50 text-emerald-700"
+      : tone === "info"
+        ? "bg-blue-50 text-blue-700"
+        : "bg-slate-100 text-slate-600";
+
   return (
     <span
       className={[
         "inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold",
-        tone === "success"
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-slate-100 text-slate-600",
+        toneClass,
       ].join(" ")}
     >
       {children}
@@ -1532,6 +1556,44 @@ function exportButtonClassName(enabled: boolean) {
       ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
       : "border-slate-200 bg-slate-50 text-slate-400",
   ].join(" ");
+}
+
+function LanguageActionCard({
+  label,
+  detail,
+  planned = false,
+}: {
+  label: string;
+  detail: string;
+  planned?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-lg border px-3 py-2.5",
+        planned
+          ? "border-slate-200 bg-slate-50"
+          : "border-sakura-200 bg-white",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={[
+            "text-sm font-semibold",
+            planned ? "text-slate-400" : "text-slate-700",
+          ].join(" ")}
+        >
+          {label}
+        </span>
+        {planned && (
+          <span className="inline-flex h-5 items-center rounded-full bg-slate-100 px-2 text-[10px] font-semibold text-slate-500">
+            Planned
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 text-xs font-medium text-slate-500">{detail}</p>
+    </div>
+  );
 }
 
 function OptimizationBlock({
