@@ -1702,7 +1702,7 @@ function ImportPreviewPanel({
             Preview only. No data has been changed.
           </p>
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">
-            Apply is available in Batch 34.8.
+            Apply changes database records only after confirmation.
           </p>
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-700">
             Delete affects catalog records only. Original media files are not deleted.
