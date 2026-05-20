@@ -18,7 +18,9 @@
 - Tag exists: `post-mvp-34-6-export-csv-implementation-v1`.
 - Batch 34.7 - Import CSV Preview + Validation is complete.
 - Tag exists: `post-mvp-34-7-import-csv-preview-validation-v1`.
-- Current batch: 34.8 - Import CSV Apply + Report.
+- Batch 34.8 - Import CSV Apply + Report is complete.
+- Tag exists: `post-mvp-34-8-import-csv-apply-report-v1`.
+- Current batch: 34.8.1 - CSV Export Naming + Date + Code Field Cleanup.
 - Next batch: 34.9 - Settings Full Smoke Test + Cleanup.
 
 ## Roadmap Renumbering
@@ -45,6 +47,7 @@ Approved sequence:
 34.6 - Export CSV Implementation
 34.7 - Import CSV Preview + Validation
 34.8 - Import CSV Apply + Report
+34.8.1 - CSV Export Naming + Date + Code Field Cleanup
 34.9 - Settings Full Smoke Test + Cleanup
 
 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
@@ -219,6 +222,14 @@ Locked top-level sections for 34.2:
 - Do not copy, modify, or delete original media files.
 - Keep XLSX optional later only if it shares the same validation pipeline.
 
+### 34.8.1 - CSV Export Naming + Date + Code Field Cleanup
+
+- Add user-facing `Code` to Video and Image CSV exports after `Sakurava Ref`.
+- Standardize CSV date fields as `YYYY-MM-DD`; import validation rejects slash date formats such as `MM/DD/YYYY` or `M/D/YYYY`.
+- Standardize generated CSV export filenames as `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv` using local PC time.
+- Keep backup default filenames on the same local timestamp style while preserving the existing backup extension.
+- Keep this as a small cleanup before 34.9 without changing category apply logic, Backup/Restore behavior, Clear Cache, Dark Mode, App Shell, or other pages.
+
 ### 34.9 - Settings Full Smoke Test + Cleanup
 
 - Run the full Settings smoke pass after Backup/Restore, Clear Cache, CSV Export, Import Preview, Import Apply, and Appearance.
@@ -241,13 +252,13 @@ Locked top-level sections for 34.2:
 - Preserve original media files.
 - Use Clear Cache semantics from Batch 34.3 where applicable.
 
-## Not in 34.8
+## Not in 34.8.1
 
-Batch 34.8 implements Import CSV Apply + Report only. It must not:
+Batch 34.8.1 is a small CSV/export consistency cleanup only. It must not:
 
 - modify package files;
 - modify database/schema files;
-- implement Backup/Restore changes;
+- change Backup/Restore behavior beyond the default generated filename;
 - implement Clear Cache changes;
 - apply CSV rows without preview and explicit confirmation;
 - implement XLSX behavior;
@@ -261,7 +272,7 @@ Batch 34.8 implements Import CSV Apply + Report only. It must not:
 - start Batch 34.9;
 - start Batch 35.1.
 
-## Verification for 34.8
+## Verification for 34.8.1
 
 Implementation verification:
 

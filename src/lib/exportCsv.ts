@@ -73,9 +73,10 @@ const performerRatingColumns: RatingColumn[] = [
 export const videoCsvSchema: CsvSchemaColumn<Video>[] = [
   actionColumn(),
   refColumn("VID", "id"),
+  textColumn("Code", "code"),
   textColumn("Title", "title"),
   textColumn("Original Title", "originalTitle"),
-  textColumn("Release Date", "releaseDate"),
+  dateColumn("Release Date", "releaseDate"),
   textColumn("Publisher / Label", "publisherLabel"),
   textColumn("Censorship", "censorship"),
   listColumn("Categories", "categoriesJson", (record) =>
@@ -100,9 +101,10 @@ export const videoCsvSchema: CsvSchemaColumn<Video>[] = [
 export const imageCsvSchema: CsvSchemaColumn<Image>[] = [
   actionColumn(),
   refColumn("IMG", "id"),
+  textColumn("Code", "code"),
   textColumn("Title", "title"),
   textColumn("Original Title", "originalTitle"),
-  textColumn("Release Date", "releaseDate"),
+  dateColumn("Release Date", "releaseDate"),
   textColumn("Publisher / Label", "publisherLabel"),
   textColumn("Censorship", "censorship"),
   listColumn("Categories", "categoriesJson", (record) =>
@@ -137,9 +139,9 @@ export const performerCsvSchema: CsvSchemaColumn<Performer>[] = [
   listColumn("Aliases", "aliasesJson", (record) =>
     parseTextLabelArray(record.aliasesJson),
   ),
-  textColumn("Birth Date", "birthDate"),
-  textColumn("Debut Date", "debutDate"),
-  textColumn("Retired Date", "retiredDate"),
+  dateColumn("Birth Date", "birthDate"),
+  dateColumn("Debut Date", "debutDate"),
+  dateColumn("Retired Date", "retiredDate"),
   textColumn("Birthplace", "birthplace"),
   textColumn("Nationality", "nationality"),
   textColumn("Blood Type", "bloodType"),
@@ -320,6 +322,20 @@ function textColumn<TRecord>(
   };
 }
 
+function dateColumn<TRecord>(
+  header: string,
+  internalField: CsvInternalField,
+): CsvSchemaColumn<TRecord> {
+  return {
+    header,
+    internalField,
+    value: (record) =>
+      normalizeDateOnlyForCsv(
+        (record as Record<string, CsvCell>)[internalField],
+      ),
+  };
+}
+
 function listColumn<TRecord>(
   header: string,
   internalField: CsvInternalField,
@@ -400,4 +416,52 @@ function stableRefToken(value: string) {
   }
 
   return (hash >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(-7);
+}
+
+export function normalizeDateOnlyForCsv(value: CsvCell) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return "";
+  }
+
+  const ymd = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/);
+  if (ymd && isValidDateParts(Number(ymd[1]), Number(ymd[2]), Number(ymd[3]))) {
+    return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  }
+
+  const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    const month = Number(slash[1]);
+    const day = Number(slash[2]);
+    const year = Number(slash[3]);
+    if (isValidDateParts(year, month, day)) {
+      return [
+        String(year).padStart(4, "0"),
+        String(month).padStart(2, "0"),
+        String(day).padStart(2, "0"),
+      ].join("-");
+    }
+  }
+
+  return text;
+}
+
+function isValidDateParts(year: number, month: number, day: number) {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return false;
+  }
+  if (year < 1 || month < 1 || month > 12 || day < 1) {
+    return false;
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return day <= daysInMonth;
 }

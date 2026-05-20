@@ -12,7 +12,9 @@
 - Tag exists: `post-mvp-34-6-export-csv-implementation-v1`.
 - Batch 34.7 - Import CSV Preview + Validation is complete.
 - Tag exists: `post-mvp-34-7-import-csv-preview-validation-v1`.
-- Current batch: 34.8 - Import CSV Apply + Report.
+- Batch 34.8 - Import CSV Apply + Report is complete.
+- Tag exists: `post-mvp-34-8-import-csv-apply-report-v1`.
+- Current batch: 34.8.1 - CSV Export Naming + Date + Code Field Cleanup.
 - Next batch: 34.9 - Settings Full Smoke Test + Cleanup.
 
 ## Purpose
@@ -188,12 +190,13 @@ Planned export flow:
 7. Export serializes array-like and JSON-like fields safely.
 8. App reports completion and output location.
 
-All-entity export should prefer one file per entity for CSV:
+All-entity export should prefer one file per entity for CSV. After Batch 34.8.1,
+generated CSV filenames use local PC time and this pattern:
 
-- `sakurava-videos.csv`
-- `sakurava-images.csv`
-- `sakurava-performers.csv`
-- `sakurava-categories.csv`
+- `skv-vid-YYYYDDMM-HHmmss.csv`
+- `skv-img-YYYYDDMM-HHmmss.csv`
+- `skv-per-YYYYDDMM-HHmmss.csv`
+- `skv-cat-YYYYDDMM-HHmmss.csv`
 
 If XLSX is supported later, one workbook with one sheet per entity can be considered only if the same validation and serialization rules are reused.
 
@@ -236,6 +239,16 @@ Rules:
 - Delete only happens through `Action = Delete` and later explicit apply confirmation.
 - Ambiguous matching without usable refs must be handled in Batch 34.7/34.8 preview and validation before any apply step.
 - Do not use hidden columns as a safety mechanism; the user should be able to inspect the file.
+
+### Dates and Code Fields
+
+After Batch 34.8.1:
+
+- Video and Image CSV include user-facing `Code` after `Sakurava Ref`.
+- Performer CSV does not add `Code` unless a future user-facing Performer Code field is approved.
+- CSV date fields use `YYYY-MM-DD`, including Release Date, Birth Date, Debut Date, Retired Date, and future CSV date-only fields.
+- Import validation reports slash date formats such as `MM/DD/YYYY` and `M/D/YYYY` as invalid for date fields.
+- Date-only values must not shift by timezone during export/import.
 
 ### Array and JSON-Like Serialization
 
@@ -479,7 +492,11 @@ Current implementation sequence:
    - Category CSV apply updates Managed Categories directly, synchronizes the managed-category cache used by Category Management, applies parent/root category rows before child rows, and blocks child-of-child hierarchy.
    - Category delete is blocked when the managed category is still used by records or still has child categories.
    - Produce apply report.
-4. XLSX optional follow-up
+4. 34.8.1 - CSV Export Naming + Date + Code Field Cleanup
+   - Add Video/Image `Code` columns after `Sakurava Ref`.
+   - Normalize exported date fields to `YYYY-MM-DD` when safely possible and reject slash date formats during import validation.
+   - Use local PC time for generated filenames: `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv`.
+5. XLSX optional follow-up
    - Add XLSX only through the same validation/preview/apply pipeline.
    - Do not fork business rules by file format.
 
@@ -501,6 +518,17 @@ Batch 34.8 implements Import CSV Apply + Report only. It must not:
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration.
+
+## Not in 34.8.1
+
+Batch 34.8.1 is a small CSV/export consistency cleanup only. It must not:
+
+- change Import CSV apply behavior except date validation compatibility;
+- change category apply logic;
+- change Backup/Restore behavior beyond the default generated filename;
+- change Clear Cache, Dark Mode, Data Safety & Migration layout, App Shell, or other pages;
+- add XLSX behavior;
+- copy, modify, or delete original media files.
 
 ## Next Batch
 

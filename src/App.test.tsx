@@ -1273,11 +1273,11 @@ describe("App", () => {
       categoriesJson: '["Favorite"]',
     });
     const csvContent = [
-      "Action,Sakurava Ref,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
-      `Auto,${sakuravaRef("VID", "video-import-1")},Changed Video,,,,,Favorite; Unknown,,,,,,,,,,,`,
-      "Add,,New Video,,,,,Favorite,,,,,,,,,,,",
-      `Delete,${sakuravaRef("VID", "video-import-1")},Original Video,,,,,Favorite,,,,,,,,,,,`,
-      "Skip,,Ignored Video,,,,,,,,,,,,,,,",
+      "Action,Sakurava Ref,Code,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
+      `Auto,${sakuravaRef("VID", "video-import-1")},,Changed Video,,,,,Favorite; Unknown,,,,,,,,,,,`,
+      "Add,,,New Video,,,,,Favorite,,,,,,,,,,,",
+      `Delete,${sakuravaRef("VID", "video-import-1")},,Original Video,,,,,Favorite,,,,,,,,,,,`,
+      "Skip,,,Ignored Video,,,,,,,,,,,,,,,",
     ].join("\r\n");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
@@ -1356,8 +1356,8 @@ describe("App", () => {
     window.history.pushState({}, "", "/settings");
     const sourcePath = "D:/Imports/sakurava-videos-apply.csv";
     const csvContent = [
-      "Action,Sakurava Ref,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
-      "Add,,New Applied Video,,,,,Favorite,,,,,,4,D:/media/new.mp4,,,,Created from CSV",
+      "Action,Sakurava Ref,Code,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
+      "Add,,,New Applied Video,,,,,Favorite,,,,,,4,D:/media/new.mp4,,,,Created from CSV",
     ].join("\r\n");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
@@ -1520,7 +1520,9 @@ describe("App", () => {
         return [
           persistedVideo({
             id: "video-export-1",
+            code: "V-EXPORT-001",
             title: 'Video, "Export"',
+            releaseDate: "5/20/2026",
             categoriesJson: '["Drama","Favorite"]',
             ratingJson: '{"story":5}',
             mediaPath: "D:/Videos/export.mp4",
@@ -1536,8 +1538,11 @@ describe("App", () => {
       if (command === "export_csv_write") {
         expect(args.destinationPath).toBe(destinationPath);
         expect(args.csvContent).toContain(
-          "Action,Sakurava Ref,Title,Original Title,Release Date,Publisher / Label",
+          "Action,Sakurava Ref,Code,Title,Original Title,Release Date,Publisher / Label",
         );
+        expect(args.csvContent).toContain("V-EXPORT-001");
+        expect(args.csvContent).toContain("2026-05-20");
+        expect(args.csvContent).not.toContain("5/20/2026");
         expect(args.csvContent).toContain("Auto,VID-");
         expect(args.csvContent).not.toContain("sakuravaUpdateKey");
         expect(args.csvContent).not.toContain("video-export-1");
@@ -1577,7 +1582,7 @@ describe("App", () => {
     expect(dialogMocks.save).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultPath: expect.stringMatching(
-          /^sakurava-videos-\d{4}-\d{2}-\d{2}\.csv$/,
+          /^skv-vid-\d{8}-\d{6}\.csv$/,
         ),
         filters: [
           {
@@ -1932,7 +1937,7 @@ describe("App", () => {
     expect(dialogMocks.save).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultPath: expect.stringMatching(
-          /^sakurava-backup-\d{4}-\d{2}-\d{2}\.sqlite$/,
+          /^skv-backup-\d{8}-\d{6}\.sqlite$/,
         ),
         filters: [
           {

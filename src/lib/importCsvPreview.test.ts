@@ -68,6 +68,30 @@ describe("import CSV preview", () => {
     expect(row.errors.join(" ")).toContain("Unknown Action");
   });
 
+  it("accepts YYYY-MM-DD date values and blocks slash date formats clearly", () => {
+    const valid = buildImportCsvPreview(
+      withVideoRow({ Action: "Add", Title: "Valid Date", "Release Date": "2026-05-20" }),
+      context(),
+    );
+    const invalid = buildImportCsvPreview(
+      withVideoRow({ Action: "Add", Title: "Invalid Date", "Release Date": "5/20/2026" }),
+      context(),
+    );
+    const impossible = buildImportCsvPreview(
+      withVideoRow({ Action: "Add", Title: "Impossible Date", "Release Date": "2026-02-30" }),
+      context(),
+    );
+
+    expect(valid.rows[0].errors).toEqual([]);
+    expect(invalid.rows[0].detectedResult).toBe("Error");
+    expect(invalid.rows[0].errors).toContain(
+      "Release Date must use YYYY-MM-DD with a valid date.",
+    );
+    expect(impossible.rows[0].errors).toContain(
+      "Release Date must use YYYY-MM-DD with a valid date.",
+    );
+  });
+
   it("blocks Delete without Sakurava Ref", () => {
     const csv = withVideoRow({ Action: "Delete", Title: "Video" });
     const row = buildImportCsvPreview(csv, context()).rows[0];

@@ -54,6 +54,7 @@ describe("export CSV helpers", () => {
       [
         "Action",
         "Sakurava Ref",
+        "Code",
         "Title",
         "Original Title",
         "Release Date",
@@ -80,6 +81,7 @@ describe("export CSV helpers", () => {
       [
         "Action",
         "Sakurava Ref",
+        "Code",
         "Title",
         "Original Title",
         "Release Date",
@@ -175,6 +177,32 @@ describe("export CSV helpers", () => {
     expect(videoRow).not.toContain("video-1");
   });
 
+  it("exports Video and Image Code columns without raw id or uuid leakage", () => {
+    const videoCsv = buildVideosCsv([
+      video({ id: "raw-video-uuid", code: "V-CODE-001" }),
+    ]);
+    const imageCsv = buildImagesCsv([
+      image({ id: "raw-image-uuid", code: "I-CODE-001" }),
+    ]);
+
+    expect(buildVideosCsv([]).split(",").slice(0, 4)).toEqual([
+      "Action",
+      "Sakurava Ref",
+      "Code",
+      "Title",
+    ]);
+    expect(buildImagesCsv([]).split(",").slice(0, 4)).toEqual([
+      "Action",
+      "Sakurava Ref",
+      "Code",
+      "Title",
+    ]);
+    expect(dataRow(videoCsv)).toContain(",V-CODE-001,");
+    expect(dataRow(imageCsv)).toContain(",I-CODE-001,");
+    expect(videoCsv).not.toContain("raw-video-uuid");
+    expect(imageCsv).not.toContain("raw-image-uuid");
+  });
+
   it("does not export internal update keys, IDs, UUIDs, raw JSON names, or calculated headers", () => {
     const headers = [
       ...buildVideosCsv([]).split(","),
@@ -227,6 +255,29 @@ describe("export CSV helpers", () => {
     ]);
 
     expect(csv).toContain("Genre > Drama; Format > Short; Favorite");
+  });
+
+  it("exports all CSV date fields as YYYY-MM-DD without M/D/YYYY output", () => {
+    const videoCsv = buildVideosCsv([
+      video({ releaseDate: "5/7/2026" }),
+    ]);
+    const imageCsv = buildImagesCsv([
+      image({ releaseDate: "05/08/2026" }),
+    ]);
+    const performerCsv = buildPerformersCsv([
+      performer({
+        birthDate: "2026-05-09T10:30:00Z",
+        debutDate: "5/10/2026",
+        retiredDate: "05/11/2026",
+      }),
+    ]);
+
+    expect(videoCsv).toContain("2026-05-07");
+    expect(imageCsv).toContain("2026-05-08");
+    expect(performerCsv).toContain("2026-05-09,2026-05-10,2026-05-11");
+    expect(`${videoCsv}\n${imageCsv}\n${performerCsv}`).not.toMatch(
+      /\b\d{1,2}\/\d{1,2}\/\d{4}\b/,
+    );
   });
 
   it("exports related values as REF pipe display text where possible", () => {
