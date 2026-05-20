@@ -1316,7 +1316,7 @@ describe("App", () => {
     expect(screen.getByText("Videos CSV - 4 rows")).toBeInTheDocument();
     expect(screen.getByText("Blocked")).toBeInTheDocument();
     expect(screen.getByText("Preview only. No data has been changed.")).toBeInTheDocument();
-    expect(screen.getByText("Apply is available in Batch 34.8.")).toBeInTheDocument();
+    expect(screen.getByText("Apply changes database records only after confirmation.")).toBeInTheDocument();
     expect(screen.getByText("Delete affects catalog records only. Original media files are not deleted.")).toBeInTheDocument();
     const previewTable = screen.getByRole("table");
     for (const column of ["Row", "Action", "Result", "Target", "Changes", "Status"]) {

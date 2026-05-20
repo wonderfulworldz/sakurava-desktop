@@ -20,8 +20,9 @@
 - Tag exists: `post-mvp-34-7-import-csv-preview-validation-v1`.
 - Batch 34.8 - Import CSV Apply + Report is complete.
 - Tag exists: `post-mvp-34-8-import-csv-apply-report-v1`.
-- Current batch: 34.8.1 - CSV Export Naming + Date + Code Field Cleanup.
-- Next batch: 34.9 - Settings Full Smoke Test + Cleanup.
+- Batch 34.8.1 - CSV Export Naming + Date + Code Field Cleanup is complete.
+- Current batch: 34.9 - Settings Full Smoke Test + Cleanup.
+- Next batch: 34.10 - Language System Planning.
 
 ## Roadmap Renumbering
 
@@ -49,6 +50,7 @@ Approved sequence:
 34.8 - Import CSV Apply + Report
 34.8.1 - CSV Export Naming + Date + Code Field Cleanup
 34.9 - Settings Full Smoke Test + Cleanup
+34.10 - Language System Planning
 
 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 35.2 - Category Visibility Implementation
@@ -234,7 +236,15 @@ Locked top-level sections for 34.2:
 
 - Run the full Settings smoke pass after Backup/Restore, Clear Cache, CSV Export, Import Preview, Import Apply, and Appearance.
 - Clean up stale planned labels only where their implementation has landed.
+- Confirm Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply.
+- Keep the next batch as 34.10 - Language System Planning.
 - Keep Category Visibility and Thumbnail Cache work in Batch 35.
+
+### 34.10 - Language System Planning
+
+- Plan Language system/editor behavior after Settings data operations are stable.
+- Keep Language controls honest and nonfunctional until implementation is explicitly approved.
+- Do not mix Language planning with Category Visibility, Thumbnail Cache, Backup/Restore, Clear Cache, or Import/Export behavior changes.
 
 ### 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 
@@ -291,10 +301,10 @@ npm.cmd run tauri dev
 ## Next Batch
 
 ```text
-34.9 - Settings Full Smoke Test + Cleanup
+34.10 - Language System Planning
 ```
 
-34.9 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/40-import-export-bulk-data-plan.md`, and existing Settings safety docs. Settings Full Smoke Test + Cleanup should verify Backup/Restore, Clear Cache, Export CSV, Import Preview, Import Apply, Appearance, and compact Data Safety layout without starting Batch 35.
+34.10 should plan the Language system/editor from the current Settings structure without changing data operations or starting Batch 35.
 
 ## Agent Continuation Rule
 

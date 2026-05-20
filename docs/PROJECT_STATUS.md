@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-34-8-import-csv-apply-report-v1
+post-mvp-34-8-1-csv-export-naming-date-code-cleanup-v1
 ```
 
 Current batch:
 
 ```text
-34.8.1 - CSV Export Naming + Date + Code Field Cleanup
+34.9 - Settings Full Smoke Test + Cleanup
 ```
 
 Current focus:
 
 ```text
-Small CSV/export consistency cleanup before 34.9: Videos and Images CSV include user-facing Code, CSV date fields export/import as YYYY-MM-DD, and generated CSV/backup file names use local PC time with skv-(vid/img/per/cat)-YYYYDDMM-HHmmss naming for CSV exports. Settings Full Smoke Test + Cleanup remains Batch 34.9.
+Settings full smoke cleanup after Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, CSV Import Apply, and Appearance/Dark Mode. Settings data operations are stable through these workflows; the next batch remains 34.10 - Language System Planning.
 ```
 
 Current locked Settings roadmap:
@@ -31,6 +31,7 @@ Current locked Settings roadmap:
 34.7 - Import CSV Preview + Validation
 34.8 - Import CSV Apply + Report
 34.9 - Settings Full Smoke Test + Cleanup
+34.10 - Language System Planning
 ```
 
 Latest known stable category checkpoint:
@@ -459,6 +460,7 @@ Current app capabilities include:
 - Import CSV Preview + Validation through Batch 34.7 after merge: Settings > Data Safety & Migration reads selected CSV files for preview only, detects the entity from locked Bulk Manual Edit headers, validates `Action` and `Sakurava Ref`, rejects old technical/raw JSON exports, resolves refs using the same generated refs as export, shows Added/Modified/Unchanged/Deleted/Skipped counts, row-level warnings/errors, category/related diffs, and keeps Apply disabled for Batch 34.8. The Data Safety & Migration default view stays compact with Backup Database, Restore Database, Import Data, and Export Data action cards; export choices appear only after Export Data, and Import Preview appears only after Import Data selects/parses a CSV. Missing CSV rows are not delete; delete preview only comes from `Action = Delete`. No database records, managed categories, related records, Backup/Restore, Clear Cache, Dark Mode, source media, or media files are mutated.
 - Import CSV Apply + Report through Batch 34.8 after merge: Settings > Data Safety & Migration applies valid Bulk Manual Edit CSV preview rows only after explicit confirmation, supports Add/Modified/Delete/Unchanged/Skip outcomes, patches only mapped CSV fields, preserves unrelated/calculated fields, skips blocked/error rows, and produces a compact result report. Delete only runs for `Action = Delete` and removes catalog records only; missing rows are not delete. Unknown categories and unresolved or ambiguous related values are not silently applied. Category CSV apply updates Managed Categories directly, keeps Categories Catalog and Category Management on the same managed-category source, applies parent/root rows before child rows, and blocks in-use category deletes. Original media files are not copied, modified, or deleted.
 - CSV Export Naming + Date + Code Field Cleanup through Batch 34.8.1 after merge: Video and Image CSV exports include the user-facing `Code` column after `Sakurava Ref`; CSV date fields use `YYYY-MM-DD` and reject slash date formats on import; generated CSV export filenames use `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv` from local PC time, and database backup defaults use the same local timestamp style with the existing backup extension.
+- Settings Full Smoke Test + Cleanup through Batch 34.9 after merge: Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply; Appearance/Dark Mode remains a safe local UI preference; Settings copy/layout cleanup keeps Data Safety & Migration compact and makes apply safety wording current.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -497,10 +499,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 34.8.1:
+Recommended next planning batch after Batch 34.9:
 
 ```text
-34.9 - Settings Full Smoke Test + Cleanup
+34.10 - Language System Planning
 ```
 
 Latest roadmap implementation batch:

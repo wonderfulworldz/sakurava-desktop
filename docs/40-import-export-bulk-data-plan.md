@@ -14,8 +14,9 @@
 - Tag exists: `post-mvp-34-7-import-csv-preview-validation-v1`.
 - Batch 34.8 - Import CSV Apply + Report is complete.
 - Tag exists: `post-mvp-34-8-import-csv-apply-report-v1`.
-- Current batch: 34.8.1 - CSV Export Naming + Date + Code Field Cleanup.
-- Next batch: 34.9 - Settings Full Smoke Test + Cleanup.
+- Batch 34.8.1 - CSV Export Naming + Date + Code Field Cleanup is complete.
+- Current batch: 34.9 - Settings Full Smoke Test + Cleanup.
+- Next batch: 34.10 - Language System Planning.
 
 ## Purpose
 
@@ -535,6 +536,8 @@ Batch 34.8.1 is a small CSV/export consistency cleanup only. It must not:
 Next batch:
 
 ```text
-34.9 - Settings Full Smoke Test + Cleanup
+34.10 - Language System Planning
 ```
+
+Batch 34.9 confirms Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply. Import/Export remains CSV-first bulk manual edit, not Backup/Restore, and original media files are not copied, modified, or deleted.
 

@@ -174,6 +174,7 @@ For category-related work, also inspect:
 - Import CSV Preview + Validation is complete after Batch 34.7 if merged. Settings > Data Safety & Migration reads selected CSV files for preview only, detects Videos/Images/Performers/Categories from locked Bulk Manual Edit headers, validates `Action`, `Sakurava Ref`, required fields, old technical/raw JSON headers, categories, related refs, and editable field formats, then shows Added/Modified/Unchanged/Deleted/Skipped counts and row-level warnings/errors with Apply disabled for 34.8. Data Safety & Migration uses progressive disclosure: default state shows only the four action cards, Export CSV choices appear after Export Data, and Import Preview appears after Import Data selects/parses a CSV. Missing CSV rows are not delete; delete is previewed only via `Action = Delete`. No database records, managed categories, related records, Backup/Restore, Clear Cache, Dark Mode, source media, or media files are mutated.
 - Import CSV Apply + Report is complete after Batch 34.8 if merged. Settings > Data Safety & Migration applies valid preview rows only after explicit confirmation, supports Add/Modified/Delete/Unchanged/Skip behavior, patches only mapped CSV fields, preserves unrelated/calculated fields, skips blocked/error/ambiguous rows, and shows a compact apply report. Delete only runs through `Action = Delete`, missing CSV rows are not delete, unknown categories and unresolved/ambiguous related values are not silently applied, related records are not created automatically, and original media files are not copied, modified, or deleted. Category CSV apply updates Managed Categories directly, synchronizes the legacy/cache key used by Category Management migration, applies parent/root rows before child rows, blocks child-of-child hierarchy, and blocks deleting categories still used by records or child categories. The next batch is 34.9 - Settings Full Smoke Test + Cleanup.
 - CSV Export Naming + Date + Code Field Cleanup is complete after Batch 34.8.1 if merged. Videos and Images CSV include user-facing `Code` after `Sakurava Ref`, CSV date fields use `YYYY-MM-DD`, slash dates such as `MM/DD/YYYY` and `M/D/YYYY` are validation errors on import, generated CSV export filenames use `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv` from local PC time, and backup default filenames use the same local timestamp style while keeping the existing backup extension. The next batch remains 34.9 - Settings Full Smoke Test + Cleanup.
+- Settings Full Smoke Test + Cleanup is complete after Batch 34.9 if merged. Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply; Appearance/Dark Mode remains a safe local UI preference; stale Import Preview apply copy has been cleaned up. The next batch remains 34.10 - Language System Planning.
 
 ## Current Efficient Roadmap
 
@@ -197,12 +198,13 @@ Follow this sequence unless the user explicitly changes it:
 16. 34.8 - Import CSV Apply + Report
 17. 34.8.1 - CSV Export Naming + Date + Code Field Cleanup
 18. 34.9 - Settings Full Smoke Test + Cleanup
-19. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
-20. 35.2 - Category Visibility Implementation
-21. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
-22. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-23. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-24. 36.3 - Full Smoke Test + Release Candidate
+19. 34.10 - Language System Planning
+20. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+21. 35.2 - Category Visibility Implementation
+22. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+23. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+24. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+25. 36.3 - Full Smoke Test + Release Candidate
 
 ## Preferred Batch Prompt Format
 
