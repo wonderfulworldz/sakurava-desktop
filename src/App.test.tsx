@@ -1128,7 +1128,7 @@ describe("App", () => {
     expect(screen.getByText("Comfortable")).toBeInTheDocument();
     expect(screen.getByText("Spacious")).toBeInTheDocument();
     expect(screen.getAllByText("English (United States)").length).toBeGreaterThan(0);
-    expect(screen.getByText("Planned editor direction: CSV/XLSX/notepad-friendly.")).toBeInTheDocument();
+    expect(screen.getByText("Planned editor direction: one editable CSV file per language.")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Clearing cache does not delete your source media.",

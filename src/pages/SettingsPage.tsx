@@ -222,7 +222,7 @@ const appearanceRows: SettingsRow[] = [
 const languageRows: SettingsRow[] = [
   { label: "App Language", value: "English current", icon: FileText },
   { label: "Language Editor", value: "Planned / disabled", icon: FilePenLine },
-  { label: "Editing direction", value: "CSV/XLSX/notepad-friendly", icon: FileArchive },
+  { label: "Editing direction", value: "Per-language CSV planned", icon: FileArchive },
 ];
 
 const safetyDiagnosticRows: SettingsRow[] = [
@@ -1035,7 +1035,7 @@ function SettingsPage() {
                 Open Language Editor
               </button>
               <p className="text-xs font-semibold text-slate-500">
-                Planned editor direction: CSV/XLSX/notepad-friendly.
+                Planned editor direction: one editable CSV file per language.
               </p>
             </div>
           </SettingsControlRow>

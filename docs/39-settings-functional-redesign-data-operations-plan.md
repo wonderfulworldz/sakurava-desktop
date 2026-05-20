@@ -51,6 +51,11 @@ Approved sequence:
 34.8.1 - CSV Export Naming + Date + Code Field Cleanup
 34.9 - Settings Full Smoke Test + Cleanup
 34.10 - Language System Planning
+34.11 - Language Core + Language Picker
+34.12 - Language Editor UI
+34.13 - Language CSV Export/Import
+34.14 - Custom Language Add/Manage
+34.15 - Language Full Smoke Test + Cleanup
 
 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 35.2 - Category Visibility Implementation
@@ -79,7 +84,8 @@ Locked top-level sections for 34.2:
 - Language
   - App Language.
   - Language Editor.
-  - Editor direction should remain friendly to CSV, XLSX, and plain notepad-style editing.
+  - Editor direction uses one editable CSV file per language.
+  - Do not use a combined language CSV with separate language columns.
 - Optimization
   - Media & Library.
   - Cache.
@@ -138,10 +144,55 @@ Locked top-level sections for 34.2:
 
 ### Language
 
-- 34.6 should plan language keys, storage, editor behavior, and fallback rules.
-- 34.7 may implement a picker/editor after the language system plan is approved.
-- Do not implement translations in 34.1.
+- 34.10 should plan language keys, storage, editor behavior, custom language behavior, per-language CSV behavior, and fallback rules.
+- 34.11 may implement Language Core + Language Picker after the language system plan is approved.
+- 34.12 may implement the Language Editor UI.
+- 34.13 may implement Language CSV Export/Import.
+- 34.14 may implement Custom Language Add/Manage.
+- 34.15 should run the Language Full Smoke Test + Cleanup.
+- Built-in language dictionaries must not be mutated directly.
+- User edits must be stored as overrides or custom language packs.
+- Per-language editor edits one selected language at a time.
+- User catalog data is never translated.
 - Do not scatter hardcoded language behavior through unrelated components.
+
+### Language CSV Direction
+
+- Language CSV is per language only.
+- Do not use one combined CSV with columns such as English, Indonesian, and Japanese.
+- Preferred per-language CSV columns:
+  - `Key`
+  - `Text`
+  - `Description`
+  - `Status`
+- Example filenames:
+  - `skv-lang-en-YYYYDDMM-HHmmss.csv`
+  - `skv-lang-id-YYYYDDMM-HHmmss.csv`
+  - `skv-lang-ja-YYYYDDMM-HHmmss.csv`
+- Filenames use local PC time.
+- CSV export exports one selected language at a time.
+- CSV export should produce a full template for that language.
+- CSV export includes that language's `Text` column only, not all languages.
+- CSV import accepts per-language CSV only.
+- CSV import must validate the language code before apply.
+- CSV import must validate keys.
+- Unknown keys become warnings.
+- Duplicate keys become warning/block before apply.
+- Empty `Text` means missing translation and should fall back safely.
+- CSV import must preview before apply.
+
+### Custom Language Direction
+
+- Language must be editable and extendable.
+- User can edit existing language text.
+- User can add a new custom language.
+- New custom language may be incomplete.
+- Missing keys must fall back safely.
+- Add Language flow should require:
+  - Language Code
+  - Language Name
+  - Base Language
+- Base Language is used for fallback.
 
 ### System Information
 
@@ -243,8 +294,41 @@ Locked top-level sections for 34.2:
 ### 34.10 - Language System Planning
 
 - Plan Language system/editor behavior after Settings data operations are stable.
+- Lock the per-language CSV model, not a combined wide CSV model.
+- Plan editable overrides, custom language packs, fallback behavior, and the language implementation batches.
 - Keep Language controls honest and nonfunctional until implementation is explicitly approved.
 - Do not mix Language planning with Category Visibility, Thumbnail Cache, Backup/Restore, Clear Cache, or Import/Export behavior changes.
+
+### 34.11 - Language Core + Language Picker
+
+- Implement core language dictionary loading and the Settings language picker.
+- Preserve built-in dictionaries by storing edits separately.
+- Missing keys must fall back safely.
+- User catalog data is never translated.
+
+### 34.12 - Language Editor UI
+
+- Implement the per-language editor for one selected language at a time.
+- Editing existing text stores overrides or custom language pack values.
+- Keep incomplete languages safe through fallback behavior.
+
+### 34.13 - Language CSV Export/Import
+
+- Export and import per-language CSV only.
+- Use `Key`, `Text`, `Description`, and `Status` columns.
+- Export one selected language at a time with filenames `skv-lang-(languageCode)-YYYYDDMM-HHmmss.csv`.
+- Import must preview before apply, validate language code and keys, warn on unknown keys, warn/block duplicate keys, and treat empty `Text` as missing translation.
+
+### 34.14 - Custom Language Add/Manage
+
+- Add custom languages with Language Code, Language Name, and Base Language.
+- Base Language provides fallback for missing keys.
+- New custom languages may be incomplete.
+
+### 34.15 - Language Full Smoke Test + Cleanup
+
+- Verify picker, editor, fallback behavior, per-language CSV export/import, and custom language management.
+- Keep user catalog data untranslated.
 
 ### 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 
@@ -304,7 +388,7 @@ npm.cmd run tauri dev
 34.10 - Language System Planning
 ```
 
-34.10 should plan the Language system/editor from the current Settings structure without changing data operations or starting Batch 35.
+34.10 should plan the Language system/editor from the current Settings structure without changing data operations or starting Batch 35. Language planning must preserve the locked per-language CSV direction, custom language support, safe fallback behavior, and the rule that user catalog data is never translated.
 
 ## Agent Continuation Rule
 

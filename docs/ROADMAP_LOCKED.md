@@ -125,12 +125,17 @@ Recommended sequence:
 17. 34.8.1 - CSV Export Naming + Date + Code Field Cleanup
 18. 34.9 - Settings Full Smoke Test + Cleanup
 19. 34.10 - Language System Planning
-20. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
-21. 35.2 - Category Visibility Implementation
-22. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
-23. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-24. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-25. 36.3 - Full Smoke Test + Release Candidate
+20. 34.11 - Language Core + Language Picker
+21. 34.12 - Language Editor UI
+22. 34.13 - Language CSV Export/Import
+23. 34.14 - Custom Language Add/Manage
+24. 34.15 - Language Full Smoke Test + Cleanup
+25. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+26. 35.2 - Category Visibility Implementation
+27. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+28. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+29. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+30. 36.3 - Full Smoke Test + Release Candidate
 
 Current batch:
 
@@ -144,4 +149,17 @@ Next planning batch after 34.9:
 34.10 - Language System Planning
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Batch 34.3 implements Backup/Restore + scoped Clear Cache only. Batch 34.4 is Import/Export Bulk Data planning only. Batch 34.5 implements Appearance + Dark Mode only. Batch 34.6 implements read-only Bulk Manual Edit CSV Export only with `Action`, `Sakurava Ref`, and no raw internal IDs/update keys/JSON column names. Batch 34.7 implements Import CSV Preview + Validation only. Batch 34.8 implements Import CSV Apply + Report only: apply from preview after confirmation, patch mapped CSV fields, skip blocked/error rows, report row outcomes, keep missing rows as not delete, and delete only via `Action = Delete` without touching media files. Batch 34.8.1 standardizes CSV Code columns, `YYYY-MM-DD` date handling, and local-time `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv` export filenames. Batch 34.9 is Settings Full Smoke Test + Cleanup and confirms Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply. Batch 34.10 remains Language System Planning, and XLSX remains optional later only if it can share the same validation pipeline. Do not revert to the old 34/35 order.
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Batch 34.3 implements Backup/Restore + scoped Clear Cache only. Batch 34.4 is Import/Export Bulk Data planning only. Batch 34.5 implements Appearance + Dark Mode only. Batch 34.6 implements read-only Bulk Manual Edit CSV Export only with `Action`, `Sakurava Ref`, and no raw internal IDs/update keys/JSON column names. Batch 34.7 implements Import CSV Preview + Validation only. Batch 34.8 implements Import CSV Apply + Report only: apply from preview after confirmation, patch mapped CSV fields, skip blocked/error rows, report row outcomes, keep missing rows as not delete, and delete only via `Action = Delete` without touching media files. Batch 34.8.1 standardizes CSV Code columns, `YYYY-MM-DD` date handling, and local-time `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv` export filenames. Batch 34.9 is Settings Full Smoke Test + Cleanup and confirms Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply. Batch 34.10 remains Language System Planning. Language work is staged through 34.11 Language Core + Language Picker, 34.12 Language Editor UI, 34.13 per-language CSV Export/Import, 34.14 Custom Language Add/Manage, and 34.15 Language Full Smoke Test + Cleanup. Language CSV must be one file per language, not a combined wide CSV; user catalog data is never translated. Do not revert to the old 34/35 order.
+
+## Language Direction
+
+- Each language uses its own CSV file.
+- Do not use a combined CSV with language columns such as English, Indonesian, and Japanese.
+- Preferred language CSV columns are `Key`, `Text`, `Description`, and `Status`.
+- Example filenames are `skv-lang-en-YYYYDDMM-HHmmss.csv`, `skv-lang-id-YYYYDDMM-HHmmss.csv`, and `skv-lang-ja-YYYYDDMM-HHmmss.csv`.
+- Language is editable through overrides or custom language packs; built-in dictionaries are not mutated directly.
+- Custom languages can be added with Language Code, Language Name, and Base Language.
+- New languages may be incomplete, and missing translations must fall back safely.
+- CSV import must preview before apply, validate language code and keys, warn on unknown keys, warn/block duplicate keys, and treat empty `Text` as missing translation.
+- CSV export exports one selected language at a time and includes that language's `Text` only.
+- User catalog data is never translated.

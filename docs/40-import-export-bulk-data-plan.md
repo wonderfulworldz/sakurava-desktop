@@ -541,3 +541,5 @@ Next batch:
 
 Batch 34.9 confirms Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply. Import/Export remains CSV-first bulk manual edit, not Backup/Restore, and original media files are not copied, modified, or deleted.
 
+Language CSV is a separate future workflow from catalog Import/Export. Language files must be per language, not combined wide CSV files. Language CSV export/import should use one selected language at a time with `Key`, `Text`, `Description`, and `Status` columns and filenames such as `skv-lang-en-YYYYDDMM-HHmmss.csv`.
+

@@ -32,6 +32,11 @@ Current locked Settings roadmap:
 34.8 - Import CSV Apply + Report
 34.9 - Settings Full Smoke Test + Cleanup
 34.10 - Language System Planning
+34.11 - Language Core + Language Picker
+34.12 - Language Editor UI
+34.13 - Language CSV Export/Import
+34.14 - Custom Language Add/Manage
+34.15 - Language Full Smoke Test + Cleanup
 ```
 
 Latest known stable category checkpoint:
@@ -461,6 +466,7 @@ Current app capabilities include:
 - Import CSV Apply + Report through Batch 34.8 after merge: Settings > Data Safety & Migration applies valid Bulk Manual Edit CSV preview rows only after explicit confirmation, supports Add/Modified/Delete/Unchanged/Skip outcomes, patches only mapped CSV fields, preserves unrelated/calculated fields, skips blocked/error rows, and produces a compact result report. Delete only runs for `Action = Delete` and removes catalog records only; missing rows are not delete. Unknown categories and unresolved or ambiguous related values are not silently applied. Category CSV apply updates Managed Categories directly, keeps Categories Catalog and Category Management on the same managed-category source, applies parent/root rows before child rows, and blocks in-use category deletes. Original media files are not copied, modified, or deleted.
 - CSV Export Naming + Date + Code Field Cleanup through Batch 34.8.1 after merge: Video and Image CSV exports include the user-facing `Code` column after `Sakurava Ref`; CSV date fields use `YYYY-MM-DD` and reject slash date formats on import; generated CSV export filenames use `skv-(vid/img/per/cat)-YYYYDDMM-HHmmss.csv` from local PC time, and database backup defaults use the same local timestamp style with the existing backup extension.
 - Settings Full Smoke Test + Cleanup through Batch 34.9 after merge: Settings data operations are stable through Backup/Restore, Clear Cache, CSV Export, CSV Import Preview, and CSV Import Apply; Appearance/Dark Mode remains a safe local UI preference; Settings copy/layout cleanup keeps Data Safety & Migration compact and makes apply safety wording current.
+- Language System Planning direction after Batch 34.9: language files must be separated per language, never a combined wide CSV. Language is editable through overrides or custom language packs, custom languages can be added with Language Code, Language Name, and Base Language, incomplete languages fall back safely, and user catalog data is never translated. Language CSV export/import must use one selected language at a time with `Key`, `Text`, `Description`, and `Status` columns and filenames like `skv-lang-(languageCode)-YYYYDDMM-HHmmss.csv`.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -503,6 +509,16 @@ Recommended next planning batch after Batch 34.9:
 
 ```text
 34.10 - Language System Planning
+```
+
+Recommended Language implementation sequence after Batch 34.10:
+
+```text
+34.11 - Language Core + Language Picker
+34.12 - Language Editor UI
+34.13 - Language CSV Export/Import
+34.14 - Custom Language Add/Manage
+34.15 - Language Full Smoke Test + Cleanup
 ```
 
 Latest roadmap implementation batch:
