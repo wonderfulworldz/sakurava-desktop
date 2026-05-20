@@ -1119,7 +1119,7 @@ describe("App", () => {
     expect(screen.getByText("Thumbnail Cache")).toBeInTheDocument();
     expect(screen.getByText("Batch 35 planning")).toBeInTheDocument();
     expect(screen.getByText("Preview Cache")).toBeInTheDocument();
-    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export and Import Preview are available now; Apply remains planned. No media files are included.")).toBeInTheDocument();
+    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export, Import Preview, and confirmed Apply are available now. No media files are included.")).toBeInTheDocument();
     expect(screen.getByText("Light")).toBeInTheDocument();
     expect(screen.getByText("Dark")).toBeInTheDocument();
     expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
@@ -1254,7 +1254,7 @@ describe("App", () => {
       .not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Import CSV preview" }))
       .not.toBeInTheDocument();
-    expect(screen.getByText(/Apply remains Batch 34\.8/)).toBeInTheDocument();
+    expect(screen.getByText(/confirmed Apply are available now/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
 
@@ -1333,8 +1333,8 @@ describe("App", () => {
     expect(screen.getByText(/Unknown category: Unknown/)).toBeInTheDocument();
     expect(screen.getAllByText(/Original media files are not deleted/).length)
       .toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Apply in Batch 34.8" }))
-      .toBeDisabled();
+    expect(screen.getByRole("button", { name: "Apply Valid Rows" }))
+      .toBeEnabled();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_update",
       expect.anything(),
@@ -1350,6 +1350,166 @@ describe("App", () => {
       expect.anything(),
       undefined,
     );
+  });
+
+  it("applies valid CSV rows only after explicit confirmation and shows report", async () => {
+    window.history.pushState({}, "", "/settings");
+    const sourcePath = "D:/Imports/sakurava-videos-apply.csv";
+    const csvContent = [
+      "Action,Sakurava Ref,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
+      "Add,,New Applied Video,,,,,Favorite,,,,,,4,D:/media/new.mp4,,,,Created from CSV",
+    ].join("\r\n");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list") {
+        return [];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [managedCategoryFixture({ name: "Favorite" })];
+      }
+      if (command === "import_csv_read") {
+        return {
+          sourcePath,
+          csvContent,
+          bytesRead: csvContent.length,
+          success: true,
+        };
+      }
+      if (command === "video_create") {
+        expect(args.input).toEqual(
+          expect.objectContaining({
+            title: "New Applied Video",
+            categoriesJson: '["Favorite"]',
+            mediaPath: "D:/media/new.mp4",
+            ratingJson: '{"rewatch":4}',
+            notes: "Created from CSV",
+          }),
+        );
+        return persistedVideo({ id: "video_created", ...args.input });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.open.mockResolvedValue(sourcePath);
+
+    render(<App />);
+
+    expect(screen.queryByRole("button", { name: "Apply Valid Rows" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Import Data" }));
+    expect(await screen.findByRole("region", { name: "Import CSV preview" }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply Valid Rows" }));
+
+    expect(screen.getByText("Confirm CSV import apply")).toBeInTheDocument();
+    expect(screen.getByText(/Create a Backup Database before applying imports/))
+      .toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_create",
+      expect.anything(),
+      undefined,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Valid Rows" })[1]);
+
+    expect(await screen.findByRole("region", { name: "Import apply report" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Import apply completed.")).toBeInTheDocument();
+    expect(screen.getByText("Original media files were not modified or deleted."))
+      .toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "video_create",
+      expect.anything(),
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_delete",
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("keeps Category CSV apply consistent between Categories Catalog and Manage Category", async () => {
+    window.history.pushState({}, "", "/settings");
+    const sourcePath = "D:/Imports/sakurava-categories-apply.csv";
+    let categories = [
+      managedCategoryFixture({ key: "cat_old", name: "Old Category" }),
+    ];
+    const csvContent = [
+      "Action,Sakurava Ref,Parent Category,Category Name,Description,Thumbnail Path,Visibility,Notes",
+      `Delete,${sakuravaRef("CAT", "cat_old")},,Old Category,,,,`,
+      "Add,,,New Category,Imported,,,",
+    ].join("\r\n");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return categories;
+      }
+      if (command === "import_csv_read") {
+        return {
+          sourcePath,
+          csvContent,
+          bytesRead: csvContent.length,
+          success: true,
+        };
+      }
+      if (command === "managed_category_delete") {
+        categories = categories.filter((category) => category.key !== args.key);
+        return { key: args.key, deleted: true };
+      }
+      if (command === "managed_category_create") {
+        const created = managedCategoryFixture({
+          key: "cat_new",
+          name: args.input.name,
+          parentKey: args.input.parentKey ?? null,
+          description: args.input.description ?? "",
+          thumbnailPath: args.input.thumbnailPath ?? "",
+        });
+        categories = [...categories, created];
+        return created;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.open.mockResolvedValue(sourcePath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Data" }));
+    expect(await screen.findByRole("region", { name: "Import CSV preview" }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply Valid Rows" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Valid Rows" })[1]);
+    expect(await screen.findByRole("region", { name: "Import apply report" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
+    expect(await screen.findByRole("article", { name: "Category New Category" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Category Old Category" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Manage Category" }));
+    expect(await screen.findByRole("heading", { name: "Category Management" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
+    expect(await screen.findByRole("article", { name: "Category New Category" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Category Old Category" }))
+      .not.toBeInTheDocument();
   });
 
   it("exports Videos CSV as a read-only data operation", async () => {

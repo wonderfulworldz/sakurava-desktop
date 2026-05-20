@@ -16,8 +16,10 @@
 - Tag exists: `post-mvp-34-5-appearance-dark-mode-v1`.
 - Batch 34.6 - Export CSV Implementation is complete.
 - Tag exists: `post-mvp-34-6-export-csv-implementation-v1`.
-- Current batch: 34.7 - Import CSV Preview + Validation.
-- Next batch: 34.8 - Import CSV Apply + Report.
+- Batch 34.7 - Import CSV Preview + Validation is complete.
+- Tag exists: `post-mvp-34-7-import-csv-preview-validation-v1`.
+- Current batch: 34.8 - Import CSV Apply + Report.
+- Next batch: 34.9 - Settings Full Smoke Test + Cleanup.
 
 ## Roadmap Renumbering
 
@@ -204,13 +206,17 @@ Locked top-level sections for 34.2:
 - Preview Added, Modified, Unchanged, Deleted, and Skipped rows only.
 - Missing CSV rows are not delete; delete preview only comes from `Action = Delete`.
 - Categories and Related changes require preview diffs and warnings/errors for unknown or ambiguous values.
-- Data Safety & Migration should keep the default view compact; the preview table appears only after CSV selection and remains preview-only with Apply disabled for 34.8.
+- Data Safety & Migration should keep the default view compact; the preview table appears only after CSV selection, and Apply remains hidden until preview exists.
 - Do not apply or mutate records in this batch.
 
 ### 34.8 - Import CSV Apply + Report
 
 - Apply validated CSV import rows only after explicit confirmation.
 - Preserve unrelated fields and use safe matching rules from `docs/40-import-export-bulk-data-plan.md`.
+- Apply valid Add/Modified/Delete rows, leave Unchanged/Skipped rows untouched, and report row-level failures.
+- Delete only through `Action = Delete`; missing rows are not delete.
+- Do not silently apply unknown categories or unresolved/ambiguous related values.
+- Do not copy, modify, or delete original media files.
 - Keep XLSX optional later only if it shares the same validation pipeline.
 
 ### 34.9 - Settings Full Smoke Test + Cleanup
@@ -235,27 +241,27 @@ Locked top-level sections for 34.2:
 - Preserve original media files.
 - Use Clear Cache semantics from Batch 34.3 where applicable.
 
-## Not in 34.7
+## Not in 34.8
 
-Batch 34.7 implements Import CSV Preview + Validation only. It must not:
+Batch 34.8 implements Import CSV Apply + Report only. It must not:
 
 - modify package files;
 - modify database/schema files;
 - implement Backup/Restore changes;
 - implement Clear Cache changes;
-- implement Import CSV apply;
+- apply CSV rows without preview and explicit confirmation;
 - implement XLSX behavior;
 - copy, delete, move, rename, or rewrite media files;
-- mutate records;
-- create categories;
+- treat missing CSV rows as delete;
+- silently create categories from unknown category labels;
 - create related records;
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration;
-- start Batch 34.8;
+- start Batch 34.9;
 - start Batch 35.1.
 
-## Verification for 34.7
+## Verification for 34.8
 
 Implementation verification:
 
@@ -274,10 +280,10 @@ npm.cmd run tauri dev
 ## Next Batch
 
 ```text
-34.8 - Import CSV Apply + Report
+34.9 - Settings Full Smoke Test + Cleanup
 ```
 
-34.8 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/40-import-export-bulk-data-plan.md`, and existing Settings safety docs. Import CSV Apply must require confirmation, preserve unrelated fields, report results, and must not treat missing rows as delete.
+34.9 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/40-import-export-bulk-data-plan.md`, and existing Settings safety docs. Settings Full Smoke Test + Cleanup should verify Backup/Restore, Clear Cache, Export CSV, Import Preview, Import Apply, Appearance, and compact Data Safety layout without starting Batch 35.
 
 ## Agent Continuation Rule
 

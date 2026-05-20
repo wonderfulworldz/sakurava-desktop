@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-34-6-export-csv-implementation-v1
+post-mvp-34-7-import-csv-preview-validation-v1
 ```
 
 Current batch:
 
 ```text
-34.7 - Import CSV Preview + Validation
+34.8 - Import CSV Apply + Report
 ```
 
 Current focus:
 
 ```text
-Import CSV Preview + Validation from Settings > Data Safety & Migration for Videos, Images, Performers, and Categories. Import preview reads Sakurava Bulk Manual Edit CSV files, validates rows, detects Added/Modified/Unchanged/Deleted/Skipped preview results, shows warnings/errors, and does not mutate the database or media files. Import CSV Apply + Report remains Batch 34.8.
+Import CSV Apply + Report from Settings > Data Safety & Migration for Videos, Images, Performers, and Categories. Apply runs only from an existing preview, requires explicit confirmation, applies valid rows, skips blocked/error/ambiguous rows, reports row-level results, and never copies, modifies, or deletes source media files. Settings Full Smoke Test + Cleanup remains Batch 34.9.
 ```
 
 Current locked Settings roadmap:
@@ -457,6 +457,7 @@ Current app capabilities include:
 - Appearance + Dark Mode Implementation through Batch 34.5 after merge: theme selection is a frontend/local preference only, defaults safely to Light, persists with `sakurava.appearance.theme.v1`, and does not change database/schema/runtime behavior.
 - Export CSV Implementation through Batch 34.6 after merge: Settings > Data Safety & Migration exports Videos, Images, Performers, and Categories as separate locked Bulk Manual Edit CSV files. Each file starts with `Action` and `Sakurava Ref`, uses user-facing editable headers in locked order, safe CSV escaping, text-only path fields, readable categories/ratings/related values/path lists, no raw internal IDs/update keys/JSON column names, and no database mutation or media file copy. Missing CSV rows are not delete; future delete requires `Action = Delete`. Future Import CSV Preview must reuse the same header mapping layer; Categories and Related are preview-diff fields and ambiguous matching remains Batch 34.7/34.8 validation work. Import CSV Apply + Report remains Batch 34.8; XLSX remains optional later only if it shares the same validation pipeline.
 - Import CSV Preview + Validation through Batch 34.7 after merge: Settings > Data Safety & Migration reads selected CSV files for preview only, detects the entity from locked Bulk Manual Edit headers, validates `Action` and `Sakurava Ref`, rejects old technical/raw JSON exports, resolves refs using the same generated refs as export, shows Added/Modified/Unchanged/Deleted/Skipped counts, row-level warnings/errors, category/related diffs, and keeps Apply disabled for Batch 34.8. The Data Safety & Migration default view stays compact with Backup Database, Restore Database, Import Data, and Export Data action cards; export choices appear only after Export Data, and Import Preview appears only after Import Data selects/parses a CSV. Missing CSV rows are not delete; delete preview only comes from `Action = Delete`. No database records, managed categories, related records, Backup/Restore, Clear Cache, Dark Mode, source media, or media files are mutated.
+- Import CSV Apply + Report through Batch 34.8 after merge: Settings > Data Safety & Migration applies valid Bulk Manual Edit CSV preview rows only after explicit confirmation, supports Add/Modified/Delete/Unchanged/Skip outcomes, patches only mapped CSV fields, preserves unrelated/calculated fields, skips blocked/error rows, and produces a compact result report. Delete only runs for `Action = Delete` and removes catalog records only; missing rows are not delete. Unknown categories and unresolved or ambiguous related values are not silently applied. Category CSV apply updates Managed Categories directly, keeps Categories Catalog and Category Management on the same managed-category source, applies parent/root rows before child rows, and blocks in-use category deletes. Original media files are not copied, modified, or deleted.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -495,10 +496,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 34.7:
+Recommended next implementation batch after Batch 34.8:
 
 ```text
-34.8 - Import CSV Apply + Report
+34.9 - Settings Full Smoke Test + Cleanup
 ```
 
 Latest roadmap implementation batch:
