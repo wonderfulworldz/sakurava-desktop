@@ -4,8 +4,12 @@
 
 - Batch 34.3 - Backup/Restore + Clear Cache Implementation is complete.
 - Tag exists: `post-mvp-34-3-backup-restore-clear-cache-v1`.
-- Current batch: 34.4 - Import/Export Bulk Data Planning.
-- Batch 34.4 is docs-only and must not change source code, runtime commands, schema, package files, tests, or UI behavior.
+- Batch 34.4 - Import/Export Bulk Data Planning is complete.
+- Tag exists: `post-mvp-34-4-import-export-bulk-data-plan-v1`.
+- Batch 34.5 - Appearance + Dark Mode Implementation is complete.
+- Tag exists: `post-mvp-34-5-appearance-dark-mode-v1`.
+- Current batch: 34.6 - Export CSV Implementation.
+- Next batch: 34.7 - Import CSV Preview + Validation.
 
 ## Purpose
 
@@ -20,10 +24,18 @@ Backup/Restore is full app data safety:
 Import/Export is catalog data exchange:
 
 - uses CSV first, with XLSX allowed only through the same validation pipeline;
-- covers Videos, Images, and Performers;
+- covers Videos, Images, Performers, and Categories;
 - does not include original media files;
 - does not include app-generated thumbnail/cache files;
 - requires parse, preview, validation, confirmation, apply, and reporting before any mutation.
+
+CSV Bulk Manual Edit is the official V1 model:
+
+```text
+Export from Sakurava -> edit manually in a spreadsheet -> import back -> preview -> apply
+```
+
+CSV is not Backup. CSV is a user-friendly and system-compatible manual edit table.
 
 ## Supported Entities
 
@@ -32,10 +44,8 @@ Import/Export is catalog data exchange:
 Planned export/import field groups:
 
 - Identity and title fields:
-  - stable update key when exported for update workflows;
   - title;
-  - original title;
-  - code.
+  - original title.
 - Release, publisher, and label fields:
   - release date;
   - publisher label;
@@ -63,10 +73,8 @@ Planned export/import field groups:
 Planned export/import field groups:
 
 - Identity and title fields:
-  - stable update key when exported for update workflows;
   - title;
-  - original title;
-  - code.
+  - original title.
 - Release, publisher, and label fields:
   - release date;
   - publisher label;
@@ -95,7 +103,6 @@ Planned export/import field groups:
 Planned export/import field groups:
 
 - Identity and name fields:
-  - stable update key when exported for update workflows;
   - name;
   - original name;
   - aliases.
@@ -120,6 +127,20 @@ Planned export/import field groups:
   - related videos;
   - related images.
 - Notes.
+
+### Categories
+
+Planned export/import field groups:
+
+- Category identity:
+  - parent category as readable category name;
+  - category name.
+- Category metadata:
+  - description;
+  - thumbnail path as text only;
+  - visibility if implemented later;
+  - notes if implemented later.
+- Do not expose raw managed category keys or IDs in CSV.
 
 ### Media Boundary
 
@@ -153,6 +174,7 @@ Planned export flow:
    - Videos;
    - Images;
    - Performers;
+   - Categories;
    - All entities.
 4. User chooses format:
    - CSV first;
@@ -167,18 +189,48 @@ All-entity export should prefer one file per entity for CSV:
 - `sakurava-videos.csv`
 - `sakurava-images.csv`
 - `sakurava-performers.csv`
+- `sakurava-categories.csv`
 
 If XLSX is supported later, one workbook with one sheet per entity can be considered only if the same validation and serialization rules are reused.
 
-### Export IDs and Update Keys
+### Action and Sakurava Ref
 
-Normal UI should not expose raw internal IDs. Export files may include an internal update key only when needed for safe update mapping.
+Every exported CSV must start with:
+
+1. `Action`
+2. `Sakurava Ref`
+
+`Action` defaults to `Auto` on export. Future import preview/validation recognizes these planned values:
+
+- `Auto`
+- `Update`
+- `Add`
+- `Delete`
+- `Skip`
+
+`Sakurava Ref` is a stable, user-friendly reference for matching existing exported rows without exposing raw IDs:
+
+- Videos use `VID-...`
+- Images use `IMG-...`
+- Performers use `PER-...`
+- Categories use `CAT-...`
+
+Rows manually added by the user will later have a blank `Sakurava Ref`.
 
 Rules:
 
-- If included, name the column clearly, such as `sakuravaUpdateKey`.
-- Document that the column is for update matching, not normal editing.
-- Do not require users to understand UUIDs or raw IDs for add-only import.
+- Do not expose raw internal IDs, UUIDs, database IDs, or `sakuravaUpdateKey`.
+- Do not require users to understand UUIDs, raw IDs, or raw JSON for normal bulk edit.
+- Future import preview/validation must use the shared friendly-header mapping layer to map user-facing headers back to internal fields.
+- Future import semantics:
+  - `Sakurava Ref` present + changed fields = Modified.
+  - `Sakurava Ref` present + unchanged fields = Unchanged.
+  - `Sakurava Ref` blank + main required fields filled = Added.
+  - `Action = Delete` = Deleted.
+  - `Action = Skip` = Skipped.
+- Missing CSV row is not Delete.
+- Delete only happens through `Action = Delete` and later explicit apply confirmation.
+- Ambiguous matching without usable refs must be handled in Batch 34.7/34.8 preview and validation before any apply step.
 - Do not use hidden columns as a safety mechanism; the user should be able to inspect the file.
 
 ### Array and JSON-Like Serialization
@@ -187,12 +239,15 @@ CSV should avoid raw JSON where a simpler documented format is safer.
 
 Recommended V1 approach:
 
-- categories: delimiter-separated text labels with escaping rules, or one normalized JSON array string if the preview can explain it clearly;
-- aliases: same approach as categories;
-- gallery image paths: delimiter-separated path text or normalized JSON array string;
-- related references: documented structured text with stable keys where available.
+- categories: semicolon-separated readable text labels;
+- aliases: semicolon-separated readable text labels;
+- gallery image paths and performer mini thumbnails: limited split path columns;
+- rating fields: split into user-facing rating columns;
+- related references: semicolon-separated `REF | Display Name` values where possible, with unresolved raw IDs kept out of normal export.
 
-The implementation batch must lock the exact column names and escaping rules before coding.
+The implementation batch locks exact column names through a reusable friendly header -> internal field mapping layer that future import preview/validation must reuse.
+
+Editable CSV fields should exclude calculated/automatic display values such as Performer Status, Filmography, Pictorials, Astrological Sign, Years Active, and auto-detected media availability/tech fields.
 
 ## Import Workflow
 
@@ -226,15 +281,13 @@ Supported planned modes:
 
 ### Matching Strategy
 
-Preferred matching:
+Preferred matching for normal user-friendly CSV:
 
-- Use stable internal update key only when the file came from a Sakurava export and includes the documented update key.
-
-Fallback matching:
-
-- Videos: title and optional release date/code context.
-- Images: title and optional release date/code context.
+- `Sakurava Ref` when present and recognized.
+- Videos: title and optional release date context.
+- Images: title and optional release date context.
 - Performers: name and optional birth date/debut date context.
+- Categories: parent category plus category name context.
 
 Safety rules:
 
@@ -243,6 +296,8 @@ Safety rules:
 - Missing matches in update-only mode should be skipped with an error or warning.
 - Matching must be shown in preview before apply.
 - Add-only import must not update existing records.
+- Raw IDs or hidden update keys must not be required for normal user bulk edit.
+- Missing CSV rows must not be interpreted as delete.
 
 ## Validation Rules
 
@@ -255,7 +310,7 @@ Required checks:
   - Image title required for new Image records;
   - Performer name required for new Performer records.
 - duplicate detection:
-  - duplicate update keys;
+  - duplicate matching candidates;
   - duplicate rows in the import file;
   - possible duplicates against existing records.
 - invalid dates:
@@ -295,6 +350,7 @@ Planning rules:
 
 - Import should not silently create uncontrolled category chaos.
 - Unknown category labels must be previewed.
+- Categories fields are preview-diff fields in Batch 34.7.
 - User should eventually be able to choose whether to keep, map, or create Managed Categories, but that may be later than V1.
 - Safest first implementation: import record category text values only after preview.
 - Do not automatically create parent/child categories from import files in V1.
@@ -309,6 +365,7 @@ Plan:
 
 - Export related references in a documented, inspectable format.
 - Include enough display context for humans to review, such as title/name snapshots.
+- Related fields are preview-diff fields in Batch 34.7.
 - Import related references only when the target record can be resolved safely.
 - Unresolved related references should be reported in the preview and error report.
 - Ambiguous related references should be rejected or require user review.
@@ -374,7 +431,7 @@ Controls:
 Placement rules:
 
 - Keep Import/Export visually separate from Backup & Restore.
-- Copy must state that Import/Export is CSV/XLSX data exchange for Videos, Images, and Performers.
+- Copy must state that Import/Export is CSV data exchange for Videos, Images, Performers, and Categories. XLSX remains optional later only if it shares the same validation pipeline.
 - Copy must state that media files are not included.
 - Backup/Restore copy must remain full app data safety copy.
 - Restore must not be described as Import.
@@ -382,25 +439,26 @@ Placement rules:
 
 ## Implementation Batch Recommendation
 
-Official roadmap remains unchanged:
+Current implementation sequence:
 
 ```text
-34.5 - Appearance + Dark Mode Implementation
+34.6 - Export CSV Implementation
+34.7 - Import CSV Preview + Validation
+34.8 - Import CSV Apply + Report
 ```
 
-If the user chooses to implement Import/Export immediately after this plan instead of following the current official roadmap, split implementation into smaller batches:
-
-1. Import/Export V1 Export CSV
-   - Export Videos, Images, and Performers to documented CSV files.
-   - Include headers and safe serialization.
+1. 34.6 - Export CSV Implementation
+   - Export Videos, Images, Performers, and Categories to documented CSV files.
+   - Include `Action` and `Sakurava Ref`, user-facing editable headers in locked order, safe CSV escaping, readable categories/ratings/related values/path lists, and no raw internal IDs/update keys/JSON column names.
    - No import behavior.
-2. Import/Export V1 Import CSV Preview
+   - No media file export, original media copy, or database mutation.
+2. 34.7 - Import CSV Preview + Validation
    - Parse CSV.
    - Detect entity type.
    - Validate rows.
    - Show preview and report.
    - No apply behavior.
-3. Import/Export V1 Apply with Validation
+3. 34.8 - Import CSV Apply + Report
    - Add/update records only after confirmation.
    - Use safe matching rules.
    - Preserve unrelated fields.
@@ -409,34 +467,30 @@ If the user chooses to implement Import/Export immediately after this plan inste
    - Add XLSX only through the same validation/preview/apply pipeline.
    - Do not fork business rules by file format.
 
-## Not in 34.4
+## Not in 34.6
 
-Batch 34.4 does not implement code. It must not:
+Batch 34.6 implements Export CSV only. It must not:
 
-- modify `src/`;
-- modify `src-tauri/`;
 - modify package files;
 - modify database/schema files;
-- modify tests;
-- implement Import button behavior;
-- implement Export button behavior;
 - implement CSV parsing;
 - implement XLSX parsing;
-- implement file picker behavior;
+- implement Import CSV preview;
+- implement Import CSV apply;
 - implement DB mutations;
 - import or export media files;
+- copy original media files;
 - change Backup/Restore;
 - change Clear Cache;
-- implement Dark Mode;
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration.
 
 ## Next Batch
 
-Next official batch:
+Next batch:
 
 ```text
-34.5 - Appearance + Dark Mode Implementation
+34.7 - Import CSV Preview + Validation
 ```
 

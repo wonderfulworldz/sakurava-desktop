@@ -168,8 +168,9 @@ For category-related work, also inspect:
 - Settings Functional Redesign + Data Operations Planning is documented in `docs/39-settings-functional-redesign-data-operations-plan.md` if merged. Batch 34.1 is docs-only and must not change source files, Tauri/Rust files, schema, package files, runtime behavior, or UI. The next implementation batch is 34.2 - Settings Layout Redesign Implementation. Do not start 34.2 inside 34.1.
 - Settings Layout Redesign Implementation is complete after Batch 34.2 if merged. Settings should present the approved five-section control center: Appearance, Language, Optimization, Data Safety & Migration, and App Information. Existing Backup/Restore and media root behavior must remain unchanged, and future operations remain disabled/planned until their dedicated batches. The next implementation batch is 34.3 - Backup/Restore + Clear Cache Implementation.
 - Backup/Restore + Clear Cache Implementation is complete after Batch 34.3 if merged. Backup/Restore remains database-level app data safety with validation, restore confirmation, and restore safety backup behavior. Clear Cache is scoped to app-generated cache folders under Sakurava app data only and must not delete source media, SQLite records, categories, ratings, related links, settings, or catalog data. Import/Export remains planned for 34.4.
-- Import/Export Bulk Data Planning is documented in `docs/40-import-export-bulk-data-plan.md` if merged. Batch 34.4 is docs-only and plans CSV-first data exchange for Videos, Images, and Performers with preview, validation, confirmation, and error reporting. Import/Export is not Backup/Restore and must not include original media files or app-generated cache files. The next official batch is 34.5 - Appearance + Dark Mode Implementation.
-- Appearance + Dark Mode Implementation is complete after Batch 34.5 if merged. Theme selection is a frontend/local preference only, defaults safely to Light, persists with `sakurava.appearance.theme.v1`, and applies Light/Dark styling across the app shell and main pages without database/schema/runtime changes. Language Editor remains unimplemented until 34.6/34.7. The next official batch is 34.6 - Language System Planning.
+- Import/Export Bulk Data Planning is documented in `docs/40-import-export-bulk-data-plan.md` if merged. Batch 34.4 is docs-only and plans CSV-first data exchange for Videos, Images, Performers, and Categories with preview, validation, confirmation, and error reporting. Import/Export is not Backup/Restore and must not include original media files or app-generated cache files. The next official batch is 34.5 - Appearance + Dark Mode Implementation.
+- Appearance + Dark Mode Implementation is complete after Batch 34.5 if merged. Theme selection is a frontend/local preference only, defaults safely to Light, persists with `sakurava.appearance.theme.v1`, and applies Light/Dark styling across the app shell and main pages without database/schema/runtime changes.
+- Export CSV Implementation is complete after Batch 34.6 if merged. Settings > Data Safety & Migration exports Videos, Images, Performers, and Categories as separate locked Bulk Manual Edit CSV files. Each file starts with `Action` and `Sakurava Ref`, uses user-facing editable headers in locked order, safe escaping, text-only path fields, readable categories/ratings/related values/path lists, no raw internal IDs/update keys/JSON column names, and no database mutation or media file copy. Missing CSV rows are not delete; future delete requires `Action = Delete`. Import CSV Preview must reuse the same header mapping layer in 34.7; Categories and Related are preview-diff fields and ambiguous matching remains preview/validation work. Import CSV Apply + Report remains 34.8, and XLSX remains optional later only if it shares the same validation pipeline.
 
 ## Current Efficient Roadmap
 
@@ -188,15 +189,16 @@ Follow this sequence unless the user explicitly changes it:
 11. 34.3 - Backup/Restore + Clear Cache Implementation
 12. 34.4 - Import/Export Bulk Data Planning
 13. 34.5 - Appearance + Dark Mode Implementation
-14. 34.6 - Language System Planning
-15. 34.7 - Language Picker/Editor Implementation
-16. 34.8 - Settings Full Smoke Test + Cleanup
-17. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
-18. 35.2 - Category Visibility Implementation
-19. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
-20. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-21. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-22. 36.3 - Full Smoke Test + Release Candidate
+14. 34.6 - Export CSV Implementation
+15. 34.7 - Import CSV Preview + Validation
+16. 34.8 - Import CSV Apply + Report
+17. 34.9 - Settings Full Smoke Test + Cleanup
+18. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+19. 35.2 - Category Visibility Implementation
+20. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+21. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+22. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+23. 36.3 - Full Smoke Test + Release Candidate
 
 ## Preferred Batch Prompt Format
 

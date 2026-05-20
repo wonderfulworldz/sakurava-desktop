@@ -12,8 +12,10 @@
 - Tag exists: `post-mvp-34-3-backup-restore-clear-cache-v1`.
 - Batch 34.4 - Import/Export Bulk Data Planning is complete.
 - Tag exists: `post-mvp-34-4-import-export-bulk-data-plan-v1`.
-- Current batch: 34.5 - Appearance + Dark Mode Implementation.
-- Next batch: 34.6 - Language System Planning.
+- Batch 34.5 - Appearance + Dark Mode Implementation is complete.
+- Tag exists: `post-mvp-34-5-appearance-dark-mode-v1`.
+- Current batch: 34.6 - Export CSV Implementation.
+- Next batch: 34.7 - Import CSV Preview + Validation.
 
 ## Roadmap Renumbering
 
@@ -36,9 +38,10 @@ Approved sequence:
 34.3 - Backup/Restore + Clear Cache Implementation
 34.4 - Import/Export Bulk Data Planning
 34.5 - Appearance + Dark Mode Implementation
-34.6 - Language System Planning
-34.7 - Language Picker/Editor Implementation
-34.8 - Settings Full Smoke Test + Cleanup
+34.6 - Export CSV Implementation
+34.7 - Import CSV Preview + Validation
+34.8 - Import CSV Apply + Report
+34.9 - Settings Full Smoke Test + Cleanup
 
 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
 35.2 - Category Visibility Implementation
@@ -180,23 +183,31 @@ Locked top-level sections for 34.2:
 - Implement Light/Dark mode and safe preference persistence.
 - Keep the implementation focused on theme behavior.
 - Do not mix with language, category visibility, or data operations.
-- Language Editor remains unimplemented until 34.6/34.7.
+- Language Editor remains unimplemented.
 
-### 34.6 - Language System Planning
+### 34.6 - Export CSV Implementation
 
-- Plan language keys, storage format, fallback behavior, editor scope, and validation.
-- Decide whether language data lives in local storage, files, SQLite, or another safe local mechanism.
-- Do not implement translations in this planning batch.
+- Implement Export CSV from Settings > Data Safety & Migration.
+- Cover Videos, Images, Performers, and Categories as separate CSV exports.
+- Include `Action` and `Sakurava Ref`, user-facing editable headers in locked order, safe CSV escaping, text-only path fields, readable category/rating/related fields, and no raw internal IDs, update keys, or JSON column names.
+- Keep export read-only: no database mutation, no media file copy, and no source file mutation.
+- Keep Import, XLSX, Backup/Restore changes, Clear Cache changes, Language, Category Visibility, and Thumbnail Cache out of scope.
 
-### 34.7 - Language Picker/Editor Implementation
+### 34.7 - Import CSV Preview + Validation
 
-- Implement the approved picker/editor behavior from 34.6.
-- Keep language editing local/offline.
-- Provide fallback behavior for missing keys.
+- Parse CSV imports for Videos, Images, Performers, and Categories.
+- Detect entity type, normalize rows, validate data, and show preview/report.
+- Do not apply or mutate records in this batch.
 
-### 34.8 - Settings Full Smoke Test + Cleanup
+### 34.8 - Import CSV Apply + Report
 
-- Run the full Settings smoke pass after Backup/Restore, Clear Cache, Import/Export planning, Appearance, and Language batches.
+- Apply validated CSV import rows only after explicit confirmation.
+- Preserve unrelated fields and use safe matching rules from `docs/40-import-export-bulk-data-plan.md`.
+- Keep XLSX optional later only if it shares the same validation pipeline.
+
+### 34.9 - Settings Full Smoke Test + Cleanup
+
+- Run the full Settings smoke pass after Backup/Restore, Clear Cache, CSV Export, Import Preview, Import Apply, and Appearance.
 - Clean up stale planned labels only where their implementation has landed.
 - Keep Category Visibility and Thumbnail Cache work in Batch 35.
 
@@ -216,32 +227,33 @@ Locked top-level sections for 34.2:
 - Preserve original media files.
 - Use Clear Cache semantics from Batch 34.3 where applicable.
 
-## Not in 34.5
+## Not in 34.6
 
-Batch 34.5 implements Appearance + Dark Mode only. It must not:
+Batch 34.6 implements Export CSV only. It must not:
 
-- modify `src-tauri/`;
 - modify package files;
 - modify database/schema files;
 - implement Backup/Restore changes;
 - implement Clear Cache changes;
-- implement Import/Export behavior;
-- implement CSV or XLSX parsing;
-- implement file picker behavior;
+- implement Import CSV preview;
+- implement Import CSV apply;
+- implement XLSX behavior;
+- copy or export media files;
 - mutate records;
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration;
-- start Batch 34.6;
+- start Batch 34.7;
 - start Batch 35.1.
 
-## Verification for 34.5
+## Verification for 34.6
 
 Implementation verification:
 
 ```powershell
 npm.cmd run test
 npm.cmd run build
+Push-Location src-tauri; cargo test; Pop-Location
 ```
 
 Manual smoke:
@@ -253,10 +265,10 @@ npm.cmd run tauri dev
 ## Next Batch
 
 ```text
-34.6 - Language System Planning
+34.7 - Import CSV Preview + Validation
 ```
 
-34.6 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs. Language Editor remains unimplemented until the approved 34.6/34.7 language batches.
+34.7 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/40-import-export-bulk-data-plan.md`, and existing Settings safety docs. Import CSV Preview must not apply or mutate records.
 
 ## Agent Continuation Rule
 

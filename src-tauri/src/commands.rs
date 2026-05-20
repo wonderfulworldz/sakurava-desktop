@@ -370,6 +370,14 @@ pub struct MediaOpenResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct ExportCsvWriteResult {
+    pub destination_path: String,
+    pub bytes_written: usize,
+    pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct GalleryFolderImagesResult {
     pub folder_path: String,
     pub image_paths: Vec<String>,
@@ -409,6 +417,14 @@ pub fn database_restore(
 #[tauri::command]
 pub fn clear_app_cache(database: State<'_, RuntimeDatabase>) -> Result<ClearCacheResult, String> {
     clear_app_generated_cache(&database)
+}
+
+#[tauri::command]
+pub fn export_csv_write(
+    destination_path: String,
+    csv_content: String,
+) -> Result<ExportCsvWriteResult, String> {
+    write_export_csv_file(&destination_path, &csv_content)
 }
 
 #[tauri::command]
@@ -1796,6 +1812,35 @@ fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(trimmed))
 }
 
+fn write_export_csv_file(
+    destination_path: &str,
+    csv_content: &str,
+) -> Result<ExportCsvWriteResult, String> {
+    let destination_path = validate_export_csv_destination(destination_path)?;
+    fs::write(&destination_path, csv_content)
+        .map_err(|error| format!("CSV export could not be written: {error}"))?;
+
+    Ok(ExportCsvWriteResult {
+        destination_path: destination_path.display().to_string(),
+        bytes_written: csv_content.len(),
+        success: true,
+    })
+}
+
+fn validate_export_csv_destination(destination_path: &str) -> Result<PathBuf, String> {
+    let trimmed = destination_path.trim();
+    if trimmed.is_empty() {
+        return Err("Export destination path is required".to_string());
+    }
+
+    let path = PathBuf::from(trimmed);
+    if path.exists() && path.is_dir() {
+        return Err("Export destination must be a file path".to_string());
+    }
+
+    Ok(path)
+}
+
 #[cfg(target_os = "windows")]
 fn open_media_file_with_default_app(path: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
@@ -3096,6 +3141,57 @@ mod tests {
         let accepted =
             validate_media_open_file_path(file_path.to_string_lossy().as_ref()).expect("file path");
         assert_eq!(accepted, file_path);
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn export_csv_write_rejects_empty_path() {
+        assert_eq!(
+            write_export_csv_file("   ", "title\r\nExample")
+                .expect_err("empty export path should fail"),
+            "Export destination path is required"
+        );
+    }
+
+    #[test]
+    fn export_csv_write_rejects_directory_path() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-export-directory-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create export folder");
+
+        assert_eq!(
+            write_export_csv_file(temp_root.to_string_lossy().as_ref(), "title\r\nExample")
+                .expect_err("directory path should fail"),
+            "Export destination must be a file path"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn export_csv_write_writes_csv_text_without_database_access() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-export-write-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create export folder");
+        let destination = temp_root.join("export.csv");
+        let content = "title,notes\r\n\"A, B\",\"Line one\nLine two\"";
+
+        let result = write_export_csv_file(destination.to_string_lossy().as_ref(), content)
+            .expect("write csv export");
+
+        assert!(result.success);
+        assert_eq!(result.bytes_written, content.len());
+        assert_eq!(
+            std::fs::read_to_string(&destination).expect("read csv export"),
+            content
+        );
 
         let _ = std::fs::remove_dir_all(temp_root);
     }

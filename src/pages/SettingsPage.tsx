@@ -33,6 +33,11 @@ import {
   storeAppearanceTheme,
 } from "../lib/appearanceTheme";
 import {
+  buildEntityCsv,
+  exportEntityLabel,
+  type ExportCsvEntity,
+} from "../lib/exportCsv";
+import {
   buildCategoryDeletePreview,
   buildCategoryRenamePreview,
   type CategoryRenamePreview,
@@ -49,9 +54,12 @@ import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
   selectDatabaseBackupDestination,
   selectDatabaseRestoreSource,
+  selectExportCsvDestination,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
+import { writeExportCsv } from "../runtime/exportCommands";
 import { listImages, updateImage } from "../runtime/imageCommands";
+import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import {
   allowMediaAssetRoot,
   getStoredMediaAssetRoots,
@@ -105,6 +113,12 @@ type CategoryStatus =
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
+type ExportStatus =
+  | { state: "idle" }
+  | { state: "pending"; entity: ExportCsvEntity }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
 const emptyCategoryAudit = buildCategoryAudit({
   videos: [],
   images: [],
@@ -151,8 +165,8 @@ const cacheRows: SettingsRow[] = [
 ];
 
 const importExportRows: SettingsRow[] = [
-  { label: "Import Data", value: "CSV/XLSX planned", icon: FileInput },
-  { label: "Export Data", value: "CSV/XLSX planned", icon: FileArchive },
+  { label: "Import Data", value: "CSV planned next", icon: FileInput },
+  { label: "Export Data", value: "CSV available", icon: FileArchive },
   { label: "Record types", value: "Videos, Images, Performers", icon: Tag },
   { label: "Media files", value: "Not included", icon: ShieldCheck },
 ];
@@ -195,6 +209,9 @@ function SettingsPage() {
   const [mediaRootStatus, setMediaRootStatus] = useState<MediaRootStatus>({
     state: "idle",
   });
+  const [exportStatus, setExportStatus] = useState<ExportStatus>({
+    state: "idle",
+  });
   const [categoryAudit, setCategoryAudit] =
     useState<CategoryAuditSummary>(emptyCategoryAudit);
   const [categoryRenamePreviewRecords, setCategoryRenamePreviewRecords] =
@@ -207,11 +224,14 @@ function SettingsPage() {
   const isRestorePending = restoreStatus.state === "pending";
   const isCachePending = cacheStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
+  const isExportPending = exportStatus.state === "pending";
   const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
   const canRestoreDatabase =
     isDesktopRuntime && !isBackupPending && !isRestorePending;
   const canClearCache =
     isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
+  const canExportCsv =
+    isDesktopRuntime && !isExportPending && !isBackupPending && !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const thumbnailRows: SettingsRow[] = [
     {
@@ -449,6 +469,50 @@ function SettingsPage() {
             : typeof error === "string"
               ? error
               : "Cache cleanup failed. Source media and catalog records were not changed.",
+      });
+    }
+  }
+
+  async function handleExportCsv(entity: ExportCsvEntity) {
+    if (!canExportCsv) {
+      return;
+    }
+
+    setExportStatus({ state: "pending", entity });
+
+    try {
+      const destinationPath = await selectExportCsvDestination(entity);
+      if (!destinationPath) {
+        setExportStatus({ state: "idle" });
+        return;
+      }
+
+      const records =
+        entity === "videos"
+          ? await listVideos()
+          : entity === "images"
+            ? await listImages()
+            : entity === "performers"
+              ? await listPerformers()
+              : await listManagedCategories();
+      const csvContent = buildEntityCsv(entity, records);
+      const result = await writeExportCsv(destinationPath, csvContent);
+
+      setExportStatus({
+        state: "success",
+        message: `${exportEntityLabel(entity)} CSV exported to ${result.destinationPath}. ${records.length} record${
+          records.length === 1 ? "" : "s"
+        } exported. Media files were not copied.`,
+      });
+    } catch (error) {
+      setExportStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "CSV export failed. Database records and media files were not changed.",
       });
     }
   }
@@ -1005,20 +1069,60 @@ function SettingsPage() {
 
           <DataOperationCard
             title="Import & Export"
-            helper="CSV/XLSX data exchange for Videos, Images, and Performers. No media files are included."
+            helper="CSV data exchange for Videos, Images, Performers, and Categories. Export is available now; Import remains planned. No media files are included."
           >
             <ActionTile
               icon={FileInput}
               title="Import Data"
-              helper="Import catalog data from CSV/XLSX sources."
+              helper="Import CSV preview and validation is planned for Batch 34.7."
               disabled
             />
             <ActionTile
               icon={FileArchive}
-              title="Export Data"
-              helper="Export catalog data to CSV/XLSX files."
-              disabled
+              title={isExportPending ? "Exporting CSV..." : "Export Data"}
+              helper="Choose Videos, Images, Performers, or Categories CSV below."
+              disabled={!canExportCsv}
             />
+            <div className="grid gap-2 sm:grid-cols-4">
+              <button
+                type="button"
+                disabled={!canExportCsv}
+                onClick={() => handleExportCsv("videos")}
+                className={exportButtonClassName(canExportCsv)}
+              >
+                Export Videos CSV
+              </button>
+              <button
+                type="button"
+                disabled={!canExportCsv}
+                onClick={() => handleExportCsv("images")}
+                className={exportButtonClassName(canExportCsv)}
+              >
+                Export Images CSV
+              </button>
+              <button
+                type="button"
+                disabled={!canExportCsv}
+                onClick={() => handleExportCsv("performers")}
+                className={exportButtonClassName(canExportCsv)}
+              >
+                Export Performers CSV
+              </button>
+              <button
+                type="button"
+                disabled={!canExportCsv}
+                onClick={() => handleExportCsv("categories")}
+                className={exportButtonClassName(canExportCsv)}
+              >
+                Export Categories CSV
+              </button>
+            </div>
+            {!isDesktopRuntime && (
+              <InfoNote>
+                CSV export uses the desktop save dialog and is unavailable in browser preview.
+              </InfoNote>
+            )}
+            <SettingsStatusMessage status={exportStatus} kind="export" />
           </DataOperationCard>
         </div>
         <WarningBox
@@ -1208,6 +1312,15 @@ function StatusPill({
       {children}
     </span>
   );
+}
+
+function exportButtonClassName(enabled: boolean) {
+  return [
+    "h-10 rounded-lg border px-3 text-sm font-semibold",
+    enabled
+      ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+      : "border-slate-200 bg-slate-50 text-slate-400",
+  ].join(" ");
 }
 
 function OptimizationBlock({
@@ -2246,8 +2359,14 @@ function SettingsStatusMessage({
   status,
   kind,
 }: {
-  status?: BackupStatus | RestoreStatus | CacheStatus | MediaRootStatus | CategoryStatus;
-  kind: "backup" | "restore" | "cache" | "mediaRoot" | "category";
+  status?:
+    | BackupStatus
+    | RestoreStatus
+    | CacheStatus
+    | MediaRootStatus
+    | CategoryStatus
+    | ExportStatus;
+  kind: "backup" | "restore" | "cache" | "mediaRoot" | "category" | "export";
 }) {
   if (!status || status.state === "idle" || status.state === "confirming") {
     return null;
@@ -2263,7 +2382,11 @@ function SettingsStatusMessage({
           ? "Clearing app-generated cache..."
           : kind === "mediaRoot"
             ? "Adding media root..."
-            : "Updating category data...";
+            : kind === "export"
+              ? `Exporting ${
+                  "entity" in status ? exportEntityLabel(status.entity) : "data"
+                } CSV...`
+              : "Updating category data...";
   const messageClassName =
     kind === "category"
       ? `mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold ${

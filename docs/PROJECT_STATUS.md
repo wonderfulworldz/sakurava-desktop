@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-34-4-import-export-bulk-data-plan-v1
+post-mvp-34-5-appearance-dark-mode-v1
 ```
 
 Current batch:
 
 ```text
-34.5 - Appearance + Dark Mode Implementation
+34.6 - Export CSV Implementation
 ```
 
 Current focus:
 
 ```text
-Frontend/local Appearance implementation for Light/Dark mode. Theme selection should persist locally, default safely to Light, and keep Language, Import/Export, Category Visibility, and Thumbnail Cache deferred to their locked batches.
+CSV Export implementation from Settings > Data Safety & Migration for Videos, Images, Performers, and Categories. Export is read-only, writes locked Bulk Manual Edit CSV files only, does not copy media files, and keeps Import CSV Preview for Batch 34.7.
 ```
 
 Current locked Settings roadmap:
@@ -27,9 +27,10 @@ Current locked Settings roadmap:
 34.3 - Backup/Restore + Clear Cache Implementation
 34.4 - Import/Export Bulk Data Planning
 34.5 - Appearance + Dark Mode Implementation
-34.6 - Language System Planning
-34.7 - Language Picker/Editor Implementation
-34.8 - Settings Full Smoke Test + Cleanup
+34.6 - Export CSV Implementation
+34.7 - Import CSV Preview + Validation
+34.8 - Import CSV Apply + Report
+34.9 - Settings Full Smoke Test + Cleanup
 ```
 
 Latest known stable category checkpoint:
@@ -452,7 +453,9 @@ Current app capabilities include:
 - Settings Functional Redesign + Data Operations Planning through Batch 34.1 after merge: docs-only roadmap and safety plan for Settings structure, Backup/Restore, Clear Cache, Import/Export, Appearance, Language, and System Information; this locks Settings/Data Operations as Batch 34 and moves Category Visibility/Thumbnail Cache to Batch 35.
 - Settings Layout Redesign Implementation through Batch 34.2 after merge: Settings uses the approved five-section control center layout with Appearance, Language, Optimization, Data Safety & Migration, and App Information while preserving existing behavior and keeping future operations planned until their dedicated batches.
 - Backup/Restore + Clear Cache Implementation through Batch 34.3 after merge: Settings Backup/Restore remains database-level app data safety with validation, confirmation, restore safety backup behavior, and no original media file handling; Clear Cache is scoped to app-generated cache folders only and does not delete source media or catalog data.
-- Import/Export Bulk Data Planning through Batch 34.4 after merge: `docs/40-import-export-bulk-data-plan.md` defines CSV-first data exchange for Videos, Images, and Performers with preview, validation, confirmation, error reporting, and no media/cache file import/export.
+- Import/Export Bulk Data Planning through Batch 34.4 after merge: `docs/40-import-export-bulk-data-plan.md` defines CSV-first data exchange for Videos, Images, Performers, and Categories with preview, validation, confirmation, error reporting, and no media/cache file import/export.
+- Appearance + Dark Mode Implementation through Batch 34.5 after merge: theme selection is a frontend/local preference only, defaults safely to Light, persists with `sakurava.appearance.theme.v1`, and does not change database/schema/runtime behavior.
+- Export CSV Implementation through Batch 34.6 after merge: Settings > Data Safety & Migration exports Videos, Images, Performers, and Categories as separate locked Bulk Manual Edit CSV files. Each file starts with `Action` and `Sakurava Ref`, uses user-facing editable headers in locked order, safe CSV escaping, text-only path fields, readable categories/ratings/related values/path lists, no raw internal IDs/update keys/JSON column names, and no database mutation or media file copy. Missing CSV rows are not delete; future delete requires `Action = Delete`. Future Import CSV Preview must reuse the same header mapping layer; Categories and Related are preview-diff fields and ambiguous matching remains Batch 34.7/34.8 validation work. Import CSV Apply + Report remains Batch 34.8; XLSX remains optional later only if it shares the same validation pipeline.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -491,10 +494,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 34.5:
+Recommended next implementation batch after Batch 34.6:
 
 ```text
-34.6 - Language System Planning
+34.7 - Import CSV Preview + Validation
 ```
 
 Latest roadmap implementation batch:

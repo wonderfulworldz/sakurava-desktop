@@ -21,6 +21,7 @@ pub fn run() {
             commands::database_backup,
             commands::database_restore,
             commands::clear_app_cache,
+            commands::export_csv_write,
             commands::media_asset_allow_root,
             commands::path_status_check,
             commands::media_metadata_probe,
