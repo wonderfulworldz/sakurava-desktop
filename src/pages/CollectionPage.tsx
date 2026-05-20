@@ -13,6 +13,7 @@ import {
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
+import { useLanguage } from "../lib/LanguageContext";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
@@ -187,13 +188,24 @@ function CollectionPage({ config }: CollectionPageProps) {
 }
 
 function CollectionHeader({ config }: CollectionPageProps) {
+  const { t } = useLanguage();
+  const title = t(`collection.title.${config.kind}`);
+  const subtitle = t(`collection.subtitle.${config.kind}`);
+  const actionLabel = t(
+    config.kind === "videos"
+      ? "collection.addVideo"
+      : config.kind === "images"
+        ? "collection.addImage"
+        : "collection.addPerformer",
+  );
+
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-          {config.title}
+          {title}
         </h1>
-        <p className="mt-2 text-base text-slate-500">{config.subtitle}</p>
+        <p className="mt-2 text-base text-slate-500">{subtitle}</p>
       </div>
 
       <div className="flex items-center gap-8">
@@ -205,7 +217,7 @@ function CollectionHeader({ config }: CollectionPageProps) {
           className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
         >
           <Plus size={20} />
-          {config.actionLabel}
+          {actionLabel}
         </Link>
       </div>
     </header>
@@ -260,12 +272,15 @@ function CollectionToolbar({
     Object.entries(dataFilters).some(
       ([filterId, value]) => !isAllFilterValue(filterId, value),
     );
+  const { t } = useLanguage();
   const viewAction = viewMode === "card" ? "table" : "card";
-  const viewLabel = viewMode === "card" ? "Switch to list view" : "Switch to grid view";
+  const viewLabel = viewMode === "card" ? t("collection.switchToListView") : t("collection.switchToGridView");
   const ViewIcon = viewMode === "card" ? List : Grid2X2;
+  const searchPlaceholder = t(`collection.searchPlaceholder.${config.kind}`);
+  const title = t(`collection.title.${config.kind}`);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3" aria-label={`${config.title} catalog toolbar`}>
+    <section className="rounded-lg border border-slate-200 bg-white p-3" aria-label={`${title} catalog toolbar`}>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_auto_minmax(180px,230px)_auto] xl:items-center">
         <label className="relative block">
           <Search
@@ -274,8 +289,8 @@ function CollectionToolbar({
           />
           <input
             className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-            placeholder={config.searchPlaceholder}
-            aria-label={`${config.title} search`}
+            placeholder={searchPlaceholder}
+            aria-label={`${title} search`}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
           />
@@ -289,7 +304,7 @@ function CollectionToolbar({
           onClick={onToggleFilterPanel}
         >
           <Filter size={18} />
-          Filter
+          {t("collection.filter")}
           <ChevronDown
             size={16}
             className={filterPanelOpen ? "rotate-180 transition" : "transition"}
@@ -298,7 +313,7 @@ function CollectionToolbar({
 
         <SelectBox
           id={`${config.kind}-sort`}
-          label="Sorting"
+          label={t("collection.sorting")}
           options={config.sortOptions}
           value={sortValue}
           onChange={onSortChange}
@@ -311,7 +326,7 @@ function CollectionToolbar({
           onClick={() => onViewModeChange(viewAction)}
         >
           <ViewIcon size={18} />
-          View
+          {t("collection.view")}
         </button>
       </div>
 
@@ -319,15 +334,15 @@ function CollectionToolbar({
         <div
           id={`${config.kind}-filter-panel`}
           role="region"
-          aria-label={`${config.title} filters`}
+          aria-label={`${title} filters`}
           className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <SelectBox
               id={`${config.kind}-category-filter`}
-              label={config.filterLabel}
-              options={["Add category filter", ...selectableCategories]}
-              value="Add category filter"
+              label={t("collection.categories")}
+              options={[t("collection.addCategoryFilter"), ...selectableCategories]}
+              value={t("collection.addCategoryFilter")}
               onChange={onAddCategoryFilter}
               disabled={categorySelectDisabled}
             />
@@ -349,7 +364,7 @@ function CollectionToolbar({
                 className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600"
                 onClick={onClearAllFilters}
               >
-                Clear all filters
+                {t("collection.clearAllFilters")}
               </button>
             </div>
           )}
@@ -380,12 +395,12 @@ function CollectionToolbar({
               className="text-xs font-semibold text-slate-500 hover:text-sakura-600"
               onClick={onClearCategoryFilters}
             >
-              Clear all
+              {t("collection.clearAll")}
             </button>
           )}
           {reachedCategoryLimit && (
             <span className="text-xs font-semibold text-slate-500">
-              Up to 5 category filters can be active.
+              {t("collection.categoryLimitReached")}
             </span>
           )}
         </div>
@@ -772,18 +787,20 @@ function PaginationBar({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: string) => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <nav
       className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       aria-label="Collection pagination"
     >
       <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-        Page size
+        {t("collection.pageSize")}
         <select
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           value={pageSize}
           onChange={(event) => onPageSizeChange(event.target.value)}
-          aria-label="Items per page"
+          aria-label={t("collection.itemsPerPage")}
         >
           {["30", "60", "90", "120"].map((option) => (
             <option key={option} value={option}>
@@ -791,7 +808,7 @@ function PaginationBar({
             </option>
           ))}
         </select>
-        <span>per page</span>
+        <span>{t("collection.perPage")}</span>
       </label>
       <div className="flex items-center gap-2">
         <button
@@ -800,7 +817,7 @@ function PaginationBar({
           disabled={page === 1}
           onClick={() => onPageChange(Math.max(1, page - 1))}
         >
-          Previous
+          {t("collection.previous")}
         </button>
         {pageNumbers(pageCount).map((pageNumber) => (
           <button
@@ -824,7 +841,7 @@ function PaginationBar({
           disabled={page === pageCount}
           onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         >
-          Next
+          {t("collection.next")}
         </button>
       </div>
     </nav>
@@ -832,15 +849,17 @@ function PaginationBar({
 }
 
 function CollectionEmptyState({ hasItems }: { hasItems: boolean }) {
+  const { t } = useLanguage();
+
   return (
     <section className="rounded-lg border border-dashed border-slate-200 bg-white p-6 text-center">
       <p className="text-sm font-semibold text-slate-800">
-        {hasItems ? "No matching items" : "No saved records"}
+        {hasItems ? t("collection.noMatchingItems") : t("collection.noSavedRecords")}
       </p>
       <p className="mt-2 text-sm text-slate-500">
         {hasItems
-          ? "Try a different search term or sort option."
-          : "Collection cards will appear here when saved items are available."}
+          ? t("collection.noMatchingItemsHint")
+          : t("collection.noSavedRecordsHint")}
       </p>
     </section>
   );
