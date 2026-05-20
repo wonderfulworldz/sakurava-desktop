@@ -32,7 +32,11 @@ describe("language", () => {
   });
 
   it("falls back from selected language to English and then to the key", () => {
-    expect(translate("id", "settings.resetToDefaults")).toBe("Reset to Defaults");
+    // Indonesian key returns Indonesian text
+    expect(translate("id", "nav.home")).toBe("Beranda");
+    // Missing key in both dictionaries returns the raw key
     expect(translate("id", "missing.language.key")).toBe("missing.language.key");
+    // English key returns English text
+    expect(translate("en", "nav.home")).toBe("Home");
   });
 });

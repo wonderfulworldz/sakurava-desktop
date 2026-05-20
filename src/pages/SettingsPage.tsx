@@ -964,18 +964,18 @@ function SettingsPage() {
       >
         <SettingsPanel>
           <SettingsControlRow
-            title="Theme"
-            helper="Choose your preferred application theme."
+            title={t("settings.appearance.theme")}
+            helper={t("settings.appearance.themeHelper")}
           >
             <div className="grid gap-2 sm:grid-cols-2">
               <OptionButton
-                label="Light"
+                label={t("settings.appearance.light")}
                 status={appearanceTheme === "light" ? "Selected" : ""}
                 selected={appearanceTheme === "light"}
                 onClick={() => handleThemeChange("light")}
               />
               <OptionButton
-                label="Dark"
+                label={t("settings.appearance.dark")}
                 status={appearanceTheme === "dark" ? "Selected" : ""}
                 selected={appearanceTheme === "dark"}
                 onClick={() => handleThemeChange("dark")}
@@ -983,24 +983,24 @@ function SettingsPage() {
             </div>
           </SettingsControlRow>
           <SettingsControlRow
-            title="Accent Style"
-            helper="Select the accent color used across the app."
+            title={t("settings.appearance.accentStyle")}
+            helper={t("settings.appearance.accentStyleHelper")}
           >
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm font-semibold text-slate-600">
-                Sakura Pink selected
+                {t("settings.appearance.sakuraPinkSelected")}
               </span>
               <AccentDots />
             </div>
           </SettingsControlRow>
           <SettingsControlRow
-            title="UI Density"
-            helper="Control the size of UI elements and spacing."
+            title={t("settings.appearance.uiDensity")}
+            helper={t("settings.appearance.uiDensityHelper")}
           >
             <div className="grid gap-2 sm:grid-cols-3">
-              <OptionButton label="Compact" status="Selected" />
-              <OptionButton label="Comfortable" status="Planned" disabled />
-              <OptionButton label="Spacious" status="Soon" disabled />
+              <OptionButton label={t("settings.appearance.compact")} status="Selected" />
+              <OptionButton label={t("settings.appearance.comfortable")} status="Planned" disabled />
+              <OptionButton label={t("settings.appearance.spacious")} status="Soon" disabled />
             </div>
           </SettingsControlRow>
         </SettingsPanel>
@@ -1086,8 +1086,8 @@ function SettingsPage() {
         <SettingsPanel>
           <OptimizationBlock
             icon={Video}
-            title="Media & Library"
-            helper="Manage how media files are loaded and processed."
+            title={t("settings.optimization.mediaLibrary")}
+            helper={t("settings.optimization.mediaLibraryHelper")}
           >
             <MiniSettingRows
               rows={[
@@ -1109,7 +1109,7 @@ function SettingsPage() {
                       : "border-slate-200 bg-slate-100 text-slate-400"
                   }`}
                 >
-                  {isMediaRootPending ? "Adding Media Root..." : "Add Media Root"}
+                  {isMediaRootPending ? t("settings.optimization.addingMediaRoot") : t("settings.optimization.addMediaRoot")}
                 </button>
               </div>
               <p className="mt-2 text-xs font-semibold text-slate-500">
@@ -1146,8 +1146,8 @@ function SettingsPage() {
 
           <OptimizationBlock
             icon={HardDrive}
-            title="Cache"
-            helper="Manage temporary files used to speed up the app."
+            title={t("settings.optimization.cache")}
+            helper={t("settings.optimization.cacheHelper")}
           >
             <MiniSettingRows
               rows={[
@@ -1167,7 +1167,7 @@ function SettingsPage() {
                     : "border-slate-200 bg-slate-100 text-slate-400"
                 }`}
               >
-                {isCachePending ? "Clearing Cache..." : "Clear Cache"}
+                {isCachePending ? t("settings.optimization.clearingCache") : t("settings.optimization.clearCache")}
               </button>
             </div>
             <InfoNote>Clearing cache does not delete your source media.</InfoNote>
@@ -1182,8 +1182,8 @@ function SettingsPage() {
 
           <OptimizationBlock
             icon={FileText}
-            title="Catalog Preferences"
-            helper="Control how your catalog data is displayed."
+            title={t("settings.optimization.catalogPreferences")}
+            helper={t("settings.optimization.catalogPreferencesHelper")}
           >
             <MiniSettingRows
               rows={[
@@ -1226,14 +1226,14 @@ function SettingsPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <ActionTile
                 icon={FileArchive}
-                title={isBackupPending ? "Backing Up..." : "Backup Database"}
+                title={isBackupPending ? t("settings.dataSafety.backingUp") : t("settings.dataSafety.backupDatabase")}
                 helper="Create a full backup of your local database."
                 disabled={!canBackUpDatabase}
                 onClick={handleBackupData}
               />
               <ActionTile
                 icon={ShieldCheck}
-                title={isRestorePending ? "Restoring..." : "Restore Database"}
+                title={isRestorePending ? t("settings.dataSafety.restoring") : t("settings.dataSafety.restoreDatabase")}
                 helper="Restore database from a backup file."
                 disabled={!canRestoreDatabase}
                 onClick={handleRestoreData}
@@ -1257,14 +1257,14 @@ function SettingsPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <ActionTile
                 icon={FileInput}
-                title={isImportPending ? "Reading CSV..." : "Import Data"}
+                title={isImportPending ? "Reading CSV..." : t("settings.dataSafety.importData")}
                 helper="Preview, validate, confirm, and apply valid Sakurava CSV rows."
                 disabled={!canImportCsv}
                 onClick={handleImportCsvPreview}
               />
               <ActionTile
                 icon={FileArchive}
-                title={isExportPending ? "Exporting CSV..." : "Export Data"}
+                title={isExportPending ? "Exporting CSV..." : t("settings.dataSafety.exportData")}
                 helper="Choose Videos, Images, Performers, or Categories CSV."
                 disabled={!canExportCsv}
                 onClick={() => setIsExportPanelOpen((isOpen) => !isOpen)}

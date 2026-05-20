@@ -18,6 +18,7 @@ import {
   type HomeRecentItem,
   type HomeSummaryCard,
 } from "../lib/homeData";
+import { useLanguage } from "../lib/LanguageContext";
 import { listImages } from "../runtime/imageCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
@@ -33,6 +34,7 @@ type HomeData = {
 };
 
 function HomePage() {
+  const { t } = useLanguage();
   const [homeData, setHomeData] = useState<HomeData>({
     summaryCards,
     lastEdited,
@@ -77,17 +79,16 @@ function HomePage() {
         <div className="relative grid min-h-56 gap-0 lg:grid-cols-[1fr_1fr]">
           <div className="flex flex-col justify-center p-7 lg:p-10">
             <h2 className="text-3xl font-semibold tracking-normal text-slate-950">
-              Welcome to Sakurava
+              {t("home.welcome")}
             </h2>
             <p className="mt-4 max-w-md text-base leading-7 text-slate-600">
-              Manage your local video, image, and performer catalog in one
-              private desktop app.
+              {t("home.welcomeDescription")}
             </p>
             <Link
               to="/videos"
               className="mt-6 inline-flex h-11 w-fit items-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
             >
-              Get Started
+              {t("home.getStarted")}
               <ArrowRight size={17} />
             </Link>
           </div>
@@ -108,16 +109,17 @@ function HomePage() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {homeData.summaryCards.map((card) => {
           const Icon = card.icon;
+          const translatedLabel = t(card.labelKey);
 
           return (
             <article
-              key={card.label}
+              key={card.labelKey}
               className="rounded-lg border border-slate-200 bg-white p-5"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-500">
-                    {card.label}
+                    {translatedLabel}
                   </p>
                   <p className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
                     {card.value}
@@ -136,7 +138,7 @@ function HomePage() {
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-base font-semibold text-slate-950">
-            Quick Actions
+            {t("home.quickActions")}
           </h2>
           <div className="mt-4 grid gap-3">
             {quickActions.map((action) => {
@@ -150,10 +152,10 @@ function HomePage() {
                 >
                   <span>
                     <span className="block text-sm font-semibold text-slate-900">
-                      {action.label}
+                      {t(action.labelKey)}
                     </span>
                     <span className="mt-1 block text-sm text-slate-500">
-                      {action.detail}
+                      {t(action.detailKey)}
                     </span>
                   </span>
                   <span className="flex size-9 items-center justify-center rounded-lg bg-white text-sakura-600">
@@ -173,11 +175,11 @@ function HomePage() {
             id="continue-cataloging-heading"
             className="text-base font-semibold text-slate-950"
           >
-            Continue Cataloging
+            {t("home.continueCataloging")}
           </h2>
           {homeData.loading ? (
             <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-              Loading catalog items...
+              {t("home.loadingCatalog")}
             </p>
           ) : homeData.lastEdited.length > 0 ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -187,7 +189,7 @@ function HomePage() {
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-6 text-slate-500">
-              No records yet.
+              {t("home.noRecordsYet")}
             </p>
           )}
         </section>
@@ -201,11 +203,11 @@ function HomePage() {
           id="recently-added-heading"
           className="text-base font-semibold text-slate-950"
         >
-          Recently Added
+          {t("home.recentlyAdded")}
         </h2>
         {homeData.loading ? (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-            Loading recently added items...
+            {t("home.loadingCatalog")}
           </p>
         ) : homeData.recentlyAdded.length > 0 ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -215,8 +217,7 @@ function HomePage() {
           </div>
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-            No recent records yet. Videos, Images, and Performers will appear
-            here after they are saved.
+            {t("home.noRecentRecords")}
           </p>
         )}
       </section>

@@ -6,7 +6,7 @@ import type {
 } from "../backend/types";
 
 export type HomeSummaryCard = {
-  label: string;
+  labelKey: string;
   value: string;
   detail: string;
   icon: LucideIcon;
@@ -29,25 +29,25 @@ type HomeRecentCandidate = HomeRecentItem & {
 
 export const summaryCards: HomeSummaryCard[] = [
   {
-    label: "Videos",
+    labelKey: "home.summaryVideos",
     value: "0",
     detail: "No saved videos yet",
     icon: Video,
   },
   {
-    label: "Images",
+    labelKey: "home.summaryImages",
     value: "0",
     detail: "No saved images yet",
     icon: Image,
   },
   {
-    label: "Performers",
+    labelKey: "home.summaryPerformers",
     value: "0",
     detail: "No saved performers yet",
     icon: UserRound,
   },
   {
-    label: "Favorites",
+    labelKey: "home.summaryFavorites",
     value: "0",
     detail: "No favorites yet",
     icon: Star,
@@ -69,25 +69,25 @@ export function buildHomeSummaryCards({
 
   return [
     {
-      label: "Videos",
+      labelKey: "home.summaryVideos",
       value: String(videos.length),
       detail: countDetail(videos.length, "saved video"),
       icon: Video,
     },
     {
-      label: "Images",
+      labelKey: "home.summaryImages",
       value: String(images.length),
       detail: countDetail(images.length, "saved image"),
       icon: Image,
     },
     {
-      label: "Performers",
+      labelKey: "home.summaryPerformers",
       value: String(performers.length),
       detail: countDetail(performers.length, "saved performer"),
       icon: UserRound,
     },
     {
-      label: "Favorites",
+      labelKey: "home.summaryFavorites",
       value: String(favoriteCount),
       detail: countDetail(favoriteCount, "favorite item"),
       icon: Star,
@@ -97,20 +97,20 @@ export function buildHomeSummaryCards({
 
 export const quickActions = [
   {
-    label: "Add Video",
-    detail: "Create a new video catalog item",
+    labelKey: "home.addVideo",
+    detailKey: "home.addVideoDetail",
     to: "/videos/new",
     icon: Plus,
   },
   {
-    label: "Add Image",
-    detail: "Create a new image catalog item",
+    labelKey: "home.addImage",
+    detailKey: "home.addImageDetail",
     to: "/images/new",
     icon: Plus,
   },
   {
-    label: "Add Performer",
-    detail: "Create a new performer profile",
+    labelKey: "home.addPerformer",
+    detailKey: "home.addPerformerDetail",
     to: "/performers/new",
     icon: Plus,
   },
