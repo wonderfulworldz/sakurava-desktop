@@ -5,19 +5,19 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-34-3-backup-restore-clear-cache-v1
+post-mvp-34-4-import-export-bulk-data-plan-v1
 ```
 
 Current batch:
 
 ```text
-34.4 - Import/Export Bulk Data Planning
+34.5 - Appearance + Dark Mode Implementation
 ```
 
 Current focus:
 
 ```text
-Docs-only Import/Export Bulk Data planning for CSV/XLSX data exchange across Videos, Images, and Performers. Import/Export remains separate from Backup/Restore and must not include media files or app-generated cache files.
+Frontend/local Appearance implementation for Light/Dark mode. Theme selection should persist locally, default safely to Light, and keep Language, Import/Export, Category Visibility, and Thumbnail Cache deferred to their locked batches.
 ```
 
 Current locked Settings roadmap:
@@ -452,6 +452,7 @@ Current app capabilities include:
 - Settings Functional Redesign + Data Operations Planning through Batch 34.1 after merge: docs-only roadmap and safety plan for Settings structure, Backup/Restore, Clear Cache, Import/Export, Appearance, Language, and System Information; this locks Settings/Data Operations as Batch 34 and moves Category Visibility/Thumbnail Cache to Batch 35.
 - Settings Layout Redesign Implementation through Batch 34.2 after merge: Settings uses the approved five-section control center layout with Appearance, Language, Optimization, Data Safety & Migration, and App Information while preserving existing behavior and keeping future operations planned until their dedicated batches.
 - Backup/Restore + Clear Cache Implementation through Batch 34.3 after merge: Settings Backup/Restore remains database-level app data safety with validation, confirmation, restore safety backup behavior, and no original media file handling; Clear Cache is scoped to app-generated cache folders only and does not delete source media or catalog data.
+- Import/Export Bulk Data Planning through Batch 34.4 after merge: `docs/40-import-export-bulk-data-plan.md` defines CSV-first data exchange for Videos, Images, and Performers with preview, validation, confirmation, error reporting, and no media/cache file import/export.
 
 These docs are compressed project memory. They intentionally do not reconstruct the full historical workflow.
 
@@ -490,10 +491,10 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
 
-Recommended next implementation batch after Batch 34.4:
+Recommended next implementation batch after Batch 34.5:
 
 ```text
-34.5 - Appearance + Dark Mode Implementation
+34.6 - Language System Planning
 ```
 
 Latest roadmap implementation batch:

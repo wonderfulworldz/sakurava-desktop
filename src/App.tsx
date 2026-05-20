@@ -1,6 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import AppShell from "./layouts/AppShell";
+import {
+  applyAppearanceTheme,
+  getStoredAppearanceTheme,
+} from "./lib/appearanceTheme";
 import { collectionConfigs } from "./lib/collectionData";
 import { detailConfigs } from "./lib/detailData";
 import { formConfigs } from "./lib/formData";
@@ -28,9 +32,14 @@ import {
 import { isTauriRuntimeAvailable } from "./runtime/tauriClient";
 
 function App() {
+  const [appearanceTheme] = useState(() => getStoredAppearanceTheme());
   const [mediaAssetScopeReady, setMediaAssetScopeReady] = useState(
     () => !isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0,
   );
+
+  useEffect(() => {
+    applyAppearanceTheme(appearanceTheme);
+  }, [appearanceTheme]);
 
   useEffect(() => {
     if (!isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0) {

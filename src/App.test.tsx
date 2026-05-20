@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
+import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
 
 const dialogMocks = vi.hoisted(() => ({
   open: vi.fn(),
@@ -26,6 +27,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
     window.localStorage.clear();
+    delete document.documentElement.dataset.theme;
     Object.defineProperty(document, "fullscreenElement", {
       configurable: true,
       get: () => null,
@@ -1149,8 +1151,55 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Clear Cache" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Dark/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeDisabled();
+  });
+
+  it("defaults Appearance theme to Light and persists Dark/Light selection", () => {
+    window.history.pushState({}, "", "/settings");
+
+    render(<App />);
+
+    const lightButton = screen.getByRole("button", { name: /Light/ });
+    const darkButton = screen.getByRole("button", { name: /^Dark$/ });
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    expect(lightButton).toHaveAttribute("aria-pressed", "true");
+    expect(darkButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(darkButton);
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(window.localStorage.getItem(appearanceThemeStorageKey)).toBe("dark");
+    expect(darkButton).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: /Light/ }));
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    expect(window.localStorage.getItem(appearanceThemeStorageKey)).toBe("light");
+  });
+
+  it("loads persisted Dark theme and falls back to Light for invalid saved theme", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(appearanceThemeStorageKey, "dark");
+    const { unmount } = render(<App />);
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: /Dark/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    unmount();
+    delete document.documentElement.dataset.theme;
+    window.localStorage.setItem(appearanceThemeStorageKey, "neon");
+
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    expect(screen.getByRole("button", { name: /Light/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("shows desktop runtime database status when Tauri is available", () => {

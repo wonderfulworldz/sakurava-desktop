@@ -10,8 +10,10 @@
 - Tag exists: `post-mvp-34-2-settings-layout-redesign-v1`.
 - Batch 34.3 - Backup/Restore + Clear Cache Implementation is complete.
 - Tag exists: `post-mvp-34-3-backup-restore-clear-cache-v1`.
-- Current batch: 34.4 - Import/Export Bulk Data Planning.
-- Next batch: 34.5 - Appearance + Dark Mode Implementation.
+- Batch 34.4 - Import/Export Bulk Data Planning is complete.
+- Tag exists: `post-mvp-34-4-import-export-bulk-data-plan-v1`.
+- Current batch: 34.5 - Appearance + Dark Mode Implementation.
+- Next batch: 34.6 - Language System Planning.
 
 ## Roadmap Renumbering
 
@@ -178,6 +180,7 @@ Locked top-level sections for 34.2:
 - Implement Light/Dark mode and safe preference persistence.
 - Keep the implementation focused on theme behavior.
 - Do not mix with language, category visibility, or data operations.
+- Language Editor remains unimplemented until 34.6/34.7.
 
 ### 34.6 - Language System Planning
 
@@ -213,46 +216,47 @@ Locked top-level sections for 34.2:
 - Preserve original media files.
 - Use Clear Cache semantics from Batch 34.3 where applicable.
 
-## Not in 34.4
+## Not in 34.5
 
-Batch 34.4 does not implement code. It must not:
+Batch 34.5 implements Appearance + Dark Mode only. It must not:
 
-- modify `src/`;
 - modify `src-tauri/`;
 - modify package files;
 - modify database/schema files;
-- implement Settings layout;
 - implement Backup/Restore changes;
-- implement Clear Cache;
+- implement Clear Cache changes;
 - implement Import/Export behavior;
 - implement CSV or XLSX parsing;
 - implement file picker behavior;
 - mutate records;
-- implement Dark Mode;
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration;
-- start Batch 34.5;
+- start Batch 34.6;
 - start Batch 35.1.
 
-## Verification for 34.4
+## Verification for 34.5
 
-Docs-only verification:
+Implementation verification:
 
 ```powershell
-git status
-git diff --stat
+npm.cmd run test
+npm.cmd run build
 ```
 
-Do not run `npm.cmd run test` or `npm.cmd run build` for 34.4 unless source files are accidentally changed.
+Manual smoke:
+
+```powershell
+npm.cmd run tauri dev
+```
 
 ## Next Batch
 
 ```text
-34.5 - Appearance + Dark Mode Implementation
+34.6 - Language System Planning
 ```
 
-34.5 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs.
+34.6 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, and existing Settings safety docs. Language Editor remains unimplemented until the approved 34.6/34.7 language batches.
 
 ## Agent Continuation Rule
 

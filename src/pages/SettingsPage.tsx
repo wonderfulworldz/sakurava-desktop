@@ -28,6 +28,11 @@ import {
   renameCategoryInCategoriesJson,
 } from "../lib/categoryRenameApply";
 import {
+  type AppearanceTheme,
+  getStoredAppearanceTheme,
+  storeAppearanceTheme,
+} from "../lib/appearanceTheme";
+import {
   buildCategoryDeletePreview,
   buildCategoryRenamePreview,
   type CategoryRenamePreview,
@@ -154,7 +159,7 @@ const importExportRows: SettingsRow[] = [
 
 const appearanceRows: SettingsRow[] = [
   { label: "Theme", value: "Sakurava default", icon: Palette },
-  { label: "Light/Dark Mode", value: "Light active; Dark planned", icon: Monitor },
+  { label: "Light/Dark Mode", value: "Light and Dark available", icon: Monitor },
   { label: "Accent Style", value: "Sakura Pink", icon: Palette },
   { label: "UI Density", value: "Compact", icon: SlidersHorizontal },
 ];
@@ -174,6 +179,9 @@ const safetyDiagnosticRows: SettingsRow[] = [
 
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
+  const [appearanceTheme, setAppearanceTheme] = useState<AppearanceTheme>(
+    () => getStoredAppearanceTheme(),
+  );
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
     state: "idle",
   });
@@ -403,6 +411,11 @@ function SettingsPage() {
               : "Restore failed. The current database was not replaced.",
       });
     }
+  }
+
+  function handleThemeChange(theme: AppearanceTheme) {
+    setAppearanceTheme(theme);
+    storeAppearanceTheme(theme);
   }
 
   async function handleConfirmClearCache() {
@@ -729,8 +742,18 @@ function SettingsPage() {
             helper="Choose your preferred application theme."
           >
             <div className="grid gap-2 sm:grid-cols-2">
-              <OptionButton label="Light" status="Selected" />
-              <OptionButton label="Dark" status="Soon" disabled />
+              <OptionButton
+                label="Light"
+                status={appearanceTheme === "light" ? "Selected" : ""}
+                selected={appearanceTheme === "light"}
+                onClick={() => handleThemeChange("light")}
+              />
+              <OptionButton
+                label="Dark"
+                status={appearanceTheme === "dark" ? "Selected" : ""}
+                selected={appearanceTheme === "dark"}
+                onClick={() => handleThemeChange("dark")}
+              />
             </div>
           </SettingsControlRow>
           <SettingsControlRow
@@ -1107,27 +1130,37 @@ function SettingsControlRow({
 function OptionButton({
   label,
   status,
+  selected = false,
   disabled = false,
+  onClick,
 }: {
   label: string;
   status: string;
+  selected?: boolean;
   disabled?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       disabled={disabled}
+      onClick={onClick}
+      aria-pressed={selected}
       className={[
         "h-9 rounded-lg border px-3 text-sm font-semibold",
         disabled
           ? "border-slate-200 bg-slate-50 text-slate-400"
-          : "border-sakura-300 bg-sakura-50 text-sakura-600",
+          : selected
+            ? "border-sakura-300 bg-sakura-50 text-sakura-600"
+            : "border-slate-200 bg-white text-slate-600 hover:border-sakura-200 hover:text-sakura-600",
       ].join(" ")}
     >
       <span>{label}</span>
-      <span className="ml-2 text-xs font-semibold text-slate-400">
-        {status}
-      </span>
+      {status ? (
+        <span className="ml-2 text-xs font-semibold text-slate-400">
+          {status}
+        </span>
+      ) : null}
     </button>
   );
 }
