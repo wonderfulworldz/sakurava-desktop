@@ -73,10 +73,19 @@ import {
   selectDatabaseRestoreSource,
   selectExportCsvDestination,
   selectImportCsvSource,
+  selectLanguageCsvExportDestination,
+  selectLanguageCsvImportSource,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
 import { writeExportCsv } from "../runtime/exportCommands";
 import { readImportCsv } from "../runtime/importCommands";
+import {
+  applyLanguageCsvPreview,
+  buildLanguageCsv,
+  buildLanguageCsvPreview,
+  type LanguageCsvApplyReport,
+  type LanguageCsvPreview as LanguageCsvPreviewType,
+} from "../lib/languageCsv";
 import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
 import {
   createManagedCategory,
@@ -162,6 +171,14 @@ type ImportApplyStatus =
 type ImportPreviewRow = ImportCsvPreview["rows"][number];
 type ImportPreviewRowStatus = "Ready" | "Warning" | "Error" | "Blocked" | "Skipped";
 
+type LanguageCsvStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "exportSuccess"; message: string }
+  | { state: "preview"; preview: LanguageCsvPreviewType }
+  | { state: "applySuccess"; message: string }
+  | { state: "error"; message: string };
+
 const emptyCategoryAudit = buildCategoryAudit({
   videos: [],
   images: [],
@@ -236,7 +253,7 @@ const safetyDiagnosticRows: SettingsRow[] = [
 
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
-  const { languageCode, setLanguageCode, t } = useLanguage();
+  const { languageCode, setLanguageCode, t, refreshOverrides } = useLanguage();
   const [appearanceTheme, setAppearanceTheme] = useState<AppearanceTheme>(
     () => getStoredAppearanceTheme(),
   );
@@ -257,6 +274,9 @@ function SettingsPage() {
     state: "idle",
   });
   const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
+  const [languageCsvStatus, setLanguageCsvStatus] = useState<LanguageCsvStatus>({
+    state: "idle",
+  });
   const [importStatus, setImportStatus] = useState<ImportStatus>({
     state: "idle",
   });
@@ -292,6 +312,7 @@ function SettingsPage() {
     !isBackupPending &&
     !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
+  const isLanguageCsvBusy = languageCsvStatus.state === "pending";
   const thumbnailRows: SettingsRow[] = [
     {
       label: "Manual thumbnail rendering",
@@ -499,6 +520,74 @@ function SettingsPage() {
 
   function handleLanguageChange(value: string) {
     setLanguageCode(normalizeLanguageCode(value));
+  }
+
+  async function handleExportLanguageCsv() {
+    if (isLanguageCsvBusy) {
+      return;
+    }
+
+    setLanguageCsvStatus({ state: "pending" });
+
+    try {
+      const destinationPath = await selectLanguageCsvExportDestination(languageCode);
+      if (!destinationPath) {
+        setLanguageCsvStatus({ state: "idle" });
+        return;
+      }
+
+      const csvContent = buildLanguageCsv(languageCode);
+      await writeExportCsv(destinationPath, csvContent);
+      setLanguageCsvStatus({
+        state: "exportSuccess",
+        message: `Language CSV exported to ${destinationPath}`,
+      });
+    } catch (error) {
+      setLanguageCsvStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Language CSV export failed.",
+      });
+    }
+  }
+
+  async function handleImportLanguageCsv() {
+    if (isLanguageCsvBusy) {
+      return;
+    }
+
+    setLanguageCsvStatus({ state: "pending" });
+
+    try {
+      const sourcePath = await selectLanguageCsvImportSource();
+      if (!sourcePath) {
+        setLanguageCsvStatus({ state: "idle" });
+        return;
+      }
+
+      const result = await readImportCsv(sourcePath);
+      const preview = buildLanguageCsvPreview(languageCode, result.csvContent);
+      setLanguageCsvStatus({ state: "preview", preview });
+    } catch (error) {
+      setLanguageCsvStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Language CSV import failed.",
+      });
+    }
+  }
+
+  function handleApplyLanguageCsv(preview: LanguageCsvPreviewType) {
+    const report = applyLanguageCsvPreview(preview);
+    refreshOverrides();
+    setLanguageCsvStatus({
+      state: "applySuccess",
+      message: `Applied ${report.applied} change${report.applied === 1 ? "" : "s"} (${report.overrides} override${report.overrides === 1 ? "" : "s"}, ${report.resets} reset${report.resets === 1 ? "" : "s"}). ${report.skipped} skipped.`,
+    });
   }
 
   async function handleConfirmClearCache() {
@@ -1072,12 +1161,14 @@ function SettingsPage() {
               <LanguageActionCard
                 label="Export Language CSV"
                 detail="Export current language keys and text to CSV."
-                planned
+                disabled={!isDesktopRuntime || isLanguageCsvBusy}
+                onClick={handleExportLanguageCsv}
               />
               <LanguageActionCard
                 label="Import Language CSV"
                 detail="Import translations from a CSV file."
-                planned
+                disabled={!isDesktopRuntime || isLanguageCsvBusy}
+                onClick={handleImportLanguageCsv}
               />
               <LanguageActionCard
                 label="Add Language from CSV"
@@ -1090,6 +1181,28 @@ function SettingsPage() {
                 planned
               />
             </div>
+            {languageCsvStatus.state === "exportSuccess" && (
+              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2" role="alert">
+                <p className="text-xs font-semibold text-emerald-700">{languageCsvStatus.message}</p>
+              </div>
+            )}
+            {languageCsvStatus.state === "error" && (
+              <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2" role="alert">
+                <p className="text-xs font-semibold text-rose-700">{languageCsvStatus.message}</p>
+              </div>
+            )}
+            {languageCsvStatus.state === "preview" && (
+              <LanguageCsvPreviewPanel
+                preview={languageCsvStatus.preview}
+                onApply={handleApplyLanguageCsv}
+                onCancel={() => setLanguageCsvStatus({ state: "idle" })}
+              />
+            )}
+            {languageCsvStatus.state === "applySuccess" && (
+              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2" role="alert">
+                <p className="text-xs font-semibold text-emerald-700">{languageCsvStatus.message}</p>
+              </div>
+            )}
           </SettingsControlRow>
           <SettingsControlRow
             title="Reset Language Overrides"
@@ -1558,29 +1671,100 @@ function exportButtonClassName(enabled: boolean) {
   ].join(" ");
 }
 
+function LanguageCsvPreviewPanel({
+  preview,
+  onApply,
+  onCancel,
+}: {
+  preview: LanguageCsvPreviewType;
+  onApply: (preview: LanguageCsvPreviewType) => void;
+  onCancel: () => void;
+}) {
+  const hasErrors = preview.errorRows > 0 && preview.validRows === 0;
+
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-sm font-semibold text-slate-800">Import Preview</p>
+      <div className="mt-2 grid gap-1 text-xs font-semibold text-slate-600">
+        <p>Language: {preview.languageCode}</p>
+        <p>Total rows: {preview.totalRows}</p>
+        <p>Valid: {preview.validRows} ({preview.overrideRows} override{preview.overrideRows === 1 ? "" : "s"}, {preview.resetRows} reset{preview.resetRows === 1 ? "" : "s"})</p>
+        {preview.warningRows > 0 && (
+          <p className="text-amber-700">{preview.warningRows} warning{preview.warningRows === 1 ? "" : "s"} (unknown keys — not applied)</p>
+        )}
+        {preview.errorRows > 0 && (
+          <p className="text-rose-700">{preview.errorRows} error{preview.errorRows === 1 ? "" : "s"} (duplicates — not applied)</p>
+        )}
+      </div>
+      {preview.rows.some((r) => r.error || r.warning) && (
+        <div className="mt-2 max-h-24 overflow-y-auto rounded border border-slate-200 bg-white p-2 text-xs text-slate-600">
+          {preview.rows
+            .filter((r) => r.error || r.warning)
+            .map((r) => (
+              <p key={`${r.lineNumber}-${r.key}`} className={r.error ? "text-rose-600" : "text-amber-600"}>
+                Line {r.lineNumber}: {r.key} — {r.error || r.warning}
+              </p>
+            ))}
+        </div>
+      )}
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          disabled={hasErrors}
+          onClick={() => onApply(preview)}
+          className={[
+            "h-8 rounded-lg border px-3 text-xs font-semibold",
+            hasErrors
+              ? "border-slate-200 bg-slate-100 text-slate-400"
+              : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100",
+          ].join(" ")}
+        >
+          Apply {preview.validRows} Change{preview.validRows === 1 ? "" : "s"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LanguageActionCard({
   label,
   detail,
   planned = false,
+  disabled = false,
+  onClick,
 }: {
   label: string;
   detail: string;
   planned?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
 }) {
+  const isInactive = planned || disabled;
+
   return (
-    <div
+    <button
+      type="button"
+      disabled={isInactive}
+      onClick={isInactive ? undefined : onClick}
       className={[
-        "rounded-lg border px-3 py-2.5",
-        planned
+        "rounded-lg border px-3 py-2.5 text-left",
+        isInactive
           ? "border-slate-200 bg-slate-50"
-          : "border-sakura-200 bg-white",
+          : "border-sakura-200 bg-white transition hover:border-sakura-300 hover:bg-sakura-50",
       ].join(" ")}
     >
       <div className="flex items-center gap-2">
         <span
           className={[
             "text-sm font-semibold",
-            planned ? "text-slate-400" : "text-slate-700",
+            isInactive ? "text-slate-400" : "text-slate-700",
           ].join(" ")}
         >
           {label}
@@ -1592,7 +1776,7 @@ function LanguageActionCard({
         )}
       </div>
       <p className="mt-0.5 text-xs font-medium text-slate-500">{detail}</p>
-    </div>
+    </button>
   );
 }
 

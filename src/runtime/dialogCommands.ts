@@ -1,6 +1,8 @@
 import { isTauriRuntimeAvailable } from "./tauriClient";
 import type { ExportCsvEntity } from "../lib/exportCsv";
 import { defaultExportCsvFileName, localFileTimestamp } from "./exportCommands";
+import { defaultLanguageCsvFileName } from "../lib/languageCsv";
+import type { LanguageCode } from "../lib/language";
 
 export function defaultDatabaseBackupFileName(date = new Date()) {
   return `skv-backup-${localFileTimestamp(date)}.sqlite`;
@@ -135,6 +137,45 @@ async function selectLocalPath(options: {
     multiple: false,
     directory: options.directory ?? false,
     filters: options.filters,
+  });
+
+  return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
+}
+
+export async function selectLanguageCsvExportDestination(languageCode: LanguageCode) {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: `Export Sakurava Language CSV (${languageCode})`,
+    defaultPath: defaultLanguageCsvFileName(languageCode),
+    filters: [
+      {
+        name: "CSV",
+        extensions: ["csv"],
+      },
+    ],
+  });
+}
+
+export async function selectLanguageCsvImportSource() {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selectedPath = await open({
+    title: "Import Sakurava Language CSV",
+    multiple: false,
+    directory: false,
+    filters: [
+      {
+        name: "CSV",
+        extensions: ["csv"],
+      },
+    ],
   });
 
   return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
