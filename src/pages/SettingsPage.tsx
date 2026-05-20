@@ -97,6 +97,7 @@ import {
 } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { createVideo, deleteVideo, listVideos, updateVideo } from "../runtime/videoCommands";
+import { LanguageEditor } from "../components/LanguageEditor";
 
 type SettingsRow = {
   label: string;
@@ -257,6 +258,7 @@ function SettingsPage() {
     state: "idle",
   });
   const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
+  const [isLanguageEditorOpen, setIsLanguageEditorOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<ImportStatus>({
     state: "idle",
   });
@@ -1047,14 +1049,17 @@ function SettingsPage() {
             <div className="grid gap-2">
               <button
                 type="button"
-                disabled
-                className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
+                onClick={() => setIsLanguageEditorOpen((open) => !open)}
+                className={[
+                  "h-9 rounded-lg border px-4 text-sm font-semibold transition",
+                  isLanguageEditorOpen
+                    ? "border-sakura-300 bg-sakura-100 text-sakura-700 hover:bg-sakura-200 dark:border-sakura-600 dark:bg-sakura-900 dark:text-sakura-300"
+                    : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100 dark:border-sakura-700 dark:bg-sakura-950 dark:text-sakura-400",
+                ].join(" ")}
+                aria-expanded={isLanguageEditorOpen}
               >
-                {t("settings.language.openEditor")}
+                {isLanguageEditorOpen ? "Close Language Editor" : t("settings.language.openEditor")}
               </button>
-              <p className="text-xs font-semibold text-slate-500">
-                {t("settings.language.editorPlanned")}
-              </p>
               <p className="text-xs font-semibold text-slate-500">
                 {t("settings.language.csvPlanned")}
               </p>
@@ -1075,6 +1080,11 @@ function SettingsPage() {
             </div>
           </SettingsControlRow>
         </SettingsPanel>
+        {isLanguageEditorOpen && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800" role="region" aria-label="Language Editor">
+            <LanguageEditor onClose={() => setIsLanguageEditorOpen(false)} />
+          </div>
+        )}
       </SettingsSection>
 
       <SettingsSection
