@@ -9,6 +9,7 @@ import {
 import { vi } from "vitest";
 import App from "./App";
 import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
+import { sakuravaRef } from "./lib/exportCsv";
 
 const dialogMocks = vi.hoisted(() => ({
   open: vi.fn(),
@@ -1118,7 +1119,7 @@ describe("App", () => {
     expect(screen.getByText("Thumbnail Cache")).toBeInTheDocument();
     expect(screen.getByText("Batch 35 planning")).toBeInTheDocument();
     expect(screen.getByText("Preview Cache")).toBeInTheDocument();
-    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export is available now; Import remains planned. No media files are included.")).toBeInTheDocument();
+    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export and Import Preview are available now; Apply remains planned. No media files are included.")).toBeInTheDocument();
     expect(screen.getByText("Light")).toBeInTheDocument();
     expect(screen.getByText("Dark")).toBeInTheDocument();
     expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
@@ -1151,10 +1152,16 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Clear Cache" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Videos CSV" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Images CSV" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Performers CSV" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Categories CSV" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Export Videos CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export Images CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export Performers CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export Categories CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Import CSV preview" }))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeDisabled();
   });
@@ -1219,7 +1226,7 @@ describe("App", () => {
     expect(screen.getByText("Runtime Status")).toBeInTheDocument();
   });
 
-  it("renders active Export Data CSV actions while Import Data remains planned", () => {
+  it("renders Data Safety actions and reveals Export CSV actions progressively", () => {
     window.history.pushState({}, "", "/settings");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list" || command === "image_list" || command === "performer_list") {
@@ -1233,15 +1240,116 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Import Data" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Backup Database" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Export Videos CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export Images CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export Performers CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export Categories CSV" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Import CSV preview" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText(/Apply remains Batch 34\.8/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
+
     expect(screen.getByRole("button", { name: "Export Videos CSV" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Images CSV" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Performers CSV" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Categories CSV" })).toBeEnabled();
-    expect(
-      screen.getByText(/Import CSV preview and validation is planned for Batch 34\.7/),
-    ).toBeInTheDocument();
+  });
+
+  it("previews Video CSV import without mutating records", async () => {
+    window.history.pushState({}, "", "/settings");
+    const sourcePath = "D:/Imports/sakurava-videos.csv";
+    const existingVideo = persistedVideo({
+      id: "video-import-1",
+      title: "Original Video",
+      categoriesJson: '["Favorite"]',
+    });
+    const csvContent = [
+      "Action,Sakurava Ref,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
+      `Auto,${sakuravaRef("VID", "video-import-1")},Changed Video,,,,,Favorite; Unknown,,,,,,,,,,,`,
+      "Add,,New Video,,,,,Favorite,,,,,,,,,,,",
+      `Delete,${sakuravaRef("VID", "video-import-1")},Original Video,,,,,Favorite,,,,,,,,,,,`,
+      "Skip,,Ignored Video,,,,,,,,,,,,,,,",
+    ].join("\r\n");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list") {
+        return [existingVideo];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [managedCategoryFixture({ name: "Favorite" })];
+      }
+      if (command === "import_csv_read") {
+        expect(args.sourcePath).toBe(sourcePath);
+        return {
+          sourcePath,
+          csvContent,
+          bytesRead: csvContent.length,
+          success: true,
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.open.mockResolvedValue(sourcePath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Data" }));
+
+    expect(await screen.findByRole("region", { name: "Import CSV preview" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("sakurava-videos.csv")).toBeInTheDocument();
+    expect(screen.getByText("Videos CSV - 4 rows")).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Preview only. No data has been changed.")).toBeInTheDocument();
+    expect(screen.getByText("Apply is available in Batch 34.8.")).toBeInTheDocument();
+    expect(screen.getByText("Delete affects catalog records only. Original media files are not deleted.")).toBeInTheDocument();
+    const previewTable = screen.getByRole("table");
+    for (const column of ["Row", "Action", "Result", "Target", "Changes", "Status"]) {
+      expect(within(previewTable).getByRole("columnheader", { name: column }))
+        .toBeInTheDocument();
+    }
+    expect(screen.getAllByText("Modified").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Added").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Deleted").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Skipped").length).toBeGreaterThan(0);
+    expect(screen.getByText("Will create record")).toBeInTheDocument();
+    expect(screen.getByText("Will delete catalog record only")).toBeInTheDocument();
+    expect(screen.getAllByText("Skipped").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Unknown category: Unknown/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Original media files are not deleted/).length)
+      .toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Apply in Batch 34.8" }))
+      .toBeDisabled();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_create",
+      expect.anything(),
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_delete",
+      expect.anything(),
+      undefined,
+    );
   });
 
   it("exports Videos CSV as a read-only data operation", async () => {
@@ -1299,6 +1407,7 @@ describe("App", () => {
 
     render(<App />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
     fireEvent.click(screen.getByRole("button", { name: "Export Videos CSV" }));
 
     await screen.findByText(
@@ -1382,6 +1491,7 @@ describe("App", () => {
 
     render(<App />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
     fireEvent.click(screen.getByRole("button", { name: "Export Categories CSV" }));
 
     await screen.findByText(
@@ -2084,9 +2194,10 @@ describe("App", () => {
       expect.anything(),
       undefined,
     );
-    expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Import Data" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Export Videos CSV" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Export Videos CSV" }))
+      .not.toBeInTheDocument();
   });
 
   it("shows an error when cache cleanup fails safely", async () => {

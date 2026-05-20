@@ -376,6 +376,15 @@ pub struct ExportCsvWriteResult {
     pub success: bool,
 }
 
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCsvReadResult {
+    pub source_path: String,
+    pub csv_content: String,
+    pub bytes_read: usize,
+    pub success: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GalleryFolderImagesResult {
@@ -425,6 +434,11 @@ pub fn export_csv_write(
     csv_content: String,
 ) -> Result<ExportCsvWriteResult, String> {
     write_export_csv_file(&destination_path, &csv_content)
+}
+
+#[tauri::command]
+pub fn import_csv_read(source_path: String) -> Result<ImportCsvReadResult, String> {
+    read_import_csv_file(&source_path)
 }
 
 #[tauri::command]
@@ -1827,6 +1841,19 @@ fn write_export_csv_file(
     })
 }
 
+fn read_import_csv_file(source_path: &str) -> Result<ImportCsvReadResult, String> {
+    let source_path = validate_import_csv_source(source_path)?;
+    let csv_content = fs::read_to_string(&source_path)
+        .map_err(|error| format!("CSV import file could not be read: {error}"))?;
+
+    Ok(ImportCsvReadResult {
+        source_path: source_path.display().to_string(),
+        bytes_read: csv_content.len(),
+        csv_content,
+        success: true,
+    })
+}
+
 fn validate_export_csv_destination(destination_path: &str) -> Result<PathBuf, String> {
     let trimmed = destination_path.trim();
     if trimmed.is_empty() {
@@ -1836,6 +1863,34 @@ fn validate_export_csv_destination(destination_path: &str) -> Result<PathBuf, St
     let path = PathBuf::from(trimmed);
     if path.exists() && path.is_dir() {
         return Err("Export destination must be a file path".to_string());
+    }
+
+    Ok(path)
+}
+
+fn validate_import_csv_source(source_path: &str) -> Result<PathBuf, String> {
+    let trimmed = source_path.trim();
+    if trimmed.is_empty() {
+        return Err("Import source path is required".to_string());
+    }
+
+    let path = PathBuf::from(trimmed);
+    let metadata = fs::metadata(&path).map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => "Import source file does not exist".to_string(),
+        io::ErrorKind::PermissionDenied => "Import source file is inaccessible".to_string(),
+        _ => "Import source file could not be checked".to_string(),
+    })?;
+
+    if !metadata.is_file() {
+        return Err("Import source must be a CSV file path".to_string());
+    }
+
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default();
+    if !extension.eq_ignore_ascii_case("csv") {
+        return Err("Import source must be a CSV file".to_string());
     }
 
     Ok(path)
@@ -3192,6 +3247,74 @@ mod tests {
             std::fs::read_to_string(&destination).expect("read csv export"),
             content
         );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn import_csv_read_rejects_empty_path() {
+        assert_eq!(
+            read_import_csv_file("   ").expect_err("empty import path should fail"),
+            "Import source path is required"
+        );
+    }
+
+    #[test]
+    fn import_csv_read_rejects_directory_path() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-import-directory-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create import folder");
+
+        assert_eq!(
+            read_import_csv_file(temp_root.to_string_lossy().as_ref())
+                .expect_err("directory path should fail"),
+            "Import source must be a CSV file path"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn import_csv_read_rejects_non_csv_extension() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-import-extension-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create import folder");
+        let source = temp_root.join("import.txt");
+        std::fs::write(&source, "Action,Sakurava Ref").expect("write import text");
+
+        assert_eq!(
+            read_import_csv_file(source.to_string_lossy().as_ref())
+                .expect_err("non-csv path should fail"),
+            "Import source must be a CSV file"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn import_csv_read_reads_csv_text_without_database_access() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-import-read-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create import folder");
+        let source = temp_root.join("import.csv");
+        let content = "Action,Sakurava Ref,Title\r\nAuto,VID-ABC1234,\"A, B\"";
+        std::fs::write(&source, content).expect("write import csv");
+
+        let result = read_import_csv_file(source.to_string_lossy().as_ref())
+            .expect("read csv import");
+
+        assert!(result.success);
+        assert_eq!(result.bytes_read, content.len());
+        assert_eq!(result.csv_content, content);
 
         let _ = std::fs::remove_dir_all(temp_root);
     }

@@ -65,6 +65,27 @@ export async function selectExportCsvDestination(entity: ExportCsvEntity) {
   });
 }
 
+export async function selectImportCsvSource() {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selectedPath = await open({
+    title: "Import Sakurava CSV Preview",
+    multiple: false,
+    directory: false,
+    filters: [
+      {
+        name: "CSV",
+        extensions: ["csv"],
+      },
+    ],
+  });
+
+  return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
+}
+
 export async function selectLocalImageFile() {
   return selectLocalPath({
     title: "Select Image File",
