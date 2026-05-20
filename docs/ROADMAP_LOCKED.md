@@ -119,26 +119,27 @@ Recommended sequence:
 11. 34.3 - Backup/Restore + Clear Cache Implementation
 12. 34.4 - Import/Export Bulk Data Planning
 13. 34.5 - Appearance + Dark Mode Implementation
-14. 34.6 - Language System Planning
-15. 34.7 - Language Picker/Editor Implementation
-16. 34.8 - Settings Full Smoke Test + Cleanup
-17. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
-18. 35.2 - Category Visibility Implementation
-19. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
-20. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
-21. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
-22. 36.3 - Full Smoke Test + Release Candidate
+14. 34.6 - Export CSV Implementation
+15. 34.7 - Import CSV Preview + Validation
+16. 34.8 - Import CSV Apply + Report
+17. 34.9 - Settings Full Smoke Test + Cleanup
+18. 35.1 - Category Visibility + Thumbnail Cache/Low-res Strategy Planning
+19. 35.2 - Category Visibility Implementation
+20. 35.3 - Thumbnail Cache / Low-res Regeneration Implementation
+21. 36.1 - Placeholder / MVP Text / Dummy Data Audit + Cleanup Plan
+22. 36.2 - Placeholder / MVP Text / Dummy Data Cleanup
+23. 36.3 - Full Smoke Test + Release Candidate
 
 Current batch:
 
 ```text
-34.5 - Appearance + Dark Mode Implementation
+34.6 - Export CSV Implementation
 ```
 
-Next implementation batch after 34.5:
+Next implementation batch after 34.6:
 
 ```text
-34.6 - Language System Planning
+34.7 - Import CSV Preview + Validation
 ```
 
-Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Batch 34.3 implements Backup/Restore + scoped Clear Cache only. Batch 34.4 is Import/Export Bulk Data planning only. Batch 34.5 implements Appearance + Dark Mode only. Do not revert to the old 34/35 order.
+Batch 31.1 is documentation-only and complete. Batch 33.1 is documentation-only and complete. Batch 33.2 implements Video/Image Tech Info and availability only. Batch 33.2.1 adds Windows Shell property-based Video duration/resolution detection only. Batch 33.3 completes Performer form/detail data fields only. Batch 33.4 implements Performer related detail sections only. Batch 34.1 is documentation-only and locks Settings/Data Operations before Category Visibility/Thumbnail Cache. Batch 34.2 implements Settings layout only. Batch 34.3 implements Backup/Restore + scoped Clear Cache only. Batch 34.4 is Import/Export Bulk Data planning only. Batch 34.5 implements Appearance + Dark Mode only. Batch 34.6 implements read-only Bulk Manual Edit CSV Export only with `Action`, `Sakurava Ref`, and no raw internal IDs/update keys/JSON column names. Import CSV Preview remains 34.7, Import CSV Apply + Report remains 34.8, and XLSX remains optional later only if it can share the same validation pipeline. Do not revert to the old 34/35 order.

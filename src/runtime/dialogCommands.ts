@@ -1,4 +1,6 @@
 import { isTauriRuntimeAvailable } from "./tauriClient";
+import type { ExportCsvEntity } from "../lib/exportCsv";
+import { defaultExportCsvFileName } from "./exportCommands";
 
 export function defaultDatabaseBackupFileName(date = new Date()) {
   const year = date.getFullYear();
@@ -40,6 +42,24 @@ export async function selectDatabaseRestoreSource() {
       {
         name: "SQLite database",
         extensions: ["sqlite"],
+      },
+    ],
+  });
+}
+
+export async function selectExportCsvDestination(entity: ExportCsvEntity) {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: `Export Sakurava ${entity} CSV`,
+    defaultPath: defaultExportCsvFileName(entity),
+    filters: [
+      {
+        name: "CSV",
+        extensions: ["csv"],
       },
     ],
   });

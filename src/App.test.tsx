@@ -1118,7 +1118,7 @@ describe("App", () => {
     expect(screen.getByText("Thumbnail Cache")).toBeInTheDocument();
     expect(screen.getByText("Batch 35 planning")).toBeInTheDocument();
     expect(screen.getByText("Preview Cache")).toBeInTheDocument();
-    expect(screen.getByText("CSV/XLSX data exchange for Videos, Images, and Performers. No media files are included.")).toBeInTheDocument();
+    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export is available now; Import remains planned. No media files are included.")).toBeInTheDocument();
     expect(screen.getByText("Light")).toBeInTheDocument();
     expect(screen.getByText("Dark")).toBeInTheDocument();
     expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
@@ -1151,6 +1151,10 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Clear Cache" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Videos CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Images CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Performers CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Categories CSV" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeDisabled();
   });
@@ -1213,6 +1217,182 @@ describe("App", () => {
     expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
     expect(screen.getByText("Available")).toBeInTheDocument();
     expect(screen.getByText("Runtime Status")).toBeInTheDocument();
+  });
+
+  it("renders active Export Data CSV actions while Import Data remains planned", () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export Videos CSV" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export Images CSV" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export Performers CSV" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export Categories CSV" })).toBeEnabled();
+    expect(
+      screen.getByText(/Import CSV preview and validation is planned for Batch 34\.7/),
+    ).toBeInTheDocument();
+  });
+
+  it("exports Videos CSV as a read-only data operation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Exports/sakurava-videos.csv";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video-export-1",
+            title: 'Video, "Export"',
+            categoriesJson: '["Drama","Favorite"]',
+            ratingJson: '{"story":5}',
+            mediaPath: "D:/Videos/export.mp4",
+            relatedPerformersJson:
+              '[{"performerId":"performer-1","nameSnapshot":"Performer One"}]',
+            notes: "Line one\nLine two",
+          }),
+        ];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "export_csv_write") {
+        expect(args.destinationPath).toBe(destinationPath);
+        expect(args.csvContent).toContain(
+          "Action,Sakurava Ref,Title,Original Title,Release Date,Publisher / Label",
+        );
+        expect(args.csvContent).toContain("Auto,VID-");
+        expect(args.csvContent).not.toContain("sakuravaUpdateKey");
+        expect(args.csvContent).not.toContain("video-export-1");
+        expect(args.csvContent).not.toContain("ratingJson");
+        expect(args.csvContent).not.toContain("categoriesJson");
+        expect(args.csvContent).toContain('"Video, ""Export"""');
+        expect(args.csvContent).toContain("Drama; Favorite");
+        expect(args.csvContent).toContain(",,5,,,,");
+        expect(args.csvContent).toMatch(/PER-[0-9A-Z]{7} \| Performer One/);
+        expect(args.csvContent).toContain("D:/Videos/export.mp4");
+        expect(args.csvContent).not.toContain("Duration");
+        expect(args.csvContent).not.toContain("Availability");
+        expect(args.csvContent).not.toContain("mediaBinary");
+        return {
+          destinationPath: args.destinationPath,
+          bytesWritten: args.csvContent.length,
+          success: true,
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.save.mockResolvedValue(destinationPath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Export Videos CSV" }));
+
+    await screen.findByText(
+      `${destinationPath}. 1 record exported. Media files were not copied.`,
+      { exact: false },
+    );
+    expect(dialogMocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: expect.stringMatching(
+          /^sakurava-videos-\d{4}-\d{2}-\d{2}\.csv$/,
+        ),
+        filters: [
+          {
+            name: "CSV",
+            extensions: ["csv"],
+          },
+        ],
+      }),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_update",
+      expect.anything(),
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_update",
+      expect.anything(),
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("exports Categories CSV as a read-only data operation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Exports/sakurava-categories.csv";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_parent",
+            name: "Genre",
+            description: "Parent",
+          }),
+          managedCategoryFixture({
+            key: "cat_child",
+            name: "Drama",
+            parentKey: "cat_parent",
+            thumbnailPath: "D:/Thumbs/drama.jpg",
+          }),
+        ];
+      }
+      if (command === "export_csv_write") {
+        expect(args.destinationPath).toBe(destinationPath);
+        expect(args.csvContent).toContain(
+          "Action,Sakurava Ref,Parent Category,Category Name,Description,Thumbnail Path,Visibility,Notes",
+        );
+        expect(args.csvContent).toContain("Auto,CAT-");
+        expect(args.csvContent).toContain(",Genre,Drama,");
+        expect(args.csvContent).not.toContain("cat_parent");
+        expect(args.csvContent).not.toContain("cat_child");
+        return {
+          destinationPath: args.destinationPath,
+          bytesWritten: args.csvContent.length,
+          success: true,
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    dialogMocks.save.mockResolvedValue(destinationPath);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Export Categories CSV" }));
+
+    await screen.findByText(
+      `${destinationPath}. 2 records exported. Media files were not copied.`,
+      { exact: false },
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "managed_category_update",
+      expect.anything(),
+      undefined,
+    );
   });
 
   it("renders Category Management table columns and pagination controls", () => {
@@ -1905,7 +2085,8 @@ describe("App", () => {
       undefined,
     );
     expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Data" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export Videos CSV" })).toBeEnabled();
   });
 
   it("shows an error when cache cleanup fails safely", async () => {
