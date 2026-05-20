@@ -31,6 +31,7 @@ export type ImportCsvPreviewRow = {
   changes: string[];
   warnings: string[];
   errors: string[];
+  values: Record<string, string>;
 };
 
 export type ImportCsvPreviewSummary = {
@@ -341,6 +342,7 @@ function previewRow({
       changes: [],
       warnings,
       errors,
+      values,
     };
   }
 
@@ -360,6 +362,7 @@ function previewRow({
       changes: ["Delete"],
       warnings,
       errors,
+      values,
     };
   }
 
@@ -388,6 +391,7 @@ function previewRow({
       changes: action === "Add" || action === "Auto" ? ["New record"] : changes,
       warnings,
       errors,
+      values,
     };
   }
 
@@ -416,6 +420,7 @@ function previewRow({
     changes: unique(changes),
     warnings,
     errors,
+    values,
   };
 }
 

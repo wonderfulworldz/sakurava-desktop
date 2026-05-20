@@ -48,6 +48,11 @@ import {
   type ImportCsvPreview,
 } from "../lib/importCsvPreview";
 import {
+  applyImportCsvPreview,
+  countApplicableImportRows,
+  type ImportCsvApplyReport,
+} from "../lib/importCsvApply";
+import {
   buildCategoryDeletePreview,
   buildCategoryRenamePreview,
   type CategoryRenamePreview,
@@ -70,16 +75,26 @@ import {
 } from "../runtime/dialogCommands";
 import { writeExportCsv } from "../runtime/exportCommands";
 import { readImportCsv } from "../runtime/importCommands";
-import { listImages, updateImage } from "../runtime/imageCommands";
-import { listManagedCategories } from "../runtime/managedCategoryCommands";
+import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
+import {
+  createManagedCategory,
+  deleteManagedCategory as deleteManagedCategoryRecord,
+  listManagedCategories,
+  updateManagedCategory,
+} from "../runtime/managedCategoryCommands";
 import {
   allowMediaAssetRoot,
   getStoredMediaAssetRoots,
   storeMediaAssetRoots,
 } from "../runtime/mediaAssetScope";
-import { listPerformers, updatePerformer } from "../runtime/performerCommands";
+import {
+  createPerformer,
+  deletePerformer,
+  listPerformers,
+  updatePerformer,
+} from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import { listVideos, updateVideo } from "../runtime/videoCommands";
+import { createVideo, deleteVideo, listVideos, updateVideo } from "../runtime/videoCommands";
 
 type SettingsRow = {
   label: string;
@@ -135,6 +150,12 @@ type ImportStatus =
   | { state: "idle" }
   | { state: "pending" }
   | { state: "preview"; sourcePath: string; preview: ImportCsvPreview }
+  | { state: "error"; message: string };
+type ImportApplyStatus =
+  | { state: "idle" }
+  | { state: "confirming"; preview: ImportCsvPreview }
+  | { state: "pending" }
+  | { state: "report"; report: ImportCsvApplyReport }
   | { state: "error"; message: string };
 type ImportPreviewRow = ImportCsvPreview["rows"][number];
 type ImportPreviewRowStatus = "Ready" | "Warning" | "Error" | "Blocked" | "Skipped";
@@ -236,6 +257,9 @@ function SettingsPage() {
   const [importStatus, setImportStatus] = useState<ImportStatus>({
     state: "idle",
   });
+  const [importApplyStatus, setImportApplyStatus] = useState<ImportApplyStatus>({
+    state: "idle",
+  });
   const [categoryAudit, setCategoryAudit] =
     useState<CategoryAuditSummary>(emptyCategoryAudit);
   const [categoryRenamePreviewRecords, setCategoryRenamePreviewRecords] =
@@ -250,6 +274,7 @@ function SettingsPage() {
   const isMediaRootPending = mediaRootStatus.state === "pending";
   const isExportPending = exportStatus.state === "pending";
   const isImportPending = importStatus.state === "pending";
+  const isImportApplyPending = importApplyStatus.state === "pending";
   const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
   const canRestoreDatabase =
     isDesktopRuntime && !isBackupPending && !isRestorePending;
@@ -258,7 +283,11 @@ function SettingsPage() {
   const canExportCsv =
     isDesktopRuntime && !isExportPending && !isBackupPending && !isRestorePending;
   const canImportCsv =
-    isDesktopRuntime && !isImportPending && !isBackupPending && !isRestorePending;
+    isDesktopRuntime &&
+    !isImportPending &&
+    !isImportApplyPending &&
+    !isBackupPending &&
+    !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const thumbnailRows: SettingsRow[] = [
     {
@@ -550,6 +579,7 @@ function SettingsPage() {
     }
 
     setImportStatus({ state: "pending" });
+    setImportApplyStatus({ state: "idle" });
 
     try {
       const sourcePath = await selectImportCsvSource();
@@ -586,6 +616,58 @@ function SettingsPage() {
             : typeof error === "string"
               ? error
               : "CSV import preview failed. Database records and media files were not changed.",
+      });
+    }
+  }
+
+  function handleRequestImportApply(preview: ImportCsvPreview) {
+    if (countApplicableImportRows(preview) === 0) {
+      return;
+    }
+    setImportApplyStatus({ state: "confirming", preview });
+  }
+
+  async function handleConfirmImportApply(preview: ImportCsvPreview) {
+    setImportApplyStatus({ state: "pending" });
+
+    try {
+      const [videos, images, performers, categories] = await Promise.all([
+        listVideos(),
+        listImages(),
+        listPerformers(),
+        listManagedCategories(),
+      ]);
+      const report = await applyImportCsvPreview({
+        preview,
+        context: { videos, images, performers, categories },
+        confirmed: true,
+        mutations: {
+          createVideo,
+          updateVideo,
+          deleteVideo,
+          createImage,
+          updateImage,
+          deleteImage,
+          createPerformer,
+          updatePerformer,
+          deletePerformer,
+          createManagedCategory,
+          updateManagedCategory,
+          deleteManagedCategory: deleteManagedCategoryRecord,
+        },
+      });
+
+      setImportApplyStatus({ state: "report", report });
+      await loadCategoryData();
+    } catch (error) {
+      setImportApplyStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "CSV import apply failed. Source media files were not changed.",
       });
     }
   }
@@ -1144,13 +1226,13 @@ function SettingsPage() {
 
           <DataOperationCard
             title="Import & Export"
-            helper="CSV data exchange for Videos, Images, Performers, and Categories. Export and Import Preview are available now; Apply remains planned. No media files are included."
+            helper="CSV data exchange for Videos, Images, Performers, and Categories. Export, Import Preview, and confirmed Apply are available now. No media files are included."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <ActionTile
                 icon={FileInput}
                 title={isImportPending ? "Reading CSV..." : "Import Data"}
-                helper="Preview and validate a Sakurava CSV. Apply remains Batch 34.8."
+                helper="Preview, validate, confirm, and apply valid Sakurava CSV rows."
                 disabled={!canImportCsv}
                 onClick={handleImportCsvPreview}
               />
@@ -1208,7 +1290,13 @@ function SettingsPage() {
                 CSV export uses the desktop save dialog and is unavailable in browser preview.
               </InfoNote>
             )}
-            <ImportPreviewPanel importStatus={importStatus} />
+            <ImportPreviewPanel
+              importStatus={importStatus}
+              importApplyStatus={importApplyStatus}
+              onRequestApply={handleRequestImportApply}
+              onCancelApply={() => setImportApplyStatus({ state: "idle" })}
+              onConfirmApply={handleConfirmImportApply}
+            />
             <SettingsStatusMessage status={exportStatus} kind="export" />
           </DataOperationCard>
         </div>
@@ -1533,7 +1621,19 @@ function ActionTile({
   );
 }
 
-function ImportPreviewPanel({ importStatus }: { importStatus: ImportStatus }) {
+function ImportPreviewPanel({
+  importStatus,
+  importApplyStatus,
+  onRequestApply,
+  onCancelApply,
+  onConfirmApply,
+}: {
+  importStatus: ImportStatus;
+  importApplyStatus: ImportApplyStatus;
+  onRequestApply: (preview: ImportCsvPreview) => void;
+  onCancelApply: () => void;
+  onConfirmApply: (preview: ImportCsvPreview) => void;
+}) {
   if (importStatus.state === "idle") {
     return null;
   }
@@ -1563,6 +1663,8 @@ function ImportPreviewPanel({ importStatus }: { importStatus: ImportStatus }) {
       ? "Unknown"
       : exportEntityLabel(preview.summary.entity);
   const sourceFileName = importStatus.sourcePath.split(/[\\/]/).pop() ?? importStatus.sourcePath;
+  const applicableRows = countApplicableImportRows(preview);
+  const canApply = applicableRows > 0 && importApplyStatus.state !== "pending";
 
   return (
     <div
@@ -1678,13 +1780,159 @@ function ImportPreviewPanel({ importStatus }: { importStatus: ImportStatus }) {
       </div>
 
       <div className="border-t border-slate-200 px-3 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={!canApply}
+            onClick={() => onRequestApply(preview)}
+            className={[
+              "h-9 rounded-lg border px-3 text-xs font-semibold",
+              canApply
+                ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
+                : "border-slate-200 bg-slate-100 text-slate-400",
+            ].join(" ")}
+          >
+            Apply Valid Rows
+          </button>
+          <p className="text-xs font-semibold text-slate-500">
+            {applicableRows} valid applicable row{applicableRows === 1 ? "" : "s"} available.
+          </p>
+        </div>
+        {importApplyStatus.state === "confirming" && (
+          <ImportApplyConfirmPanel
+            preview={importApplyStatus.preview}
+            onCancelApply={onCancelApply}
+            onConfirmApply={() => onConfirmApply(importApplyStatus.preview)}
+          />
+        )}
+        {importApplyStatus.state === "pending" && (
+          <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+            Applying valid CSV rows...
+          </p>
+        )}
+        {importApplyStatus.state === "error" && (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
+          >
+            {importApplyStatus.message}
+          </p>
+        )}
+        {importApplyStatus.state === "report" && (
+          <ImportApplyReportPanel report={importApplyStatus.report} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ImportApplyConfirmPanel({
+  preview,
+  onCancelApply,
+  onConfirmApply,
+}: {
+  preview: ImportCsvPreview;
+  onCancelApply: () => void;
+  onConfirmApply: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+      <p className="text-sm font-semibold text-slate-900">Confirm CSV import apply</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+        Database records will be changed. Create a Backup Database before applying imports.
+      </p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+        Delete removes catalog records only. Original media files are not deleted.
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <ImportMetric label="Added" value={preview.summary.added} />
+        <ImportMetric label="Modified" value={preview.summary.modified} />
+        <ImportMetric label="Deleted" value={preview.summary.deleted} />
+        <ImportMetric label="Skipped" value={preview.summary.skipped} />
+        <ImportMetric label="Errors" value={preview.summary.errors} />
+      </div>
+      <p className="mt-3 text-xs font-semibold text-slate-600">
+        Valid rows will be applied. Error, blocked, ambiguous, unknown category, and unresolved related rows will be skipped and reported.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-3">
         <button
           type="button"
-          disabled
-          className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-400"
+          onClick={onCancelApply}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
-          Apply in Batch 34.8
+          Cancel
         </button>
+        <button
+          type="button"
+          onClick={onConfirmApply}
+          className="h-9 rounded-lg border border-sakura-200 bg-white px-4 text-sm font-semibold text-sakura-600 hover:bg-sakura-50"
+        >
+          Apply Valid Rows
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ImportApplyReportPanel({ report }: { report: ImportCsvApplyReport }) {
+  const completedMessage =
+    report.failed > 0 || report.errors > 0
+      ? "Import apply completed with warnings/errors."
+      : "Import apply completed.";
+
+  return (
+    <div
+      role="region"
+      aria-label="Import apply report"
+      className="mt-3 rounded-lg border border-slate-200 bg-white"
+    >
+      <div className="border-b border-slate-200 px-3 py-3">
+        <p className="text-sm font-semibold text-slate-900">{completedMessage}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          Original media files were not modified or deleted.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 border-b border-slate-200 px-3 py-3 sm:grid-cols-4 lg:grid-cols-8">
+        <ImportMetric label="Added" value={report.appliedAdded} />
+        <ImportMetric label="Modified" value={report.appliedModified} />
+        <ImportMetric label="Deleted" value={report.appliedDeleted} />
+        <ImportMetric label="Unchanged" value={report.unchanged} />
+        <ImportMetric label="Skipped" value={report.skipped} />
+        <ImportMetric label="Failed" value={report.failed} />
+        <ImportMetric label="Warnings" value={report.warnings} />
+        <ImportMetric label="Errors" value={report.errors} />
+      </div>
+      <div className="max-h-72 overflow-auto px-3 py-3">
+        <table className="min-w-[720px] table-fixed text-left text-xs">
+          <thead className="text-slate-500">
+            <tr className="border-b border-slate-200">
+              {["Row", "Status", "Result", "Target", "Message"].map((header) => (
+                <th key={header} className="px-2 py-2 font-semibold">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-slate-700">
+            {report.rows.map((row) => (
+              <tr key={`${row.rowNumber}-${row.message}`}>
+                <td className="w-14 px-2 py-2 font-semibold">{row.rowNumber || "-"}</td>
+                <td className="w-24 px-2 py-2 font-semibold">{row.status}</td>
+                <td className="w-24 px-2 py-2">{row.result}</td>
+                <td className="w-52 px-2 py-2">
+                  <span className="block truncate" title={row.target}>
+                    {row.target || "-"}
+                  </span>
+                </td>
+                <td className="w-80 px-2 py-2">
+                  <span className="block truncate" title={row.message}>
+                    {row.message}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

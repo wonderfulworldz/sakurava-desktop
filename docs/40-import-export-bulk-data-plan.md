@@ -10,8 +10,10 @@
 - Tag exists: `post-mvp-34-5-appearance-dark-mode-v1`.
 - Batch 34.6 - Export CSV Implementation is complete.
 - Tag exists: `post-mvp-34-6-export-csv-implementation-v1`.
-- Current batch: 34.7 - Import CSV Preview + Validation.
-- Next batch: 34.8 - Import CSV Apply + Report.
+- Batch 34.7 - Import CSV Preview + Validation is complete.
+- Tag exists: `post-mvp-34-7-import-csv-preview-validation-v1`.
+- Current batch: 34.8 - Import CSV Apply + Report.
+- Next batch: 34.9 - Settings Full Smoke Test + Cleanup.
 
 ## Purpose
 
@@ -436,7 +438,7 @@ Placement rules:
 - Use progressive disclosure in Data Safety & Migration: default view shows only Backup Database, Restore Database, Import Data, and Export Data action cards.
 - Export CSV choices are shown only after the user chooses Export Data.
 - Import Preview is shown only after the user chooses Import Data and a CSV has been selected and parsed.
-- The Import Preview table stays compact and preview-only; Apply remains disabled/planned for Batch 34.8.
+- The Import Preview table stays compact; Apply appears only after preview and requires explicit confirmation.
 - Copy must state that Import/Export is CSV data exchange for Videos, Images, Performers, and Categories. XLSX remains optional later only if it shares the same validation pipeline.
 - Copy must state that media files are not included.
 - Backup/Restore copy must remain full app data safety copy.
@@ -470,23 +472,29 @@ Current implementation sequence:
    - Add/update records only after confirmation.
    - Use safe matching rules.
    - Preserve unrelated fields.
+   - Skip blocked/error rows and report failures.
+   - Delete only through `Action = Delete`; missing rows are not delete.
+   - Do not silently apply unknown categories or unresolved/ambiguous related values.
+   - Do not copy, modify, or delete original media files.
+   - Category CSV apply updates Managed Categories directly, synchronizes the managed-category cache used by Category Management, applies parent/root category rows before child rows, and blocks child-of-child hierarchy.
+   - Category delete is blocked when the managed category is still used by records or still has child categories.
    - Produce apply report.
 4. XLSX optional follow-up
    - Add XLSX only through the same validation/preview/apply pipeline.
    - Do not fork business rules by file format.
 
-## Not in 34.7
+## Not in 34.8
 
-Batch 34.7 implements Import CSV Preview + Validation only. It must not:
+Batch 34.8 implements Import CSV Apply + Report only. It must not:
 
 - modify package files;
 - modify database/schema files;
 - implement XLSX parsing;
-- implement Import CSV apply;
-- implement DB mutations;
+- mutate records without preview and explicit confirmation;
+- treat missing CSV rows as delete;
 - import, copy, delete, move, rename, or rewrite media files;
 - copy original media files;
-- create categories;
+- silently create categories from unknown category labels;
 - create related records;
 - change Backup/Restore;
 - change Clear Cache;
@@ -499,6 +507,6 @@ Batch 34.7 implements Import CSV Preview + Validation only. It must not:
 Next batch:
 
 ```text
-34.8 - Import CSV Apply + Report
+34.9 - Settings Full Smoke Test + Cleanup
 ```
 
