@@ -5,6 +5,7 @@ import {
   applyAppearanceTheme,
   getStoredAppearanceTheme,
 } from "./lib/appearanceTheme";
+import { LanguageProvider } from "./lib/LanguageContext";
 import { collectionConfigs } from "./lib/collectionData";
 import { detailConfigs } from "./lib/detailData";
 import { formConfigs } from "./lib/formData";
@@ -55,48 +56,50 @@ function App() {
 
   return (
     <MediaAssetScopeReadyContext.Provider value={mediaAssetScopeReady}>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route index element={<HomePage />} />
-            <Route path="categories" element={<CategoriesPage />} />
+      <LanguageProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route index element={<HomePage />} />
+              <Route path="categories" element={<CategoriesPage />} />
 
-            <Route path="videos" element={<VideoCollectionPage />} />
-            <Route path="videos/new" element={<VideoFormPage mode="create" />} />
-            <Route path="videos/:itemKey" element={<VideoDetailPage />} />
-            <Route
-              path="videos/:itemKey/edit"
-              element={<VideoFormPage mode="edit" />}
-            />
+              <Route path="videos" element={<VideoCollectionPage />} />
+              <Route path="videos/new" element={<VideoFormPage mode="create" />} />
+              <Route path="videos/:itemKey" element={<VideoDetailPage />} />
+              <Route
+                path="videos/:itemKey/edit"
+                element={<VideoFormPage mode="edit" />}
+              />
 
-            <Route path="images" element={<ImageCollectionPage />} />
-            <Route path="images/new" element={<ImageFormPage mode="create" />} />
-            <Route path="images/:itemKey" element={<ImageDetailPage />} />
-            <Route
-              path="images/:itemKey/edit"
-              element={<ImageFormPage mode="edit" />}
-            />
+              <Route path="images" element={<ImageCollectionPage />} />
+              <Route path="images/new" element={<ImageFormPage mode="create" />} />
+              <Route path="images/:itemKey" element={<ImageDetailPage />} />
+              <Route
+                path="images/:itemKey/edit"
+                element={<ImageFormPage mode="edit" />}
+              />
 
-            <Route path="performers" element={<PerformerCollectionPage />} />
-            <Route
-              path="performers/new"
-              element={<PerformerFormPage mode="create" />}
-            />
-            <Route path="performers/:itemKey" element={<PerformerDetailPage />} />
-            <Route
-              path="performers/:itemKey/edit"
-              element={<PerformerFormPage mode="edit" />}
-            />
+              <Route path="performers" element={<PerformerCollectionPage />} />
+              <Route
+                path="performers/new"
+                element={<PerformerFormPage mode="create" />}
+              />
+              <Route path="performers/:itemKey" element={<PerformerDetailPage />} />
+              <Route
+                path="performers/:itemKey/edit"
+                element={<PerformerFormPage mode="edit" />}
+              />
 
-            <Route path="settings" element={<SettingsPage />} />
-            <Route
-              path="settings/category-management"
-              element={<CategoryManagementPage />}
-            />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+              <Route path="settings" element={<SettingsPage />} />
+              <Route
+                path="settings/category-management"
+                element={<CategoryManagementPage />}
+              />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </LanguageProvider>
     </MediaAssetScopeReadyContext.Provider>
   );
 }
