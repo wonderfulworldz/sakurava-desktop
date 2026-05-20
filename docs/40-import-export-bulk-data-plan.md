@@ -8,8 +8,10 @@
 - Tag exists: `post-mvp-34-4-import-export-bulk-data-plan-v1`.
 - Batch 34.5 - Appearance + Dark Mode Implementation is complete.
 - Tag exists: `post-mvp-34-5-appearance-dark-mode-v1`.
-- Current batch: 34.6 - Export CSV Implementation.
-- Next batch: 34.7 - Import CSV Preview + Validation.
+- Batch 34.6 - Export CSV Implementation is complete.
+- Tag exists: `post-mvp-34-6-export-csv-implementation-v1`.
+- Current batch: 34.7 - Import CSV Preview + Validation.
+- Next batch: 34.8 - Import CSV Apply + Report.
 
 ## Purpose
 
@@ -431,6 +433,10 @@ Controls:
 Placement rules:
 
 - Keep Import/Export visually separate from Backup & Restore.
+- Use progressive disclosure in Data Safety & Migration: default view shows only Backup Database, Restore Database, Import Data, and Export Data action cards.
+- Export CSV choices are shown only after the user chooses Export Data.
+- Import Preview is shown only after the user chooses Import Data and a CSV has been selected and parsed.
+- The Import Preview table stays compact and preview-only; Apply remains disabled/planned for Batch 34.8.
 - Copy must state that Import/Export is CSV data exchange for Videos, Images, Performers, and Categories. XLSX remains optional later only if it shares the same validation pipeline.
 - Copy must state that media files are not included.
 - Backup/Restore copy must remain full app data safety copy.
@@ -456,7 +462,9 @@ Current implementation sequence:
    - Parse CSV.
    - Detect entity type.
    - Validate rows.
-   - Show preview and report.
+   - Validate `Action`, `Sakurava Ref`, headers, required fields, categories, related references, and editable field formats.
+   - Show Added/Modified/Unchanged/Deleted/Skipped preview counts, row warnings/errors, and category/related diffs.
+   - Missing CSV rows are not delete; delete preview only comes from `Action = Delete`.
    - No apply behavior.
 3. 34.8 - Import CSV Apply + Report
    - Add/update records only after confirmation.
@@ -467,19 +475,19 @@ Current implementation sequence:
    - Add XLSX only through the same validation/preview/apply pipeline.
    - Do not fork business rules by file format.
 
-## Not in 34.6
+## Not in 34.7
 
-Batch 34.6 implements Export CSV only. It must not:
+Batch 34.7 implements Import CSV Preview + Validation only. It must not:
 
 - modify package files;
 - modify database/schema files;
-- implement CSV parsing;
 - implement XLSX parsing;
-- implement Import CSV preview;
 - implement Import CSV apply;
 - implement DB mutations;
-- import or export media files;
+- import, copy, delete, move, rename, or rewrite media files;
 - copy original media files;
+- create categories;
+- create related records;
 - change Backup/Restore;
 - change Clear Cache;
 - implement Language;
@@ -491,6 +499,6 @@ Batch 34.6 implements Export CSV only. It must not:
 Next batch:
 
 ```text
-34.7 - Import CSV Preview + Validation
+34.8 - Import CSV Apply + Report
 ```
 

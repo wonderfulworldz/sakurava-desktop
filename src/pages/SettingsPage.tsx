@@ -1,4 +1,5 @@
 import {
+  ChevronRight,
   CloudOff,
   Database,
   FileArchive,
@@ -21,7 +22,12 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { Image, Performer, Video as VideoRecord } from "../backend/types";
+import type {
+  Image,
+  ManagedCategory,
+  Performer,
+  Video as VideoRecord,
+} from "../backend/types";
 import { buildCategoryAudit, type CategoryAuditSummary } from "../lib/categoryAudit";
 import {
   removeCategoryFromCategoriesJson,
@@ -37,6 +43,10 @@ import {
   exportEntityLabel,
   type ExportCsvEntity,
 } from "../lib/exportCsv";
+import {
+  buildImportCsvPreview,
+  type ImportCsvPreview,
+} from "../lib/importCsvPreview";
 import {
   buildCategoryDeletePreview,
   buildCategoryRenamePreview,
@@ -55,9 +65,11 @@ import {
   selectDatabaseBackupDestination,
   selectDatabaseRestoreSource,
   selectExportCsvDestination,
+  selectImportCsvSource,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
 import { writeExportCsv } from "../runtime/exportCommands";
+import { readImportCsv } from "../runtime/importCommands";
 import { listImages, updateImage } from "../runtime/imageCommands";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import {
@@ -119,6 +131,14 @@ type ExportStatus =
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
+type ImportStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "preview"; sourcePath: string; preview: ImportCsvPreview }
+  | { state: "error"; message: string };
+type ImportPreviewRow = ImportCsvPreview["rows"][number];
+type ImportPreviewRowStatus = "Ready" | "Warning" | "Error" | "Blocked" | "Skipped";
+
 const emptyCategoryAudit = buildCategoryAudit({
   videos: [],
   images: [],
@@ -165,9 +185,9 @@ const cacheRows: SettingsRow[] = [
 ];
 
 const importExportRows: SettingsRow[] = [
-  { label: "Import Data", value: "CSV planned next", icon: FileInput },
+  { label: "Import Data", value: "CSV preview available", icon: FileInput },
   { label: "Export Data", value: "CSV available", icon: FileArchive },
-  { label: "Record types", value: "Videos, Images, Performers", icon: Tag },
+  { label: "Record types", value: "Videos, Images, Performers, Categories", icon: Tag },
   { label: "Media files", value: "Not included", icon: ShieldCheck },
 ];
 
@@ -212,6 +232,10 @@ function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<ExportStatus>({
     state: "idle",
   });
+  const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
+  const [importStatus, setImportStatus] = useState<ImportStatus>({
+    state: "idle",
+  });
   const [categoryAudit, setCategoryAudit] =
     useState<CategoryAuditSummary>(emptyCategoryAudit);
   const [categoryRenamePreviewRecords, setCategoryRenamePreviewRecords] =
@@ -225,6 +249,7 @@ function SettingsPage() {
   const isCachePending = cacheStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
   const isExportPending = exportStatus.state === "pending";
+  const isImportPending = importStatus.state === "pending";
   const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
   const canRestoreDatabase =
     isDesktopRuntime && !isBackupPending && !isRestorePending;
@@ -232,6 +257,8 @@ function SettingsPage() {
     isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
   const canExportCsv =
     isDesktopRuntime && !isExportPending && !isBackupPending && !isRestorePending;
+  const canImportCsv =
+    isDesktopRuntime && !isImportPending && !isBackupPending && !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const thumbnailRows: SettingsRow[] = [
     {
@@ -513,6 +540,52 @@ function SettingsPage() {
             : typeof error === "string"
               ? error
               : "CSV export failed. Database records and media files were not changed.",
+      });
+    }
+  }
+
+  async function handleImportCsvPreview() {
+    if (!canImportCsv) {
+      return;
+    }
+
+    setImportStatus({ state: "pending" });
+
+    try {
+      const sourcePath = await selectImportCsvSource();
+      if (!sourcePath) {
+        setImportStatus({ state: "idle" });
+        return;
+      }
+
+      const [csvResult, videos, images, performers, categories] =
+        await Promise.all([
+          readImportCsv(sourcePath),
+          listVideos(),
+          listImages(),
+          listPerformers(),
+          listManagedCategories(),
+        ]);
+
+      setImportStatus({
+        state: "preview",
+        sourcePath: csvResult.sourcePath,
+        preview: buildImportCsvPreview(csvResult.csvContent, {
+          videos,
+          images,
+          performers,
+          categories,
+        }),
+      });
+    } catch (error) {
+      setImportStatus({
+        state: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "CSV import preview failed. Database records and media files were not changed.",
       });
     }
   }
@@ -1037,25 +1110,27 @@ function SettingsPage() {
         description="Back up, restore, import, and export data safely."
         icon={ShieldCheck}
       >
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-5">
           <DataOperationCard
             title="Backup & Restore"
             helper="Full app data safety for database/sql-like backups. Generated thumbnails/cache-like app data may be included later; original media files are not included."
           >
-            <ActionTile
-              icon={FileArchive}
-              title={isBackupPending ? "Backing Up..." : "Backup Database"}
-              helper="Create a full backup of your local database."
-              disabled={!canBackUpDatabase}
-              onClick={handleBackupData}
-            />
-            <ActionTile
-              icon={ShieldCheck}
-              title={isRestorePending ? "Restoring..." : "Restore Database"}
-              helper="Restore database from a backup file."
-              disabled={!canRestoreDatabase}
-              onClick={handleRestoreData}
-            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <ActionTile
+                icon={FileArchive}
+                title={isBackupPending ? "Backing Up..." : "Backup Database"}
+                helper="Create a full backup of your local database."
+                disabled={!canBackUpDatabase}
+                onClick={handleBackupData}
+              />
+              <ActionTile
+                icon={ShieldCheck}
+                title={isRestorePending ? "Restoring..." : "Restore Database"}
+                helper="Restore database from a backup file."
+                disabled={!canRestoreDatabase}
+                onClick={handleRestoreData}
+              />
+            </div>
             <SettingsStatusMessage status={backupStatus} kind="backup" />
             {restoreStatus?.state === "confirming" && (
               <RestoreConfirmPanel
@@ -1069,59 +1144,71 @@ function SettingsPage() {
 
           <DataOperationCard
             title="Import & Export"
-            helper="CSV data exchange for Videos, Images, Performers, and Categories. Export is available now; Import remains planned. No media files are included."
+            helper="CSV data exchange for Videos, Images, Performers, and Categories. Export and Import Preview are available now; Apply remains planned. No media files are included."
           >
-            <ActionTile
-              icon={FileInput}
-              title="Import Data"
-              helper="Import CSV preview and validation is planned for Batch 34.7."
-              disabled
-            />
-            <ActionTile
-              icon={FileArchive}
-              title={isExportPending ? "Exporting CSV..." : "Export Data"}
-              helper="Choose Videos, Images, Performers, or Categories CSV below."
-              disabled={!canExportCsv}
-            />
-            <div className="grid gap-2 sm:grid-cols-4">
-              <button
-                type="button"
+            <div className="grid gap-3 md:grid-cols-2">
+              <ActionTile
+                icon={FileInput}
+                title={isImportPending ? "Reading CSV..." : "Import Data"}
+                helper="Preview and validate a Sakurava CSV. Apply remains Batch 34.8."
+                disabled={!canImportCsv}
+                onClick={handleImportCsvPreview}
+              />
+              <ActionTile
+                icon={FileArchive}
+                title={isExportPending ? "Exporting CSV..." : "Export Data"}
+                helper="Choose Videos, Images, Performers, or Categories CSV."
                 disabled={!canExportCsv}
-                onClick={() => handleExportCsv("videos")}
-                className={exportButtonClassName(canExportCsv)}
-              >
-                Export Videos CSV
-              </button>
-              <button
-                type="button"
-                disabled={!canExportCsv}
-                onClick={() => handleExportCsv("images")}
-                className={exportButtonClassName(canExportCsv)}
-              >
-                Export Images CSV
-              </button>
-              <button
-                type="button"
-                disabled={!canExportCsv}
-                onClick={() => handleExportCsv("performers")}
-                className={exportButtonClassName(canExportCsv)}
-              >
-                Export Performers CSV
-              </button>
-              <button
-                type="button"
-                disabled={!canExportCsv}
-                onClick={() => handleExportCsv("categories")}
-                className={exportButtonClassName(canExportCsv)}
-              >
-                Export Categories CSV
-              </button>
+                onClick={() => setIsExportPanelOpen((isOpen) => !isOpen)}
+              />
             </div>
-            {!isDesktopRuntime && (
+            {isExportPanelOpen && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Export CSV
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <button
+                    type="button"
+                    disabled={!canExportCsv}
+                    onClick={() => handleExportCsv("videos")}
+                    className={exportButtonClassName(canExportCsv)}
+                  >
+                    Export Videos CSV
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canExportCsv}
+                    onClick={() => handleExportCsv("images")}
+                    className={exportButtonClassName(canExportCsv)}
+                  >
+                    Export Images CSV
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canExportCsv}
+                    onClick={() => handleExportCsv("performers")}
+                    className={exportButtonClassName(canExportCsv)}
+                  >
+                    Export Performers CSV
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canExportCsv}
+                    onClick={() => handleExportCsv("categories")}
+                    className={exportButtonClassName(canExportCsv)}
+                  >
+                    Export Categories CSV
+                  </button>
+                </div>
+              </div>
+            )}
+            {isExportPanelOpen && !isDesktopRuntime && (
               <InfoNote>
                 CSV export uses the desktop save dialog and is unavailable in browser preview.
               </InfoNote>
             )}
+            <ImportPreviewPanel importStatus={importStatus} />
             <SettingsStatusMessage status={exportStatus} kind="export" />
           </DataOperationCard>
         </div>
@@ -1422,7 +1509,7 @@ function ActionTile({
       disabled={disabled}
       onClick={onClick}
       className={[
-        "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left",
+        "flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2.5 text-left",
         disabled
           ? "border-slate-200 bg-slate-50 text-slate-400"
           : "border-sakura-200 bg-white text-slate-800 hover:border-sakura-300 hover:bg-sakura-50",
@@ -1431,13 +1518,280 @@ function ActionTile({
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
         <Icon size={18} />
       </span>
-      <span>
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
         <span className="mt-1 block text-xs font-medium leading-5 text-slate-500">
           {helper}
         </span>
       </span>
+      <ChevronRight
+        aria-hidden="true"
+        size={18}
+        className={disabled ? "shrink-0 text-slate-300" : "shrink-0 text-slate-500"}
+      />
     </button>
+  );
+}
+
+function ImportPreviewPanel({ importStatus }: { importStatus: ImportStatus }) {
+  if (importStatus.state === "idle") {
+    return null;
+  }
+
+  if (importStatus.state === "pending") {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-600">
+        Reading CSV and building preview...
+      </div>
+    );
+  }
+
+  if (importStatus.state === "error") {
+    return (
+      <div
+        role="alert"
+        className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold text-rose-700"
+      >
+        {importStatus.message}
+      </div>
+    );
+  }
+
+  const { preview } = importStatus;
+  const entityLabel =
+    preview.summary.entity === "unknown"
+      ? "Unknown"
+      : exportEntityLabel(preview.summary.entity);
+  const sourceFileName = importStatus.sourcePath.split(/[\\/]/).pop() ?? importStatus.sourcePath;
+
+  return (
+    <div
+      role="region"
+      aria-label="Import CSV preview"
+      className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+    >
+      <div className="border-b border-slate-200 px-3 py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              Import Preview
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {sourceFileName}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              {entityLabel} CSV - {preview.summary.totalRows} row
+              {preview.summary.totalRows === 1 ? "" : "s"}
+            </p>
+          </div>
+          <span
+            className={[
+              "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+              preview.summary.blocked
+                ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+            ].join(" ")}
+          >
+            {preview.summary.blocked ? "Blocked" : "Preview mode"}
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 text-xs font-semibold leading-5 text-sky-700">
+          <p className="rounded-lg bg-sky-50 px-3 py-2">
+            Preview only. No data has been changed.
+          </p>
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">
+            Apply is available in Batch 34.8.
+          </p>
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-700">
+            Delete affects catalog records only. Original media files are not deleted.
+          </p>
+        </div>
+      </div>
+
+      {(preview.headerErrors.length > 0 || preview.headerWarnings.length > 0) && (
+        <div className="grid gap-2 border-b border-slate-200 px-3 py-3">
+          {preview.headerErrors.map((message) => (
+            <p key={message} className="text-xs font-semibold text-rose-700">
+              {message}
+            </p>
+          ))}
+          {preview.headerWarnings.map((message) => (
+            <p key={message} className="text-xs font-semibold text-amber-700">
+              {message}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 border-b border-slate-200 px-3 py-3 sm:grid-cols-4 lg:grid-cols-7">
+        <ImportMetric label="Added" value={preview.summary.added} />
+        <ImportMetric label="Modified" value={preview.summary.modified} />
+        <ImportMetric label="Deleted" value={preview.summary.deleted} />
+        <ImportMetric label="Unchanged" value={preview.summary.unchanged} />
+        <ImportMetric label="Skipped" value={preview.summary.skipped} />
+        <ImportMetric label="Warnings" value={preview.summary.warnings} />
+        <ImportMetric label="Errors" value={preview.summary.errors} />
+      </div>
+
+      <div className="px-3 py-3">
+        <div className="max-h-[28rem] overflow-auto rounded-lg border border-slate-200">
+          <table className="min-w-[760px] table-fixed text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
+            <tr className="border-b border-slate-200">
+              {["Row", "Action", "Result", "Target", "Changes", "Status"].map(
+                (header) => (
+                  <th key={header} className="whitespace-nowrap px-2 py-2 font-semibold">
+                    {header}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-slate-700">
+            {preview.rows.map((row) => (
+              <tr key={row.rowNumber} className="align-top">
+                <td className="w-14 px-2 py-2 font-semibold">{row.rowNumber}</td>
+                <td className="w-20 px-2 py-2">{row.action}</td>
+                <td className="w-24 px-2 py-2 font-semibold">{row.detectedResult}</td>
+                <td className="w-60 px-2 py-2">
+                  <span className="block truncate font-medium" title={row.target}>
+                    {row.target || "New record"}
+                  </span>
+                </td>
+                <td className="w-56 px-2 py-2">
+                  <span
+                    className="block truncate"
+                    title={getImportRowChangeTitle(row)}
+                  >
+                    {getImportRowChangeSummary(row)}
+                  </span>
+                  <ImportRowDetail row={row} />
+                </td>
+                <td className="w-28 px-2 py-2">
+                  <ImportStatusBadge status={getImportRowStatus(row)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200 px-3 py-3">
+        <button
+          type="button"
+          disabled
+          className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-400"
+        >
+          Apply in Batch 34.8
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function getImportRowChangeSummary(row: ImportPreviewRow) {
+  if (row.detectedResult === "Deleted" || row.action === "Delete") {
+    return "Will delete catalog record only";
+  }
+  if (row.detectedResult === "Added") {
+    return "Will create record";
+  }
+  if (row.detectedResult === "Modified") {
+    return `${row.changes.length} field${row.changes.length === 1 ? "" : "s"} changed`;
+  }
+  if (row.detectedResult === "Unchanged") {
+    return "No change";
+  }
+  if (row.detectedResult === "Skipped") {
+    return "Skipped";
+  }
+  if (row.errors.length > 0) {
+    return row.errors[0];
+  }
+  if (row.warnings.length > 0) {
+    return row.warnings[0];
+  }
+  return "Review required";
+}
+
+function getImportRowChangeTitle(row: ImportPreviewRow) {
+  if (row.detectedResult === "Deleted" || row.action === "Delete") {
+    return "Will delete catalog record only. Original media files are not deleted.";
+  }
+  if (row.changes.length > 0) {
+    return row.changes.join(", ");
+  }
+  return getImportRowChangeSummary(row);
+}
+
+function getImportRowStatus(row: ImportPreviewRow): ImportPreviewRowStatus {
+  if (row.detectedResult === "Skipped") {
+    return "Skipped";
+  }
+  if (row.errors.length > 0) {
+    return row.errors.some((error) => error.toLowerCase().includes("ambiguous"))
+      ? "Blocked"
+      : "Error";
+  }
+  if (row.warnings.length > 0) {
+    return "Warning";
+  }
+  return "Ready";
+}
+
+function ImportRowDetail({ row }: { row: ImportPreviewRow }) {
+  const messages = [...row.errors, ...row.warnings].slice(0, 2);
+
+  if (messages.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {messages.map((message) => (
+        <span
+          key={message}
+          title={message}
+          className={[
+            "max-w-44 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            row.errors.includes(message)
+              ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+              : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+          ].join(" ")}
+        >
+          {message}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ImportStatusBadge({ status }: { status: ImportPreviewRowStatus }) {
+  const toneClass =
+    status === "Ready"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : status === "Warning"
+        ? "bg-amber-50 text-amber-700 ring-amber-200"
+        : status === "Skipped"
+          ? "bg-slate-100 text-slate-600 ring-slate-200"
+          : "bg-rose-50 text-rose-700 ring-rose-200";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${toneClass}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function ImportMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+    </div>
   );
 }
 

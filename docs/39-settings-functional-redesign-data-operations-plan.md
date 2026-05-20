@@ -14,8 +14,10 @@
 - Tag exists: `post-mvp-34-4-import-export-bulk-data-plan-v1`.
 - Batch 34.5 - Appearance + Dark Mode Implementation is complete.
 - Tag exists: `post-mvp-34-5-appearance-dark-mode-v1`.
-- Current batch: 34.6 - Export CSV Implementation.
-- Next batch: 34.7 - Import CSV Preview + Validation.
+- Batch 34.6 - Export CSV Implementation is complete.
+- Tag exists: `post-mvp-34-6-export-csv-implementation-v1`.
+- Current batch: 34.7 - Import CSV Preview + Validation.
+- Next batch: 34.8 - Import CSV Apply + Report.
 
 ## Roadmap Renumbering
 
@@ -77,6 +79,7 @@ Locked top-level sections for 34.2:
 - Data Safety & Migration
   - Backup Database and Restore Database.
   - Import Data and Export Data.
+  - Import/Export uses progressive disclosure: export choices are hidden until Export Data is selected, and Import Preview is hidden until Import Data selects/parses a CSV.
   - Backup/Restore remains full app data safety and must stay separate from CSV/XLSX Import/Export.
   - Import/Export is data exchange only and does not include media files.
 - App Information
@@ -197,6 +200,11 @@ Locked top-level sections for 34.2:
 
 - Parse CSV imports for Videos, Images, Performers, and Categories.
 - Detect entity type, normalize rows, validate data, and show preview/report.
+- Validate `Action`, `Sakurava Ref`, required headers, old technical/raw JSON headers, categories, related references, dates, ratings, numeric fields, and path text.
+- Preview Added, Modified, Unchanged, Deleted, and Skipped rows only.
+- Missing CSV rows are not delete; delete preview only comes from `Action = Delete`.
+- Categories and Related changes require preview diffs and warnings/errors for unknown or ambiguous values.
+- Data Safety & Migration should keep the default view compact; the preview table appears only after CSV selection and remains preview-only with Apply disabled for 34.8.
 - Do not apply or mutate records in this batch.
 
 ### 34.8 - Import CSV Apply + Report
@@ -227,26 +235,27 @@ Locked top-level sections for 34.2:
 - Preserve original media files.
 - Use Clear Cache semantics from Batch 34.3 where applicable.
 
-## Not in 34.6
+## Not in 34.7
 
-Batch 34.6 implements Export CSV only. It must not:
+Batch 34.7 implements Import CSV Preview + Validation only. It must not:
 
 - modify package files;
 - modify database/schema files;
 - implement Backup/Restore changes;
 - implement Clear Cache changes;
-- implement Import CSV preview;
 - implement Import CSV apply;
 - implement XLSX behavior;
-- copy or export media files;
+- copy, delete, move, rename, or rewrite media files;
 - mutate records;
+- create categories;
+- create related records;
 - implement Language;
 - implement Category Visibility;
 - implement Thumbnail Cache or low-res regeneration;
-- start Batch 34.7;
+- start Batch 34.8;
 - start Batch 35.1.
 
-## Verification for 34.6
+## Verification for 34.7
 
 Implementation verification:
 
@@ -265,10 +274,10 @@ npm.cmd run tauri dev
 ## Next Batch
 
 ```text
-34.7 - Import CSV Preview + Validation
+34.8 - Import CSV Apply + Report
 ```
 
-34.7 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/40-import-export-bulk-data-plan.md`, and existing Settings safety docs. Import CSV Preview must not apply or mutate records.
+34.8 should start from this document, `docs/PROJECT_STATUS.md`, `docs/ROADMAP_LOCKED.md`, `docs/AGENT_CODE_HANDOFF.md`, `docs/40-import-export-bulk-data-plan.md`, and existing Settings safety docs. Import CSV Apply must require confirmation, preserve unrelated fields, report results, and must not treat missing rows as delete.
 
 ## Agent Continuation Rule
 
