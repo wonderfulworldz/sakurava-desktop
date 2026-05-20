@@ -60,8 +60,6 @@ const englishDictionary: TranslationDictionary = {
   "settings.language.editorHelper":
     "Create and edit translations for supported languages.",
   "settings.language.openEditor": "Open Language Editor",
-  "settings.language.editorPlanned":
-    "Language Editor remains planned for Batch 34.12.",
   "settings.language.csvPlanned":
     "Language CSV Export/Import remains planned for Batch 34.13.",
   "settings.language.customLanguagePlanned":
@@ -195,8 +193,6 @@ const indonesianDictionary: TranslationDictionary = {
   "settings.language.editorHelper":
     "Buat dan edit terjemahan untuk bahasa yang didukung.",
   "settings.language.openEditor": "Buka Editor Bahasa",
-  "settings.language.editorPlanned":
-    "Editor Bahasa tetap direncanakan untuk Batch 34.12.",
   "settings.language.csvPlanned":
     "Ekspor/Impor CSV Bahasa tetap direncanakan untuk Batch 34.13.",
   "settings.language.customLanguagePlanned":
@@ -293,6 +289,33 @@ const dictionaries: Record<LanguageCode, TranslationDictionary> = {
   id: indonesianDictionary,
 };
 
+export function getAllTranslationKeys(): string[] {
+  const keySet = new Set<string>();
+  for (const dictionary of Object.values(dictionaries)) {
+    for (const key of Object.keys(dictionary)) {
+      keySet.add(key);
+    }
+  }
+  return [...keySet].sort();
+}
+
+export function getBuiltInText(
+  languageCode: LanguageCode,
+  key: string,
+): string | undefined {
+  const normalizedLanguage = normalizeLanguageCode(languageCode);
+  return dictionaries[normalizedLanguage][key];
+}
+
+export function getKeyDescription(key: string): string {
+  const parts = key.split(".");
+  if (parts.length <= 1) {
+    return key;
+  }
+  // Use the section prefix as a readable description
+  return parts.slice(0, -1).join(" > ");
+}
+
 export function normalizeLanguageCode(value: unknown): LanguageCode {
   if (typeof value !== "string") {
     return defaultLanguageCode;
@@ -332,10 +355,14 @@ export function translate(
   languageCode: LanguageCode,
   key: string,
   replacements: Record<string, string> = {},
+  overrides: Partial<Record<string, string>> = {},
 ) {
   const normalizedLanguage = normalizeLanguageCode(languageCode);
   const translated =
-    dictionaries[normalizedLanguage][key] ?? dictionaries[defaultLanguageCode][key] ?? key;
+    overrides[key] ??
+    dictionaries[normalizedLanguage][key] ??
+    dictionaries[defaultLanguageCode][key] ??
+    key;
 
   return Object.entries(replacements).reduce(
     (text, [replacementKey, replacementValue]) =>

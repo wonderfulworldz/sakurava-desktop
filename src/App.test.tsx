@@ -1133,7 +1133,7 @@ describe("App", () => {
     expect(
       screen.getByText("Changes apply to app UI only. Catalog data is not translated."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Language Editor remains planned for Batch 34.12.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeInTheDocument();
     expect(screen.getByText("Language CSV Export/Import remains planned for Batch 34.13.")).toBeInTheDocument();
     expect(screen.getByText("Custom Language Add/Manage remains planned for Batch 34.14.")).toBeInTheDocument();
     expect(
@@ -1170,7 +1170,10 @@ describe("App", () => {
     expect(screen.queryByRole("region", { name: "Import CSV preview" }))
       .not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open Language Editor" })).toBeEnabled();
+    // Language Editor table is hidden by default
+    expect(screen.queryByRole("region", { name: "Language Editor" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Search translation keys")).not.toBeInTheDocument();
   });
 
   it("defaults Appearance theme to Light and persists Dark/Light selection", () => {
