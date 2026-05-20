@@ -2,26 +2,27 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import BottomStatusBar from "../components/BottomStatusBar";
 import Sidebar from "../components/Sidebar";
+import { useLanguage } from "../lib/LanguageContext";
 
-function pageTitleFromPath(pathname: string) {
+function pageTitleFromPath(pathname: string, t: (key: string) => string) {
   if (pathname === "/") {
-    return "Home";
+    return t("nav.home");
   }
 
   if (pathname.startsWith("/videos")) {
-    return "Videos";
+    return t("nav.videos");
   }
 
   if (pathname.startsWith("/images")) {
-    return "Images";
+    return t("nav.images");
   }
 
   if (pathname.startsWith("/performers")) {
-    return "Performers";
+    return t("nav.performers");
   }
 
   if (pathname.startsWith("/categories")) {
-    return "Categories";
+    return t("nav.categories");
   }
 
   if (pathname.startsWith("/settings/category-management")) {
@@ -29,19 +30,20 @@ function pageTitleFromPath(pathname: string) {
   }
 
   if (pathname.startsWith("/settings")) {
-    return "Settings";
+    return t("nav.settings");
   }
 
-  return "Home";
+  return t("nav.home");
 }
 
 function AppShell() {
   const location = useLocation();
+  const { t } = useLanguage();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   useEffect(() => {
-    document.title = `Sakurava - ${pageTitleFromPath(location.pathname)}`;
-  }, [location.pathname]);
+    document.title = `Sakurava - ${pageTitleFromPath(location.pathname, t)}`;
+  }, [location.pathname, t]);
 
   return (
     <div className="flex h-screen min-h-0 flex-col bg-slate-50 text-slate-950">

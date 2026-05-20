@@ -10,6 +10,7 @@ import { vi } from "vitest";
 import App from "./App";
 import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
 import { sakuravaRef } from "./lib/exportCsv";
+import { languageStorageKey } from "./lib/language";
 
 const dialogMocks = vi.hoisted(() => ({
   open: vi.fn(),
@@ -1127,8 +1128,14 @@ describe("App", () => {
     expect(screen.getByText("Compact")).toBeInTheDocument();
     expect(screen.getByText("Comfortable")).toBeInTheDocument();
     expect(screen.getByText("Spacious")).toBeInTheDocument();
-    expect(screen.getAllByText("English (United States)").length).toBeGreaterThan(0);
-    expect(screen.getByText("Planned editor direction: one editable CSV file per language.")).toBeInTheDocument();
+    expect(screen.getAllByText("English").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Indonesian").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Changes apply to app UI only. Catalog data is not translated."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Language Editor remains planned for Batch 34.12.")).toBeInTheDocument();
+    expect(screen.getByText("Language CSV Export/Import remains planned for Batch 34.13.")).toBeInTheDocument();
+    expect(screen.getByText("Custom Language Add/Manage remains planned for Batch 34.14.")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Clearing cache does not delete your source media.",
@@ -1211,6 +1218,59 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("defaults App Language to English and falls back for invalid saved language", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(languageStorageKey, "invalid");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByLabelText("App Language")).toHaveValue("en");
+    expect(screen.getByRole("link", { name: "Navigate to Home" }))
+      .toHaveAttribute("href", "/");
+  });
+
+  it("persists Indonesian App Language and reloads it", () => {
+    window.history.pushState({}, "", "/settings");
+    const { unmount } = render(<App />);
+
+    fireEvent.change(screen.getByLabelText("App Language"), {
+      target: { value: "id" },
+    });
+
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
+    expect(screen.getByRole("heading", { name: "Pengaturan" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Bahasa Aplikasi")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Keamanan Data & Migrasi" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Buka Beranda" }))
+      .toHaveAttribute("href", "/");
+
+    unmount();
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(screen.getByLabelText("Bahasa Aplikasi")).toHaveValue("id");
+
+    fireEvent.change(screen.getByLabelText("Bahasa Aplikasi"), {
+      target: { value: "en" },
+    });
+
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("en");
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+  });
+
+  it("does not translate user catalog data", () => {
+    window.localStorage.setItem(languageStorageKey, "id");
+    setManagedCategories(["Settings"]);
+    window.history.pushState({}, "", "/categories");
+
+    render(<App />);
+
+    expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 
   it("shows desktop runtime database status when Tauri is available", () => {

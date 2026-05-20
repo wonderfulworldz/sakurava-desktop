@@ -9,6 +9,7 @@ import {
   Video,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useLanguage } from "../lib/LanguageContext";
 import { sidebarItems } from "../lib/navigation";
 
 const icons = {
@@ -26,6 +27,7 @@ type SidebarProps = {
 };
 
 function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
+  const { t } = useLanguage();
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
@@ -52,7 +54,7 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         {!collapsed && (
           <div>
             <p className="text-base font-semibold text-slate-950">Sakurava</p>
-            <p className="text-xs text-slate-500">Private local catalog</p>
+            <p className="text-xs text-slate-500">{t("app.sidebar.subtitle")}</p>
           </div>
         )}
       </div>
@@ -60,12 +62,14 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       <div className={collapsed ? "px-3 pb-3" : "px-4 pb-3"}>
         <button
           type="button"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={
+            collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")
+          }
           onClick={onToggleCollapsed}
           className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-sakura-100 bg-white/80 text-sm font-semibold text-sakura-600 shadow-sm transition hover:bg-sakura-50"
         >
           <ToggleIcon size={18} />
-          {!collapsed && <span>Collapse</span>}
+          {!collapsed && <span>{t("app.sidebar.collapse")}</span>}
         </button>
       </div>
 
@@ -75,14 +79,16 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       >
         {sidebarItems.map((item) => {
           const Icon = icons[item.icon];
+          const label = t(item.labelKey);
+          const navigationLabel = t("app.sidebar.navigateTo", { label });
 
           return (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
-              aria-label={collapsed ? `Navigate to ${item.label}` : undefined}
-              title={collapsed ? `Navigate to ${item.label}` : undefined}
+              aria-label={collapsed ? navigationLabel : undefined}
+              title={collapsed ? navigationLabel : undefined}
               className={({ isActive }) =>
                 [
                   "flex h-11 items-center rounded-lg text-sm font-medium transition",
@@ -94,7 +100,7 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
               }
             >
               <Icon size={18} strokeWidth={2.1} />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span>{label}</span>}
             </NavLink>
           );
         })}

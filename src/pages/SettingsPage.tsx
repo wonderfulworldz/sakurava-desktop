@@ -38,11 +38,13 @@ import {
   getStoredAppearanceTheme,
   storeAppearanceTheme,
 } from "../lib/appearanceTheme";
+import { useLanguage } from "../lib/LanguageContext";
 import {
   buildEntityCsv,
   exportEntityLabel,
   type ExportCsvEntity,
 } from "../lib/exportCsv";
+import { normalizeLanguageCode, supportedLanguages } from "../lib/language";
 import {
   buildImportCsvPreview,
   type ImportCsvPreview,
@@ -234,6 +236,7 @@ const safetyDiagnosticRows: SettingsRow[] = [
 
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
+  const { languageCode, setLanguageCode, t } = useLanguage();
   const [appearanceTheme, setAppearanceTheme] = useState<AppearanceTheme>(
     () => getStoredAppearanceTheme(),
   );
@@ -492,6 +495,10 @@ function SettingsPage() {
   function handleThemeChange(theme: AppearanceTheme) {
     setAppearanceTheme(theme);
     storeAppearanceTheme(theme);
+  }
+
+  function handleLanguageChange(value: string) {
+    setLanguageCode(normalizeLanguageCode(value));
   }
 
   async function handleConfirmClearCache() {
@@ -933,10 +940,10 @@ function SettingsPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-            Settings
+            {t("settings.title")}
           </h1>
           <p className="mt-2 text-base text-slate-500">
-            Manage application preferences, optimization, data safety, and app information.
+            {t("settings.description")}
           </p>
         </div>
         <button
@@ -945,14 +952,14 @@ function SettingsPage() {
           className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sakura-200 bg-white px-6 text-base font-semibold text-sakura-300"
         >
           <Plus size={20} />
-          Reset to Defaults
+          {t("settings.resetToDefaults")}
         </button>
       </header>
 
       <SettingsSection
         number="1"
-        title="Appearance"
-        description="Customize how Sakurava looks and feels."
+        title={t("settings.appearance.title")}
+        description={t("settings.appearance.description")}
         icon={Palette}
       >
         <SettingsPanel>
@@ -1001,30 +1008,41 @@ function SettingsPage() {
 
       <SettingsSection
         number="2"
-        title="Language"
-        description="Choose app language and prepare local translation editing."
+        title={t("settings.language.title")}
+        description={t("settings.language.description")}
         icon={FileText}
       >
         <SettingsPanel>
           <SettingsControlRow
-            title="App Language"
-            helper="Choose the language used in the application."
+            title={t("settings.language.appLanguage")}
+            helper={t("settings.language.appLanguageHelper")}
           >
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                disabled
-                className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-600"
-                value="English (United States)"
-                onChange={() => undefined}
-              >
-                <option>English (United States)</option>
-              </select>
-              <StatusPill tone="success">Up to date</StatusPill>
+            <div className="grid gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  aria-label={t("settings.language.appLanguage")}
+                  className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                  value={languageCode}
+                  onChange={(event) => handleLanguageChange(event.target.value)}
+                >
+                  {supportedLanguages.map((language) => (
+                    <option key={language.code} value={language.code}>
+                      {language.label}
+                    </option>
+                  ))}
+                </select>
+                <StatusPill tone="success">
+                  {t("settings.language.upToDate")}
+                </StatusPill>
+              </div>
+              <p className="text-xs font-semibold text-slate-500">
+                {t("settings.language.catalogDataHelper")}
+              </p>
             </div>
           </SettingsControlRow>
           <SettingsControlRow
-            title="Translation Tools / Language Editor"
-            helper="Create and edit translations for supported languages."
+            title={t("settings.language.editorTitle")}
+            helper={t("settings.language.editorHelper")}
           >
             <div className="grid gap-2">
               <button
@@ -1032,20 +1050,28 @@ function SettingsPage() {
                 disabled
                 className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
               >
-                Open Language Editor
+                {t("settings.language.openEditor")}
               </button>
               <p className="text-xs font-semibold text-slate-500">
-                Planned editor direction: one editable CSV file per language.
+                {t("settings.language.editorPlanned")}
+              </p>
+              <p className="text-xs font-semibold text-slate-500">
+                {t("settings.language.csvPlanned")}
+              </p>
+              <p className="text-xs font-semibold text-slate-500">
+                {t("settings.language.customLanguagePlanned")}
               </p>
             </div>
           </SettingsControlRow>
           <SettingsControlRow
-            title="Installed Languages"
-            helper="Manage downloaded language packs."
+            title={t("settings.language.installedLanguages")}
+            helper={t("settings.language.installedLanguagesHelper")}
           >
             <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-600">
-              <span>English (United States)</span>
-              <StatusPill tone="success">Up to date</StatusPill>
+              {supportedLanguages.map((language) => (
+                <span key={language.code}>{language.label}</span>
+              ))}
+              <StatusPill tone="success">{t("settings.language.upToDate")}</StatusPill>
             </div>
           </SettingsControlRow>
         </SettingsPanel>
@@ -1053,8 +1079,8 @@ function SettingsPage() {
 
       <SettingsSection
         number="3"
-        title="Optimization"
-        description="Manage media access, cache status, and future library optimization."
+        title={t("settings.optimization.title")}
+        description={t("settings.optimization.description")}
         icon={SlidersHorizontal}
       >
         <SettingsPanel>
@@ -1188,8 +1214,8 @@ function SettingsPage() {
 
       <SettingsSection
         number="4"
-        title="Data Safety & Migration"
-        description="Back up, restore, import, and export data safely."
+        title={t("settings.dataSafety.title")}
+        description={t("settings.dataSafety.description")}
         icon={ShieldCheck}
       >
         <div className="grid gap-5">
@@ -1308,8 +1334,8 @@ function SettingsPage() {
 
       <SettingsSection
         number="5"
-        title="App Information"
-        description="View application status, system information, and safety notes."
+        title={t("settings.appInformation.title")}
+        description={t("settings.appInformation.description")}
         icon={Database}
       >
         <div className="grid gap-4 xl:grid-cols-2">

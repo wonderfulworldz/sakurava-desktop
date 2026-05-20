@@ -21,8 +21,10 @@
 - Batch 34.8 - Import CSV Apply + Report is complete.
 - Tag exists: `post-mvp-34-8-import-csv-apply-report-v1`.
 - Batch 34.8.1 - CSV Export Naming + Date + Code Field Cleanup is complete.
-- Current batch: 34.9 - Settings Full Smoke Test + Cleanup.
-- Next batch: 34.10 - Language System Planning.
+- Batch 34.10 - Language System Planning is complete.
+- Tag exists: `post-mvp-34-10-language-system-plan-v1`.
+- Current batch: 34.11 - Language Core + Language Picker.
+- Next batch: 34.12 - Language Editor UI.
 
 ## Roadmap Renumbering
 
@@ -305,6 +307,9 @@ Locked top-level sections for 34.2:
 - Preserve built-in dictionaries by storing edits separately.
 - Missing keys must fall back safely.
 - User catalog data is never translated.
+- Support built-in English and Indonesian.
+- Persist the selected language locally with `sakurava.language.selected.v1`.
+- Keep the translated UI scope limited to App Shell navigation labels and safe Settings labels.
 
 ### 34.12 - Language Editor UI
 
@@ -385,10 +390,10 @@ npm.cmd run tauri dev
 ## Next Batch
 
 ```text
-34.10 - Language System Planning
+34.12 - Language Editor UI
 ```
 
-34.10 should plan the Language system/editor from the current Settings structure without changing data operations or starting Batch 35. Language planning must preserve the locked per-language CSV direction, custom language support, safe fallback behavior, and the rule that user catalog data is never translated.
+34.12 should implement the Language Editor UI without implementing Language CSV Export/Import, Custom Language Add/Manage, database/schema changes, or user catalog data translation.
 
 ## Agent Continuation Rule
 
