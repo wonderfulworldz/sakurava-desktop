@@ -46,6 +46,7 @@ describe("import CSV apply", () => {
       [
         "Auto",
         sakuravaRef("VID", existing.id),
+        "KEEP-CODE",
         "Changed",
         "",
         "",

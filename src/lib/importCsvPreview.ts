@@ -483,8 +483,8 @@ function validateEditableFields(
       continue;
     }
 
-    if (header.endsWith("Date") && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      errors.push(`${header} must use YYYY-MM-DD.`);
+    if (header.endsWith("Date") && !isValidDateOnly(value)) {
+      errors.push(`${header} must use YYYY-MM-DD with a valid date.`);
     }
 
     if (header.startsWith("Rating - ")) {
@@ -710,6 +710,22 @@ function countRows(rows: ImportCsvPreviewRow[], result: ImportCsvDetectedResult)
 
 function normalizeCell(value: string) {
   return value.trim();
+}
+
+function isValidDateOnly(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return false;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12 || day < 1) {
+    return false;
+  }
+
+  return day <= new Date(year, month, 0).getDate();
 }
 
 function targetText(ref: string, mainValue: string) {
