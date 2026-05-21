@@ -1193,7 +1193,7 @@ function SettingsPage() {
           </SettingsControlRow>
           <SettingsControlRow
             title="Language CSV Tools"
-            helper="Export templates and manage custom language packs via CSV."
+            helper="Export, import, and manage custom language packs. English is the source — import never modifies English."
           >
             <div className="grid gap-2 sm:grid-cols-2">
               <LanguageActionCard
@@ -1295,18 +1295,6 @@ function SettingsPage() {
                 <p className="text-xs font-semibold text-emerald-700">{languageCsvStatus.message}</p>
               </div>
             )}
-          </SettingsControlRow>
-          <SettingsControlRow
-            title="Reset Language Overrides"
-            helper="Clear all custom overrides for the selected language. Built-in text is restored."
-          >
-            <button
-              type="button"
-              disabled
-              className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-400"
-            >
-              Reset Overrides
-            </button>
           </SettingsControlRow>
         </SettingsPanel>
       </SettingsSection>
