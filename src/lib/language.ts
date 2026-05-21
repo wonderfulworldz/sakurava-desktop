@@ -99,7 +99,7 @@ const englishDictionary: TranslationDictionary = {
   "settings.appearance.spacious": "Spacious",
   "settings.language.title": "Language",
   "settings.language.description":
-    "Choose app language and prepare local translation editing.",
+    "Choose app language and manage custom language packs via CSV.",
   "settings.language.appLanguage": "App Language",
   "settings.language.appLanguageHelper":
     "Choose the language used in the application.",
@@ -225,7 +225,7 @@ const indonesianDictionary: TranslationDictionary = {
   "settings.appearance.spacious": "Luas",
   "settings.language.title": "Bahasa",
   "settings.language.description":
-    "Pilih bahasa aplikasi dan siapkan pengeditan terjemahan lokal.",
+    "Pilih bahasa aplikasi dan kelola paket bahasa kustom melalui CSV.",
   "settings.language.appLanguage": "Bahasa Aplikasi",
   "settings.language.appLanguageHelper": "Pilih bahasa yang digunakan di aplikasi.",
   "settings.language.catalogDataHelper":
