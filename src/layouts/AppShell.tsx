@@ -1,6 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import BottomStatusBar from "../components/BottomStatusBar";
 import Sidebar from "../components/Sidebar";
 import { useLanguage } from "../lib/LanguageContext";
 
@@ -58,7 +57,6 @@ function AppShell() {
           </div>
         </main>
       </div>
-      <BottomStatusBar />
     </div>
   );
 }
