@@ -45,7 +45,7 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       >
         <div className="flex size-11 items-center justify-center">
           <img
-            src="/assets/sakurava-icon.svg"
+            src="/assets/sakurava-logo-v1.svg"
             alt="Sakurava logo"
             className="size-10 object-contain"
             draggable={false}

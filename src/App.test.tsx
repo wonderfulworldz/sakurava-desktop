@@ -55,7 +55,7 @@ describe("App", () => {
     expect(screen.queryByText("Sakurava")).not.toBeInTheDocument();
     const logo = screen.getByRole("img", { name: "Sakurava logo" });
     expect(logo).toBeInTheDocument();
-    expect(logo).toHaveAttribute("src", "/assets/sakurava-icon.svg");
+    expect(logo).toHaveAttribute("src", "/assets/sakurava-logo-v1.svg");
     expect(logo.parentElement).not.toHaveClass("bg-sakura-500");
     expect(
       screen.queryByPlaceholderText("Home search planned"),
@@ -77,9 +77,11 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "Expand sidebar" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Local mode")).toBeInTheDocument();
-    expect(screen.getByText("Storage status placeholder")).toBeInTheDocument();
-    expect(screen.getByText("Last update placeholder")).toBeInTheDocument();
+    expect(screen.queryByText("Local mode")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Storage status placeholder"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Last update placeholder")).not.toBeInTheDocument();
     expect(screen.getByText("Quick Actions")).toBeInTheDocument();
     expect(screen.getByText("Continue Cataloging")).toBeInTheDocument();
     expect(screen.getByText("No records yet.")).toBeInTheDocument();
