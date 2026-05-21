@@ -1131,10 +1131,10 @@ describe("App", () => {
     expect(
       screen.getByText("Changes apply to app UI only. Catalog data is not translated."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Export Language CSV")).toBeInTheDocument();
-    expect(screen.getByText("Import Language CSV")).toBeInTheDocument();
-    expect(screen.getByText("Add Language from CSV")).toBeInTheDocument();
+    expect(screen.getByText("Export Starter CSV")).toBeInTheDocument();
+    expect(screen.getByText("Import Custom Language")).toBeInTheDocument();
     expect(screen.getByText("Remove Custom Language")).toBeInTheDocument();
+    expect(screen.getByText("Reset Custom Language")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Clearing cache does not delete your source media.",
@@ -1176,7 +1176,7 @@ describe("App", () => {
     expect(screen.getByText("Not removable")).toBeInTheDocument();
     expect(screen.getByText("Primary")).toBeInTheDocument();
     // Indonesian shown as custom/removable
-    expect(screen.getByText("Custom / Removable")).toBeInTheDocument();
+    expect(screen.getByText("Removable")).toBeInTheDocument();
   });
 
   it("defaults Appearance theme to Light and persists Dark/Light selection", () => {

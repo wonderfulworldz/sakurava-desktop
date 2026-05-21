@@ -149,7 +149,7 @@ export async function selectLanguageCsvExportDestination(languageCode: LanguageC
 
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
-    title: `Export Sakurava Language CSV (${languageCode})`,
+    title: languageCode === "en" ? "Export Custom Language Starter CSV" : `Export Language CSV (${languageCode})`,
     defaultPath: defaultLanguageCsvFileName(languageCode),
     filters: [
       {

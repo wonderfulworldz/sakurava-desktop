@@ -7,10 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import {
+  defaultLanguageCode,
   getStoredLanguageCode,
+  getSupportedLanguages,
   storeLanguageCode,
   translate,
   type LanguageCode,
+  type SupportedLanguage,
 } from "./language";
 import { getOverridesForLanguage } from "./languageOverrides";
 
@@ -19,6 +22,8 @@ type LanguageContextValue = {
   setLanguageCode: (languageCode: LanguageCode) => void;
   t: (key: string, replacements?: Record<string, string>) => string;
   refreshOverrides: () => void;
+  refreshLanguages: () => void;
+  languages: SupportedLanguage[];
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -29,6 +34,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
   const [overrides, setOverrides] = useState<Record<string, string>>(() =>
     getOverridesForLanguage(getStoredLanguageCode()),
+  );
+  const [languages, setLanguages] = useState<SupportedLanguage[]>(() =>
+    getSupportedLanguages(),
   );
 
   const setLanguageCode = useCallback((nextLanguageCode: LanguageCode) => {
@@ -41,14 +49,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setOverrides(getOverridesForLanguage(languageCode));
   }, [languageCode]);
 
+  const refreshLanguages = useCallback(() => {
+    setLanguages(getSupportedLanguages());
+  }, []);
+
   const value = useMemo<LanguageContextValue>(
     () => ({
       languageCode,
       setLanguageCode,
       t: (key, replacements) => translate(languageCode, key, replacements, overrides),
       refreshOverrides,
+      refreshLanguages,
+      languages,
     }),
-    [languageCode, setLanguageCode, overrides, refreshOverrides],
+    [languageCode, setLanguageCode, overrides, refreshOverrides, refreshLanguages, languages],
   );
 
   return (

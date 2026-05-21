@@ -44,7 +44,7 @@ import {
   exportEntityLabel,
   type ExportCsvEntity,
 } from "../lib/exportCsv";
-import { normalizeLanguageCode, supportedLanguages } from "../lib/language";
+import { normalizeLanguageCode, type LanguageCode } from "../lib/language";
 import {
   buildImportCsvPreview,
   type ImportCsvPreview,
@@ -80,12 +80,13 @@ import {
 import { writeExportCsv } from "../runtime/exportCommands";
 import { readImportCsv } from "../runtime/importCommands";
 import {
-  applyLanguageCsvPreview,
-  buildLanguageCsv,
-  buildLanguageCsvPreview,
-  type LanguageCsvApplyReport,
-  type LanguageCsvPreview as LanguageCsvPreviewType,
+  applyCustomLanguageCsvPreview,
+  buildLanguageExportCsv,
+  buildCustomLanguageCsvPreview,
+  type CustomLanguageCsvPreview as CustomLanguageCsvPreviewType,
 } from "../lib/languageCsv";
+import { removeCustomLanguage } from "../lib/customLanguages";
+import { resetAllOverridesForLanguage } from "../lib/languageOverrides";
 import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
 import {
   createManagedCategory,
@@ -175,7 +176,8 @@ type LanguageCsvStatus =
   | { state: "idle" }
   | { state: "pending" }
   | { state: "exportSuccess"; message: string }
-  | { state: "preview"; preview: LanguageCsvPreviewType }
+  | { state: "customPreview"; preview: CustomLanguageCsvPreviewType }
+  | { state: "removeConfirm"; code: string; label: string }
   | { state: "applySuccess"; message: string }
   | { state: "error"; message: string };
 
@@ -253,7 +255,7 @@ const safetyDiagnosticRows: SettingsRow[] = [
 
 function SettingsPage() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
-  const { languageCode, setLanguageCode, t, refreshOverrides } = useLanguage();
+  const { languageCode, setLanguageCode, t, refreshOverrides, refreshLanguages, languages } = useLanguage();
   const [appearanceTheme, setAppearanceTheme] = useState<AppearanceTheme>(
     () => getStoredAppearanceTheme(),
   );
@@ -522,7 +524,7 @@ function SettingsPage() {
     setLanguageCode(normalizeLanguageCode(value));
   }
 
-  async function handleExportLanguageCsv() {
+  async function handleExportLanguageTemplate() {
     if (isLanguageCsvBusy) {
       return;
     }
@@ -536,7 +538,7 @@ function SettingsPage() {
         return;
       }
 
-      const csvContent = buildLanguageCsv(languageCode);
+      const csvContent = buildLanguageExportCsv(languageCode);
       await writeExportCsv(destinationPath, csvContent);
       setLanguageCsvStatus({
         state: "exportSuccess",
@@ -553,7 +555,7 @@ function SettingsPage() {
     }
   }
 
-  async function handleImportLanguageCsv() {
+  async function handleAddLanguageFromCsv() {
     if (isLanguageCsvBusy) {
       return;
     }
@@ -568,25 +570,59 @@ function SettingsPage() {
       }
 
       const result = await readImportCsv(sourcePath);
-      const preview = buildLanguageCsvPreview(languageCode, result.csvContent);
-      setLanguageCsvStatus({ state: "preview", preview });
+      const preview = buildCustomLanguageCsvPreview(result.csvContent);
+      if (preview.headerError) {
+        setLanguageCsvStatus({ state: "error", message: preview.headerError });
+        return;
+      }
+      setLanguageCsvStatus({ state: "customPreview", preview });
     } catch (error) {
       setLanguageCsvStatus({
         state: "error",
         message:
           error instanceof Error
             ? error.message
-            : "Language CSV import failed.",
+            : "Custom language CSV import failed.",
       });
     }
   }
 
-  function handleApplyLanguageCsv(preview: LanguageCsvPreviewType) {
-    const report = applyLanguageCsvPreview(preview);
+  function handleApplyCustomLanguageCsv(preview: CustomLanguageCsvPreviewType) {
+    const report = applyCustomLanguageCsvPreview(preview);
+    refreshLanguages();
     refreshOverrides();
     setLanguageCsvStatus({
       state: "applySuccess",
-      message: `Applied ${report.applied} change${report.applied === 1 ? "" : "s"} (${report.overrides} override${report.overrides === 1 ? "" : "s"}, ${report.resets} reset${report.resets === 1 ? "" : "s"}). ${report.skipped} skipped.`,
+      message: `${preview.isNew ? "Added" : "Updated"} language "${preview.languageName}" (${preview.languageCode}). ${report.applied} translation${report.applied === 1 ? "" : "s"} applied. ${report.skipped} skipped.`,
+    });
+  }
+
+  function handleRemoveCustomLanguage() {
+    const removable = languages.filter((l) => l.code !== "en");
+    if (removable.length === 0) {
+      return;
+    }
+    // For simplicity, remove the last non-English language or show a confirm for the current non-English
+    // If current language is removable, offer to remove it; otherwise remove the last custom one
+    const target = removable.find((l) => l.code === languageCode) ?? removable[removable.length - 1];
+    setLanguageCsvStatus({
+      state: "removeConfirm",
+      code: target.code,
+      label: target.label,
+    });
+  }
+
+  function handleConfirmRemoveLanguage(code: string) {
+    removeCustomLanguage(code);
+    resetAllOverridesForLanguage(code);
+    refreshLanguages();
+    // If the removed language was active, switch to English
+    if (languageCode === code) {
+      setLanguageCode("en");
+    }
+    setLanguageCsvStatus({
+      state: "applySuccess",
+      message: `Removed language "${code}". Switched to English if it was active.`,
     });
   }
 
@@ -1114,7 +1150,7 @@ function SettingsPage() {
                   value={languageCode}
                   onChange={(event) => handleLanguageChange(event.target.value)}
                 >
-                  {supportedLanguages.map((language) => (
+                  {languages.map((language) => (
                     <option key={language.code} value={language.code}>
                       {language.label}
                     </option>
@@ -1143,41 +1179,44 @@ function SettingsPage() {
                   </div>
                   <span className="text-xs font-semibold text-slate-400">Not removable</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-700">Indonesian</span>
-                    <StatusPill tone="neutral">Bundled</StatusPill>
+                {languages.filter((l) => l.code !== "en").map((lang) => (
+                  <div key={lang.code} className="flex items-center justify-between px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-700">{lang.label}</span>
+                      <StatusPill tone="neutral">{lang.code === "id" ? "Bundled" : "Custom"}</StatusPill>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-400">Removable</span>
                   </div>
-                  <span className="text-xs font-semibold text-slate-400">Custom / Removable</span>
-                </div>
+                ))}
               </div>
             </div>
           </SettingsControlRow>
           <SettingsControlRow
             title="Language CSV Tools"
-            helper="Export, import, and manage language packs via CSV files."
+            helper="Export templates and manage custom language packs via CSV."
           >
             <div className="grid gap-2 sm:grid-cols-2">
               <LanguageActionCard
-                label="Export Language CSV"
-                detail="Export current language keys and text to CSV."
+                label={languageCode === "en" ? "Export Starter CSV" : "Export Language CSV"}
+                detail={languageCode === "en" ? "Export a starter CSV prefilled from English." : `Export editable CSV for ${languages.find((l) => l.code === languageCode)?.label ?? languageCode}.`}
                 disabled={!isDesktopRuntime || isLanguageCsvBusy}
-                onClick={handleExportLanguageCsv}
+                onClick={handleExportLanguageTemplate}
               />
               <LanguageActionCard
-                label="Import Language CSV"
-                detail="Import translations from a CSV file."
+                label="Import Custom Language"
+                detail="Add or update a custom language from CSV."
                 disabled={!isDesktopRuntime || isLanguageCsvBusy}
-                onClick={handleImportLanguageCsv}
-              />
-              <LanguageActionCard
-                label="Add Language from CSV"
-                detail="Add a new custom language pack from CSV."
-                planned
+                onClick={handleAddLanguageFromCsv}
               />
               <LanguageActionCard
                 label="Remove Custom Language"
                 detail="Remove a non-primary language pack."
+                disabled={!isDesktopRuntime || isLanguageCsvBusy || languages.filter((l) => l.code !== "en").length === 0}
+                onClick={handleRemoveCustomLanguage}
+              />
+              <LanguageActionCard
+                label="Reset Custom Language"
+                detail="Clear all overrides for a custom language."
                 planned
               />
             </div>
@@ -1191,12 +1230,65 @@ function SettingsPage() {
                 <p className="text-xs font-semibold text-rose-700">{languageCsvStatus.message}</p>
               </div>
             )}
-            {languageCsvStatus.state === "preview" && (
-              <LanguageCsvPreviewPanel
-                preview={languageCsvStatus.preview}
-                onApply={handleApplyLanguageCsv}
-                onCancel={() => setLanguageCsvStatus({ state: "idle" })}
-              />
+            {languageCsvStatus.state === "customPreview" && (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-sm font-semibold text-slate-800">
+                  {languageCsvStatus.preview.isNew ? "Add" : "Update"} Custom Language
+                </p>
+                <div className="mt-2 grid gap-1 text-xs font-semibold text-slate-600">
+                  <p>Language: {languageCsvStatus.preview.languageName} ({languageCsvStatus.preview.languageCode})</p>
+                  <p>Valid: {languageCsvStatus.preview.validRows} ({languageCsvStatus.preview.overrideRows} translations, {languageCsvStatus.preview.resetRows} resets)</p>
+                  {languageCsvStatus.preview.warningRows > 0 && (
+                    <p className="text-amber-700">{languageCsvStatus.preview.warningRows} warning(s)</p>
+                  )}
+                  {languageCsvStatus.preview.errorRows > 0 && (
+                    <p className="text-rose-700">{languageCsvStatus.preview.errorRows} error(s)</p>
+                  )}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={languageCsvStatus.preview.validRows === 0}
+                    onClick={() => handleApplyCustomLanguageCsv(languageCsvStatus.preview)}
+                    className="h-8 rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-xs font-semibold text-sakura-600 hover:bg-sakura-100 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    {languageCsvStatus.preview.isNew ? "Add" : "Update"} Language
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguageCsvStatus({ state: "idle" })}
+                    className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {languageCsvStatus.state === "removeConfirm" && (
+              <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                <p className="text-sm font-semibold text-rose-800">
+                  Remove "{languageCsvStatus.label}" ({languageCsvStatus.code})?
+                </p>
+                <p className="mt-1 text-xs font-semibold text-rose-700">
+                  All translations and overrides for this language will be deleted. This cannot be undone.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmRemoveLanguage(languageCsvStatus.code)}
+                    className="h-8 rounded-lg border border-rose-300 bg-rose-100 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-200"
+                  >
+                    Remove Language
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguageCsvStatus({ state: "idle" })}
+                    className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
             {languageCsvStatus.state === "applySuccess" && (
               <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2" role="alert">
@@ -1669,68 +1761,6 @@ function exportButtonClassName(enabled: boolean) {
       ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
       : "border-slate-200 bg-slate-50 text-slate-400",
   ].join(" ");
-}
-
-function LanguageCsvPreviewPanel({
-  preview,
-  onApply,
-  onCancel,
-}: {
-  preview: LanguageCsvPreviewType;
-  onApply: (preview: LanguageCsvPreviewType) => void;
-  onCancel: () => void;
-}) {
-  const hasErrors = preview.errorRows > 0 && preview.validRows === 0;
-
-  return (
-    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-sm font-semibold text-slate-800">Import Preview</p>
-      <div className="mt-2 grid gap-1 text-xs font-semibold text-slate-600">
-        <p>Language: {preview.languageCode}</p>
-        <p>Total rows: {preview.totalRows}</p>
-        <p>Valid: {preview.validRows} ({preview.overrideRows} override{preview.overrideRows === 1 ? "" : "s"}, {preview.resetRows} reset{preview.resetRows === 1 ? "" : "s"})</p>
-        {preview.warningRows > 0 && (
-          <p className="text-amber-700">{preview.warningRows} warning{preview.warningRows === 1 ? "" : "s"} (unknown keys — not applied)</p>
-        )}
-        {preview.errorRows > 0 && (
-          <p className="text-rose-700">{preview.errorRows} error{preview.errorRows === 1 ? "" : "s"} (duplicates — not applied)</p>
-        )}
-      </div>
-      {preview.rows.some((r) => r.error || r.warning) && (
-        <div className="mt-2 max-h-24 overflow-y-auto rounded border border-slate-200 bg-white p-2 text-xs text-slate-600">
-          {preview.rows
-            .filter((r) => r.error || r.warning)
-            .map((r) => (
-              <p key={`${r.lineNumber}-${r.key}`} className={r.error ? "text-rose-600" : "text-amber-600"}>
-                Line {r.lineNumber}: {r.key} — {r.error || r.warning}
-              </p>
-            ))}
-        </div>
-      )}
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          disabled={hasErrors}
-          onClick={() => onApply(preview)}
-          className={[
-            "h-8 rounded-lg border px-3 text-xs font-semibold",
-            hasErrors
-              ? "border-slate-200 bg-slate-100 text-slate-400"
-              : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100",
-          ].join(" ")}
-        >
-          Apply {preview.validRows} Change{preview.validRows === 1 ? "" : "s"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function LanguageActionCard({
