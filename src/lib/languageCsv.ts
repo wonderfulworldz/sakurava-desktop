@@ -9,7 +9,12 @@ import {
   resetOverrideForLanguage,
   setOverrideForLanguage,
 } from "./languageOverrides";
+import { addCustomLanguage, getStoredCustomLanguages } from "./customLanguages";
 import { localFileTimestamp } from "../runtime/exportCommands";
+
+// --- CSV headers (5-column format) ---
+
+const csvHeaders = ["Language Code", "Language Name", "Key", "Text", "Description"] as const;
 
 // --- CSV filename ---
 
@@ -17,35 +22,22 @@ export function defaultLanguageCsvFileName(
   languageCode: LanguageCode,
   date = new Date(),
 ) {
-  return `${languageCode}-skv-lang-${localFileTimestamp(date)}.csv`;
+  const code = languageCode === "en" ? "custom" : languageCode;
+  return `${code}-skv-lang-${localFileTimestamp(date)}.csv`;
 }
 
 // --- CSV export ---
 
-const csvHeaders = ["Key", "Text", "Description", "Status"] as const;
-
-type LanguageCsvRowStatus = "Built-in" | "Custom" | "Missing" | "Fallback";
-
-function resolveRowStatus(
-  languageCode: LanguageCode,
-  key: string,
-  overrides: Record<string, string>,
-): LanguageCsvRowStatus {
-  if (overrides[key]) {
-    return "Custom";
+function escapeCsvCell(value: string): string {
+  if (
+    value.includes(",") ||
+    value.includes('"') ||
+    value.includes("\n") ||
+    value.includes("\r")
+  ) {
+    return `"${value.replace(/"/g, '""')}"`;
   }
-
-  const builtInText = getBuiltInText(languageCode, key);
-  if (builtInText !== undefined) {
-    return "Built-in";
-  }
-
-  const englishText = getBuiltInText("en", key);
-  if (englishText !== undefined) {
-    return languageCode === "en" ? "Built-in" : "Fallback";
-  }
-
-  return "Missing";
+  return value;
 }
 
 function resolveEffectiveText(
@@ -70,37 +62,48 @@ function resolveEffectiveText(
   return key;
 }
 
-function escapeCsvCell(value: string): string {
-  if (
-    value.includes(",") ||
-    value.includes('"') ||
-    value.includes("\n") ||
-    value.includes("\r")
-  ) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
-
-export function buildLanguageCsv(languageCode: LanguageCode): string {
+/**
+ * Export a custom language CSV.
+ * - If languageCode is "en": exports a starter CSV prefilled from English text.
+ * - If languageCode is non-English: exports an edit/replace CSV for that language.
+ */
+export function buildLanguageExportCsv(languageCode: LanguageCode): string {
   const keys = getAllTranslationKeys();
-  const overrides = getOverridesForLanguage(languageCode);
+  const isEnglish = languageCode === "en";
+  const overrides = isEnglish ? {} : getOverridesForLanguage(languageCode);
+
+  const code = isEnglish ? "custom" : languageCode;
+  const name = isEnglish
+    ? "Custom Language"
+    : getLanguageLabel(languageCode);
 
   const headerRow = csvHeaders.join(",");
   const dataRows = keys.map((key) => {
     const text = resolveEffectiveText(languageCode, key, overrides);
     const description = getKeyDescription(key);
-    const status = resolveRowStatus(languageCode, key, overrides);
 
     return [
+      escapeCsvCell(code),
+      escapeCsvCell(name),
       escapeCsvCell(key),
       escapeCsvCell(text),
       escapeCsvCell(description),
-      escapeCsvCell(status),
     ].join(",");
   });
 
   return [headerRow, ...dataRows].join("\n");
+}
+
+function getLanguageLabel(languageCode: LanguageCode): string {
+  const custom = getStoredCustomLanguages();
+  const found = custom.find((l) => l.code === languageCode);
+  if (found) {
+    return found.label;
+  }
+  if (languageCode === "id") {
+    return "Indonesian";
+  }
+  return languageCode;
 }
 
 // --- CSV import preview ---
@@ -110,14 +113,15 @@ export type LanguageCsvPreviewRow = {
   key: string;
   text: string;
   description: string;
-  status: string;
   action: "override" | "reset" | "skip";
   warning?: string;
   error?: string;
 };
 
-export type LanguageCsvPreview = {
-  languageCode: LanguageCode;
+export type CustomLanguageCsvPreview = {
+  languageCode: string;
+  languageName: string;
+  isNew: boolean;
   totalRows: number;
   validRows: number;
   overrideRows: number;
@@ -125,6 +129,7 @@ export type LanguageCsvPreview = {
   warningRows: number;
   errorRows: number;
   rows: LanguageCsvPreviewRow[];
+  headerError?: string;
 };
 
 function parseCsvLine(line: string): string[] {
@@ -208,90 +213,132 @@ function parseCsvContent(csvContent: string): string[][] {
   return lines.map(parseCsvLine);
 }
 
-export function buildLanguageCsvPreview(
-  languageCode: LanguageCode,
+export function buildCustomLanguageCsvPreview(
   csvContent: string,
-): LanguageCsvPreview {
+): CustomLanguageCsvPreview {
   const allRows = parseCsvContent(csvContent);
   const knownKeys = new Set(getAllTranslationKeys());
   const seenKeys = new Set<string>();
 
   if (allRows.length === 0) {
-    return emptyPreview(languageCode, "Empty CSV file.");
+    return emptyCustomPreview("Empty CSV file.");
   }
 
   const headerRow = allRows[0];
   const normalizedHeaders = headerRow.map((h) => h.trim().toLowerCase());
 
+  // Detect old 7-column format and give clear error
   if (
-    normalizedHeaders[0] !== "key" ||
-    normalizedHeaders[1] !== "text"
+    normalizedHeaders.length >= 7 &&
+    normalizedHeaders[0] === "language code" &&
+    normalizedHeaders[2] === "base language"
   ) {
-    return emptyPreview(
-      languageCode,
-      "Invalid CSV headers. Expected: Key,Text,Description,Status",
+    return emptyCustomPreview(
+      "Unsupported 7-column CSV format detected. Please use the current 5-column format: Language Code,Language Name,Key,Text,Description",
+    );
+  }
+
+  // Validate 5-column headers
+  if (
+    normalizedHeaders[0] !== "language code" ||
+    normalizedHeaders[1] !== "language name" ||
+    normalizedHeaders[2] !== "key" ||
+    normalizedHeaders[3] !== "text"
+  ) {
+    return emptyCustomPreview(
+      "Invalid CSV headers. Expected: Language Code,Language Name,Key,Text,Description",
     );
   }
 
   const dataRows = allRows.slice(1);
+  if (dataRows.length === 0) {
+    return emptyCustomPreview("No data rows in CSV.");
+  }
+
+  // Extract language metadata from first data row
+  const firstRow = dataRows[0];
+  const languageCode = (firstRow[0] ?? "").trim().toLowerCase();
+  const languageName = (firstRow[1] ?? "").trim();
+
+  if (!languageCode) {
+    return emptyCustomPreview("Language Code is required.");
+  }
+
+  if (!languageName) {
+    return emptyCustomPreview("Language Name is required.");
+  }
+
+  if (languageCode === "en") {
+    return emptyCustomPreview("Cannot import custom language with code 'en'. English is the built-in primary language.");
+  }
+
+  // Validate all rows use the same language code
   const previewRows: LanguageCsvPreviewRow[] = [];
 
   for (let i = 0; i < dataRows.length; i++) {
     const cells = dataRows[i];
-    const lineNumber = i + 2; // 1-indexed, skip header
-    const key = (cells[0] ?? "").trim();
-    const text = (cells[1] ?? "").trim();
-    const description = (cells[2] ?? "").trim();
-    const status = (cells[3] ?? "").trim();
+    const lineNumber = i + 2;
+    const rowLangCode = (cells[0] ?? "").trim().toLowerCase();
+    const rowKey = (cells[2] ?? "").trim();
+    const rowText = (cells[3] ?? "").trim();
+    const rowDescription = (cells[4] ?? "").trim();
 
-    if (!key) {
+    if (!rowKey) {
       continue; // skip blank rows
     }
 
-    if (seenKeys.has(key)) {
+    if (rowLangCode && rowLangCode !== languageCode) {
       previewRows.push({
         lineNumber,
-        key,
-        text,
-        description,
-        status,
+        key: rowKey,
+        text: rowText,
+        description: rowDescription,
+        action: "skip",
+        error: `Mixed language codes in one CSV. Expected '${languageCode}', found '${rowLangCode}'.`,
+      });
+      continue;
+    }
+
+    if (seenKeys.has(rowKey)) {
+      previewRows.push({
+        lineNumber,
+        key: rowKey,
+        text: rowText,
+        description: rowDescription,
         action: "skip",
         error: "Duplicate key — not applied.",
       });
       continue;
     }
 
-    seenKeys.add(key);
+    seenKeys.add(rowKey);
 
-    if (!knownKeys.has(key)) {
+    if (!knownKeys.has(rowKey)) {
       previewRows.push({
         lineNumber,
-        key,
-        text,
-        description,
-        status,
+        key: rowKey,
+        text: rowText,
+        description: rowDescription,
         action: "skip",
         warning: "Unknown key — not applied.",
       });
       continue;
     }
 
-    if (text === "") {
+    if (rowText === "") {
       previewRows.push({
         lineNumber,
-        key,
-        text,
-        description,
-        status,
+        key: rowKey,
+        text: rowText,
+        description: rowDescription,
         action: "reset",
       });
     } else {
       previewRows.push({
         lineNumber,
-        key,
-        text,
-        description,
-        status,
+        key: rowKey,
+        text: rowText,
+        description: rowDescription,
         action: "override",
       });
     }
@@ -303,8 +350,16 @@ export function buildLanguageCsvPreview(
   const errorRows = previewRows.filter((r) => r.error).length;
   const validRows = overrideRows + resetRows;
 
+  // Determine if this is a new or existing custom language
+  const existingCustom = getStoredCustomLanguages();
+  const isNew = !existingCustom.some(
+    (lang) => lang.code.trim().toLowerCase() === languageCode,
+  ) && languageCode !== "id"; // id is bundled, treat as existing
+
   return {
     languageCode,
+    languageName,
+    isNew,
     totalRows: previewRows.length,
     validRows,
     overrideRows,
@@ -326,9 +381,17 @@ export type LanguageCsvApplyReport = {
   errors: number;
 };
 
-export function applyLanguageCsvPreview(
-  preview: LanguageCsvPreview,
+export function applyCustomLanguageCsvPreview(
+  preview: CustomLanguageCsvPreview,
 ): LanguageCsvApplyReport {
+  // Register/update the custom language metadata
+  addCustomLanguage({
+    code: preview.languageCode,
+    label: preview.languageName,
+    baseLanguage: "en",
+  });
+
+  // Apply translations as overrides
   let overrides = 0;
   let resets = 0;
   let skipped = 0;
@@ -367,12 +430,11 @@ export function applyLanguageCsvPreview(
   };
 }
 
-function emptyPreview(
-  languageCode: LanguageCode,
-  errorMessage: string,
-): LanguageCsvPreview {
+function emptyCustomPreview(errorMessage: string): CustomLanguageCsvPreview {
   return {
-    languageCode,
+    languageCode: "",
+    languageName: "",
+    isNew: false,
     totalRows: 0,
     validRows: 0,
     overrideRows: 0,
@@ -385,10 +447,10 @@ function emptyPreview(
         key: "",
         text: "",
         description: "",
-        status: "",
         action: "skip",
         error: errorMessage,
       },
     ],
+    headerError: errorMessage,
   };
 }

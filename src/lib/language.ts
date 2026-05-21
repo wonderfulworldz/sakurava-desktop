@@ -1,7 +1,7 @@
-export type LanguageCode = "en" | "id";
+export type LanguageCode = string;
 
 export type SupportedLanguage = {
-  code: LanguageCode;
+  code: string;
   label: string;
   nativeLabel: string;
 };
@@ -9,10 +9,59 @@ export type SupportedLanguage = {
 export const languageStorageKey = "sakurava.language.selected.v1";
 export const defaultLanguageCode: LanguageCode = "en";
 
-export const supportedLanguages: SupportedLanguage[] = [
+const builtInLanguages: SupportedLanguage[] = [
   { code: "en", label: "English", nativeLabel: "English" },
-  { code: "id", label: "Indonesian", nativeLabel: "Bahasa Indonesia" },
 ];
+
+export { builtInLanguages };
+
+export function getSupportedLanguages(): SupportedLanguage[] {
+  if (typeof window === "undefined") {
+    return builtInLanguages;
+  }
+
+  try {
+    // Get removed bundled languages
+    const removedRaw = window.localStorage.getItem("sakurava.removedBundledLanguages.v1");
+    const removedBundled: string[] = removedRaw ? JSON.parse(removedRaw) ?? [] : [];
+
+    // Include bundled languages that haven't been removed
+    const bundled: SupportedLanguage[] = [
+      { code: "id", label: "Indonesian", nativeLabel: "Bahasa Indonesia" },
+    ].filter((b) => !removedBundled.includes(b.code));
+
+    // Get custom languages from storage
+    const raw = window.localStorage.getItem("sakurava.customLanguages.v1");
+    if (!raw) {
+      return [...builtInLanguages, ...bundled];
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [...builtInLanguages, ...bundled];
+    }
+    const allBuiltInAndBundled = [...builtInLanguages, ...bundled];
+    const customEntries: SupportedLanguage[] = parsed
+      .filter(
+        (item: unknown): item is { code: string; label: string } =>
+          !!item &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).code === "string" &&
+          typeof (item as Record<string, unknown>).label === "string" &&
+          !allBuiltInAndBundled.some((b) => b.code === (item as Record<string, unknown>).code),
+      )
+      .map((lang) => ({
+        code: lang.code,
+        label: lang.label,
+        nativeLabel: lang.label,
+      }));
+    return [...allBuiltInAndBundled, ...customEntries];
+  } catch {
+    return builtInLanguages;
+  }
+}
+
+/** @deprecated Use getSupportedLanguages() for dynamic list */
+export const supportedLanguages = builtInLanguages;
 
 type TranslationDictionary = Partial<Record<string, string>>;
 
@@ -288,7 +337,8 @@ export function getBuiltInText(
   key: string,
 ): string | undefined {
   const normalizedLanguage = normalizeLanguageCode(languageCode);
-  return dictionaries[normalizedLanguage][key];
+  const dict = dictionaries[normalizedLanguage as keyof typeof dictionaries];
+  return dict?.[key];
 }
 
 export function getKeyDescription(key: string): string {
@@ -306,8 +356,9 @@ export function normalizeLanguageCode(value: unknown): LanguageCode {
   }
 
   const normalized = value.trim().toLowerCase();
-  return supportedLanguages.some((language) => language.code === normalized)
-    ? (normalized as LanguageCode)
+  const allLanguages = getSupportedLanguages();
+  return allLanguages.some((language) => language.code === normalized)
+    ? normalized
     : defaultLanguageCode;
 }
 
@@ -342,9 +393,10 @@ export function translate(
   overrides: Partial<Record<string, string>> = {},
 ) {
   const normalizedLanguage = normalizeLanguageCode(languageCode);
+  const builtInDict = dictionaries[normalizedLanguage as keyof typeof dictionaries];
   const translated =
     overrides[key] ??
-    dictionaries[normalizedLanguage][key] ??
+    builtInDict?.[key] ??
     dictionaries[defaultLanguageCode][key] ??
     key;
 
