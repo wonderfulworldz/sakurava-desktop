@@ -41,7 +41,7 @@ export function deriveQualityBucket(record: unknown): QualityBucket | null {
         numberValue(record.mainHeight),
     );
 
-  return dimensions ? qualityFromHeight(dimensions.height) : null;
+  return dimensions ? qualityFromDimensions(dimensions.width, dimensions.height) : null;
 }
 
 export function deriveDebutYear(record: unknown) {
@@ -78,28 +78,32 @@ function directQualityBucket(value: string | null): QualityBucket | null {
   return QUALITY_BUCKETS.find((bucket) => bucket === normalized) ?? null;
 }
 
-function qualityFromHeight(height: number): QualityBucket | null {
-  if (!Number.isFinite(height) || height <= 0) {
+function qualityFromDimensions(width: number, height: number): QualityBucket | null {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     return null;
   }
 
-  if (height >= 4320) {
+  // Use the long side to support both portrait and landscape orientations
+  const longSide = Math.max(width, height);
+  const shortSide = Math.min(width, height);
+
+  if (longSide >= 7680 || shortSide >= 4320) {
     return "8K";
   }
 
-  if (height >= 2160) {
+  if (longSide >= 3840 || shortSide >= 2160) {
     return "4K";
   }
 
-  if (height >= 1440) {
+  if (longSide >= 2560 || shortSide >= 1440) {
     return "2K";
   }
 
-  if (height >= 1080) {
+  if (longSide >= 1920 || shortSide >= 1080) {
     return "FHD";
   }
 
-  if (height >= 720) {
+  if (longSide >= 1280 || shortSide >= 720) {
     return "HD";
   }
 

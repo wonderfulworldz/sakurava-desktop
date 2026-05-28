@@ -18,6 +18,7 @@ type BaseCollectionItem = {
 
 export type VideoCollectionItem = BaseCollectionItem & {
   kind: "videos";
+  code: string;
   duration: string;
   durationMinutes?: number | null;
   resolution?: string;
@@ -36,6 +37,9 @@ export type PerformerCollectionItem = {
   key: string;
   name: string;
   originalName: string;
+  aliases: string;
+  yearsActive: string;
+  activeAges: string;
   coverPath?: string;
   favorite: boolean;
   createdAt?: number | string | null;
@@ -191,6 +195,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       key: `video-sample-${String(index + 1).padStart(3, "0")}`,
       title: "Sample Video Title",
       originalTitle: "Original Title Placeholder",
+      code: `VID-${String(index + 1).padStart(3, "0")}`,
       duration,
       durationMinutes: numberFromDisplayText(duration),
       releaseYear: null,
@@ -248,6 +253,9 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       key: `performer-sample-${String(index + 1).padStart(3, "0")}`,
       name: "Sample Performer Name",
       originalName: "Original Name Placeholder",
+      aliases: "Alias One, Alias Two",
+      yearsActive: "Unknown - Now",
+      activeAges: "Age unknown",
       status,
       ratingBucket: null,
       filmographyCount,

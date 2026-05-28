@@ -1,30 +1,26 @@
 import {
-  Clock3,
   ChevronDown,
   Filter,
   Grid2X2,
-  Heart,
-  Image as ImageIcon,
   List,
   Plus,
   Search,
-  UserRound,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/cards";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
-import { localImagePathToAssetSrc } from "../runtime/localAsset";
-import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
 type CollectionPageProps = {
   config: CollectionConfig;
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
 };
 
 type ViewMode = "card" | "table";
 type DataFilterValues = Record<string, string>;
 
-function CollectionPage({ config }: CollectionPageProps) {
+function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
@@ -156,14 +152,14 @@ function CollectionPage({ config }: CollectionPageProps) {
           {viewMode === "card" ? (
             <section
               className={[
-                "grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]",
+                "grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]",
                 config.kind === "performers"
-                  ? "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]"
-                  : "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]",
+                  ? "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]"
+                  : "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]",
               ].join(" ")}
             >
               {pageItems.map((item) => (
-                <CollectionCard key={item.key} config={config} item={item} />
+                <FullCard key={item.key} config={config} item={item} onFavoriteToggle={onFavoriteToggle} />
               ))}
             </section>
           ) : (
@@ -575,203 +571,22 @@ function CollectionTableRow({
 type CollectionCardProps = {
   config: CollectionConfig;
   item: CollectionItem;
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
 };
 
-function CollectionCard({ config, item }: CollectionCardProps) {
-  const title = item.kind === "performers" ? item.name : item.title;
-  const originalTitle =
-    item.kind === "performers" ? item.originalName : item.originalTitle;
+function FullCard({ config, item, onFavoriteToggle }: CollectionCardProps) {
+  const linkTo = `/${config.kind}/${item.key}`;
+  const handleFavorite = onFavoriteToggle ? () => onFavoriteToggle(item.key, item.favorite) : undefined;
 
-  return (
-    <Link
-      to={`/${config.kind}/${item.key}`}
-      className="group overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 transition hover:border-sakura-200 hover:shadow-sm"
-    >
-      <PlaceholderMedia
-        kind={config.kind}
-        label={config.placeholderLabel}
-        title={title}
-        coverPath={item.coverPath}
-        favorite={item.favorite}
-      />
-
-      <div className="space-y-2.5 pt-3">
-        <div>
-          <h2 className="truncate text-sm font-semibold text-slate-950">
-            {title}
-          </h2>
-          <p className="mt-1 truncate text-xs font-medium text-slate-500">
-            {originalTitle}
-          </p>
-        </div>
-
-        <CardMetadata item={item} />
-
-        <div className="flex flex-wrap gap-2">
-          {item.categories.map((category) => (
-            <CategoryChip key={category} label={category} />
-          ))}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function PlaceholderMedia({
-  kind,
-  label,
-  title,
-  coverPath,
-  favorite,
-}: {
-  kind: CollectionConfig["kind"];
-  label: string;
-  title: string;
-  coverPath?: string;
-  favorite: boolean;
-}) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(coverPath);
-  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [assetSrc, mediaAssetScopeReady]);
-
-  return (
-    <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <div
-        className={[
-          "relative flex items-end justify-center",
-          kind === "performers" ? "aspect-[4/5]" : "aspect-video",
-        ].join(" ")}
-        role={showImage ? undefined : "img"}
-        aria-label={showImage ? undefined : label}
-      >
-        {showImage ? (
-          <img
-            src={assetSrc ?? undefined}
-            alt={`${title} cover`}
-            className="absolute inset-0 h-full w-full object-cover"
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-          />
-        ) : kind === "performers" ? (
-          <ProfilePlaceholder />
-        ) : (
-          <ImagePlaceholder />
-        )}
-      </div>
-      <span
-        className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-full bg-white/90 text-sakura-500 shadow-sm"
-        aria-label={favorite ? "Favorite" : "Not favorite"}
-      >
-        <Heart size={20} fill={favorite ? "currentColor" : "none"} />
-      </span>
-    </div>
-  );
-}
-
-function ImagePlaceholder() {
-  return (
-    <div className="absolute inset-0 text-slate-200">
-      <div className="absolute right-[28%] top-[28%] size-6 rounded-full bg-slate-200/80" />
-      <div className="absolute bottom-0 left-[7%] h-[64%] w-[54%] rounded-t-[44px] bg-slate-200/70 [clip-path:polygon(0_100%,38%_25%,100%_100%)]" />
-      <div className="absolute bottom-0 right-[7%] h-[42%] w-[42%] rounded-t-[34px] bg-slate-200/65 [clip-path:polygon(0_100%,45%_18%,100%_100%)]" />
-      <ImageIcon className="sr-only" size={1} />
-    </div>
-  );
-}
-
-function ProfilePlaceholder() {
-  return (
-    <div className="relative flex h-full w-full items-end justify-center text-slate-300">
-      <div className="absolute bottom-0 h-[76%] w-[48%] rounded-t-full bg-slate-300/75" />
-      <div className="absolute bottom-[10%] h-[46%] w-[36%] rounded-t-[55%] bg-white/85" />
-      <div className="absolute bottom-[11%] h-[60%] w-[44%] rounded-t-full bg-slate-300/80 [clip-path:polygon(16%_0,84%_0,98%_72%,72%_100%,28%_100%,2%_72%)]" />
-      <div className="absolute bottom-0 h-[26%] w-[54%] rounded-t-full bg-slate-300/75" />
-      <UserRound className="sr-only" size={1} />
-    </div>
-  );
-}
-
-function CardMetadata({ item }: { item: CollectionItem }) {
   if (item.kind === "performers") {
-    return (
-      <div className="space-y-3">
-        <div>
-          <StatusChip label={item.status} />
-        </div>
-        <p className="text-xs font-medium text-slate-500">
-          {item.filmographyCount}
-          <span className="px-2 text-slate-300">.</span>
-          {item.pictorialsCount}
-        </p>
-      </div>
-    );
+    return <PerformerFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
   }
 
   if (item.kind === "images") {
-    return (
-      <div className="space-y-3">
-        <div className="space-y-1 text-xs font-semibold text-slate-700">
-          <p>{item.code}</p>
-          <p>{item.imageCount}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusChip label={item.availability ?? "Owned"} />
-          <CensorshipChip label={item.censorship ?? "Censored"} />
-        </div>
-      </div>
-    );
+    return <ImageFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
   }
 
-  return (
-    <div className="space-y-3">
-      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-        <Clock3 size={14} />
-        {item.duration}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <StatusChip label={item.availability ?? "Owned"} />
-        <CensorshipChip label={item.censorship ?? "Censored"} />
-      </div>
-    </div>
-  );
-}
-
-function StatusChip({ label }: { label: string }) {
-  const isRetired = label === "Retired";
-
-  return (
-    <span
-      className={[
-        "inline-flex rounded-md px-2.5 py-1 text-xs font-semibold",
-        isRetired
-          ? "bg-slate-100 text-slate-700"
-          : "bg-emerald-50 text-emerald-700",
-      ].join(" ")}
-    >
-      {label}
-    </span>
-  );
-}
-
-function CensorshipChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-sakura-600">
-      {label}
-    </span>
-  );
-}
-
-function CategoryChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex rounded-md bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-600">
-      {label}
-    </span>
-  );
+  return <VideoFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
 }
 
 function PaginationBar({

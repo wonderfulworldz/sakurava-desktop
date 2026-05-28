@@ -4,6 +4,8 @@ import type {
   Performer,
   Video as VideoRecord,
 } from "../backend/types";
+import { parseTextLabelArray } from "../backend/json";
+import { createRatingSummary } from "./ratingSummary";
 
 export type HomeSummaryCard = {
   labelKey: string;
@@ -20,6 +22,14 @@ export type HomeRecentItem = {
   typeLabel: "Video" | "Image" | "Performer";
   coverPath?: string;
   favorite: boolean;
+  code?: string;
+  aliases?: string;
+  releaseYear?: string;
+  rating?: number | null;
+  duration?: string;
+  imageCount?: string;
+  filmographyCount?: string;
+  pictorialsCount?: string;
 };
 
 type HomeRecentCandidate = HomeRecentItem & {
@@ -168,6 +178,10 @@ function normalizeHomeItems({
       typeLabel: "Video" as const,
       coverPath: video.coverPath,
       favorite: video.favorite,
+      code: video.code || "No code",
+      releaseYear: releaseYear(video.releaseDate),
+      rating: createRatingSummary(video.ratingJson).average,
+      duration: formatMinutes(video.durationMinutes),
       createdAt: video.createdAt,
       updatedAt: video.updatedAt,
     })),
@@ -179,6 +193,10 @@ function normalizeHomeItems({
       typeLabel: "Image" as const,
       coverPath: image.coverPath,
       favorite: image.favorite,
+      code: image.code || "No code",
+      releaseYear: releaseYear(image.releaseDate),
+      rating: createRatingSummary(image.ratingJson).average,
+      imageCount: formatImageCount(image.imageCount),
       createdAt: image.createdAt,
       updatedAt: image.updatedAt,
     })),
@@ -190,6 +208,10 @@ function normalizeHomeItems({
       typeLabel: "Performer" as const,
       coverPath: performer.coverPath,
       favorite: performer.favorite,
+      aliases: formatAliases(performer.aliasesJson),
+      rating: createRatingSummary(performer.ratingJson).average,
+      filmographyCount: String(relatedCount(performer.relatedVideosJson)),
+      pictorialsCount: String(relatedCount(performer.relatedImagesJson)),
       createdAt: performer.createdAt,
       updatedAt: performer.updatedAt,
     })),
@@ -202,6 +224,36 @@ function countDetail(count: number, singularLabel: string) {
   }
 
   return `${count} ${singularLabel}${count === 1 ? "" : "s"}`;
+}
+
+function releaseYear(value: string) {
+  const match = value.trim().match(/^(\d{4})/);
+  return match?.[1] ?? "Unknown";
+}
+
+function formatMinutes(value: number | null) {
+  return value && value > 0 ? `${value} min` : "-";
+}
+
+function formatImageCount(value: number | null) {
+  return value && value > 0 ? `${value} images` : "-";
+}
+
+function relatedCount(value: string | null | undefined) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function formatAliases(value: string | null | undefined) {
+  const aliases = parseTextLabelArray(value)
+    .map((alias) => alias.trim())
+    .filter(Boolean);
+
+  return aliases.length > 0 ? aliases.join(", ") : "No aliases";
 }
 
 function sortRecentlyAddedItems<T extends HomeRecentCandidate>(items: T[]) {

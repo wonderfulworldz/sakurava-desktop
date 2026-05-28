@@ -165,6 +165,7 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     key: video.id,
     title: video.title,
     originalTitle: video.originalTitle,
+    code: video.code || "No code",
     coverPath: video.coverPath,
     createdAt: video.createdAt,
     updatedAt: video.updatedAt,
@@ -300,7 +301,11 @@ function buildRelatedPerformerItems(
             ? performer.originalName
             : undefined,
         coverPath: performer.coverPath,
+        aliases: formatAliases(performer.aliasesJson),
         metadata: performer.status || undefined,
+        rating: createRatingSummary(performer.ratingJson).average,
+        filmographyCount: String(derivedRelatedCount(performer.relatedVideosJson)),
+        pictorialsCount: String(derivedRelatedCount(performer.relatedImagesJson)),
         routeTo: `/performers/${performer.id}`,
         unresolved: false,
       };
@@ -315,7 +320,7 @@ function buildRelatedPerformerItems(
 
 function buildRelatedCatalogItems(
   relatedCatalogJson: string | null | undefined,
-  records: Array<Pick<Image, "id" | "title" | "originalTitle" | "coverPath" | "imageCount" | "releaseDate">>,
+  records: Array<Pick<Image, "id" | "title" | "originalTitle" | "code" | "coverPath" | "imageCount" | "releaseDate" | "ratingJson">>,
   fallbackTitle: string,
 ) {
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -335,8 +340,10 @@ function buildRelatedCatalogItems(
             ? record.originalTitle
             : undefined,
         coverPath: record.coverPath,
+        code: record.code || "No code",
         metadata: formatImageCount(record.imageCount),
         releaseDate: record.releaseDate,
+        rating: createRatingSummary(record.ratingJson).average,
         routeTo: `/images/${record.id}`,
         unresolved: false,
       };
@@ -355,4 +362,16 @@ function formatImageCount(count: number | null) {
   }
 
   return `${count} ${count === 1 ? "image" : "images"}`;
+}
+
+function formatAliases(value: string | null | undefined) {
+  const aliases = parseTextLabelArray(value)
+    .map((alias) => alias.trim())
+    .filter(Boolean);
+
+  return aliases.length > 0 ? aliases.join(", ") : "No aliases";
+}
+
+function derivedRelatedCount(value: string | null | undefined) {
+  return parseRelatedCatalogRecordArray(value).length;
 }

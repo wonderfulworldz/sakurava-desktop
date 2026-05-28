@@ -21,15 +21,19 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
+import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
 import type {
   DetailConfig,
   DetailSection,
   MediaPathItem,
   PerformerDetailConfig,
 } from "../lib/detailData";
+import type { HomeRecentItem } from "../lib/homeData";
 import { calculateAverageRating } from "../lib/ratingSummary";
+import { updateImage } from "../runtime/imageCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
@@ -38,6 +42,9 @@ import {
   type PathStatusKind,
   type PathStatusResult,
 } from "../runtime/pathStatusCommands";
+import { updatePerformer } from "../runtime/performerCommands";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import { updateVideo } from "../runtime/videoCommands";
 
 export type DetailDeleteAction = {
   itemLabel: string;
@@ -1036,6 +1043,41 @@ function relatedSectionIcon(title: string) {
   return UserRound;
 }
 
+function RelatedLiteCard({
+  kind,
+  item,
+  linkTo,
+}: {
+  kind: "videos" | "images" | "performers";
+  item: HomeRecentItem;
+  linkTo: string;
+}) {
+  const [favorite, setFavorite] = useState(item.favorite);
+  const currentItem = { ...item, favorite };
+
+  function handleFavoriteClick() {
+    const next = !favorite;
+    setFavorite(next);
+
+    if (isTauriRuntimeAvailable()) {
+      const key = item.key;
+      const updateFn =
+        kind === "videos" ? updateVideo :
+        kind === "images" ? updateImage :
+        updatePerformer;
+      updateFn(key, { favorite: next }).catch(() => setFavorite(!next));
+    }
+  }
+
+  if (kind === "performers") {
+    return <PerformerLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  }
+  if (kind === "images") {
+    return <ImageLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  }
+  return <VideoLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+}
+
 function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const relatedCatalogRecords = section.relatedCatalogRecords ?? [];
   const emptyText = section.title.includes("Image")
@@ -1089,22 +1131,45 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
       {viewMode === "table" && hasControls ? (
         <PerformerRelatedCatalogTable items={visibleRecords} kind={kind} />
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {visibleRecords.map((record, index) => (
-            hasControls ? (
-              <PerformerRelatedCatalogCard
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {visibleRecords.map((record, index) => {
+            const liteItem: HomeRecentItem = {
+              kind,
+              key: record.routeTo?.split("/").pop() ?? `catalog-${index}`,
+              title: record.title,
+              detail: record.code ?? "",
+              typeLabel: kind === "videos" ? "Video" : "Image",
+              coverPath: record.coverPath,
+              favorite: false,
+              code: record.code,
+              releaseYear: record.releaseDate?.slice(0, 4),
+              rating: record.rating,
+              duration: kind === "videos" ? record.metadata : undefined,
+              imageCount: kind === "images" ? record.metadata : undefined,
+            };
+
+            if (!record.routeTo || record.unresolved) {
+              return (
+                <div key={`${record.title}-${index}`} className="relative">
+                  {record.unresolved && (
+                    <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      Unavailable
+                    </span>
+                  )}
+                  <RelatedLiteCard kind={kind} item={liteItem} linkTo={record.routeTo ?? "#"} />
+                </div>
+              );
+            }
+
+            return (
+              <RelatedLiteCard
                 key={`${record.title}-${index}`}
-                item={record}
                 kind={kind}
+                item={liteItem}
+                linkTo={record.routeTo}
               />
-            ) : (
-              <RelatedCatalogCard
-                key={`${record.title}-${index}`}
-                item={record}
-                icon={section.title.includes("Image") ? ImageIcon : Film}
-              />
-            )
-          ))}
+            );
+          })}
         </div>
       )}
     </>
@@ -1126,13 +1191,44 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   }
 
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {relatedPerformers.map((performer, index) => (
-        <RelatedPerformerCard
-          key={`${performer.name}-${index}`}
-          item={performer}
-        />
-      ))}
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      {relatedPerformers.map((performer, index) => {
+        const liteItem: HomeRecentItem = {
+          kind: "performers",
+          key: performer.routeTo?.split("/").pop() ?? `performer-${index}`,
+          title: performer.name,
+          detail: performer.originalName ?? "",
+          typeLabel: "Performer",
+          coverPath: performer.coverPath,
+          favorite: false,
+          aliases: performer.aliases,
+          rating: performer.rating,
+          filmographyCount: performer.filmographyCount,
+          pictorialsCount: performer.pictorialsCount,
+        };
+
+        if (!performer.routeTo || performer.unresolved) {
+          return (
+            <div key={`${performer.name}-${index}`} className="relative">
+              {performer.unresolved && (
+                <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                  Unavailable
+                </span>
+              )}
+              <RelatedLiteCard kind="performers" item={liteItem} linkTo={performer.routeTo ?? "#"} />
+            </div>
+          );
+        }
+
+        return (
+          <RelatedLiteCard
+            key={`${performer.name}-${index}`}
+            kind="performers"
+            item={liteItem}
+            linkTo={performer.routeTo}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -1144,30 +1240,28 @@ function RelatedCatalogCard({
   item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
   icon: typeof Info;
 }) {
+  const isImage = icon === ImageIcon;
   const content = (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
-      <div className="flex min-w-0 gap-3">
-        <RelatedThumbnail
-          icon={icon}
-          label="Related item"
-          path={item.coverPath}
+    <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
+      <RelatedWideThumbnail
+        aspectClass="aspect-square"
+        icon={icon}
+        label={isImage ? "Related image cover" : "Related video cover"}
+        path={item.coverPath}
+      />
+      <div className="space-y-2 px-1 pb-1 pt-2.5">
+        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
+          {dashDetailText(item.title)}
+        </p>
+        <DetailSplitRow
+          left={dashDetailText(item.code)}
+          right={dashDetailText(item.metadata)}
         />
-        <div className="min-w-0 flex-1">
-          {item.unresolved && <Chip label="Unavailable" tone="orange" />}
-          <p className="mt-2 break-words text-sm font-semibold text-slate-900">
-            {item.title}
-          </p>
-          {item.originalTitle && (
-            <p className="mt-1 break-words text-xs text-slate-500">
-              {item.originalTitle}
-            </p>
-          )}
-          <p className="mt-2 text-xs text-slate-500">
-            {item.unresolved
-              ? "Related item unavailable"
-              : item.metadata || "Saved related item"}
-          </p>
-        </div>
+        <DetailSplitRow
+          left={cardReleaseYearLabel(item.releaseDate)}
+          right={<RatingPill rating={item.rating} />}
+        />
       </div>
     </article>
   );
@@ -1192,28 +1286,23 @@ function RelatedPerformerCard({
   item: NonNullable<DetailSection["relatedPerformers"]>[number];
 }) {
   const content = (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
-      <div className="flex min-w-0 gap-3">
-        <RelatedThumbnail
-          icon={UserRound}
-          label="Related performer"
-          path={item.coverPath}
-        />
-        <div className="min-w-0 flex-1">
-          {item.unresolved && <Chip label="Unavailable" tone="orange" />}
-          <p className="mt-2 break-words text-sm font-semibold text-slate-900">
-            {item.name}
-          </p>
-          {item.originalName && (
-            <p className="mt-1 break-words text-xs text-slate-500">
-              {item.originalName}
-            </p>
-          )}
-          <p className="mt-2 text-xs text-slate-500">
-            {item.unresolved
-              ? "Related item unavailable"
-              : item.metadata || "Saved related performer"}
-          </p>
+    <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
+      <RelatedWideThumbnail
+        aspectClass="aspect-square"
+        icon={UserRound}
+        label="Related performer"
+        path={item.coverPath}
+      />
+      <div className="space-y-2 px-1 pb-1 pt-2.5">
+        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
+          {dashDetailText(item.name)}
+        </p>
+        <DetailAliasChipList aliases={item.aliases} />
+        <div className="grid min-h-7 grid-cols-3 items-center gap-2 text-xs font-semibold text-slate-600">
+          <DetailIconStat icon={Clapperboard} label={dashDetailText(item.filmographyCount)} />
+          <DetailIconStat icon={ImageIcon} label={dashDetailText(item.pictorialsCount)} />
+          <RatingPill rating={item.rating} />
         </div>
       </div>
     </article>
@@ -1241,45 +1330,26 @@ function PerformerRelatedCatalogCard({
   kind: "videos" | "images";
 }) {
   const content = (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-950/[0.03]">
-      <div className="relative">
-        <RelatedWideThumbnail
-          aspectClass={kind === "videos" ? "aspect-video" : "aspect-[4/3]"}
-          icon={kind === "videos" ? Film : ImageIcon}
-          label={kind === "videos" ? "Related video cover" : "Related image cover"}
-          path={item.coverPath}
-        />
-        {kind === "videos" && (
-          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-md bg-slate-900/70 px-2 py-1 text-xs font-semibold text-white shadow-sm">
-            <Clock size={13} />
-            {item.metadata || "Duration not set"}
-          </span>
-        )}
-        {kind === "images" && (
-          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-md bg-slate-900/70 px-2 py-1 text-xs font-semibold text-white shadow-sm">
-            <ImageIcon size={13} />
-            {item.metadata || "Images not set"}
-          </span>
-        )}
-      </div>
-      <div className="p-4">
+    <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
+      <RelatedWideThumbnail
+        aspectClass="aspect-square"
+        icon={kind === "videos" ? Film : ImageIcon}
+        label={kind === "videos" ? "Related video cover" : "Related image cover"}
+        path={item.coverPath}
+      />
+      <div className="space-y-2 px-1 pb-1 pt-2.5">
         {item.unresolved && <Chip label="Unavailable" tone="orange" />}
-        <p className="mt-2 break-words text-base font-semibold text-slate-950">
-          {item.title}
+        <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
+          {dashDetailText(item.title)}
         </p>
-        <p className="mt-1 break-words text-sm text-slate-500">
-          {item.unresolved
-            ? "Related item unavailable"
-            : item.publisherLabel || "Publisher / Label not set"}
-        </p>
-        <div className="mt-4 grid grid-cols-[auto_1px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-100 pt-3">
-          <p className="text-sm font-semibold text-slate-800">
-            {releaseYearLabel(item.releaseDate)}
-          </p>
-          <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
-          <span aria-hidden="true" />
-          <RatingPill rating={item.rating} />
-        </div>
+        <DetailSplitRow
+          left={dashDetailText(item.code)}
+          right={dashDetailText(item.metadata)}
+        />
+        <DetailSplitRow
+          left={cardReleaseYearLabel(item.releaseDate)}
+          right={<RatingPill rating={item.rating} />}
+        />
       </div>
     </article>
   );
@@ -1302,15 +1372,85 @@ function RatingPill({ rating }: { rating?: number | null }) {
   const label =
     typeof rating === "number" && Number.isFinite(rating)
       ? rating.toFixed(1)
-      : "Not rated";
+      : "-";
 
   return (
     <span
       aria-label={`Rating ${label}`}
-      className="inline-flex items-center gap-1.5 rounded-md bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-600"
+      className="inline-flex shrink-0 items-center justify-center gap-1 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-600"
     >
-      <Star size={14} fill="currentColor" />
+      <Star size={13} fill="currentColor" />
       {label}
+    </span>
+  );
+}
+
+function DetailSplitRow({
+  left,
+  right,
+}: {
+  left: string;
+  right: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-6 min-w-0 items-center justify-between gap-3 text-xs font-medium text-slate-600">
+      <span className="min-w-0 truncate">{left}</span>
+      <span className="shrink-0">{right}</span>
+    </div>
+  );
+}
+
+function DetailIconStat({
+  icon: Icon,
+  label,
+}: {
+  icon: typeof Clapperboard;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center justify-center gap-1.5">
+      <Icon size={14} className="shrink-0 text-slate-400" />
+      <span className="truncate">{dashDetailText(label)}</span>
+    </span>
+  );
+}
+
+function DetailAliasChipList({ aliases }: { aliases?: string }) {
+  const aliasList = splitDetailChips(aliases);
+  const visibleAliases = aliasList.slice(0, 2);
+  const hiddenCount = Math.max(0, aliasList.length - visibleAliases.length);
+
+  return (
+    <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+      {visibleAliases.length > 0 ? (
+        visibleAliases.map((alias) => <DetailAliasChip key={alias} label={alias} />)
+      ) : (
+        <DetailAliasChip label="-" />
+      )}
+      {hiddenCount > 0 && <DetailAliasChip label={`+${hiddenCount}`} />}
+    </div>
+  );
+}
+
+function DetailAliasChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex max-w-full min-w-0 shrink rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
+      <span className="truncate">{dashDetailText(label)}</span>
+    </span>
+  );
+}
+
+function DetailMeta({
+  icon: Icon,
+  label,
+}: {
+  icon: typeof Calendar;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <Icon size={14} className="shrink-0 text-slate-400" />
+      <span className="truncate">{label}</span>
     </span>
   );
 }
@@ -1583,6 +1723,45 @@ function releaseYearLabel(value: string | undefined) {
   return match?.[1] ?? "Not set";
 }
 
+function cardReleaseYearLabel(value: string | undefined) {
+  if (!value) {
+    return "-";
+  }
+
+  const match = /^(\d{4})/.exec(value.trim());
+  return match?.[1] ?? "-";
+}
+
+function dashDetailText(value: string | number | null | undefined) {
+  const label = typeof value === "number" ? String(value) : value?.trim();
+  if (
+    !label ||
+    label === "No aliases" ||
+    label === "No code" ||
+    label === "Not set" ||
+    label === "Not rated" ||
+    label === "Duration not set" ||
+    label === "Images not set" ||
+    label === "Unknown"
+  ) {
+    return "-";
+  }
+
+  return label;
+}
+
+function splitDetailChips(value: string | null | undefined) {
+  const label = dashDetailText(value);
+  if (label === "-") {
+    return [];
+  }
+
+  return label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 function RelatedThumbnail({
   icon: Icon,
   label,
@@ -1622,7 +1801,7 @@ function RelatedThumbnail({
 
 function RelatedWideThumbnail({
   aspectClass,
-  icon: Icon,
+  icon: _Icon,
   label,
   path,
 }: {
@@ -1642,7 +1821,7 @@ function RelatedWideThumbnail({
 
   return (
     <div
-      className={`${aspectClass} flex w-full items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+      className={`${aspectClass} relative flex w-full items-center justify-center overflow-hidden rounded-md bg-white`}
       aria-label={showImage ? undefined : label}
     >
       {showImage ? (
@@ -1653,7 +1832,7 @@ function RelatedWideThumbnail({
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <Icon size={36} strokeWidth={1.6} />
+        <ContentThumbnailPlaceholder />
       )}
     </div>
   );

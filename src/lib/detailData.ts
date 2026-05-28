@@ -6,8 +6,12 @@ export type DetailKind = "videos" | "images" | "performers";
 export type RelatedPerformerDetailItem = {
   name: string;
   originalName?: string;
+  aliases?: string;
   coverPath?: string;
   metadata?: string;
+  rating?: number | null;
+  filmographyCount?: string;
+  pictorialsCount?: string;
   routeTo?: string;
   unresolved: boolean;
 };
@@ -15,6 +19,7 @@ export type RelatedPerformerDetailItem = {
 export type RelatedCatalogDetailItem = {
   title: string;
   originalTitle?: string;
+  code?: string;
   coverPath?: string;
   publisherLabel?: string;
   metadata?: string;

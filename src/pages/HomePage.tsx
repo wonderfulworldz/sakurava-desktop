@@ -1,12 +1,9 @@
 import {
   ArrowRight,
-  Heart,
-  Image,
-  UserRound,
-  Video,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import {
   buildLastEdited,
   buildHomeSummaryCards,
@@ -19,12 +16,10 @@ import {
   type HomeSummaryCard,
 } from "../lib/homeData";
 import { useLanguage } from "../lib/LanguageContext";
-import { listImages } from "../runtime/imageCommands";
-import { localImagePathToAssetSrc } from "../runtime/localAsset";
-import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
-import { listPerformers } from "../runtime/performerCommands";
+import { listImages, updateImage } from "../runtime/imageCommands";
+import { listPerformers, updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import { listVideos } from "../runtime/videoCommands";
+import { listVideos, updateVideo } from "../runtime/videoCommands";
 
 type HomeData = {
   summaryCards: HomeSummaryCard[];
@@ -71,6 +66,38 @@ function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  function handleFavoriteToggle(item: HomeRecentItem) {
+    const nextFavorite = !item.favorite;
+
+    setHomeData((prev) => ({
+      ...prev,
+      lastEdited: prev.lastEdited.map((i) =>
+        i.kind === item.kind && i.key === item.key ? { ...i, favorite: nextFavorite } : i,
+      ),
+      recentlyAdded: prev.recentlyAdded.map((i) =>
+        i.kind === item.kind && i.key === item.key ? { ...i, favorite: nextFavorite } : i,
+      ),
+    }));
+
+    if (isTauriRuntimeAvailable()) {
+      const updateFn =
+        item.kind === "videos" ? updateVideo :
+        item.kind === "images" ? updateImage :
+        updatePerformer;
+      updateFn(item.key, { favorite: nextFavorite }).catch(() => {
+        setHomeData((prev) => ({
+          ...prev,
+          lastEdited: prev.lastEdited.map((i) =>
+            i.kind === item.kind && i.key === item.key ? { ...i, favorite: !nextFavorite } : i,
+          ),
+          recentlyAdded: prev.recentlyAdded.map((i) =>
+            i.kind === item.kind && i.key === item.key ? { ...i, favorite: !nextFavorite } : i,
+          ),
+        }));
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -135,12 +162,12 @@ function HomePage() {
         })}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid gap-6">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-base font-semibold text-slate-950">
             {t("home.quickActions")}
           </h2>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {quickActions.map((action) => {
               const Icon = action.icon;
 
@@ -182,9 +209,9 @@ function HomePage() {
               {t("home.loadingCatalog")}
             </p>
           ) : homeData.lastEdited.length > 0 ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {homeData.lastEdited.map((item) => (
-                <HomeRecordCard key={`${item.kind}-${item.key}`} item={item} />
+                <HomeLiteCard key={`${item.kind}-${item.key}`} item={item} onFavoriteToggle={handleFavoriteToggle} />
               ))}
             </div>
           ) : (
@@ -212,7 +239,7 @@ function HomePage() {
         ) : homeData.recentlyAdded.length > 0 ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {homeData.recentlyAdded.map((item) => (
-              <HomeRecordCard key={`${item.kind}-${item.key}`} item={item} />
+              <HomeLiteCard key={`${item.kind}-${item.key}`} item={item} onFavoriteToggle={handleFavoriteToggle} />
             ))}
           </div>
         ) : (
@@ -225,66 +252,22 @@ function HomePage() {
   );
 }
 
-function HomeRecordCard({ item }: { item: HomeRecentItem }) {
-  const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(item.coverPath);
-  const Icon = recentIcon(item.kind);
-  const [imageFailed, setImageFailed] = useState(false);
+function HomeLiteCard({ item, onFavoriteToggle }: { item: HomeRecentItem; onFavoriteToggle: (item: HomeRecentItem) => void }) {
+  const linkTo = `/${item.kind}/${item.key}`;
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [assetSrc, mediaAssetScopeReady]);
-
-  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
-
-  return (
-    <Link
-      to={`/${item.kind}/${item.key}`}
-      className="group rounded-lg border border-slate-200 bg-white p-3 transition hover:border-sakura-200 hover:shadow-sm"
-    >
-      <div className="relative aspect-square overflow-hidden rounded-md bg-slate-100">
-        {showImage ? (
-          <img
-            src={assetSrc ?? undefined}
-            alt={`${item.title} cover`}
-            className="absolute inset-0 h-full w-full object-cover"
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-300">
-            <Icon size={28} />
-          </div>
-        )}
-        {item.favorite ? (
-          <span
-            className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-white/90 text-sakura-500 shadow-sm"
-            aria-label="Favorite"
-          >
-            <Heart size={17} fill="currentColor" />
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-3 truncate text-sm font-semibold text-slate-800">
-        {item.title}
-      </p>
-      <p className="mt-1 truncate text-xs font-medium text-slate-500">
-        {item.typeLabel}
-      </p>
-    </Link>
-  );
-}
-
-function recentIcon(kind: HomeRecentItem["kind"]) {
-  if (kind === "performers") {
-    return UserRound;
+  function handleFavoriteClick() {
+    onFavoriteToggle(item);
   }
 
-  if (kind === "images") {
-    return Image;
+  if (item.kind === "performers") {
+    return <PerformerLiteCard item={item} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
   }
 
-  return Video;
+  if (item.kind === "images") {
+    return <ImageLiteCard item={item} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  }
+
+  return <VideoLiteCard item={item} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
 }
 
 function SakuraCluster({ className }: { className: string }) {
