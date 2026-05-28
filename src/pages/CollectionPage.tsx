@@ -1,32 +1,26 @@
 import {
-  Calendar,
   ChevronDown,
-  Clapperboard,
   Filter,
   Grid2X2,
-  Heart,
-  Image as ImageIcon,
   List,
   Plus,
   Search,
-  Star,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
+import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/cards";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
-import { localImagePathToAssetSrc } from "../runtime/localAsset";
-import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
 type CollectionPageProps = {
   config: CollectionConfig;
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
 };
 
 type ViewMode = "card" | "table";
 type DataFilterValues = Record<string, string>;
 
-function CollectionPage({ config }: CollectionPageProps) {
+function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
@@ -158,14 +152,14 @@ function CollectionPage({ config }: CollectionPageProps) {
           {viewMode === "card" ? (
             <section
               className={[
-                "grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]",
+                "grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]",
                 config.kind === "performers"
-                  ? "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]"
-                  : "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]",
+                  ? "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]"
+                  : "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]",
               ].join(" ")}
             >
               {pageItems.map((item) => (
-                <CollectionCard key={item.key} config={config} item={item} />
+                <FullCard key={item.key} config={config} item={item} onFavoriteToggle={onFavoriteToggle} />
               ))}
             </section>
           ) : (
@@ -577,321 +571,22 @@ function CollectionTableRow({
 type CollectionCardProps = {
   config: CollectionConfig;
   item: CollectionItem;
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
 };
 
-function CollectionCard({ config, item }: CollectionCardProps) {
-  const title = dashText(item.kind === "performers" ? item.name : item.title);
+function FullCard({ config, item, onFavoriteToggle }: CollectionCardProps) {
+  const linkTo = `/${config.kind}/${item.key}`;
+  const handleFavorite = onFavoriteToggle ? () => onFavoriteToggle(item.key, item.favorite) : undefined;
 
-  return (
-    <Link
-      to={`/${config.kind}/${item.key}`}
-      className="group block overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02] transition hover:border-sakura-200 hover:shadow-md hover:shadow-sakura-100/60"
-    >
-      <PlaceholderMedia
-        kind={config.kind}
-        label={config.placeholderLabel}
-        title={title}
-        coverPath={item.coverPath}
-        favorite={item.favorite}
-      />
-
-      <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.kind === "performers" ? (
-          <PerformerCardBody item={item} title={title} />
-        ) : (
-          <CatalogCardBody item={item} title={title} />
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function PlaceholderMedia({
-  kind,
-  label,
-  title,
-  coverPath,
-  favorite,
-}: {
-  kind: CollectionConfig["kind"];
-  label: string;
-  title: string;
-  coverPath?: string;
-  favorite: boolean;
-}) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(coverPath);
-  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [assetSrc, mediaAssetScopeReady]);
-
-  return (
-    <div className="relative overflow-hidden rounded-lg bg-white">
-      <div
-        className={[
-          "relative flex items-center justify-center overflow-hidden",
-          kind === "performers" ? "aspect-[6/7]" : "aspect-[4/3]",
-        ].join(" ")}
-        role={showImage ? undefined : "img"}
-        aria-label={showImage ? undefined : label}
-      >
-        {showImage ? (
-          <img
-            src={assetSrc ?? undefined}
-            alt={`${title} cover`}
-            className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <ContentThumbnailPlaceholder />
-        )}
-      </div>
-      <span
-        className={[
-          "absolute right-2 top-2 flex items-center justify-center rounded-full shadow-sm",
-          favorite
-            ? "size-8 bg-sakura-500 text-white"
-            : "size-8 bg-white/90 text-sakura-500",
-        ].join(" ")}
-        aria-label={favorite ? "Favorite" : "Not favorite"}
-      >
-        <Heart size={17} fill={favorite ? "currentColor" : "none"} />
-      </span>
-    </div>
-  );
-}
-
-function CatalogCardBody({
-  item,
-  title,
-}: {
-  item: Extract<CollectionItem, { kind: "videos" | "images" }>;
-  title: string;
-}) {
-  const countLabel =
-    item.kind === "videos" ? dashText(item.duration) : dashText(item.imageCount);
-
-  return (
-    <>
-      <TitleRow title={title} rating={item.ratingBucket} />
-      <p className="truncate text-xs font-medium text-slate-500">
-        {dashText(item.code)}
-      </p>
-      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-        <InfoChip label={dashText(item.availability)} activeLabel="Owned" />
-        <InfoChip label={yearLabel(item.releaseYear)} />
-        <InfoChip label={countLabel} />
-      </div>
-      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-        <CategoryChipList categories={item.categories} />
-        <CensorshipChip label={dashText(item.censorship)} />
-      </div>
-    </>
-  );
-}
-
-function PerformerCardBody({
-  item,
-  title,
-}: {
-  item: Extract<CollectionItem, { kind: "performers" }>;
-  title: string;
-}) {
-  return (
-    <>
-      <TitleRow title={title} rating={item.ratingBucket} />
-      <AliasChipList aliases={item.aliases} />
-      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-        <InfoChip label={dashText(item.status)} activeLabel="Active" />
-        <InfoChip label={dashText(item.yearsActive)} />
-        <InfoChip label={dashText(item.activeAges)} />
-      </div>
-      <div className="grid min-h-8 grid-cols-2 items-center gap-2 pt-0.5 text-sm font-semibold text-slate-700">
-        <LargeMetric icon={Clapperboard} label={countOnly(item.filmographyCount)} />
-        <LargeMetric icon={ImageIcon} label={countOnly(item.pictorialsCount)} align="right" />
-      </div>
-      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-        <CategoryChipList categories={item.categories} />
-      </div>
-    </>
-  );
-}
-
-function TitleRow({ title, rating }: { title: string; rating?: number | null }) {
-  return (
-    <div className="flex min-h-10 min-w-0 items-start justify-between gap-2">
-      <h2 className="min-w-0 line-clamp-2 text-base font-semibold leading-snug text-slate-950">
-        {title}
-      </h2>
-      <RatingPill rating={rating} />
-    </div>
-  );
-}
-
-function LargeMetric({
-  icon: Icon,
-  label,
-  align = "left",
-}: {
-  icon: typeof Calendar;
-  label: string;
-  align?: "left" | "right";
-}) {
-  return (
-    <span
-      className={[
-        "inline-flex min-w-0 items-center gap-2",
-        align === "right" ? "justify-end" : "justify-start",
-      ].join(" ")}
-    >
-      <Icon size={17} className="shrink-0 text-slate-400" />
-      <span className="truncate">{dashText(label)}</span>
-    </span>
-  );
-}
-
-function RatingPill({ rating }: { rating?: number | null }) {
-  const label =
-    typeof rating === "number" && Number.isFinite(rating) ? rating.toFixed(1) : "-";
-
-  return (
-    <span
-      aria-label={`Rating ${label}`}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-600"
-    >
-      <Star size={13} fill="currentColor" />
-      {label}
-    </span>
-  );
-}
-
-function CategoryChipList({ categories }: { categories: string[] }) {
-  const visibleCategories = categories.filter((category) => dashText(category) !== "-").slice(0, 2);
-  const hiddenCount = Math.max(0, categories.length - visibleCategories.length);
-
-  if (visibleCategories.length === 0) {
-    return (
-      <CategoryChip label="-" />
-    );
+  if (item.kind === "performers") {
+    return <PerformerFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
   }
 
-  return (
-    <>
-      {visibleCategories.map((category) => (
-        <CategoryChip key={category} label={category} />
-      ))}
-      {hiddenCount > 0 && <CategoryChip label={`+${hiddenCount}`} />}
-    </>
-  );
-}
-
-function AliasChipList({ aliases }: { aliases: string }) {
-  const aliasList = splitChipValues(aliases);
-  const visibleAliases = aliasList.slice(0, 2);
-  const hiddenCount = Math.max(0, aliasList.length - visibleAliases.length);
-
-  return (
-    <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-      {visibleAliases.length > 0 ? (
-        visibleAliases.map((alias) => <AliasChip key={alias} label={alias} />)
-      ) : (
-        <AliasChip label="-" />
-      )}
-      {hiddenCount > 0 && <AliasChip label={`+${hiddenCount}`} />}
-    </div>
-  );
-}
-
-function InfoChip({
-  label,
-  activeLabel,
-}: {
-  label: string;
-  activeLabel?: "Owned" | "Active";
-}) {
-  const normalized = dashText(label);
-  const isActive = normalized === activeLabel;
-
-  return (
-    <span
-      className={[
-        "inline-flex max-w-full shrink-0 rounded-md border px-2 py-1 text-xs font-semibold",
-        isActive
-          ? "border-sakura-500 bg-sakura-500 text-white"
-          : "border-sakura-100 bg-sakura-50 text-sakura-700",
-      ].join(" ")}
-    >
-      <span className="truncate">{normalized}</span>
-    </span>
-  );
-}
-
-function CensorshipChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex max-w-full shrink-0 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700">
-      <span className="truncate">{dashText(label)}</span>
-    </span>
-  );
-}
-
-function CategoryChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex max-w-full shrink min-w-0 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700">
-      <span className="truncate">{dashText(label)}</span>
-    </span>
-  );
-}
-
-function AliasChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex max-w-full shrink min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
-      <span className="truncate">{dashText(label)}</span>
-    </span>
-  );
-}
-
-function dashText(value: string | number | null | undefined) {
-  const label = typeof value === "number" ? String(value) : value?.trim();
-  if (
-    !label ||
-    label === "No aliases" ||
-    label === "No code" ||
-    label === "No category" ||
-    label === "Not set" ||
-    label === "Unknown" ||
-    label === "Unknown - Now" ||
-    label === "Age unknown" ||
-    label === "Age range not set"
-  ) {
-    return "-";
+  if (item.kind === "images") {
+    return <ImageFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
   }
 
-  return label;
-}
-
-function splitChipValues(value: string | null | undefined) {
-  const label = dashText(value);
-  if (label === "-") {
-    return [];
-  }
-
-  return label
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function yearLabel(value: number | null | undefined) {
-  return typeof value === "number" && Number.isFinite(value) ? String(value) : "-";
-}
-
-function countOnly(value: string) {
-  const match = value.match(/\d+/);
-  return match?.[0] ?? "-";
+  return <VideoFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
 }
 
 function PaginationBar({

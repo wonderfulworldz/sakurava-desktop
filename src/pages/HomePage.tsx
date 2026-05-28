@@ -1,13 +1,9 @@
 import {
   ArrowRight,
-  Clapperboard,
-  Heart,
-  Image as ImageIcon,
-  Star,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
+import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import {
   buildLastEdited,
   buildHomeSummaryCards,
@@ -20,12 +16,10 @@ import {
   type HomeSummaryCard,
 } from "../lib/homeData";
 import { useLanguage } from "../lib/LanguageContext";
-import { listImages } from "../runtime/imageCommands";
-import { localImagePathToAssetSrc } from "../runtime/localAsset";
-import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
-import { listPerformers } from "../runtime/performerCommands";
+import { listImages, updateImage } from "../runtime/imageCommands";
+import { listPerformers, updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import { listVideos } from "../runtime/videoCommands";
+import { listVideos, updateVideo } from "../runtime/videoCommands";
 
 type HomeData = {
   summaryCards: HomeSummaryCard[];
@@ -72,6 +66,38 @@ function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  function handleFavoriteToggle(item: HomeRecentItem) {
+    const nextFavorite = !item.favorite;
+
+    setHomeData((prev) => ({
+      ...prev,
+      lastEdited: prev.lastEdited.map((i) =>
+        i.kind === item.kind && i.key === item.key ? { ...i, favorite: nextFavorite } : i,
+      ),
+      recentlyAdded: prev.recentlyAdded.map((i) =>
+        i.kind === item.kind && i.key === item.key ? { ...i, favorite: nextFavorite } : i,
+      ),
+    }));
+
+    if (isTauriRuntimeAvailable()) {
+      const updateFn =
+        item.kind === "videos" ? updateVideo :
+        item.kind === "images" ? updateImage :
+        updatePerformer;
+      updateFn(item.key, { favorite: nextFavorite }).catch(() => {
+        setHomeData((prev) => ({
+          ...prev,
+          lastEdited: prev.lastEdited.map((i) =>
+            i.kind === item.kind && i.key === item.key ? { ...i, favorite: !nextFavorite } : i,
+          ),
+          recentlyAdded: prev.recentlyAdded.map((i) =>
+            i.kind === item.kind && i.key === item.key ? { ...i, favorite: !nextFavorite } : i,
+          ),
+        }));
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -136,12 +162,12 @@ function HomePage() {
         })}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid gap-6">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-base font-semibold text-slate-950">
             {t("home.quickActions")}
           </h2>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {quickActions.map((action) => {
               const Icon = action.icon;
 
@@ -183,9 +209,9 @@ function HomePage() {
               {t("home.loadingCatalog")}
             </p>
           ) : homeData.lastEdited.length > 0 ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {homeData.lastEdited.map((item) => (
-                <HomeRecordCard key={`${item.kind}-${item.key}`} item={item} />
+                <HomeLiteCard key={`${item.kind}-${item.key}`} item={item} onFavoriteToggle={handleFavoriteToggle} />
               ))}
             </div>
           ) : (
@@ -213,7 +239,7 @@ function HomePage() {
         ) : homeData.recentlyAdded.length > 0 ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {homeData.recentlyAdded.map((item) => (
-              <HomeRecordCard key={`${item.kind}-${item.key}`} item={item} />
+              <HomeLiteCard key={`${item.kind}-${item.key}`} item={item} onFavoriteToggle={handleFavoriteToggle} />
             ))}
           </div>
         ) : (
@@ -226,174 +252,22 @@ function HomePage() {
   );
 }
 
-function HomeRecordCard({ item }: { item: HomeRecentItem }) {
-  const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(item.coverPath);
-  const [imageFailed, setImageFailed] = useState(false);
+function HomeLiteCard({ item, onFavoriteToggle }: { item: HomeRecentItem; onFavoriteToggle: (item: HomeRecentItem) => void }) {
+  const linkTo = `/${item.kind}/${item.key}`;
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [assetSrc, mediaAssetScopeReady]);
-
-  const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
-
-  return (
-    <Link
-      to={`/${item.kind}/${item.key}`}
-      className="group block overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02] transition hover:border-sakura-200 hover:shadow-sm"
-    >
-      <div
-        className="relative aspect-square overflow-hidden rounded-md bg-white"
-      >
-        {showImage ? (
-          <img
-            src={assetSrc ?? undefined}
-            alt={`${item.title} cover`}
-            className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <ContentThumbnailPlaceholder />
-        )}
-        {item.favorite ? (
-          <span
-            className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-sakura-500 text-white shadow-sm"
-            aria-label="Favorite"
-          >
-            <Heart size={17} fill="currentColor" />
-          </span>
-        ) : null}
-      </div>
-      <div className="space-y-2 px-1 pb-1 pt-2.5">
-        <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
-          {dashHomeText(item.title)}
-        </p>
-        {item.kind === "performers" ? (
-          <>
-            <HomeAliasChipList aliases={item.aliases} />
-            <div className="grid min-h-7 grid-cols-3 items-center gap-2 text-xs font-semibold text-slate-600">
-              <HomeIconStat icon={Clapperboard} label={dashHomeText(item.filmographyCount)} />
-              <HomeIconStat icon={ImageIcon} label={dashHomeText(item.pictorialsCount)} />
-              <HomeRatingPill rating={item.rating} />
-            </div>
-          </>
-        ) : (
-          <>
-            <HomeSplitRow
-              left={dashHomeText(item.code)}
-              right={
-                item.kind === "videos"
-                  ? dashHomeText(item.duration)
-                  : dashHomeText(item.imageCount)
-              }
-            />
-            <HomeSplitRow
-              left={dashHomeText(item.releaseYear)}
-              right={<HomeRatingPill rating={item.rating} />}
-            />
-          </>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function HomeRatingPill({ rating }: { rating?: number | null }) {
-  const label =
-    typeof rating === "number" && Number.isFinite(rating) ? rating.toFixed(1) : "-";
-
-  return (
-    <span
-      aria-label={`Rating ${label}`}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-600"
-    >
-      <Star size={13} fill="currentColor" />
-      {label}
-    </span>
-  );
-}
-
-function HomeSplitRow({
-  left,
-  right,
-}: {
-  left: string;
-  right: ReactNode;
-}) {
-  return (
-    <div className="flex min-h-6 min-w-0 items-center justify-between gap-3 text-xs font-medium text-slate-600">
-      <span className="min-w-0 truncate">{left}</span>
-      <span className="shrink-0">{right}</span>
-    </div>
-  );
-}
-
-function HomeIconStat({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof Clapperboard;
-  label: string;
-}) {
-  return (
-    <span className="inline-flex min-w-0 items-center justify-center gap-1.5">
-      <Icon size={14} className="shrink-0 text-slate-400" />
-      <span className="truncate">{dashHomeText(label)}</span>
-    </span>
-  );
-}
-
-function HomeAliasChipList({ aliases }: { aliases?: string }) {
-  const aliasList = splitHomeChips(aliases);
-  const visibleAliases = aliasList.slice(0, 2);
-  const hiddenCount = Math.max(0, aliasList.length - visibleAliases.length);
-
-  return (
-    <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-      {visibleAliases.length > 0 ? (
-        visibleAliases.map((alias) => <HomeAliasChip key={alias} label={alias} />)
-      ) : (
-        <HomeAliasChip label="-" />
-      )}
-      {hiddenCount > 0 && <HomeAliasChip label={`+${hiddenCount}`} />}
-    </div>
-  );
-}
-
-function HomeAliasChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex max-w-full min-w-0 shrink rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
-      <span className="truncate">{dashHomeText(label)}</span>
-    </span>
-  );
-}
-
-function dashHomeText(value: string | number | null | undefined) {
-  const label = typeof value === "number" ? String(value) : value?.trim();
-  if (
-    !label ||
-    label === "No aliases" ||
-    label === "No code" ||
-    label === "Not set" ||
-    label === "Unknown"
-  ) {
-    return "-";
+  function handleFavoriteClick() {
+    onFavoriteToggle(item);
   }
 
-  return label;
-}
-
-function splitHomeChips(value: string | null | undefined) {
-  const label = dashHomeText(value);
-  if (label === "-") {
-    return [];
+  if (item.kind === "performers") {
+    return <PerformerLiteCard item={item} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
   }
 
-  return label
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
+  if (item.kind === "images") {
+    return <ImageLiteCard item={item} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  }
+
+  return <VideoLiteCard item={item} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
 }
 
 function SakuraCluster({ className }: { className: string }) {

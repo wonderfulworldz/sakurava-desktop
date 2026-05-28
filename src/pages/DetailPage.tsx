@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
 import type {
   DetailConfig,
@@ -30,7 +31,9 @@ import type {
   MediaPathItem,
   PerformerDetailConfig,
 } from "../lib/detailData";
+import type { HomeRecentItem } from "../lib/homeData";
 import { calculateAverageRating } from "../lib/ratingSummary";
+import { updateImage } from "../runtime/imageCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
@@ -39,6 +42,9 @@ import {
   type PathStatusKind,
   type PathStatusResult,
 } from "../runtime/pathStatusCommands";
+import { updatePerformer } from "../runtime/performerCommands";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import { updateVideo } from "../runtime/videoCommands";
 
 export type DetailDeleteAction = {
   itemLabel: string;
@@ -1037,6 +1043,41 @@ function relatedSectionIcon(title: string) {
   return UserRound;
 }
 
+function RelatedLiteCard({
+  kind,
+  item,
+  linkTo,
+}: {
+  kind: "videos" | "images" | "performers";
+  item: HomeRecentItem;
+  linkTo: string;
+}) {
+  const [favorite, setFavorite] = useState(item.favorite);
+  const currentItem = { ...item, favorite };
+
+  function handleFavoriteClick() {
+    const next = !favorite;
+    setFavorite(next);
+
+    if (isTauriRuntimeAvailable()) {
+      const key = item.key;
+      const updateFn =
+        kind === "videos" ? updateVideo :
+        kind === "images" ? updateImage :
+        updatePerformer;
+      updateFn(key, { favorite: next }).catch(() => setFavorite(!next));
+    }
+  }
+
+  if (kind === "performers") {
+    return <PerformerLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  }
+  if (kind === "images") {
+    return <ImageLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  }
+  return <VideoLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+}
+
 function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const relatedCatalogRecords = section.relatedCatalogRecords ?? [];
   const emptyText = section.title.includes("Image")
@@ -1090,22 +1131,45 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
       {viewMode === "table" && hasControls ? (
         <PerformerRelatedCatalogTable items={visibleRecords} kind={kind} />
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {visibleRecords.map((record, index) => (
-            hasControls ? (
-              <PerformerRelatedCatalogCard
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {visibleRecords.map((record, index) => {
+            const liteItem: HomeRecentItem = {
+              kind,
+              key: record.routeTo?.split("/").pop() ?? `catalog-${index}`,
+              title: record.title,
+              detail: record.code ?? "",
+              typeLabel: kind === "videos" ? "Video" : "Image",
+              coverPath: record.coverPath,
+              favorite: false,
+              code: record.code,
+              releaseYear: record.releaseDate?.slice(0, 4),
+              rating: record.rating,
+              duration: kind === "videos" ? record.metadata : undefined,
+              imageCount: kind === "images" ? record.metadata : undefined,
+            };
+
+            if (!record.routeTo || record.unresolved) {
+              return (
+                <div key={`${record.title}-${index}`} className="relative">
+                  {record.unresolved && (
+                    <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      Unavailable
+                    </span>
+                  )}
+                  <RelatedLiteCard kind={kind} item={liteItem} linkTo={record.routeTo ?? "#"} />
+                </div>
+              );
+            }
+
+            return (
+              <RelatedLiteCard
                 key={`${record.title}-${index}`}
-                item={record}
                 kind={kind}
+                item={liteItem}
+                linkTo={record.routeTo}
               />
-            ) : (
-              <RelatedCatalogCard
-                key={`${record.title}-${index}`}
-                item={record}
-                icon={section.title.includes("Image") ? ImageIcon : Film}
-              />
-            )
-          ))}
+            );
+          })}
         </div>
       )}
     </>
@@ -1127,13 +1191,44 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   }
 
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {relatedPerformers.map((performer, index) => (
-        <RelatedPerformerCard
-          key={`${performer.name}-${index}`}
-          item={performer}
-        />
-      ))}
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      {relatedPerformers.map((performer, index) => {
+        const liteItem: HomeRecentItem = {
+          kind: "performers",
+          key: performer.routeTo?.split("/").pop() ?? `performer-${index}`,
+          title: performer.name,
+          detail: performer.originalName ?? "",
+          typeLabel: "Performer",
+          coverPath: performer.coverPath,
+          favorite: false,
+          aliases: performer.aliases,
+          rating: performer.rating,
+          filmographyCount: performer.filmographyCount,
+          pictorialsCount: performer.pictorialsCount,
+        };
+
+        if (!performer.routeTo || performer.unresolved) {
+          return (
+            <div key={`${performer.name}-${index}`} className="relative">
+              {performer.unresolved && (
+                <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                  Unavailable
+                </span>
+              )}
+              <RelatedLiteCard kind="performers" item={liteItem} linkTo={performer.routeTo ?? "#"} />
+            </div>
+          );
+        }
+
+        return (
+          <RelatedLiteCard
+            key={`${performer.name}-${index}`}
+            kind="performers"
+            item={liteItem}
+            linkTo={performer.routeTo}
+          />
+        );
+      })}
     </div>
   );
 }

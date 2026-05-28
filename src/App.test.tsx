@@ -3915,7 +3915,7 @@ describe("App", () => {
     expect(screen.getByText("Recent Performer")).toBeInTheDocument();
     expect(screen.queryByText(/No edited records yet/i)).not.toBeInTheDocument();
     expect(screen.queryByText("No records yet.")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Alias One").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Filmography").length).toBeGreaterThan(0);
     const continueCataloging = screen.getByRole("region", {
       name: "Continue Cataloging",
     });
@@ -5174,11 +5174,9 @@ describe("App", () => {
 
     expect(await screen.findByText("Related Performer Video")).toBeInTheDocument();
     expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
-    expect(screen.getAllByText("Alias One").length).toBeGreaterThan(0);
-    const relatedCard = screen.getByText("Aoi Sakura").closest("article");
+    const relatedCard = screen.getByText("Aoi Sakura").closest("a");
     expect(relatedCard).not.toBeNull();
-    expect(within(relatedCard as HTMLElement).queryByText("Performer")).not.toBeInTheDocument();
-    expect(relatedCard?.parentElement).toHaveAttribute("href", "/performers/performer_aoi");
+    expect(relatedCard).toHaveAttribute("href", "/performers/performer_aoi");
     expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "performer_update",
@@ -5264,11 +5262,9 @@ describe("App", () => {
 
     expect(await screen.findByText("Related Image Video")).toBeInTheDocument();
     expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
-    expect(screen.getByText("IMG-001")).toBeInTheDocument();
-    const relatedCard = screen.getByText("Hanami Gallery").closest("article");
+    const relatedCard = screen.getByText("Hanami Gallery").closest("a");
     expect(relatedCard).not.toBeNull();
-    expect(within(relatedCard as HTMLElement).queryByText("Image")).not.toBeInTheDocument();
-    expect(relatedCard?.parentElement).toHaveAttribute("href", "/images/image_hanami");
+    expect(relatedCard).toHaveAttribute("href", "/images/image_hanami");
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "image_update",
@@ -5314,11 +5310,9 @@ describe("App", () => {
 
     expect(await screen.findByText("Related Video Image")).toBeInTheDocument();
     expect(screen.getByText("Spring Feature")).toBeInTheDocument();
-    expect(screen.getByText("VID-001")).toBeInTheDocument();
-    const relatedCard = screen.getByText("Spring Feature").closest("article");
+    const relatedCard = screen.getByText("Spring Feature").closest("a");
     expect(relatedCard).not.toBeNull();
-    expect(within(relatedCard as HTMLElement).queryByText("Video")).not.toBeInTheDocument();
-    expect(relatedCard?.parentElement).toHaveAttribute("href", "/videos/video_spring");
+    expect(relatedCard).toHaveAttribute("href", "/videos/video_spring");
     expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_update",
@@ -5443,20 +5437,13 @@ describe("App", () => {
       within(videos.getByLabelText("Per page")).getByRole("option", { name: "96" }),
     ).toBeInTheDocument();
     expect(videos.getByText("Hanami Feature")).toBeInTheDocument();
-    expect(videos.getByText("VID-001")).toBeInTheDocument();
-    expect(videos.getByText("2024")).toBeInTheDocument();
-    const relatedVideoCard = videos.getByText("Hanami Feature").closest("article");
+    const relatedVideoCard = videos.getByText("Hanami Feature").closest("a");
     expect(relatedVideoCard).not.toBeNull();
-    const videoDuration = within(relatedVideoCard as HTMLElement)
-      .getByText("86 min")
-      .closest("span");
-    expect(videoDuration).toHaveClass("shrink-0");
-    expect(videoDuration).not.toHaveClass("absolute");
+    expect(relatedVideoCard).toHaveAttribute("href", "/videos/video_hanami");
     const videoRating = videos.getByLabelText("Rating 4.5");
     expect(videoRating).toHaveClass("bg-sakura-50");
     expect(videoRating).toHaveClass("text-sakura-600");
     expect(videoRating).not.toHaveClass("bg-sakura-500");
-    expect(relatedVideoCard?.parentElement).toHaveAttribute("href", "/videos/video_hanami");
     fireEvent.click(videos.getByRole("button", { name: "Table" }));
     expect(videos.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
     expect(videos.getByRole("columnheader", { name: "Publisher / Label" })).toBeInTheDocument();
@@ -5474,20 +5461,13 @@ describe("App", () => {
     expect(images.getByLabelText("Sort")).toBeInTheDocument();
     expect(images.getByLabelText("Per page")).toHaveValue("12");
     expect(images.getByText("Hanami Gallery")).toBeInTheDocument();
-    expect(images.getByText("IMG-001")).toBeInTheDocument();
-    expect(images.getByText("2023")).toBeInTheDocument();
-    const relatedImageCard = images.getByText("Hanami Gallery").closest("article");
+    const relatedImageCard = images.getByText("Hanami Gallery").closest("a");
     expect(relatedImageCard).not.toBeNull();
-    const imageTotal = within(relatedImageCard as HTMLElement)
-      .getByText("42 images")
-      .closest("span");
-    expect(imageTotal).toHaveClass("shrink-0");
-    expect(imageTotal).not.toHaveClass("absolute");
+    expect(relatedImageCard).toHaveAttribute("href", "/images/image_hanami");
     const imageRating = images.getByLabelText("Rating 4.0");
     expect(imageRating).toHaveClass("bg-sakura-50");
     expect(imageRating).toHaveClass("text-sakura-600");
     expect(imageRating).not.toHaveClass("bg-sakura-500");
-    expect(relatedImageCard?.parentElement).toHaveAttribute("href", "/images/image_hanami");
     fireEvent.click(images.getByRole("button", { name: "Table" }));
     expect(images.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
     expect(images.getByRole("columnheader", { name: "Publisher / Label" })).toBeInTheDocument();
