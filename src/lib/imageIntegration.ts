@@ -321,7 +321,11 @@ function buildRelatedPerformerItems(
             ? performer.originalName
             : undefined,
         coverPath: performer.coverPath,
+        aliases: formatAliases(performer.aliasesJson),
         metadata: performer.status || undefined,
+        rating: createRatingSummary(performer.ratingJson).average,
+        filmographyCount: String(derivedRelatedCount(performer.relatedVideosJson)),
+        pictorialsCount: String(derivedRelatedCount(performer.relatedImagesJson)),
         routeTo: `/performers/${performer.id}`,
         unresolved: false,
       };
@@ -336,7 +340,7 @@ function buildRelatedPerformerItems(
 
 function buildRelatedCatalogItems(
   relatedCatalogJson: string | null | undefined,
-  records: Array<Pick<Video, "id" | "title" | "originalTitle" | "coverPath" | "durationMinutes" | "releaseDate">>,
+  records: Array<Pick<Video, "id" | "title" | "originalTitle" | "code" | "coverPath" | "durationMinutes" | "releaseDate" | "ratingJson">>,
   fallbackTitle: string,
 ) {
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -356,8 +360,10 @@ function buildRelatedCatalogItems(
             ? record.originalTitle
             : undefined,
         coverPath: record.coverPath,
+        code: record.code || "No code",
         metadata: formatVideoDuration(record.durationMinutes),
         releaseDate: record.releaseDate,
+        rating: createRatingSummary(record.ratingJson).average,
         routeTo: `/videos/${record.id}`,
         unresolved: false,
       };
@@ -376,4 +382,16 @@ function formatVideoDuration(minutes: number | null) {
   }
 
   return `${minutes} min`;
+}
+
+function formatAliases(value: string | null | undefined) {
+  const aliases = parseTextLabelArray(value)
+    .map((alias) => alias.trim())
+    .filter(Boolean);
+
+  return aliases.length > 0 ? aliases.join(", ") : "No aliases";
+}
+
+function derivedRelatedCount(value: string | null | undefined) {
+  return parseRelatedCatalogRecordArray(value).length;
 }

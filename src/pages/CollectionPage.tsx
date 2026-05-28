@@ -1,6 +1,7 @@
 import {
-  Clock3,
+  Calendar,
   ChevronDown,
+  Clapperboard,
   Filter,
   Grid2X2,
   Heart,
@@ -8,10 +9,11 @@ import {
   List,
   Plus,
   Search,
-  UserRound,
+  Star,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
@@ -578,14 +580,12 @@ type CollectionCardProps = {
 };
 
 function CollectionCard({ config, item }: CollectionCardProps) {
-  const title = item.kind === "performers" ? item.name : item.title;
-  const originalTitle =
-    item.kind === "performers" ? item.originalName : item.originalTitle;
+  const title = dashText(item.kind === "performers" ? item.name : item.title);
 
   return (
     <Link
       to={`/${config.kind}/${item.key}`}
-      className="group overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 transition hover:border-sakura-200 hover:shadow-sm"
+      className="group block overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02] transition hover:border-sakura-200 hover:shadow-md hover:shadow-sakura-100/60"
     >
       <PlaceholderMedia
         kind={config.kind}
@@ -595,23 +595,12 @@ function CollectionCard({ config, item }: CollectionCardProps) {
         favorite={item.favorite}
       />
 
-      <div className="space-y-2.5 pt-3">
-        <div>
-          <h2 className="truncate text-sm font-semibold text-slate-950">
-            {title}
-          </h2>
-          <p className="mt-1 truncate text-xs font-medium text-slate-500">
-            {originalTitle}
-          </p>
-        </div>
-
-        <CardMetadata item={item} />
-
-        <div className="flex flex-wrap gap-2">
-          {item.categories.map((category) => (
-            <CategoryChip key={category} label={category} />
-          ))}
-        </div>
+      <div className="space-y-2 px-1 pb-1 pt-2.5">
+        {item.kind === "performers" ? (
+          <PerformerCardBody item={item} title={title} />
+        ) : (
+          <CatalogCardBody item={item} title={title} />
+        )}
       </div>
     </Link>
   );
@@ -640,11 +629,11 @@ function PlaceholderMedia({
   }, [assetSrc, mediaAssetScopeReady]);
 
   return (
-    <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="relative overflow-hidden rounded-lg bg-white">
       <div
         className={[
-          "relative flex items-end justify-center",
-          kind === "performers" ? "aspect-[4/5]" : "aspect-video",
+          "relative flex items-center justify-center overflow-hidden",
+          kind === "performers" ? "aspect-[6/7]" : "aspect-[4/3]",
         ].join(" ")}
         role={showImage ? undefined : "img"}
         aria-label={showImage ? undefined : label}
@@ -653,125 +642,256 @@ function PlaceholderMedia({
           <img
             src={assetSrc ?? undefined}
             alt={`${title} cover`}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
             loading="lazy"
             onError={() => setImageFailed(true)}
           />
-        ) : kind === "performers" ? (
-          <ProfilePlaceholder />
         ) : (
-          <ImagePlaceholder />
+          <ContentThumbnailPlaceholder />
         )}
       </div>
       <span
-        className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-full bg-white/90 text-sakura-500 shadow-sm"
+        className={[
+          "absolute right-2 top-2 flex items-center justify-center rounded-full shadow-sm",
+          favorite
+            ? "size-8 bg-sakura-500 text-white"
+            : "size-8 bg-white/90 text-sakura-500",
+        ].join(" ")}
         aria-label={favorite ? "Favorite" : "Not favorite"}
       >
-        <Heart size={20} fill={favorite ? "currentColor" : "none"} />
+        <Heart size={17} fill={favorite ? "currentColor" : "none"} />
       </span>
     </div>
   );
 }
 
-function ImagePlaceholder() {
-  return (
-    <div className="absolute inset-0 text-slate-200">
-      <div className="absolute right-[28%] top-[28%] size-6 rounded-full bg-slate-200/80" />
-      <div className="absolute bottom-0 left-[7%] h-[64%] w-[54%] rounded-t-[44px] bg-slate-200/70 [clip-path:polygon(0_100%,38%_25%,100%_100%)]" />
-      <div className="absolute bottom-0 right-[7%] h-[42%] w-[42%] rounded-t-[34px] bg-slate-200/65 [clip-path:polygon(0_100%,45%_18%,100%_100%)]" />
-      <ImageIcon className="sr-only" size={1} />
-    </div>
-  );
-}
-
-function ProfilePlaceholder() {
-  return (
-    <div className="relative flex h-full w-full items-end justify-center text-slate-300">
-      <div className="absolute bottom-0 h-[76%] w-[48%] rounded-t-full bg-slate-300/75" />
-      <div className="absolute bottom-[10%] h-[46%] w-[36%] rounded-t-[55%] bg-white/85" />
-      <div className="absolute bottom-[11%] h-[60%] w-[44%] rounded-t-full bg-slate-300/80 [clip-path:polygon(16%_0,84%_0,98%_72%,72%_100%,28%_100%,2%_72%)]" />
-      <div className="absolute bottom-0 h-[26%] w-[54%] rounded-t-full bg-slate-300/75" />
-      <UserRound className="sr-only" size={1} />
-    </div>
-  );
-}
-
-function CardMetadata({ item }: { item: CollectionItem }) {
-  if (item.kind === "performers") {
-    return (
-      <div className="space-y-3">
-        <div>
-          <StatusChip label={item.status} />
-        </div>
-        <p className="text-xs font-medium text-slate-500">
-          {item.filmographyCount}
-          <span className="px-2 text-slate-300">.</span>
-          {item.pictorialsCount}
-        </p>
-      </div>
-    );
-  }
-
-  if (item.kind === "images") {
-    return (
-      <div className="space-y-3">
-        <div className="space-y-1 text-xs font-semibold text-slate-700">
-          <p>{item.code}</p>
-          <p>{item.imageCount}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusChip label={item.availability ?? "Owned"} />
-          <CensorshipChip label={item.censorship ?? "Censored"} />
-        </div>
-      </div>
-    );
-  }
+function CatalogCardBody({
+  item,
+  title,
+}: {
+  item: Extract<CollectionItem, { kind: "videos" | "images" }>;
+  title: string;
+}) {
+  const countLabel =
+    item.kind === "videos" ? dashText(item.duration) : dashText(item.imageCount);
 
   return (
-    <div className="space-y-3">
-      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-        <Clock3 size={14} />
-        {item.duration}
+    <>
+      <TitleRow title={title} rating={item.ratingBucket} />
+      <p className="truncate text-xs font-medium text-slate-500">
+        {dashText(item.code)}
       </p>
-      <div className="flex flex-wrap gap-2">
-        <StatusChip label={item.availability ?? "Owned"} />
-        <CensorshipChip label={item.censorship ?? "Censored"} />
+      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+        <InfoChip label={dashText(item.availability)} activeLabel="Owned" />
+        <InfoChip label={yearLabel(item.releaseYear)} />
+        <InfoChip label={countLabel} />
       </div>
+      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+        <CategoryChipList categories={item.categories} />
+        <CensorshipChip label={dashText(item.censorship)} />
+      </div>
+    </>
+  );
+}
+
+function PerformerCardBody({
+  item,
+  title,
+}: {
+  item: Extract<CollectionItem, { kind: "performers" }>;
+  title: string;
+}) {
+  return (
+    <>
+      <TitleRow title={title} rating={item.ratingBucket} />
+      <AliasChipList aliases={item.aliases} />
+      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+        <InfoChip label={dashText(item.status)} activeLabel="Active" />
+        <InfoChip label={dashText(item.yearsActive)} />
+        <InfoChip label={dashText(item.activeAges)} />
+      </div>
+      <div className="grid min-h-8 grid-cols-2 items-center gap-2 pt-0.5 text-sm font-semibold text-slate-700">
+        <LargeMetric icon={Clapperboard} label={countOnly(item.filmographyCount)} />
+        <LargeMetric icon={ImageIcon} label={countOnly(item.pictorialsCount)} align="right" />
+      </div>
+      <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+        <CategoryChipList categories={item.categories} />
+      </div>
+    </>
+  );
+}
+
+function TitleRow({ title, rating }: { title: string; rating?: number | null }) {
+  return (
+    <div className="flex min-h-10 min-w-0 items-start justify-between gap-2">
+      <h2 className="min-w-0 line-clamp-2 text-base font-semibold leading-snug text-slate-950">
+        {title}
+      </h2>
+      <RatingPill rating={rating} />
     </div>
   );
 }
 
-function StatusChip({ label }: { label: string }) {
-  const isRetired = label === "Retired";
+function LargeMetric({
+  icon: Icon,
+  label,
+  align = "left",
+}: {
+  icon: typeof Calendar;
+  label: string;
+  align?: "left" | "right";
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex min-w-0 items-center gap-2",
+        align === "right" ? "justify-end" : "justify-start",
+      ].join(" ")}
+    >
+      <Icon size={17} className="shrink-0 text-slate-400" />
+      <span className="truncate">{dashText(label)}</span>
+    </span>
+  );
+}
+
+function RatingPill({ rating }: { rating?: number | null }) {
+  const label =
+    typeof rating === "number" && Number.isFinite(rating) ? rating.toFixed(1) : "-";
+
+  return (
+    <span
+      aria-label={`Rating ${label}`}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-600"
+    >
+      <Star size={13} fill="currentColor" />
+      {label}
+    </span>
+  );
+}
+
+function CategoryChipList({ categories }: { categories: string[] }) {
+  const visibleCategories = categories.filter((category) => dashText(category) !== "-").slice(0, 2);
+  const hiddenCount = Math.max(0, categories.length - visibleCategories.length);
+
+  if (visibleCategories.length === 0) {
+    return (
+      <CategoryChip label="-" />
+    );
+  }
+
+  return (
+    <>
+      {visibleCategories.map((category) => (
+        <CategoryChip key={category} label={category} />
+      ))}
+      {hiddenCount > 0 && <CategoryChip label={`+${hiddenCount}`} />}
+    </>
+  );
+}
+
+function AliasChipList({ aliases }: { aliases: string }) {
+  const aliasList = splitChipValues(aliases);
+  const visibleAliases = aliasList.slice(0, 2);
+  const hiddenCount = Math.max(0, aliasList.length - visibleAliases.length);
+
+  return (
+    <div className="flex min-h-7 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+      {visibleAliases.length > 0 ? (
+        visibleAliases.map((alias) => <AliasChip key={alias} label={alias} />)
+      ) : (
+        <AliasChip label="-" />
+      )}
+      {hiddenCount > 0 && <AliasChip label={`+${hiddenCount}`} />}
+    </div>
+  );
+}
+
+function InfoChip({
+  label,
+  activeLabel,
+}: {
+  label: string;
+  activeLabel?: "Owned" | "Active";
+}) {
+  const normalized = dashText(label);
+  const isActive = normalized === activeLabel;
 
   return (
     <span
       className={[
-        "inline-flex rounded-md px-2.5 py-1 text-xs font-semibold",
-        isRetired
-          ? "bg-slate-100 text-slate-700"
-          : "bg-emerald-50 text-emerald-700",
+        "inline-flex max-w-full shrink-0 rounded-md border px-2 py-1 text-xs font-semibold",
+        isActive
+          ? "border-sakura-500 bg-sakura-500 text-white"
+          : "border-sakura-100 bg-sakura-50 text-sakura-700",
       ].join(" ")}
     >
-      {label}
+      <span className="truncate">{normalized}</span>
     </span>
   );
 }
 
 function CensorshipChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-sakura-600">
-      {label}
+    <span className="inline-flex max-w-full shrink-0 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700">
+      <span className="truncate">{dashText(label)}</span>
     </span>
   );
 }
 
 function CategoryChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex rounded-md bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-600">
-      {label}
+    <span className="inline-flex max-w-full shrink min-w-0 rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700">
+      <span className="truncate">{dashText(label)}</span>
     </span>
   );
+}
+
+function AliasChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex max-w-full shrink min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
+      <span className="truncate">{dashText(label)}</span>
+    </span>
+  );
+}
+
+function dashText(value: string | number | null | undefined) {
+  const label = typeof value === "number" ? String(value) : value?.trim();
+  if (
+    !label ||
+    label === "No aliases" ||
+    label === "No code" ||
+    label === "No category" ||
+    label === "Not set" ||
+    label === "Unknown" ||
+    label === "Unknown - Now" ||
+    label === "Age unknown" ||
+    label === "Age range not set"
+  ) {
+    return "-";
+  }
+
+  return label;
+}
+
+function splitChipValues(value: string | null | undefined) {
+  const label = dashText(value);
+  if (label === "-") {
+    return [];
+  }
+
+  return label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function yearLabel(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : "-";
+}
+
+function countOnly(value: string) {
+  const match = value.match(/\d+/);
+  return match?.[0] ?? "-";
 }
 
 function PaginationBar({

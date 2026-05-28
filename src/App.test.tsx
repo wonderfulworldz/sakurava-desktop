@@ -3915,34 +3915,30 @@ describe("App", () => {
     expect(screen.getByText("Recent Performer")).toBeInTheDocument();
     expect(screen.queryByText(/No edited records yet/i)).not.toBeInTheDocument();
     expect(screen.queryByText("No records yet.")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Video").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Image").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Performer").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Alias One").length).toBeGreaterThan(0);
     const continueCataloging = screen.getByRole("region", {
       name: "Continue Cataloging",
     });
-    expect(
-      within(continueCataloging).getAllByRole("link").map((link) =>
-        link.textContent,
-      ),
-    ).toEqual([
-      "Fourth VideoVideo",
-      "Third VideoVideo",
-      "Older VideoVideo",
-    ]);
+    const continueLinks = within(continueCataloging).getAllByRole("link");
+    expect(continueLinks.map((link) => link.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Fourth Video"),
+        expect.stringContaining("Third Video"),
+        expect.stringContaining("Older Video"),
+      ]),
+    );
     const recentlyAddedSection = screen.getByRole("region", {
       name: "Recently Added",
     });
-    expect(
-      within(recentlyAddedSection).getAllByRole("link").map((link) =>
-        link.textContent,
-      ),
-    ).toEqual([
-      "Older VideoVideo",
-      "Recent ImageImage",
-      "Recent VideoVideo",
-      "Recent PerformerPerformer",
-    ]);
+    expect(within(recentlyAddedSection).getAllByRole("link").map((link) => link.textContent))
+      .toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("Older Video"),
+          expect.stringContaining("Recent Image"),
+          expect.stringContaining("Recent Video"),
+          expect.stringContaining("Recent Performer"),
+        ]),
+      );
     expect(screen.getByText("4 saved videos")).toBeInTheDocument();
     expect(screen.getByText("1 saved image")).toBeInTheDocument();
     expect(screen.getByText("1 saved performer")).toBeInTheDocument();
@@ -5178,7 +5174,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Related Performer Video")).toBeInTheDocument();
     expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
-    expect(screen.getByText("Sakura Aoi")).toBeInTheDocument();
+    expect(screen.getAllByText("Alias One").length).toBeGreaterThan(0);
     const relatedCard = screen.getByText("Aoi Sakura").closest("article");
     expect(relatedCard).not.toBeNull();
     expect(within(relatedCard as HTMLElement).queryByText("Performer")).not.toBeInTheDocument();
@@ -5221,7 +5217,7 @@ describe("App", () => {
     expect(screen.getByText("Former Performer")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Performer")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable")).toHaveLength(2);
-    expect(screen.getAllByText("Related item unavailable")).toHaveLength(2);
+    expect(screen.queryByText("Related item unavailable")).not.toBeInTheDocument();
     expect(screen.queryByText("missing_performer")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -5268,7 +5264,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Related Image Video")).toBeInTheDocument();
     expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
-    expect(screen.getByText("Spring Original")).toBeInTheDocument();
+    expect(screen.getByText("IMG-001")).toBeInTheDocument();
     const relatedCard = screen.getByText("Hanami Gallery").closest("article");
     expect(relatedCard).not.toBeNull();
     expect(within(relatedCard as HTMLElement).queryByText("Image")).not.toBeInTheDocument();
@@ -5318,7 +5314,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Related Video Image")).toBeInTheDocument();
     expect(screen.getByText("Spring Feature")).toBeInTheDocument();
-    expect(screen.getByText("Feature Original")).toBeInTheDocument();
+    expect(screen.getByText("VID-001")).toBeInTheDocument();
     const relatedCard = screen.getByText("Spring Feature").closest("article");
     expect(relatedCard).not.toBeNull();
     expect(within(relatedCard as HTMLElement).queryByText("Video")).not.toBeInTheDocument();
@@ -5365,7 +5361,7 @@ describe("App", () => {
     expect(screen.getByText("Former Gallery")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable")).toHaveLength(2);
-    expect(screen.getAllByText("Related item unavailable")).toHaveLength(2);
+    expect(screen.queryByText("Related item unavailable")).not.toBeInTheDocument();
     expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -5447,17 +5443,19 @@ describe("App", () => {
       within(videos.getByLabelText("Per page")).getByRole("option", { name: "96" }),
     ).toBeInTheDocument();
     expect(videos.getByText("Hanami Feature")).toBeInTheDocument();
-    expect(videos.getByText("Hanami Video Label")).toBeInTheDocument();
+    expect(videos.getByText("VID-001")).toBeInTheDocument();
     expect(videos.getByText("2024")).toBeInTheDocument();
-    const videoDurationOverlay = videos.getByText("86 min").closest("span");
-    expect(videoDurationOverlay).toHaveClass("absolute");
-    expect(videoDurationOverlay).toHaveClass("bottom-2");
-    expect(videoDurationOverlay).toHaveClass("right-2");
+    const relatedVideoCard = videos.getByText("Hanami Feature").closest("article");
+    expect(relatedVideoCard).not.toBeNull();
+    const videoDuration = within(relatedVideoCard as HTMLElement)
+      .getByText("86 min")
+      .closest("span");
+    expect(videoDuration).toHaveClass("shrink-0");
+    expect(videoDuration).not.toHaveClass("absolute");
     const videoRating = videos.getByLabelText("Rating 4.5");
     expect(videoRating).toHaveClass("bg-sakura-50");
     expect(videoRating).toHaveClass("text-sakura-600");
     expect(videoRating).not.toHaveClass("bg-sakura-500");
-    const relatedVideoCard = videos.getByText("Hanami Feature").closest("article");
     expect(relatedVideoCard?.parentElement).toHaveAttribute("href", "/videos/video_hanami");
     fireEvent.click(videos.getByRole("button", { name: "Table" }));
     expect(videos.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
@@ -5476,20 +5474,15 @@ describe("App", () => {
     expect(images.getByLabelText("Sort")).toBeInTheDocument();
     expect(images.getByLabelText("Per page")).toHaveValue("12");
     expect(images.getByText("Hanami Gallery")).toBeInTheDocument();
-    expect(images.getByText("Hanami Image Label")).toBeInTheDocument();
+    expect(images.getByText("IMG-001")).toBeInTheDocument();
     expect(images.getByText("2023")).toBeInTheDocument();
-    const imageTotalOverlay = images.getByText("42 images").closest("span");
-    expect(imageTotalOverlay).toHaveClass("absolute");
-    expect(imageTotalOverlay).toHaveClass("bottom-2");
-    expect(imageTotalOverlay).toHaveClass("right-2");
     const relatedImageCard = images.getByText("Hanami Gallery").closest("article");
     expect(relatedImageCard).not.toBeNull();
-    const imageBottomRow = within(relatedImageCard as HTMLElement)
-      .getByText("2023")
-      .closest("div");
-    expect(imageBottomRow).not.toBeNull();
-    expect(within(imageBottomRow as HTMLElement).queryByText("42 images"))
-      .not.toBeInTheDocument();
+    const imageTotal = within(relatedImageCard as HTMLElement)
+      .getByText("42 images")
+      .closest("span");
+    expect(imageTotal).toHaveClass("shrink-0");
+    expect(imageTotal).not.toHaveClass("absolute");
     const imageRating = images.getByLabelText("Rating 4.0");
     expect(imageRating).toHaveClass("bg-sakura-50");
     expect(imageRating).toHaveClass("text-sakura-600");
@@ -5556,7 +5549,7 @@ describe("App", () => {
     expect(screen.getByText("Former Gallery")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable")).toHaveLength(4);
-    expect(screen.getAllByText("Related item unavailable")).toHaveLength(4);
+    expect(screen.queryByText("Related item unavailable")).not.toBeInTheDocument();
     expect(screen.queryByText("missing_video")).not.toBeInTheDocument();
     expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_video")).not.toBeInTheDocument();

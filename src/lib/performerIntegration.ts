@@ -209,6 +209,9 @@ function toPerformerCollectionItem(
     key: performer.id,
     name: performer.name,
     originalName: performer.originalName,
+    aliases: formatAliases(performer.aliasesJson),
+    yearsActive: formatYearsActive(performer),
+    activeAges: formatYearsActiveAges(performer),
     coverPath: performer.coverPath,
     createdAt: performer.createdAt,
     updatedAt: performer.updatedAt,
@@ -222,6 +225,14 @@ function toPerformerCollectionItem(
     categories: parseTextLabelArray(performer.categoriesJson),
     favorite: performer.favorite,
   };
+}
+
+function formatAliases(value: string | null | undefined) {
+  const aliases = parseTextLabelArray(value)
+    .map((alias) => alias.trim())
+    .filter(Boolean);
+
+  return aliases.length > 0 ? aliases.join(", ") : "No aliases";
 }
 
 function performerToFormValues(performer: Performer): FormValues {
@@ -363,6 +374,7 @@ function buildRelatedVideoItems(
             ? video.originalTitle
             : undefined,
         coverPath: video.coverPath,
+        code: video.code || "No code",
         publisherLabel: video.publisherLabel,
         metadata: formatVideoDuration(video.durationMinutes),
         releaseDate: video.releaseDate,
@@ -398,6 +410,7 @@ function buildRelatedImageItems(
             ? image.originalTitle
             : undefined,
         coverPath: image.coverPath,
+        code: image.code || "No code",
         publisherLabel: image.publisherLabel,
         metadata: formatImageCount(image.imageCount),
         releaseDate: image.releaseDate,
