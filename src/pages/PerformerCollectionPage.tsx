@@ -6,6 +6,7 @@ import CollectionPage from "./CollectionPage";
 import {
   isPerformerRuntimeAvailable,
   listPerformers,
+  updatePerformer,
 } from "../runtime/performerCommands";
 
 function PerformerCollectionPage() {
@@ -44,7 +45,27 @@ function PerformerCollectionPage() {
     };
   }, []);
 
-  return <CollectionPage config={config} />;
+  function handleFavoriteToggle(key: string, currentFavorite: boolean) {
+    setConfig((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.key === key ? { ...item, favorite: !currentFavorite } : item,
+      ),
+    }));
+
+    if (isPerformerRuntimeAvailable()) {
+      updatePerformer(key, { favorite: !currentFavorite }).catch(() => {
+        setConfig((prev) => ({
+          ...prev,
+          items: prev.items.map((item) =>
+            item.key === key ? { ...item, favorite: currentFavorite } : item,
+          ),
+        }));
+      });
+    }
+  }
+
+  return <CollectionPage config={config} onFavoriteToggle={handleFavoriteToggle} />;
 }
 
 export default PerformerCollectionPage;

@@ -5,6 +5,7 @@ import type {
   Video as VideoRecord,
 } from "../backend/types";
 import { parseTextLabelArray } from "../backend/json";
+import { deriveQualityBucket } from "./catalogDerivedFields";
 import { createRatingSummary } from "./ratingSummary";
 
 export type HomeSummaryCard = {
@@ -30,6 +31,8 @@ export type HomeRecentItem = {
   imageCount?: string;
   filmographyCount?: string;
   pictorialsCount?: string;
+  censorship?: string;
+  quality?: string;
 };
 
 type HomeRecentCandidate = HomeRecentItem & {
@@ -182,6 +185,8 @@ function normalizeHomeItems({
       releaseYear: releaseYear(video.releaseDate),
       rating: createRatingSummary(video.ratingJson).average,
       duration: formatMinutes(video.durationMinutes),
+      censorship: video.censorship || "Unspecified",
+      quality: deriveQualityBucket(video) ?? undefined,
       createdAt: video.createdAt,
       updatedAt: video.updatedAt,
     })),
@@ -197,6 +202,8 @@ function normalizeHomeItems({
       releaseYear: releaseYear(image.releaseDate),
       rating: createRatingSummary(image.ratingJson).average,
       imageCount: formatImageCount(image.imageCount),
+      censorship: image.censorship || "Unspecified",
+      quality: deriveQualityBucket(image) ?? undefined,
       createdAt: image.createdAt,
       updatedAt: image.updatedAt,
     })),
