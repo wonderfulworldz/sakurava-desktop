@@ -3,7 +3,7 @@ import { collectionConfigs } from "../lib/collectionData";
 import type { CollectionConfig } from "../lib/collectionData";
 import { buildImageCollectionConfig } from "../lib/imageIntegration";
 import CollectionPage from "./CollectionPage";
-import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
+import { isImageRuntimeAvailable, listImages, updateImage } from "../runtime/imageCommands";
 
 function ImageCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -37,7 +37,27 @@ function ImageCollectionPage() {
     };
   }, []);
 
-  return <CollectionPage config={config} />;
+  function handleFavoriteToggle(key: string, currentFavorite: boolean) {
+    setConfig((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.key === key ? { ...item, favorite: !currentFavorite } : item,
+      ),
+    }));
+
+    if (isImageRuntimeAvailable()) {
+      updateImage(key, { favorite: !currentFavorite }).catch(() => {
+        setConfig((prev) => ({
+          ...prev,
+          items: prev.items.map((item) =>
+            item.key === key ? { ...item, favorite: currentFavorite } : item,
+          ),
+        }));
+      });
+    }
+  }
+
+  return <CollectionPage config={config} onFavoriteToggle={handleFavoriteToggle} />;
 }
 
 export default ImageCollectionPage;

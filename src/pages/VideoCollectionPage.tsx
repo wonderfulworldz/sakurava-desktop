@@ -3,7 +3,7 @@ import { collectionConfigs } from "../lib/collectionData";
 import type { CollectionConfig } from "../lib/collectionData";
 import { buildVideoCollectionConfig } from "../lib/videoIntegration";
 import CollectionPage from "./CollectionPage";
-import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
+import { isVideoRuntimeAvailable, listVideos, updateVideo } from "../runtime/videoCommands";
 
 function VideoCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -37,7 +37,27 @@ function VideoCollectionPage() {
     };
   }, []);
 
-  return <CollectionPage config={config} />;
+  function handleFavoriteToggle(key: string, currentFavorite: boolean) {
+    setConfig((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.key === key ? { ...item, favorite: !currentFavorite } : item,
+      ),
+    }));
+
+    if (isVideoRuntimeAvailable()) {
+      updateVideo(key, { favorite: !currentFavorite }).catch(() => {
+        setConfig((prev) => ({
+          ...prev,
+          items: prev.items.map((item) =>
+            item.key === key ? { ...item, favorite: currentFavorite } : item,
+          ),
+        }));
+      });
+    }
+  }
+
+  return <CollectionPage config={config} onFavoriteToggle={handleFavoriteToggle} />;
 }
 
 export default VideoCollectionPage;
