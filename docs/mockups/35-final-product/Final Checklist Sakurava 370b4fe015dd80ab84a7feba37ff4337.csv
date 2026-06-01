@@ -1,0 +1,64 @@
+﻿Task,Select,Layout,Mockup,Code
+Video Detail section order,In progress,Yes,Yes,No
+Image Detail section order,In progress,Yes,Yes,No
+Glossary Page,In progress,Yes,Yes,No
+Glossary Library Page,In progress,Yes,Yes,No
+Category Management Merge,In progress,Yes,Yes,No
+Category Management Merge,In progress,Yes,Yes,No
+Final Form Spec,In progress,Yes,Yes,No
+State Behavior,Not started,No,No,No
+Global Rule Form,Not started,No,No,No
+Final Category Management Spec,Not started,No,No,No
+Parent/child layout,Not started,No,No,No
+Show in videos/images/performer only,Not started,No,No,No
+Parent chips,Not started,No,No,No
+Filter sync rule,Not started,No,No,No
+Final Detail Spec,In progress,No,No,No
+Performer Detail section order,In progress,Yes,Yes,No
+Gallery Image Preview behavior,In progress,Yes,Yes,No
+Video form final,In progress,Yes,Yes,No
+Image form final,In progress,Yes,Yes,No
+Performer form final,In progress,Yes,Yes,No
+Category management form final,Revision,Yes,Yes,No
+Placeholder text removal rule,Not started,No,No,No
+Final Collection Spec,In progress,Yes,Yes,No
+Filter bar performer,In progress,Yes,Yes,No
+Filter chip order,Not started,No,No,No
+Table columns,Not started,No,No,No
+Short/pagination behavior,Not started,No,No,No
+Cart/table toggle,Not started,No,No,No
+Clear all behavior,Not started,No,No,No
+Section layout,Not started,Yes,Yes,No
+Dark theme target,Not started,No,No,No
+Accent color picker,Not started,No,No,No
+UI density,Not started,No,No,No
+Optimization controls,Not started,No,No,No
+App information realtime,Not started,No,No,No
+Language behavior,Not started,No,No,No
+Logo / icon path,Not started,No,No,No
+Taskbar/titlebar/sidebar logo behavior,Not started,No,No,No
+Footer keep / remove decision,Not started,No,No,No
+App version 1.0.0 stable,Not started,No,No,No
+Back/navigation behavior,Not started,No,No,No
+Final Performance Spec,Not started,No,No,No
+Low-end pc target,Not started,No,No,No
+Lazy load strategy,Not started,No,No,No
+Cache strategy,Not started,No,No,No
+Thumbnail strategy,Not started,No,No,No
+Large catalog handling,Not started,No,No,No
+Final Settings Spec,In progress,Yes,No,No
+Final Branding / App Shell Spec,Not started,No,No,No
+Final Translation Spec,Not started,No,No,No
+Full UI translation,Not started,No,No,No
+User data not translated,Not started,No,No,No
+Remove MVP/planning/dummy text.,Not started,No,No,No
+Empty value = n/a,Not started,No,No,No
+Final Release Spec,Not started,No,No,No
+Full smoke checklist,Not started,No,No,No
+Installer checklist,Not started,No,No,No
+Backup/restore/import/export validation,Not started,No,No,No
+Clean instal validation,Not started,No,No,No
+Audit Policy,Not started,No,No,No
+Low risk: implement directly,Not started,No,No,No
+Unknow/high risk: audit first.,Not started,No,No,No
+If one revision fails: stop and trace root cause.,Not started,No,No,No
