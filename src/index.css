@@ -48,8 +48,9 @@ select {
 }
 
 :root[data-theme="dark"] .bg-slate-50,
-:root[data-theme="dark"] .bg-slate-50\/70 {
-  background-color: #111827;
+:root[data-theme="dark"] .bg-slate-50\/70,
+:root[data-theme="dark"] .bg-slate-50\/95 {
+  background-color: rgba(17, 24, 39, 0.95);
 }
 
 :root[data-theme="dark"] .bg-white,
