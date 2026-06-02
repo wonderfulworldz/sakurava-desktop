@@ -7989,6 +7989,127 @@ describe("App", () => {
       ).not.toBeInTheDocument();
     },
   );
+
+  it("renders read-only Tech Info fields on Video and Image forms", async () => {
+    // 1. Video Form Tech Info Check
+    window.history.pushState({}, "", "/videos/sample-id/edit");
+    
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          durationMinutes: 120,
+          resolution: "1920x1080",
+          fileSizeBytes: 1048576,
+          fileType: "mp4",
+        });
+      }
+      return [];
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn(),
+    };
+
+    const { unmount } = render(<App />);
+
+    // Verify fields are read-only and contain the loaded data
+    const durationInput = await screen.findByLabelText("Duration");
+    const resolutionInput = await screen.findByLabelText("Resolution");
+    const sizeInput = await screen.findByLabelText("File Size");
+    const typeInput = await screen.findByLabelText("File Type");
+
+    // Detect button should exist
+    expect(screen.getByRole("button", { name: "Detect" })).toBeInTheDocument();
+
+    expect(durationInput).toHaveAttribute("readonly");
+    expect(resolutionInput).toHaveAttribute("readonly");
+    expect(sizeInput).toHaveAttribute("readonly");
+    expect(typeInput).toHaveAttribute("readonly");
+
+    expect(durationInput).toHaveValue("120");
+    expect(resolutionInput).toHaveValue("1920x1080");
+    expect(sizeInput).toHaveValue("1048576");
+    expect(typeInput).toHaveValue("mp4");
+
+    unmount();
+
+    // 2. Image Form Tech Info Check
+    window.history.pushState({}, "", "/images/sample-id/edit");
+    const invokeImage = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          imageCount: 15,
+          mainResolution: "3840x2160",
+          totalFileSizeBytes: 5242880,
+          mainFileType: "jpg",
+        });
+      }
+      return [];
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: invokeImage,
+      convertFileSrc: vi.fn(),
+    };
+
+    render(<App />);
+
+    // Verify fields are read-only and contain the loaded data
+    const countInput = await screen.findByLabelText("Image Count");
+    const mainResInput = await screen.findByLabelText("Main Resolution");
+    const totalSizeInput = await screen.findByLabelText("Total File Size");
+    const mainTypeInput = await screen.findByLabelText("Main File Type");
+
+    // Detect button should exist
+    expect(screen.getByRole("button", { name: "Detect" })).toBeInTheDocument();
+
+    expect(countInput).toHaveAttribute("readonly");
+    expect(mainResInput).toHaveAttribute("readonly");
+    expect(totalSizeInput).toHaveAttribute("readonly");
+    expect(mainTypeInput).toHaveAttribute("readonly");
+
+    expect(countInput).toHaveValue("15");
+    expect(mainResInput).toHaveValue("3840x2160");
+    expect(totalSizeInput).toHaveValue("5242880");
+    expect(mainTypeInput).toHaveValue("jpg");
+  });
+
+  it("verifies Performer derived/auto fields are read-only", async () => {
+    window.history.pushState({}, "", "/performers/sample-id/edit");
+    const invokePerformer = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          debutDate: "2020-01-01",
+          retiredDate: "",
+          birthDate: "2000-01-01",
+          relatedVideosJson: relatedCatalogJson("vid", 5),
+          relatedImagesJson: relatedCatalogJson("img", 3),
+        });
+      }
+      return [];
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: invokePerformer,
+      convertFileSrc: vi.fn(),
+    };
+
+    render(<App />);
+
+    // Performer Auto fields
+    const statusInput = await screen.findByLabelText("Status");
+    const filmographyInput = await screen.findByLabelText("Filmography");
+    const pictorialsInput = await screen.findByLabelText("Pictorials");
+    const signInput = await screen.findByLabelText("Astrological Sign");
+
+    expect(statusInput).toHaveAttribute("readonly");
+    expect(filmographyInput).toHaveAttribute("readonly");
+    expect(pictorialsInput).toHaveAttribute("readonly");
+    expect(signInput).toHaveAttribute("readonly");
+
+    expect(statusInput).toHaveValue("Active");
+    expect(filmographyInput).toHaveValue("5");
+    expect(pictorialsInput).toHaveValue("3");
+    expect(signInput).toHaveValue("Capricorn");
+  });
 });
 
 function expectSectionOrder(sections: Array<HTMLElement | null>) {

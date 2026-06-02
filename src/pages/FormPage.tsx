@@ -678,11 +678,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             {config.techInputFields && config.techInputFields.length > 0 && (
               <FieldGrid>
                 {config.techInputFields.map((field) => (
-                  <TextInput
+                  <TechReadOnlyTextInput
                     key={field.name}
-                    field={field}
+                    label={field.label}
                     value={String(values[field.name] ?? "")}
-                    onChange={(value) => updateValue(field.name, value)}
+                    placeholder={field.placeholder ?? "n/a"}
+                    suffix={field.suffix}
                   />
                 ))}
               </FieldGrid>
@@ -1011,6 +1012,54 @@ function ReadOnlyTextInput({
         />
         {helper && (
           <span className="text-xs font-medium text-slate-500">{helper}</span>
+        )}
+      </div>
+    </label>
+  );
+}
+
+function TechReadOnlyTextInput({
+  label,
+  value,
+  placeholder = "n/a",
+  suffix,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  suffix?: string;
+}) {
+  const isPlaceholder = !value.trim() || value === "n/a";
+
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      <span className="flex items-center gap-1.5">
+        {label}
+        {!isPlaceholder && (
+          <span className="inline-flex items-center rounded-md bg-sakura-50 px-1.5 py-0.5 text-[10px] font-bold text-sakura-600 border border-sakura-100/50 uppercase tracking-wider">
+            Auto
+          </span>
+        )}
+      </span>
+      <div className="flex items-center gap-2">
+        <div className="relative grid flex-1">
+          <input
+            className={[
+              "h-9 w-full rounded-lg border px-3 text-sm outline-none transition cursor-not-allowed selection:bg-transparent",
+              isPlaceholder
+                ? "border-slate-100 bg-slate-50/50 text-slate-400 font-normal italic placeholder:text-slate-400/70"
+                : "border-slate-100 bg-slate-50/70 text-slate-600 font-semibold",
+            ].join(" ")}
+            readOnly
+            value={isPlaceholder ? "" : value}
+            placeholder={placeholder}
+            aria-label={label}
+          />
+        </div>
+        {suffix && (
+          <span className="shrink-0 text-xs font-semibold text-slate-500">
+            {suffix}
+          </span>
         )}
       </div>
     </label>
@@ -2058,10 +2107,10 @@ function addChip(
 
 function inputClass(inactive: boolean) {
   return [
-    "h-9 w-full rounded-lg border px-3 text-sm font-normal outline-none transition",
+    "h-9 w-full rounded-lg border px-3 text-sm transition outline-none selection:bg-transparent",
     inactive
-      ? "border-slate-200 bg-slate-100 text-slate-500"
-      : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
+      ? "border-slate-100 bg-slate-50/70 text-slate-500 font-medium cursor-not-allowed"
+      : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100 font-normal",
   ].join(" ");
 }
 
