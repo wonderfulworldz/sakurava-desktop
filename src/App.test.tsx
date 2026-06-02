@@ -2596,21 +2596,20 @@ describe("App", () => {
     expectSectionOrder([
       screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
       screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Cover" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Media Video" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Related Images" }).closest("section"),
-      screen.getByRole("heading", { name: "10. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "3. Files" }).closest("section"),
+      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "5. Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "6. Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "7. Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "8. Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "9. Notes" }).closest("section"),
     ]);
 
     const metadata = within(
       screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
     );
     const techInfo = within(
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section") as HTMLElement,
     );
 
     expect(metadata.queryByLabelText("Duration")).not.toBeInTheDocument();
@@ -2638,21 +2637,20 @@ describe("App", () => {
     expectSectionOrder([
       screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
       screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Cover" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Gallery Images" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Related Video" }).closest("section"),
-      screen.getByRole("heading", { name: "10. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "3. Files" }).closest("section"),
+      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "5. Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "6. Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "7. Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "8. Related Video" }).closest("section"),
+      screen.getByRole("heading", { name: "9. Notes" }).closest("section"),
     ]);
 
     const metadata = within(
       screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
     );
     const techInfo = within(
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section") as HTMLElement,
     );
 
     expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
@@ -2694,7 +2692,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "8. Related Performer" }))
+    expect(screen.getByRole("heading", { name: "7. Related Performer" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
     expect(screen.getByText("No related Performers selected.")).toBeInTheDocument();
@@ -2714,7 +2712,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "9. Related Images" }))
+    expect(screen.getByRole("heading", { name: "8. Related Images" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
     expect(screen.getByText("No related Images selected.")).toBeInTheDocument();
@@ -2734,7 +2732,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "9. Related Video" }))
+    expect(screen.getByRole("heading", { name: "8. Related Video" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
     expect(screen.getByText("No related Videos selected.")).toBeInTheDocument();
@@ -3793,17 +3791,14 @@ describe("App", () => {
 
     expectSectionOrder([
       screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Profile / Thumbnail Fields" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Status / Activity" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Aliases" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Summary" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Personal" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Physical" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "10. Related Videos" }).closest("section"),
-      screen.getByRole("heading", { name: "11. Related Images" }).closest("section"),
-      screen.getByRole("heading", { name: "12. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "2. Media Assets" }).closest("section"),
+      screen.getByRole("heading", { name: "3. Status & Activity" }).closest("section"),
+      screen.getByRole("heading", { name: "4. Profile Details" }).closest("section"),
+      screen.getByRole("heading", { name: "5. Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "6. Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "7. Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "8. Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "9. Notes" }).closest("section"),
     ]);
 
     expect(screen.queryByText("Available after relation features are added."))
@@ -7900,12 +7895,12 @@ describe("App", () => {
   });
 
   it.each([
-    ["/videos/new", "8. Related Performer", "9. Related Images"],
-    ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
-    ["/images/new", "8. Related Performer", "9. Related Video"],
-    ["/images/sample-id/edit", "8. Related Performer", "9. Related Video"],
-    ["/performers/new", "10. Related Videos", "11. Related Images"],
-    ["/performers/sample-id/edit", "10. Related Videos", "11. Related Images"],
+    ["/videos/new", "7. Related Performer", "8. Related Images"],
+    ["/videos/sample-id/edit", "7. Related Performer", "8. Related Images"],
+    ["/images/new", "7. Related Performer", "8. Related Video"],
+    ["/images/sample-id/edit", "7. Related Performer", "8. Related Video"],
+    ["/performers/new", "7. Related Videos", "8. Related Images"],
+    ["/performers/sample-id/edit", "7. Related Videos", "8. Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {
     window.history.pushState({}, "", path);
     render(<App />);
@@ -7922,16 +7917,16 @@ describe("App", () => {
       window.history.pushState({}, "", path);
       render(<App />);
 
-      expect(screen.getAllByRole("heading", { name: "10. Related Videos" }))
+      expect(screen.getAllByRole("heading", { name: "7. Related Videos" }))
         .toHaveLength(1);
-      expect(screen.getAllByRole("heading", { name: "11. Related Images" }))
+      expect(screen.getAllByRole("heading", { name: "8. Related Images" }))
         .toHaveLength(1);
       expect(
         screen.queryByText("Available after relation features are added."),
       ).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "13. Related Videos" }))
+      expect(screen.queryByRole("heading", { name: "10. Related Videos" }))
         .not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "14. Related Images" }))
+      expect(screen.queryByRole("heading", { name: "11. Related Images" }))
         .not.toBeInTheDocument();
       expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
       expect(screen.getByLabelText("Search related images")).toBeInTheDocument();

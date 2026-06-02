@@ -342,17 +342,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const formLabel = mode === "create" ? config.createLabel : config.editLabel;
   const cancelTo =
     mode === "create" ? config.createCancelTo : config.editCancelTo;
-  const isCatalogForm = config.kind === "videos" || config.kind === "images";
-  const isPerformerForm = config.kind === "performers";
-  const lastExtraSectionIndex = isCatalogForm ? 6 : 8;
-  const ratingIndex = lastExtraSectionIndex + 1;
-  const relatedPerformerIndex = ratingIndex + 1;
-  const relatedCatalogIndex =
-    relatedPerformerIndex + (supportsRelatedPerformerPicker ? 1 : 0);
-  const performerRelatedImagesIndex = relatedPerformerIndex + 1;
-  const notesIndex = isCatalogForm
-    ? relatedCatalogIndex + (supportsRelatedCatalogPicker ? 1 : 0)
-    : performerRelatedImagesIndex + (supportsPerformerRelatedCatalogPickers ? 1 : 0);
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -494,7 +483,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form className="max-w-4xl mx-auto px-4 py-8 space-y-6" onSubmit={handleSubmit}>
       <FormHeader
         backLabel={
           mode === "create"
@@ -517,6 +506,21 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               onChange={(value) => updateValue(field.name, value)}
             />
           ))}
+          {config.kind === "performers" && config.showAliases && (
+            <ChipInput
+              label="Aliases"
+              draft={aliasDraft}
+              chips={aliases}
+              placeholder="Add alias..."
+              onDraftChange={setAliasDraft}
+              onAdd={() =>
+                addChip(aliasDraft, aliases, setAliases, setAliasDraft)
+              }
+              onRemove={(chip) =>
+                setAliases((current) => current.filter((item) => item !== chip))
+              }
+            />
+          )}
           <CheckboxInput
             checked={Boolean(values.favorite)}
             label="Favorite"
@@ -525,46 +529,247 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </FieldGrid>
       </FormSection>
 
-      {config.kind === "performers" ? (
-        <PerformerExtraSections
-          config={config}
-          values={values}
-          aliases={aliases}
-          aliasDraft={aliasDraft}
-          categories={categories}
-          managedCategories={managedCategories}
-          canBrowsePaths={canBrowsePaths}
-          updateValue={updateValue}
-          setAliases={setAliases}
-          setAliasDraft={setAliasDraft}
-          setCategories={setCategories}
-          browsePath={browsePath}
-          performerRelatedVideoCount={performerRelatedVideos.length}
-          performerRelatedImageCount={performerRelatedImages.length}
-          suggestions={performerSuggestionOptions}
-          onHideSuggestion={removePerformerSuggestion}
-        />
+      {config.kind !== "performers" ? (
+        <>
+          <FormSection index={2} title="Metadata">
+            <FieldGrid>
+              {config.selectFields.map((field) => 
+                field.name === "availability" ? (
+                  <AvailabilityBadgeInput
+                    key={field.name}
+                    label={field.label}
+                    value={String(values[field.name] ?? field.options[0])}
+                    options={field.options}
+                    onChange={(value) => updateValue(field.name, value)}
+                  />
+                ) : (
+                  <SelectInput
+                    key={field.name}
+                    label={field.label}
+                    value={String(values[field.name] ?? field.options[0])}
+                    options={field.options}
+                    onChange={(value) => updateValue(field.name, value)}
+                  />
+                )
+              )}
+              {config.metadataFields.map((field) => (
+                <TextInput
+                  key={field.name}
+                  field={field}
+                  value={String(values[field.name] ?? "")}
+                  onChange={(value) => updateValue(field.name, value)}
+                />
+              ))}
+            </FieldGrid>
+          </FormSection>
+
+          <FormSection index={3} title="Files">
+            <p className="mb-3 text-xs font-medium text-slate-500">
+              File paths are saved as manual text. Browse selects local files or folders only.
+            </p>
+            <FieldGrid>
+              {config.pathFields.find((f) => f.name === "coverPath") && (
+                <PathInput
+                  field={config.pathFields.find((f) => f.name === "coverPath")!}
+                  value={String(values.coverPath ?? "")}
+                  browseLabel="Browse Cover"
+                  browseDisabled={!canBrowsePaths}
+                  onChange={(value) => updateValue("coverPath", value)}
+                  onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "coverPath")!)}
+                />
+              )}
+              {config.kind === "videos" && config.pathFields.find((f) => f.name === "mediaPath") && (
+                <PathInput
+                  field={config.pathFields.find((f) => f.name === "mediaPath")!}
+                  value={String(values.mediaPath ?? "")}
+                  browseLabel="Browse Media"
+                  browseDisabled={!canBrowsePaths}
+                  onChange={(value) => updateValue("mediaPath", value)}
+                  onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "mediaPath")!)}
+                />
+              )}
+              {config.kind === "images" && (
+                <GalleryImagePathRows
+                  paths={galleryImagePaths}
+                  onChange={setGalleryImagePaths}
+                  folderMessage={galleryFolderMessage}
+                  browseFolderDisabled={!canBrowsePaths}
+                  onBrowseFolder={browseGalleryFolder}
+                />
+              )}
+            </FieldGrid>
+          </FormSection>
+
+          <FormSection
+            index={4}
+            title={config.techTitle ?? "Tech Info"}
+            action={
+              <button
+                type="button"
+                className="inline-flex h-8.5 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 shadow-sm transition hover:bg-sakura-100 hover:border-sakura-300"
+                onClick={() => void detectTechInfo()}
+              >
+                Detect
+              </button>
+            }
+          >
+            {config.techMessage && (
+              <p className="mb-4 text-xs font-medium text-slate-400">
+                {config.techMessage}
+              </p>
+            )}
+            {techInfoMessage && (
+              <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                {techInfoMessage}
+              </p>
+            )}
+            {config.techInputFields && config.techInputFields.length > 0 && (
+              <FieldGrid>
+                {config.techInputFields.map((field) => (
+                  <TextInput
+                    key={field.name}
+                    field={field}
+                    value={String(values[field.name] ?? "")}
+                    onChange={(value) => updateValue(field.name, value)}
+                  />
+                ))}
+              </FieldGrid>
+            )}
+            <ReadOnlyRows fields={config.techFields} />
+          </FormSection>
+        </>
       ) : (
-        <CatalogExtraSections
-          config={config}
-          values={values}
-          categories={categories}
-          setCategories={setCategories}
-          managedCategories={managedCategories}
-          canBrowsePaths={canBrowsePaths}
-          updateValue={updateValue}
-          browsePath={browsePath}
-          galleryImagePaths={galleryImagePaths}
-          setGalleryImagePaths={setGalleryImagePaths}
-          galleryFolderMessage={galleryFolderMessage}
-          canBrowseGalleryFolder={canBrowsePaths}
-          onBrowseGalleryFolder={browseGalleryFolder}
-          techInfoMessage={techInfoMessage}
-          onDetectTechInfo={() => void detectTechInfo()}
-        />
+        <>
+           <FormSection index={2} title="Media Assets">
+            <p className="mb-4 text-xs font-medium text-slate-400">
+              Cover and thumbnail paths are saved as manual text. Browse selects a local image path only.
+            </p>
+            <div className="space-y-6">
+              {/* Cover Row */}
+              <div className="border-b border-slate-100 pb-4">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Primary Cover</h3>
+                {config.pathFields.map((field) => (
+                  <PathInput
+                    key={field.name}
+                    field={field}
+                    value={String(values[field.name] ?? "")}
+                    browseLabel="Browse"
+                    browseDisabled={!canBrowsePaths}
+                    onChange={(value) => updateValue(field.name, value)}
+                    onBrowse={() => browsePath(field)}
+                  />
+                ))}
+              </div>
+
+              {/* Thumbnails Sub-grid */}
+              <div>
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Thumbnails (Optional)</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {config.performerSections?.media.map((field) => (
+                    <PathInputCompact
+                      key={field.name}
+                      field={field}
+                      value={String(values[field.name] ?? "")}
+                      browseLabel="Browse"
+                      browseDisabled={!canBrowsePaths}
+                      onChange={(value) => updateValue(field.name, value)}
+                      onBrowse={() => browsePath(field)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection index={3} title="Status & Activity">
+            <FieldGrid>
+              <PerformerStatusBadge
+                value={derivePerformerStatusDisplay(
+                  String(values.debutDate ?? ""),
+                  String(values.retiredDate ?? ""),
+                )}
+              />
+              {config.performerSections?.personal
+                .filter((field) => field.name === "debutDate" || field.name === "retiredDate")
+                .map((field) => (
+                  <TextInput
+                    key={field.name}
+                    field={field}
+                    value={String(values[field.name] ?? "")}
+                    onChange={(value) => updateValue(field.name, value)}
+                  />
+                ))}
+              <ReadOnlyTextInput
+                label="Filmography"
+                value={String(performerRelatedVideos.length)}
+              />
+              <ReadOnlyTextInput
+                label="Pictorials"
+                value={String(performerRelatedImages.length)}
+              />
+            </FieldGrid>
+          </FormSection>
+
+          <FormSection index={4} title="Profile Details">
+            <FieldGrid>
+              {config.performerSections?.personal
+                .filter((field) => field.name !== "debutDate" && field.name !== "retiredDate")
+                .map((field) => (
+                  field.name === "astrologicalSign" ? (
+                    <ReadOnlyTextInput
+                      key={field.name}
+                      label={field.label}
+                      value={deriveAstrologicalSign(String(values.birthDate ?? ""))}
+                      helper={field.helper}
+                    />
+                  ) : (
+                    <TextInput
+                      key={field.name}
+                      field={field}
+                      value={String(values[field.name] ?? "")}
+                      onChange={(value) => updateValue(field.name, value)}
+                      suggestions={performerSuggestionOptions[field.name] ?? []}
+                      onHideSuggestion={(suggestion) =>
+                        removePerformerSuggestion(field.name, suggestion)
+                      }
+                    />
+                  )
+                ))}
+              {config.performerSections?.physical
+                .map((field) => (
+                  field.name === "measurements" ? (
+                    <MeasurementsInput
+                      key={field.name}
+                      value={String(values.measurements ?? "")}
+                      onChange={(value) => updateValue("measurements", value)}
+                    />
+                  ) : (
+                    <TextInput
+                      key={field.name}
+                      field={field}
+                      value={String(values[field.name] ?? "")}
+                      onChange={(value) => updateValue(field.name, value)}
+                      suggestions={performerSuggestionOptions[field.name] ?? []}
+                      onHideSuggestion={(suggestion) =>
+                        removePerformerSuggestion(field.name, suggestion)
+                      }
+                    />
+                  )
+                ))}
+            </FieldGrid>
+          </FormSection>
+        </>
       )}
 
-      <FormSection index={ratingIndex} title="Rating">
+      <FormSection index={5} title="Categories">
+        <CategoryPicker
+          selected={categories}
+          managedCategories={managedCategories}
+          onChange={setCategories}
+        />
+      </FormSection>
+
+      <FormSection index={6} title="Rating">
         <div className="grid gap-3">
           {config.ratingFields.map((field) => (
             <RatingInput
@@ -577,39 +782,37 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </div>
       </FormSection>
 
-      {supportsRelatedPerformerPicker && (
-        <FormSection index={relatedPerformerIndex} title="Related Performer">
-          <RelatedPerformerPicker
-            performers={availablePerformers}
-            selected={relatedPerformers}
-            loadState={performerLoadState}
-            onChange={setRelatedPerformers}
-          />
-        </FormSection>
-      )}
-
-      {supportsRelatedCatalogPicker && (
-        <FormSection
-          index={relatedCatalogIndex}
-          title={config.kind === "videos" ? "Related Images" : "Related Video"}
-        >
-          <RelatedCatalogPicker
-            records={
-              config.kind === "videos"
-                ? availableRelatedImages
-                : availableRelatedVideos
-            }
-            selected={relatedCatalogRecords}
-            loadState={relatedCatalogLoadState}
-            targetKind={config.kind === "videos" ? "images" : "videos"}
-            onChange={setRelatedCatalogRecords}
-          />
-        </FormSection>
-      )}
-
-      {supportsPerformerRelatedCatalogPickers && (
+      {config.kind !== "performers" ? (
         <>
-          <FormSection index={relatedPerformerIndex} title="Related Videos">
+          <FormSection index={7} title="Related Performer">
+            <RelatedPerformerPicker
+              performers={availablePerformers}
+              selected={relatedPerformers}
+              loadState={performerLoadState}
+              onChange={setRelatedPerformers}
+            />
+          </FormSection>
+
+          <FormSection
+            index={8}
+            title={config.kind === "videos" ? "Related Images" : "Related Video"}
+          >
+            <RelatedCatalogPicker
+              records={
+                config.kind === "videos"
+                  ? availableRelatedImages
+                  : availableRelatedVideos
+              }
+              selected={relatedCatalogRecords}
+              loadState={relatedCatalogLoadState}
+              targetKind={config.kind === "videos" ? "images" : "videos"}
+              onChange={setRelatedCatalogRecords}
+            />
+          </FormSection>
+        </>
+      ) : (
+        <>
+          <FormSection index={7} title="Related Videos">
             <RelatedCatalogPicker
               records={availableRelatedVideos}
               selected={performerRelatedVideos}
@@ -618,7 +821,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               onChange={setPerformerRelatedVideos}
             />
           </FormSection>
-          <FormSection index={performerRelatedImagesIndex} title="Related Images">
+
+          <FormSection index={8} title="Related Images">
             <RelatedCatalogPicker
               records={availableRelatedImages}
               selected={performerRelatedImages}
@@ -630,38 +834,23 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </>
       )}
 
-      <RelatedFormSections
-        sections={relatedSectionsForConfig(config)}
-        startIndex={
-          supportsRelatedCatalogPicker
-            ? relatedCatalogIndex + 1
-            : supportsPerformerRelatedCatalogPickers
-              ? performerRelatedImagesIndex + 1
-            : supportsRelatedPerformerPicker
-              ? relatedPerformerIndex + 1
-              : relatedPerformerIndex
-        }
+      <NotesSection
+        index={9}
+        value={String(values.notes ?? "")}
+        onChange={(value) => updateValue("notes", value)}
       />
 
-      {(isCatalogForm || isPerformerForm) && (
-        <NotesSection
-          index={notesIndex}
-          value={String(values.notes ?? "")}
-          onChange={(value) => updateValue("notes", value)}
-        />
-      )}
-
-      <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-slate-50/95 py-4 backdrop-blur">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-slate-50/95 py-4 backdrop-blur shadow-lg">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div aria-live="polite">
             {saveState === "saved" && (
-              <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-                <CheckCircle2 size={16} />
+              <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-sm">
+                <CheckCircle2 size={14} />
                 {saveMessage || "Local visual save state only"}
               </p>
             )}
             {saveState === "error" && (
-              <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600">
+              <p className="rounded-lg bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-600 shadow-sm">
                 {saveMessage || "Required field is empty."}
               </p>
             )}
@@ -669,15 +858,15 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           <div className="flex justify-end gap-3">
             <Link
               to={cancelTo}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+              className="inline-flex h-9.5 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 shadow-sm transition-all duration-200 hover:border-sakura-200 hover:text-sakura-600 hover:shadow"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
+              className="inline-flex h-9.5 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-xs font-bold text-white shadow-md shadow-sakura-200 transition-all duration-200 hover:bg-sakura-600 hover:shadow-lg"
             >
-              <Save size={16} />
+              <Save size={14} />
               Save
             </button>
           </div>
@@ -701,24 +890,24 @@ function FormHeader({
   formLabel: string;
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 mb-2">
       <div>
         <Link
           to={backTo}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-sm transition-all duration-200 hover:border-sakura-300 hover:text-sakura-600 hover:shadow"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={14} />
           {backLabel}
         </Link>
       </div>
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-sakura-500">
+        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-sakura-500">
           {formLabel}
         </p>
-        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
           {title}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">{subtitle}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{subtitle}</p>
       </div>
     </div>
   );
@@ -745,358 +934,6 @@ function NotesSection({
         />
       </label>
     </FormSection>
-  );
-}
-
-function CatalogExtraSections({
-  config,
-  values,
-  categories,
-  setCategories,
-  managedCategories,
-  canBrowsePaths,
-  updateValue,
-  browsePath,
-  galleryImagePaths,
-  setGalleryImagePaths,
-  galleryFolderMessage,
-  canBrowseGalleryFolder,
-  onBrowseGalleryFolder,
-  techInfoMessage,
-  onDetectTechInfo,
-}: {
-  config: FormConfig;
-  values: FormValues;
-  categories: string[];
-  setCategories: Dispatch<SetStateAction<string[]>>;
-  managedCategories: string[];
-  canBrowsePaths: boolean;
-  updateValue: (name: string, value: string | boolean) => void;
-  browsePath: (field: TextField) => void;
-  galleryImagePaths: string[];
-  setGalleryImagePaths: Dispatch<SetStateAction<string[]>>;
-  galleryFolderMessage: string;
-  canBrowseGalleryFolder: boolean;
-  onBrowseGalleryFolder: () => void;
-  techInfoMessage: string;
-  onDetectTechInfo: () => void;
-}) {
-  const coverField = config.pathFields.find((field) => field.name === "coverPath");
-  const mediaField = config.pathFields.find((field) => field.name === "mediaPath");
-
-  return (
-    <>
-      <FormSection index={2} title="Metadata">
-        <FieldGrid>
-          {config.selectFields.map((field) => (
-            <SelectInput
-              key={field.name}
-              label={field.label}
-              value={String(values[field.name] ?? field.options[0])}
-              options={field.options}
-              onChange={(value) => updateValue(field.name, value)}
-            />
-          ))}
-          {config.metadataFields.map((field) => (
-            <TextInput
-              key={field.name}
-              field={field}
-              value={String(values[field.name] ?? "")}
-              onChange={(value) => updateValue(field.name, value)}
-            />
-          ))}
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={3} title="Cover">
-        <p className="mb-3 text-xs font-medium text-slate-500">
-          Cover path is saved as manual text. Browse selects a local image path only.
-        </p>
-        {coverField && (
-          <FieldGrid>
-            <PathInput
-              field={coverField}
-              value={String(values[coverField.name] ?? "")}
-              browseLabel="Browse Cover"
-              browseDisabled={!canBrowsePaths}
-              onChange={(value) => updateValue(coverField.name, value)}
-              onBrowse={() => browsePath(coverField)}
-            />
-          </FieldGrid>
-        )}
-      </FormSection>
-      {config.kind === "videos" && mediaField && (
-        <FormSection index={4} title="Media Video">
-          <p className="mb-3 text-xs font-medium text-slate-500">
-            Media path is saved as manual text. Browse selects a local media path only.
-          </p>
-          <FieldGrid>
-            <PathInput
-              field={mediaField}
-              value={String(values[mediaField.name] ?? "")}
-              browseLabel="Browse Media"
-              browseDisabled={!canBrowsePaths}
-              onChange={(value) => updateValue(mediaField.name, value)}
-              onBrowse={() => browsePath(mediaField)}
-            />
-          </FieldGrid>
-        </FormSection>
-      )}
-      {config.kind === "images" && (
-        <FormSection index={4} title="Gallery Images">
-          <GalleryImagePathRows
-            paths={galleryImagePaths}
-            onChange={setGalleryImagePaths}
-            folderMessage={galleryFolderMessage}
-            browseFolderDisabled={!canBrowseGalleryFolder}
-            onBrowseFolder={onBrowseGalleryFolder}
-          />
-        </FormSection>
-      )}
-      <FormSection index={5} title={config.techTitle ?? "Tech Info"}>
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          {config.techMessage && (
-            <p className="text-xs font-medium text-slate-500">
-              {config.techMessage}
-            </p>
-          )}
-          <button
-            type="button"
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-sm font-semibold text-sakura-600 hover:bg-sakura-100"
-            onClick={onDetectTechInfo}
-          >
-            Detect
-          </button>
-        </div>
-        {techInfoMessage && (
-          <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-            {techInfoMessage}
-          </p>
-        )}
-        {config.techInputFields && config.techInputFields.length > 0 && (
-          <FieldGrid>
-            {config.techInputFields.map((field) => (
-              <TextInput
-                key={field.name}
-                field={field}
-                value={String(values[field.name] ?? "")}
-                onChange={(value) => updateValue(field.name, value)}
-              />
-            ))}
-          </FieldGrid>
-        )}
-        <ReadOnlyRows fields={config.techFields} />
-      </FormSection>
-      <FormSection index={6} title="Categories">
-        <CategoryPicker
-          selected={categories}
-          managedCategories={managedCategories}
-          onChange={setCategories}
-        />
-      </FormSection>
-    </>
-  );
-}
-
-function PerformerExtraSections({
-  config,
-  values,
-  aliases,
-  aliasDraft,
-  categories,
-  managedCategories,
-  canBrowsePaths,
-  updateValue,
-  setAliases,
-  setAliasDraft,
-  setCategories,
-  browsePath,
-  performerRelatedVideoCount,
-  performerRelatedImageCount,
-  suggestions,
-  onHideSuggestion,
-}: {
-  config: FormConfig;
-  values: FormValues;
-  aliases: string[];
-  aliasDraft: string;
-  categories: string[];
-  managedCategories: string[];
-  canBrowsePaths: boolean;
-  updateValue: (name: string, value: string | boolean) => void;
-  setAliases: Dispatch<SetStateAction<string[]>>;
-  setAliasDraft: Dispatch<SetStateAction<string>>;
-  setCategories: Dispatch<SetStateAction<string[]>>;
-  browsePath: (field: TextField) => void;
-  performerRelatedVideoCount: number;
-  performerRelatedImageCount: number;
-  suggestions: Record<string, string[]>;
-  onHideSuggestion: (fieldName: string, suggestion: string) => void;
-}) {
-  const sections = config.performerSections;
-
-  if (!sections) {
-    return null;
-  }
-
-  return (
-    <>
-      <FormSection index={2} title="Profile / Thumbnail Fields">
-        <p className="mb-3 text-xs font-medium text-slate-500">
-          Cover and thumbnail paths are saved as manual text. Browse selects a local image path only.
-        </p>
-        <FieldGrid>
-          {config.pathFields.map((field) => (
-            <PathInput
-              key={field.name}
-              field={field}
-              value={String(values[field.name] ?? "")}
-              browseLabel="Browse"
-              browseDisabled={!canBrowsePaths}
-              onChange={(value) => updateValue(field.name, value)}
-              onBrowse={() => browsePath(field)}
-            />
-          ))}
-          {sections.media.map((field) => (
-            <PathInput
-              key={field.name}
-              field={field}
-              value={String(values[field.name] ?? "")}
-              browseLabel="Browse"
-              browseDisabled={!canBrowsePaths}
-              onChange={(value) => updateValue(field.name, value)}
-              onBrowse={() => browsePath(field)}
-            />
-          ))}
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={3} title="Status / Activity">
-        <FieldGrid>
-          <ReadOnlyTextInput
-            label="Status"
-            value={derivePerformerStatusDisplay(
-              String(values.debutDate ?? ""),
-              String(values.retiredDate ?? ""),
-            )}
-          />
-          {sections.personal
-            .filter((field) => field.name === "debutDate" || field.name === "retiredDate")
-            .map((field) => (
-              <TextInput
-                key={field.name}
-                field={field}
-                value={String(values[field.name] ?? "")}
-                onChange={(value) => updateValue(field.name, value)}
-              />
-            ))}
-        </FieldGrid>
-      </FormSection>
-      {config.showAliases && (
-        <FormSection index={4} title="Aliases">
-          <ChipInput
-            label="Aliases"
-            draft={aliasDraft}
-            chips={aliases}
-            placeholder="Add alias..."
-            onDraftChange={setAliasDraft}
-            onAdd={() =>
-              addChip(aliasDraft, aliases, setAliases, setAliasDraft)
-            }
-            onRemove={(chip) =>
-              setAliases((current) => current.filter((item) => item !== chip))
-            }
-          />
-        </FormSection>
-      )}
-      <FormSection index={5} title="Summary">
-        <FieldGrid>
-          <ReadOnlyTextInput
-            label="Filmography"
-            value={String(performerRelatedVideoCount)}
-          />
-          <ReadOnlyTextInput
-            label="Pictorials"
-            value={String(performerRelatedImageCount)}
-          />
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={6} title="Personal">
-        <FieldGrid>
-          {sections.personal
-            .filter((field) => field.name !== "debutDate" && field.name !== "retiredDate")
-            .map((field) => (
-            field.name === "astrologicalSign" ? (
-              <ReadOnlyTextInput
-                key={field.name}
-                label={field.label}
-                value={deriveAstrologicalSign(String(values.birthDate ?? ""))}
-                helper={field.helper}
-              />
-            ) : (
-              <TextInput
-                key={field.name}
-                field={field}
-                value={String(values[field.name] ?? "")}
-                onChange={(value) => updateValue(field.name, value)}
-                suggestions={suggestions[field.name] ?? []}
-                onHideSuggestion={(suggestion) =>
-                  onHideSuggestion(field.name, suggestion)
-                }
-              />
-            )
-          ))}
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={7} title="Physical">
-        <FieldGrid>
-          {sections.physical
-            .filter(
-              (field) =>
-                field.name !== "cupSize",
-            )
-            .map((field) => (
-              field.name === "measurements" ? (
-                <MeasurementsInput
-                  key={field.name}
-                  value={String(values.measurements ?? "")}
-                  onChange={(value) => updateValue("measurements", value)}
-                />
-              ) : (
-                <TextInput
-                  key={field.name}
-                  field={field}
-                  value={String(values[field.name] ?? "")}
-                  onChange={(value) => updateValue(field.name, value)}
-                  suggestions={suggestions[field.name] ?? []}
-                  onHideSuggestion={(suggestion) =>
-                    onHideSuggestion(field.name, suggestion)
-                  }
-                />
-              )
-            ))}
-          {sections.physical
-            .filter((field) => field.name === "cupSize")
-            .map((field) => (
-              <TextInput
-                key={field.name}
-                field={field}
-                value={String(values[field.name] ?? "")}
-                onChange={(value) => updateValue(field.name, value)}
-                suggestions={suggestions[field.name] ?? []}
-                onHideSuggestion={(suggestion) =>
-                  onHideSuggestion(field.name, suggestion)
-                }
-              />
-            ))}
-        </FieldGrid>
-      </FormSection>
-      <FormSection index={8} title="Categories">
-        <CategoryPicker
-          selected={categories}
-          managedCategories={managedCategories}
-          onChange={setCategories}
-        />
-      </FormSection>
-    </>
   );
 }
 
@@ -1127,49 +964,26 @@ function ReadOnlyTextInput({
   );
 }
 
-function InactiveFieldSection({
-  index,
-  title,
-  fields,
-  values,
-}: {
-  index: number;
-  title: string;
-  fields: TextField[];
-  values: FormValues;
-}) {
-  return (
-    <FormSection index={index} title={title}>
-      <FieldGrid>
-        {fields.map((field) => (
-          <TextInput
-            key={field.name}
-            field={field}
-            value={String(values[field.name] ?? "")}
-            onChange={() => undefined}
-            inactive
-          />
-        ))}
-      </FieldGrid>
-    </FormSection>
-  );
-}
-
 function FormSection({
   index,
   title,
   children,
+  action,
 }: {
   index: number;
   title: string;
   children: ReactNode;
+  action?: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="text-base font-semibold tracking-normal text-slate-950">
-        {index}. {title}
-      </h2>
-      <div className="mt-4">{children}</div>
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
+        <h2 className="text-lg font-bold tracking-tight text-slate-900">
+          {index}. {title}
+        </h2>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+      <div>{children}</div>
     </section>
   );
 }
@@ -1509,15 +1323,161 @@ function CheckboxInput({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
-      {label}
-      <input
-        className="size-4 accent-sakura-500"
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
+    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center cursor-pointer">
+      <span>{label}</span>
+      <div className="relative flex items-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="peer sr-only"
+          id="favorite-toggle"
+          aria-label={label}
+        />
+        <div
+          onClick={() => onChange(!checked)}
+          className="h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sakura-500 peer-checked:after:translate-x-full peer-checked:after:border-white cursor-pointer relative"
+        />
+      </div>
     </label>
+  );
+}
+
+function AvailabilityBadgeInput({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      <span>{label}</span>
+      <div className="flex gap-2.5">
+        {options.map((option) => {
+          const isSelected = value === option;
+          let badgeColorClass = "";
+          if (option === "Owned") {
+            badgeColorClass = isSelected
+              ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-500/20"
+              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+          } else if (option === "Not Owned") {
+            badgeColorClass = isSelected
+              ? "bg-slate-100 border-slate-300 text-slate-700 ring-2 ring-slate-400/20"
+              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+          } else if (option === "Missing") {
+            badgeColorClass = isSelected
+              ? "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-500/20"
+              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+          } else {
+            badgeColorClass = isSelected
+              ? "bg-sakura-50 border-sakura-300 text-sakura-700 ring-2 ring-sakura-500/20"
+              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+          }
+
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange(option)}
+              className={`inline-flex items-center justify-center rounded-full border px-3.5 py-1 text-xs font-semibold shadow-sm transition-all duration-200 ${badgeColorClass}`}
+            >
+              {option}
+            </button>
+          );
+        })}
+        {/* Hidden select with aria-label so tests/DOM queries work exactly the same */}
+        <select
+          className="sr-only"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          aria-label={label}
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function PerformerStatusBadge({
+  value,
+}: {
+  value: string;
+}) {
+  let badgeColorClass = "bg-slate-50 border-slate-200 text-slate-600";
+  if (value === "Active") {
+    badgeColorClass = "bg-emerald-50 border-emerald-200 text-emerald-700";
+  } else if (value === "Retired") {
+    badgeColorClass = "bg-amber-50 border-amber-200 text-amber-700";
+  }
+
+  return (
+    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      <span>Status</span>
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex items-center justify-center rounded-full border px-3.5 py-1 text-xs font-bold shadow-sm ${badgeColorClass}`}>
+          {value}
+        </span>
+        {/* sr-only input with aria-label and value so tests can query screen.getByLabelText("Status") */}
+        <input
+          className="sr-only"
+          readOnly
+          value={value}
+          aria-label="Status"
+        />
+      </div>
+    </div>
+  );
+}
+
+function PathInputCompact({
+  field,
+  value,
+  browseLabel,
+  browseDisabled,
+  onChange,
+  onBrowse,
+}: {
+  field: TextField;
+  value: string;
+  browseLabel: string;
+  browseDisabled: boolean;
+  onChange: (value: string) => void;
+  onBrowse: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+      <span className="text-xs font-semibold text-slate-600">{field.label}</span>
+      <div className="flex gap-2">
+        <input
+          className="h-8.5 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+          aria-label={field.label}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="button"
+          disabled={browseDisabled}
+          onClick={onBrowse}
+          className={`inline-flex h-8.5 items-center justify-center rounded-md border px-2.5 text-xs font-bold shadow-sm transition-all duration-200 ${
+            browseDisabled
+              ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+              : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100 hover:border-sakura-300"
+          }`}
+        >
+          {browseLabel}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1775,38 +1735,6 @@ function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
         </label>
       ))}
     </div>
-  );
-}
-
-function RelatedFormSections({
-  sections,
-  startIndex,
-}: {
-  sections: ReadOnlyField[];
-  startIndex: number;
-}) {
-  return (
-    <>
-      {sections.map((section, index) => (
-        <FormSection
-          key={section.label}
-          index={startIndex + index}
-          title={section.label}
-        >
-          <ReadOnlyRows fields={[section]} />
-        </FormSection>
-      ))}
-    </>
-  );
-}
-
-function relatedSectionsForConfig(config: FormConfig) {
-  return config.relatedSections.filter(
-    (section) =>
-      section.label !== "Related Performer" &&
-      section.label !== "Related Images" &&
-      section.label !== "Related Videos" &&
-      section.label !== "Related Video",
   );
 }
 
