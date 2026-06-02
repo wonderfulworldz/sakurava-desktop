@@ -2,13 +2,15 @@
 
 ## Status
 
-Dokumen ini adalah paket dokumentasi project **Sakurava** setelah **Visual UI Mockup v1** disetujui sebagai baseline desain.
+This document serves as the documentation package index for the **Sakurava** project after the **Visual UI Mockup v1** was approved as the design baseline.
 
-Tujuan paket ini adalah mengunci arah produk sebelum coding, supaya development tidak mencampur planning, UI, backend, database, integration, testing, dan deploy dalam satu task.
+The purpose of this package is to lock the product direction prior to coding, ensuring that development does not mix planning, UI, backend, database, integration, testing, and deployment into a single task.
 
-## Prinsip utama
+---
 
-Sakurava harus dikembangkan bertahap:
+## Core Principles
+
+Sakurava must be developed in sequential phases:
 
 1. Planning Only
 2. PRD Only
@@ -18,58 +20,62 @@ Sakurava harus dikembangkan bertahap:
 6. Backend Only
 7. Integration Only
 8. Testing Only
-9. Deploy Only
+9. Deployment Only
+
+---
 
 ## Source of Truth
 
-Urutan acuan dokumen:
+Document reference hierarchy:
 
-1. `01-clean-planning.md` — scope dan keputusan awal.
-2. `02-mvp-prd.md` — PRD utama MVP.
-3. `03-ui-wireframe.md` — struktur halaman mengikuti visual mockup v1.
-4. `03a-mvp-form-specification.md` — field form, jenis field, status input, dan aturan save.
-5. `04-visual-design-guide.md` — gaya visual dan baseline mockup v1.
-6. `05-frontend-static-task-plan.md` — urutan implementasi frontend static yang aman.
-7. `06-backend-task-plan.md` — rencana backend only.
-8. `07-integration-task-plan.md` — rencana integration only.
-9. `08-testing-and-release-checklist.md` — manual testing dan release checklist.
-10. `PROJECT_STATUS.md` — ringkasan status post-MVP saat ini.
-11. `ROADMAP_LOCKED.md` — urutan roadmap post-MVP yang terkunci.
-12. `10-category-management-safety.md` — batas aman Category Management.
-13. `11-prd-alignment-and-development-plan.md` — cara membaca PRD MVP bersama standar post-MVP saat ini.
-14. `12-backup-restore-ux-safety.md` — aturan aman UX Backup/Restore.
-15. `13-settings-persistence-planning.md` - rencana aman persistensi Settings.
-16. `14-category-management-dedicated-page-planning.md` - rencana halaman khusus Category Management.
-17. `15-form-category-picker-lockdown-planning.md` - rencana lockdown picker kategori form ke Managed Categories.
-18. `16-categories-sidebar-page-planning.md` - rencana halaman sidebar Categories sebagai browsing/discovery, bukan management.
-19. `17-related-performer-picker-structure-planning.md` - rencana struktur picker Related Performer dari record Performer yang sudah ada.
-20. `18-related-performer-storage-planning.md` - rencana storage Related Performer sebelum implementasi picker.
-21. `19-related-video-image-picker-structure-planning.md` - rencana struktur picker Related Video/Image dari record Video/Image yang sudah ada.
-22. `20-related-video-image-storage-planning.md` - rencana storage Related Video/Image sebelum implementasi picker.
-23. `21-media-file-status-open-file-planning.md` - rencana aman status path media lokal dan aksi open/reveal desktop.
-24. `22-external-media-open-planning.md` - rencana aman membuka media eksternal memakai aplikasi default OS.
-25. `23-cover-thumbnail-full-size-preview-planning.md` - rencana aman preview full-size cover dan thumbnail dari path eksplisit.
-26. `24-performer-mini-thumbnail-storage-form-planning.md` - rencana storage/form aman untuk 4 mini thumbnail Performer.
-27. `25-image-gallery-planning.md` - rencana aman Image Gallery dari daftar path gambar eksplisit.
-28. `26-image-gallery-storage-form-planning.md` - rencana storage/form aman untuk daftar path Image Gallery.
-29. `27-image-gallery-qa-safety-review.md` - QA dan safety review Image Gallery setelah viewer controls.
-30. `28-ui-ux-v1-audit-prioritization-plan.md` - audit dan prioritas roadmap UI/UX V1 setelah Image Gallery initial complete.
-31. `29-catalog-toolbar-v1-planning.md` - rencana Catalog Toolbar V1 untuk Videos, Images, dan Performers sebelum implementasi.
-32. `30-detail-page-v1-layout-planning.md` - rencana Detail Page V1 untuk Video Detail, Image Detail, dan Performer Detail sebelum implementasi.
-33. `31-functional-spider-chart-rating-planning.md` - rencana Functional Spider Chart Rating sebelum implementasi.
-34. `32-tech-info-media-status-planning.md` - rencana Tech Info + Media Status sebelum implementasi.
-35. `33-form-field-ux-v1-planning.md` - rencana Form Field UX V1 sebelum implementasi.
-36. `34-settings-page-v1-information-architecture.md` - rencana information architecture Settings Page V1 sebelum implementasi.
-37. `35-category-management-v1-audit-and-planning.md` - audit dan rencana Category Management V1 untuk Batch 30.1.
-38. `36-category-management-data-model-safety-plan.md` - rencana aman data model Category Management V1 untuk Batch 30.2.
-39. `37-v1-smoke-test-gap-audit-efficient-roadmap.md` - audit gap smoke test V1 dan roadmap efisien Batch 31.1 sampai 36.3.
-40. `38-media-tech-info-availability-safety-plan.md` - rencana aman Media Tech Info dan Availability untuk Batch 33.1 sebelum implementasi 33.2.
-41. `39-settings-functional-redesign-data-operations-plan.md` - rencana Settings Functional Redesign dan Data Operations untuk Batch 34.1 sebelum implementasi 34.2.
-42. `40-import-export-bulk-data-plan.md` - rencana Import/Export Bulk Data untuk CSV/XLSX Videos, Images, dan Performers sebelum implementasi.
+1. `01-clean-planning.md` — Initial scope and decisions.
+2. `02-mvp-prd.md` — Main PRD for the MVP.
+3. `03-ui-wireframe.md` — Page structure matching Visual Mockup v1.
+4. `03a-mvp-form-specification.md` — Form fields, types, input statuses, and save rules.
+5. `04-visual-design-guide.md` — Visual style and Mockup v1 baseline.
+6. `05-frontend-static-task-plan.md` — Implementation order for frontend static layout.
+7. `06-backend-task-plan.md` — Plan for the backend only.
+8. `07-integration-task-plan.md` — Plan for integration only.
+9. `08-testing-and-release-checklist.md` — Manual testing and release checklist.
+10. `PROJECT_STATUS.md` — Current post-MVP status summary.
+11. `ROADMAP_LOCKED.md` — Locked post-MVP roadmap order.
+12. `10-category-management-safety.md` — Safe boundaries for Category Management.
+13. `11-prd-alignment-and-development-plan.md` — How to read the MVP PRD alongside current post-MVP standards.
+14. `12-backup-restore-ux-safety.md` — UX safety rules for Backup and Restore.
+15. `13-settings-persistence-planning.md` — Safe plan for Settings persistence.
+16. `14-category-management-dedicated-page-planning.md` — Planning for a dedicated Category Management page.
+17. `15-form-category-picker-lockdown-planning.md` — Plan to lock the form category picker to Managed Categories.
+18. `16-categories-sidebar-page-planning.md` — Planning for the Categories sidebar page (designed for browsing/discovery, not management).
+19. `17-related-performer-picker-structure-planning.md` — Planning the Related Performer picker structure.
+20. `18-related-performer-storage-planning.md` — Safe storage structure for Related Performers before picker implementation.
+21. `19-related-video-image-picker-structure-planning.md` — Planning the Related Video/Image picker structure.
+22. `20-related-video-image-storage-planning.md` — Safe storage structure for Related Videos/Images before picker implementation.
+23. `21-media-file-status-open-file-planning.md` — Safety plan for local media path status and desktop open/reveal actions.
+24. `22-external-media-open-planning.md` — Safety plan for launching external media in default OS applications.
+25. `23-cover-thumbnail-full-size-preview-planning.md` — Safe preview plan for full-size covers and thumbnails.
+26. `24-performer-mini-thumbnail-storage-form-planning.md` — Safe storage/form plan for 4 mini performer thumbnails.
+27. `25-image-gallery-planning.md` — Safety plan for the Image Gallery using explicit image path lists.
+28. `26-image-gallery-storage-form-planning.md` — Safe storage/form plan for the Image Gallery path list.
+29. `27-image-gallery-qa-safety-review.md` — QA and safety review for the Image Gallery after viewer controls.
+30. `28-ui-ux-v1-audit-prioritization-plan.md` — UI/UX V1 audit and roadmap prioritization after Image Gallery completion.
+31. `29-catalog-toolbar-v1-planning.md` — Planning the Catalog Toolbar V1 for Videos, Images, and Performers before implementation.
+32. `30-detail-page-v1-layout-planning.md` — Layout plan for Video Detail, Image Detail, and Performer Detail.
+33. `31-functional-spider-chart-rating-planning.md` — Planning the spider chart rating visualization.
+34. `32-tech-info-media-status-planning.md` — Plan for Tech Info and Media path status integration.
+35. `33-form-field-ux-v1-planning.md` — Plan for Form Field UX V1 enhancements.
+36. `34-settings-page-v1-information-architecture.md` — Information architecture planning for Settings Page V1.
+37. `35-category-management-v1-audit-and-planning.md` — Audit and plan for Category Management V1 (Batch 30.1).
+38. `36-category-management-data-model-safety-plan.md` — Data model safety plan for Category Management V1 (Batch 30.2).
+39. `37-v1-smoke-test-gap-audit-efficient-roadmap.md` — Smoke test gap audit and efficient roadmap planning for Batches 31.1 through 36.3.
+40. `38-media-tech-info-availability-safety-plan.md` — Safe plan for Media Tech Info and Availability (Batch 33.1).
+41. `39-settings-functional-redesign-data-operations-plan.md` — Plan for Settings functional redesign and data operations (Batch 34.1).
+42. `40-import-export-bulk-data-plan.md` — Plan for bulk data import/export (CSV/XLSX for Videos, Images, and Performers).
+
+---
 
 ## Current Post-MVP Reading Order
 
-Untuk agent baru yang melanjutkan project sekarang, baca:
+New agents resuming the project should read in this sequence:
 
 1. `../AGENTS.md`
 2. `PROJECT_STATUS.md`
@@ -108,14 +114,15 @@ Untuk agent baru yang melanjutkan project sekarang, baca:
 35. `AGENT_CODE_HANDOFF.md`
 36. `WORKFLOW_GIT.md`
 
-`02-mvp-prd.md` tetap baseline MVP, tetapi bukan satu-satunya sumber status project saat ini.
+*Note: `02-mvp-prd.md` remains the baseline MVP spec, but is not the sole source for the current project status.*
+
+---
 
 ## Approved Visual Mockup v1
 
-Visual mockup v1 sudah disetujui sebagai baseline layout dan style untuk frontend static.
+Visual Mockup v1 has been approved as the baseline layout and style for the frontend static view.
 
-Halaman yang sudah ada di visual baseline:
-
+Pages included in the visual baseline:
 - App Shell
 - Home
 - Videos
@@ -129,31 +136,33 @@ Halaman yang sudah ada di visual baseline:
 - Performer Edit
 - Settings
 
-## Keputusan setelah visual mockup v1
+---
 
-- Minor text changes diperbolehkan.
-- Performers search placeholder harus menjadi `Search performers...`.
-- Images collection count harus menggunakan `24 images`, bukan `24 videos`.
-- Video rating term dikunci sebagai `Rewatch`.
-- Related Content hanya read-only placeholder.
-- Tech Info hanya read-only placeholder.
-- Browse button disabled.
-- Performer advanced fields tetap boleh tampil secara visual, tetapi inactive/placeholder untuk MVP.
-- Frontend Static Only tidak boleh memakai SQLite.
-- Frontend Static Only tidak boleh memakai Tauri invoke.
-- Frontend Static Only tidak boleh memakai native file picker.
-- Frontend Static Only tidak boleh memakai relation picker.
+## Post-Visual Mockup v1 Decisions
 
-## Folder placement
+- Minor text changes are permitted.
+- The Performers search placeholder is locked to `Search performers...`.
+- The Images collection count must use `24 images` instead of `24 videos`.
+- The video rating term is locked as `Rewatch`.
+- Related Content is a read-only placeholder.
+- Tech Info is a read-only placeholder.
+- The Browse button is disabled.
+- Advanced Performer fields can be shown visually, but are inactive/placeholders for the MVP.
+- Frontend Static Only must not use SQLite.
+- Frontend Static Only must not use Tauri invokes.
+- Frontend Static Only must not use the native file picker.
+- Frontend Static Only must not use the relation picker.
 
-Semua file ini sebaiknya ditaruh di:
+---
 
+## Folder Structure
+
+All documentation is stored in:
 ```text
 sakurava-desktop/docs/
 ```
 
-Struktur:
-
+Layout:
 ```text
 sakurava-desktop/
 └─ docs/
@@ -169,24 +178,33 @@ sakurava-desktop/
    └─ 08-testing-and-release-checklist.md
 ```
 
-## Rule sebelum coding
+---
 
-Jangan mulai Codex implementasi sebelum dokumen berikut direview:
+## Pre-Coding Rules
 
+Do not begin code execution until the following documents are reviewed:
 - `02-mvp-prd.md`
 - `03-ui-wireframe.md`
 - `03a-mvp-form-specification.md`
 - `04-visual-design-guide.md`
 - `05-frontend-static-task-plan.md`
 
-## Rule saat masuk Codex
+---
 
-Codex baru digunakan untuk implementation-oriented task:
+## Codex Coding Rules
 
+Codex/Agents are used strictly for implementation-oriented tasks:
 - Frontend Static Only
 - Backend Only
 - Integration Only
 - Testing Only
-- Deploy Only
+- Deployment Only
 
-PRD dan planning tetap dibuat/review di ChatGPT, bukan Codex.
+*PRD and planning updates must be drafted/reviewed in design discussions, not direct agent execution.*
+
+## Public Documentation
+
+- [PUBLIC_DOCS.md](docs/PUBLIC_DOCS.md) – Recommended landing page for external readers (English‑first).
+- [DOCUMENTATION_ARCHIVE_POLICY.md](docs/DOCUMENTATION_ARCHIVE_POLICY.md) – Policy for handling historical Indonesian planning docs (archival only).
+
+**Note:** Public‑facing documentation is English‑first. Older planning documents remain in Indonesian to preserve locked design context.
