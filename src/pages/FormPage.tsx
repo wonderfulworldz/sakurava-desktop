@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Plus, Save, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Save, X, Search } from "lucide-react";
 import {
   type ClipboardEvent,
   type Dispatch,
@@ -111,6 +111,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     config.initialGalleryImagePaths?.[mode] ?? [],
   );
   const [aliasDraft, setAliasDraft] = useState("");
+  const [sourceLinks, setSourceLinks] = useState<{ title: string; url: string }[]>([]);
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [availablePerformers, setAvailablePerformers] = useState<Performer[]>([]);
   const [performerLoadState, setPerformerLoadState] =
@@ -143,6 +144,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
     setAliasDraft("");
+    setSourceLinks([]);
     setSaveState("idle");
     setSaveMessage("");
     setGalleryFolderMessage("");
@@ -153,6 +155,33 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setManagedCategories(getStoredManagedCategories());
     resetPerformerSuggestionCachesOnce();
   }, []);
+
+  useEffect(() => {
+    if (config.kind === "videos") {
+      const mediaPath = String(values.mediaPath ?? "").trim();
+      if (!mediaPath) {
+        if (values.availability !== "Not Owned") {
+          updateValue("availability", "Not Owned");
+        }
+      } else {
+        if (values.availability === "Not Owned") {
+          updateValue("availability", "Owned");
+        }
+      }
+    } else if (config.kind === "images") {
+      const coverPath = String(values.coverPath ?? "").trim();
+      const hasGalleryPaths = galleryImagePaths.some((p) => p.trim());
+      if (!coverPath && !hasGalleryPaths) {
+        if (values.availability !== "Not Owned") {
+          updateValue("availability", "Not Owned");
+        }
+      } else {
+        if (values.availability === "Not Owned") {
+          updateValue("availability", "Owned");
+        }
+      }
+    }
+  }, [values.mediaPath, values.coverPath, galleryImagePaths, config.kind]);
 
   useEffect(() => {
     let cancelled = false;
@@ -535,10 +564,16 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             <FieldGrid>
               {config.selectFields.map((field) => 
                 field.name === "availability" ? (
-                  <AvailabilityBadgeInput
+                  <AvailabilityBadgeRow
                     key={field.name}
                     label={field.label}
-                    value={String(values[field.name] ?? field.options[0])}
+                    value={String(values[field.name] ?? "Not Owned")}
+                  />
+                ) : field.name === "censorship" ? (
+                  <CensorshipSelectInput
+                    key={field.name}
+                    label={field.label}
+                    value={String(values[field.name] ?? "Censored")}
                     options={field.options}
                     onChange={(value) => updateValue(field.name, value)}
                   />
@@ -552,14 +587,27 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   />
                 )
               )}
-              {config.metadataFields.map((field) => (
-                <TextInput
-                  key={field.name}
-                  field={field}
-                  value={String(values[field.name] ?? "")}
-                  onChange={(value) => updateValue(field.name, value)}
-                />
-              ))}
+              {config.metadataFields.map((field) => 
+                field.name === "publisherLabel" ? (
+                  <SearchTextInput
+                    key={field.name}
+                    field={field}
+                    value={String(values[field.name] ?? "")}
+                    onChange={(value) => updateValue(field.name, value)}
+                  />
+                ) : (
+                  <TextInput
+                    key={field.name}
+                    field={field}
+                    value={String(values[field.name] ?? "")}
+                    onChange={(value) => updateValue(field.name, value)}
+                  />
+                )
+              )}
+              <SourceLinksInput
+                links={sourceLinks}
+                onChange={setSourceLinks}
+              />
             </FieldGrid>
           </FormSection>
 
@@ -756,6 +804,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                     />
                   )
                 ))}
+              <SourceLinksInput
+                links={sourceLinks}
+                onChange={setSourceLinks}
+              />
             </FieldGrid>
           </FormSection>
         </>
@@ -1183,6 +1235,8 @@ function GalleryImagePathRows({
   browseFolderDisabled: boolean;
   onBrowseFolder: () => void;
 }) {
+  const [showAllPaths, setShowAllPaths] = useState(false);
+
   function updatePath(index: number, value: string) {
     onChange((current) =>
       current.map((path, currentIndex) =>
@@ -1206,6 +1260,8 @@ function GalleryImagePathRows({
     }
   }
 
+  const visiblePaths = showAllPaths ? paths : paths.slice(0, 5);
+
   return (
     <div className="grid gap-3">
       <p className="text-xs font-medium text-slate-500">
@@ -1225,7 +1281,7 @@ function GalleryImagePathRows({
             No Gallery Images paths added.
           </p>
         ) : (
-          paths.map((path, index) => (
+          visiblePaths.map((path, index) => (
             <div
               key={index}
               className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px]"
@@ -1248,6 +1304,33 @@ function GalleryImagePathRows({
           ))
         )}
       </div>
+
+      {paths.length > 5 && !showAllPaths && (
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3.5 py-2">
+          <span className="text-xs font-bold text-slate-400">
+            + {paths.length - 5} more files are loaded
+          </span>
+          <button
+            type="button"
+            className="text-xs font-bold text-sakura-600 hover:text-sakura-700 transition"
+            onClick={() => setShowAllPaths(true)}
+          >
+            Show All
+          </button>
+        </div>
+      )}
+      {showAllPaths && paths.length > 5 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="text-xs font-bold text-sakura-600 hover:text-sakura-700 transition"
+            onClick={() => setShowAllPaths(false)}
+          >
+            Show Less
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -2019,6 +2102,205 @@ function collectionLabel(kind: FormConfig["kind"]) {
   }
 
   return "Performers";
+}
+
+function AvailabilityBadgeRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const options = ["Owned", "Not Owned", "Missing"];
+  return (
+    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      <span>{label}</span>
+      <div className="flex gap-2.5">
+        {options.map((option) => {
+          const isSelected = value === option;
+          let badgeColorClass = "";
+          if (option === "Owned") {
+            badgeColorClass = isSelected
+              ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-500/10"
+              : "bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed";
+          } else if (option === "Not Owned") {
+            badgeColorClass = isSelected
+              ? "bg-slate-100 border-slate-300 text-slate-700 ring-2 ring-slate-400/10"
+              : "bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed";
+          } else if (option === "Missing") {
+            badgeColorClass = isSelected
+              ? "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-500/10"
+              : "bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed";
+          }
+
+          return (
+            <span
+              key={option}
+              className={`inline-flex items-center justify-center rounded-full border px-3.5 py-1 text-xs font-semibold shadow-sm transition ${badgeColorClass}`}
+            >
+              {option}
+            </span>
+          );
+        })}
+        {/* Hidden select with aria-label so JSDOM queries find it perfectly */}
+        <select
+          className="sr-only"
+          value={value}
+          onChange={() => {}}
+          aria-label={label}
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function CensorshipSelectInput({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  const displayToCensorship = (val: string) => {
+    if (val === "Reduced / Reduced Mosaic") return "Reduced";
+    if (val === "Unknown") return "";
+    return val;
+  };
+
+  const censorshipToDisplay = (val: string) => {
+    if (val === "Reduced") return "Reduced / Reduced Mosaic";
+    if (val === "") return "Unknown";
+    return val;
+  };
+
+  const uiValue = censorshipToDisplay(value);
+
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      {label}
+      <select
+        className={inputClass(false)}
+        value={uiValue}
+        onChange={(event) => onChange(displayToCensorship(event.target.value))}
+      >
+        {options.map((option) => (
+          <option key={option}>{option}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SearchTextInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: TextField;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+      <span>{field.label}</span>
+      <div className="relative flex-1">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+          <Search size={14} />
+        </span>
+        <input
+          className="h-9 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          aria-label={field.label}
+          value={value}
+          placeholder="Search or enter publisher..."
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </label>
+  );
+}
+
+function SourceLinksInput({
+  links,
+  onChange,
+}: {
+  links: { title: string; url: string }[];
+  onChange: (nextLinks: { title: string; url: string }[]) => void;
+}) {
+  function updateLink(index: number, key: "title" | "url", value: string) {
+    onChange(
+      links.map((link, idx) =>
+        idx === index ? { ...link, [key]: value } : link,
+      ),
+    );
+  }
+
+  function addLink() {
+    onChange([...links, { title: "", url: "" }]);
+  }
+
+  function removeLink(index: number) {
+    onChange(links.filter((_, idx) => idx !== index));
+  }
+
+  return (
+    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <span className="pt-2">Source Links</span>
+      <div className="grid gap-3">
+        {links.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-xs font-semibold text-slate-400 text-center">
+            No source links added.
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {links.map((link, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_80px]">
+                <input
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                  aria-label={`Source Title ${index + 1}`}
+                  placeholder="Title (e.g. Website)"
+                  value={link.title}
+                  onChange={(e) => updateLink(index, "title", e.target.value)}
+                />
+                <input
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                  aria-label={`Source Link ${index + 1}`}
+                  placeholder="URL (e.g. https://...)"
+                  value={link.url}
+                  onChange={(e) => updateLink(index, "url", e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-xs font-bold text-rose-600 hover:bg-rose-100 transition"
+                  onClick={() => removeLink(index)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div>
+          <button
+            type="button"
+            className="inline-flex h-8.5 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-xs font-bold text-sakura-600 hover:bg-sakura-100 transition"
+            onClick={addLink}
+          >
+            + Add Link
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default FormPage;

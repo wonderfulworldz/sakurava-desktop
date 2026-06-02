@@ -81,7 +81,7 @@ export type FormConfig = {
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
-const censorshipOptions = ["Censored", "Uncensored", "Reduced"];
+const censorshipOptions = ["Censored", "Uncensored", "Reduced / Reduced Mosaic", "Leaked", "Unknown"];
 
 export const formConfigs: Record<FormKind, FormConfig> = {
   videos: {
