@@ -46,6 +46,15 @@ import {
   detectVideoTechInfo,
 } from "../lib/mediaTechInfo";
 
+const BUTTON_STYLES = {
+  primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-xs font-bold text-white shadow-md shadow-sakura-200 transition-all duration-200 hover:bg-sakura-600 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:opacity-50 disabled:cursor-not-allowed",
+  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-6 text-xs font-bold text-slate-600 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 hover:shadow focus:outline-none focus:ring-2 focus:ring-slate-500/10 disabled:opacity-50 disabled:cursor-not-allowed",
+  action: "inline-flex h-9 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 shadow-sm transition-all duration-200 hover:bg-sakura-100 hover:border-sakura-300 disabled:opacity-50 disabled:cursor-not-allowed",
+  compactAction: "inline-flex h-8.5 items-center justify-center rounded-md border border-sakura-200 bg-sakura-50 px-2.5 text-xs font-bold text-sakura-600 shadow-sm transition-all duration-200 hover:bg-sakura-100 hover:border-sakura-300 disabled:opacity-50 disabled:cursor-not-allowed",
+  danger: "inline-flex h-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 shadow-sm transition-all duration-200 hover:bg-rose-100 hover:border-rose-300 disabled:opacity-50 disabled:cursor-not-allowed",
+  link: "font-semibold text-sakura-600 hover:text-sakura-700 transition-colors duration-200",
+};
+
 type FormPageProps = {
   config: FormConfig;
   mode: FormMode;
@@ -111,7 +120,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     config.initialGalleryImagePaths?.[mode] ?? [],
   );
   const [aliasDraft, setAliasDraft] = useState("");
-  const [sourceLinks, setSourceLinks] = useState<{ title: string; url: string }[]>([]);
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [availablePerformers, setAvailablePerformers] = useState<Performer[]>([]);
   const [performerLoadState, setPerformerLoadState] =
@@ -144,7 +152,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
     setAliasDraft("");
-    setSourceLinks([]);
     setSaveState("idle");
     setSaveMessage("");
     setGalleryFolderMessage("");
@@ -512,7 +519,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }
 
   return (
-    <form className="max-w-4xl mx-auto px-4 py-8 space-y-6" onSubmit={handleSubmit}>
+    <form className="max-w-4xl mx-auto px-4 pt-8 pb-24 space-y-6" onSubmit={handleSubmit}>
       <FormHeader
         backLabel={
           mode === "create"
@@ -604,10 +611,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   />
                 )
               )}
-              <SourceLinksInput
-                links={sourceLinks}
-                onChange={setSourceLinks}
-              />
+              <SourceLinksInput />
             </FieldGrid>
           </FormSection>
 
@@ -654,7 +658,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             action={
               <button
                 type="button"
-                className="inline-flex h-8.5 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 shadow-sm transition hover:bg-sakura-100 hover:border-sakura-300"
+                className={BUTTON_STYLES.action}
                 onClick={() => void detectTechInfo()}
               >
                 Detect
@@ -804,10 +808,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                     />
                   )
                 ))}
-              <SourceLinksInput
-                links={sourceLinks}
-                onChange={setSourceLinks}
-              />
+              <SourceLinksInput />
             </FieldGrid>
           </FormSection>
         </>
@@ -892,7 +893,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         onChange={(value) => updateValue("notes", value)}
       />
 
-      <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-slate-50/95 py-4 backdrop-blur shadow-lg">
+      <div className="sticky bottom-0 z-10 border-t border-slate-200/80 bg-slate-50/95 py-5 backdrop-blur shadow-lg">
         <div className="max-w-4xl mx-auto px-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div aria-live="polite">
             {saveState === "saved" && (
@@ -910,13 +911,13 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           <div className="flex justify-end gap-3">
             <Link
               to={cancelTo}
-              className="inline-flex h-9.5 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 shadow-sm transition-all duration-200 hover:border-sakura-200 hover:text-sakura-600 hover:shadow"
+              className={BUTTON_STYLES.secondary}
             >
               Cancel
             </Link>
             <button
               type="submit"
-              className="inline-flex h-9.5 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-xs font-bold text-white shadow-md shadow-sakura-200 transition-all duration-200 hover:bg-sakura-600 hover:shadow-lg"
+              className={BUTTON_STYLES.primary}
             >
               <Save size={14} />
               Save
@@ -1203,11 +1204,7 @@ function PathInput({
             type="button"
             disabled={browseDisabled}
             onClick={onBrowse}
-            className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
-              browseDisabled
-                ? "border-slate-200 bg-slate-100 text-slate-400"
-                : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100"
-            }`}
+            className={BUTTON_STYLES.action}
           >
             {browseLabel}
           </button>
@@ -1294,10 +1291,10 @@ function GalleryImagePathRows({
               />
               <button
                 type="button"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+                className={BUTTON_STYLES.danger}
                 onClick={() => removePath(index)}
               >
-                <X size={15} />
+                <X size={13} />
                 Remove
               </button>
             </div>
@@ -1312,7 +1309,7 @@ function GalleryImagePathRows({
           </span>
           <button
             type="button"
-            className="text-xs font-bold text-sakura-600 hover:text-sakura-700 transition"
+            className={`${BUTTON_STYLES.link} text-xs`}
             onClick={() => setShowAllPaths(true)}
           >
             Show All
@@ -1323,7 +1320,7 @@ function GalleryImagePathRows({
         <div className="flex justify-end">
           <button
             type="button"
-            className="text-xs font-bold text-sakura-600 hover:text-sakura-700 transition"
+            className={`${BUTTON_STYLES.link} text-xs`}
             onClick={() => setShowAllPaths(false)}
           >
             Show Less
@@ -1335,31 +1332,23 @@ function GalleryImagePathRows({
         <button
           type="button"
           disabled={browseFolderDisabled}
-          className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
-            browseFolderDisabled
-              ? "border-slate-200 bg-slate-100 text-slate-400"
-              : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100"
-          }`}
+          className={BUTTON_STYLES.action}
           onClick={onBrowseFolder}
         >
           Browse Gallery Folder
         </button>
         <button
           type="button"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-sm font-semibold text-sakura-600 hover:bg-sakura-100"
+          className={BUTTON_STYLES.action}
           onClick={() => onChange((current) => [...current, ""])}
         >
-          <Plus size={15} />
+          <Plus size={14} />
           Add Images
         </button>
         <button
           type="button"
           disabled={paths.length === 0}
-          className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold ${
-            paths.length === 0
-              ? "border-slate-200 bg-slate-100 text-slate-400"
-              : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:text-rose-600"
-          }`}
+          className={BUTTON_STYLES.secondary}
           onClick={clearPaths}
         >
           Clear All
@@ -1417,9 +1406,9 @@ function CheckboxInput({
           id="favorite-toggle"
           aria-label={label}
         />
+        {/* Visual toggle switch - click naturally handled by parent label wrapping */}
         <div
-          onClick={() => onChange(!checked)}
-          className="h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sakura-500 peer-checked:after:translate-x-full peer-checked:after:border-white cursor-pointer relative"
+          className="h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sakura-500 peer-checked:after:translate-x-full peer-checked:after:border-white relative"
         />
       </div>
     </label>
@@ -1551,11 +1540,7 @@ function PathInputCompact({
           type="button"
           disabled={browseDisabled}
           onClick={onBrowse}
-          className={`inline-flex h-8.5 items-center justify-center rounded-md border px-2.5 text-xs font-bold shadow-sm transition-all duration-200 ${
-            browseDisabled
-              ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-              : "border-sakura-200 bg-sakura-50 text-sakura-600 hover:bg-sakura-100 hover:border-sakura-300"
-          }`}
+          className={BUTTON_STYLES.compactAction}
         >
           {browseLabel}
         </button>
@@ -2229,74 +2214,21 @@ function SearchTextInput({
   );
 }
 
-function SourceLinksInput({
-  links,
-  onChange,
-}: {
-  links: { title: string; url: string }[];
-  onChange: (nextLinks: { title: string; url: string }[]) => void;
-}) {
-  function updateLink(index: number, key: "title" | "url", value: string) {
-    onChange(
-      links.map((link, idx) =>
-        idx === index ? { ...link, [key]: value } : link,
-      ),
-    );
-  }
-
-  function addLink() {
-    onChange([...links, { title: "", url: "" }]);
-  }
-
-  function removeLink(index: number) {
-    onChange(links.filter((_, idx) => idx !== index));
-  }
-
+function SourceLinksInput() {
   return (
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
       <span className="pt-2">Source Links</span>
-      <div className="grid gap-3">
-        {links.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-3 py-3 text-xs font-semibold text-slate-400 text-center">
-            No source links added.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {links.map((link, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_80px]">
-                <input
-                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  aria-label={`Source Title ${index + 1}`}
-                  placeholder="Title (e.g. Website)"
-                  value={link.title}
-                  onChange={(e) => updateLink(index, "title", e.target.value)}
-                />
-                <input
-                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  aria-label={`Source Link ${index + 1}`}
-                  placeholder="URL (e.g. https://...)"
-                  value={link.url}
-                  onChange={(e) => updateLink(index, "url", e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-xs font-bold text-rose-600 hover:bg-rose-100 transition"
-                  onClick={() => removeLink(index)}
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
+      <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 shadow-sm">
+        <div className="flex gap-3">
+          <span className="text-lg leading-none" role="img" aria-label="info">ℹ️</span>
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-amber-800">
+              External Source Links (Deferred)
+            </h4>
+            <p className="text-xs font-medium leading-relaxed text-amber-700">
+              Source links will be added in a future batch once a database column is added. No data is saved or lost here.
+            </p>
           </div>
-        )}
-        <div>
-          <button
-            type="button"
-            className="inline-flex h-8.5 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-xs font-bold text-sakura-600 hover:bg-sakura-100 transition"
-            onClick={addLink}
-          >
-            + Add Link
-          </button>
         </div>
       </div>
     </div>

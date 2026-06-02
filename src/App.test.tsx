@@ -7932,6 +7932,63 @@ describe("App", () => {
       expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
     },
   );
+
+  it.each([
+    "/videos/new",
+    "/videos/sample-id/edit",
+    "/images/new",
+    "/images/sample-id/edit",
+    "/performers/new",
+    "/performers/sample-id/edit",
+  ])("renders Save and Cancel controls on form page %s", (path) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["/videos/new", false],
+    ["/images/new", false],
+    ["/performers/new", false],
+  ])(
+    "favorite checkbox reflects initial value and can be toggled on %s",
+    (path, initialChecked) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      const checkbox = screen.getByRole("checkbox", { name: "Favorite" });
+      expect(checkbox).toBeInTheDocument();
+      expect((checkbox as HTMLInputElement).checked).toBe(initialChecked);
+
+      fireEvent.click(checkbox);
+      expect((checkbox as HTMLInputElement).checked).toBe(!initialChecked);
+    },
+  );
+
+  it.each([
+    "/videos/new",
+    "/images/new",
+    "/performers/new",
+  ])(
+    "source links section shows deferred notice without add/delete controls on %s",
+    (path) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      expect(screen.getByText("Source Links")).toBeInTheDocument();
+      expect(
+        screen.getByText("External Source Links (Deferred)"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "+ Add Link" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Delete" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 function expectSectionOrder(sections: Array<HTMLElement | null>) {
