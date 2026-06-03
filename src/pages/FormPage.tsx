@@ -56,7 +56,10 @@ const BUTTON_STYLES = {
   link: "font-semibold text-sakura-600 hover:text-sakura-700 transition-colors duration-200",
 };
 
-const PILL_STYLES = "inline-flex h-7 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold";
+const PILL_STYLES = "inline-flex h-7 max-w-full min-w-0 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold";
+const CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
+const PICKER_ROW_GRID_STYLES =
+  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
 
 type FormPageProps = {
   config: FormConfig;
@@ -1062,7 +1065,7 @@ function NotesSection({
       <label className="grid gap-2 text-sm font-semibold text-slate-700">
         Notes
         <textarea
-          className="min-h-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          className="min-h-24 select-text rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder="Write local notes..."
@@ -1126,7 +1129,7 @@ function TechReadOnlyTextInput({
         <div className="relative grid flex-1">
           <input
             className={[
-              "h-9 w-full rounded-lg border px-3 text-sm outline-none transition cursor-not-allowed selection:bg-transparent",
+              "h-9 w-full select-text rounded-lg border px-3 text-sm outline-none transition selection:bg-sakura-100 selection:text-slate-900",
               isPlaceholder
                 ? "border-slate-100 bg-slate-50/50 text-slate-400 font-normal italic placeholder:text-slate-400/70"
                 : "border-slate-100 bg-slate-50/70 text-slate-600 font-semibold",
@@ -1285,7 +1288,7 @@ function MeasurementsInput({
       <span>Measurements</span>
       <div className="flex items-center gap-2">
         <input
-          className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          className="h-9 min-w-0 flex-1 select-text rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           aria-label="Measurements"
           inputMode="numeric"
           value={displayValue}
@@ -1661,7 +1664,7 @@ function PathInputCompact({
       <span className="text-xs font-semibold text-slate-600">{field.label}</span>
       <div className="flex gap-2">
         <input
-          className="h-8.5 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+          className="h-8.5 min-w-0 flex-1 select-text rounded-md border border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
           aria-label={field.label}
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -1709,7 +1712,7 @@ function ChipInput({
             key={chip}
             className={`${PILL_STYLES} border-sakura-100 bg-sakura-50 text-sakura-600`}
           >
-            {chip}
+            <span className={CHIP_TEXT_STYLES}>{chip}</span>
             <button
               type="button"
               className="text-sakura-500 hover:text-sakura-700"
@@ -1721,7 +1724,7 @@ function ChipInput({
           </span>
         ))}
         <input
-          className="min-w-40 flex-1 border-0 bg-transparent px-1 py-1 text-sm font-normal text-slate-700 outline-none placeholder:text-slate-400"
+          className="min-w-40 flex-1 select-text border-0 bg-transparent px-1 py-1 text-sm font-normal text-slate-700 outline-none selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400"
           value={draft}
           placeholder={placeholder}
           list={options.length > 0 ? optionListId : undefined}
@@ -1823,7 +1826,7 @@ function CategoryPicker({
         />
         <input
           className={[
-            "h-12 w-full rounded-lg border bg-white pl-12 pr-11 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400",
+            "h-12 w-full select-text rounded-lg border bg-white pl-12 pr-11 text-sm font-medium text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400",
             shouldShowResults
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
@@ -1871,34 +1874,24 @@ function CategoryPicker({
                 <button
                   key={category.label}
                   type="button"
-                  className="flex min-h-12 w-full items-center justify-between border-b border-slate-100 px-4 text-left text-sm font-semibold text-slate-700 transition-colors last:border-b-0 hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none"
+                  className={`${PICKER_ROW_GRID_STYLES} overflow-hidden border-b border-slate-100 px-4 text-left text-sm font-semibold text-slate-700 transition-colors last:border-b-0 hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none`}
+                  data-testid="category-result-row"
                   aria-label={`Add ${category.label}`}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => addSelectedCategory(category.label)}
                 >
-                  <span className="min-w-0">
-                    {category.pathParts.length > 1 ? (
-                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        {category.pathParts.slice(0, -1).map((part, index) => (
-                          <span
-                            key={`${category.label}-${part}-${index}`}
-                            className="inline-flex items-center gap-1.5 text-slate-500"
-                          >
-                            <span className="font-medium">{part}</span>
-                            <span className="text-slate-300">&gt;</span>
-                          </span>
-                        ))}
-                        <span className="font-bold text-slate-800">
-                          {category.pathParts[category.pathParts.length - 1]}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="font-bold text-slate-800">
-                        {category.displayPath}
-                      </span>
-                    )}
+                  <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-800">
+                    {category.displayPath}
                   </span>
-                  <Plus size={14} className="text-sakura-500" />
+                  <span
+                    className="min-w-0 truncate whitespace-nowrap text-right text-sm font-medium text-slate-500"
+                    aria-hidden="true"
+                  >
+                    {" "}
+                  </span>
+                  <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                    <Plus size={14} />
+                  </span>
                 </button>
               ))
             ) : (
@@ -1928,7 +1921,7 @@ function CategoryPicker({
                       : "border-amber-200 bg-amber-50 text-amber-700"
                   }`}
                 >
-                  {category}
+                  <span className={CHIP_TEXT_STYLES}>{category}</span>
                   <button
                     type="button"
                     className={
@@ -2432,7 +2425,7 @@ function addChip(
 
 function inputClass(inactive: boolean) {
   return [
-    "h-9 w-full rounded-lg border px-3 text-sm transition outline-none selection:bg-transparent",
+    "h-9 w-full select-text rounded-lg border px-3 text-sm outline-none transition selection:bg-sakura-100 selection:text-slate-900",
     inactive
       ? "border-slate-100 bg-slate-50/70 text-slate-500 font-medium cursor-not-allowed"
       : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100 font-normal",
@@ -2577,7 +2570,7 @@ function SearchTextInput({
           <Search size={14} />
         </span>
         <input
-          className="h-9 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          className="h-9 w-full select-text rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           aria-label={field.label}
           value={value}
           placeholder="Search or enter publisher..."
