@@ -1783,6 +1783,42 @@ describe("App", () => {
     expect(screen.getByText("Showing 1-30 of 30 categories")).toBeInTheDocument();
   });
 
+  it("toggles Category Management entry form and card/table views", () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    setManagedCategories(["Category A", "Category B"]);
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add Entry" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+
+    expect(screen.getByRole("heading", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Category Management" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("/ Category Library")).toBeInTheDocument();
+    expect(screen.getByText("Parent Category")).toBeInTheDocument();
+    expect(screen.getByText("Used In")).toBeInTheDocument();
+    expect(screen.getByText("Thumbnail")).toBeInTheDocument();
+    expect(screen.getByText("Definition")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Entry" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("heading", { name: "Add Entry" }))
+      .not.toBeInTheDocument();
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Card view" }));
+    expect(screen.getByRole("article", { name: "Category Category A" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Table view" }));
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
   it("keeps Category Management filters and table status text scoped", async () => {
     window.history.pushState({}, "", "/settings/category-management");
     const managedCategories = [

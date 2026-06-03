@@ -1,10 +1,20 @@
-import { ImageIcon, Pencil, Search, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  Grid2X2,
+  ImageIcon,
+  List,
+  Pencil,
+  Plus,
+  Search,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedCategory } from "../backend/types";
 import {
   countManagedCategoryUsage,
   findManagedCategoryDescendantKeys,
 } from "../backend/managedCategoryModel";
+import CategoryCatalogCard from "./CategoryCatalogCard";
 import { getStoredManagedCategories, storeManagedCategories } from "../lib/managedCategories";
 import { selectLocalImageFile } from "../runtime/dialogCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
@@ -32,13 +42,22 @@ type StatusState =
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
-type FilterValue = "all" | "parent-only" | "child-only" | "active" | "unused";
+type FilterValue =
+  | "all"
+  | "parent-only"
+  | "child-only"
+  | "videos"
+  | "images"
+  | "performers"
+  | "active"
+  | "unused";
 type SortValue =
   | "name"
   | "usage-desc"
   | "usage-asc"
   | "updated-desc"
   | "created-desc";
+type ViewValue = "card" | "table";
 
 const rowsPerPageOptions = [25, 50, 100] as const;
 
@@ -60,10 +79,12 @@ function CategoryManagementPanel() {
   const [categories, setCategories] = useState<ManagedCategory[]>([]);
   const [records, setRecords] = useState(emptyRecords);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [formVisible, setFormVisible] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("all");
   const [sort, setSort] = useState<SortValue>("name");
+  const [view, setView] = useState<ViewValue>("table");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<(typeof rowsPerPageOptions)[number]>(
     25,
@@ -126,6 +147,15 @@ function CategoryManagementPanel() {
         }
         if (filter === "child-only") {
           return !!row.category.parentKey;
+        }
+        if (filter === "videos") {
+          return row.usage.videos > 0;
+        }
+        if (filter === "images") {
+          return row.usage.images > 0;
+        }
+        if (filter === "performers") {
+          return row.usage.performers > 0;
         }
         if (filter === "active") {
           return row.usage.total > 0;
@@ -329,6 +359,7 @@ function CategoryManagementPanel() {
 
   function handleEdit(category: ManagedCategory) {
     setEditingKey(category.key);
+    setFormVisible(true);
     setForm({
       name: category.name,
       thumbnailPath: category.thumbnailPath,
@@ -347,6 +378,20 @@ function CategoryManagementPanel() {
   function resetForm() {
     setEditingKey(null);
     setForm(emptyForm);
+    setFormVisible(false);
+  }
+
+  function handleAddEntry() {
+    setEditingKey(null);
+    setForm(emptyForm);
+    setFormVisible(true);
+    setStatus({ state: "idle" });
+    window.requestAnimationFrame(() => {
+      formSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   }
 
   const canSave = isDesktopRuntime && status.state !== "pending";
@@ -362,135 +407,181 @@ function CategoryManagementPanel() {
 
   return (
     <div className="space-y-4">
-      <section
-        ref={formSectionRef}
-        className="scroll-mt-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm"
-      >
-        <div className="mb-4 flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-slate-950">
-            Add / Edit Category
-          </h2>
-          <p className="text-sm text-slate-500">
-            Manage category metadata. Record categories remain saved as labels.
+      <header className="flex flex-col gap-4 px-1 py-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1
+            aria-label="Category Management"
+            className="text-3xl font-semibold tracking-normal text-slate-950"
+          >
+            Category Management{" "}
+            <span aria-hidden="true" className="text-slate-400">
+              / Category Library
+            </span>
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            Create, edit, and organize the category library used by Videos,
+            Images, and Performers.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={handleAddEntry}
+          className="inline-flex w-fit items-center gap-2 rounded-md bg-sakura-600 px-3 py-2 text-sm font-semibold text-white"
+        >
+          <Plus size={16} />
+          Add Entry
+        </button>
+      </header>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Name</span>
-            <input
-              value={form.name}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, name: event.target.value }))
-              }
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Category name"
-            />
-          </label>
+      {formVisible && (
+        <section
+          ref={formSectionRef}
+          className="scroll-mt-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <div className="mb-4 flex flex-col gap-1">
+            <h2 className="text-lg font-semibold text-slate-950">
+              {editingCategory ? "Edit Entry" : "Add Entry"}
+            </h2>
+            <p className="text-sm text-slate-500">
+              Manage category metadata. Record categories remain saved as labels.
+            </p>
+          </div>
 
-          <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Parent</span>
-            <select
-              value={form.parentKey}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  parentKey: event.target.value,
-                }))
-              }
-              disabled={editingCategoryHasChildren}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="">No Parent</option>
-              {parentOptions.map((category) => (
-                <option key={category.key} value={category.key}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <span className="block text-xs font-normal text-slate-500">
-              One level is supported: categories with No Parent can have
-              children; child categories cannot be selected as parents.
-            </span>
-          </label>
-
-          <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Thumbnail</span>
-            <div className="flex gap-2">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <label className="space-y-1 text-sm font-medium text-slate-700">
+              <span>Category</span>
               <input
-                value={form.thumbnailPath}
+                value={form.name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, name: event.target.value }))
+                }
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Category name"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm font-medium text-slate-700">
+              <span>Parent Category</span>
+              <select
+                value={form.parentKey}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    thumbnailPath: event.target.value,
+                    parentKey: event.target.value,
                   }))
                 }
-                className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
-                placeholder="Local path or reference"
-              />
-              <button
-                type="button"
-                onClick={handleBrowseThumbnail}
-                disabled={!isDesktopRuntime}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                disabled={editingCategoryHasChildren}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               >
-                Browse
-              </button>
-            </div>
-            <span className="block text-xs font-normal text-slate-500">
-              Enter a local image path or reference. Browse selects one image
-              path; files are not scanned or changed.
-            </span>
-          </label>
+                <option value="">No Parent</option>
+                {parentOptions.map((category) => (
+                  <option key={category.key} value={category.key}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <span className="block text-xs font-normal text-slate-500">
+                One level is supported: categories with No Parent can have
+                children; child categories cannot be selected as parents.
+              </span>
+            </label>
 
-          <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Description</span>
-            <textarea
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
-              }
-              className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              maxLength={500}
-              placeholder="Plain text description"
-            />
-          </label>
-        </div>
+            <fieldset className="space-y-2 text-sm font-medium text-slate-700">
+              <legend>Used In</legend>
+              <div className="flex flex-wrap gap-2 text-sm font-normal text-slate-600">
+                {["Videos", "Images", "Performers"].map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex rounded-md border border-slate-200 px-3 py-2"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </fieldset>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSave}
-            className="inline-flex items-center gap-2 rounded-md bg-sakura-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {editingCategory ? "Save" : "Add Category"}
-          </button>
-          {editingCategory && (
+            <label className="space-y-1 text-sm font-medium text-slate-700">
+              <span>Thumbnail</span>
+              <div className="flex gap-2">
+                <input
+                  value={form.thumbnailPath}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      thumbnailPath: event.target.value,
+                    }))
+                  }
+                  className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Local path or reference"
+                />
+                <button
+                  type="button"
+                  onClick={handleBrowseThumbnail}
+                  disabled={!isDesktopRuntime}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  Browse
+                </button>
+              </div>
+              <span className="block text-xs font-normal text-slate-500">
+                Enter a local image path or reference. Browse selects one image
+                path; files are not scanned or changed.
+              </span>
+            </label>
+
+            <label className="space-y-1 text-sm font-medium text-slate-700 lg:col-span-2">
+              <span>Definition</span>
+              <textarea
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                maxLength={500}
+                placeholder="Plain text definition"
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={handleSubmit}
               disabled={!canSave}
-              className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+              className="inline-flex items-center gap-2 rounded-md bg-sakura-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              <Trash2 size={16} />
-              Delete
+              Save Entry
             </button>
-          )}
-          <button
-            type="button"
-            onClick={resetForm}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
-          >
-            Cancel
-          </button>
-        </div>
+            {editingCategory && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={!canSave}
+                className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={resetForm}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+            >
+              Cancel
+            </button>
+          </div>
 
+          <StatusMessage status={status} />
+        </section>
+      )}
+
+      {!formVisible && (
         <StatusMessage status={status} />
-      </section>
+      )}
 
       <section className="space-y-3">
         <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center">
@@ -517,6 +608,9 @@ function CategoryManagementPanel() {
             <option value="all">All</option>
             <option value="parent-only">Parent Only</option>
             <option value="child-only">Child Only</option>
+            <option value="videos">Videos</option>
+            <option value="images">Images</option>
+            <option value="performers">Performers</option>
             <option value="active">Active</option>
             <option value="unused">Unused</option>
           </select>
@@ -532,65 +626,129 @@ function CategoryManagementPanel() {
             <option value="updated-desc">Last Updated</option>
             <option value="created-desc">Last Added</option>
           </select>
+          <div
+            aria-label="View"
+            className="inline-flex w-fit rounded-md border border-slate-300 p-0.5"
+          >
+            <button
+              type="button"
+              onClick={() => setView("card")}
+              aria-label="Card view"
+              aria-pressed={view === "card"}
+              title="Card view"
+              className={`inline-flex h-8 w-8 items-center justify-center rounded ${
+                view === "card"
+                  ? "bg-sakura-50 text-sakura-700"
+                  : "text-slate-500"
+              }`}
+            >
+              <Grid2X2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              aria-label="Table view"
+              aria-pressed={view === "table"}
+              title="Table view"
+              className={`inline-flex h-8 w-8 items-center justify-center rounded ${
+                view === "table"
+                  ? "bg-sakura-50 text-sakura-700"
+                  : "text-slate-500"
+              }`}
+            >
+              <List size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-3 font-semibold">Name</th>
-                <th className="px-3 py-3 font-semibold">Parent</th>
-                <th className="px-3 py-3 font-semibold">Description</th>
-                <th className="px-3 py-3 font-semibold">Videos</th>
-                <th className="px-3 py-3 font-semibold">Images</th>
-                <th className="px-3 py-3 font-semibold">Performers</th>
-                <th className="px-3 py-3 font-semibold">Usage</th>
-                <th className="px-3 py-3 font-semibold">Edit</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+          {view === "card" ? (
+            <div className="grid gap-4 p-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
               {paginatedRows.map(({ category, parent, usage }) => (
-                <tr key={category.key} className="align-top">
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <ThumbnailPreview category={category} />
-                      <div>
-                        <div className="font-semibold text-slate-950">
-                          {category.name}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-slate-600">
-                    {parent ? parent.name : "No Parent"}
-                  </td>
-                  <td className="max-w-xs px-3 py-3 text-slate-600">
-                    <span className="line-clamp-2">
-                      {category.description || "No description"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-slate-600">{usage.videos}</td>
-                  <td className="px-3 py-3 text-slate-600">{usage.images}</td>
-                  <td className="px-3 py-3 text-slate-600">
-                    {usage.performers}
-                  </td>
-                  <td className="px-3 py-3 font-semibold text-slate-900">
-                    {usage.total}
-                  </td>
-                  <td className="px-3 py-3">
+                <CategoryCatalogCard
+                  key={category.key}
+                  category={{
+                    name: category.name,
+                    parentName: parent?.name ?? null,
+                    description: category.description,
+                    thumbnailPath: category.thumbnailPath,
+                    videos: usage.videos,
+                    images: usage.images,
+                    performers: usage.performers,
+                    total: usage.total,
+                    status: usage.total > 0 ? "Managed" : "Unused Managed",
+                  }}
+                  actions={
                     <button
                       type="button"
                       onClick={() => handleEdit(category)}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                       <Pencil size={14} />
                       Edit
                     </button>
-                  </td>
-                </tr>
+                  }
+                />
               ))}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3 font-semibold">Name</th>
+                  <th className="px-3 py-3 font-semibold">Parent</th>
+                  <th className="px-3 py-3 font-semibold">Description</th>
+                  <th className="px-3 py-3 font-semibold">Videos</th>
+                  <th className="px-3 py-3 font-semibold">Images</th>
+                  <th className="px-3 py-3 font-semibold">Performers</th>
+                  <th className="px-3 py-3 font-semibold">Usage</th>
+                  <th className="px-3 py-3 font-semibold">Edit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.map(({ category, parent, usage }) => (
+                  <tr key={category.key} className="align-top">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <ThumbnailPreview category={category} />
+                        <div>
+                          <div className="font-semibold text-slate-950">
+                            {category.name}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {parent ? parent.name : "No Parent"}
+                    </td>
+                    <td className="max-w-xs px-3 py-3 text-slate-600">
+                      <span className="line-clamp-2">
+                        {category.description || "No definition"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">{usage.videos}</td>
+                    <td className="px-3 py-3 text-slate-600">{usage.images}</td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {usage.performers}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-900">
+                      {usage.total}
+                    </td>
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(category)}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
           {rows.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-slate-500">
               {categories.length === 0
