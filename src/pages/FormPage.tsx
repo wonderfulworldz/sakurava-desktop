@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Plus, Save, X, Search, Star } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Save, Search, Star, Trash2, X } from "lucide-react";
 import {
   type ClipboardEvent,
   type Dispatch,
@@ -52,14 +52,19 @@ const BUTTON_STYLES = {
   secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/10 disabled:cursor-not-allowed disabled:opacity-50",
   action: "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 transition-colors duration-150 hover:border-sakura-300 hover:bg-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
   compactAction: "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-sakura-200 bg-sakura-50 px-2.5 text-xs font-bold text-sakura-600 transition-colors duration-150 hover:border-sakura-300 hover:bg-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
+  iconDanger: "inline-flex size-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition-colors duration-150 hover:border-rose-300 hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500/15 disabled:cursor-not-allowed disabled:opacity-50",
   danger: "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 transition-colors duration-150 hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50",
   link: "font-semibold text-sakura-600 hover:text-sakura-700 transition-colors duration-200",
 };
 
-const PILL_STYLES = "inline-flex h-7 max-w-full min-w-0 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold";
+const PILL_STYLES = "inline-flex h-7 max-w-full min-w-0 items-center justify-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
 const CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const PICKER_ROW_GRID_STYLES =
   "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
+const FORM_ROW_STYLES =
+  "grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-center";
+const FORM_ROW_START_STYLES =
+  "grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-start";
 
 type FormPageProps = {
   config: FormConfig;
@@ -594,6 +599,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         formLabel={formLabel}
       />
 
+      <div className="rounded-xl border border-slate-200 bg-white px-6 shadow-sm divide-y divide-slate-100">
       <FormSection index={1} title="Basic Identity">
         <FieldGrid>
           {config.basicFields.map((field) => (
@@ -678,15 +684,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           </FormSection>
 
           <FormSection index={3} title="Files">
-            <p className="mb-3 text-xs font-medium text-slate-500">
-              File paths are saved as manual text. Browse selects local files or folders only.
-            </p>
             <FieldGrid>
               {config.pathFields.find((f) => f.name === "coverPath") && (
                 <PathInput
                   field={config.pathFields.find((f) => f.name === "coverPath")!}
                   value={String(values.coverPath ?? "")}
-                  browseLabel="Browse Cover"
+                  browseLabel="Browse"
                   browseDisabled={!canBrowsePaths}
                   onChange={(value) => updateValue("coverPath", value)}
                   onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "coverPath")!)}
@@ -696,7 +699,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 <PathInput
                   field={config.pathFields.find((f) => f.name === "mediaPath")!}
                   value={String(values.mediaPath ?? "")}
-                  browseLabel="Browse Media"
+                  browseLabel="Browse"
                   browseDisabled={!canBrowsePaths}
                   onChange={(value) => updateValue("mediaPath", value)}
                   onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "mediaPath")!)}
@@ -727,11 +730,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               </button>
             }
           >
-            {config.techMessage && (
-              <p className="mb-4 text-xs font-medium text-slate-400">
-                {config.techMessage}
-              </p>
-            )}
             {techInfoMessage && (
               <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
                 {techInfoMessage}
@@ -756,13 +754,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       ) : (
         <>
            <FormSection index={2} title="Media Assets">
-            <p className="mb-4 text-xs font-medium text-slate-400">
-              Cover and thumbnail paths are saved as manual text. Browse selects a local image path only.
-            </p>
             <div className="space-y-6">
-              {/* Cover Row */}
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Primary Cover</h3>
                 {config.pathFields.map((field) => (
                   <PathInput
                     key={field.name}
@@ -776,9 +769,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 ))}
               </div>
 
-              {/* Thumbnails Sub-grid */}
               <div>
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Thumbnails (Optional)</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   {config.performerSections?.media.map((field) => (
                     <PathInputCompact
@@ -878,13 +869,15 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       )}
 
       <FormSection index={5} title="Categories">
-        <CategoryPicker
-          kind={config.kind}
-          selected={categories}
-          managedCategories={managedCategories}
-          managedCategoryRecords={managedCategoryRecords}
-          onChange={setCategories}
-        />
+        <LabeledControl label="Categories">
+          <CategoryPicker
+            kind={config.kind}
+            selected={categories}
+            managedCategories={managedCategories}
+            managedCategoryRecords={managedCategoryRecords}
+            onChange={setCategories}
+          />
+        </LabeledControl>
       </FormSection>
 
       <FormSection index={6} title="Rating">
@@ -923,51 +916,59 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       {config.kind !== "performers" ? (
         <>
           <FormSection index={7} title="Related Performer">
-            <RelatedPerformerPicker
-              performers={availablePerformers}
-              selected={relatedPerformers}
-              loadState={performerLoadState}
-              onChange={setRelatedPerformers}
-            />
+            <LabeledControl label="Performers">
+              <RelatedPerformerPicker
+                performers={availablePerformers}
+                selected={relatedPerformers}
+                loadState={performerLoadState}
+                onChange={setRelatedPerformers}
+              />
+            </LabeledControl>
           </FormSection>
 
           <FormSection
             index={8}
             title={config.kind === "videos" ? "Related Images" : "Related Video"}
           >
-            <RelatedCatalogPicker
-              records={
-                config.kind === "videos"
-                  ? availableRelatedImages
-                  : availableRelatedVideos
-              }
-              selected={relatedCatalogRecords}
-              loadState={relatedCatalogLoadState}
-              targetKind={config.kind === "videos" ? "images" : "videos"}
-              onChange={setRelatedCatalogRecords}
-            />
+            <LabeledControl label={config.kind === "videos" ? "Images" : "Videos"}>
+              <RelatedCatalogPicker
+                records={
+                  config.kind === "videos"
+                    ? availableRelatedImages
+                    : availableRelatedVideos
+                }
+                selected={relatedCatalogRecords}
+                loadState={relatedCatalogLoadState}
+                targetKind={config.kind === "videos" ? "images" : "videos"}
+                onChange={setRelatedCatalogRecords}
+              />
+            </LabeledControl>
           </FormSection>
         </>
       ) : (
         <>
           <FormSection index={7} title="Related Videos">
-            <RelatedCatalogPicker
-              records={availableRelatedVideos}
-              selected={performerRelatedVideos}
-              loadState={relatedCatalogLoadState}
-              targetKind="videos"
-              onChange={setPerformerRelatedVideos}
-            />
+            <LabeledControl label="Videos">
+              <RelatedCatalogPicker
+                records={availableRelatedVideos}
+                selected={performerRelatedVideos}
+                loadState={relatedCatalogLoadState}
+                targetKind="videos"
+                onChange={setPerformerRelatedVideos}
+              />
+            </LabeledControl>
           </FormSection>
 
           <FormSection index={8} title="Related Images">
-            <RelatedCatalogPicker
-              records={availableRelatedImages}
-              selected={performerRelatedImages}
-              loadState={relatedCatalogLoadState}
-              targetKind="images"
-              onChange={setPerformerRelatedImages}
-            />
+            <LabeledControl label="Images">
+              <RelatedCatalogPicker
+                records={availableRelatedImages}
+                selected={performerRelatedImages}
+                loadState={relatedCatalogLoadState}
+                targetKind="images"
+                onChange={setPerformerRelatedImages}
+              />
+            </LabeledControl>
           </FormSection>
         </>
       )}
@@ -977,6 +978,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         value={String(values.notes ?? "")}
         onChange={(value) => updateValue("notes", value)}
       />
+      </div>
 
       <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-slate-50/95 py-4 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1062,8 +1064,8 @@ function NotesSection({
 }) {
   return (
     <FormSection index={index} title="Notes">
-      <label className="grid gap-2 text-sm font-semibold text-slate-700">
-        Notes
+      <label className={FORM_ROW_START_STYLES}>
+        <span className="pt-2">Notes</span>
         <textarea
           className="min-h-24 select-text rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           value={value}
@@ -1085,7 +1087,7 @@ function ReadOnlyTextInput({
   helper?: string;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <label className={FORM_ROW_STYLES}>
       {label}
       <div className="grid gap-1">
         <input
@@ -1116,7 +1118,7 @@ function TechReadOnlyTextInput({
   const isPlaceholder = !value.trim() || value === "n/a";
 
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <label className={FORM_ROW_STYLES}>
       <span className="flex items-center gap-1.5">
         {label}
         {!isPlaceholder && (
@@ -1151,21 +1153,21 @@ function TechReadOnlyTextInput({
 }
 
 function FormSection({
-  index,
+  index: _index,
   title,
   children,
   action,
 }: {
-  index: number;
+  index?: number;
   title: string;
   children: ReactNode;
   action?: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
+    <section className="py-6 first:pt-6 last:pb-6">
+      <div className="mb-5 flex items-center justify-between">
         <h2 className="text-lg font-bold tracking-tight text-slate-900">
-          {index}. {title}
+          {title}
         </h2>
         {action && <div className="shrink-0">{action}</div>}
       </div>
@@ -1176,6 +1178,21 @@ function FormSection({
 
 function FieldGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-3">{children}</div>;
+}
+
+function LabeledControl({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={FORM_ROW_START_STYLES}>
+      <span className="pt-3">{label}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
 }
 
 function TextInput({
@@ -1197,7 +1214,7 @@ function TextInput({
   const hasSuggestions = suggestions.length > 0 && onHideSuggestion && !inactive;
 
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <label className={FORM_ROW_STYLES}>
       <span>
         {field.label}
         {field.required && <span className="text-sakura-500"> *</span>}
@@ -1284,7 +1301,7 @@ function MeasurementsInput({
   }
 
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <div className={FORM_ROW_STYLES}>
       <span>Measurements</span>
       <div className="flex items-center gap-2">
         <input
@@ -1323,7 +1340,7 @@ function PathInput({
   onBrowse: () => void;
 }) {
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <div className={FORM_ROW_STYLES}>
       <span>{field.label}</span>
       <div className="grid gap-1">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
@@ -1393,47 +1410,47 @@ function GalleryImagePathRows({
   const visiblePaths = showAllPaths ? paths : paths.slice(0, 5);
 
   return (
-    <div className="grid gap-3">
-      <p className="text-xs font-medium text-slate-500">
-        Browse one gallery folder or add explicit local image paths. Folder results replace current rows.
-      </p>
-      {folderMessage && (
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-          {folderMessage}
-        </p>
-      )}
-      <div
-        className="grid max-h-80 gap-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2"
-        data-testid="gallery-image-path-list"
-      >
-        {paths.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
-            No Gallery Images paths added.
+    <div className={FORM_ROW_START_STYLES}>
+      <span className="pt-2">Gallery Images</span>
+      <div className="grid gap-3">
+        {folderMessage && (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+            {folderMessage}
           </p>
-        ) : (
-          visiblePaths.map((path, index) => (
-            <div
-              key={index}
-              className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px]"
-            >
-              <input
-                className={inputClass(false)}
-                aria-label={`Gallery Image Path ${index + 1}`}
-                value={path}
-                onChange={(event) => updatePath(index, event.target.value)}
-              />
-              <button
-                type="button"
-                className={BUTTON_STYLES.danger}
-                onClick={() => removePath(index)}
-              >
-                <X size={13} />
-                Remove
-              </button>
-            </div>
-          ))
         )}
-      </div>
+        <div
+          className="grid max-h-80 gap-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2"
+          data-testid="gallery-image-path-list"
+        >
+          {paths.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
+              No Gallery Images paths added.
+            </p>
+          ) : (
+            visiblePaths.map((path, index) => (
+              <div
+                key={index}
+                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px]"
+              >
+                <input
+                  className={inputClass(false)}
+                  aria-label={`Gallery Image Path ${index + 1}`}
+                  value={path}
+                  onChange={(event) => updatePath(index, event.target.value)}
+                />
+                <button
+                  type="button"
+                  className={BUTTON_STYLES.iconDanger}
+                  aria-label={`Remove Gallery Image Path ${index + 1}`}
+                  title="Remove"
+                  onClick={() => removePath(index)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
 
       {paths.length > 5 && !showAllPaths && (
         <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3.5 py-2">
@@ -1461,31 +1478,32 @@ function GalleryImagePathRows({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={browseFolderDisabled}
-          className={BUTTON_STYLES.action}
-          onClick={onBrowseFolder}
-        >
-          Browse Gallery Folder
-        </button>
-        <button
-          type="button"
-          className={BUTTON_STYLES.action}
-          onClick={() => onChange((current) => [...current, ""])}
-        >
-          <Plus size={14} />
-          Add Images
-        </button>
-        <button
-          type="button"
-          disabled={paths.length === 0}
-          className={BUTTON_STYLES.secondary}
-          onClick={clearPaths}
-        >
-          Clear All
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={browseFolderDisabled}
+            className={BUTTON_STYLES.action}
+            onClick={onBrowseFolder}
+          >
+            Browse
+          </button>
+          <button
+            type="button"
+            className={BUTTON_STYLES.action}
+            onClick={() => onChange((current) => [...current, ""])}
+          >
+            <Plus size={14} />
+            Add Images
+          </button>
+          <button
+            type="button"
+            disabled={paths.length === 0}
+            className={BUTTON_STYLES.secondary}
+            onClick={clearPaths}
+          >
+            Clear All
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1503,7 +1521,7 @@ function SelectInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <label className={FORM_ROW_STYLES}>
       {label}
       <select
         className={inputClass(false)}
@@ -1528,7 +1546,7 @@ function CheckboxInput({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center cursor-pointer">
+    <label className={`${FORM_ROW_STYLES} cursor-pointer`}>
       <span>{label}</span>
       <div className="relative flex items-center">
         <input
@@ -1560,7 +1578,7 @@ function AvailabilityBadgeInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <div className={FORM_ROW_STYLES}>
       <span>{label}</span>
       <div className="flex gap-2.5">
         {options.map((option) => {
@@ -1618,21 +1636,39 @@ function PerformerStatusBadge({
 }: {
   value: string;
 }) {
-  let badgeColorClass = "bg-slate-50 border-slate-200 text-slate-600";
-  if (value === "Active") {
-    badgeColorClass = "bg-emerald-50 border-emerald-200 text-emerald-700";
-  } else if (value === "Retired") {
-    badgeColorClass = "bg-amber-50 border-amber-200 text-amber-700";
-  }
+  const options = ["Active", "Retired", "Unknown"];
 
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <div className={FORM_ROW_STYLES}>
       <span>Status</span>
-      <div className="flex items-center gap-2">
-        <span className={`${PILL_STYLES} ${badgeColorClass}`}>
-          {value}
-        </span>
-        {/* sr-only input with aria-label and value so tests can query screen.getByLabelText("Status") */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        {options.map((option) => {
+          const isSelected = value === option;
+          let badgeColorClass = "";
+          if (option === "Active") {
+            badgeColorClass = isSelected
+              ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-500/10"
+              : "bg-slate-50/50 border-slate-100 text-slate-400 opacity-60";
+          } else if (option === "Retired") {
+            badgeColorClass = isSelected
+              ? "bg-amber-50 border-amber-300 text-amber-700 ring-2 ring-amber-500/10"
+              : "bg-slate-50/50 border-slate-100 text-slate-400 opacity-60";
+          } else {
+            badgeColorClass = isSelected
+              ? "bg-slate-100 border-slate-300 text-slate-700 ring-2 ring-slate-400/10"
+              : "bg-slate-50/50 border-slate-100 text-slate-400 opacity-60";
+          }
+
+          return (
+            <span
+              key={option}
+              className={`${PILL_STYLES} ${badgeColorClass}`}
+              aria-current={isSelected ? "true" : undefined}
+            >
+              {option}
+            </span>
+          );
+        })}
         <input
           className="sr-only"
           readOnly
@@ -1660,9 +1696,9 @@ function PathInputCompact({
   onBrowse: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+    <div className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50/50 p-3 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
       <span className="text-xs font-semibold text-slate-600">{field.label}</span>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         <input
           className="h-8.5 min-w-0 flex-1 select-text rounded-md border border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
           aria-label={field.label}
@@ -1704,7 +1740,7 @@ function ChipInput({
   const optionListId = `${label.toLowerCase().replace(/\s+/g, "-")}-options`;
 
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className={FORM_ROW_START_STYLES}>
       <span className="pt-2">{label}</span>
       <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
         {chips.map((chip) => (
@@ -2158,7 +2194,7 @@ function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
       {fields.map((field) => (
         <label
           key={field.label}
-          className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center"
+          className={FORM_ROW_STYLES}
         >
           {field.label}
           <input
@@ -2465,7 +2501,7 @@ function AvailabilityBadgeRow({
 }) {
   const options = ["Owned", "Not Owned", "Missing"];
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <div className={FORM_ROW_STYLES}>
       <span>{label}</span>
       <div className="flex gap-2.5">
         {options.map((option) => {
@@ -2538,7 +2574,7 @@ function CensorshipSelectInput({
   const uiValue = censorshipToDisplay(value);
 
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <label className={FORM_ROW_STYLES}>
       {label}
       <select
         className={inputClass(false)}
@@ -2563,7 +2599,7 @@ function SearchTextInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+    <label className={FORM_ROW_STYLES}>
       <span>{field.label}</span>
       <div className="relative flex-1">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -2582,20 +2618,74 @@ function SearchTextInput({
 }
 
 function SourceLinksInput() {
+  const [rows, setRows] = useState([{ title: "", link: "" }]);
+
+  function updateRow(index: number, field: "title" | "link", value: string) {
+    setRows((current) =>
+      current.map((row, currentIndex) =>
+        currentIndex === index ? { ...row, [field]: value } : row,
+      ),
+    );
+  }
+
+  function removeRow(index: number) {
+    setRows((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }
+
   return (
-    <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className={FORM_ROW_START_STYLES}>
       <span className="pt-2">Source Links</span>
-      <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 shadow-sm">
-        <div className="flex gap-3">
-          <span className="text-lg leading-none" role="img" aria-label="info">ℹ️</span>
-          <div className="space-y-1">
-            <h4 className="text-xs font-bold text-amber-800">
-              External Source Links (Deferred)
-            </h4>
-            <p className="text-xs font-medium leading-relaxed text-amber-700">
-              Source links will be added in a future batch once a database column is added. No data is saved or lost here.
-            </p>
-          </div>
+      <div className="grid gap-2">
+        {rows.map((row, index) => {
+          const canDelete = rows.length > 1;
+
+          return (
+            <div
+              key={index}
+              className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_2.25rem]"
+            >
+              <input
+                className={inputClass(false)}
+                aria-label={`Source Link Title ${index + 1}`}
+                placeholder={`Title ${index + 1}`}
+                value={row.title}
+                onChange={(event) => updateRow(index, "title", event.target.value)}
+              />
+              <input
+                className={inputClass(false)}
+                aria-label={`Source Link URL ${index + 1}`}
+                placeholder={`Link ${index + 1}`}
+                value={row.link}
+                onChange={(event) => updateRow(index, "link", event.target.value)}
+              />
+              {canDelete ? (
+                <button
+                  type="button"
+                  className={BUTTON_STYLES.iconDanger}
+                  aria-label={`Delete Source Link ${index + 1}`}
+                  title="Delete"
+                  onClick={() => removeRow(index)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+            </div>
+          );
+        })}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-medium text-amber-700">
+            Deferred: source links are not saved yet.
+          </p>
+          <button
+            type="button"
+            className={BUTTON_STYLES.action}
+            onClick={() => setRows((current) => [...current, { title: "", link: "" }])}
+          >
+            <Plus size={14} />
+            Add Link
+          </button>
         </div>
       </div>
     </div>

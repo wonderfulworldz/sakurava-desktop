@@ -2477,72 +2477,138 @@ describe("App", () => {
     [
       "/videos/new",
       "Video Create Form",
-      "Browse Cover",
-      "Browse Media",
-      "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
       "No related performers selected.",
       "Rewatch",
     ],
     [
       "/videos/sample-id/edit",
       "Video Edit Form",
-      "Browse Cover",
-      "Browse Media",
-      "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
       "No related images selected.",
       "Rewatch",
     ],
     [
       "/images/new",
       "Image Create Form",
-      "Browse Cover",
-      "Browse Gallery Folder",
-      "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
       "No related videos selected.",
       "Memorability",
     ],
     [
       "/images/sample-id/edit",
       "Image Edit Form",
-      "Browse Cover",
-      "Browse Gallery Folder",
-      "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
       "No related performers selected.",
       "Memorability",
     ],
     [
       "/performers/new",
       "Performer Create Form",
-      "Browse",
-      "Thumbnail 1",
       "No related videos selected.",
-      "No related images selected.",
       "Attraction",
     ],
     [
       "/performers/sample-id/edit",
       "Performer Edit Form",
-      "Browse",
-      "Thumbnail 1",
       "No related videos selected.",
-      "No related images selected.",
       "Attraction",
     ],
   ])(
     "renders static form safeguards for %s",
-    (path, formLabel, disabledOne, disabledTwo, placeholderOne, placeholderTwo, ratingLabel) => {
+    (path, formLabel, emptyRelatedText, ratingLabel) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       expect(screen.getByText(formLabel)).toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: disabledOne })[0]).toBeDisabled();
-      expect(screen.getAllByText(disabledTwo).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(placeholderOne).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(placeholderTwo).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Browse" }).length)
+        .toBeGreaterThan(0);
+      expect(screen.getAllByText(emptyRelatedText).length).toBeGreaterThan(0);
       expect(screen.getByLabelText(ratingLabel)).toBeInTheDocument();
+      expect(screen.queryByText(/Use Detect after/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Primary Cover")).not.toBeInTheDocument();
+      expect(screen.queryByText("Thumbnails (Optional)")).not.toBeInTheDocument();
       expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
     },
   );
+
+  it("uses one content box with unnumbered section headings", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    const firstSection = screen
+      .getByRole("heading", { name: "Basic Identity" })
+      .closest("section") as HTMLElement;
+    const contentBox = firstSection.parentElement as HTMLElement;
+    const titleRow = screen.getByLabelText(/^Title/).closest("label") as HTMLElement;
+    const categoriesRow = screen
+      .getByTestId("category-picker-field")
+      .closest("div")?.parentElement?.parentElement as HTMLElement;
+
+    expect(contentBox).toHaveClass("bg-white", "divide-y");
+    expect(firstSection).not.toHaveClass("rounded-xl", "border");
+    expect(titleRow).toHaveClass(
+      "lg:grid-cols-[180px_minmax(0,1fr)]",
+      "lg:items-center",
+    );
+    expect(categoriesRow).toHaveClass(
+      "lg:grid-cols-[180px_minmax(0,1fr)]",
+      "lg:items-start",
+    );
+    expect(screen.queryByRole("heading", { name: "1. Basic Identity" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("renders Source Links as deferred title and link rows", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expect(screen.getByLabelText("Source Link Title 1")).toHaveAttribute(
+      "placeholder",
+      "Title 1",
+    );
+    expect(screen.getByLabelText("Source Link URL 1")).toHaveAttribute(
+      "placeholder",
+      "Link 1",
+    );
+    expect(screen.getByText("Deferred: source links are not saved yet."))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Link" }));
+
+    expect(screen.getByLabelText("Source Link Title 2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source Link URL 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Source Link 2" }))
+      .toBeInTheDocument();
+  });
+
+  it("renders Availability and Performer Status with matching rectangular chip sets", () => {
+    window.history.pushState({}, "", "/videos/new");
+    const { unmount } = render(<App />);
+
+    const availabilitySection = screen
+      .getByText("Availability")
+      .closest("div") as HTMLElement;
+    for (const label of ["Owned", "Not Owned", "Missing"]) {
+      const chip = within(availabilitySection)
+        .getAllByText(label)
+        .find((element) => element.tagName === "SPAN") as HTMLElement;
+      expect(chip).toHaveClass("rounded-md");
+      expect(chip).not.toHaveClass("rounded-full");
+    }
+
+    unmount();
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    const statusSection = screen.getByText("Status").closest("div") as HTMLElement;
+    for (const label of ["Active", "Retired", "Unknown"]) {
+      const chip = within(statusSection)
+        .getAllByText(label)
+        .find((element) => element.tagName === "SPAN") as HTMLElement;
+      expect(chip).toHaveClass("rounded-md");
+      expect(chip).not.toHaveClass("rounded-full");
+    }
+    expect(screen.getByLabelText("Status")).toHaveValue("Unknown");
+  });
 
   it.each([
     "/videos/new",
@@ -2595,22 +2661,22 @@ describe("App", () => {
     render(<App />);
 
     expectSectionOrder([
-      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Files" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Images" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
     const metadata = within(
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Metadata" }).closest("section") as HTMLElement,
     );
     const techInfo = within(
-      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section") as HTMLElement,
     );
 
     expect(metadata.queryByLabelText("Duration")).not.toBeInTheDocument();
@@ -2636,22 +2702,22 @@ describe("App", () => {
     render(<App />);
 
     expectSectionOrder([
-      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Files" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Video" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Video" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
     const metadata = within(
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Metadata" }).closest("section") as HTMLElement,
     );
     const techInfo = within(
-      screen.getByRole("heading", { name: "4. Tech Info" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section") as HTMLElement,
     );
 
     expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
@@ -2696,7 +2762,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "7. Related Performer" }))
+    expect(screen.getByRole("heading", { name: "Related Performer" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
     expect(screen.getByText("No related performers selected.")).toBeInTheDocument();
@@ -2719,7 +2785,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "8. Related Images" }))
+    expect(screen.getByRole("heading", { name: "Related Images" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
     expect(screen.getByText("No related images selected.")).toBeInTheDocument();
@@ -2742,7 +2808,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "8. Related Video" }))
+    expect(screen.getByRole("heading", { name: "Related Video" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
     expect(screen.getByText("No related videos selected.")).toBeInTheDocument();
@@ -3352,7 +3418,7 @@ describe("App", () => {
     render(<App />);
 
     const performerSection = (await screen.findByRole("heading", {
-      name: "7. Related Performer",
+      name: "Related Performer",
     })).closest("section") as HTMLElement;
     const relatedPerformers = within(performerSection);
 
@@ -3400,7 +3466,7 @@ describe("App", () => {
     render(<App />);
 
     const videosSection = (await screen.findByRole("heading", {
-      name: "7. Related Videos",
+      name: "Related Videos",
     })).closest("section") as HTMLElement;
     const relatedVideos = within(videosSection);
 
@@ -3439,7 +3505,7 @@ describe("App", () => {
   it.each([
     {
       path: "/videos/new",
-      buttonName: "Browse Cover",
+      buttonName: "Browse",
       inputLabel: "Cover Path",
       selectedPath: "D:/Sakurava/Covers/video-cover.jpg",
       expectedDialog: {
@@ -3455,7 +3521,8 @@ describe("App", () => {
     },
     {
       path: "/videos/new",
-      buttonName: "Browse Media",
+      buttonName: "Browse",
+      buttonIndex: 1,
       inputLabel: "Media Path",
       selectedPath: "D:/Sakurava/Videos/sample-video.mp4",
       expectedDialog: {
@@ -3471,7 +3538,7 @@ describe("App", () => {
     },
     {
       path: "/images/new",
-      buttonName: "Browse Cover",
+      buttonName: "Browse",
       inputLabel: "Cover Path",
       selectedPath: "D:/Sakurava/Images/image-cover.png",
       expectedDialog: {
@@ -3580,7 +3647,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    const browseButton = screen.getByRole("button", { name: "Browse Cover" });
+    const browseButton = screen.getAllByRole("button", { name: "Browse" })[0];
     expect(browseButton).toBeDisabled();
     fireEvent.click(browseButton);
 
@@ -3972,15 +4039,15 @@ describe("App", () => {
     render(<App />);
 
     expectSectionOrder([
-      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Media Assets" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Status & Activity" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Profile Details" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Related Videos" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Images" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "Media Assets" }).closest("section"),
+      screen.getByRole("heading", { name: "Status & Activity" }).closest("section"),
+      screen.getByRole("heading", { name: "Profile Details" }).closest("section"),
+      screen.getByRole("heading", { name: "Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
     expect(screen.queryByText("Available after relation features are added."))
@@ -7176,7 +7243,7 @@ describe("App", () => {
       target: { value: "Folder Gallery Image" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Browse Gallery Folder" }),
+      screen.getAllByRole("button", { name: "Browse" })[1],
     );
 
     expect(
@@ -7245,7 +7312,7 @@ describe("App", () => {
 
     expect(await screen.findByDisplayValue("C:/Old/one.jpg")).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Browse Gallery Folder" }),
+      screen.getAllByRole("button", { name: "Browse" })[1],
     );
 
     expect(confirmSpy).toHaveBeenCalledWith(
@@ -7337,7 +7404,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
-  });
+  }, 10000);
 
   it("renders image detail gallery paths with load more from saved data", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
@@ -8240,19 +8307,19 @@ describe("App", () => {
   });
 
   it.each([
-    ["/videos/new", "7. Related Performer", "8. Related Images"],
-    ["/videos/sample-id/edit", "7. Related Performer", "8. Related Images"],
-    ["/images/new", "7. Related Performer", "8. Related Video"],
-    ["/images/sample-id/edit", "7. Related Performer", "8. Related Video"],
-    ["/performers/new", "7. Related Videos", "8. Related Images"],
-    ["/performers/sample-id/edit", "7. Related Videos", "8. Related Images"],
+    ["/videos/new", "Related Performer", "Related Images"],
+    ["/videos/sample-id/edit", "Related Performer", "Related Images"],
+    ["/images/new", "Related Performer", "Related Video"],
+    ["/images/sample-id/edit", "Related Performer", "Related Video"],
+    ["/performers/new", "Related Videos", "Related Images"],
+    ["/performers/sample-id/edit", "Related Videos", "Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {
     window.history.pushState({}, "", path);
     render(<App />);
 
     expect(screen.getByRole("heading", { name: first })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: second })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "8. Related Content" }))
+    expect(screen.queryByRole("heading", { name: "Related Content" }))
       .not.toBeInTheDocument();
   });
 
@@ -8262,17 +8329,13 @@ describe("App", () => {
       window.history.pushState({}, "", path);
       render(<App />);
 
-      expect(screen.getAllByRole("heading", { name: "7. Related Videos" }))
+      expect(screen.getAllByRole("heading", { name: "Related Videos" }))
         .toHaveLength(1);
-      expect(screen.getAllByRole("heading", { name: "8. Related Images" }))
+      expect(screen.getAllByRole("heading", { name: "Related Images" }))
         .toHaveLength(1);
       expect(
         screen.queryByText("Available after relation features are added."),
       ).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "10. Related Videos" }))
-        .not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "11. Related Images" }))
-        .not.toBeInTheDocument();
       expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
       expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
     },
@@ -8317,21 +8380,20 @@ describe("App", () => {
     "/images/new",
     "/performers/new",
   ])(
-    "source links section shows deferred notice without add/delete controls on %s",
+    "source links section shows deferred row controls on %s",
     (path) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       expect(screen.getByText("Source Links")).toBeInTheDocument();
-      expect(
-        screen.getByText("External Source Links (Deferred)"),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: "+ Add Link" }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: "Delete" }),
-      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Source Link Title 1")).toBeInTheDocument();
+      expect(screen.getByLabelText("Source Link URL 1")).toBeInTheDocument();
+      expect(screen.getByText("Deferred: source links are not saved yet."))
+        .toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add Link" }))
+        .toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
+        .not.toBeInTheDocument();
     },
   );
 

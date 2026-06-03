@@ -6,7 +6,7 @@ import type { Performer } from "../backend/types";
 import { performerSearchText } from "../lib/relatedPicker";
 
 const RELATED_CHIP_STYLES =
-  "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold";
+  "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
 const RELATED_CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const RELATED_ROW_GRID_STYLES =
   "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
@@ -244,7 +244,7 @@ function RelatedPerformerPicker({
           {hiddenSelectedCount > 0 && (
             <button
               type="button"
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
               onClick={() => setShowAllSelected(true)}
             >
               +{hiddenSelectedCount} more
@@ -253,7 +253,7 @@ function RelatedPerformerPicker({
           {showAllSelected && selected.length > 3 && (
             <button
               type="button"
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-500 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-500 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
               onClick={() => setShowAllSelected(false)}
             >
               Show less
