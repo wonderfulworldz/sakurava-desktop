@@ -2840,6 +2840,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Video" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Related Video")).toBeInTheDocument();
@@ -2909,6 +2910,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Video With Images" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Video With Images")).toBeInTheDocument();
@@ -2973,6 +2975,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Image With Videos" },
     });
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Image With Videos")).toBeInTheDocument();
@@ -3026,6 +3029,7 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.queryByText("Former Gallery")).not.toBeInTheDocument(),
     );
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -3089,6 +3093,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Image" },
     });
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Related Image")).toBeInTheDocument();
@@ -3181,6 +3186,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Related Performer" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Related Performer")).toBeInTheDocument();
@@ -3236,9 +3242,24 @@ describe("App", () => {
         name: "Remove related performer Former Performer",
       }),
     );
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("Legacy Relation Video")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        vi.mocked(invoke).mock.calls.some(([command, args]) => {
+          const updateArgs = args as {
+            id?: string;
+            patch?: { relatedPerformersJson?: string };
+          };
+          return (
+            command === "video_update" &&
+            updateArgs.id === "video_test_001" &&
+            updateArgs.patch?.relatedPerformersJson === "[]"
+          );
+        }),
+      ).toBe(true);
+    });
   });
 
   it("keeps legacy record-only categories visible and removable on edit forms", () => {
@@ -3770,6 +3791,7 @@ describe("App", () => {
     fireEvent.change(cupSize, {
       target: { value: "A" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
@@ -5764,6 +5786,7 @@ describe("App", () => {
       target: { value: "Created Video" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Video")).toBeInTheDocument();
@@ -5828,6 +5851,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Media Path"), {
       target: { value: "D:/Media/detected.mp4" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Detected Video")).toBeInTheDocument();
@@ -6002,6 +6026,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Picker Video" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Picker Video")).toBeInTheDocument();
@@ -6645,9 +6670,7 @@ describe("App", () => {
       target: { value: "Updated Video" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
-    fireEvent.change(screen.getByLabelText("Rewatch"), {
-      target: { value: "5" },
-    });
+    fillVideoRatingFields({ Rewatch: "5" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Updated Video")).toBeInTheDocument();
@@ -6729,6 +6752,7 @@ describe("App", () => {
       target: { value: "C:/Gallery/one.jpg" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
@@ -6793,6 +6817,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
       target: { value: "D:/Images/one.jpg" },
     });
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Detected Image")).toBeInTheDocument();
@@ -6881,6 +6906,7 @@ describe("App", () => {
       }),
     );
 
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Folder Gallery Image")).toBeInTheDocument();
@@ -6942,6 +6968,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("C:/Old/one.jpg")).not.toBeInTheDocument();
 
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Existing Gallery Image")).toBeInTheDocument();
@@ -7011,9 +7038,7 @@ describe("App", () => {
       target: { value: "Updated Image" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
-    fireEvent.change(screen.getByLabelText("Memorability"), {
-      target: { value: "5" },
-    });
+    fillImageRatingFields({ Memorability: "5" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Updated Image")).toBeInTheDocument();
@@ -7596,6 +7621,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
       target: { value: "D:/Thumbs/created-2.jpg" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Performer")).toBeInTheDocument();
@@ -7648,6 +7674,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Empty Thumbnail Performer" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Empty Thumbnail Performer")).toBeInTheDocument();
@@ -7794,9 +7821,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
-    fireEvent.change(screen.getByLabelText("Attraction"), {
-      target: { value: "5" },
-    });
+    fillPerformerRatingFields({ Attraction: "5" });
     fireEvent.change(screen.getByLabelText("Thumbnail 2"), {
       target: { value: "" },
     });
@@ -8110,6 +8135,258 @@ describe("App", () => {
     expect(pictorialsInput).toHaveValue("3");
     expect(signInput).toHaveValue("Capricorn");
   });
+
+  describe("Rating defaults, average, and full card sync", () => {
+    it.each([
+      ["/videos/new", ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]],
+      ["/images/new", ["Memorability", "Visual", "Posing", "Atmosphere", "Flow", "Signature"]],
+      ["/performers/new", ["Attraction", "Visual", "Performance", "Popularity", "Exceptional", "Versatility"]],
+    ])("renders all six empty rating criteria at %s", async (path, labels) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (command: string) => {
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list"
+        ) {
+          return [];
+        }
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      for (const label of labels) {
+        expect(screen.getByLabelText(label)).toHaveValue(null);
+        expect(
+          screen.getByRole("button", { name: `Rate ${label} 1 out of 5` }),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole("button", { name: `Rate ${label} 5 out of 5` }),
+        ).toBeInTheDocument();
+      }
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+    });
+
+    it("blocks save and shows inline validation when any rating is empty", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const invoke = vi.fn(async (command: string, args?: any) => {
+        if (command === "performer_list") return [];
+        if (command === "image_list") return [];
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      fireEvent.change(screen.getByLabelText(/^Title/), {
+        target: { value: "New Video" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      expect(invoke).not.toHaveBeenCalledWith("video_create", expect.anything());
+      expect(await screen.findByText("Please complete all rating criteria.")).toBeInTheDocument();
+      expect(screen.getByTestId("rating-validation-error")).toHaveTextContent(
+        "Complete all 6 rating criteria before saving.",
+      );
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+    });
+
+    it("saves when all rating criteria are filled", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const created = persistedVideo({
+        title: "Complete Rating Video",
+        ratingJson:
+          '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
+      });
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "performer_list") return [];
+        if (command === "image_list") return [];
+        if (command === "video_create") return created;
+        if (command === "video_get") return created;
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      fireEvent.change(screen.getByLabelText(/^Title/), {
+        target: { value: "Complete Rating Video" },
+      });
+      fillVideoRatingFields({
+        Rewatch: "5",
+        Performance: "4",
+        Visual: "4",
+        Intensity: "3",
+        Story: "4",
+        Chemistry: "5",
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => {
+        expect(
+          invoke.mock.calls.some(
+            ([command, args]: [string, any]) =>
+              command === "video_create" &&
+              args.input.ratingJson ===
+                '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
+          ),
+        ).toBe(true);
+      });
+      expect(screen.queryByTestId("rating-validation-error")).not.toBeInTheDocument();
+    });
+
+    it("calculates the read-only average from all six criteria", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const invoke = vi.fn(async (command: string, args?: any) => {
+        if (command === "performer_list") return [];
+        if (command === "image_list") return [];
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      fillVideoRatingFields({
+        Rewatch: "5",
+        Performance: "4",
+        Visual: "4",
+        Intensity: "3",
+        Story: "4",
+        Chemistry: "5",
+      });
+
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("4.2");
+    });
+
+    it("opens old invalid edit rating data as empty instead of 0", async () => {
+      window.history.pushState({}, "", "/videos/video_test_001/edit");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "video_get") {
+          return persistedVideo({
+            title: "Old Rating Video",
+            ratingJson: '{"rewatch":0,"performance":"bad","visual":6}',
+          });
+        }
+        if (command === "performer_list" || command === "image_list") return [];
+        return [];
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByDisplayValue("Old Rating Video")).toBeInTheDocument();
+      for (const label of ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]) {
+        expect(screen.getByLabelText(label)).toHaveValue(null);
+      }
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(screen.queryByDisplayValue("0")).not.toBeInTheDocument();
+    });
+
+    it("previews stars on hover without locking the value until click", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "performer_list" || command === "image_list") return [];
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      const rewatchInput = screen.getByLabelText("Rewatch");
+      const starFour = screen.getByRole("button", { name: "Rate Rewatch 4 out of 5" });
+
+      expect(rewatchInput).toHaveValue(null);
+      fireEvent.mouseEnter(starFour);
+      expect(rewatchInput).toHaveValue(null);
+      fireEvent.mouseLeave(starFour.parentElement as HTMLElement);
+      expect(rewatchInput).toHaveValue(null);
+
+      fireEvent.mouseEnter(starFour);
+      fireEvent.click(starFour);
+      expect(rewatchInput).toHaveValue(4);
+    });
+
+    it.each([
+      [
+        "/videos",
+        "video_list",
+        persistedVideo({
+          title: "Average Video",
+          ratingJson:
+            '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
+        }),
+        "Rating 4.2",
+      ],
+      [
+        "/images",
+        "image_list",
+        persistedImage({
+          title: "Average Image",
+          ratingJson:
+            '{"memorability":5,"visual":4,"posing":4,"atmosphere":4,"flow":3,"signature":3}',
+        }),
+        "Rating 3.8",
+      ],
+      [
+        "/performers",
+        "performer_list",
+        persistedPerformer({
+          name: "Average Performer",
+          ratingJson:
+            '{"attraction":5,"visual":4,"performance":3,"popularity":3,"exceptional":3,"versatility":3}',
+        }),
+        "Rating 3.5",
+      ],
+    ])("renders full-card average rating from saved criteria at %s", async (path, command, record, label) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (incomingCommand: string) => {
+        if (incomingCommand === command) return [record];
+        return [];
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByLabelText(label)).toBeInTheDocument();
+    });
+
+    it("does not show fake zero for old invalid card rating data", async () => {
+      window.history.pushState({}, "", "/videos");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "video_list") {
+          return [persistedVideo({ title: "Invalid Rating Video", ratingJson: '{"rewatch":0}' })];
+        }
+        return [];
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByText("Invalid Rating Video")).toBeInTheDocument();
+      expect(screen.getByLabelText("Rating n/a")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Rating 0.0")).not.toBeInTheDocument();
+    });
+  });
 });
 
 function expectSectionOrder(sections: Array<HTMLElement | null>) {
@@ -8165,6 +8442,38 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,
   };
+}
+
+function fillVideoRatingFields(overrides: Record<string, string> = {}) {
+  fillRatingFields(
+    ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"],
+    overrides,
+  );
+}
+
+function fillImageRatingFields(overrides: Record<string, string> = {}) {
+  fillRatingFields(
+    ["Memorability", "Visual", "Posing", "Atmosphere", "Flow", "Signature"],
+    overrides,
+  );
+}
+
+function fillPerformerRatingFields(overrides: Record<string, string> = {}) {
+  fillRatingFields(
+    ["Attraction", "Visual", "Performance", "Popularity", "Exceptional", "Versatility"],
+    overrides,
+  );
+}
+
+function fillRatingFields(labels: string[], overrides: Record<string, string>) {
+  for (const label of labels) {
+    const rating = overrides[label] ?? "4";
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Rate ${label} ${rating} out of 5`,
+      }),
+    );
+  }
 }
 
 function persistedVideo(overrides: Record<string, unknown> = {}) {

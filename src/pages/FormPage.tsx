@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Plus, Save, X, Search } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Save, X, Search, Star } from "lucide-react";
 import {
   type ClipboardEvent,
   type Dispatch,
@@ -47,13 +47,15 @@ import {
 } from "../lib/mediaTechInfo";
 
 const BUTTON_STYLES = {
-  primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-xs font-bold text-white shadow-md shadow-sakura-200 transition-all duration-200 hover:bg-sakura-600 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:opacity-50 disabled:cursor-not-allowed",
-  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-6 text-xs font-bold text-slate-600 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 hover:shadow focus:outline-none focus:ring-2 focus:ring-slate-500/10 disabled:opacity-50 disabled:cursor-not-allowed",
-  action: "inline-flex h-9 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 shadow-sm transition-all duration-200 hover:bg-sakura-100 hover:border-sakura-300 disabled:opacity-50 disabled:cursor-not-allowed",
-  compactAction: "inline-flex h-8.5 items-center justify-center rounded-md border border-sakura-200 bg-sakura-50 px-2.5 text-xs font-bold text-sakura-600 shadow-sm transition-all duration-200 hover:bg-sakura-100 hover:border-sakura-300 disabled:opacity-50 disabled:cursor-not-allowed",
-  danger: "inline-flex h-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 shadow-sm transition-all duration-200 hover:bg-rose-100 hover:border-rose-300 disabled:opacity-50 disabled:cursor-not-allowed",
+  primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-xs font-bold text-white transition-colors duration-150 hover:bg-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:cursor-not-allowed disabled:opacity-50",
+  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/10 disabled:cursor-not-allowed disabled:opacity-50",
+  action: "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 transition-colors duration-150 hover:border-sakura-300 hover:bg-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
+  compactAction: "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-sakura-200 bg-sakura-50 px-2.5 text-xs font-bold text-sakura-600 transition-colors duration-150 hover:border-sakura-300 hover:bg-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
+  danger: "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 transition-colors duration-150 hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50",
   link: "font-semibold text-sakura-600 hover:text-sakura-700 transition-colors duration-200",
 };
+
+const PILL_STYLES = "inline-flex h-7 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold";
 
 type FormPageProps = {
   config: FormConfig;
@@ -135,12 +137,23 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [saveMessage, setSaveMessage] = useState("");
   const [galleryFolderMessage, setGalleryFolderMessage] = useState("");
   const [techInfoMessage, setTechInfoMessage] = useState("");
+  const [showRatingError, setShowRatingError] = useState(false);
   const canBrowsePaths = isTauriRuntimeAvailable();
   const supportsRelatedPerformerPicker =
     config.kind === "videos" || config.kind === "images";
   const supportsRelatedCatalogPicker =
     config.kind === "videos" || config.kind === "images";
   const supportsPerformerRelatedCatalogPickers = config.kind === "performers";
+
+  const averageRating = (() => {
+    const ratings = config.ratingFields.map((f) =>
+      getRatingControlValue(values[f.name]),
+    );
+    const validRatings = ratings.filter((rating): rating is number => rating !== null);
+    if (validRatings.length !== config.ratingFields.length) return null;
+    const sum = validRatings.reduce((acc, rating) => acc + rating, 0);
+    return sum / validRatings.length;
+  })();
 
   useEffect(() => {
     setValues(config.initialValues[mode]);
@@ -156,6 +169,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setSaveMessage("");
     setGalleryFolderMessage("");
     setTechInfoMessage("");
+    setShowRatingError(false);
   }, [config, mode]);
 
   useEffect(() => {
@@ -453,6 +467,17 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     if (typeof requiredValue !== "string" || requiredValue.trim() === "") {
       setSaveState("error");
       setSaveMessage("Required field is empty.");
+      return;
+    }
+
+    const missingRatings = config.ratingFields.filter(
+      (field) => getRatingControlValue(values[field.name]) === null,
+    );
+
+    if (missingRatings.length > 0) {
+      setSaveState("error");
+      setSaveMessage("Please complete all rating criteria.");
+      setShowRatingError(true);
       return;
     }
 
@@ -824,15 +849,35 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       </FormSection>
 
       <FormSection index={6} title="Rating">
-        <div className="grid gap-3">
+        {showRatingError && (
+          <div
+            className="mb-4 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
+            data-testid="rating-validation-error"
+          >
+            Complete all 6 rating criteria before saving.
+          </div>
+        )}
+        <div className="grid gap-x-14 gap-y-2 lg:grid-cols-2">
           {config.ratingFields.map((field) => (
             <RatingInput
               key={field.name}
               label={field.label}
               value={String(values[field.name] ?? "")}
-              onChange={(value) => updateValue(field.name, value)}
+              onChange={(value) => {
+                updateValue(field.name, value);
+                setShowRatingError(false);
+              }}
             />
           ))}
+        </div>
+        <div className="mt-4 flex h-11 items-center justify-between border-t border-slate-100 pt-3 text-sm font-semibold text-slate-700">
+          <span className="text-slate-700">Average: Auto</span>
+          <span
+            className="inline-flex h-8 min-w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800"
+            data-testid="average-rating-display"
+          >
+            {averageRating === null ? "Complete all ratings" : averageRating.toFixed(1)}
+          </span>
         </div>
       </FormSection>
 
@@ -894,22 +939,22 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         onChange={(value) => updateValue("notes", value)}
       />
 
-      <div className="sticky bottom-0 z-10 border-t border-slate-200/80 bg-slate-50/95 py-5 backdrop-blur shadow-lg">
+      <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-slate-50/95 py-4 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div aria-live="polite">
             {saveState === "saved" && (
-              <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-sm">
+              <p className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3.5 text-xs font-bold text-emerald-700">
                 <CheckCircle2 size={14} />
                 {saveMessage || "Local visual save state only"}
               </p>
             )}
             {saveState === "error" && (
-              <p className="rounded-lg bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-600 shadow-sm">
+              <p className="inline-flex h-9 items-center rounded-lg border border-rose-100 bg-rose-50 px-3.5 text-xs font-bold text-rose-600">
                 {saveMessage || "Required field is empty."}
               </p>
             )}
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-2.5">
             <Link
               to={cancelTo}
               className={BUTTON_STYLES.secondary}
@@ -948,7 +993,7 @@ function FormHeader({
       <div>
         <Link
           to={backTo}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-sm transition-all duration-200 hover:border-sakura-300 hover:text-sakura-600 hover:shadow"
+          className={BUTTON_STYLES.secondary}
         >
           <ArrowLeft size={14} />
           {backLabel}
@@ -1078,7 +1123,7 @@ function FormSection({
   action?: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <section className="rounded-xl border border-slate-200 bg-white p-6">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
         <h2 className="text-lg font-bold tracking-tight text-slate-900">
           {index}. {title}
@@ -1484,19 +1529,19 @@ function AvailabilityBadgeInput({
           let badgeColorClass = "";
           if (option === "Owned") {
             badgeColorClass = isSelected
-              ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-500/20"
+              ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-500/10"
               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
           } else if (option === "Not Owned") {
             badgeColorClass = isSelected
-              ? "bg-slate-100 border-slate-300 text-slate-700 ring-2 ring-slate-400/20"
+              ? "bg-slate-100 border-slate-300 text-slate-700 ring-2 ring-slate-400/10"
               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
           } else if (option === "Missing") {
             badgeColorClass = isSelected
-              ? "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-500/20"
+              ? "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-500/10"
               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
           } else {
             badgeColorClass = isSelected
-              ? "bg-sakura-50 border-sakura-300 text-sakura-700 ring-2 ring-sakura-500/20"
+              ? "bg-sakura-50 border-sakura-300 text-sakura-700 ring-2 ring-sakura-500/10"
               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
           }
 
@@ -1505,7 +1550,7 @@ function AvailabilityBadgeInput({
               key={option}
               type="button"
               onClick={() => onChange(option)}
-              className={`inline-flex items-center justify-center rounded-full border px-3.5 py-1 text-xs font-semibold shadow-sm transition-all duration-200 ${badgeColorClass}`}
+              className={`${PILL_STYLES} transition-colors duration-150 ${badgeColorClass}`}
             >
               {option}
             </button>
@@ -1545,7 +1590,7 @@ function PerformerStatusBadge({
     <div className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
       <span>Status</span>
       <div className="flex items-center gap-2">
-        <span className={`inline-flex items-center justify-center rounded-full border px-3.5 py-1 text-xs font-bold shadow-sm ${badgeColorClass}`}>
+        <span className={`${PILL_STYLES} ${badgeColorClass}`}>
           {value}
         </span>
         {/* sr-only input with aria-label and value so tests can query screen.getByLabelText("Status") */}
@@ -1626,7 +1671,7 @@ function ChipInput({
         {chips.map((chip) => (
           <span
             key={chip}
-            className="inline-flex items-center gap-1.5 rounded-md border border-sakura-100 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-600"
+            className={`${PILL_STYLES} border-sakura-100 bg-sakura-50 text-sakura-600`}
           >
             {chip}
             <button
@@ -1654,7 +1699,7 @@ function ChipInput({
         />
         <button
           type="button"
-          className="inline-flex size-7 items-center justify-center rounded-md bg-sakura-50 text-sakura-500 hover:bg-sakura-100"
+          className="inline-flex size-7 items-center justify-center rounded-full border border-sakura-100 bg-sakura-50 text-sakura-500 transition-colors hover:bg-sakura-100"
           aria-label={`Add ${label}`}
           onClick={onAdd}
         >
@@ -1725,7 +1770,7 @@ function CategoryPicker({
               return (
                 <span
                   key={category}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                  className={`${PILL_STYLES} ${
                     isManaged
                       ? "border-sakura-100 bg-sakura-50 text-sakura-600"
                       : "border-amber-200 bg-amber-50 text-amber-700"
@@ -1769,7 +1814,7 @@ function CategoryPicker({
                       <button
                         key={category}
                         type="button"
-                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-sakura-100 bg-white px-3 text-xs font-semibold text-sakura-600 hover:border-sakura-200 hover:bg-sakura-50"
+                        className={BUTTON_STYLES.compactAction}
                         aria-label={`Add ${category}`}
                         onClick={() => addSelectedCategory(category)}
                       >
@@ -1818,20 +1863,67 @@ function RatingInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const [hoverValue, setHoverValue] = useState<number | null>(null);
+  const ratingVal = getRatingControlValue(value);
+  const previewValue = hoverValue ?? ratingVal;
+
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
-      {label}
-      <input
-        className={inputClass(false)}
-        type="number"
-        min="1"
-        max="5"
-        step="0.5"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <div className="grid min-h-9 grid-cols-[minmax(7rem,9rem)_auto] items-center justify-start gap-3 text-sm font-semibold text-slate-700">
+      <span className="min-w-0 truncate">{label}</span>
+      <div
+        className="flex shrink-0 items-center gap-1"
+        onMouseLeave={() => setHoverValue(null)}
+      >
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isSelected = hoverValue === null && ratingVal !== null && ratingVal >= star;
+          const isPreviewed = hoverValue !== null && previewValue !== null && previewValue >= star;
+          return (
+            <button
+              key={star}
+              type="button"
+              onClick={() => onChange(String(star))}
+              onMouseEnter={() => setHoverValue(star)}
+              className="flex size-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-sakura-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400"
+              aria-label={`Rate ${label} ${star} out of 5`}
+            >
+              <Star
+                size={17}
+                className={`transition-colors duration-150 ${
+                  isSelected
+                    ? "fill-sakura-500 text-sakura-500"
+                    : isPreviewed
+                      ? "fill-sakura-200 text-sakura-300"
+                    : "fill-white text-slate-300"
+                }`}
+              />
+            </button>
+          );
+        })}
+        {/* Hidden input styled with sr-only for test/DOM query compatibility */}
+        <input
+          type="number"
+          min="1"
+          max="5"
+          className="sr-only"
+          value={ratingVal ?? ""}
+          onChange={(event) =>
+            onChange(formatRatingControlValue(event.target.value))
+          }
+          aria-label={label}
+        />
+      </div>
+    </div>
   );
+}
+
+function getRatingControlValue(value: FormValues[string] | unknown) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : null;
+}
+
+function formatRatingControlValue(value: FormValues[string] | unknown) {
+  const rating = getRatingControlValue(value);
+  return rating === null ? "" : String(rating);
 }
 
 function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
@@ -2170,7 +2262,7 @@ function AvailabilityBadgeRow({
           return (
             <span
               key={option}
-              className={`inline-flex items-center justify-center rounded-full border px-3.5 py-1 text-xs font-semibold shadow-sm transition ${badgeColorClass}`}
+              className={`${PILL_STYLES} ${badgeColorClass}`}
             >
               {option}
             </span>
