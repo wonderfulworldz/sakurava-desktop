@@ -26,7 +26,8 @@ const videoItem: VideoCollectionItem = {
   duration: "240",
   durationMinutes: 240,
   releaseYear: 2026,
-  ratingBucket: 4.5,
+  ratingAverage: 4.5,
+  ratingBucket: 4,
   quality: "FHD",
   availability: "Owned",
   censorship: "Censored",
@@ -44,7 +45,8 @@ const imageItem: ImageCollectionItem = {
   imageCount: "1,240",
   imageCountValue: 1240,
   releaseYear: 2025,
-  ratingBucket: 3.8,
+  ratingAverage: 3.8,
+  ratingBucket: 3,
   quality: "4K",
   availability: "Owned",
   censorship: "Uncensored",
@@ -62,7 +64,8 @@ const performerItem: PerformerCollectionItem = {
   coverPath: "",
   favorite: true,
   status: "Active",
-  ratingBucket: 4.0,
+  ratingAverage: 4.0,
+  ratingBucket: 4,
   filmographyCount: "Filmography 128",
   filmographyCountValue: 128,
   pictorialsCount: "Pictorials 24",
@@ -116,6 +119,18 @@ describe("VideoFullCard", () => {
     expect(screen.getByText("240")).toBeInTheDocument();
     expect(screen.getByText("Minutes")).toBeInTheDocument();
     expect(screen.getByText("FHD")).toBeInTheDocument();
+  });
+
+  it("uses average rating for the full-card badge and never shows fake zero", () => {
+    wrap(
+      <VideoFullCard
+        item={{ ...videoItem, ratingAverage: null, ratingBucket: null }}
+        linkTo="/videos/v1"
+      />,
+    );
+
+    expect(screen.getByLabelText("Rating n/a")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rating 0.0")).not.toBeInTheDocument();
   });
 
   it("duration stat value is number only, no 'min' inside value", () => {

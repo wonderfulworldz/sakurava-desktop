@@ -48,7 +48,7 @@ export function PerformerFullCard({ item, linkTo, placeholderLabel, onFavoriteCl
           <h2 className="min-w-0 line-clamp-2 text-lg font-bold leading-snug text-slate-950 dark:text-slate-50">
             {name}
           </h2>
-          <RatingBadge rating={item.ratingBucket} size="lg" />
+          <RatingBadge rating={item.ratingAverage} size="lg" />
         </div>
 
         {/* Original name + Years active */}

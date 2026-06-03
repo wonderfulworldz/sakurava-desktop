@@ -204,6 +204,8 @@ export function performerFormToPatch(
 function toPerformerCollectionItem(
   performer: Performer,
 ): PerformerCollectionItem {
+  const ratingSummary = createRatingSummary(performer.ratingJson, performerRatingFields);
+
   return {
     kind: "performers",
     key: performer.id,
@@ -217,7 +219,8 @@ function toPerformerCollectionItem(
     updatedAt: performer.updatedAt,
     status: derivePerformerStatus(performer),
     debutYear: deriveDebutYear(performer),
-    ratingBucket: createRatingSummary(performer.ratingJson, performerRatingFields).bucket,
+    ratingAverage: ratingSummary.average,
+    ratingBucket: ratingSummary.bucket,
     filmographyCount: `Filmography ${derivedRelatedCount(performer.relatedVideosJson)}`,
     filmographyCountValue: derivedRelatedCount(performer.relatedVideosJson),
     pictorialsCount: `Pictorials ${derivedRelatedCount(performer.relatedImagesJson)}`,
@@ -264,7 +267,7 @@ function performerToFormValues(performer: Performer): FormValues {
     ...Object.fromEntries(
       performerRatingFields.map((field) => [
         field.name,
-        rating[field.name] === undefined ? "" : String(rating[field.name]),
+        formatFormRatingValue(rating[field.name]),
       ]),
     ),
   };
@@ -284,9 +287,19 @@ function formThumbnailPathsJson(values: FormValues) {
 function formRating(values: FormValues): Record<string, number> {
   return Object.fromEntries(
     performerRatingFields
-      .map((field) => [field.name, Number(values[field.name])] as const)
-      .filter(([, value]) => Number.isFinite(value) && value >= 1 && value <= 5),
+      .map((field) => [field.name, normalizeFormRatingValue(values[field.name])] as const)
+      .filter(([, value]) => value >= 1 && value <= 5),
   );
+}
+
+function normalizeFormRatingValue(value: FormValues[string] | unknown): number {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+}
+
+function formatFormRatingValue(value: FormValues[string] | unknown): string {
+  const rating = normalizeFormRatingValue(value);
+  return rating > 0 ? String(rating) : "";
 }
 
 function textValue(value: FormValues[string]) {

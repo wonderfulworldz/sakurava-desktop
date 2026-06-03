@@ -2477,72 +2477,138 @@ describe("App", () => {
     [
       "/videos/new",
       "Video Create Form",
-      "Browse Cover",
-      "Browse Media",
-      "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
-      "No related Performers selected.",
+      "No related performers selected.",
       "Rewatch",
     ],
     [
       "/videos/sample-id/edit",
       "Video Edit Form",
-      "Browse Cover",
-      "Browse Media",
-      "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
-      "No related Images selected.",
+      "No related images selected.",
       "Rewatch",
     ],
     [
       "/images/new",
       "Image Create Form",
-      "Browse Cover",
-      "Browse Gallery Folder",
-      "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
-      "No related Videos selected.",
+      "No related videos selected.",
       "Memorability",
     ],
     [
       "/images/sample-id/edit",
       "Image Edit Form",
-      "Browse Cover",
-      "Browse Gallery Folder",
-      "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
-      "No related Performers selected.",
+      "No related performers selected.",
       "Memorability",
     ],
     [
       "/performers/new",
       "Performer Create Form",
-      "Browse",
-      "Thumbnail 1",
-      "No related Videos selected.",
-      "No related Images selected.",
+      "No related videos selected.",
       "Attraction",
     ],
     [
       "/performers/sample-id/edit",
       "Performer Edit Form",
-      "Browse",
-      "Thumbnail 1",
-      "No related Videos selected.",
-      "No related Images selected.",
+      "No related videos selected.",
       "Attraction",
     ],
   ])(
     "renders static form safeguards for %s",
-    (path, formLabel, disabledOne, disabledTwo, placeholderOne, placeholderTwo, ratingLabel) => {
+    (path, formLabel, emptyRelatedText, ratingLabel) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       expect(screen.getByText(formLabel)).toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: disabledOne })[0]).toBeDisabled();
-      expect(screen.getAllByText(disabledTwo).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(placeholderOne).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(placeholderTwo).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Browse" }).length)
+        .toBeGreaterThan(0);
+      expect(screen.getAllByText(emptyRelatedText).length).toBeGreaterThan(0);
       expect(screen.getByLabelText(ratingLabel)).toBeInTheDocument();
+      expect(screen.queryByText(/Use Detect after/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Primary Cover")).not.toBeInTheDocument();
+      expect(screen.queryByText("Thumbnails (Optional)")).not.toBeInTheDocument();
       expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
     },
   );
+
+  it("uses one content box with unnumbered section headings", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    const firstSection = screen
+      .getByRole("heading", { name: "Basic Identity" })
+      .closest("section") as HTMLElement;
+    const contentBox = firstSection.parentElement as HTMLElement;
+    const titleRow = screen.getByLabelText(/^Title/).closest("label") as HTMLElement;
+    const categoriesRow = screen
+      .getByTestId("category-picker-field")
+      .closest("div")?.parentElement?.parentElement as HTMLElement;
+
+    expect(contentBox).toHaveClass("bg-white", "divide-y");
+    expect(firstSection).not.toHaveClass("rounded-xl", "border");
+    expect(titleRow).toHaveClass(
+      "lg:grid-cols-[180px_minmax(0,1fr)]",
+      "lg:items-center",
+    );
+    expect(categoriesRow).toHaveClass(
+      "lg:grid-cols-[180px_minmax(0,1fr)]",
+      "lg:items-start",
+    );
+    expect(screen.queryByRole("heading", { name: "1. Basic Identity" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("renders Source Links as deferred title and link rows", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expect(screen.getByLabelText("Source Link Title 1")).toHaveAttribute(
+      "placeholder",
+      "Title 1",
+    );
+    expect(screen.getByLabelText("Source Link URL 1")).toHaveAttribute(
+      "placeholder",
+      "Link 1",
+    );
+    expect(screen.getByText("Deferred: source links are not saved yet."))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Link" }));
+
+    expect(screen.getByLabelText("Source Link Title 2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source Link URL 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Source Link 2" }))
+      .toBeInTheDocument();
+  });
+
+  it("renders Availability and Performer Status with matching rectangular chip sets", () => {
+    window.history.pushState({}, "", "/videos/new");
+    const { unmount } = render(<App />);
+
+    const availabilitySection = screen
+      .getByText("Availability")
+      .closest("div") as HTMLElement;
+    for (const label of ["Owned", "Not Owned", "Missing"]) {
+      const chip = within(availabilitySection)
+        .getAllByText(label)
+        .find((element) => element.tagName === "SPAN") as HTMLElement;
+      expect(chip).toHaveClass("rounded-md");
+      expect(chip).not.toHaveClass("rounded-full");
+    }
+
+    unmount();
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    const statusSection = screen.getByText("Status").closest("div") as HTMLElement;
+    for (const label of ["Active", "Retired", "Unknown"]) {
+      const chip = within(statusSection)
+        .getAllByText(label)
+        .find((element) => element.tagName === "SPAN") as HTMLElement;
+      expect(chip).toHaveClass("rounded-md");
+      expect(chip).not.toHaveClass("rounded-full");
+    }
+    expect(screen.getByLabelText("Status")).toHaveValue("Unknown");
+  });
 
   it.each([
     "/videos/new",
@@ -2555,19 +2621,20 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Manage categories in Category Management./),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+      "href",
+      "/settings/category-management",
+    );
 
     await waitFor(() =>
       expect(
         screen.getByRole("textbox", { name: "Search categories" }),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "Add Managed Category" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Trimmed Category" }))
-      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Managed Category" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Trimmed Category" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add managed category" }))
       .not.toBeInTheDocument();
 
@@ -2579,7 +2646,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Add Trimmed Category" }))
       .toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
-      target: { value: "" },
+      target: { value: "managed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Managed Category" }));
 
@@ -2594,23 +2661,22 @@ describe("App", () => {
     render(<App />);
 
     expectSectionOrder([
-      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Cover" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Media Video" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Related Images" }).closest("section"),
-      screen.getByRole("heading", { name: "10. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
     const metadata = within(
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Metadata" }).closest("section") as HTMLElement,
     );
     const techInfo = within(
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section") as HTMLElement,
     );
 
     expect(metadata.queryByLabelText("Duration")).not.toBeInTheDocument();
@@ -2636,23 +2702,22 @@ describe("App", () => {
     render(<App />);
 
     expectSectionOrder([
-      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Cover" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Gallery Images" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Related Video" }).closest("section"),
-      screen.getByRole("heading", { name: "10. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
+      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
+      screen.getByRole("heading", { name: "Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Video" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
     const metadata = within(
-      screen.getByRole("heading", { name: "2. Metadata" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Metadata" }).closest("section") as HTMLElement,
     );
     const techInfo = within(
-      screen.getByRole("heading", { name: "5. Tech Info" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "Tech Info" }).closest("section") as HTMLElement,
     );
 
     expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
@@ -2684,6 +2749,9 @@ describe("App", () => {
 
     expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
     expect(screen.getByText("No categories selected.")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "missing" },
+    });
     expect(screen.getByText("No Managed Categories available.")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Manage Category" }),
@@ -2694,11 +2762,14 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "8. Related Performer" }))
+    expect(screen.getByRole("heading", { name: "Related Performer" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
-    expect(screen.getByText("No related Performers selected.")).toBeInTheDocument();
-    expect(screen.getByText("No Performer records available. Create Performer records first."))
+    expect(screen.getByText("No related performers selected.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search related performers"), {
+      target: { value: "missing" },
+    });
+    expect(screen.getByText("No performer records available. Create performer records first."))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Performers" })).toHaveAttribute(
       "href",
@@ -2714,11 +2785,14 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "9. Related Images" }))
+    expect(screen.getByRole("heading", { name: "Related Images" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
-    expect(screen.getByText("No related Images selected.")).toBeInTheDocument();
-    expect(screen.getByText("No Image records available. Create Image records first."))
+    expect(screen.getByText("No related images selected.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search related images"), {
+      target: { value: "missing" },
+    });
+    expect(screen.getByText("No image records available. Create image records first."))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Images" })).toHaveAttribute(
       "href",
@@ -2734,11 +2808,14 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "9. Related Video" }))
+    expect(screen.getByRole("heading", { name: "Related Video" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
-    expect(screen.getByText("No related Videos selected.")).toBeInTheDocument();
-    expect(screen.getByText("No Video records available. Create Video records first."))
+    expect(screen.getByText("No related videos selected.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search related videos"), {
+      target: { value: "missing" },
+    });
+    expect(screen.getByText("No video records available. Create video records first."))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Videos" })).toHaveAttribute(
       "href",
@@ -2767,12 +2844,9 @@ describe("App", () => {
     ].forEach((label) => {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     });
-    expect(screen.getByPlaceholderText("Search performers..."))
+    expect(screen.getByPlaceholderText("Search performer name, alias, tag..."))
       .toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search images...")).toBeInTheDocument();
-    expect(screen.getByText("Manage related records in Performers."))
-      .toBeInTheDocument();
-    expect(screen.getByText("Manage related records in Images."))
+    expect(screen.getByPlaceholderText("Search image title, album, tag..."))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Performers" }))
       .toHaveAttribute("href", "/performers");
@@ -2795,6 +2869,9 @@ describe("App", () => {
               id: "performer_aoi",
               name: "Aoi Sakura",
               originalName: "Hanami Aoi",
+              nationality: "Japan",
+              debutDate: "2008-01-01",
+              status: "Active",
               aliasesJson:
                 '["Sakura Aoi","Aoi","Cherry","Bloom","Aoi S.","Sakura","Hanami","AS","Aoi-chan","Sakura Bloom"]',
             }),
@@ -2823,25 +2900,44 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.change(await screen.findByLabelText("Search related performers"), {
+    const relatedPerformerSearch = await screen.findByLabelText("Search related performers");
+    expect(relatedPerformerSearch).toHaveClass("select-text");
+    fireEvent.change(relatedPerformerSearch, {
       target: { value: "cherry" },
     });
-    expect(screen.getByText("Aoi Sakura - Sakura Aoi, +9 more"))
-      .toBeInTheDocument();
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Add related performer Aoi Sakura",
-      }),
+    const performerResult = await screen.findByRole("button", {
+      name: "Add related performer Aoi Sakura",
+    });
+    expect(performerResult).toHaveClass("grid", "h-12", "overflow-hidden");
+    expect(within(performerResult).getByText("Aoi Sakura")).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
     );
-    expect(screen.getByText("Aoi Sakura")).toBeInTheDocument();
+    expect(within(performerResult).getByText(/Japan/)).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
+    );
+    fireEvent.click(
+      performerResult,
+    );
+    expect(screen.getByLabelText("Search related performers")).toHaveValue("cherry");
+    const selectedPerformerChipText = screen.getByText("Aoi Sakura");
+    expect(selectedPerformerChipText).toHaveClass(
+      "min-w-0",
+      "truncate",
+      "whitespace-nowrap",
+    );
     expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
     ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear related performer search" }));
+    expect(screen.getByLabelText("Search related performers")).toHaveValue("");
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Video" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Related Video")).toBeInTheDocument();
@@ -2861,7 +2957,7 @@ describe("App", () => {
     });
     const invoke = vi.fn(
       async (command: string, args: Record<string, any> = {}) => {
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "video_list") {
           return [];
         }
         if (command === "image_list") {
@@ -2896,21 +2992,34 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.change(await screen.findByLabelText("Search related images"), {
+    const relatedImageSearch = await screen.findByLabelText("Search related images");
+    expect(relatedImageSearch).toHaveClass("select-text");
+    fireEvent.change(relatedImageSearch, {
       target: { value: "img-001" },
     });
-    expect(screen.getByText("IMG-001 - Hanami Gallery")).toBeInTheDocument();
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Add related image Hanami Gallery",
-      }),
+    const imageResult = await screen.findByRole("button", {
+      name: "Add related image Hanami Gallery",
+    });
+    expect(imageResult).toHaveClass("grid", "h-12", "overflow-hidden");
+    expect(within(imageResult).getByText("Hanami Gallery")).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
     );
+    expect(within(imageResult).getByText(/IMG-001/)).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
+    );
+    fireEvent.click(
+      imageResult,
+    );
+    expect(screen.getByLabelText("Search related images")).toHaveValue("img-001");
     expect(screen.getByText("IMG-001")).toBeInTheDocument();
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Video With Images" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Video With Images")).toBeInTheDocument();
@@ -2930,7 +3039,7 @@ describe("App", () => {
     });
     const invoke = vi.fn(
       async (command: string, args: Record<string, any> = {}) => {
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
         }
         if (command === "video_list") {
@@ -2960,21 +3069,34 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.change(await screen.findByLabelText("Search related videos"), {
+    const relatedVideoSearch = await screen.findByLabelText("Search related videos");
+    expect(relatedVideoSearch).toHaveClass("select-text");
+    fireEvent.change(relatedVideoSearch, {
       target: { value: "vid-001" },
     });
-    expect(screen.getByText("VID-001 - Spring Feature")).toBeInTheDocument();
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Add related video Spring Feature",
-      }),
+    const videoResult = await screen.findByRole("button", {
+      name: "Add related video Spring Feature",
+    });
+    expect(videoResult).toHaveClass("grid", "h-12", "overflow-hidden");
+    expect(within(videoResult).getByText("Spring Feature")).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
     );
+    expect(within(videoResult).getByText(/VID-001/)).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
+    );
+    fireEvent.click(
+      videoResult,
+    );
+    expect(screen.getByLabelText("Search related videos")).toHaveValue("vid-001");
     expect(screen.getByText("VID-001")).toBeInTheDocument();
     expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Image With Videos" },
     });
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Image With Videos")).toBeInTheDocument();
@@ -3028,6 +3150,7 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.queryByText("Former Gallery")).not.toBeInTheDocument(),
     );
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -3083,6 +3206,9 @@ describe("App", () => {
 
     render(<App />);
 
+    fireEvent.change(await screen.findByLabelText("Search related performers"), {
+      target: { value: "yuki" },
+    });
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Add related performer Yuki Tanaka",
@@ -3091,6 +3217,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Image" },
     });
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Related Image")).toBeInTheDocument();
@@ -3148,7 +3275,8 @@ describe("App", () => {
     fireEvent.change(await screen.findByLabelText("Search related videos"), {
       target: { value: "vid-123" },
     });
-    expect(screen.getByText("VID-123 - Spring Feature")).toBeInTheDocument();
+    expect(screen.getByText("Spring Feature")).toBeInTheDocument();
+    expect(screen.getByText(/VID-123/)).toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Add related video Spring Feature",
@@ -3160,7 +3288,8 @@ describe("App", () => {
     fireEvent.change(await screen.findByLabelText("Search related images"), {
       target: { value: "img-123" },
     });
-    expect(screen.getByText("IMG-123 - Hanami Gallery")).toBeInTheDocument();
+    expect(screen.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(screen.getByText(/IMG-123/)).toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Add related image Hanami Gallery",
@@ -3183,6 +3312,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Related Performer" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Related Performer")).toBeInTheDocument();
@@ -3238,9 +3368,124 @@ describe("App", () => {
         name: "Remove related performer Former Performer",
       }),
     );
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("Legacy Relation Video")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        vi.mocked(invoke).mock.calls.some(([command, args]) => {
+          const updateArgs = args as {
+            id?: string;
+            patch?: { relatedPerformersJson?: string };
+          };
+          return (
+            command === "video_update" &&
+            updateArgs.id === "video_test_001" &&
+            updateArgs.patch?.relatedPerformersJson === "[]"
+          );
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it("expands, collapses, removes, and clears related performer chips", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const existing = persistedVideo({
+      title: "Many Related Performers",
+      relatedPerformersJson: JSON.stringify(
+        Array.from({ length: 5 }, (_, index) => ({
+          performerId: `performer_${index + 1}`,
+          nameSnapshot: `Performer ${index + 1}`,
+        })),
+      ),
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return existing;
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const performerSection = (await screen.findByRole("heading", {
+      name: "Related Performer",
+    })).closest("section") as HTMLElement;
+    const relatedPerformers = within(performerSection);
+
+    expect(relatedPerformers.getByText("Performer 1")).toBeInTheDocument();
+    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
+    fireEvent.click(relatedPerformers.getByRole("button", { name: "+2 more" }));
+    expect(relatedPerformers.getByText("Performer 5")).toBeInTheDocument();
+    fireEvent.click(relatedPerformers.getByRole("button", { name: "Show less" }));
+    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
+    fireEvent.click(relatedPerformers.getByRole("button", { name: "+2 more" }));
+    fireEvent.click(
+      relatedPerformers.getByRole("button", {
+        name: "Remove related performer Performer 5",
+      }),
+    );
+    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
+    expect(relatedPerformers.getByText("4 performers selected")).toBeInTheDocument();
+    fireEvent.click(relatedPerformers.getByRole("button", { name: "Clear all" }));
+    expect(relatedPerformers.getByText("No related performers selected.")).toBeInTheDocument();
+  });
+
+  it("expands, collapses, removes, and clears related catalog chips", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001/edit");
+    const existing = persistedPerformer({
+      name: "Many Related Catalogs",
+      relatedVideosJson: relatedCatalogJson("video", 5),
+      relatedImagesJson: "[]",
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_get") {
+        return existing;
+      }
+      if (
+        command === "video_list" ||
+        command === "image_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const videosSection = (await screen.findByRole("heading", {
+      name: "Related Videos",
+    })).closest("section") as HTMLElement;
+    const relatedVideos = within(videosSection);
+
+    expect(relatedVideos.getByText("video 1")).toBeInTheDocument();
+    expect(relatedVideos.queryByText("video 5")).not.toBeInTheDocument();
+    fireEvent.click(relatedVideos.getByRole("button", { name: "+2 more" }));
+    expect(relatedVideos.getByText("video 5")).toBeInTheDocument();
+    fireEvent.click(relatedVideos.getByRole("button", { name: "Show less" }));
+    expect(relatedVideos.queryByText("video 5")).not.toBeInTheDocument();
+    fireEvent.click(relatedVideos.getByRole("button", { name: "+2 more" }));
+    fireEvent.click(
+      relatedVideos.getByRole("button", {
+        name: "Remove related video video 5",
+      }),
+    );
+    expect(relatedVideos.queryByText("video 5")).not.toBeInTheDocument();
+    expect(relatedVideos.getByText("4 videos selected")).toBeInTheDocument();
+    fireEvent.click(relatedVideos.getByRole("button", { name: "Clear all" }));
+    expect(relatedVideos.getByText("No related videos selected.")).toBeInTheDocument();
   });
 
   it("keeps legacy record-only categories visible and removable on edit forms", () => {
@@ -3260,7 +3505,7 @@ describe("App", () => {
   it.each([
     {
       path: "/videos/new",
-      buttonName: "Browse Cover",
+      buttonName: "Browse",
       inputLabel: "Cover Path",
       selectedPath: "D:/Sakurava/Covers/video-cover.jpg",
       expectedDialog: {
@@ -3276,7 +3521,8 @@ describe("App", () => {
     },
     {
       path: "/videos/new",
-      buttonName: "Browse Media",
+      buttonName: "Browse",
+      buttonIndex: 1,
       inputLabel: "Media Path",
       selectedPath: "D:/Sakurava/Videos/sample-video.mp4",
       expectedDialog: {
@@ -3292,7 +3538,7 @@ describe("App", () => {
     },
     {
       path: "/images/new",
-      buttonName: "Browse Cover",
+      buttonName: "Browse",
       inputLabel: "Cover Path",
       selectedPath: "D:/Sakurava/Images/image-cover.png",
       expectedDialog: {
@@ -3401,7 +3647,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    const browseButton = screen.getByRole("button", { name: "Browse Cover" });
+    const browseButton = screen.getAllByRole("button", { name: "Browse" })[0];
     expect(browseButton).toBeDisabled();
     fireEvent.click(browseButton);
 
@@ -3772,6 +4018,7 @@ describe("App", () => {
     fireEvent.change(cupSize, {
       target: { value: "A" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
@@ -3792,18 +4039,15 @@ describe("App", () => {
     render(<App />);
 
     expectSectionOrder([
-      screen.getByRole("heading", { name: "1. Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "2. Profile / Thumbnail Fields" }).closest("section"),
-      screen.getByRole("heading", { name: "3. Status / Activity" }).closest("section"),
-      screen.getByRole("heading", { name: "4. Aliases" }).closest("section"),
-      screen.getByRole("heading", { name: "5. Summary" }).closest("section"),
-      screen.getByRole("heading", { name: "6. Personal" }).closest("section"),
-      screen.getByRole("heading", { name: "7. Physical" }).closest("section"),
-      screen.getByRole("heading", { name: "8. Categories" }).closest("section"),
-      screen.getByRole("heading", { name: "9. Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "10. Related Videos" }).closest("section"),
-      screen.getByRole("heading", { name: "11. Related Images" }).closest("section"),
-      screen.getByRole("heading", { name: "12. Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
+      screen.getByRole("heading", { name: "Media Assets" }).closest("section"),
+      screen.getByRole("heading", { name: "Status & Activity" }).closest("section"),
+      screen.getByRole("heading", { name: "Profile Details" }).closest("section"),
+      screen.getByRole("heading", { name: "Categories" }).closest("section"),
+      screen.getByRole("heading", { name: "Rating" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Images" }).closest("section"),
+      screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
     expect(screen.queryByText("Available after relation features are added."))
@@ -3831,6 +4075,9 @@ describe("App", () => {
 
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Typed Performer" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
@@ -4944,7 +5191,11 @@ describe("App", () => {
       });
       fireEvent.click(previewButton);
 
-      const dialog = await screen.findByRole("dialog", { name: dialogName });
+      const dialog = await screen.findByRole(
+        "dialog",
+        { name: dialogName },
+        { timeout: 5000 },
+      );
       const previewImage = within(dialog).getByAltText(fullSizeAlt);
       expect(previewImage).toHaveAttribute(
         "src",
@@ -4963,7 +5214,9 @@ describe("App", () => {
       });
 
       fireEvent.click(previewButton);
-      expect(await screen.findByRole("dialog", { name: dialogName })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("dialog", { name: dialogName }, { timeout: 5000 }),
+      ).toBeInTheDocument();
       fireEvent.keyDown(window, { key: "Escape" });
       await waitFor(() => {
         expect(
@@ -5768,7 +6021,11 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Created Video" },
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Video")).toBeInTheDocument();
@@ -5833,6 +6090,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Media Path"), {
       target: { value: "D:/Media/detected.mp4" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Detected Video")).toBeInTheDocument();
@@ -5973,8 +6231,11 @@ describe("App", () => {
     expect(screen.getByText("No categories selected.")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search categories" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Classic" }))
-      .toBeInTheDocument();
+    expect(screen.getByPlaceholderText(
+      "Search categories, genre, setting, attribute...",
+    )).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Classic" }))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
@@ -5985,8 +6246,15 @@ describe("App", () => {
       screen.queryByRole("textbox", { name: /category/i }),
     ).not.toBeInTheDocument();
 
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "clas" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Classic" }));
     expect(screen.getByText("Classic")).toBeInTheDocument();
+    expect(screen.getByText("1 category selected")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "classic" },
+    });
     expect(screen.queryByRole("button", { name: "Add Classic" }))
       .not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove Classic" }));
@@ -6007,10 +6275,94 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Picker Video" },
     });
+    fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Picker Video")).toBeInTheDocument();
     expect(screen.getByText("Drama")).toBeInTheDocument();
+  });
+
+  it("shows managed category parent paths and keeps search text after selection", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_bodytype",
+            name: "Bodytype",
+          }),
+          managedCategoryFixture({
+            key: "cat_slim",
+            name: "Slim",
+            parentKey: "cat_bodytype",
+          }),
+        ];
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const search = screen.getByRole("textbox", { name: "Search categories" });
+    expect(search).toHaveClass("select-text");
+    fireEvent.change(search, { target: { value: "slim" } });
+
+    const slimResult = await screen.findByRole("button", { name: "Add Slim" });
+    expect(slimResult).toHaveClass("grid", "h-12", "overflow-hidden");
+    expect(within(slimResult).getByText("Bodytype > Slim")).toHaveClass(
+      "truncate",
+      "whitespace-nowrap",
+    );
+    expect(slimResult).toHaveTextContent(/Bodytype\s*>\s*Slim/);
+
+    fireEvent.click(slimResult);
+
+    expect(search).toHaveValue("slim");
+    expect(screen.getByText("Slim")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Slim" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear category search" }));
+    expect(search).toHaveValue("");
+  });
+
+  it("constrains very long category chip text without blocking input selection", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const longCategory = "a".repeat(96);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_long",
+            name: longCategory,
+          }),
+        ];
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const titleInput = screen.getByLabelText(/^Title/);
+    expect(titleInput).toHaveClass("select-text");
+
+    const search = screen.getByRole("textbox", { name: "Search categories" });
+    fireEvent.change(search, { target: { value: longCategory.slice(0, 12) } });
+    fireEvent.click(await screen.findByRole("button", { name: `Add ${longCategory}` }));
+
+    const chipText = screen.getByText(longCategory);
+    expect(chipText).toHaveClass("min-w-0", "truncate", "whitespace-nowrap");
+    expect(chipText.parentElement).toHaveClass("max-w-full", "min-w-0");
   });
 
   it("renders existing Video record categories as normalized managed and record-only chips", async () => {
@@ -6018,7 +6370,7 @@ describe("App", () => {
     setManagedCategories(["Classic", "Updated"]);
     const existing = persistedVideo({
       title: "Existing Picker Video",
-      categoriesJson: '[" Classic ","classic","Legacy",""]',
+      categoriesJson: '[" Classic ","classic","Legacy","City","Drama","Cute",""]',
     });
     const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
       if (command === "video_get") {
@@ -6039,6 +6391,17 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(screen.getAllByText("Classic")).toHaveLength(1);
     expect(screen.getByText("Legacy")).toBeInTheDocument();
+    expect(screen.queryByText("Cute")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+1 more" }));
+    expect(screen.getByText("Cute")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show less" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText("Cute")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+1 more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Cute" }));
+    expect(screen.queryByText("Cute")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+1 more" })).not.toBeInTheDocument();
+    expect(screen.getByText("4 categories selected")).toBeInTheDocument();
     expect(screen.queryByText(/Record.only/)).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
@@ -6649,10 +7012,11 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Video" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
-    fireEvent.change(screen.getByLabelText("Rewatch"), {
-      target: { value: "5" },
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "updated" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
+    fillVideoRatingFields({ Rewatch: "5" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Updated Video")).toBeInTheDocument();
@@ -6733,7 +7097,11 @@ describe("App", () => {
     fireEvent.change(galleryInputs[3], {
       target: { value: "C:/Gallery/one.jpg" },
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
@@ -6798,6 +7166,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
       target: { value: "D:/Images/one.jpg" },
     });
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Detected Image")).toBeInTheDocument();
@@ -6812,6 +7181,12 @@ describe("App", () => {
     expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search categories" }))
       .toBeInTheDocument();
+    expect(screen.getByPlaceholderText(
+      "Search categories, face, body, pose, setting...",
+    )).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "por" },
+    });
     expect(screen.getByRole("button", { name: "Add Portrait" }))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
@@ -6868,7 +7243,7 @@ describe("App", () => {
       target: { value: "Folder Gallery Image" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Browse Gallery Folder" }),
+      screen.getAllByRole("button", { name: "Browse" })[1],
     );
 
     expect(
@@ -6886,6 +7261,7 @@ describe("App", () => {
       }),
     );
 
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Folder Gallery Image")).toBeInTheDocument();
@@ -6936,7 +7312,7 @@ describe("App", () => {
 
     expect(await screen.findByDisplayValue("C:/Old/one.jpg")).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Browse Gallery Folder" }),
+      screen.getAllByRole("button", { name: "Browse" })[1],
     );
 
     expect(confirmSpy).toHaveBeenCalledWith(
@@ -6947,6 +7323,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("C:/Old/one.jpg")).not.toBeInTheDocument();
 
+    fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Existing Gallery Image")).toBeInTheDocument();
@@ -7015,16 +7392,19 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Image" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
-    fireEvent.change(screen.getByLabelText("Memorability"), {
-      target: { value: "5" },
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "updated" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
+    fillImageRatingFields({ Memorability: "5" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("Updated Image")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Updated Image", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
-  });
+  }, 10000);
 
   it("renders image detail gallery paths with load more from saved data", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
@@ -7078,17 +7458,21 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Load More" }));
 
-    expect(
-      screen.getAllByRole("img", { name: /Gallery image/i }),
-    ).toHaveLength(32);
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("img", { name: /Gallery image/i }),
+      ).toHaveLength(32);
+    });
     expect(screen.getByText("Showing 32 of 40 images")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load More" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Load More" }));
 
-    expect(
-      screen.getAllByRole("img", { name: /Gallery image/i }),
-    ).toHaveLength(40);
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("img", { name: /Gallery image/i }),
+      ).toHaveLength(40);
+    });
     expect(screen.getByText("Showing 40 of 40 images")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Load More" }),
@@ -7155,9 +7539,9 @@ describe("App", () => {
       screen.getByRole("button", { name: "Preview Gallery image 2" }),
     );
 
-    const viewer = screen.getByRole("dialog", {
+    const viewer = await screen.findByRole("dialog", {
       name: "Gallery full-size viewer",
-    });
+    }, { timeout: 5000 });
     expect(within(viewer).queryByRole("heading")).not.toBeInTheDocument();
     expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
     expect(within(viewer).getByText("two.jpg")).toBeInTheDocument();
@@ -7303,9 +7687,9 @@ describe("App", () => {
       screen.getByRole("button", { name: "Preview Gallery image 1" }),
     );
 
-    const viewer = screen.getByRole("dialog", {
+    const viewer = await screen.findByRole("dialog", {
       name: "Gallery full-size viewer",
-    });
+    }, { timeout: 5000 });
     fireEvent.click(
       within(viewer).getByRole("button", {
         name: "Enter fullscreen gallery mode",
@@ -7359,9 +7743,9 @@ describe("App", () => {
       screen.getByRole("button", { name: "Preview Gallery image 1" }),
     );
 
-    const viewer = screen.getByRole("dialog", {
+    const viewer = await screen.findByRole("dialog", {
       name: "Gallery full-size viewer",
-    });
+    }, { timeout: 5000 });
     fireEvent.error(within(viewer).getByAltText("Gallery image 1 full size"));
 
     expect(
@@ -7539,6 +7923,9 @@ describe("App", () => {
             }),
           ];
         }
+        if (command === "managed_category_list") {
+          return [];
+        }
         if (command === "performer_get") {
           return created;
         }
@@ -7559,6 +7946,9 @@ describe("App", () => {
       target: { value: "Typed Alias" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.change(screen.getByLabelText("Debut Date"), {
       target: { value: "2020-01-02" },
@@ -7590,7 +7980,13 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Cup Size"), {
       target: { value: "C" },
     });
+    fireEvent.change(await screen.findByLabelText("Search related videos"), {
+      target: { value: "related video" },
+    });
     fireEvent.click(await screen.findByRole("button", { name: "Add related video Related Video" }));
+    fireEvent.change(await screen.findByLabelText("Search related images"), {
+      target: { value: "related image" },
+    });
     fireEvent.click(await screen.findByRole("button", { name: "Add related image Related Image" }));
     fireEvent.change(screen.getByLabelText("Thumbnail 1"), {
       target: { value: " D:/Thumbs/created-1.jpg " },
@@ -7601,13 +7997,14 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
       target: { value: "D:/Thumbs/created-2.jpg" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Created Performer")).toBeInTheDocument();
     expect(screen.getByText("Typed Alias")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
-  });
+  }, 10000);
 
   it("renders the Performer form category picker", () => {
     window.history.pushState({}, "", "/performers/new");
@@ -7618,6 +8015,12 @@ describe("App", () => {
     expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search categories" }))
       .toBeInTheDocument();
+    expect(screen.getByPlaceholderText(
+      "Search categories, face, body, specialty, attribute...",
+    )).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "feat" },
+    });
     expect(screen.getByRole("button", { name: "Add Featured" }))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
@@ -7653,6 +8056,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Empty Thumbnail Performer" },
     });
+    fillPerformerRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Empty Thumbnail Performer")).toBeInTheDocument();
@@ -7798,10 +8202,11 @@ describe("App", () => {
       target: { value: "Alias Two" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
-    fireEvent.change(screen.getByLabelText("Attraction"), {
-      target: { value: "5" },
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "updated" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
+    fillPerformerRatingFields({ Attraction: "5" });
     fireEvent.change(screen.getByLabelText("Thumbnail 2"), {
       target: { value: "" },
     });
@@ -7810,11 +8215,13 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("Updated Performer")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Updated Performer", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Alias Two")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
-  });
+  }, 10000);
 
   it("shows persisted timestamps on performer detail", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
@@ -7900,19 +8307,19 @@ describe("App", () => {
   });
 
   it.each([
-    ["/videos/new", "8. Related Performer", "9. Related Images"],
-    ["/videos/sample-id/edit", "8. Related Performer", "9. Related Images"],
-    ["/images/new", "8. Related Performer", "9. Related Video"],
-    ["/images/sample-id/edit", "8. Related Performer", "9. Related Video"],
-    ["/performers/new", "10. Related Videos", "11. Related Images"],
-    ["/performers/sample-id/edit", "10. Related Videos", "11. Related Images"],
+    ["/videos/new", "Related Performer", "Related Images"],
+    ["/videos/sample-id/edit", "Related Performer", "Related Images"],
+    ["/images/new", "Related Performer", "Related Video"],
+    ["/images/sample-id/edit", "Related Performer", "Related Video"],
+    ["/performers/new", "Related Videos", "Related Images"],
+    ["/performers/sample-id/edit", "Related Videos", "Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {
     window.history.pushState({}, "", path);
     render(<App />);
 
     expect(screen.getByRole("heading", { name: first })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: second })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "8. Related Content" }))
+    expect(screen.queryByRole("heading", { name: "Related Content" }))
       .not.toBeInTheDocument();
   });
 
@@ -7922,21 +8329,446 @@ describe("App", () => {
       window.history.pushState({}, "", path);
       render(<App />);
 
-      expect(screen.getAllByRole("heading", { name: "10. Related Videos" }))
+      expect(screen.getAllByRole("heading", { name: "Related Videos" }))
         .toHaveLength(1);
-      expect(screen.getAllByRole("heading", { name: "11. Related Images" }))
+      expect(screen.getAllByRole("heading", { name: "Related Images" }))
         .toHaveLength(1);
       expect(
         screen.queryByText("Available after relation features are added."),
       ).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "13. Related Videos" }))
-        .not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "14. Related Images" }))
-        .not.toBeInTheDocument();
       expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
       expect(screen.getByLabelText("Search related images")).toBeInTheDocument();
     },
   );
+
+  it.each([
+    "/videos/new",
+    "/videos/sample-id/edit",
+    "/images/new",
+    "/images/sample-id/edit",
+    "/performers/new",
+    "/performers/sample-id/edit",
+  ])("renders Save and Cancel controls on form page %s", (path) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["/videos/new", false],
+    ["/images/new", false],
+    ["/performers/new", false],
+  ])(
+    "favorite checkbox reflects initial value and can be toggled on %s",
+    (path, initialChecked) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      const checkbox = screen.getByRole("checkbox", { name: "Favorite" });
+      expect(checkbox).toBeInTheDocument();
+      expect((checkbox as HTMLInputElement).checked).toBe(initialChecked);
+
+      fireEvent.click(checkbox);
+      expect((checkbox as HTMLInputElement).checked).toBe(!initialChecked);
+    },
+  );
+
+  it.each([
+    "/videos/new",
+    "/images/new",
+    "/performers/new",
+  ])(
+    "source links section shows deferred row controls on %s",
+    (path) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      expect(screen.getByText("Source Links")).toBeInTheDocument();
+      expect(screen.getByLabelText("Source Link Title 1")).toBeInTheDocument();
+      expect(screen.getByLabelText("Source Link URL 1")).toBeInTheDocument();
+      expect(screen.getByText("Deferred: source links are not saved yet."))
+        .toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add Link" }))
+        .toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
+        .not.toBeInTheDocument();
+    },
+  );
+
+  it("renders read-only Tech Info fields on Video and Image forms", async () => {
+    // 1. Video Form Tech Info Check
+    window.history.pushState({}, "", "/videos/sample-id/edit");
+    
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          durationMinutes: 120,
+          resolution: "1920x1080",
+          fileSizeBytes: 1048576,
+          fileType: "mp4",
+        });
+      }
+      return [];
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn(),
+    };
+
+    const { unmount } = render(<App />);
+
+    // Verify fields are read-only and contain the loaded data
+    const durationInput = await screen.findByLabelText("Duration");
+    const resolutionInput = await screen.findByLabelText("Resolution");
+    const sizeInput = await screen.findByLabelText("File Size");
+    const typeInput = await screen.findByLabelText("File Type");
+
+    // Detect button should exist
+    expect(screen.getByRole("button", { name: "Detect" })).toBeInTheDocument();
+
+    expect(durationInput).toHaveAttribute("readonly");
+    expect(resolutionInput).toHaveAttribute("readonly");
+    expect(sizeInput).toHaveAttribute("readonly");
+    expect(typeInput).toHaveAttribute("readonly");
+
+    expect(durationInput).toHaveValue("120");
+    expect(resolutionInput).toHaveValue("1920x1080");
+    expect(sizeInput).toHaveValue("1048576");
+    expect(typeInput).toHaveValue("mp4");
+
+    unmount();
+
+    // 2. Image Form Tech Info Check
+    window.history.pushState({}, "", "/images/sample-id/edit");
+    const invokeImage = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          imageCount: 15,
+          mainResolution: "3840x2160",
+          totalFileSizeBytes: 5242880,
+          mainFileType: "jpg",
+        });
+      }
+      return [];
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: invokeImage,
+      convertFileSrc: vi.fn(),
+    };
+
+    render(<App />);
+
+    // Verify fields are read-only and contain the loaded data
+    const countInput = await screen.findByLabelText("Image Count");
+    const mainResInput = await screen.findByLabelText("Main Resolution");
+    const totalSizeInput = await screen.findByLabelText("Total File Size");
+    const mainTypeInput = await screen.findByLabelText("Main File Type");
+
+    // Detect button should exist
+    expect(screen.getByRole("button", { name: "Detect" })).toBeInTheDocument();
+
+    expect(countInput).toHaveAttribute("readonly");
+    expect(mainResInput).toHaveAttribute("readonly");
+    expect(totalSizeInput).toHaveAttribute("readonly");
+    expect(mainTypeInput).toHaveAttribute("readonly");
+
+    expect(countInput).toHaveValue("15");
+    expect(mainResInput).toHaveValue("3840x2160");
+    expect(totalSizeInput).toHaveValue("5242880");
+    expect(mainTypeInput).toHaveValue("jpg");
+  });
+
+  it("verifies Performer derived/auto fields are read-only", async () => {
+    window.history.pushState({}, "", "/performers/sample-id/edit");
+    const invokePerformer = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          debutDate: "2020-01-01",
+          retiredDate: "",
+          birthDate: "2000-01-01",
+          relatedVideosJson: relatedCatalogJson("vid", 5),
+          relatedImagesJson: relatedCatalogJson("img", 3),
+        });
+      }
+      return [];
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke: invokePerformer,
+      convertFileSrc: vi.fn(),
+    };
+
+    render(<App />);
+
+    // Performer Auto fields
+    const statusInput = await screen.findByLabelText("Status");
+    const filmographyInput = await screen.findByLabelText("Filmography");
+    const pictorialsInput = await screen.findByLabelText("Pictorials");
+    const signInput = await screen.findByLabelText("Astrological Sign");
+
+    expect(statusInput).toHaveAttribute("readonly");
+    expect(filmographyInput).toHaveAttribute("readonly");
+    expect(pictorialsInput).toHaveAttribute("readonly");
+    expect(signInput).toHaveAttribute("readonly");
+
+    expect(statusInput).toHaveValue("Active");
+    expect(filmographyInput).toHaveValue("5");
+    expect(pictorialsInput).toHaveValue("3");
+    expect(signInput).toHaveValue("Capricorn");
+  });
+
+  describe("Rating defaults, average, and full card sync", () => {
+    it.each([
+      ["/videos/new", ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]],
+      ["/images/new", ["Memorability", "Visual", "Posing", "Atmosphere", "Flow", "Signature"]],
+      ["/performers/new", ["Attraction", "Visual", "Performance", "Popularity", "Exceptional", "Versatility"]],
+    ])("renders all six empty rating criteria at %s", async (path, labels) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (command: string) => {
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list"
+        ) {
+          return [];
+        }
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      for (const label of labels) {
+        expect(screen.getByLabelText(label)).toHaveValue(null);
+        expect(
+          screen.getByRole("button", { name: `Rate ${label} 1 out of 5` }),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole("button", { name: `Rate ${label} 5 out of 5` }),
+        ).toBeInTheDocument();
+      }
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+    });
+
+    it("blocks save and shows inline validation when any rating is empty", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const invoke = vi.fn(async (command: string, args?: any) => {
+        if (command === "performer_list") return [];
+        if (command === "image_list") return [];
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      fireEvent.change(screen.getByLabelText(/^Title/), {
+        target: { value: "New Video" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      expect(invoke).not.toHaveBeenCalledWith("video_create", expect.anything());
+      expect(await screen.findByText("Please complete all rating criteria.")).toBeInTheDocument();
+      expect(screen.getByTestId("rating-validation-error")).toHaveTextContent(
+        "Complete all 6 rating criteria before saving.",
+      );
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+    });
+
+    it("saves when all rating criteria are filled", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const created = persistedVideo({
+        title: "Complete Rating Video",
+        ratingJson:
+          '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
+      });
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "performer_list") return [];
+        if (command === "image_list") return [];
+        if (command === "video_create") return created;
+        if (command === "video_get") return created;
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      fireEvent.change(screen.getByLabelText(/^Title/), {
+        target: { value: "Complete Rating Video" },
+      });
+      fillVideoRatingFields({
+        Rewatch: "5",
+        Performance: "4",
+        Visual: "4",
+        Intensity: "3",
+        Story: "4",
+        Chemistry: "5",
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => {
+        expect(
+          invoke.mock.calls.some(
+            ([command, args]: [string, any]) =>
+              command === "video_create" &&
+              args.input.ratingJson ===
+                '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
+          ),
+        ).toBe(true);
+      });
+      expect(screen.queryByTestId("rating-validation-error")).not.toBeInTheDocument();
+    });
+
+    it("calculates the read-only average from all six criteria", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const invoke = vi.fn(async (command: string, args?: any) => {
+        if (command === "performer_list") return [];
+        if (command === "image_list") return [];
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      fillVideoRatingFields({
+        Rewatch: "5",
+        Performance: "4",
+        Visual: "4",
+        Intensity: "3",
+        Story: "4",
+        Chemistry: "5",
+      });
+
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("4.2");
+    });
+
+    it("opens old invalid edit rating data as empty instead of 0", async () => {
+      window.history.pushState({}, "", "/videos/video_test_001/edit");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "video_get") {
+          return persistedVideo({
+            title: "Old Rating Video",
+            ratingJson: '{"rewatch":0,"performance":"bad","visual":6}',
+          });
+        }
+        if (command === "performer_list" || command === "image_list") return [];
+        return [];
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByDisplayValue("Old Rating Video")).toBeInTheDocument();
+      for (const label of ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]) {
+        expect(screen.getByLabelText(label)).toHaveValue(null);
+      }
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(screen.queryByDisplayValue("0")).not.toBeInTheDocument();
+    });
+
+    it("previews stars on hover without locking the value until click", async () => {
+      window.history.pushState({}, "", "/videos/new");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "performer_list" || command === "image_list") return [];
+        return [];
+      }) as any;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      const rewatchInput = screen.getByLabelText("Rewatch");
+      const starFour = screen.getByRole("button", { name: "Rate Rewatch 4 out of 5" });
+
+      expect(rewatchInput).toHaveValue(null);
+      fireEvent.mouseEnter(starFour);
+      expect(rewatchInput).toHaveValue(null);
+      fireEvent.mouseLeave(starFour.parentElement as HTMLElement);
+      expect(rewatchInput).toHaveValue(null);
+
+      fireEvent.mouseEnter(starFour);
+      fireEvent.click(starFour);
+      expect(rewatchInput).toHaveValue(4);
+    });
+
+    it.each([
+      [
+        "/videos",
+        "video_list",
+        persistedVideo({
+          title: "Average Video",
+          ratingJson:
+            '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
+        }),
+        "Rating 4.2",
+      ],
+      [
+        "/images",
+        "image_list",
+        persistedImage({
+          title: "Average Image",
+          ratingJson:
+            '{"memorability":5,"visual":4,"posing":4,"atmosphere":4,"flow":3,"signature":3}',
+        }),
+        "Rating 3.8",
+      ],
+      [
+        "/performers",
+        "performer_list",
+        persistedPerformer({
+          name: "Average Performer",
+          ratingJson:
+            '{"attraction":5,"visual":4,"performance":3,"popularity":3,"exceptional":3,"versatility":3}',
+        }),
+        "Rating 3.5",
+      ],
+    ])("renders full-card average rating from saved criteria at %s", async (path, command, record, label) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (incomingCommand: string) => {
+        if (incomingCommand === command) return [record];
+        return [];
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByLabelText(label)).toBeInTheDocument();
+    });
+
+    it("does not show fake zero for old invalid card rating data", async () => {
+      window.history.pushState({}, "", "/videos");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "video_list") {
+          return [persistedVideo({ title: "Invalid Rating Video", ratingJson: '{"rewatch":0}' })];
+        }
+        return [];
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = {
+        invoke,
+      };
+
+      render(<App />);
+
+      expect(await screen.findByText("Invalid Rating Video")).toBeInTheDocument();
+      expect(screen.getByLabelText("Rating n/a")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Rating 0.0")).not.toBeInTheDocument();
+    });
+  }, 10000);
 });
 
 function expectSectionOrder(sections: Array<HTMLElement | null>) {
@@ -7992,6 +8824,38 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,
   };
+}
+
+function fillVideoRatingFields(overrides: Record<string, string> = {}) {
+  fillRatingFields(
+    ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"],
+    overrides,
+  );
+}
+
+function fillImageRatingFields(overrides: Record<string, string> = {}) {
+  fillRatingFields(
+    ["Memorability", "Visual", "Posing", "Atmosphere", "Flow", "Signature"],
+    overrides,
+  );
+}
+
+function fillPerformerRatingFields(overrides: Record<string, string> = {}) {
+  fillRatingFields(
+    ["Attraction", "Visual", "Performance", "Popularity", "Exceptional", "Versatility"],
+    overrides,
+  );
+}
+
+function fillRatingFields(labels: string[], overrides: Record<string, string>) {
+  for (const label of labels) {
+    const rating = overrides[label] ?? "4";
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Rate ${label} ${rating} out of 5`,
+      }),
+    );
+  }
 }
 
 function persistedVideo(overrides: Record<string, unknown> = {}) {

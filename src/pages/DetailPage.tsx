@@ -228,11 +228,11 @@ function CatalogIdentity({ config }: DetailPageProps) {
         </div>
 
         <div className="mt-4 min-w-0">
-          <h2 className="break-words text-3xl font-semibold tracking-normal text-slate-950">
+          <h2 className="min-w-0 break-words text-3xl font-semibold tracking-normal text-slate-950 [overflow-wrap:anywhere]">
             {config.displayTitle}
           </h2>
           {config.originalTitle && (
-            <p className="mt-2 break-words text-base text-slate-500">
+            <p className="mt-2 min-w-0 break-words text-base text-slate-500 [overflow-wrap:anywhere]">
               {config.originalTitle}
             </p>
           )}
@@ -322,11 +322,11 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
       </div>
 
       <div className="mt-5 min-w-0">
-        <h2 className="break-words text-3xl font-semibold tracking-normal text-slate-950">
+        <h2 className="min-w-0 break-words text-3xl font-semibold tracking-normal text-slate-950 [overflow-wrap:anywhere]">
           {config.displayTitle}
         </h2>
         {config.originalTitle && (
-          <p className="mt-2 break-words text-sm text-slate-500">
+          <p className="mt-2 min-w-0 break-words text-sm text-slate-500 [overflow-wrap:anywhere]">
             {config.originalTitle}
           </p>
         )}
@@ -2385,10 +2385,10 @@ function Chip({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${toneClass}`}
+      className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${toneClass}`}
     >
       {Icon && <Icon size={14} fill="currentColor" />}
-      {label}
+      <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
     </span>
   );
 }

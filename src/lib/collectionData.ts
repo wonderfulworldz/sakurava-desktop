@@ -11,6 +11,7 @@ type BaseCollectionItem = {
   availability?: string;
   censorship?: string;
   releaseYear?: number | null;
+  ratingAverage?: number | null;
   ratingBucket?: number | null;
   quality?: string | null;
   categories: string[];
@@ -46,6 +47,7 @@ export type PerformerCollectionItem = {
   updatedAt?: number | string | null;
   status: string;
   debutYear?: number | null;
+  ratingAverage?: number | null;
   ratingBucket?: number | null;
   filmographyCount: string;
   filmographyCountValue?: number | null;
