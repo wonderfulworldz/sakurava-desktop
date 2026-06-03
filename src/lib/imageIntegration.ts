@@ -173,6 +173,8 @@ export function imageFormToPatch(
 }
 
 function toImageCollectionItem(image: Image): ImageCollectionItem {
+  const ratingSummary = createRatingSummary(image.ratingJson, imageRatingFields);
+
   return {
     kind: "images",
     key: image.id,
@@ -186,7 +188,8 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
     imageCountValue: image.imageCount,
     mainResolution: image.mainResolution,
     releaseYear: deriveReleaseYear(image.releaseDate),
-    ratingBucket: createRatingSummary(image.ratingJson, imageRatingFields).bucket,
+    ratingAverage: ratingSummary.average,
+    ratingBucket: ratingSummary.bucket,
     quality: deriveQualityBucket(image),
     availability: image.availability || "Unspecified",
     censorship: image.censorship || "Unspecified",
@@ -216,7 +219,7 @@ function imageToFormValues(image: Image): FormValues {
     ...Object.fromEntries(
       imageRatingFields.map((field) => [
         field.name,
-        rating[field.name] === undefined ? "" : String(rating[field.name]),
+        formatFormRatingValue(rating[field.name]),
       ]),
     ),
   };
@@ -225,9 +228,19 @@ function imageToFormValues(image: Image): FormValues {
 function formRating(values: FormValues): Record<string, number> {
   return Object.fromEntries(
     imageRatingFields
-      .map((field) => [field.name, Number(values[field.name])] as const)
-      .filter(([, value]) => Number.isFinite(value) && value >= 1 && value <= 5),
+      .map((field) => [field.name, normalizeFormRatingValue(values[field.name])] as const)
+      .filter(([, value]) => value >= 1 && value <= 5),
   );
+}
+
+function normalizeFormRatingValue(value: FormValues[string] | unknown): number {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+}
+
+function formatFormRatingValue(value: FormValues[string] | unknown): string {
+  const rating = normalizeFormRatingValue(value);
+  return rating > 0 ? String(rating) : "";
 }
 
 function textValue(value: FormValues[string]) {

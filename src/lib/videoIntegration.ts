@@ -160,6 +160,8 @@ export function videoFormToPatch(
 }
 
 function toVideoCollectionItem(video: Video): VideoCollectionItem {
+  const ratingSummary = createRatingSummary(video.ratingJson, videoRatingFields);
+
   return {
     kind: "videos",
     key: video.id,
@@ -173,7 +175,8 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     durationMinutes: video.durationMinutes,
     resolution: video.resolution,
     releaseYear: deriveReleaseYear(video.releaseDate),
-    ratingBucket: createRatingSummary(video.ratingJson, videoRatingFields).bucket,
+    ratingAverage: ratingSummary.average,
+    ratingBucket: ratingSummary.bucket,
     quality: deriveQualityBucket(video),
     availability: video.availability || "Unspecified",
     censorship: video.censorship || "Unspecified",
@@ -206,7 +209,7 @@ function videoToFormValues(video: Video): FormValues {
     ...Object.fromEntries(
       videoRatingFields.map((field) => [
         field.name,
-        rating[field.name] === undefined ? "" : String(rating[field.name]),
+        formatFormRatingValue(rating[field.name]),
       ]),
     ),
   };
@@ -215,9 +218,19 @@ function videoToFormValues(video: Video): FormValues {
 function formRating(values: FormValues): Record<string, number> {
   return Object.fromEntries(
     videoRatingFields
-      .map((field) => [field.name, Number(values[field.name])] as const)
-      .filter(([, value]) => Number.isFinite(value) && value >= 1 && value <= 5),
+      .map((field) => [field.name, normalizeFormRatingValue(values[field.name])] as const)
+      .filter(([, value]) => value >= 1 && value <= 5),
   );
+}
+
+function normalizeFormRatingValue(value: FormValues[string] | unknown): number {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+}
+
+function formatFormRatingValue(value: FormValues[string] | unknown): string {
+  const rating = normalizeFormRatingValue(value);
+  return rating > 0 ? String(rating) : "";
 }
 
 function textValue(value: FormValues[string]) {
