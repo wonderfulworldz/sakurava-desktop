@@ -2555,19 +2555,20 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Manage categories in Category Management./),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+      "href",
+      "/settings/category-management",
+    );
 
     await waitFor(() =>
       expect(
         screen.getByRole("textbox", { name: "Search categories" }),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "Add Managed Category" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Trimmed Category" }))
-      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Managed Category" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Trimmed Category" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add managed category" }))
       .not.toBeInTheDocument();
 
@@ -2579,7 +2580,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Add Trimmed Category" }))
       .toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
-      target: { value: "" },
+      target: { value: "managed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Managed Category" }));
 
@@ -2682,6 +2683,9 @@ describe("App", () => {
 
     expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
     expect(screen.getByText("No categories selected.")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "missing" },
+    });
     expect(screen.getByText("No Managed Categories available.")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Manage Category" }),
@@ -3848,6 +3852,9 @@ describe("App", () => {
 
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Typed Performer" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
@@ -5785,6 +5792,9 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Created Video" },
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fillVideoRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -5992,8 +6002,11 @@ describe("App", () => {
     expect(screen.getByText("No categories selected.")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search categories" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Classic" }))
-      .toBeInTheDocument();
+    expect(screen.getByPlaceholderText(
+      "Search categories, genre, setting, attribute...",
+    )).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Classic" }))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
@@ -6004,8 +6017,15 @@ describe("App", () => {
       screen.queryByRole("textbox", { name: /category/i }),
     ).not.toBeInTheDocument();
 
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "clas" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Classic" }));
     expect(screen.getByText("Classic")).toBeInTheDocument();
+    expect(screen.getByText("1 category selected")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "classic" },
+    });
     expect(screen.queryByRole("button", { name: "Add Classic" }))
       .not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove Classic" }));
@@ -6033,12 +6053,57 @@ describe("App", () => {
     expect(screen.getByText("Drama")).toBeInTheDocument();
   });
 
+  it("shows managed category parent paths and keeps search text after selection", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_bodytype",
+            name: "Bodytype",
+          }),
+          managedCategoryFixture({
+            key: "cat_slim",
+            name: "Slim",
+            parentKey: "cat_bodytype",
+          }),
+        ];
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const search = screen.getByRole("textbox", { name: "Search categories" });
+    fireEvent.change(search, { target: { value: "slim" } });
+
+    const slimResult = await screen.findByRole("button", { name: "Add Slim" });
+    expect(within(slimResult).getByText("Bodytype")).toBeInTheDocument();
+    expect(within(slimResult).getByText("Slim")).toBeInTheDocument();
+    expect(slimResult).toHaveTextContent(/Bodytype\s*>\s*Slim/);
+
+    fireEvent.click(slimResult);
+
+    expect(search).toHaveValue("slim");
+    expect(screen.getByText("Slim")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Slim" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear category search" }));
+    expect(search).toHaveValue("");
+  });
+
   it("renders existing Video record categories as normalized managed and record-only chips", async () => {
     window.history.pushState({}, "", "/videos/video_test_001/edit");
     setManagedCategories(["Classic", "Updated"]);
     const existing = persistedVideo({
       title: "Existing Picker Video",
-      categoriesJson: '[" Classic ","classic","Legacy",""]',
+      categoriesJson: '[" Classic ","classic","Legacy","City","Drama","Cute",""]',
     });
     const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
       if (command === "video_get") {
@@ -6059,6 +6124,17 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(screen.getAllByText("Classic")).toHaveLength(1);
     expect(screen.getByText("Legacy")).toBeInTheDocument();
+    expect(screen.queryByText("Cute")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+1 more" }));
+    expect(screen.getByText("Cute")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show less" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText("Cute")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+1 more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Cute" }));
+    expect(screen.queryByText("Cute")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+1 more" })).not.toBeInTheDocument();
+    expect(screen.getByText("4 categories selected")).toBeInTheDocument();
     expect(screen.queryByText(/Record.only/)).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
@@ -6669,6 +6745,9 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Video" },
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "updated" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillVideoRatingFields({ Rewatch: "5" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -6751,6 +6830,9 @@ describe("App", () => {
     fireEvent.change(galleryInputs[3], {
       target: { value: "C:/Gallery/one.jpg" },
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fillImageRatingFields();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -6832,6 +6914,12 @@ describe("App", () => {
     expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search categories" }))
       .toBeInTheDocument();
+    expect(screen.getByPlaceholderText(
+      "Search categories, face, body, pose, setting...",
+    )).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "por" },
+    });
     expect(screen.getByRole("button", { name: "Add Portrait" }))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
@@ -7036,6 +7124,9 @@ describe("App", () => {
     });
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Image" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "updated" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillImageRatingFields({ Memorability: "5" });
@@ -7579,6 +7670,9 @@ describe("App", () => {
       target: { value: "Typed Alias" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "typed" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fireEvent.change(screen.getByLabelText("Debut Date"), {
       target: { value: "2020-01-02" },
@@ -7639,6 +7733,12 @@ describe("App", () => {
     expect(screen.getByTestId("category-picker-field")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search categories" }))
       .toBeInTheDocument();
+    expect(screen.getByPlaceholderText(
+      "Search categories, face, body, specialty, attribute...",
+    )).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "feat" },
+    });
     expect(screen.getByRole("button", { name: "Add Featured" }))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
@@ -7820,6 +7920,9 @@ describe("App", () => {
       target: { value: "Alias Two" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "updated" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillPerformerRatingFields({ Attraction: "5" });
     fireEvent.change(screen.getByLabelText("Thumbnail 2"), {

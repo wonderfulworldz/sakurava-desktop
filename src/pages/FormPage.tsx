@@ -38,9 +38,10 @@ import {
   listPerformers,
 } from "../runtime/performerCommands";
 import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
+import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
-import type { Image, Performer, Video } from "../backend/types";
+import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
 import {
   detectImageTechInfo,
   detectVideoTechInfo,
@@ -123,6 +124,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   );
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
+  const [managedCategoryRecords, setManagedCategoryRecords] = useState<
+    ManagedCategory[]
+  >([]);
   const [availablePerformers, setAvailablePerformers] = useState<Performer[]>([]);
   const [performerLoadState, setPerformerLoadState] =
     useState<RelatedPerformerLoadState>("idle");
@@ -173,8 +177,38 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }, [config, mode]);
 
   useEffect(() => {
-    setManagedCategories(getStoredManagedCategories());
+    let cancelled = false;
+    const storedCategories = getStoredManagedCategories();
+
+    setManagedCategories(storedCategories);
+    setManagedCategoryRecords([]);
     resetPerformerSuggestionCachesOnce();
+
+    if (isTauriRuntimeAvailable()) {
+      void listManagedCategories()
+        .then((records) => {
+          if (cancelled) {
+            return;
+          }
+
+          setManagedCategoryRecords(records);
+          setManagedCategories(
+            normalizeFormCategories([
+              ...records.map((category) => category.name),
+              ...storedCategories,
+            ]),
+          );
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setManagedCategoryRecords([]);
+          }
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -842,8 +876,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
       <FormSection index={5} title="Categories">
         <CategoryPicker
+          kind={config.kind}
           selected={categories}
           managedCategories={managedCategories}
+          managedCategoryRecords={managedCategoryRecords}
           onChange={setCategories}
         />
       </FormSection>
@@ -1718,24 +1754,39 @@ function ChipInput({
 }
 
 function CategoryPicker({
+  kind,
   selected,
   managedCategories,
+  managedCategoryRecords,
   onChange,
 }: {
+  kind: FormConfig["kind"];
   selected: string[];
   managedCategories: string[];
+  managedCategoryRecords: ManagedCategory[];
   onChange: Dispatch<SetStateAction<string[]>>;
 }) {
+  const [categorySearch, setCategorySearch] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showAllSelected, setShowAllSelected] = useState(false);
   const normalizedSelected = normalizeFormCategories(selected);
   const normalizedManagedCategories = normalizeFormCategories(managedCategories);
-  const availableCategories = normalizedManagedCategories.filter(
-    (category) => !hasFormCategory(normalizedSelected, category),
+  const categoryOptions = buildCategoryOptions(
+    normalizedManagedCategories,
+    managedCategoryRecords,
   );
-  const [categorySearch, setCategorySearch] = useState("");
+  const availableCategories = categoryOptions.filter(
+    (category) => !hasFormCategory(normalizedSelected, category.label),
+  );
   const categorySearchKey = categorySearch.trim().toLowerCase();
   const filteredCategories = availableCategories.filter((category) =>
-    category.toLowerCase().includes(categorySearchKey),
+    category.searchText.includes(categorySearchKey),
   );
+  const visibleSelected = showAllSelected
+    ? normalizedSelected
+    : normalizedSelected.slice(0, 4);
+  const hiddenSelectedCount = Math.max(normalizedSelected.length - visibleSelected.length, 0);
+  const shouldShowResults = isSearchOpen && categorySearch.trim().length > 0;
 
   useEffect(() => {
     if (
@@ -1746,25 +1797,126 @@ function CategoryPicker({
     }
   }, [normalizedSelected, onChange, selected]);
 
+  useEffect(() => {
+    if (normalizedSelected.length <= 4) {
+      setShowAllSelected(false);
+    }
+  }, [normalizedSelected.length]);
+
   function addSelectedCategory(category: string) {
     onChange((current) => addFormCategory(current, category));
-    setCategorySearch("");
+    setIsSearchOpen(categorySearch.trim().length > 0);
   }
 
   return (
     <div
-      className="grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[240px_minmax(0,1fr)]"
+      className="grid gap-4 text-sm font-semibold text-slate-700"
       data-testid="category-picker-field"
+      onBlur={() => {
+        window.setTimeout(() => setIsSearchOpen(false), 120);
+      }}
     >
-      <span className="pt-2">Categories</span>
-      <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3">
-        <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
-          {normalizedSelected.length === 0 ? (
-            <span className="px-1 text-sm font-medium text-slate-400">
-              No categories selected.
-            </span>
-          ) : (
-            normalizedSelected.map((category) => {
+      <div className="relative">
+        <Search
+          size={18}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+        />
+        <input
+          className={[
+            "h-12 w-full rounded-lg border bg-white pl-12 pr-11 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400",
+            shouldShowResults
+              ? "border-sakura-400 ring-4 ring-sakura-100"
+              : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
+          ].join(" ")}
+          aria-label="Search categories"
+          value={categorySearch}
+          placeholder={categorySearchPlaceholder(kind)}
+          onFocus={() => {
+            if (categorySearch.trim()) {
+              setIsSearchOpen(true);
+            }
+          }}
+          onChange={(event) => {
+            setCategorySearch(event.target.value);
+            setIsSearchOpen(event.target.value.trim().length > 0);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setIsSearchOpen(false);
+            }
+          }}
+        />
+        {categorySearch.length > 0 && (
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sakura-300"
+            aria-label="Clear category search"
+            onClick={() => {
+              setCategorySearch("");
+              setIsSearchOpen(false);
+            }}
+          >
+            <X size={16} />
+          </button>
+        )}
+
+        {shouldShowResults && (
+          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+            {normalizedManagedCategories.length === 0 ? (
+              <p className="px-4 py-3 text-sm font-medium text-slate-500">
+                No Managed Categories available.
+              </p>
+            ) : filteredCategories.length > 0 ? (
+              filteredCategories.map((category) => (
+                <button
+                  key={category.label}
+                  type="button"
+                  className="flex min-h-12 w-full items-center justify-between border-b border-slate-100 px-4 text-left text-sm font-semibold text-slate-700 transition-colors last:border-b-0 hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none"
+                  aria-label={`Add ${category.label}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => addSelectedCategory(category.label)}
+                >
+                  <span className="min-w-0">
+                    {category.pathParts.length > 1 ? (
+                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        {category.pathParts.slice(0, -1).map((part, index) => (
+                          <span
+                            key={`${category.label}-${part}-${index}`}
+                            className="inline-flex items-center gap-1.5 text-slate-500"
+                          >
+                            <span className="font-medium">{part}</span>
+                            <span className="text-slate-300">&gt;</span>
+                          </span>
+                        ))}
+                        <span className="font-bold text-slate-800">
+                          {category.pathParts[category.pathParts.length - 1]}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="font-bold text-slate-800">
+                        {category.displayPath}
+                      </span>
+                    )}
+                  </span>
+                  <Plus size={14} className="text-sakura-500" />
+                </button>
+              ))
+            ) : (
+              <p className="px-4 py-3 text-sm font-medium text-slate-500">
+                No matching Managed Categories. Use Manage Category to add it first.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {normalizedSelected.length === 0 ? (
+        <p className="text-sm font-medium text-slate-500">
+          No categories selected.
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {visibleSelected.map((category) => {
               const isManaged = hasFormCategory(normalizedManagedCategories, category);
 
               return (
@@ -1793,65 +1945,146 @@ function CategoryPicker({
                   </button>
                 </span>
               );
-            })
+            })}
+          {hiddenSelectedCount > 0 && (
+            <button
+              type="button"
+              className={`${PILL_STYLES} border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600`}
+              onClick={() => setShowAllSelected(true)}
+            >
+              +{hiddenSelectedCount} more
+            </button>
+          )}
+          {showAllSelected && normalizedSelected.length > 4 && (
+            <button
+              type="button"
+              className={`${PILL_STYLES} border-slate-200 bg-white text-slate-500 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600`}
+              onClick={() => setShowAllSelected(false)}
+            >
+              Show less
+            </button>
           )}
         </div>
+      )}
 
-        <div className="grid gap-2">
-          {normalizedManagedCategories.length > 0 ? (
-            availableCategories.length > 0 ? (
-              <div className="grid gap-2">
-                <input
-                  className={inputClass(false)}
-                  aria-label="Search categories"
-                  value={categorySearch}
-                  placeholder="Search Managed Categories..."
-                  onChange={(event) => setCategorySearch(event.target.value)}
-                />
-                {filteredCategories.length > 0 ? (
-                  <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2">
-                    {filteredCategories.map((category) => (
-                      <button
-                        key={category}
-                        type="button"
-                        className={BUTTON_STYLES.compactAction}
-                        aria-label={`Add ${category}`}
-                        onClick={() => addSelectedCategory(category)}
-                      >
-                        <Plus size={13} />
-                        {category}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-                    No matching Managed Categories. Use Manage Category to add it first.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-xs font-medium text-slate-500">
-                All Managed Categories are selected.
-              </p>
-            )
-          ) : (
-            <p className="text-xs font-medium text-slate-500">
-              No Managed Categories available.
-            </p>
-          )}
-          <p className="text-xs font-medium text-slate-500">
-            Manage categories in Category Management.{" "}
-            <Link
-              to="/settings/category-management"
-              className="font-semibold text-sakura-600 hover:text-sakura-700"
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span className="font-medium text-slate-500">
+          {normalizedSelected.length > 0
+            ? `${normalizedSelected.length} ${
+                normalizedSelected.length === 1 ? "category" : "categories"
+              } selected`
+            : ""}
+        </span>
+        <div className="flex items-center gap-4">
+          {normalizedSelected.length > 0 && (
+            <button
+              type="button"
+              className="font-semibold text-slate-500 transition-colors hover:text-slate-700"
+              onClick={() => onChange([])}
             >
-              Manage Category
-            </Link>
-          </p>
+              Clear all
+            </button>
+          )}
+          {normalizedSelected.length > 0 && (
+            <span className="h-5 w-px bg-slate-200" aria-hidden="true" />
+          )}
+          <Link
+            to="/settings/category-management"
+            className="font-semibold text-sakura-600 transition-colors hover:text-sakura-700"
+          >
+            Manage Category
+          </Link>
         </div>
       </div>
     </div>
   );
+}
+
+function categorySearchPlaceholder(kind: FormConfig["kind"]) {
+  if (kind === "images") {
+    return "Search categories, face, body, pose, setting...";
+  }
+
+  if (kind === "performers") {
+    return "Search categories, face, body, specialty, attribute...";
+  }
+
+  return "Search categories, genre, setting, attribute...";
+}
+
+type CategoryOption = {
+  label: string;
+  displayPath: string;
+  pathParts: string[];
+  searchText: string;
+};
+
+function buildCategoryOptions(
+  managedCategories: string[],
+  managedCategoryRecords: ManagedCategory[],
+): CategoryOption[] {
+  const optionsByKey = new Map<string, CategoryOption>();
+  const recordsByKey = new Map(
+    managedCategoryRecords.map((category) => [category.key, category]),
+  );
+
+  for (const category of managedCategoryRecords) {
+    const label = category.name.trim();
+    if (!label) {
+      continue;
+    }
+
+    const pathParts = buildManagedCategoryPath(category, recordsByKey);
+    const displayPath = pathParts.join(" > ");
+    optionsByKey.set(label.toLowerCase(), {
+      label,
+      displayPath,
+      pathParts,
+      searchText: `${label} ${displayPath}`.toLowerCase(),
+    });
+  }
+
+  for (const label of managedCategories) {
+    const normalizedLabel = label.trim();
+    const key = normalizedLabel.toLowerCase();
+    if (!normalizedLabel || optionsByKey.has(key)) {
+      continue;
+    }
+
+    optionsByKey.set(key, {
+      label: normalizedLabel,
+      displayPath: normalizedLabel,
+      pathParts: [normalizedLabel],
+      searchText: normalizedLabel.toLowerCase(),
+    });
+  }
+
+  return [...optionsByKey.values()];
+}
+
+function buildManagedCategoryPath(
+  category: ManagedCategory,
+  recordsByKey: Map<string, ManagedCategory>,
+) {
+  const path = [category.name.trim()].filter(Boolean);
+  const visitedKeys = new Set([category.key]);
+  let parentKey = category.parentKey;
+
+  while (parentKey && !visitedKeys.has(parentKey)) {
+    visitedKeys.add(parentKey);
+    const parent = recordsByKey.get(parentKey);
+    if (!parent) {
+      break;
+    }
+
+    const parentName = parent.name.trim();
+    if (parentName) {
+      path.unshift(parentName);
+    }
+    parentKey = parent.parentKey;
+  }
+
+  return path.length > 0 ? path : [category.name];
 }
 
 function RatingInput({
