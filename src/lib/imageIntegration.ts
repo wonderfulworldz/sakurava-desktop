@@ -346,6 +346,7 @@ function buildRelatedPerformerItems(
         aliases: formatAliases(performer.aliasesJson),
         metadata: performer.status || undefined,
         rating: createRatingSummary(performer.ratingJson).average,
+        favorite: performer.favorite,
         filmographyCount: String(derivedRelatedCount(performer.relatedVideosJson)),
         pictorialsCount: String(derivedRelatedCount(performer.relatedImagesJson)),
         routeTo: `/performers/${performer.id}`,
@@ -362,7 +363,7 @@ function buildRelatedPerformerItems(
 
 function buildRelatedCatalogItems(
   relatedCatalogJson: string | null | undefined,
-  records: Array<Pick<Video, "id" | "title" | "originalTitle" | "code" | "coverPath" | "durationMinutes" | "releaseDate" | "ratingJson">>,
+  records: Array<Pick<Video, "id" | "title" | "originalTitle" | "code" | "coverPath" | "durationMinutes" | "releaseDate" | "ratingJson" | "favorite">>,
   fallbackTitle: string,
 ) {
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -386,6 +387,7 @@ function buildRelatedCatalogItems(
         metadata: formatVideoDuration(record.durationMinutes),
         releaseDate: record.releaseDate,
         rating: createRatingSummary(record.ratingJson).average,
+        favorite: record.favorite,
         routeTo: `/videos/${record.id}`,
         unresolved: false,
       };

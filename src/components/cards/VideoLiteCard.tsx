@@ -14,9 +14,15 @@ type VideoLiteCardProps = {
   item: HomeRecentItem;
   linkTo: string;
   onFavoriteClick?: () => void;
+  favoriteInteractive?: boolean;
 };
 
-export function VideoLiteCard({ item, linkTo, onFavoriteClick }: VideoLiteCardProps) {
+export function VideoLiteCard({
+  item,
+  linkTo,
+  onFavoriteClick,
+  favoriteInteractive,
+}: VideoLiteCardProps) {
   const title = displayValue(item.title);
   const duration = numericStatValue(item.duration);
   const quality = displayValue(item.quality);
@@ -32,6 +38,7 @@ export function VideoLiteCard({ item, linkTo, onFavoriteClick }: VideoLiteCardPr
         alt={`${title} cover`}
         aspectClass="aspect-[4/3]"
         favorite={item.favorite}
+        favoriteInteractive={favoriteInteractive}
         onFavoriteClick={onFavoriteClick}
       />
 

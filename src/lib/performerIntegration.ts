@@ -393,6 +393,7 @@ function buildRelatedVideoItems(
         metadata: formatVideoDuration(video.durationMinutes),
         releaseDate: video.releaseDate,
         rating: createRatingSummary(video.ratingJson).average,
+        favorite: video.favorite,
         routeTo: `/videos/${video.id}`,
         unresolved: false,
       };
@@ -429,6 +430,7 @@ function buildRelatedImageItems(
         metadata: formatImageCount(image.imageCount),
         releaseDate: image.releaseDate,
         rating: createRatingSummary(image.ratingJson).average,
+        favorite: image.favorite,
         routeTo: `/images/${image.id}`,
         unresolved: false,
       };

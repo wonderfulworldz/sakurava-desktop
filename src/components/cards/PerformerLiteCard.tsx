@@ -11,9 +11,15 @@ type PerformerLiteCardProps = {
   item: HomeRecentItem;
   linkTo: string;
   onFavoriteClick?: () => void;
+  favoriteInteractive?: boolean;
 };
 
-export function PerformerLiteCard({ item, linkTo, onFavoriteClick }: PerformerLiteCardProps) {
+export function PerformerLiteCard({
+  item,
+  linkTo,
+  onFavoriteClick,
+  favoriteInteractive,
+}: PerformerLiteCardProps) {
   const name = displayValue(item.title);
   const filmography = displayValue(item.filmographyCount);
   const pictorials = displayValue(item.pictorialsCount);
@@ -28,6 +34,7 @@ export function PerformerLiteCard({ item, linkTo, onFavoriteClick }: PerformerLi
         alt={`${name} cover`}
         aspectClass="aspect-[4/3]"
         favorite={item.favorite}
+        favoriteInteractive={favoriteInteractive}
         onFavoriteClick={onFavoriteClick}
       />
 

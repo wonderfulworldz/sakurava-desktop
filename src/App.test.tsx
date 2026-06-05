@@ -543,8 +543,8 @@ describe("App", () => {
         "Image Detail",
         "City Light Set",
         "Memorability",
-        "Related Videos",
         "Related Performers",
+        "Related Videos",
       ],
     ],
     [
@@ -614,6 +614,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Rating Summary" }).closest("section"),
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
       screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
@@ -5881,6 +5882,61 @@ describe("App", () => {
     );
   });
 
+  it("maps and persists Related Performer favorite state on video detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    let relatedPerformer = persistedPerformer({
+      id: "performer_favorite",
+      name: "Favorite Related Performer",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Related Performer Favorite Video",
+          relatedPerformersJson:
+            '[{"performerId":"performer_favorite","nameSnapshot":"Snapshot Performer"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [relatedPerformer];
+      }
+      if (command === "image_list") {
+        return [];
+      }
+      if (command === "performer_update") {
+        expect(args.id).toBe("performer_favorite");
+        expect(args.patch).toEqual({ favorite: false });
+        relatedPerformer = { ...relatedPerformer, favorite: false };
+        return relatedPerformer;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Performer Favorite Video"))
+      .toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Performers" }).closest("section");
+    expect(section).not.toBeNull();
+    const related = within(section as HTMLElement);
+    expect(related.getByText("Favorite Related Performer")).toBeInTheDocument();
+
+    fireEvent.click(related.getByRole("button", { name: "Favorite" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "performer_update",
+        { id: "performer_favorite", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(related.getByRole("button", { name: "Not favorite" }))
+      .toBeInTheDocument();
+  });
+
   it("displays Related Performer snapshots on image detail when performers cannot load", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -5969,6 +6025,61 @@ describe("App", () => {
     );
   });
 
+  it("maps and persists Related Image favorite state on video detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    let relatedImage = persistedImage({
+      id: "image_favorite",
+      title: "Favorite Related Gallery",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Related Image Favorite Video",
+          relatedImagesJson:
+            '[{"recordId":"image_favorite","titleSnapshot":"Snapshot Gallery"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [relatedImage];
+      }
+      if (command === "image_update") {
+        expect(args.id).toBe("image_favorite");
+        expect(args.patch).toEqual({ favorite: false });
+        relatedImage = { ...relatedImage, favorite: false };
+        return relatedImage;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Image Favorite Video"))
+      .toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(section).not.toBeNull();
+    const related = within(section as HTMLElement);
+    expect(related.getByText("Favorite Related Gallery")).toBeInTheDocument();
+
+    fireEvent.click(related.getByRole("button", { name: "Favorite" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "image_update",
+        { id: "image_favorite", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(related.getByRole("button", { name: "Not favorite" }))
+      .toBeInTheDocument();
+  });
+
   it("displays resolved Related Videos on image detail without raw ids", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -6017,6 +6128,61 @@ describe("App", () => {
     );
   });
 
+  it("maps and persists Related Video favorite state on image detail", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    let relatedVideo = persistedVideo({
+      id: "video_favorite",
+      title: "Favorite Related Video",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Related Video Favorite Image",
+          relatedVideosJson:
+            '[{"recordId":"video_favorite","titleSnapshot":"Snapshot Video"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [relatedVideo];
+      }
+      if (command === "video_update") {
+        expect(args.id).toBe("video_favorite");
+        expect(args.patch).toEqual({ favorite: false });
+        relatedVideo = { ...relatedVideo, favorite: false };
+        return relatedVideo;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Video Favorite Image"))
+      .toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Videos" }).closest("section");
+    expect(section).not.toBeNull();
+    const related = within(section as HTMLElement);
+    expect(related.getByText("Favorite Related Video")).toBeInTheDocument();
+
+    fireEvent.click(related.getByRole("button", { name: "Favorite" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "video_update",
+        { id: "video_favorite", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(related.getByRole("button", { name: "Not favorite" }))
+      .toBeInTheDocument();
+  });
+
   it("displays Related Image fallbacks when target records cannot load", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -6046,6 +6212,10 @@ describe("App", () => {
     expect(screen.getByText("Former Gallery")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+    const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(imagesSection).not.toBeNull();
+    expect(within(imagesSection as HTMLElement).queryByRole("button", { name: "Not favorite" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByText("Related item unavailable")).not.toBeInTheDocument();
     expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();

@@ -14,9 +14,15 @@ type ImageLiteCardProps = {
   item: HomeRecentItem;
   linkTo: string;
   onFavoriteClick?: () => void;
+  favoriteInteractive?: boolean;
 };
 
-export function ImageLiteCard({ item, linkTo, onFavoriteClick }: ImageLiteCardProps) {
+export function ImageLiteCard({
+  item,
+  linkTo,
+  onFavoriteClick,
+  favoriteInteractive,
+}: ImageLiteCardProps) {
   const title = displayValue(item.title);
   const imageCount = numericStatValue(item.imageCount);
   const quality = displayValue(item.quality);
@@ -32,6 +38,7 @@ export function ImageLiteCard({ item, linkTo, onFavoriteClick }: ImageLiteCardPr
         alt={`${title} cover`}
         aspectClass="aspect-[4/3]"
         favorite={item.favorite}
+        favoriteInteractive={favoriteInteractive}
         onFavoriteClick={onFavoriteClick}
       />
 

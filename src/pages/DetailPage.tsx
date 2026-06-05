@@ -1215,15 +1215,25 @@ function RelatedLiteCard({
   kind,
   item,
   linkTo,
+  favoriteInteractive,
 }: {
   kind: "videos" | "images" | "performers";
   item: HomeRecentItem;
   linkTo: string;
+  favoriteInteractive: boolean;
 }) {
   const [favorite, setFavorite] = useState(item.favorite);
   const currentItem = { ...item, favorite };
 
+  useEffect(() => {
+    setFavorite(item.favorite);
+  }, [item.favorite, item.key]);
+
   function handleFavoriteClick() {
+    if (!favoriteInteractive) {
+      return;
+    }
+
     const next = !favorite;
     setFavorite(next);
 
@@ -1233,17 +1243,47 @@ function RelatedLiteCard({
         kind === "videos" ? updateVideo :
         kind === "images" ? updateImage :
         updatePerformer;
-      updateFn(key, { favorite: next }).catch(() => setFavorite(!next));
+      updateFn(key, { favorite: next })
+        .then((updatedRecord) => {
+          if (!updatedRecord) {
+            setFavorite(!next);
+            return;
+          }
+
+          setFavorite(updatedRecord.favorite);
+        })
+        .catch(() => setFavorite(!next));
     }
   }
 
   if (kind === "performers") {
-    return <PerformerLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+    return (
+      <PerformerLiteCard
+        item={currentItem}
+        linkTo={linkTo}
+        favoriteInteractive={favoriteInteractive}
+        onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+      />
+    );
   }
   if (kind === "images") {
-    return <ImageLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+    return (
+      <ImageLiteCard
+        item={currentItem}
+        linkTo={linkTo}
+        favoriteInteractive={favoriteInteractive}
+        onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+      />
+    );
   }
-  return <VideoLiteCard item={currentItem} linkTo={linkTo} onFavoriteClick={handleFavoriteClick} />;
+  return (
+    <VideoLiteCard
+      item={currentItem}
+      linkTo={linkTo}
+      favoriteInteractive={favoriteInteractive}
+      onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+    />
+  );
 }
 
 function RelatedCatalogSummary({ section }: { section: DetailSection }) {
@@ -1308,7 +1348,7 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
               detail: record.code ?? "",
               typeLabel: kind === "videos" ? "Video" : "Image",
               coverPath: record.coverPath,
-              favorite: false,
+              favorite: record.favorite ?? false,
               code: record.code,
               releaseYear: record.releaseDate?.slice(0, 4),
               rating: record.rating,
@@ -1324,7 +1364,12 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
                       Unavailable
                     </span>
                   )}
-                  <RelatedLiteCard kind={kind} item={liteItem} linkTo={record.routeTo ?? "#"} />
+                  <RelatedLiteCard
+                    kind={kind}
+                    item={liteItem}
+                    linkTo={record.routeTo ?? "#"}
+                    favoriteInteractive={false}
+                  />
                 </div>
               );
             }
@@ -1335,6 +1380,7 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
                 kind={kind}
                 item={liteItem}
                 linkTo={record.routeTo}
+                favoriteInteractive
               />
             );
           })}
@@ -1368,7 +1414,7 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
           detail: performer.originalName ?? "",
           typeLabel: "Performer",
           coverPath: performer.coverPath,
-          favorite: false,
+          favorite: performer.favorite ?? false,
           aliases: performer.aliases,
           rating: performer.rating,
           filmographyCount: performer.filmographyCount,
@@ -1383,7 +1429,12 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
                   Unavailable
                 </span>
               )}
-              <RelatedLiteCard kind="performers" item={liteItem} linkTo={performer.routeTo ?? "#"} />
+              <RelatedLiteCard
+                kind="performers"
+                item={liteItem}
+                linkTo={performer.routeTo ?? "#"}
+                favoriteInteractive={false}
+              />
             </div>
           );
         }
@@ -1394,6 +1445,7 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
             kind="performers"
             item={liteItem}
             linkTo={performer.routeTo}
+            favoriteInteractive
           />
         );
       })}

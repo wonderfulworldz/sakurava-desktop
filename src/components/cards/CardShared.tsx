@@ -61,6 +61,7 @@ export type CardThumbnailProps = {
   favorite: boolean;
   placeholderLabel?: string;
   onFavoriteClick?: () => void;
+  favoriteInteractive?: boolean;
 };
 
 export function CardThumbnail({
@@ -70,6 +71,7 @@ export function CardThumbnail({
   favorite,
   placeholderLabel,
   onFavoriteClick,
+  favoriteInteractive = true,
 }: CardThumbnailProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
@@ -99,14 +101,46 @@ export function CardThumbnail({
           <ContentThumbnailPlaceholder />
         )}
       </div>
-      <FavoriteButton favorite={favorite} onClick={onFavoriteClick} />
+      <FavoriteButton
+        favorite={favorite}
+        interactive={favoriteInteractive}
+        onClick={onFavoriteClick}
+      />
     </div>
   );
 }
 
 /* ─── Favorite Button ─── */
 
-function FavoriteButton({ favorite, onClick }: { favorite: boolean; onClick?: () => void }) {
+function FavoriteButton({
+  favorite,
+  interactive,
+  onClick,
+}: {
+  favorite: boolean;
+  interactive: boolean;
+  onClick?: () => void;
+}) {
+  const className = [
+    "absolute right-2.5 top-2.5 flex size-9 items-center justify-center rounded-full shadow-md",
+    interactive ? "transition-transform hover:scale-110" : "",
+    favorite
+      ? "bg-sakura-500 text-white"
+      : "bg-white/95 text-sakura-500",
+  ].join(" ");
+
+  if (!interactive) {
+    return (
+      <span
+        className={className}
+        aria-label={favorite ? "Favorite" : "Not favorite"}
+        title={favorite ? "Favorite" : "Not favorite"}
+      >
+        <Heart size={18} fill={favorite ? "currentColor" : "none"} strokeWidth={2} />
+      </span>
+    );
+  }
+
   const handleClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -116,12 +150,7 @@ function FavoriteButton({ favorite, onClick }: { favorite: boolean; onClick?: ()
   return (
     <button
       type="button"
-      className={[
-        "absolute right-2.5 top-2.5 flex size-9 items-center justify-center rounded-full shadow-md transition-transform hover:scale-110",
-        favorite
-          ? "bg-sakura-500 text-white"
-          : "bg-white/95 text-sakura-500",
-      ].join(" ")}
+      className={className}
       aria-label={favorite ? "Favorite" : "Not favorite"}
       onClick={handleClick}
     >
