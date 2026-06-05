@@ -12,7 +12,7 @@ import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, VideoDetailConfig } from "./detailData";
-import { formatSystemTimestamp } from "./detailData";
+import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
@@ -44,17 +44,18 @@ export function buildVideoDetailConfig(
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   return {
     ...baseConfig,
+    recordId: video.id,
     editTo: `/videos/${video.id}/edit`,
     coverPath: video.coverPath,
     displayTitle: video.title,
     originalTitle: video.originalTitle,
-    code: video.code || "No code",
+    code: video.code || DETAIL_EMPTY_VALUE,
     favorite: video.favorite,
-    chips: [video.availability || "Unspecified", video.censorship || "Unspecified"],
+    chips: [video.availability, video.censorship].filter(Boolean),
     categories: parseTextLabelArray(video.categoriesJson),
     metadata: [
-      { label: "Release Date", value: video.releaseDate || "Not set" },
-      { label: "Publisher / Label", value: video.publisherLabel || "Not set" },
+      { label: "Release Date", value: detailText(video.releaseDate) },
+      { label: "Publisher / Label", value: detailText(video.publisherLabel) },
     ],
     mediaPaths: [
       { label: "Cover status", path: video.coverPath },
@@ -71,7 +72,7 @@ export function buildVideoDetailConfig(
       { label: "File Size", value: formatFileSize(video.fileSizeBytes) },
       { label: "File Type", value: formatOptionalText(video.fileType) },
     ],
-    notes: video.notes || "No notes saved.",
+    notes: detailNotes(video.notes),
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       video.relatedPerformersJson,
@@ -253,14 +254,22 @@ function optionalPositiveInteger(value: FormValues[string]) {
 
 function formatDuration(minutes: number | null) {
   if (!minutes || minutes <= 0) {
-    return "Not detected yet";
+    return DETAIL_EMPTY_VALUE;
   }
 
   return `${minutes} min`;
 }
 
 function formatDetectedText(value: string | null | undefined) {
-  return value?.trim() || "Not detected yet";
+  return detailText(value);
+}
+
+function detailText(value: string | null | undefined) {
+  return value?.trim() || DETAIL_EMPTY_VALUE;
+}
+
+function detailNotes(value: string | null | undefined) {
+  return value?.trim() || "No notes saved.";
 }
 
 function buildRelatedSections(
@@ -317,6 +326,7 @@ function buildRelatedPerformerItems(
         aliases: formatAliases(performer.aliasesJson),
         metadata: performer.status || undefined,
         rating: createRatingSummary(performer.ratingJson).average,
+        favorite: performer.favorite,
         filmographyCount: String(derivedRelatedCount(performer.relatedVideosJson)),
         pictorialsCount: String(derivedRelatedCount(performer.relatedImagesJson)),
         routeTo: `/performers/${performer.id}`,
@@ -333,7 +343,7 @@ function buildRelatedPerformerItems(
 
 function buildRelatedCatalogItems(
   relatedCatalogJson: string | null | undefined,
-  records: Array<Pick<Image, "id" | "title" | "originalTitle" | "code" | "coverPath" | "imageCount" | "releaseDate" | "ratingJson">>,
+  records: Array<Pick<Image, "id" | "title" | "originalTitle" | "code" | "coverPath" | "imageCount" | "releaseDate" | "ratingJson" | "favorite">>,
   fallbackTitle: string,
 ) {
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -357,6 +367,7 @@ function buildRelatedCatalogItems(
         metadata: formatImageCount(record.imageCount),
         releaseDate: record.releaseDate,
         rating: createRatingSummary(record.ratingJson).average,
+        favorite: record.favorite,
         routeTo: `/images/${record.id}`,
         unresolved: false,
       };

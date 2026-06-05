@@ -1,6 +1,7 @@
 import type { Availability } from "../backend/types";
 import { stringifyGalleryImagePathArray } from "../backend/json";
 import { probeMediaMetadata } from "../runtime/mediaMetadataCommands";
+import { DETAIL_EMPTY_VALUE } from "./detailData";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -73,7 +74,7 @@ export async function prepareImageValuesForSave(
 
 export function formatFileSize(bytes: number | null | undefined) {
   if (!Number.isFinite(bytes) || !bytes || bytes <= 0) {
-    return "Not available";
+    return DETAIL_EMPTY_VALUE;
   }
 
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -89,7 +90,7 @@ export function formatFileSize(bytes: number | null | undefined) {
 }
 
 export function formatOptionalText(value: string | null | undefined) {
-  return value?.trim() || "Not available";
+  return value?.trim() || DETAIL_EMPTY_VALUE;
 }
 
 function availabilityFromSinglePath(

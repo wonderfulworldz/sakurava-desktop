@@ -535,9 +535,7 @@ describe("App", () => {
         "Rewatch",
         "Related Performers",
         "Related Images",
-        "Tech info is data-dependent and not available yet.",
       ],
-      true,
     ],
     [
       "/images/sample-id",
@@ -545,11 +543,9 @@ describe("App", () => {
         "Image Detail",
         "City Light Set",
         "Memorability",
-        "Related Videos",
         "Related Performers",
-        "Gallery tech info is data-dependent and not available yet.",
+        "Related Videos",
       ],
-      true,
     ],
     [
       "/performers/sample-id",
@@ -564,23 +560,22 @@ describe("App", () => {
         "Related Images",
         "No related videos saved.",
       ],
-      false,
     ],
   ])(
     "renders static detail UI for %s",
-    (path, expectedTexts, expectsReadOnly) => {
+    (path, expectedTexts) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       for (const text of expectedTexts) {
         expect(screen.getAllByText(text).length).toBeGreaterThan(0);
       }
-      const readOnlyPlaceholder = screen.queryByText("Data-dependent fields only");
-      if (expectsReadOnly) {
-        expect(readOnlyPlaceholder).toBeInTheDocument();
-      } else {
-        expect(readOnlyPlaceholder).not.toBeInTheDocument();
-      }
+      expect(screen.queryByText("Data-dependent fields only")).not.toBeInTheDocument();
+      expect(screen.queryByText("Preview only")).not.toBeInTheDocument();
+      expect(screen.queryByText("Available after relation features are added."))
+        .not.toBeInTheDocument();
+      expect(screen.queryByText("Manual cover path placeholder"))
+        .not.toBeInTheDocument();
       expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
     },
   );
@@ -619,6 +614,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Rating Summary" }).closest("section"),
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
       screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
@@ -775,8 +771,9 @@ describe("App", () => {
     expect(tech.getByText("Resolution")).toBeInTheDocument();
     expect(tech.getByText("File Size")).toBeInTheDocument();
     expect(tech.getByText("File Type")).toBeInTheDocument();
-    expect(tech.getByText("Not detected yet")).toBeInTheDocument();
-    expect(tech.getAllByText("Not available")).toHaveLength(2);
+    expect(tech.getAllByText("N/A")).toHaveLength(3);
+    expect(tech.queryByText("Not detected yet")).not.toBeInTheDocument();
+    expect(tech.queryByText("Not available")).not.toBeInTheDocument();
     expect(tech.queryByText("Quality")).not.toBeInTheDocument();
   });
 
@@ -810,7 +807,8 @@ describe("App", () => {
     expect(techSection).not.toBeNull();
     const tech = within(techSection as HTMLElement);
 
-    expect(tech.getAllByText("Not detected yet")).toHaveLength(2);
+    expect(tech.getAllByText("N/A")).toHaveLength(2);
+    expect(tech.queryByText("Not detected yet")).not.toBeInTheDocument();
     expect(tech.queryByText("0 min")).not.toBeInTheDocument();
     expect(tech.queryByText("0 minutes")).not.toBeInTheDocument();
     expect(tech.getByText("4.0 KB")).toBeInTheDocument();
@@ -885,12 +883,12 @@ describe("App", () => {
 
     expect(tech.getByText("Image Count")).toBeInTheDocument();
     expect(tech.getByText("3 images")).toBeInTheDocument();
-    expect(tech.getAllByText("Not available")).toHaveLength(3);
+    expect(tech.getAllByText("N/A")).toHaveLength(3);
     const systemInfo = within(
       screen.getByText("System Info").closest("section") as HTMLElement,
     );
     expect(systemInfo.getByText("Gallery status")).toBeInTheDocument();
-    expect(systemInfo.getByText("Set")).toBeInTheDocument();
+    expect(systemInfo.getByText("Available")).toBeInTheDocument();
     expect(screen.queryByText("C:/Gallery/one.jpg")).not.toBeInTheDocument();
   });
 
@@ -981,7 +979,8 @@ describe("App", () => {
       expect(screen.getByText(original)).toBeInTheDocument();
       expect(screen.getAllByText(status).length).toBeGreaterThan(0);
       expect(screen.getByText(category)).toBeInTheDocument();
-      expect(screen.getAllByText("Favorite").length).toBeGreaterThan(0);
+      expect(screen.getByRole("button", { name: "Remove from Favorites" }))
+        .toBeInTheDocument();
       if (code) {
         expect(screen.getByText(code)).toBeInTheDocument();
       }
@@ -998,7 +997,6 @@ describe("App", () => {
           originalName.compareDocumentPosition(heroChips) &
             Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
-        expect(within(heroChips).getByText("Favorite")).toBeInTheDocument();
         expect(within(heroChips).getByText(status)).toBeInTheDocument();
         expect(within(heroChips).queryByText("Years Active")).not.toBeInTheDocument();
         expect(within(heroChips).queryByText(category)).not.toBeInTheDocument();
@@ -5684,11 +5682,194 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Placeholder Preview Video")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cover")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Preview Video Cover" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Video Cover" })).not.toBeInTheDocument();
+  });
+
+  it("uses the shared app placeholder style for detail thumbnails", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Styled Placeholder Video",
+          coverPath: "",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Styled Placeholder Video")).toBeInTheDocument();
+    const placeholder = screen.getByTestId("detail-thumbnail-placeholder");
+    expect(placeholder).toHaveAttribute("aria-label", "Cover");
+    expect(placeholder).toHaveClass("from-slate-50");
+    expect(placeholder).toHaveClass("to-sakura-50");
+    expect(placeholder.querySelector(".text-sakura-200")).not.toBeNull();
+  });
+
+  it("clamps long detail titles and expands them with an icon-only chevron control", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const longTitle =
+      "A very long saved video title that should stay readable inside the detail hero without pushing the shell sideways";
+    const longOriginalTitle =
+      "An equally long original title that follows the same two line clamp behavior until the user expands it";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: longTitle,
+          originalTitle: longOriginalTitle,
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const title = await screen.findByRole("heading", { name: longTitle });
+    const originalTitle = screen.getByText(longOriginalTitle);
+    expect(title).toHaveClass("line-clamp-2");
+    expect(originalTitle).toHaveClass("line-clamp-2");
+
+    const expandControl = screen.getByRole("button", { name: "Expand full title" });
+    expect(expandControl).toHaveAccessibleName("Expand full title");
+    expect(expandControl).toHaveClass("size-7");
+    expect(expandControl.querySelector("svg")).not.toBeNull();
+    expect(expandControl).toHaveTextContent("");
+    expect(screen.queryByRole("button", { name: "Show full title" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByText("Show full title")).not.toBeInTheDocument();
+
+    fireEvent.click(expandControl);
+
+    expect(title).not.toHaveClass("line-clamp-2");
+    expect(originalTitle).not.toHaveClass("line-clamp-2");
+    const collapseControl = screen.getByRole("button", { name: "Collapse title" });
+    expect(collapseControl.querySelector("svg")).not.toBeNull();
+    expect(collapseControl).toHaveTextContent("");
+    expect(collapseControl)
+      .toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("does not render gender or source links on detail without persisted fields", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          name: "No Deferred Fields Performer",
+        });
+      }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("No Deferred Fields Performer"))
+      .toBeInTheDocument();
+    expect(screen.queryByText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByText("Source Links")).not.toBeInTheDocument();
+    expect(screen.queryByText("Deferred: source links are not saved yet."))
+      .not.toBeInTheDocument();
+  });
+
+  it("keeps extreme detail text constrained in title, chips, and metadata rows", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const longTitle =
+      "Ultra long detail title ".repeat(12).trim();
+    const longCategory =
+      "Category With An Extremely Long UnbrokenNameThatShouldNeverStretchTheDetailHeroWidth";
+    const longPublisher =
+      "Publisher Label With An Extremely Long UnbrokenValueThatShouldWrapInsideTheMetadataRowWithoutHorizontalOverflow";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: longTitle,
+          categoriesJson: JSON.stringify([longCategory]),
+          publisherLabel: longPublisher,
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const title = await screen.findByRole("heading", { name: longTitle });
+    expect(title).toHaveClass("min-w-0", "flex-1", "line-clamp-2");
+    expect(screen.getByRole("button", { name: "Expand full title" }))
+      .toBeInTheDocument();
+
+    const categoryText = screen.getByText(longCategory);
+    expect(categoryText).toHaveClass("min-w-0", "truncate", "whitespace-nowrap");
+    expect(categoryText.parentElement).toHaveAttribute("title", longCategory);
+
+    const metadataValue = screen.getByText(longPublisher);
+    expect(metadataValue).toHaveClass("min-w-0", "break-words");
+    expect(metadataValue).toHaveClass("[overflow-wrap:anywhere]");
+    expect(metadataValue).toHaveAttribute("title", longPublisher);
+
+    const metadataRow = metadataValue.closest("div");
+    expect(metadataRow).toHaveClass("min-w-0");
+  });
+
+  it("keeps very long related LiteCard titles clamped and stats truncated", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const longRelatedTitle =
+      "Related image title ".repeat(14).trim();
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Long Related Card Video",
+          relatedImagesJson:
+            '[{"recordId":"image_long","titleSnapshot":"Snapshot Gallery"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_long",
+            title: longRelatedTitle,
+            imageCount: 123456789,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Long Related Card Video")).toBeInTheDocument();
+    const relatedSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(relatedSection).not.toBeNull();
+    const related = within(relatedSection as HTMLElement);
+    const relatedTitle = related.getByText(longRelatedTitle);
+    expect(relatedTitle).toHaveClass("min-w-0", "line-clamp-2");
+
+    const imageCount = related.getByText("123456789");
+    expect(imageCount).toHaveClass("truncate");
+    expect(imageCount.closest(".grid")).toHaveClass("min-w-0");
   });
 
   it("renders saved Performer mini thumbnails and opens thumbnail preview", async () => {
@@ -5884,6 +6065,61 @@ describe("App", () => {
     );
   });
 
+  it("maps and persists Related Performer favorite state on video detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    let relatedPerformer = persistedPerformer({
+      id: "performer_favorite",
+      name: "Favorite Related Performer",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Related Performer Favorite Video",
+          relatedPerformersJson:
+            '[{"performerId":"performer_favorite","nameSnapshot":"Snapshot Performer"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [relatedPerformer];
+      }
+      if (command === "image_list") {
+        return [];
+      }
+      if (command === "performer_update") {
+        expect(args.id).toBe("performer_favorite");
+        expect(args.patch).toEqual({ favorite: false });
+        relatedPerformer = { ...relatedPerformer, favorite: false };
+        return relatedPerformer;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Performer Favorite Video"))
+      .toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Performers" }).closest("section");
+    expect(section).not.toBeNull();
+    const related = within(section as HTMLElement);
+    expect(related.getByText("Favorite Related Performer")).toBeInTheDocument();
+
+    fireEvent.click(related.getByRole("button", { name: "Favorite" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "performer_update",
+        { id: "performer_favorite", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(related.getByRole("button", { name: "Not favorite" }))
+      .toBeInTheDocument();
+  });
+
   it("displays Related Performer snapshots on image detail when performers cannot load", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -5972,6 +6208,61 @@ describe("App", () => {
     );
   });
 
+  it("maps and persists Related Image favorite state on video detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    let relatedImage = persistedImage({
+      id: "image_favorite",
+      title: "Favorite Related Gallery",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Related Image Favorite Video",
+          relatedImagesJson:
+            '[{"recordId":"image_favorite","titleSnapshot":"Snapshot Gallery"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [relatedImage];
+      }
+      if (command === "image_update") {
+        expect(args.id).toBe("image_favorite");
+        expect(args.patch).toEqual({ favorite: false });
+        relatedImage = { ...relatedImage, favorite: false };
+        return relatedImage;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Image Favorite Video"))
+      .toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(section).not.toBeNull();
+    const related = within(section as HTMLElement);
+    expect(related.getByText("Favorite Related Gallery")).toBeInTheDocument();
+
+    fireEvent.click(related.getByRole("button", { name: "Favorite" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "image_update",
+        { id: "image_favorite", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(related.getByRole("button", { name: "Not favorite" }))
+      .toBeInTheDocument();
+  });
+
   it("displays resolved Related Videos on image detail without raw ids", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -6020,6 +6311,61 @@ describe("App", () => {
     );
   });
 
+  it("maps and persists Related Video favorite state on image detail", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    let relatedVideo = persistedVideo({
+      id: "video_favorite",
+      title: "Favorite Related Video",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Related Video Favorite Image",
+          relatedVideosJson:
+            '[{"recordId":"video_favorite","titleSnapshot":"Snapshot Video"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [relatedVideo];
+      }
+      if (command === "video_update") {
+        expect(args.id).toBe("video_favorite");
+        expect(args.patch).toEqual({ favorite: false });
+        relatedVideo = { ...relatedVideo, favorite: false };
+        return relatedVideo;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Video Favorite Image"))
+      .toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Videos" }).closest("section");
+    expect(section).not.toBeNull();
+    const related = within(section as HTMLElement);
+    expect(related.getByText("Favorite Related Video")).toBeInTheDocument();
+
+    fireEvent.click(related.getByRole("button", { name: "Favorite" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "video_update",
+        { id: "video_favorite", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(related.getByRole("button", { name: "Not favorite" }))
+      .toBeInTheDocument();
+  });
+
   it("displays Related Image fallbacks when target records cannot load", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -6049,6 +6395,10 @@ describe("App", () => {
     expect(screen.getByText("Former Gallery")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Image")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+    const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(imagesSection).not.toBeNull();
+    expect(within(imagesSection as HTMLElement).queryByRole("button", { name: "Not favorite" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByText("Related item unavailable")).not.toBeInTheDocument();
     expect(screen.queryByText("missing_image")).not.toBeInTheDocument();
     expect(screen.queryByText("empty_snapshot")).not.toBeInTheDocument();
@@ -7184,7 +7534,8 @@ describe("App", () => {
 
     expect(await status.findByText("Cover status")).toBeInTheDocument();
     expect(status.getByText("Gallery status")).toBeInTheDocument();
-    await waitFor(() => expect(status.getAllByText("Not set")).toHaveLength(2));
+    await waitFor(() => expect(status.getAllByText("N/A")).toHaveLength(2));
+    expect(status.queryByText("Not set")).not.toBeInTheDocument();
     expect(status.queryByText("Folder status")).not.toBeInTheDocument();
     expect(status.queryByText("Missing")).not.toBeInTheDocument();
     expect(status.queryByText("No path saved")).not.toBeInTheDocument();
@@ -7246,7 +7597,8 @@ describe("App", () => {
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
-    expect(await status.findAllByText("Unknown")).toHaveLength(2);
+    expect(await status.findAllByText("N/A")).toHaveLength(4);
+    expect(status.queryByText("Unknown")).not.toBeInTheDocument();
     expect(status.queryByText("Status check not available")).not.toBeInTheDocument();
     expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
@@ -7503,6 +7855,203 @@ describe("App", () => {
     expect(screen.queryByText(/bulk/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/select/i)).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+  });
+
+  it("toggles Video detail favorite and reopens edit form with the saved value", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    let currentVideo = persistedVideo({
+      title: "Favorite Detail Video",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return currentVideo;
+      }
+      if (command === "video_update") {
+        expect(args.id).toBe("video_test_001");
+        expect(args.patch).toEqual({ favorite: false });
+        currentVideo = { ...currentVideo, favorite: false };
+        return currentVideo;
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "media_metadata_probe"
+      ) {
+        return command === "media_metadata_probe"
+          ? {
+              path: args.path,
+              status: "notSet",
+              kind: "unknown",
+              fileSizeBytes: null,
+              fileType: "",
+              durationMinutes: null,
+              width: null,
+              height: null,
+              resolution: null,
+              message: "No path set",
+            }
+          : [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Detail Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "video_update",
+        { id: "video_test_001", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit" }));
+
+    const favoriteCheckbox = await screen.findByRole("checkbox", {
+      name: "Favorite",
+    });
+    expect(favoriteCheckbox).not.toBeChecked();
+  });
+
+  it("toggles Image detail favorite and reopens edit form with the saved value", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    let currentImage = persistedImage({
+      title: "Favorite Detail Image",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return currentImage;
+      }
+      if (command === "image_update") {
+        expect(args.id).toBe("image_test_001");
+        expect(args.patch).toEqual({ favorite: false });
+        currentImage = { ...currentImage, favorite: false };
+        return currentImage;
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Detail Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "image_update",
+        { id: "image_test_001", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit" }));
+
+    const favoriteCheckbox = await screen.findByRole("checkbox", {
+      name: "Favorite",
+    });
+    expect(favoriteCheckbox).not.toBeChecked();
+  });
+
+  it("toggles Performer detail favorite and reopens edit form with the saved value", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    let currentPerformer = persistedPerformer({
+      name: "Favorite Detail Performer",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return currentPerformer;
+      }
+      if (command === "performer_update") {
+        expect(args.id).toBe("performer_test_001");
+        expect(args.patch).toEqual({ favorite: false });
+        currentPerformer = { ...currentPerformer, favorite: false };
+        return currentPerformer;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("Favorite Detail Performer"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "performer_update",
+        { id: "performer_test_001", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit" }));
+
+    const favoriteCheckbox = await screen.findByRole("checkbox", {
+      name: "Favorite",
+    });
+    expect(favoriteCheckbox).not.toBeChecked();
+  });
+
+  it("rolls back Video detail favorite when the save fails", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Favorite Failure Video",
+          favorite: true,
+        });
+      }
+      if (command === "video_update") {
+        throw new Error("favorite update failed");
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Failure Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Favorite update failed. The saved record was not changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove from Favorites" }))
+      .toBeInTheDocument();
   });
 
   it("loads and updates a video through Tauri commands", async () => {
