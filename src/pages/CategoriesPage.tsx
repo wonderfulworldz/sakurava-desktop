@@ -366,6 +366,16 @@ function mergeCategoryRows(
   const parentNameByKey = new Map(
     managedCategories.map((category) => [category.key, category.name]),
   );
+  const childCountByKey = new Map<string, number>();
+  for (const category of managedCategories) {
+    if (!category.parentKey) {
+      continue;
+    }
+    childCountByKey.set(
+      category.parentKey,
+      (childCountByKey.get(category.parentKey) ?? 0) + 1,
+    );
+  }
 
   for (const category of managedCategories) {
     const name = category.name.trim();
@@ -386,6 +396,7 @@ function mergeCategoryRows(
       parentName: category.parentKey
         ? parentNameByKey.get(category.parentKey) ?? null
         : null,
+      childCount: childCountByKey.get(category.key) ?? 0,
       description: category.description.trim(),
       thumbnailPath: category.thumbnailPath.trim(),
       createdAt: category.createdAt,
