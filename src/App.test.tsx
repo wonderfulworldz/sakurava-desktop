@@ -1813,12 +1813,12 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: "Add Entry" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Add Entry" }))
+    expect(screen.queryByRole("heading", { name: "Add Category" }))
       .not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
 
-    expect(screen.getByRole("heading", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Category Management" }))
       .toBeInTheDocument();
     expect(screen.getByText("Parent Category")).toBeInTheDocument();
@@ -1835,7 +1835,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Save Entry" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("heading", { name: "Add Entry" }))
+    expect(screen.queryByRole("heading", { name: "Add Category" }))
       .not.toBeInTheDocument();
 
     expect(screen.getByRole("table")).toBeInTheDocument();
@@ -1860,6 +1860,251 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Table view" }));
     expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("creates, edits, cancels, and validates Category Management form safely", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    let categories = [
+      managedCategoryFixture({
+        key: "cat_parent",
+        name: "Parent Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_child",
+        name: "Child Category",
+        parentKey: "cat_parent",
+        description: "Child definition",
+        thumbnailPath: "D:/Thumbs/child.jpg",
+      }),
+    ];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return categories;
+      }
+      if (command === "managed_category_create") {
+        const created = managedCategoryFixture({
+          key: "cat_new",
+          name: args.input.name,
+          parentKey: args.input.parentKey ?? null,
+          description: args.input.description ?? "",
+          thumbnailPath: args.input.thumbnailPath ?? "",
+        });
+        categories = [...categories, created];
+        return created;
+      }
+      if (command === "managed_category_update") {
+        categories = categories.map((category) =>
+          category.key === args.key
+            ? {
+                ...category,
+                ...args.patch,
+                parentKey:
+                  args.patch.parentKey === undefined
+                    ? category.parentKey
+                    : args.patch.parentKey,
+              }
+            : category,
+        );
+        return categories.find((category) => category.key === args.key);
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findAllByText("Parent Category")).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Search parent categories")).toHaveDisplayValue(
+      "No Parent",
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  parent category  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(await screen.findByText("A category with this name already exists."))
+      .toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "managed_category_create",
+      expect.anything(),
+      undefined,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  New Category  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(await screen.findByText('Added category "New Category".'))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add Category" }))
+      .not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "managed_category_create",
+      {
+        input: expect.objectContaining({
+          name: "New Category",
+          parentKey: null,
+          description: "",
+          thumbnailPath: "",
+        }),
+      },
+      undefined,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Child Category" }),
+    );
+    expect(screen.getByRole("heading", { name: "Edit Category" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue(
+      "Child Category",
+    );
+    expect(screen.getByLabelText("Search parent categories")).toHaveDisplayValue(
+      "Parent Category",
+    );
+    expect(screen.getByPlaceholderText("Local path or reference"))
+      .toHaveDisplayValue("D:/Thumbs/child.jpg");
+    expect(screen.getByPlaceholderText("Plain text definition"))
+      .toHaveDisplayValue("Child definition");
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "Unsaved Child" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Child Category" }),
+    );
+    expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue(
+      "Child Category",
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  Updated Child  " },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Plain text definition"), {
+      target: { value: "  Updated definition  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(await screen.findByText('Saved category "Updated Child".'))
+      .toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "managed_category_update",
+      {
+        key: "cat_child",
+        patch: expect.objectContaining({
+          name: "Updated Child",
+          parentKey: "cat_parent",
+          description: "Updated definition",
+          thumbnailPath: "D:/Thumbs/child.jpg",
+        }),
+      },
+      undefined,
+    );
+  });
+
+  it("blocks unsafe Category Management delete and confirms unused leaf deletion", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    let categories = [
+      managedCategoryFixture({
+        key: "cat_parent",
+        name: "Parent Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_used",
+        name: "Used Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_unused",
+        name: "Unused Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_child",
+        name: "Child Category",
+        parentKey: "cat_parent",
+      }),
+    ];
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Used Video",
+            categoriesJson: '["Used Category"]',
+          }),
+        ];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return categories;
+      }
+      if (command === "managed_category_delete") {
+        categories = categories.filter((category) => category.key !== args.key);
+        return { key: args.key, deleted: true };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    try {
+      render(<App />);
+
+      await screen.findByRole("button", { name: "Collapse Parent Category" });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit Parent Category" }),
+      );
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+      expect(
+        screen.getByText("Delete is blocked while this category has child categories."),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit Used Category" }),
+      );
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+      expect(
+        screen.getByText("Delete is blocked while records use this category."),
+      ).toBeInTheDocument();
+      expect(invoke).not.toHaveBeenCalledWith(
+        "managed_category_delete",
+        expect.anything(),
+        undefined,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit Unused Category" }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+      expect(confirmSpy).toHaveBeenCalledWith(
+        'Delete "Unused Category"? This only deletes unused managed category metadata.',
+      );
+      expect(await screen.findByText('Deleted category "Unused Category".'))
+        .toBeInTheDocument();
+      expect(invoke).toHaveBeenCalledWith(
+        "managed_category_delete",
+        { key: "cat_unused" },
+        undefined,
+      );
+      expect(screen.queryByRole("button", { name: "Edit Unused Category" }))
+        .not.toBeInTheDocument();
+    } finally {
+      confirmSpy.mockRestore();
+    }
   });
 
   it("renders Category Management table hierarchy and prevents self-parent selection", async () => {

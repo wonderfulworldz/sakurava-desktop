@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedCategory } from "../backend/types";
 import {
+  MANAGED_CATEGORY_DESCRIPTION_MAX_LENGTH,
   countManagedCategoryUsage,
   findManagedCategoryDescendantKeys,
 } from "../backend/managedCategoryModel";
@@ -47,6 +48,7 @@ type StatusState =
   | { state: "pending"; message: string }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
+type FormErrors = Partial<Record<keyof FormState | "parent", string>>;
 
 type FilterValue =
   | "all"
@@ -105,6 +107,7 @@ function CategoryManagementPanel() {
   const [records, setRecords] = useState(emptyRecords);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formVisible, setFormVisible] = useState(false);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("all");
@@ -345,6 +348,22 @@ function CategoryManagementPanel() {
       return;
     }
 
+    const validationErrors = validateCategoryForm({
+      form,
+      categories,
+      editingKey,
+      descendantKeys,
+      editingCategoryHasChildren,
+    });
+    setFormErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      setStatus({
+        state: "error",
+        message: "Resolve the highlighted category fields before saving.",
+      });
+      return;
+    }
+
     const selectedParentKey = form.parentKey || null;
     if (
       editingKey &&
@@ -377,18 +396,18 @@ function CategoryManagementPanel() {
     try {
       if (editingCategory) {
         await updateManagedCategory(editingCategory.key, {
-          name: form.name,
+          name: form.name.trim(),
           parentKey: form.parentKey || null,
-          description: form.description,
-          thumbnailPath: form.thumbnailPath,
+          description: form.description.trim(),
+          thumbnailPath: form.thumbnailPath.trim(),
         });
         await refreshCategories(`Saved category "${form.name.trim()}".`);
       } else {
         await createManagedCategory({
-          name: form.name,
+          name: form.name.trim(),
           parentKey: form.parentKey || null,
-          description: form.description,
-          thumbnailPath: form.thumbnailPath,
+          description: form.description.trim(),
+          thumbnailPath: form.thumbnailPath.trim(),
         });
         await refreshCategories(`Added category "${form.name.trim()}".`);
       }
@@ -403,6 +422,11 @@ function CategoryManagementPanel() {
 
   async function handleDelete() {
     if (!editingCategory || !isDesktopRuntime) {
+      return;
+    }
+
+    if (deleteBlockReason) {
+      setStatus({ state: "error", message: deleteBlockReason });
       return;
     }
 
@@ -442,6 +466,7 @@ function CategoryManagementPanel() {
   function handleEdit(category: ManagedCategory) {
     setEditingKey(category.key);
     setFormVisible(true);
+    setFormErrors({});
     setForm({
       name: category.name,
       thumbnailPath: category.thumbnailPath,
@@ -450,29 +475,25 @@ function CategoryManagementPanel() {
     });
     setStatus({ state: "idle" });
     window.requestAnimationFrame(() => {
-      formSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      scrollFormIntoView(formSectionRef.current);
     });
   }
 
   function resetForm() {
     setEditingKey(null);
     setForm(emptyForm);
+    setFormErrors({});
     setFormVisible(false);
   }
 
   function handleAddEntry() {
     setEditingKey(null);
     setForm(emptyForm);
+    setFormErrors({});
     setFormVisible(true);
     setStatus({ state: "idle" });
     window.requestAnimationFrame(() => {
-      formSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      scrollFormIntoView(formSectionRef.current);
     });
   }
 
@@ -480,6 +501,14 @@ function CategoryManagementPanel() {
   const editingCategoryHasChildren = editingKey
     ? categories.some((category) => category.parentKey === editingKey)
     : false;
+  const editingCategoryUsage = editingCategory
+    ? countManagedCategoryUsage(editingCategory.name, records)
+    : createEmptyCategoryUsageCounts();
+  const deleteBlockReason = editingCategoryHasChildren
+    ? "Delete is blocked while this category has child categories."
+    : editingCategoryUsage.total > 0
+      ? "Delete is blocked while records use this category."
+      : "";
   const parentOptions = categories.filter(
     (category) =>
       category.key !== editingKey &&
@@ -535,7 +564,7 @@ function CategoryManagementPanel() {
         >
           <div className="mb-4 flex flex-col gap-1">
             <h2 className="text-lg font-semibold text-slate-950">
-              {editingCategory ? "Edit Entry" : "Add Entry"}
+              {editingCategory ? "Edit Category" : "Add Category"}
             </h2>
           </div>
 
@@ -544,12 +573,16 @@ function CategoryManagementPanel() {
               <span>Category</span>
               <input
                 value={form.name}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, name: event.target.value }))
-                }
+                onChange={(event) => {
+                  setForm((current) => ({ ...current, name: event.target.value }));
+                  setFormErrors((current) => ({ ...current, name: undefined }));
+                }}
                 className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                 placeholder="Category name"
               />
+              {formErrors.name && (
+                <p className="text-xs font-medium text-red-600">{formErrors.name}</p>
+              )}
             </label>
 
             <div className="space-y-1 text-sm font-medium text-slate-700">
@@ -559,13 +592,19 @@ function CategoryManagementPanel() {
                 options={parentOptions}
                 categories={categories}
                 disabled={editingCategoryHasChildren}
-                onChange={(parentKey) =>
+                onChange={(parentKey) => {
                   setForm((current) => ({
                     ...current,
                     parentKey,
-                  }))
-                }
+                  }));
+                  setFormErrors((current) => ({ ...current, parent: undefined }));
+                }}
               />
+              {formErrors.parent && (
+                <p className="text-xs font-medium text-red-600">
+                  {formErrors.parent}
+                </p>
+              )}
             </div>
 
             <fieldset className="w-full space-y-2 text-sm font-medium text-slate-700">
@@ -595,12 +634,16 @@ function CategoryManagementPanel() {
               <div className="flex gap-2">
                 <input
                   value={form.thumbnailPath}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setForm((current) => ({
                       ...current,
                       thumbnailPath: event.target.value,
-                    }))
-                  }
+                    }));
+                    setFormErrors((current) => ({
+                      ...current,
+                      thumbnailPath: undefined,
+                    }));
+                  }}
                   className="h-11 min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                   placeholder="Local path or reference"
                 />
@@ -619,16 +662,25 @@ function CategoryManagementPanel() {
               <span>Definition</span>
               <textarea
                 value={form.description}
-                onChange={(event) =>
+                onChange={(event) => {
                   setForm((current) => ({
                     ...current,
                     description: event.target.value,
-                  }))
-                }
+                  }));
+                  setFormErrors((current) => ({
+                    ...current,
+                    description: undefined,
+                  }));
+                }}
                 className="min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                 maxLength={500}
                 placeholder="Plain text definition"
               />
+              {formErrors.description && (
+                <p className="text-xs font-medium text-red-600">
+                  {formErrors.description}
+                </p>
+              )}
             </label>
           </div>
 
@@ -645,8 +697,9 @@ function CategoryManagementPanel() {
               <button
                 type="button"
                 onClick={handleDelete}
-                disabled={!canSave}
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                disabled={!canSave || Boolean(deleteBlockReason)}
+                title={deleteBlockReason || "Delete category"}
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
               >
                 <Trash2 size={16} />
                 Delete
@@ -660,6 +713,11 @@ function CategoryManagementPanel() {
               Cancel
             </button>
           </div>
+          {editingCategory && deleteBlockReason && (
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              {deleteBlockReason}
+            </p>
+          )}
 
           <StatusMessage status={status} />
         </section>
@@ -1063,6 +1121,68 @@ function ParentCategoryPicker({
 
 function formatParentCategoryOption(category: ManagedCategory | null) {
   return category ? category.name : "No Parent";
+}
+
+function scrollFormIntoView(element: HTMLElement | null) {
+  if (typeof element?.scrollIntoView !== "function") {
+    return;
+  }
+
+  element.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
+function validateCategoryForm({
+  form,
+  categories,
+  editingKey,
+  descendantKeys,
+  editingCategoryHasChildren,
+}: {
+  form: FormState;
+  categories: ManagedCategory[];
+  editingKey: string | null;
+  descendantKeys: Set<string>;
+  editingCategoryHasChildren: boolean;
+}) {
+  const errors: FormErrors = {};
+  const name = form.name.trim();
+  const parentKey = form.parentKey || null;
+
+  if (!name) {
+    errors.name = "Category name is required.";
+  } else if (
+    categories.some(
+      (category) =>
+        category.key !== editingKey &&
+        category.name.trim().toLowerCase() === name.toLowerCase(),
+    )
+  ) {
+    errors.name = "A category with this name already exists.";
+  }
+
+  if (form.description.trim().length > MANAGED_CATEGORY_DESCRIPTION_MAX_LENGTH) {
+    errors.description = `Definition must be ${MANAGED_CATEGORY_DESCRIPTION_MAX_LENGTH} characters or fewer.`;
+  }
+
+  if (parentKey) {
+    const parentCategory = categories.find((category) => category.key === parentKey);
+    if (parentKey === editingKey || descendantKeys.has(parentKey)) {
+      errors.parent = "A category cannot use itself or its child category as parent.";
+    } else if (!parentCategory) {
+      errors.parent = "Parent category could not be found.";
+    } else if (parentCategory.parentKey) {
+      errors.parent = "Only categories with No Parent can be selected as parent.";
+    }
+  }
+
+  if (editingCategoryHasChildren && parentKey) {
+    errors.parent = "A category with child categories must stay at No Parent.";
+  }
+
+  return errors;
 }
 
 function buildVisibleTableRows(
