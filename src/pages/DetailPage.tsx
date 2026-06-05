@@ -258,7 +258,6 @@ function CatalogDetailPage({
         icon={Info}
         items={config.techItems}
         message={config.techMessage}
-        readOnly
       />
     </section>
   );
@@ -305,7 +304,7 @@ function CatalogIdentity({
       <div>
         <div className="flex min-h-7 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            {"code" in config && config.code && config.code !== "No code" && (
+            {"code" in config && !isEmptyDetailValue(config.code) && (
               <Chip label={config.code} tone="neutral" />
             )}
           </div>
@@ -747,13 +746,11 @@ function RowsCard({
   icon: Icon,
   items,
   message,
-  readOnly = false,
 }: {
   title: string;
   icon: typeof Info;
   items: { label: string; value: string }[];
   message?: string;
-  readOnly?: boolean;
 }) {
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
@@ -769,18 +766,43 @@ function RowsCard({
               {item.label}
             </span>
             <span className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]">
-              {item.value}
+              {detailDisplayValue(item.value)}
             </span>
           </div>
         ))}
       </div>
-      {readOnly && (
-        <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-          Data-dependent fields only
-        </p>
-      )}
     </section>
   );
+}
+
+function detailDisplayValue(value: string | number | null | undefined) {
+  const label = typeof value === "number" ? String(value) : value?.trim();
+
+  if (isEmptyDetailValue(label)) {
+    return "N/A";
+  }
+
+  return label;
+}
+
+function isEmptyDetailValue(value: string | number | null | undefined) {
+  const label = typeof value === "number" ? String(value) : value?.trim();
+
+  if (!label) {
+    return true;
+  }
+
+  return [
+    "-",
+    "No code",
+    "No aliases",
+    "Not set",
+    "Not available",
+    "Not detected yet",
+    "Unspecified",
+    "Unknown",
+    "n/a",
+  ].includes(label);
 }
 
 function HeroPlayButton({ item }: { item: MediaPathItem }) {
@@ -943,12 +965,12 @@ function pathStatusDisplay(status: PathStatusKind) {
 
   if (status === "notSet") {
     return {
-      label: "Not set",
+      label: "N/A",
     };
   }
 
   return {
-    label: "Unknown",
+    label: "N/A",
   };
 }
 
@@ -966,7 +988,9 @@ function SystemInfoCard({
         {items.map((item) => (
           <div key={item.label} className="text-sm">
             <p className="font-medium text-slate-600">{item.label}</p>
-            <p className="mt-1 text-slate-500">{item.value}</p>
+            <p className="mt-1 text-slate-500">
+              {detailDisplayValue(item.value)}
+            </p>
           </div>
         ))}
         <MediaPathStatusRows items={mediaPaths} />
@@ -1736,10 +1760,10 @@ function RelatedCatalogTable({
                 )}
               </td>
               <td className="px-4 py-3 text-slate-600">
-                {item.releaseDate || "Not set"}
+                {detailDisplayValue(item.releaseDate)}
               </td>
               <td className="px-4 py-3 text-slate-600">
-                {item.metadata || "Not available"}
+                {detailDisplayValue(item.metadata)}
               </td>
             </tr>
           ))}
@@ -1778,13 +1802,13 @@ function PerformerRelatedCatalogTable({
                 {item.title}
               </td>
               <td className="px-4 py-3 text-slate-600">
-                {item.publisherLabel || "Not set"}
+                {detailDisplayValue(item.publisherLabel)}
               </td>
               <td className="px-4 py-3 text-slate-600">
                 {releaseYearLabel(item.releaseDate)}
               </td>
               <td className="px-4 py-3 text-slate-600">
-                {item.metadata || "Not set"}
+                {detailDisplayValue(item.metadata)}
               </td>
               <td className="px-4 py-3 text-slate-600">
                 {typeof item.rating === "number" && Number.isFinite(item.rating)
@@ -1860,11 +1884,11 @@ function releaseDateTime(value: string | undefined) {
 
 function releaseYearLabel(value: string | undefined) {
   if (!value) {
-    return "Not set";
+    return "N/A";
   }
 
   const match = /^(\d{4})/.exec(value.trim());
-  return match?.[1] ?? "Not set";
+  return match?.[1] ?? "N/A";
 }
 
 function cardReleaseYearLabel(value: string | undefined) {

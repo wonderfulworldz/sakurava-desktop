@@ -535,9 +535,7 @@ describe("App", () => {
         "Rewatch",
         "Related Performers",
         "Related Images",
-        "Tech info is data-dependent and not available yet.",
       ],
-      true,
     ],
     [
       "/images/sample-id",
@@ -547,9 +545,7 @@ describe("App", () => {
         "Memorability",
         "Related Videos",
         "Related Performers",
-        "Gallery tech info is data-dependent and not available yet.",
       ],
-      true,
     ],
     [
       "/performers/sample-id",
@@ -564,23 +560,22 @@ describe("App", () => {
         "Related Images",
         "No related videos saved.",
       ],
-      false,
     ],
   ])(
     "renders static detail UI for %s",
-    (path, expectedTexts, expectsReadOnly) => {
+    (path, expectedTexts) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       for (const text of expectedTexts) {
         expect(screen.getAllByText(text).length).toBeGreaterThan(0);
       }
-      const readOnlyPlaceholder = screen.queryByText("Data-dependent fields only");
-      if (expectsReadOnly) {
-        expect(readOnlyPlaceholder).toBeInTheDocument();
-      } else {
-        expect(readOnlyPlaceholder).not.toBeInTheDocument();
-      }
+      expect(screen.queryByText("Data-dependent fields only")).not.toBeInTheDocument();
+      expect(screen.queryByText("Preview only")).not.toBeInTheDocument();
+      expect(screen.queryByText("Available after relation features are added."))
+        .not.toBeInTheDocument();
+      expect(screen.queryByText("Manual cover path placeholder"))
+        .not.toBeInTheDocument();
       expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
     },
   );
@@ -775,8 +770,9 @@ describe("App", () => {
     expect(tech.getByText("Resolution")).toBeInTheDocument();
     expect(tech.getByText("File Size")).toBeInTheDocument();
     expect(tech.getByText("File Type")).toBeInTheDocument();
-    expect(tech.getByText("Not detected yet")).toBeInTheDocument();
-    expect(tech.getAllByText("Not available")).toHaveLength(2);
+    expect(tech.getAllByText("N/A")).toHaveLength(3);
+    expect(tech.queryByText("Not detected yet")).not.toBeInTheDocument();
+    expect(tech.queryByText("Not available")).not.toBeInTheDocument();
     expect(tech.queryByText("Quality")).not.toBeInTheDocument();
   });
 
@@ -810,7 +806,8 @@ describe("App", () => {
     expect(techSection).not.toBeNull();
     const tech = within(techSection as HTMLElement);
 
-    expect(tech.getAllByText("Not detected yet")).toHaveLength(2);
+    expect(tech.getAllByText("N/A")).toHaveLength(2);
+    expect(tech.queryByText("Not detected yet")).not.toBeInTheDocument();
     expect(tech.queryByText("0 min")).not.toBeInTheDocument();
     expect(tech.queryByText("0 minutes")).not.toBeInTheDocument();
     expect(tech.getByText("4.0 KB")).toBeInTheDocument();
@@ -885,12 +882,12 @@ describe("App", () => {
 
     expect(tech.getByText("Image Count")).toBeInTheDocument();
     expect(tech.getByText("3 images")).toBeInTheDocument();
-    expect(tech.getAllByText("Not available")).toHaveLength(3);
+    expect(tech.getAllByText("N/A")).toHaveLength(3);
     const systemInfo = within(
       screen.getByText("System Info").closest("section") as HTMLElement,
     );
     expect(systemInfo.getByText("Gallery status")).toBeInTheDocument();
-    expect(systemInfo.getByText("Set")).toBeInTheDocument();
+    expect(systemInfo.getByText("Available")).toBeInTheDocument();
     expect(screen.queryByText("C:/Gallery/one.jpg")).not.toBeInTheDocument();
   });
 
@@ -5684,7 +5681,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Placeholder Preview Video")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cover")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Preview Video Cover" }),
     ).not.toBeInTheDocument();
@@ -7184,7 +7181,8 @@ describe("App", () => {
 
     expect(await status.findByText("Cover status")).toBeInTheDocument();
     expect(status.getByText("Gallery status")).toBeInTheDocument();
-    await waitFor(() => expect(status.getAllByText("Not set")).toHaveLength(2));
+    await waitFor(() => expect(status.getAllByText("N/A")).toHaveLength(2));
+    expect(status.queryByText("Not set")).not.toBeInTheDocument();
     expect(status.queryByText("Folder status")).not.toBeInTheDocument();
     expect(status.queryByText("Missing")).not.toBeInTheDocument();
     expect(status.queryByText("No path saved")).not.toBeInTheDocument();
@@ -7246,7 +7244,8 @@ describe("App", () => {
     expect(statusSection).not.toBeNull();
     const status = within(statusSection as HTMLElement);
 
-    expect(await status.findAllByText("Unknown")).toHaveLength(2);
+    expect(await status.findAllByText("N/A")).toHaveLength(4);
+    expect(status.queryByText("Unknown")).not.toBeInTheDocument();
     expect(status.queryByText("Status check not available")).not.toBeInTheDocument();
     expect(status.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();

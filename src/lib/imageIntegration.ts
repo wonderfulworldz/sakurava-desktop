@@ -14,7 +14,7 @@ import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, ImageDetailConfig } from "./detailData";
-import { formatSystemTimestamp } from "./detailData";
+import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
@@ -52,13 +52,13 @@ export function buildImageDetailConfig(
     coverPath: image.coverPath,
     displayTitle: image.title,
     originalTitle: image.originalTitle,
-    code: image.code || "No code",
+    code: image.code || DETAIL_EMPTY_VALUE,
     favorite: image.favorite,
-    chips: [image.availability || "Unspecified", image.censorship || "Unspecified"],
+    chips: [image.availability, image.censorship].filter(Boolean),
     categories: parseTextLabelArray(image.categoriesJson),
     metadata: [
-      { label: "Release Date", value: image.releaseDate || "Not set" },
-      { label: "Publisher / Label", value: image.publisherLabel || "Not set" },
+      { label: "Release Date", value: detailText(image.releaseDate) },
+      { label: "Publisher / Label", value: detailText(image.publisherLabel) },
     ],
     mediaPaths: [
       { label: "Cover status", path: image.coverPath },
@@ -75,7 +75,7 @@ export function buildImageDetailConfig(
       { label: "Total File Size", value: formatFileSize(image.totalFileSizeBytes) },
       { label: "Main File Type", value: formatOptionalText(image.mainFileType) },
     ],
-    notes: image.notes || "No notes saved.",
+    notes: detailNotes(image.notes),
     galleryImagePaths,
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
@@ -266,14 +266,22 @@ function formatGalleryCount(count: number | null, galleryImagePaths: string[]) {
         : null;
 
   if (!safeCount) {
-    return "Not available";
+    return DETAIL_EMPTY_VALUE;
   }
 
   return `${safeCount} ${safeCount === 1 ? "image" : "images"}`;
 }
 
 function formatSavedListStatus(values: string[]) {
-  return values.length > 0 ? "Set" : "Not set";
+  return values.length > 0 ? "Available" : DETAIL_EMPTY_VALUE;
+}
+
+function detailText(value: string | null | undefined) {
+  return value?.trim() || DETAIL_EMPTY_VALUE;
+}
+
+function detailNotes(value: string | null | undefined) {
+  return value?.trim() || "No notes saved.";
 }
 
 function formatImageCount(count: number | null) {

@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { Image, UserRound, Video } from "lucide-react";
 
 export type DetailKind = "videos" | "images" | "performers";
+export const DETAIL_EMPTY_VALUE = "N/A";
 
 export type RelatedPerformerDetailItem = {
   name: string;
@@ -113,12 +114,12 @@ export function formatSystemTimestamp(
   value: string | number | null | undefined,
 ) {
   if (value === null || value === undefined) {
-    return "Not set";
+    return DETAIL_EMPTY_VALUE;
   }
 
   const rawValue = String(value).trim();
   if (!rawValue) {
-    return "Not set";
+    return DETAIL_EMPTY_VALUE;
   }
 
   const date = /^\d+$/.test(rawValue)
@@ -126,7 +127,7 @@ export function formatSystemTimestamp(
     : new Date(rawValue);
 
   if (Number.isNaN(date.getTime())) {
-    return "Not set";
+    return DETAIL_EMPTY_VALUE;
   }
 
   return new Intl.DateTimeFormat("en-US", {
@@ -147,8 +148,8 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     subtitle: "View saved video catalog information",
     backLabel: "Back to Videos",
     backTo: "/videos",
-    editTo: "/videos/sample-id/edit",
-    placeholderLabel: "Cover Placeholder",
+    editTo: "/videos",
+    placeholderLabel: "Cover",
     placeholderIcon: Video,
     displayTitle: "Morning Archive",
     originalTitle: "Asa no Archive",
@@ -161,16 +162,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Publisher / Label", value: "Sakura Studio" },
     ],
     mediaPaths: [
-      { label: "Cover status", path: "Manual cover path placeholder" },
-      {
-        label: "Media status",
-        path: "Manual media path placeholder",
-        playable: true,
-      },
+      { label: "Cover status", path: "" },
+      { label: "Media status", path: "", playable: true },
     ],
     systemInfo: [
-      { label: "Created in Sakurava", value: "Preview only" },
-      { label: "Last edited", value: "Preview only" },
+      { label: "Created in Sakurava", value: DETAIL_EMPTY_VALUE },
+      { label: "Last edited", value: DETAIL_EMPTY_VALUE },
     ],
     ratingTitle: "Rating Summary",
     rating: [
@@ -182,12 +179,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Chemistry", value: 4 },
     ],
     techTitle: "Tech Info",
-    techMessage: "Tech info is data-dependent and not available yet.",
+    techMessage: "",
     techItems: [
       { label: "Duration", value: "124 min" },
-      { label: "Resolution", value: "Not detected yet" },
-      { label: "File Size", value: "Not available" },
-      { label: "File Type", value: "Not available" },
+      { label: "Resolution", value: DETAIL_EMPTY_VALUE },
+      { label: "File Size", value: DETAIL_EMPTY_VALUE },
+      { label: "File Type", value: DETAIL_EMPTY_VALUE },
     ],
     notes:
       "No notes saved.",
@@ -195,11 +192,13 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedSections: [
       {
         title: "Related Performers",
-        description: "Available after relation features are added.",
+        description: "",
+        relatedPerformers: [],
       },
       {
         title: "Related Images",
-        description: "Available after relation features are added.",
+        description: "",
+        relatedCatalogRecords: [],
       },
     ],
   },
@@ -209,8 +208,8 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     subtitle: "View a local image catalog item",
     backLabel: "Back to Images",
     backTo: "/images",
-    editTo: "/images/sample-id/edit",
-    placeholderLabel: "Image Placeholder",
+    editTo: "/images",
+    placeholderLabel: "Image",
     placeholderIcon: Image,
     displayTitle: "City Light Set",
     originalTitle: "Machi no Hikari",
@@ -222,13 +221,11 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Release Date", value: "2025-01-22" },
       { label: "Publisher / Label", value: "Urban Light Studio" },
     ],
-    mediaPaths: [
-      { label: "Cover status", path: "Manual path placeholder" },
-    ],
+    mediaPaths: [{ label: "Cover status", path: "" }],
     systemInfo: [
-      { label: "Created in Sakurava", value: "Preview only" },
-      { label: "Last edited", value: "Preview only" },
-      { label: "Gallery status", value: "Set" },
+      { label: "Created in Sakurava", value: DETAIL_EMPTY_VALUE },
+      { label: "Last edited", value: DETAIL_EMPTY_VALUE },
+      { label: "Gallery status", value: DETAIL_EMPTY_VALUE },
     ],
     ratingTitle: "Rating Summary",
     rating: [
@@ -240,12 +237,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Signature", value: 5 },
     ],
     techTitle: "Tech Info",
-    techMessage: "Gallery tech info is data-dependent and not available yet.",
+    techMessage: "",
     techItems: [
       { label: "Gallery Count", value: "84 images" },
-      { label: "Resolution", value: "Not available" },
-      { label: "File Size", value: "Not available" },
-      { label: "File Type", value: "Not available" },
+      { label: "Resolution", value: DETAIL_EMPTY_VALUE },
+      { label: "File Size", value: DETAIL_EMPTY_VALUE },
+      { label: "File Type", value: DETAIL_EMPTY_VALUE },
     ],
     notes:
       "No notes saved.",
@@ -253,11 +250,13 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedSections: [
       {
         title: "Related Videos",
-        description: "Available after relation features are added.",
+        description: "",
+        relatedCatalogRecords: [],
       },
       {
         title: "Related Performers",
-        description: "Available after relation features are added.",
+        description: "",
+        relatedPerformers: [],
       },
     ],
     galleryImagePaths: [],
@@ -268,8 +267,8 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     subtitle: "View profile, catalog summary, and personal notes",
     backLabel: "Back to Performers",
     backTo: "/performers",
-    editTo: "/performers/sample-id/edit",
-    placeholderLabel: "Profile Placeholder",
+    editTo: "/performers",
+    placeholderLabel: "Profile image",
     placeholderIcon: UserRound,
     displayTitle: "Aoi Hanami",
     originalTitle: "Hanami Aoi",
@@ -285,27 +284,27 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     ],
     metadata: [
       { label: "Debut Date", value: "2015-04-01" },
-      { label: "Retired Date", value: "Not set" },
+      { label: "Retired Date", value: DETAIL_EMPTY_VALUE },
       { label: "Birth Date", value: "1999-04-12" },
       { label: "Status", value: "Active" },
     ],
-    mediaPaths: [{ label: "Profile image status", path: "Manual cover path placeholder" }],
+    mediaPaths: [{ label: "Profile image status", path: "" }],
     systemInfo: [
-      { label: "Created in Sakurava", value: "Preview only" },
-      { label: "Last edited", value: "Preview only" },
+      { label: "Created in Sakurava", value: DETAIL_EMPTY_VALUE },
+      { label: "Last edited", value: DETAIL_EMPTY_VALUE },
     ],
     personal: [
       { label: "Birth Date", value: "1999-04-12" },
-      { label: "Birthplace", value: "Not set" },
-      { label: "Nationality", value: "Not set" },
+      { label: "Birthplace", value: DETAIL_EMPTY_VALUE },
+      { label: "Nationality", value: DETAIL_EMPTY_VALUE },
       { label: "Astrological Sign", value: "Aries" },
-      { label: "Blood Type", value: "Not set" },
+      { label: "Blood Type", value: DETAIL_EMPTY_VALUE },
     ],
     physical: [
-      { label: "Height", value: "Not set" },
-      { label: "Weight", value: "Not set" },
-      { label: "Measurement", value: "Not set" },
-      { label: "Cup Size", value: "Not set" },
+      { label: "Height", value: DETAIL_EMPTY_VALUE },
+      { label: "Weight", value: DETAIL_EMPTY_VALUE },
+      { label: "Measurement", value: DETAIL_EMPTY_VALUE },
+      { label: "Cup Size", value: DETAIL_EMPTY_VALUE },
     ],
     ratingTitle: "Rating Summary",
     rating: [
@@ -317,12 +316,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Versatility", value: 3 },
     ],
     techTitle: "Profile Media",
-    techMessage: "Mini thumbnails use explicit saved local image paths.",
+    techMessage: "",
     techItems: [
-      { label: "Performer Thumbnail 1", value: "Not set" },
-      { label: "Performer Thumbnail 2", value: "Not set" },
-      { label: "Performer Thumbnail 3", value: "Not set" },
-      { label: "Performer Thumbnail 4", value: "Not set" },
+      { label: "Performer Thumbnail 1", value: DETAIL_EMPTY_VALUE },
+      { label: "Performer Thumbnail 2", value: DETAIL_EMPTY_VALUE },
+      { label: "Performer Thumbnail 3", value: DETAIL_EMPTY_VALUE },
+      { label: "Performer Thumbnail 4", value: DETAIL_EMPTY_VALUE },
     ],
     notes:
       "No notes saved.",

@@ -13,7 +13,7 @@ import type { CollectionConfig, PerformerCollectionItem } from "./collectionData
 import { collectionConfigs } from "./collectionData";
 import { deriveDebutYear } from "./catalogDerivedFields";
 import type { DetailSection, PerformerDetailConfig } from "./detailData";
-import { formatSystemTimestamp } from "./detailData";
+import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
@@ -70,35 +70,35 @@ export function buildPerformerDetailConfig(
       { label: "Pictorials", value: String(pictorialsCount) },
     ],
     metadata: [
-      { label: "Debut Date", value: performer.debutDate || "Not set" },
-      { label: "Retired Date", value: performer.retiredDate || "Not set" },
-      { label: "Birth Date", value: performer.birthDate || "Not set" },
+      { label: "Debut Date", value: detailText(performer.debutDate) },
+      { label: "Retired Date", value: detailText(performer.retiredDate) },
+      { label: "Birth Date", value: detailText(performer.birthDate) },
     ],
     mediaPaths: [{ label: "Profile image status", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
       label: `Performer Thumbnail ${index + 1}`,
-      value: thumbnailPaths[index] ? "Saved" : "Not set",
+      value: thumbnailPaths[index] ? "Saved" : DETAIL_EMPTY_VALUE,
     })),
-    techMessage: "Mini thumbnails use explicit saved local image paths.",
+    techMessage: "",
     systemInfo: [
       { label: "Created in Sakurava", value: formatSystemTimestamp(performer.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },
     ],
     personal: [
-      { label: "Birth Date", value: performer.birthDate || "Not set" },
-      { label: "Birthplace", value: performer.birthplace || "Not set" },
-      { label: "Nationality", value: performer.nationality || "Not set" },
+      { label: "Birth Date", value: detailText(performer.birthDate) },
+      { label: "Birthplace", value: detailText(performer.birthplace) },
+      { label: "Nationality", value: detailText(performer.nationality) },
       { label: "Astrological Sign", value: deriveAstrologicalSign(performer.birthDate) },
-      { label: "Blood Type", value: performer.bloodType || "Not set" },
+      { label: "Blood Type", value: detailText(performer.bloodType) },
     ],
     physical: [
       { label: "Height", value: formatUnit(performer.heightCm, "cm") },
       { label: "Weight", value: formatUnit(performer.weightKg, "kg") },
-      { label: "Measurement", value: performer.measurements || "Not set" },
-      { label: "Cup Size", value: performer.cupSize || "Not set" },
+      { label: "Measurement", value: detailText(performer.measurements) },
+      { label: "Cup Size", value: detailText(performer.cupSize) },
     ],
     rating: getRatingDimensions(performer.ratingJson, performerRatingFields),
-    notes: performer.notes || "No notes saved.",
+    notes: detailNotes(performer.notes),
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       performer.relatedVideosJson,
@@ -458,7 +458,7 @@ function formatImageCount(count: number | null) {
 }
 
 function formatUnit(value: number | null, unit: string) {
-  return value === null ? "Not set" : `${value} ${unit}`;
+  return value === null ? DETAIL_EMPTY_VALUE : `${value} ${unit}`;
 }
 
 function formatYearsActive(performer: Performer) {
@@ -466,7 +466,7 @@ function formatYearsActive(performer: Performer) {
   const retiredYear = yearFromIsoDate(performer.retiredDate);
 
   if (!debutYear && !retiredYear) {
-    return "Not set";
+    return DETAIL_EMPTY_VALUE;
   }
 
   const start = debutYear ? String(debutYear) : "Unknown";
@@ -538,14 +538,14 @@ function deriveAstrologicalSign(birthDate: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
 
   if (!match) {
-    return "Not set";
+    return DETAIL_EMPTY_VALUE;
   }
 
   const month = Number(match[2]);
   const day = Number(match[3]);
 
   if (!Number.isInteger(month) || !Number.isInteger(day)) {
-    return "Not set";
+    return DETAIL_EMPTY_VALUE;
   }
 
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
@@ -561,6 +561,14 @@ function deriveAstrologicalSign(birthDate: string) {
   if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "Aquarius";
   if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return "Pisces";
 
-  return "Not set";
+  return DETAIL_EMPTY_VALUE;
+}
+
+function detailText(value: string | null | undefined) {
+  return value?.trim() || DETAIL_EMPTY_VALUE;
+}
+
+function detailNotes(value: string | null | undefined) {
+  return value?.trim() || "No notes saved.";
 }
 
