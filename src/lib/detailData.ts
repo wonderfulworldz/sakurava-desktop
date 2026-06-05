@@ -11,6 +11,7 @@ export type RelatedPerformerDetailItem = {
   coverPath?: string;
   metadata?: string;
   rating?: number | null;
+  favorite?: boolean;
   filmographyCount?: string;
   pictorialsCount?: string;
   routeTo?: string;
@@ -26,6 +27,7 @@ export type RelatedCatalogDetailItem = {
   metadata?: string;
   releaseDate?: string;
   rating?: number | null;
+  favorite?: boolean;
   routeTo?: string;
   unresolved: boolean;
 };
@@ -249,14 +251,14 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedTitle: "Related Content",
     relatedSections: [
       {
-        title: "Related Videos",
-        description: "",
-        relatedCatalogRecords: [],
-      },
-      {
         title: "Related Performers",
         description: "",
         relatedPerformers: [],
+      },
+      {
+        title: "Related Videos",
+        description: "",
+        relatedCatalogRecords: [],
       },
     ],
     galleryImagePaths: [],
