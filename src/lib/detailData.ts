@@ -57,6 +57,7 @@ export type MediaPathItem = {
 
 type BaseDetailConfig = {
   kind: DetailKind;
+  recordId?: string;
   title: string;
   subtitle: string;
   backLabel: string;

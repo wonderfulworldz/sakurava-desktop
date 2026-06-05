@@ -59,12 +59,86 @@ type DetailPageProps = {
   deleteAction?: DetailDeleteAction;
 };
 
+type DetailFavoriteAction = {
+  errorMessage: string | null;
+  isPending: boolean;
+  onToggle: () => void;
+};
+
 function DetailPage({ config, deleteAction }: DetailPageProps) {
-  if (config.kind === "performers") {
-    return <PerformerDetailPage config={config} deleteAction={deleteAction} />;
+  const [favorite, setFavorite] = useState(config.favorite);
+  const [favoritePending, setFavoritePending] = useState(false);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFavorite(config.favorite);
+    setFavoritePending(false);
+    setFavoriteError(null);
+  }, [config.kind, config.recordId, config.favorite]);
+
+  async function handleFavoriteToggle() {
+    if (favoritePending) {
+      return;
+    }
+
+    const previousFavorite = favorite;
+    const nextFavorite = !favorite;
+    setFavorite(nextFavorite);
+    setFavoriteError(null);
+
+    if (!config.recordId || !isTauriRuntimeAvailable()) {
+      return;
+    }
+
+    setFavoritePending(true);
+
+    try {
+      const updatedRecord =
+        config.kind === "videos"
+          ? await updateVideo(config.recordId, { favorite: nextFavorite })
+          : config.kind === "images"
+            ? await updateImage(config.recordId, { favorite: nextFavorite })
+            : await updatePerformer(config.recordId, { favorite: nextFavorite });
+
+      if (!updatedRecord) {
+        setFavorite(previousFavorite);
+        setFavoriteError("Favorite update failed. The saved record was not changed.");
+        return;
+      }
+
+      setFavorite(updatedRecord.favorite);
+    } catch {
+      setFavorite(previousFavorite);
+      setFavoriteError("Favorite update failed. The saved record was not changed.");
+    } finally {
+      setFavoritePending(false);
+    }
   }
 
-  return <CatalogDetailPage config={config} deleteAction={deleteAction} />;
+  const localConfig = { ...config, favorite } as DetailConfig;
+  const favoriteAction: DetailFavoriteAction = {
+    errorMessage: favoriteError,
+    isPending: favoritePending,
+    onToggle: handleFavoriteToggle,
+  };
+
+  if (localConfig.kind === "performers") {
+    return (
+      <PerformerDetailPage
+        config={localConfig}
+        deleteAction={deleteAction}
+        favoriteAction={favoriteAction}
+      />
+    );
+  }
+
+  return (
+    <CatalogDetailPage
+      config={localConfig}
+      deleteAction={deleteAction}
+      favoriteAction={favoriteAction}
+    />
+  );
 }
 
 function DetailHeader({ config, deleteAction }: DetailPageProps) {
@@ -160,12 +234,18 @@ function DetailHeader({ config, deleteAction }: DetailPageProps) {
   );
 }
 
-function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
+function CatalogDetailPage({
+  config,
+  deleteAction,
+  favoriteAction,
+}: DetailPageProps & {
+  favoriteAction: DetailFavoriteAction;
+}) {
   const heroSection = (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
         <LargePlaceholder config={config} />
-        <CatalogIdentity config={config} />
+        <CatalogIdentity config={config} favoriteAction={favoriteAction} />
       </div>
     </section>
   );
@@ -209,7 +289,12 @@ function CatalogDetailPage({ config, deleteAction }: DetailPageProps) {
   );
 }
 
-function CatalogIdentity({ config }: DetailPageProps) {
+function CatalogIdentity({
+  config,
+  favoriteAction,
+}: DetailPageProps & {
+  favoriteAction: DetailFavoriteAction;
+}) {
   const playableMedia =
     config.kind === "videos"
       ? config.mediaPaths.find((item) => item.playable)
@@ -224,8 +309,16 @@ function CatalogIdentity({ config }: DetailPageProps) {
               <Chip label={config.code} tone="neutral" />
             )}
           </div>
-          {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
+          <MainFavoriteButton
+            favorite={config.favorite}
+            favoriteAction={favoriteAction}
+          />
         </div>
+        {favoriteAction.errorMessage && (
+          <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+            {favoriteAction.errorMessage}
+          </p>
+        )}
 
         <div className="mt-4 min-w-0">
           <h2 className="min-w-0 break-words text-3xl font-semibold tracking-normal text-slate-950 [overflow-wrap:anywhere]">
@@ -272,16 +365,21 @@ function CatalogIdentity({ config }: DetailPageProps) {
 function PerformerDetailPage({
   config,
   deleteAction,
+  favoriteAction,
 }: {
   config: PerformerDetailConfig;
   deleteAction?: DetailDeleteAction;
+  favoriteAction: DetailFavoriteAction;
 }) {
   return (
     <div className="space-y-5">
       <DetailHeader config={config} deleteAction={deleteAction} />
 
       <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
-        <PerformerProfileCard config={config} />
+        <PerformerProfileCard
+          config={config}
+          favoriteAction={favoriteAction}
+        />
 
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
@@ -301,10 +399,29 @@ function PerformerDetailPage({
   );
 }
 
-function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
+function PerformerProfileCard({
+  config,
+  favoriteAction,
+}: {
+  config: PerformerDetailConfig;
+  favoriteAction: DetailFavoriteAction;
+}) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
-      <LargePlaceholder config={config} />
+      <div className="relative">
+        <LargePlaceholder config={config} />
+        <div className="absolute right-3 top-3 z-10">
+          <MainFavoriteButton
+            favorite={config.favorite}
+            favoriteAction={favoriteAction}
+          />
+        </div>
+      </div>
+      {favoriteAction.errorMessage && (
+        <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+          {favoriteAction.errorMessage}
+        </p>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => {
@@ -336,7 +453,6 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
         aria-label="Performer hero chips"
         className="mt-4 flex flex-wrap gap-2"
       >
-        {config.favorite && <Chip label="Favorite" icon={Heart} tone="pink" />}
         {config.chips.map((chip) => (
           <Chip
             key={chip}
@@ -359,6 +475,34 @@ function PerformerProfileCard({ config }: { config: PerformerDetailConfig }) {
         </>
       )}
     </section>
+  );
+}
+
+function MainFavoriteButton({
+  favorite,
+  favoriteAction,
+}: {
+  favorite: boolean;
+  favoriteAction: DetailFavoriteAction;
+}) {
+  const label = favorite ? "Remove from Favorites" : "Add to Favorites";
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={favoriteAction.isPending}
+      onClick={favoriteAction.onToggle}
+      className={[
+        "inline-flex size-11 shrink-0 items-center justify-center rounded-lg border shadow-sm transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70",
+        favorite
+          ? "border-sakura-200 bg-sakura-500 text-white shadow-sakura-100"
+          : "border-sakura-100 bg-white text-sakura-500 hover:bg-sakura-50",
+      ].join(" ")}
+    >
+      <Heart size={20} fill={favorite ? "currentColor" : "none"} />
+    </button>
   );
 }
 

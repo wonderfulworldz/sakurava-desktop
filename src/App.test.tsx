@@ -981,7 +981,8 @@ describe("App", () => {
       expect(screen.getByText(original)).toBeInTheDocument();
       expect(screen.getAllByText(status).length).toBeGreaterThan(0);
       expect(screen.getByText(category)).toBeInTheDocument();
-      expect(screen.getAllByText("Favorite").length).toBeGreaterThan(0);
+      expect(screen.getByRole("button", { name: "Remove from Favorites" }))
+        .toBeInTheDocument();
       if (code) {
         expect(screen.getByText(code)).toBeInTheDocument();
       }
@@ -998,7 +999,6 @@ describe("App", () => {
           originalName.compareDocumentPosition(heroChips) &
             Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
-        expect(within(heroChips).getByText("Favorite")).toBeInTheDocument();
         expect(within(heroChips).getByText(status)).toBeInTheDocument();
         expect(within(heroChips).queryByText("Years Active")).not.toBeInTheDocument();
         expect(within(heroChips).queryByText(category)).not.toBeInTheDocument();
@@ -7503,6 +7503,203 @@ describe("App", () => {
     expect(screen.queryByText(/bulk/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/select/i)).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+  });
+
+  it("toggles Video detail favorite and reopens edit form with the saved value", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    let currentVideo = persistedVideo({
+      title: "Favorite Detail Video",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return currentVideo;
+      }
+      if (command === "video_update") {
+        expect(args.id).toBe("video_test_001");
+        expect(args.patch).toEqual({ favorite: false });
+        currentVideo = { ...currentVideo, favorite: false };
+        return currentVideo;
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "media_metadata_probe"
+      ) {
+        return command === "media_metadata_probe"
+          ? {
+              path: args.path,
+              status: "notSet",
+              kind: "unknown",
+              fileSizeBytes: null,
+              fileType: "",
+              durationMinutes: null,
+              width: null,
+              height: null,
+              resolution: null,
+              message: "No path set",
+            }
+          : [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Detail Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "video_update",
+        { id: "video_test_001", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit" }));
+
+    const favoriteCheckbox = await screen.findByRole("checkbox", {
+      name: "Favorite",
+    });
+    expect(favoriteCheckbox).not.toBeChecked();
+  });
+
+  it("toggles Image detail favorite and reopens edit form with the saved value", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    let currentImage = persistedImage({
+      title: "Favorite Detail Image",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return currentImage;
+      }
+      if (command === "image_update") {
+        expect(args.id).toBe("image_test_001");
+        expect(args.patch).toEqual({ favorite: false });
+        currentImage = { ...currentImage, favorite: false };
+        return currentImage;
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Detail Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "image_update",
+        { id: "image_test_001", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit" }));
+
+    const favoriteCheckbox = await screen.findByRole("checkbox", {
+      name: "Favorite",
+    });
+    expect(favoriteCheckbox).not.toBeChecked();
+  });
+
+  it("toggles Performer detail favorite and reopens edit form with the saved value", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    let currentPerformer = persistedPerformer({
+      name: "Favorite Detail Performer",
+      favorite: true,
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return currentPerformer;
+      }
+      if (command === "performer_update") {
+        expect(args.id).toBe("performer_test_001");
+        expect(args.patch).toEqual({ favorite: false });
+        currentPerformer = { ...currentPerformer, favorite: false };
+        return currentPerformer;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("Favorite Detail Performer"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "performer_update",
+        { id: "performer_test_001", patch: { favorite: false } },
+        undefined,
+      );
+    });
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit" }));
+
+    const favoriteCheckbox = await screen.findByRole("checkbox", {
+      name: "Favorite",
+    });
+    expect(favoriteCheckbox).not.toBeChecked();
+  });
+
+  it("rolls back Video detail favorite when the save fails", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Favorite Failure Video",
+          favorite: true,
+        });
+      }
+      if (command === "video_update") {
+        throw new Error("favorite update failed");
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Failure Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+
+    expect(screen.getByRole("button", { name: "Add to Favorites" }))
+      .toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Favorite update failed. The saved record was not changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove from Favorites" }))
+      .toBeInTheDocument();
   });
 
   it("loads and updates a video through Tauri commands", async () => {
