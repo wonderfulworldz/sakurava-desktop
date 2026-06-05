@@ -5784,6 +5784,94 @@ describe("App", () => {
       .not.toBeInTheDocument();
   });
 
+  it("keeps extreme detail text constrained in title, chips, and metadata rows", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const longTitle =
+      "Ultra long detail title ".repeat(12).trim();
+    const longCategory =
+      "Category With An Extremely Long UnbrokenNameThatShouldNeverStretchTheDetailHeroWidth";
+    const longPublisher =
+      "Publisher Label With An Extremely Long UnbrokenValueThatShouldWrapInsideTheMetadataRowWithoutHorizontalOverflow";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: longTitle,
+          categoriesJson: JSON.stringify([longCategory]),
+          publisherLabel: longPublisher,
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const title = await screen.findByRole("heading", { name: longTitle });
+    expect(title).toHaveClass("min-w-0", "flex-1", "line-clamp-2");
+    expect(screen.getByRole("button", { name: "Expand full title" }))
+      .toBeInTheDocument();
+
+    const categoryText = screen.getByText(longCategory);
+    expect(categoryText).toHaveClass("min-w-0", "truncate", "whitespace-nowrap");
+    expect(categoryText.parentElement).toHaveAttribute("title", longCategory);
+
+    const metadataValue = screen.getByText(longPublisher);
+    expect(metadataValue).toHaveClass("min-w-0", "break-words");
+    expect(metadataValue).toHaveClass("[overflow-wrap:anywhere]");
+    expect(metadataValue).toHaveAttribute("title", longPublisher);
+
+    const metadataRow = metadataValue.closest("div");
+    expect(metadataRow).toHaveClass("min-w-0");
+  });
+
+  it("keeps very long related LiteCard titles clamped and stats truncated", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const longRelatedTitle =
+      "Related image title ".repeat(14).trim();
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Long Related Card Video",
+          relatedImagesJson:
+            '[{"recordId":"image_long","titleSnapshot":"Snapshot Gallery"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_long",
+            title: longRelatedTitle,
+            imageCount: 123456789,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Long Related Card Video")).toBeInTheDocument();
+    const relatedSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
+    expect(relatedSection).not.toBeNull();
+    const related = within(relatedSection as HTMLElement);
+    const relatedTitle = related.getByText(longRelatedTitle);
+    expect(relatedTitle).toHaveClass("min-w-0", "line-clamp-2");
+
+    const imageCount = related.getByText("123456789");
+    expect(imageCount).toHaveClass("truncate");
+    expect(imageCount.closest(".grid")).toHaveClass("min-w-0");
+  });
+
   it("renders saved Performer mini thumbnails and opens thumbnail preview", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const record = persistedPerformer({

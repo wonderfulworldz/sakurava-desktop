@@ -330,7 +330,7 @@ function CatalogIdentity({
           title={config.displayTitle}
         />
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 flex min-w-0 flex-wrap gap-2">
           {config.chips.map((chip) => (
             <Chip
               key={chip}
@@ -350,7 +350,7 @@ function CatalogIdentity({
       {config.categories.length > 0 && (
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-semibold text-slate-800">Categories</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex min-w-0 flex-wrap gap-2">
             {config.categories.map((category) => (
               <Chip key={category} label={category} tone="pinkSoft" />
             ))}
@@ -805,12 +805,15 @@ function RowsCard({
         {items.map((item) => (
           <div
             key={item.label}
-            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 py-3 text-sm"
+            className="grid min-w-0 grid-cols-[minmax(7rem,0.85fr)_minmax(0,1.15fr)] gap-4 py-3 text-sm"
           >
-            <span className="min-w-0 font-medium text-slate-700">
+            <span className="min-w-0 truncate font-medium text-slate-700" title={item.label}>
               {item.label}
             </span>
-            <span className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]">
+            <span
+              className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]"
+              title={detailDisplayValue(item.value)}
+            >
               {detailDisplayValue(item.value)}
             </span>
           </div>
@@ -1206,10 +1209,12 @@ function spiderShapeName(dimensionCount: number) {
 
 function NotesCard({ notes }: { notes: string }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title="Notes" icon={FileImage} />
-      <div className="mt-4 rounded-lg border border-sakura-100 bg-sakura-50/30 px-4 py-3">
-        <p className="text-sm leading-6 text-slate-500">{notes}</p>
+      <div className="mt-4 min-w-0 rounded-lg border border-sakura-100 bg-sakura-50/30 px-4 py-3">
+        <p className="min-w-0 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
+          {notes}
+        </p>
       </div>
     </section>
   );
@@ -1877,8 +1882,16 @@ function RelatedCatalogTable({
   kind: "videos" | "images";
 }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+    <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+      <table className="min-w-[760px] table-fixed divide-y divide-slate-200 text-left text-sm">
+        <colgroup>
+          <col className="w-[30%]" />
+          <col className="w-[24%]" />
+          <col className="w-[14%]" />
+          <col className="w-[14%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+        </colgroup>
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
           <tr>
             <th className="px-4 py-3">Title</th>
@@ -1939,17 +1952,29 @@ function PerformerRelatedCatalogTable({
         <tbody className="divide-y divide-slate-100 bg-white">
           {items.map((item, index) => (
             <tr key={`${item.title}-${index}`}>
-              <td className="px-4 py-3 font-semibold text-slate-900">
-                {item.title}
+              <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
+                <span className="block min-w-0 truncate" title={item.title}>
+                  {item.title}
+                </span>
               </td>
-              <td className="px-4 py-3 text-slate-600">
-                {detailDisplayValue(item.publisherLabel)}
+              <td className="min-w-0 px-4 py-3 text-slate-600">
+                <span
+                  className="block min-w-0 truncate"
+                  title={detailDisplayValue(item.publisherLabel)}
+                >
+                  {detailDisplayValue(item.publisherLabel)}
+                </span>
               </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className="min-w-0 px-4 py-3 text-slate-600">
                 {releaseYearLabel(item.releaseDate)}
               </td>
-              <td className="px-4 py-3 text-slate-600">
-                {detailDisplayValue(item.metadata)}
+              <td className="min-w-0 px-4 py-3 text-slate-600">
+                <span
+                  className="block min-w-0 truncate"
+                  title={detailDisplayValue(item.metadata)}
+                >
+                  {detailDisplayValue(item.metadata)}
+                </span>
               </td>
               <td className="px-4 py-3 text-slate-600">
                 {typeof item.rating === "number" && Number.isFinite(item.rating)
@@ -2664,9 +2689,9 @@ function CardTitle({
 
 function LabelBlock({ title, labels }: { title: string; labels: string[] }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex min-w-0 flex-wrap gap-2">
         {labels.map((label) => (
           <Chip key={label} label={label} tone="pinkSoft" />
         ))}
@@ -2695,6 +2720,7 @@ function Chip({
   return (
     <span
       className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${toneClass}`}
+      title={label}
     >
       {Icon && <Icon size={14} fill="currentColor" />}
       <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
