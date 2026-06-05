@@ -296,6 +296,9 @@ pub struct ManagedCategory {
     pub parent_key: Option<String>,
     pub description: String,
     pub thumbnail_path: String,
+    pub show_in_videos: bool,
+    pub show_in_images: bool,
+    pub show_in_performers: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -308,6 +311,9 @@ pub struct ManagedCategoryInput {
     pub parent_key: Option<String>,
     pub description: Option<String>,
     pub thumbnail_path: Option<String>,
+    pub show_in_videos: Option<bool>,
+    pub show_in_images: Option<bool>,
+    pub show_in_performers: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -317,6 +323,9 @@ pub struct ManagedCategoryPatch {
     pub parent_key: Option<Option<String>>,
     pub description: Option<String>,
     pub thumbnail_path: Option<String>,
+    pub show_in_videos: Option<bool>,
+    pub show_in_images: Option<bool>,
+    pub show_in_performers: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1261,6 +1270,9 @@ fn create_managed_category(
             .take(500)
             .collect::<String>(),
         thumbnail_path: default_text(input.thumbnail_path),
+        show_in_videos: input.show_in_videos.unwrap_or(true),
+        show_in_images: input.show_in_images.unwrap_or(true),
+        show_in_performers: input.show_in_performers.unwrap_or(true),
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
@@ -1268,14 +1280,18 @@ fn create_managed_category(
     connection
         .execute(
             "INSERT INTO managedCategories (
-                key, name, parentKey, description, thumbnailPath, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                key, name, parentKey, description, thumbnailPath,
+                showInVideos, showInImages, showInPerformers, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 category.key,
                 category.name,
                 category.parent_key,
                 category.description,
                 category.thumbnail_path,
+                category.show_in_videos,
+                category.show_in_images,
+                category.show_in_performers,
                 category.created_at,
                 category.updated_at
             ],
@@ -1337,18 +1353,31 @@ fn update_managed_category(
     if let Some(thumbnail_path) = patch.thumbnail_path {
         category.thumbnail_path = thumbnail_path.trim().to_string();
     }
+    if let Some(show_in_videos) = patch.show_in_videos {
+        category.show_in_videos = show_in_videos;
+    }
+    if let Some(show_in_images) = patch.show_in_images {
+        category.show_in_images = show_in_images;
+    }
+    if let Some(show_in_performers) = patch.show_in_performers {
+        category.show_in_performers = show_in_performers;
+    }
     category.updated_at = current_timestamp();
 
     connection
         .execute(
             "UPDATE managedCategories SET
-                name = ?1, parentKey = ?2, description = ?3, thumbnailPath = ?4, updatedAt = ?5
-             WHERE key = ?6",
+                name = ?1, parentKey = ?2, description = ?3, thumbnailPath = ?4,
+                showInVideos = ?5, showInImages = ?6, showInPerformers = ?7, updatedAt = ?8
+             WHERE key = ?9",
             params![
                 category.name,
                 category.parent_key,
                 category.description,
                 category.thumbnail_path,
+                category.show_in_videos,
+                category.show_in_images,
+                category.show_in_performers,
                 category.updated_at,
                 key
             ],
@@ -2068,6 +2097,9 @@ fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Manage
         parent_key: row.get("parentKey")?,
         description: row.get("description")?,
         thumbnail_path: row.get("thumbnailPath")?,
+        show_in_videos: row.get("showInVideos")?,
+        show_in_images: row.get("showInImages")?,
+        show_in_performers: row.get("showInPerformers")?,
         created_at: row.get("createdAt")?,
         updated_at: row.get("updatedAt")?,
     })

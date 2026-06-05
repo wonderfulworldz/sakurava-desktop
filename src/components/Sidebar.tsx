@@ -8,7 +8,7 @@ import {
   UserRound,
   Video,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useLanguage } from "../lib/LanguageContext";
 import { sidebarItems } from "../lib/navigation";
 
@@ -28,7 +28,11 @@ type SidebarProps = {
 
 function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const { t } = useLanguage();
+  const location = useLocation();
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
+  const exactActivePath = sidebarItems.find(
+    (item) => item.to !== "/" && item.to === location.pathname,
+  )?.to;
 
   return (
     <aside
@@ -89,15 +93,19 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
               end={item.to === "/"}
               aria-label={collapsed ? navigationLabel : undefined}
               title={collapsed ? navigationLabel : undefined}
-              className={({ isActive }) =>
-                [
+              className={({ isActive }) => {
+                const itemIsActive = exactActivePath
+                  ? item.to === exactActivePath
+                  : isActive;
+
+                return [
                   "flex h-11 items-center rounded-lg text-sm font-medium transition",
                   collapsed ? "justify-center px-0" : "gap-3 px-3",
-                  isActive
+                  itemIsActive
                     ? "bg-sakura-100 text-sakura-600"
                     : "text-slate-600 hover:bg-white hover:text-slate-950",
-                ].join(" ")
-              }
+                ].join(" ");
+              }}
             >
               <Icon size={18} strokeWidth={2.1} />
               {!collapsed && <span>{label}</span>}

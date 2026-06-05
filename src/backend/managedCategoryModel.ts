@@ -16,6 +16,12 @@ export type ManagedCategoryUsageCounts = {
   total: number;
 };
 
+export const defaultManagedCategoryVisibility = {
+  showInVideos: true,
+  showInImages: true,
+  showInPerformers: true,
+} as const;
+
 export function normalizeManagedCategoryInput(
   input: NewManagedCategory | (ManagedCategory & NewManagedCategory),
 ): NewManagedCategory {
@@ -34,6 +40,18 @@ export function normalizeManagedCategoryInput(
       typeof input.description === "string" ? input.description.trim() : "",
     thumbnailPath:
       typeof input.thumbnailPath === "string" ? input.thumbnailPath.trim() : "",
+    showInVideos:
+      typeof input.showInVideos === "boolean"
+        ? input.showInVideos
+        : defaultManagedCategoryVisibility.showInVideos,
+    showInImages:
+      typeof input.showInImages === "boolean"
+        ? input.showInImages
+        : defaultManagedCategoryVisibility.showInImages,
+    showInPerformers:
+      typeof input.showInPerformers === "boolean"
+        ? input.showInPerformers
+        : defaultManagedCategoryVisibility.showInPerformers,
   };
 }
 
@@ -193,6 +211,9 @@ export function applyManagedCategoryPatch(
     parentKey: patch.parentKey === undefined ? current.parentKey : patch.parentKey,
     description: patch.description ?? current.description,
     thumbnailPath: patch.thumbnailPath ?? current.thumbnailPath,
+    showInVideos: patch.showInVideos ?? current.showInVideos,
+    showInImages: patch.showInImages ?? current.showInImages,
+    showInPerformers: patch.showInPerformers ?? current.showInPerformers,
   };
 }
 

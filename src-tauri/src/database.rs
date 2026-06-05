@@ -108,6 +108,9 @@ CREATE TABLE IF NOT EXISTS managedCategories (
   parentKey TEXT,
   description TEXT NOT NULL DEFAULT '',
   thumbnailPath TEXT NOT NULL DEFAULT '',
+  showInVideos INTEGER NOT NULL DEFAULT 1 CHECK (showInVideos IN (0, 1)),
+  showInImages INTEGER NOT NULL DEFAULT 1 CHECK (showInImages IN (0, 1)),
+  showInPerformers INTEGER NOT NULL DEFAULT 1 CHECK (showInPerformers IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(name COLLATE NOCASE),
@@ -215,6 +218,9 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_text_column(connection, "performers", "cupSize", "")?;
     ensure_text_json_column(connection, "performers", "relatedVideosJson", "[]")?;
     ensure_text_json_column(connection, "performers", "relatedImagesJson", "[]")?;
+    ensure_boolean_column(connection, "managedCategories", "showInVideos", true)?;
+    ensure_boolean_column(connection, "managedCategories", "showInImages", true)?;
+    ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
 
     Ok(())
 }
@@ -242,6 +248,22 @@ fn ensure_integer_column(
     if !table_has_column(connection, table_name, column_name)? {
         connection.execute_batch(&format!(
             "ALTER TABLE {table_name} ADD COLUMN {column_name} INTEGER"
+        ))?;
+    }
+
+    Ok(())
+}
+
+fn ensure_boolean_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+    default_value: bool,
+) -> rusqlite::Result<()> {
+    if !table_has_column(connection, table_name, column_name)? {
+        let default_integer = if default_value { 1 } else { 0 };
+        connection.execute_batch(&format!(
+            "ALTER TABLE {table_name} ADD COLUMN {column_name} INTEGER NOT NULL DEFAULT {default_integer} CHECK ({column_name} IN (0, 1))"
         ))?;
     }
 
@@ -635,6 +657,15 @@ mod tests {
                   createdAt TEXT NOT NULL,
                   updatedAt TEXT NOT NULL
                 );
+                CREATE TABLE managedCategories (
+                  key TEXT PRIMARY KEY NOT NULL,
+                  name TEXT NOT NULL,
+                  parentKey TEXT,
+                  description TEXT NOT NULL DEFAULT '',
+                  thumbnailPath TEXT NOT NULL DEFAULT '',
+                  createdAt TEXT NOT NULL,
+                  updatedAt TEXT NOT NULL
+                );
                 "#,
             )
             .expect("legacy tables");
@@ -687,6 +718,21 @@ mod tests {
             &connection,
             "performers",
             "relatedImagesJson"
+        ));
+        assert!(table_has_column(
+            &connection,
+            "managedCategories",
+            "showInVideos"
+        ));
+        assert!(table_has_column(
+            &connection,
+            "managedCategories",
+            "showInImages"
+        ));
+        assert!(table_has_column(
+            &connection,
+            "managedCategories",
+            "showInPerformers"
         ));
     }
 

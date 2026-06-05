@@ -120,7 +120,7 @@ describe("App", () => {
     ["/videos/sample-id", "Sakurava - Videos"],
     ["/images", "Sakurava - Images"],
     ["/performers", "Sakurava - Performers"],
-    ["/categories", "Sakurava - Categories"],
+    ["/categories", "Sakurava - Category Management"],
     ["/settings", "Sakurava - Settings"],
     ["/settings/category-management", "Sakurava - Category Management"],
   ])("sets page title for %s", async (path, expectedTitle) => {
@@ -147,7 +147,7 @@ describe("App", () => {
     ["/performers/new", "Add Performer"],
     ["/performers/sample-id", "Performer Detail"],
     ["/performers/sample-id/edit", "Edit Performer"],
-    ["/categories", "Categories"],
+    ["/categories", "Category Management"],
     ["/settings", "Settings"],
   ])("renders %s", (path, heading) => {
     window.history.pushState({}, "", path);
@@ -157,48 +157,23 @@ describe("App", () => {
     expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
   });
 
-  it("renders Categories as a browse-only page in browser preview", () => {
+  it("opens Category Management from the /categories compatibility route", () => {
     window.history.pushState({}, "", "/categories");
     setManagedCategories(["Unused Local"]);
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Categories" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Category Management" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search categories...")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Name A-Z")).toBeInTheDocument();
     expect(screen.queryByText("Catalog Browse")).not.toBeInTheDocument();
     expect(screen.queryByText("catalog browse")).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
-    expect(screen.getByText("Total Category")).toBeInTheDocument();
-    expect(screen.getByText("Videos Category")).toBeInTheDocument();
-    expect(screen.getByText("Images Category")).toBeInTheDocument();
-    expect(screen.getByText("Performers Category")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Manage Category" }),
-    ).toHaveAttribute("href", "/settings/category-management");
-    expect(
-      screen.queryByRole("link", { name: "Open Category Management" }),
-    ).not.toBeInTheDocument();
-
-    const categoryCard = screen.getByRole("article", {
-      name: "Category Unused Local",
-    });
-    expect(within(categoryCard).getByText("Unused Managed")).toBeInTheDocument();
-    expect(within(categoryCard).getByText("No description yet.")).toBeInTheDocument();
-    expect(within(categoryCard).queryByText(/^Open\b/)).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", { name: /add category/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /rename/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /delete/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
-  it("loads Categories usage from record categories without management actions", async () => {
+  it("loads Category Management usage from the /categories compatibility route", async () => {
     window.history.pushState({}, "", "/categories");
     setManagedCategories(["Drama", "Unused Local"]);
     const invoke = vi.fn(async (command: string) => {
@@ -236,21 +211,25 @@ describe("App", () => {
 
     render(<App />);
 
-    const dramaCard = await screen.findByRole("article", {
-      name: "Category Drama",
-    });
-    expect(within(dramaCard).getByText("Managed")).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Edit Drama" });
+    fireEvent.click(screen.getByRole("button", { name: "Card view" }));
+    const dramaCard = screen.getByRole("article", { name: "Category Drama" });
+    expect(within(dramaCard).queryByText("Managed")).not.toBeInTheDocument();
     expect(within(dramaCard).getAllByText("3").length).toBeGreaterThan(0);
     expect(within(dramaCard).getByText("No description yet.")).toBeInTheDocument();
-    expect(within(dramaCard).queryByText(/^Open\b/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Open Videos")).not.toBeInTheDocument();
-    expect(screen.queryByText("Open Images")).not.toBeInTheDocument();
-    expect(screen.queryByText("Open Performers")).not.toBeInTheDocument();
+    expect(within(dramaCard).getByLabelText("Videos 1")).toHaveAttribute(
+      "href",
+      "/videos?category=Drama",
+    );
+    expect(within(dramaCard).getByLabelText("Images 1")).toHaveAttribute(
+      "href",
+      "/images?category=Drama",
+    );
+    expect(within(dramaCard).getByLabelText("Performers 1")).toHaveAttribute(
+      "href",
+      "/performers?category=Drama",
+    );
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
-    expect(screen.getByText("Total Category")).toBeInTheDocument();
-    expect(screen.getByText("Videos Category")).toBeInTheDocument();
-    expect(screen.getByText("Images Category")).toBeInTheDocument();
-    expect(screen.getByText("Performers Category")).toBeInTheDocument();
 
     expect(
       screen.queryByRole("article", {
@@ -261,9 +240,10 @@ describe("App", () => {
     const unusedCard = screen.getByRole("article", {
       name: "Category Unused Local",
     });
-    expect(within(unusedCard).getByText("Unused Managed")).toBeInTheDocument();
+    expect(within(unusedCard).queryByText("Unused Managed"))
+      .not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Categories search"), {
+    fireEvent.change(screen.getByLabelText("Search categories"), {
       target: { value: "classic" },
     });
     expect(screen.queryByRole("article", { name: "Category Classic" }))
@@ -272,19 +252,21 @@ describe("App", () => {
       .not.toBeInTheDocument();
 
     const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
-    expect(commands).toEqual([
-      "video_list",
-      "image_list",
-      "performer_list",
-      "managed_category_list",
-    ]);
+    expect(commands).toEqual(
+      expect.arrayContaining([
+        "video_list",
+        "image_list",
+        "performer_list",
+        "managed_category_list",
+      ]),
+    );
     expect(commands).not.toContain("video_update");
     expect(commands).not.toContain("image_update");
     expect(commands).not.toContain("performer_update");
     expect(commands).not.toContain("managed_category_update");
   });
 
-  it("filters and paginates Categories collection cards by usage type", async () => {
+  it("filters and paginates Category Management cards by usage type", async () => {
     window.history.pushState({}, "", "/categories");
     const managedCategories = [
       managedCategoryFixture({
@@ -351,51 +333,66 @@ describe("App", () => {
 
     render(<App />);
 
-    const parentCategoryCard = await screen.findByRole("article", {
+    await screen.findByRole("button", { name: "Edit Parent Category" });
+    fireEvent.click(screen.getByRole("button", { name: "Card view" }));
+    const parentCategoryCard = screen.getByRole("article", {
       name: "Category Parent Category",
     });
     expect(parentCategoryCard).toBeInTheDocument();
-    expect(
-      within(parentCategoryCard).queryByRole("link", {
-        name: "Open Videos filtered by category Parent Category",
-      }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(parentCategoryCard).queryByRole("link", {
-        name: "Open Images filtered by category Parent Category",
-      }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(parentCategoryCard).queryByRole("link", {
-        name: "Open Performers filtered by category Parent Category",
-      }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1-24 of 26 categories")).toBeInTheDocument();
-    expect(screen.getByLabelText("Categories per page")).toHaveDisplayValue("24");
+    expect(parentCategoryCard).toHaveAttribute("data-category-card-kind", "parent");
+    expect(parentCategoryCard).toHaveClass("bg-sakura-50");
+    expect(within(parentCategoryCard).getByText("1 child category"))
+      .toBeInTheDocument();
+    expect(within(parentCategoryCard).getByTitle("Videos")).toHaveClass("bg-white");
+    expect(within(parentCategoryCard).getByLabelText("Videos 1"))
+      .toHaveClass("text-sakura-600");
+    expect(within(parentCategoryCard).getByLabelText("Videos 1")).toHaveAttribute(
+      "href",
+      "/videos?category=Parent%20Category",
+    );
+    expect(screen.getByText("Showing 1-25 of 26 categories")).toBeInTheDocument();
+    expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("25");
     expect(screen.getByAltText("Parent Category thumbnail")).toHaveAttribute(
       "src",
       "asset://D:/Sakurava/thumbs/parent.jpg",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Showing 25-26 of 26 categories")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByText("Showing 26-26 of 26 categories")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Categories per page"), {
-      target: { value: "12" },
+    fireEvent.change(screen.getByLabelText("Rows per page"), {
+      target: { value: "50" },
     });
-    expect(screen.getByText("Showing 1-12 of 26 categories")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1-26 of 26 categories")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter"), {
+    fireEvent.change(screen.getByLabelText("Filter categories"), {
       target: { value: "videos" },
     });
-    expect(screen.getByRole("article", { name: "Category Video Category" }))
-      .toBeInTheDocument();
+    const videoCategoryCardWithParent = screen.getByRole("article", {
+      name: "Category Video Category",
+    });
+    expect(videoCategoryCardWithParent).toBeInTheDocument();
+    expect(videoCategoryCardWithParent).toHaveAttribute(
+      "data-category-card-kind",
+      "child",
+    );
+    expect(
+      within(videoCategoryCardWithParent).getByText("Child of Parent Category"),
+    ).toBeInTheDocument();
+    expect(within(videoCategoryCardWithParent).getByTitle("Videos"))
+      .toHaveClass("bg-sakura-50");
+    expect(within(videoCategoryCardWithParent).getByLabelText("Videos 1"))
+      .toHaveClass("text-sakura-600");
+    expect(within(videoCategoryCardWithParent).getByLabelText("Images 0"))
+      .toHaveClass("text-slate-500");
+    expect(within(videoCategoryCardWithParent).getByLabelText("Videos 1"))
+      .toHaveAttribute("href", "/videos?category=Video%20Category");
     expect(screen.queryByRole("article", { name: "Category Image Category" }))
       .not.toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Category Performer Category" }))
       .not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter"), {
+    fireEvent.change(screen.getByLabelText("Filter categories"), {
       target: { value: "images" },
     });
     expect(screen.getByRole("article", { name: "Category Image Category" }))
@@ -403,7 +400,7 @@ describe("App", () => {
     expect(screen.queryByRole("article", { name: "Category Video Category" }))
       .not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter"), {
+    fireEvent.change(screen.getByLabelText("Filter categories"), {
       target: { value: "performers" },
     });
     expect(screen.getByRole("article", { name: "Category Performer Category" }))
@@ -413,39 +410,16 @@ describe("App", () => {
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
     expect(screen.queryByText("cat_performer")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter"), {
+    fireEvent.change(screen.getByLabelText("Filter categories"), {
       target: { value: "videos" },
     });
     const videoCategoryCard = screen.getByRole("article", {
       name: "Category Video Category",
     });
-    expect(
-      within(videoCategoryCard).getByRole("link", {
-        name: "Open Videos filtered by category Video Category",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(videoCategoryCard).queryByRole("link", {
-        name: "Open Images filtered by category Video Category",
-      }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(videoCategoryCard).queryByRole("link", {
-        name: "Open Performers filtered by category Video Category",
-      }),
-    ).not.toBeInTheDocument();
-    fireEvent.click(
-      within(videoCategoryCard).getByRole("link", {
-        name: "Open Videos filtered by category Video Category",
-      }),
-    );
-
-    expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
-    expect(screen.getByText("Video Usage")).toBeInTheDocument();
-    expect(
-      await screen.findByRole("button", { name: "Remove Video Category" }),
-    ).toBeInTheDocument();
-    window.history.pushState({}, "", "/");
+    expect(within(videoCategoryCard).getByLabelText("Videos 1"))
+      .toHaveClass("text-sakura-600");
+    expect(within(videoCategoryCard).getByLabelText("Videos 1"))
+      .toHaveAttribute("href", "/videos?category=Video%20Category");
   });
 
   it.each([
@@ -1562,22 +1536,16 @@ describe("App", () => {
       .toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
-    expect(await screen.findByRole("article", { name: "Category New Category" }))
-      .toBeInTheDocument();
-    expect(screen.queryByRole("article", { name: "Category Old Category" }))
-      .not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("link", { name: "Manage Category" }));
     expect(await screen.findByRole("heading", { name: "Category Management" }))
       .toBeInTheDocument();
     expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
     expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
-    expect(await screen.findByRole("article", { name: "Category New Category" }))
+    expect(await screen.findByRole("heading", { name: "Category Management" }))
       .toBeInTheDocument();
-    expect(screen.queryByRole("article", { name: "Category Old Category" }))
-      .not.toBeInTheDocument();
+    expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
   });
 
   it("exports Videos CSV as a read-only data operation", async () => {
@@ -1702,7 +1670,7 @@ describe("App", () => {
       if (command === "export_csv_write") {
         expect(args.destinationPath).toBe(destinationPath);
         expect(args.csvContent).toContain(
-          "Action,Sakurava Ref,Parent Category,Category Name,Description,Thumbnail Path,Visibility,Notes",
+          "Action,Sakurava Ref,Parent Category,Category Name,Description,Thumbnail Path,Show in Videos,Show in Images,Show in Performers,Visibility,Notes",
         );
         expect(args.csvContent).toContain("Auto,CAT-");
         expect(args.csvContent).toContain(",Genre,Drama,");
@@ -1749,22 +1717,31 @@ describe("App", () => {
 
     render(<App />);
 
+    const toolbar = screen.getByLabelText("Category Management toolbar");
+    const pagination = screen.getByLabelText("Category Management pagination");
     const table = screen.getByRole("table");
+    expect(
+      toolbar.compareDocumentPosition(pagination)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      pagination.compareDocumentPosition(table)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     for (const column of [
+      "Thumbnail",
       "Name",
-      "Parent",
       "Description",
-      "Videos",
-      "Images",
-      "Performers",
       "Usage",
-      "Edit",
+      "Total Usage",
+      "Action",
     ]) {
       expect(within(table).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
 
     expect(screen.getByText("Showing 1-25 of 30 categories")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Rows per page")).toHaveLength(1);
     expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("25");
     for (const option of ["25", "50", "100"]) {
       expect(screen.getByRole("option", { name: option })).toBeInTheDocument();
@@ -1781,6 +1758,467 @@ describe("App", () => {
     });
 
     expect(screen.getByText("Showing 1-30 of 30 categories")).toBeInTheDocument();
+  });
+
+  it("toggles Category Management entry form and card/table views", () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    setManagedCategories(["Category A", "Category B"]);
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add Category" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+
+    expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Category Management" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Parent Category")).toBeInTheDocument();
+    expect(screen.getByText("Used In")).toBeInTheDocument();
+    const usedInControls = screen.getByLabelText("Used In controls");
+    expect(usedInControls).toHaveClass("grid", "w-full", "grid-cols-3");
+    for (const label of ["Videos", "Images", "Performers"]) {
+      const toggle = within(usedInControls).getByRole("button", {
+        name: `Show in ${label}`,
+      });
+      expect(toggle).toHaveAttribute("aria-pressed", "true");
+      expect(toggle).toHaveClass("bg-sakura-50", "text-sakura-700");
+    }
+    fireEvent.click(
+      within(usedInControls).getByRole("button", { name: "Show in Images" }),
+    );
+    expect(
+      within(usedInControls).getByRole("button", { name: "Show in Images" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByText("Thumbnail").length).toBeGreaterThan(0);
+    expect(screen.getByText("Definition")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Entry" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("heading", { name: "Add Category" }))
+      .not.toBeInTheDocument();
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Card view" }));
+    const categoryCard = screen.getByRole("article", { name: "Category Category A" });
+    expect(categoryCard).toBeInTheDocument();
+    const cardPlaceholder = within(categoryCard).getByLabelText(
+      "Category thumbnail placeholder",
+    );
+    expect(cardPlaceholder).toBeInTheDocument();
+    expect(categoryCard).toHaveAttribute("data-category-card-kind", "root");
+    expect(categoryCard).toHaveClass("bg-slate-50");
+    expect(cardPlaceholder.parentElement?.className).toContain("bg-[radial-gradient");
+    expect(cardPlaceholder.parentElement?.className).not.toContain("ring-");
+    expect(cardPlaceholder.parentElement?.className).not.toContain("border");
+    expect(within(categoryCard).getByText("No Parent")).toBeInTheDocument();
+    expect(within(categoryCard).getByTitle("Videos")).toHaveClass("bg-white");
+    expect(within(categoryCard).getByLabelText("Videos 0")).toBeInTheDocument();
+    expect(within(categoryCard).getByLabelText("Images 0")).toBeInTheDocument();
+    expect(within(categoryCard).getByLabelText("Performers 0")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Table view" }));
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("creates, edits, cancels, and validates Category Management form safely", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    let categories = [
+      managedCategoryFixture({
+        key: "cat_parent",
+        name: "Parent Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_child",
+        name: "Child Category",
+        parentKey: "cat_parent",
+        description: "Child definition",
+        thumbnailPath: "D:/Thumbs/child.jpg",
+        showInImages: false,
+      }),
+    ];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return categories;
+      }
+      if (command === "managed_category_create") {
+        const created = managedCategoryFixture({
+          key: "cat_new",
+          name: args.input.name,
+          parentKey: args.input.parentKey ?? null,
+          description: args.input.description ?? "",
+          thumbnailPath: args.input.thumbnailPath ?? "",
+        });
+        categories = [...categories, created];
+        return created;
+      }
+      if (command === "managed_category_update") {
+        categories = categories.map((category) =>
+          category.key === args.key
+            ? {
+                ...category,
+                ...args.patch,
+                parentKey:
+                  args.patch.parentKey === undefined
+                    ? category.parentKey
+                    : args.patch.parentKey,
+              }
+            : category,
+        );
+        return categories.find((category) => category.key === args.key);
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findAllByText("Parent Category")).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Search parent categories")).toHaveDisplayValue(
+      "No Parent",
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  parent category  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(await screen.findByText("A category with this name already exists."))
+      .toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "managed_category_create",
+      expect.anything(),
+      undefined,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  New Category  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Show in Images" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(await screen.findByText('Added category "New Category".'))
+      .toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Edit Category" }))
+      .toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name"))
+      .toHaveDisplayValue("New Category");
+    expect(invoke).toHaveBeenCalledWith(
+      "managed_category_create",
+      {
+        input: expect.objectContaining({
+          name: "New Category",
+          parentKey: null,
+          description: "",
+          thumbnailPath: "",
+          showInVideos: true,
+          showInImages: false,
+          showInPerformers: true,
+        }),
+      },
+      undefined,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Child Category" }),
+    );
+    expect(screen.getByRole("heading", { name: "Edit Category" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue(
+      "Child Category",
+    );
+    expect(screen.getByLabelText("Search parent categories")).toHaveDisplayValue(
+      "Parent Category",
+    );
+    expect(screen.getByPlaceholderText("Local path or reference"))
+      .toHaveDisplayValue("D:/Thumbs/child.jpg");
+    expect(screen.getByPlaceholderText("Plain text definition"))
+      .toHaveDisplayValue("Child definition");
+    expect(screen.getByRole("button", { name: "Show in Videos" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Show in Images" }))
+      .toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Show in Performers" }))
+      .toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "Unsaved Child" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Child Category" }),
+    );
+    expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue(
+      "Child Category",
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Category name"), {
+      target: { value: "  Updated Child  " },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Plain text definition"), {
+      target: { value: "  Updated definition  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Show in Performers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    expect(await screen.findByText('Saved category "Updated Child".'))
+      .toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Edit Category" }))
+      .toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Category name"))
+      .toHaveDisplayValue("Updated Child");
+    expect(invoke).toHaveBeenCalledWith(
+      "managed_category_update",
+      {
+        key: "cat_child",
+        patch: expect.objectContaining({
+          name: "Updated Child",
+          parentKey: "cat_parent",
+          description: "Updated definition",
+          thumbnailPath: "D:/Thumbs/child.jpg",
+          showInVideos: true,
+          showInImages: false,
+          showInPerformers: false,
+        }),
+      },
+      undefined,
+    );
+  });
+
+  it("blocks unsafe Category Management delete and confirms unused leaf deletion", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    let categories = [
+      managedCategoryFixture({
+        key: "cat_parent",
+        name: "Parent Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_used",
+        name: "Used Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_unused",
+        name: "Unused Category",
+      }),
+      managedCategoryFixture({
+        key: "cat_child",
+        name: "Child Category",
+        parentKey: "cat_parent",
+      }),
+    ];
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Used Video",
+            categoriesJson: '["Used Category"]',
+          }),
+        ];
+      }
+      if (command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return categories;
+      }
+      if (command === "managed_category_delete") {
+        categories = categories.filter((category) => category.key !== args.key);
+        return { key: args.key, deleted: true };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    try {
+      render(<App />);
+
+      await screen.findByRole("button", { name: "Collapse Parent Category" });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit Parent Category" }),
+      );
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+      expect(
+        screen.getByText("Delete is blocked while this category has child categories."),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit Used Category" }),
+      );
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+      expect(
+        screen.getByText("Delete is blocked while records use this category."),
+      ).toBeInTheDocument();
+      expect(invoke).not.toHaveBeenCalledWith(
+        "managed_category_delete",
+        expect.anything(),
+        undefined,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit Unused Category" }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+      expect(confirmSpy).toHaveBeenCalledWith(
+        'Delete "Unused Category"? This only deletes unused managed category metadata.',
+      );
+      expect(await screen.findByText('Deleted category "Unused Category".'))
+        .toBeInTheDocument();
+      expect(invoke).toHaveBeenCalledWith(
+        "managed_category_delete",
+        { key: "cat_unused" },
+        undefined,
+      );
+      expect(screen.queryByRole("button", { name: "Edit Unused Category" }))
+        .not.toBeInTheDocument();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("renders Category Management table hierarchy and prevents self-parent selection", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    const managedCategories = [
+      managedCategoryFixture({
+        key: "cat_parent",
+        name: "Parent Category",
+        description: "Parent definition",
+      }),
+      managedCategoryFixture({
+        key: "cat_child",
+        name: "Child Category",
+        parentKey: "cat_parent",
+        description: "Child definition",
+      }),
+      managedCategoryFixture({
+        key: "cat_solo",
+        name: "Solo Category",
+      }),
+    ];
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            title: "Parent Video",
+            categoriesJson: '["Parent Category"]',
+          }),
+          persistedVideo({
+            title: "Child Video",
+            categoriesJson: '["Child Category"]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            title: "Child Image",
+            categoriesJson: '["Child Category"]',
+          }),
+        ];
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            name: "Child Performer",
+            categoriesJson: '["Child Category"]',
+          }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return managedCategories;
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: "Collapse Parent Category" });
+    const table = screen.getByRole("table");
+    let bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(3);
+    expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("1 child")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("Category thumbnail placeholder"))
+      .toHaveClass("size-10", "rounded-lg");
+    expect(within(bodyRows[1]).getByText("Child Category")).toBeInTheDocument();
+    expect(within(bodyRows[1]).queryByText("Parent Category > Child Category"))
+      .not.toBeInTheDocument();
+    expect(within(bodyRows[1]).getByLabelText("Category thumbnail placeholder"))
+      .toHaveClass("size-10", "rounded-lg");
+    expect(within(bodyRows[0]).getByLabelText("Videos 2")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("Images 1")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("Performers 1")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByText("4")).toBeInTheDocument();
+    expect(within(bodyRows[1]).getByLabelText("Videos 1")).toBeInTheDocument();
+    expect(within(bodyRows[1]).getByLabelText("Images 1")).toBeInTheDocument();
+    expect(within(bodyRows[1]).getByLabelText("Performers 1")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(bodyRows[1]).getByRole("button", {
+        name: "Edit Child Category",
+      }),
+    );
+    const parentPicker = screen.getByTestId("parent-category-picker-field");
+    const parentSearch = within(parentPicker).getByLabelText(
+      "Search parent categories",
+    );
+    expect(parentSearch).toHaveDisplayValue("Parent Category");
+    fireEvent.focus(parentSearch);
+    expect(
+      screen.getByRole("button", { name: "Select No Parent" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Select parent category Parent Category",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select parent category Solo Category" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Select parent category Child Category",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("cat_parent")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(
+      within(bodyRows[0]).getByRole("button", {
+        name: "Collapse Parent Category",
+      }),
+    );
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(2);
+    expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("1 child")).toBeInTheDocument();
+    expect(screen.queryByText("Parent Category > Child Category"))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(bodyRows[0]).getByRole("button", {
+        name: "Edit Parent Category",
+      }),
+    );
+    expect(screen.getByLabelText("Search parent categories")).toBeDisabled();
   });
 
   it("keeps Category Management filters and table status text scoped", async () => {
@@ -1846,8 +2284,10 @@ describe("App", () => {
     let bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(1);
     expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
-    expect(within(bodyRows[0]).queryByText("Child Category"))
-      .not.toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("1 child")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("Videos 1")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByLabelText("Images 1")).toBeInTheDocument();
+    expect(within(bodyRows[0]).getByText("2")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Filter categories"), {
       target: { value: "child-only" },
@@ -1856,7 +2296,8 @@ describe("App", () => {
     bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(1);
     expect(within(bodyRows[0]).getByText("Child Category")).toBeInTheDocument();
-    expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
+    expect(within(bodyRows[0]).queryByText("Parent Category > Child Category"))
+      .not.toBeInTheDocument();
     expect(within(bodyRows[0]).queryByText("Solo Category"))
       .not.toBeInTheDocument();
   });
@@ -6331,6 +6772,121 @@ describe("App", () => {
     expect(search).toHaveValue("");
   });
 
+  it.each([
+    {
+      path: "/videos/new",
+      visible: "Video Only",
+      hidden: "Image Only",
+      showInVideos: true,
+      showInImages: false,
+      showInPerformers: false,
+    },
+    {
+      path: "/images/new",
+      visible: "Image Only",
+      hidden: "Performer Only",
+      showInVideos: false,
+      showInImages: true,
+      showInPerformers: false,
+    },
+    {
+      path: "/performers/new",
+      visible: "Performer Only",
+      hidden: "Video Only",
+      showInVideos: false,
+      showInImages: false,
+      showInPerformers: true,
+    },
+  ])(
+    "filters form category picker options by Used In on $path",
+    async ({ path, visible, hidden, showInVideos, showInImages, showInPerformers }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({
+              key: `cat_${visible.toLowerCase().replace(/\s+/g, "_")}`,
+              name: visible,
+              showInVideos,
+              showInImages,
+              showInPerformers,
+            }),
+            managedCategoryFixture({
+              key: `cat_${hidden.toLowerCase().replace(/\s+/g, "_")}`,
+              name: hidden,
+              showInVideos: !showInVideos,
+              showInImages: !showInImages,
+              showInPerformers: !showInPerformers,
+            }),
+          ];
+        }
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list"
+        ) {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      const search = screen.getByRole("textbox", { name: "Search categories" });
+      fireEvent.change(search, { target: { value: "Only" } });
+
+      expect(await screen.findByRole("button", { name: `Add ${visible}` }))
+        .toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: `Add ${hidden}` }))
+        .not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps already selected categories visible when they are disabled for the current form", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const existing = persistedVideo({
+      title: "Disabled Category Video",
+      categoriesJson: '["Image Only"]',
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return existing;
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_image_only",
+            name: "Image Only",
+            showInVideos: false,
+            showInImages: true,
+            showInPerformers: false,
+          }),
+        ];
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Disabled Category Video"))
+      .toBeInTheDocument();
+    expect(screen.getByText("Image Only")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "Image" },
+    });
+
+    expect(screen.queryByRole("button", { name: "Add Image Only" }))
+      .not.toBeInTheDocument();
+  });
+
   it("constrains very long category chip text without blocking input selection", async () => {
     window.history.pushState({}, "", "/videos/new");
     const longCategory = "a".repeat(96);
@@ -8820,6 +9376,9 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     parentKey: null,
     description: "",
     thumbnailPath: "",
+    showInVideos: true,
+    showInImages: true,
+    showInPerformers: true,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,

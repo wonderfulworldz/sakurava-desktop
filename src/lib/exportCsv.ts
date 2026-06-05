@@ -184,6 +184,9 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
   textColumn("Category Name", "name"),
   textColumn("Description", "description"),
   textColumn("Thumbnail Path", "thumbnailPath"),
+  textColumn("Show in Videos", "showInVideos"),
+  textColumn("Show in Images", "showInImages"),
+  textColumn("Show in Performers", "showInPerformers"),
   {
     header: "Visibility",
     internalField: "visibility",

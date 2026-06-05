@@ -26,7 +26,7 @@ export const sidebarItems = [
   {
     label: "Categories",
     labelKey: "nav.categories",
-    to: "/categories",
+    to: "/settings/category-management",
     icon: "categories",
   },
   {

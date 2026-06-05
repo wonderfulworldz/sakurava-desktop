@@ -83,6 +83,9 @@ export interface ManagedCategory {
   parentKey: EntityId | null;
   description: string;
   thumbnailPath: string;
+  showInVideos: boolean;
+  showInImages: boolean;
+  showInPerformers: boolean;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 }
