@@ -47,6 +47,7 @@ export function buildImageDetailConfig(
   const galleryImagePaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
   return {
     ...baseConfig,
+    recordId: image.id,
     editTo: `/images/${image.id}/edit`,
     coverPath: image.coverPath,
     displayTitle: image.title,

@@ -44,6 +44,7 @@ export function buildVideoDetailConfig(
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   return {
     ...baseConfig,
+    recordId: video.id,
     editTo: `/videos/${video.id}/edit`,
     coverPath: video.coverPath,
     displayTitle: video.title,

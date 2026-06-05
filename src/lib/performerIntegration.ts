@@ -50,6 +50,7 @@ export function buildPerformerDetailConfig(
   const pictorialsCount = derivedRelatedCount(performer.relatedImagesJson);
   return {
     ...baseConfig,
+    recordId: performer.id,
     editTo: `/performers/${performer.id}/edit`,
     coverPath: performer.coverPath,
     displayTitle: performer.name,
