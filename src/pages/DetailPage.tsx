@@ -2,6 +2,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Clapperboard,
   Clock,
   Edit3,
@@ -30,6 +32,7 @@ import type {
   DetailSection,
   MediaPathItem,
   PerformerDetailConfig,
+  SourceLinkItem,
 } from "../lib/detailData";
 import type { HomeRecentItem } from "../lib/homeData";
 import { calculateAverageRating } from "../lib/ratingSummary";
@@ -243,7 +246,7 @@ function CatalogDetailPage({
 }) {
   const heroSection = (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
         <LargePlaceholder config={config} />
         <CatalogIdentity config={config} favoriteAction={favoriteAction} />
       </div>
@@ -270,6 +273,7 @@ function CatalogDetailPage({
         <GalleryGrid paths={config.galleryImagePaths} />
         {detailSummarySection}
         <NotesCard notes={config.notes} />
+        <SourceLinksCard links={config.sourceLinks} />
         <RelatedRows sections={config.relatedSections} />
         <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
       </div>
@@ -282,6 +286,7 @@ function CatalogDetailPage({
       {heroSection}
       {detailSummarySection}
       <NotesCard notes={config.notes} />
+      <SourceLinksCard links={config.sourceLinks} />
       <RelatedRows sections={config.relatedSections} />
       <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
@@ -300,7 +305,7 @@ function CatalogIdentity({
       : undefined;
 
   return (
-    <div className="flex min-h-full flex-col justify-between gap-6 py-1">
+    <div className="flex min-h-full flex-col gap-6 py-1">
       <div>
         <div className="flex min-h-7 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -319,16 +324,11 @@ function CatalogIdentity({
           </p>
         )}
 
-        <div className="mt-4 min-w-0">
-          <h2 className="min-w-0 break-words text-3xl font-semibold tracking-normal text-slate-950 [overflow-wrap:anywhere]">
-            {config.displayTitle}
-          </h2>
-          {config.originalTitle && (
-            <p className="mt-2 min-w-0 break-words text-base text-slate-500 [overflow-wrap:anywhere]">
-              {config.originalTitle}
-            </p>
-          )}
-        </div>
+        <ExpandableTitle
+          className="mt-4"
+          originalTitle={config.originalTitle}
+          title={config.displayTitle}
+        />
 
         <div className="mt-5 flex flex-wrap gap-2">
           {config.chips.map((chip) => (
@@ -370,6 +370,10 @@ function PerformerDetailPage({
   deleteAction?: DetailDeleteAction;
   favoriteAction: DetailFavoriteAction;
 }) {
+  const profileMetadataItems = config.gender
+    ? [config.gender, ...config.metadata]
+    : config.metadata;
+
   return (
     <div className="space-y-5">
       <DetailHeader config={config} deleteAction={deleteAction} />
@@ -382,7 +386,7 @@ function PerformerDetailPage({
 
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
-          <RowsCard title="Profile Metadata" icon={Calendar} items={config.metadata} />
+          <RowsCard title="Profile Metadata" icon={Calendar} items={profileMetadataItems} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
@@ -393,6 +397,7 @@ function PerformerDetailPage({
       </div>
 
       <RelatedRows sections={config.relatedSections} />
+      <SourceLinksCard links={config.sourceLinks} />
       <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
   );
@@ -437,16 +442,12 @@ function PerformerProfileCard({
         })}
       </div>
 
-      <div className="mt-5 min-w-0">
-        <h2 className="min-w-0 break-words text-3xl font-semibold tracking-normal text-slate-950 [overflow-wrap:anywhere]">
-          {config.displayTitle}
-        </h2>
-        {config.originalTitle && (
-          <p className="mt-2 min-w-0 break-words text-sm text-slate-500 [overflow-wrap:anywhere]">
-            {config.originalTitle}
-          </p>
-        )}
-      </div>
+      <ExpandableTitle
+        className="mt-5"
+        originalClassName="text-sm"
+        originalTitle={config.originalTitle}
+        title={config.displayTitle}
+      />
 
       <div
         aria-label="Performer hero chips"
@@ -505,6 +506,63 @@ function MainFavoriteButton({
   );
 }
 
+function ExpandableTitle({
+  className = "",
+  originalClassName = "text-base",
+  originalTitle,
+  title,
+}: {
+  className?: string;
+  originalClassName?: string;
+  originalTitle?: string;
+  title: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasOriginalTitle = Boolean(originalTitle?.trim());
+  const canExpand =
+    title.trim().length > 72 || (originalTitle?.trim().length ?? 0) > 72;
+  const titleClampClass = expanded ? "" : "line-clamp-2";
+  const originalClampClass = expanded ? "" : "line-clamp-2";
+
+  return (
+    <div className={`${className} min-w-0`}>
+      <div className="flex min-w-0 items-start gap-1.5">
+        <h2
+          className={[
+            "min-w-0 flex-1 break-words text-3xl font-semibold leading-tight tracking-normal text-slate-950 [overflow-wrap:anywhere]",
+            titleClampClass,
+          ].join(" ")}
+        >
+          {title}
+        </h2>
+        {canExpand && (
+          <button
+            type="button"
+            aria-label={expanded ? "Collapse title" : "Expand full title"}
+            aria-expanded={expanded}
+            title={expanded ? "Collapse title" : "Expand full title"}
+            onClick={() => setExpanded((current) => !current)}
+            className="mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2"
+          >
+            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+        )}
+      </div>
+      {hasOriginalTitle && (
+        <p
+          className={[
+            "mt-2 min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]",
+            originalClassName,
+            originalClampClass,
+          ].join(" ")}
+        >
+          {originalTitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
   const icons = [Calendar, Clapperboard, FileImage];
 
@@ -542,7 +600,6 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
 }
 
 function LargePlaceholder({ config }: DetailPageProps) {
-  const Icon = config.placeholderIcon;
   const aspectClass =
     config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
   const [imageFailed, setImageFailed] = useState(false);
@@ -563,8 +620,9 @@ function LargePlaceholder({ config }: DetailPageProps) {
   return (
     <>
       <div
-        className={`${aspectClass} relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50 text-slate-300`}
+        className={`${aspectClass} relative flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 via-white to-sakura-50 text-sakura-200`}
         aria-label={showImage ? undefined : config.placeholderLabel}
+        data-testid={showImage ? undefined : "detail-thumbnail-placeholder"}
       >
         {showImage ? (
           <button
@@ -581,20 +639,7 @@ function LargePlaceholder({ config }: DetailPageProps) {
             />
           </button>
         ) : (
-          <div className="flex flex-col items-center gap-3">
-            <Icon
-              size={config.kind === "performers" ? 86 : 74}
-              strokeWidth={1.5}
-            />
-            <div className="text-center">
-              <p className="text-sm font-medium text-slate-500">
-                {config.placeholderLabel}
-              </p>
-              {config.kind === "videos" && (
-                <p className="mt-2 text-sm text-slate-400">16:9</p>
-              )}
-            </div>
-          </div>
+          <ContentThumbnailPlaceholder />
         )}
       </div>
       {showImage && assetSrc && previewOpen && (
@@ -703,7 +748,9 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
   return (
     <>
       <div
-        className="relative aspect-[4/5] overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 via-white to-sakura-50"
+        className="relative aspect-[4/5] overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 via-white to-sakura-50"
+        aria-label={showImage ? undefined : label}
+        data-testid={showImage ? undefined : "detail-thumbnail-placeholder"}
       >
         {showImage ? (
           <button
@@ -720,9 +767,7 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
             />
           </button>
         ) : (
-          <div className="flex h-full items-center justify-center text-slate-300">
-            <ImageIcon size={24} aria-label={label} />
-          </div>
+          <ContentThumbnailPlaceholder />
         )}
       </div>
       {showImage && assetSrc && previewOpen && (
@@ -1168,6 +1213,50 @@ function NotesCard({ notes }: { notes: string }) {
       </div>
     </section>
   );
+}
+
+function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
+  const visibleLinks = (links ?? [])
+    .map((link) => ({
+      title: link.title.trim(),
+      url: link.url.trim(),
+    }))
+    .filter((link) => link.title && isSafeSourceUrl(link.url));
+
+  if (visibleLinks.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <CardTitle title="Source Links" icon={Info} />
+      <div className="mt-4 divide-y divide-slate-100">
+        {visibleLinks.map((link) => (
+          <div
+            key={`${link.title}-${link.url}`}
+            className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
+          >
+            <span className="min-w-0 break-words font-semibold text-slate-700 [overflow-wrap:anywhere]">
+              {link.title}
+            </span>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              title={link.url}
+              className="min-w-0 truncate text-sakura-600 underline-offset-4 hover:underline"
+            >
+              {link.url}
+            </a>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function isSafeSourceUrl(url: string) {
+  return /^https?:\/\//i.test(url);
 }
 
 function RelatedRows({

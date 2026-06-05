@@ -5689,6 +5689,101 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "Video Cover" })).not.toBeInTheDocument();
   });
 
+  it("uses the shared app placeholder style for detail thumbnails", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Styled Placeholder Video",
+          coverPath: "",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Styled Placeholder Video")).toBeInTheDocument();
+    const placeholder = screen.getByTestId("detail-thumbnail-placeholder");
+    expect(placeholder).toHaveAttribute("aria-label", "Cover");
+    expect(placeholder).toHaveClass("from-slate-50");
+    expect(placeholder).toHaveClass("to-sakura-50");
+    expect(placeholder.querySelector(".text-sakura-200")).not.toBeNull();
+  });
+
+  it("clamps long detail titles and expands them with an icon-only chevron control", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const longTitle =
+      "A very long saved video title that should stay readable inside the detail hero without pushing the shell sideways";
+    const longOriginalTitle =
+      "An equally long original title that follows the same two line clamp behavior until the user expands it";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: longTitle,
+          originalTitle: longOriginalTitle,
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const title = await screen.findByRole("heading", { name: longTitle });
+    const originalTitle = screen.getByText(longOriginalTitle);
+    expect(title).toHaveClass("line-clamp-2");
+    expect(originalTitle).toHaveClass("line-clamp-2");
+
+    const expandControl = screen.getByRole("button", { name: "Expand full title" });
+    expect(expandControl).toHaveAccessibleName("Expand full title");
+    expect(expandControl).toHaveClass("size-7");
+    expect(expandControl.querySelector("svg")).not.toBeNull();
+    expect(expandControl).toHaveTextContent("");
+    expect(screen.queryByRole("button", { name: "Show full title" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByText("Show full title")).not.toBeInTheDocument();
+
+    fireEvent.click(expandControl);
+
+    expect(title).not.toHaveClass("line-clamp-2");
+    expect(originalTitle).not.toHaveClass("line-clamp-2");
+    const collapseControl = screen.getByRole("button", { name: "Collapse title" });
+    expect(collapseControl.querySelector("svg")).not.toBeNull();
+    expect(collapseControl).toHaveTextContent("");
+    expect(collapseControl)
+      .toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("does not render gender or source links on detail without persisted fields", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          name: "No Deferred Fields Performer",
+        });
+      }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("No Deferred Fields Performer"))
+      .toBeInTheDocument();
+    expect(screen.queryByText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByText("Source Links")).not.toBeInTheDocument();
+    expect(screen.queryByText("Deferred: source links are not saved yet."))
+      .not.toBeInTheDocument();
+  });
+
   it("renders saved Performer mini thumbnails and opens thumbnail preview", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const record = persistedPerformer({

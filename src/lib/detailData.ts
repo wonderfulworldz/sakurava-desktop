@@ -52,6 +52,11 @@ type MetadataItem = {
   secondaryValue?: string;
 };
 
+export type SourceLinkItem = {
+  title: string;
+  url: string;
+};
+
 export type MediaPathItem = {
   label: string;
   path: string;
@@ -74,7 +79,9 @@ type BaseDetailConfig = {
   favorite: boolean;
   chips: string[];
   categories: string[];
+  gender?: MetadataItem;
   metadata: MetadataItem[];
+  sourceLinks?: SourceLinkItem[];
   mediaPaths: MediaPathItem[];
   systemInfo: MetadataItem[];
   ratingTitle: string;
