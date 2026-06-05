@@ -218,6 +218,9 @@ export function createInMemoryManagedCategoryRepository(
         parentKey: normalized.parentKey ?? null,
         description: normalized.description ?? "",
         thumbnailPath: normalized.thumbnailPath ?? "",
+        showInVideos: normalized.showInVideos ?? true,
+        showInImages: normalized.showInImages ?? true,
+        showInPerformers: normalized.showInPerformers ?? true,
         createdAt: timestamp,
         updatedAt: timestamp,
       };

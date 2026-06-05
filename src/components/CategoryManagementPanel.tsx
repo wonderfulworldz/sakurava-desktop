@@ -13,8 +13,10 @@ import {
   UserRound,
   Video,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ManagedCategory } from "../backend/types";
 import {
   MANAGED_CATEGORY_DESCRIPTION_MAX_LENGTH,
@@ -41,6 +43,9 @@ type FormState = {
   thumbnailPath: string;
   parentKey: string;
   description: string;
+  showInVideos: boolean;
+  showInImages: boolean;
+  showInPerformers: boolean;
 };
 
 type StatusState =
@@ -76,6 +81,9 @@ const emptyForm: FormState = {
   thumbnailPath: "",
   parentKey: "",
   description: "",
+  showInVideos: true,
+  showInImages: true,
+  showInPerformers: true,
 };
 
 const emptyRecords = {
@@ -282,6 +290,9 @@ function CategoryManagementPanel() {
               parentKey: null,
               description: "",
               thumbnailPath: "",
+              showInVideos: true,
+              showInImages: true,
+              showInPerformers: true,
               createdAt: "",
               updatedAt: "",
             }),
@@ -337,6 +348,7 @@ function CategoryManagementPanel() {
     if (message) {
       setStatus({ state: "success", message });
     }
+    return nextCategories;
   }
 
   async function handleSubmit() {
@@ -354,6 +366,7 @@ function CategoryManagementPanel() {
       editingKey,
       descendantKeys,
       editingCategoryHasChildren,
+      editingCategoryUsage,
     });
     setFormErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
@@ -400,18 +413,38 @@ function CategoryManagementPanel() {
           parentKey: form.parentKey || null,
           description: form.description.trim(),
           thumbnailPath: form.thumbnailPath.trim(),
+          showInVideos: form.showInVideos,
+          showInImages: form.showInImages,
+          showInPerformers: form.showInPerformers,
         });
-        await refreshCategories(`Saved category "${form.name.trim()}".`);
+        const nextCategories = await refreshCategories(
+          `Saved category "${form.name.trim()}".`,
+        );
+        const updatedCategory =
+          nextCategories.find((category) => category.key === editingCategory.key) ??
+          null;
+        if (updatedCategory) {
+          setForm(categoryToFormState(updatedCategory));
+        }
       } else {
-        await createManagedCategory({
+        const created = await createManagedCategory({
           name: form.name.trim(),
           parentKey: form.parentKey || null,
           description: form.description.trim(),
           thumbnailPath: form.thumbnailPath.trim(),
+          showInVideos: form.showInVideos,
+          showInImages: form.showInImages,
+          showInPerformers: form.showInPerformers,
         });
-        await refreshCategories(`Added category "${form.name.trim()}".`);
+        const nextCategories = await refreshCategories(
+          `Added category "${form.name.trim()}".`,
+        );
+        const createdCategory =
+          nextCategories.find((category) => category.key === created.key) ??
+          created;
+        setEditingKey(createdCategory.key);
+        setForm(categoryToFormState(createdCategory));
       }
-      resetForm();
     } catch (error) {
       setStatus({
         state: "error",
@@ -467,12 +500,7 @@ function CategoryManagementPanel() {
     setEditingKey(category.key);
     setFormVisible(true);
     setFormErrors({});
-    setForm({
-      name: category.name,
-      thumbnailPath: category.thumbnailPath,
-      parentKey: category.parentKey ?? "",
-      description: category.description,
-    });
+    setForm(categoryToFormState(category));
     setStatus({ state: "idle" });
     window.requestAnimationFrame(() => {
       scrollFormIntoView(formSectionRef.current);
@@ -608,24 +636,35 @@ function CategoryManagementPanel() {
             </div>
 
             <fieldset className="w-full space-y-2 text-sm font-medium text-slate-700">
-              <legend className="flex items-center gap-2">
-                <span>Used In</span>
-                <span className="text-xs font-medium text-slate-400">
-                  Display only
-                </span>
-              </legend>
+              <legend>Used In</legend>
               <div
-                aria-label="Used In display only"
-                className="grid w-full grid-cols-3 gap-2 text-sm font-semibold text-slate-600"
+                aria-label="Used In controls"
+                className="grid w-full grid-cols-3 gap-2 text-sm font-semibold"
               >
-                {["Videos", "Images", "Performers"].map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex h-10 min-w-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-3"
-                  >
-                    {label}
-                  </span>
-                ))}
+                <UsedInToggle
+                  label="Videos"
+                  icon={Video}
+                  checked={form.showInVideos}
+                  onChange={(showInVideos) =>
+                    setForm((current) => ({ ...current, showInVideos }))
+                  }
+                />
+                <UsedInToggle
+                  label="Images"
+                  icon={Image}
+                  checked={form.showInImages}
+                  onChange={(showInImages) =>
+                    setForm((current) => ({ ...current, showInImages }))
+                  }
+                />
+                <UsedInToggle
+                  label="Performers"
+                  icon={UserRound}
+                  checked={form.showInPerformers}
+                  onChange={(showInPerformers) =>
+                    setForm((current) => ({ ...current, showInPerformers }))
+                  }
+                />
               </div>
             </fieldset>
 
@@ -952,6 +991,36 @@ function CategoryManagementPanel() {
   );
 }
 
+function UsedInToggle({
+  label,
+  icon: Icon,
+  checked,
+  onChange,
+}: {
+  label: string;
+  icon: LucideIcon;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={checked}
+      aria-label={`Show in ${label}`}
+      onClick={() => onChange(!checked)}
+      className={[
+        "inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md border px-3 transition focus:outline-none focus:ring-2 focus:ring-sakura-200",
+        checked
+          ? "border-sakura-200 bg-sakura-50 text-sakura-700"
+          : "border-slate-200 bg-slate-50 text-slate-500",
+      ].join(" ")}
+    >
+      <Icon size={15} aria-hidden="true" />
+      <span className="min-w-0 truncate">{label}</span>
+    </button>
+  );
+}
+
 async function migrateLegacyManagedCategories() {
   const legacyNames = getStoredManagedCategories();
   let categories = await listManagedCategories();
@@ -1140,12 +1209,14 @@ function validateCategoryForm({
   editingKey,
   descendantKeys,
   editingCategoryHasChildren,
+  editingCategoryUsage,
 }: {
   form: FormState;
   categories: ManagedCategory[];
   editingKey: string | null;
   descendantKeys: Set<string>;
   editingCategoryHasChildren: boolean;
+  editingCategoryUsage: ReturnType<typeof countManagedCategoryUsage>;
 }) {
   const errors: FormErrors = {};
   const name = form.name.trim();
@@ -1161,6 +1232,18 @@ function validateCategoryForm({
     )
   ) {
     errors.name = "A category with this name already exists.";
+  }
+
+  const editingCategory = editingKey
+    ? categories.find((category) => category.key === editingKey) ?? null
+    : null;
+  if (
+    editingCategory &&
+    editingCategoryUsage.total > 0 &&
+    editingCategory.name.trim().toLowerCase() !== name.toLowerCase()
+  ) {
+    errors.name =
+      "Rename is blocked while records use this category. Remove or migrate record labels first.";
   }
 
   if (form.description.trim().length > MANAGED_CATEGORY_DESCRIPTION_MAX_LENGTH) {
@@ -1183,6 +1266,18 @@ function validateCategoryForm({
   }
 
   return errors;
+}
+
+function categoryToFormState(category: ManagedCategory): FormState {
+  return {
+    name: category.name,
+    thumbnailPath: category.thumbnailPath,
+    parentKey: category.parentKey ?? "",
+    description: category.description,
+    showInVideos: category.showInVideos,
+    showInImages: category.showInImages,
+    showInPerformers: category.showInPerformers,
+  };
 }
 
 function buildVisibleTableRows(
@@ -1361,30 +1456,24 @@ function CategoryTableRow({
       </td>
       <td className="px-3 py-3 text-slate-600">
         <div className="flex min-w-0 items-center gap-3 text-xs font-semibold">
-          <span
-            className="inline-flex items-center gap-1"
-            aria-label={`Videos ${row.usage.videos}`}
-            title="Videos"
-          >
-            <Video size={14} />
-            {row.usage.videos}
-          </span>
-          <span
-            className="inline-flex items-center gap-1"
-            aria-label={`Images ${row.usage.images}`}
-            title="Images"
-          >
-            <Image size={14} />
-            {row.usage.images}
-          </span>
-          <span
-            className="inline-flex items-center gap-1"
-            aria-label={`Performers ${row.usage.performers}`}
-            title="Performers"
-          >
-            <UserRound size={14} />
-            {row.usage.performers}
-          </span>
+          <UsageShortcut
+            label="Videos"
+            value={row.usage.videos}
+            icon={Video}
+            to={categoryUsageLink("videos", row.category.name)}
+          />
+          <UsageShortcut
+            label="Images"
+            value={row.usage.images}
+            icon={Image}
+            to={categoryUsageLink("images", row.category.name)}
+          />
+          <UsageShortcut
+            label="Performers"
+            value={row.usage.performers}
+            icon={UserRound}
+            to={categoryUsageLink("performers", row.category.name)}
+          />
         </div>
       </td>
       <td className="px-3 py-3 font-semibold text-slate-900">
@@ -1402,6 +1491,51 @@ function CategoryTableRow({
       </td>
     </tr>
   );
+}
+
+function UsageShortcut({
+  label,
+  value,
+  icon: Icon,
+  to,
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  to: string;
+}) {
+  const content = (
+    <>
+      <Icon size={14} aria-hidden="true" />
+      {value}
+    </>
+  );
+
+  return value > 0 ? (
+    <Link
+      className="inline-flex items-center gap-1 text-sakura-600"
+      aria-label={`${label} ${value}`}
+      title={label}
+      to={to}
+    >
+      {content}
+    </Link>
+  ) : (
+    <span
+      className="inline-flex items-center gap-1"
+      aria-label={`${label} ${value}`}
+      title={label}
+    >
+      {content}
+    </span>
+  );
+}
+
+function categoryUsageLink(
+  kind: "videos" | "images" | "performers",
+  category: string,
+) {
+  return `/${kind}?category=${encodeURIComponent(category)}`;
 }
 
 function ThumbnailPreview({ category }: { category: ManagedCategory }) {

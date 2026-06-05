@@ -1,5 +1,6 @@
 import { Image, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
@@ -84,18 +85,21 @@ function CategoryCatalogCard({
             value={category.videos}
             icon={Video}
             statBaseTone={statBaseTone}
+            to={categoryUsageLink("videos", category.name)}
           />
           <CountBlock
             label="Images"
             value={category.images}
             icon={Image}
             statBaseTone={statBaseTone}
+            to={categoryUsageLink("images", category.name)}
           />
           <CountBlock
             label="Performers"
             value={category.performers}
             icon={UserRound}
             statBaseTone={statBaseTone}
+            to={categoryUsageLink("performers", category.name)}
           />
         </dl>
 
@@ -152,30 +156,50 @@ function CountBlock({
   value,
   icon: Icon,
   statBaseTone,
+  to,
 }: {
   label: string;
   value: number;
   icon: LucideIcon;
   statBaseTone: string;
+  to: string;
 }) {
   const stateTone = value > 0 ? "text-sakura-600" : "text-slate-500";
-
-  return (
-    <div
-      className={`rounded-md px-2.5 py-2 ${statBaseTone}`}
-      title={label}
-    >
+  const content = (
+    <>
       <dt className="sr-only">{label}</dt>
       <dd
         className={`flex min-w-0 items-center justify-center gap-2 text-base font-semibold ${stateTone}`}
-        aria-label={`${label} ${value}`}
+        aria-label={value > 0 ? undefined : `${label} ${value}`}
       >
         <Icon aria-hidden="true" size={16} />
         <span className="sr-only">{label}</span>
         <span className="tabular-nums">{value}</span>
       </dd>
+    </>
+  );
+
+  return value > 0 ? (
+    <Link
+      className={`rounded-md px-2.5 py-2 ${statBaseTone} ${stateTone}`}
+      title={label}
+      aria-label={`${label} ${value}`}
+      to={to}
+    >
+      {content}
+    </Link>
+  ) : (
+    <div
+      className={`rounded-md px-2.5 py-2 ${statBaseTone}`}
+      title={label}
+    >
+      {content}
     </div>
   );
+}
+
+function categoryUsageLink(kind: "videos" | "images" | "performers", category: string) {
+  return `/${kind}?category=${encodeURIComponent(category)}`;
 }
 
 function formatDescription(description: string) {

@@ -117,6 +117,15 @@ describe("SQLite schema foundation", () => {
       "thumbnailPath TEXT NOT NULL DEFAULT ''",
     );
     expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "showInVideos INTEGER NOT NULL DEFAULT 1",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "showInImages INTEGER NOT NULL DEFAULT 1",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "showInPerformers INTEGER NOT NULL DEFAULT 1",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
       "FOREIGN KEY(parentKey) REFERENCES managedCategories(key)",
     );
     expect(schemaText).not.toContain("video_categories");

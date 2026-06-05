@@ -293,6 +293,9 @@ const MANAGED_CATEGORY_COLUMNS = [
   "parentKey",
   "description",
   "thumbnailPath",
+  "showInVideos",
+  "showInImages",
+  "showInPerformers",
   "createdAt",
   "updatedAt",
 ] as const;
@@ -414,6 +417,10 @@ function mapManagedCategoryRow(row: SqliteRow): ManagedCategory {
     parentKey: row.parentKey === null ? null : String(row.parentKey ?? "") || null,
     description: String(row.description ?? ""),
     thumbnailPath: String(row.thumbnailPath ?? ""),
+    showInVideos: row.showInVideos === undefined ? true : row.showInVideos === 1,
+    showInImages: row.showInImages === undefined ? true : row.showInImages === 1,
+    showInPerformers:
+      row.showInPerformers === undefined ? true : row.showInPerformers === 1,
     createdAt: String(row.createdAt),
     updatedAt: String(row.updatedAt),
   };
@@ -508,6 +515,9 @@ export function createSqliteManagedCategoryRepository(
         parentKey: normalized.parentKey ?? null,
         description: normalized.description ?? "",
         thumbnailPath: normalized.thumbnailPath ?? "",
+        showInVideos: normalized.showInVideos ?? true,
+        showInImages: normalized.showInImages ?? true,
+        showInPerformers: normalized.showInPerformers ?? true,
         createdAt: timestamp,
         updatedAt: timestamp,
       };

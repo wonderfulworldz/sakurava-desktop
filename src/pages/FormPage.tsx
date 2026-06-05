@@ -1813,6 +1813,7 @@ function CategoryPicker({
   const categoryOptions = buildCategoryOptions(
     normalizedManagedCategories,
     managedCategoryRecords,
+    kind,
   );
   const availableCategories = categoryOptions.filter(
     (category) => !hasFormCategory(normalizedSelected, category.label),
@@ -2051,8 +2052,14 @@ type CategoryOption = {
 function buildCategoryOptions(
   managedCategories: string[],
   managedCategoryRecords: ManagedCategory[],
+  kind: FormConfig["kind"],
 ): CategoryOption[] {
   const optionsByKey = new Map<string, CategoryOption>();
+  const recordKeys = new Set(
+    managedCategoryRecords
+      .map((category) => category.name.trim().toLowerCase())
+      .filter(Boolean),
+  );
   const recordsByKey = new Map(
     managedCategoryRecords.map((category) => [category.key, category]),
   );
@@ -2060,6 +2067,9 @@ function buildCategoryOptions(
   for (const category of managedCategoryRecords) {
     const label = category.name.trim();
     if (!label) {
+      continue;
+    }
+    if (!categorySupportsFormKind(category, kind)) {
       continue;
     }
 
@@ -2076,7 +2086,7 @@ function buildCategoryOptions(
   for (const label of managedCategories) {
     const normalizedLabel = label.trim();
     const key = normalizedLabel.toLowerCase();
-    if (!normalizedLabel || optionsByKey.has(key)) {
+    if (!normalizedLabel || optionsByKey.has(key) || recordKeys.has(key)) {
       continue;
     }
 
@@ -2089,6 +2099,19 @@ function buildCategoryOptions(
   }
 
   return [...optionsByKey.values()];
+}
+
+function categorySupportsFormKind(
+  category: ManagedCategory,
+  kind: FormConfig["kind"],
+) {
+  if (kind === "videos") {
+    return category.showInVideos;
+  }
+  if (kind === "images") {
+    return category.showInImages;
+  }
+  return category.showInPerformers;
 }
 
 function buildManagedCategoryPath(

@@ -477,6 +477,9 @@ function legacyManagedCategories(): ManagedCategory[] {
     parentKey: null,
     description: "",
     thumbnailPath: "",
+    showInVideos: true,
+    showInImages: true,
+    showInPerformers: true,
     createdAt: timestampValue,
     updatedAt: timestampValue,
   }));

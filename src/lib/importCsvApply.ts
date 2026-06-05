@@ -280,6 +280,11 @@ async function applyCategoryRow(
       parentKey,
       description: row.values.Description ?? "",
       thumbnailPath: row.values["Thumbnail Path"] ?? "",
+      showInVideos: parseBooleanCsvCell(row.values["Show in Videos"] ?? "true"),
+      showInImages: parseBooleanCsvCell(row.values["Show in Images"] ?? "true"),
+      showInPerformers: parseBooleanCsvCell(
+        row.values["Show in Performers"] ?? "true",
+      ),
     };
 
     if (target) {
@@ -472,6 +477,15 @@ function applySimpleField({
 
   if (internalField === "heightCm" || internalField === "weightKg") {
     patch[internalField] = value.trim() ? Number(value) : null;
+    return;
+  }
+
+  if (
+    internalField === "showInVideos" ||
+    internalField === "showInImages" ||
+    internalField === "showInPerformers"
+  ) {
+    patch[internalField] = parseBooleanCsvCell(value);
     return;
   }
 
@@ -699,6 +713,14 @@ function parseJsonObject(value: string) {
   return {};
 }
 
+function parseBooleanCsvCell(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  return !["false", "0", "no", "off"].includes(normalized);
+}
+
 function categoryName(row: ImportCsvPreviewRow) {
   return (row.values["Category Name"] ?? "").trim();
 }
@@ -836,6 +858,11 @@ function updateCategorySnapshot(
     parentKey: resolveCategoryParentKey(row, categories, existing),
     description: row.values.Description ?? "",
     thumbnailPath: row.values["Thumbnail Path"] ?? "",
+    showInVideos: parseBooleanCsvCell(row.values["Show in Videos"] ?? "true"),
+    showInImages: parseBooleanCsvCell(row.values["Show in Images"] ?? "true"),
+    showInPerformers: parseBooleanCsvCell(
+      row.values["Show in Performers"] ?? "true",
+    ),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

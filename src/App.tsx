@@ -9,7 +9,6 @@ import { LanguageProvider } from "./lib/LanguageContext";
 import { collectionConfigs } from "./lib/collectionData";
 import { detailConfigs } from "./lib/detailData";
 import { formConfigs } from "./lib/formData";
-import CategoriesPage from "./pages/CategoriesPage";
 import CollectionPage from "./pages/CollectionPage";
 import CategoryManagementPage from "./pages/CategoryManagementPage";
 import DetailPage from "./pages/DetailPage";
@@ -61,7 +60,10 @@ function App() {
           <Routes>
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
-              <Route path="categories" element={<CategoriesPage />} />
+              <Route
+                path="categories"
+                element={<Navigate to="/settings/category-management" replace />}
+              />
 
               <Route path="videos" element={<VideoCollectionPage />} />
               <Route path="videos/new" element={<VideoFormPage mode="create" />} />

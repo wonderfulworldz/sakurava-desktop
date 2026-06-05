@@ -20,11 +20,11 @@ function pageTitleFromPath(pathname: string, t: (key: string) => string) {
     return t("nav.performers");
   }
 
-  if (pathname.startsWith("/categories")) {
-    return t("nav.categories");
+  if (pathname.startsWith("/settings/category-management")) {
+    return "Category Management";
   }
 
-  if (pathname.startsWith("/settings/category-management")) {
+  if (pathname.startsWith("/categories")) {
     return "Category Management";
   }
 
