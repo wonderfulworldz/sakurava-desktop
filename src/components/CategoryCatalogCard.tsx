@@ -1,6 +1,5 @@
-import { Tags } from "lucide-react";
+import { Image, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 
@@ -9,6 +8,7 @@ export type CategoryCatalogCardStatus = "Managed" | "Unused Managed";
 export type CategoryCatalogCardData = {
   name: string;
   parentName: string | null;
+  childCount?: number;
   description: string;
   thumbnailPath: string;
   videos: number;
@@ -25,21 +25,49 @@ function CategoryCatalogCard({
   category: CategoryCatalogCardData;
   actions?: ReactNode;
 }) {
+  const cardKind = category.childCount && category.childCount > 0
+    ? "parent"
+    : category.parentName
+      ? "child"
+      : "root";
+  const articleTone =
+    cardKind === "parent"
+      ? "border-sakura-100 bg-sakura-50"
+      : cardKind === "child"
+        ? "border-slate-200 bg-white"
+        : "border-slate-200 bg-slate-50";
+  const contentTone = "px-3 pb-3 pt-4";
+  const statBaseTone =
+    cardKind === "parent"
+      ? "bg-white"
+      : cardKind === "child"
+        ? "bg-sakura-50"
+        : "bg-white";
+  const relationshipText =
+    cardKind === "parent"
+      ? `${category.childCount} ${
+          category.childCount === 1 ? "child category" : "child categories"
+        }`
+      : category.parentName
+        ? `Child of ${category.parentName}`
+        : "No Parent";
+
   return (
     <article
       aria-label={`Category ${category.name}`}
-      className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-sakura-200"
+      data-category-card-kind={cardKind}
+      className={`rounded-lg border p-3 shadow-sm ${articleTone}`}
     >
       <CategoryThumbnail category={category} />
 
-      <div className="px-3 pb-3 pt-4">
+      <div className={contentTone}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
               {category.name}
             </h2>
             <p className="mt-1 truncate text-sm font-medium text-slate-500">
-              {category.parentName ?? "No Parent"}
+              {relationshipText}
             </p>
           </div>
           <div className="min-w-12 text-right">
@@ -50,24 +78,24 @@ function CategoryCatalogCard({
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 pt-4">
+        <dl className="mt-4 grid grid-cols-3 gap-2 pt-2">
           <CountBlock
             label="Videos"
             value={category.videos}
-            categoryName={category.name}
-            to={categoryRoute("videos", category.name)}
+            icon={Video}
+            statBaseTone={statBaseTone}
           />
           <CountBlock
             label="Images"
             value={category.images}
-            categoryName={category.name}
-            to={categoryRoute("images", category.name)}
+            icon={Image}
+            statBaseTone={statBaseTone}
           />
           <CountBlock
             label="Performers"
             value={category.performers}
-            categoryName={category.name}
-            to={categoryRoute("performers", category.name)}
+            icon={UserRound}
+            statBaseTone={statBaseTone}
           />
         </dl>
 
@@ -92,7 +120,7 @@ function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) 
   }, [assetSrc, mediaAssetScopeReady]);
 
   return (
-    <div className="relative flex aspect-[3/2] w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-sakura-50 via-white to-sakura-100 text-sakura-500 ring-1 ring-sakura-100">
+    <div className="relative flex aspect-[3/2] w-full items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.96),transparent_34%),radial-gradient(circle_at_78%_82%,rgba(244,114,182,0.14),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(253,242,248,0.94)_50%,rgba(252,231,243,0.78))] text-sakura-500">
       {showImage ? (
         <img
           src={assetSrc ?? undefined}
@@ -102,71 +130,52 @@ function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) 
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <div
-          className="absolute inset-0 bg-[radial-gradient(circle_at_30%_35%,rgba(244,114,182,0.22),transparent_28%),radial-gradient(circle_at_70%_45%,rgba(251,207,232,0.45),transparent_34%)]"
-          aria-hidden="true"
-        />
+        <>
+          <div
+            className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.95),transparent_32%),radial-gradient(circle_at_74%_78%,rgba(244,114,182,0.12),transparent_42%),radial-gradient(circle_at_45%_55%,rgba(251,207,232,0.18),transparent_48%)]"
+            aria-hidden="true"
+          />
+          <div
+            className="relative z-10 flex size-16 items-center justify-center rounded-full bg-white/70 text-sakura-500"
+            aria-label="Category thumbnail placeholder"
+          >
+            <Tags className="opacity-75" size={28} />
+          </div>
+        </>
       )}
-      {!showImage && <Tags className="relative z-10 opacity-70" size={28} />}
-      <StatusBadge status={category.status} />
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: CategoryCatalogCardStatus }) {
-  return (
-    <span className="absolute right-3 top-3 z-10 inline-flex rounded-md border border-sakura-200 bg-white/90 px-2.5 py-1 text-xs font-semibold text-sakura-600 shadow-sm backdrop-blur">
-      {status}
-    </span>
   );
 }
 
 function CountBlock({
   label,
   value,
-  categoryName,
-  to,
+  icon: Icon,
+  statBaseTone,
 }: {
   label: string;
   value: number;
-  categoryName: string;
-  to: { pathname: string; search: string };
+  icon: LucideIcon;
+  statBaseTone: string;
 }) {
-  const content = (
-    <>
-      <dt className="text-xs font-semibold text-slate-500">{label}</dt>
-      <dd
-        className={`mt-1 text-lg font-semibold ${
-          value > 0 ? "text-slate-950" : "text-slate-500"
-        }`}
-      >
-        {value}
-      </dd>
-    </>
-  );
+  const stateTone = value > 0 ? "text-sakura-600" : "text-slate-500";
 
   return (
-    <div className="px-3 first:pl-0 last:pr-0">
-      {value > 0 ? (
-        <Link
-          to={to}
-          className="block rounded-md px-2 py-1 transition hover:bg-sakura-50 focus:outline-none focus:ring-2 focus:ring-sakura-200"
-          aria-label={`Open ${label} filtered by category ${categoryName}`}
-        >
-          {content}
-        </Link>
-      ) : (
-        <div className="block rounded-md px-2 py-1">{content}</div>
-      )}
+    <div
+      className={`rounded-md px-2.5 py-2 ${statBaseTone}`}
+      title={label}
+    >
+      <dt className="sr-only">{label}</dt>
+      <dd
+        className={`flex min-w-0 items-center justify-center gap-2 text-base font-semibold ${stateTone}`}
+        aria-label={`${label} ${value}`}
+      >
+        <Icon aria-hidden="true" size={16} />
+        <span className="sr-only">{label}</span>
+        <span className="tabular-nums">{value}</span>
+      </dd>
     </div>
   );
-}
-
-function categoryRoute(kind: "videos" | "images" | "performers", category: string) {
-  return {
-    pathname: `/${kind}`,
-    search: `?category=${encodeURIComponent(category)}`,
-  };
 }
 
 function formatDescription(description: string) {
