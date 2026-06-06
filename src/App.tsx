@@ -11,6 +11,7 @@ import { detailConfigs } from "./lib/detailData";
 import { formConfigs } from "./lib/formData";
 import CollectionPage from "./pages/CollectionPage";
 import CategoryManagementPage from "./pages/CategoryManagementPage";
+import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import HomePage from "./pages/HomePage";
@@ -32,6 +33,10 @@ import {
 import { isTauriRuntimeAvailable } from "./runtime/tauriClient";
 
 function App() {
+  const isImageViewerWindow =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("sakuravaWindow") ===
+      "image-viewer";
   const [appearanceTheme] = useState(() => getStoredAppearanceTheme());
   const [mediaAssetScopeReady, setMediaAssetScopeReady] = useState(
     () => !isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0,
@@ -52,6 +57,10 @@ function App() {
       setMediaAssetScopeReady(true);
     });
   }, []);
+
+  if (isImageViewerWindow) {
+    return <GlobalImageViewerWindow />;
+  }
 
   return (
     <MediaAssetScopeReadyContext.Provider value={mediaAssetScopeReady}>
