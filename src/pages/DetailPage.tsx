@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  ArrowRight,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -12,21 +11,17 @@ import {
   Heart,
   Image as ImageIcon,
   Info,
-  Maximize2,
-  Minimize2,
-  Minus,
   Play,
-  Plus,
   Ruler,
   Star,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
+import GlobalImageViewer from "../components/gallery/GlobalImageViewer";
 import type {
   DetailConfig,
   DetailSection,
@@ -38,6 +33,12 @@ import type { HomeRecentItem } from "../lib/homeData";
 import { calculateAverageRating } from "../lib/ratingSummary";
 import { updateImage } from "../runtime/imageCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import {
+  createGlobalImageViewerWindowPayload,
+  openGlobalImageViewerWindow,
+  type GlobalImageViewerWindowPayload,
+  type GlobalImageViewerWindowResult,
+} from "../runtime/globalImageViewerWindow";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import {
@@ -61,6 +62,24 @@ type DetailPageProps = {
   config: DetailConfig;
   deleteAction?: DetailDeleteAction;
 };
+
+function logGlobalViewerFallback(
+  context: string,
+  result: GlobalImageViewerWindowResult,
+) {
+  if (result.mode !== "fallback") {
+    return;
+  }
+
+  const meta = import.meta as ImportMeta & { env?: { MODE?: string } };
+  if (meta.env?.MODE === "production") {
+    return;
+  }
+
+  console.warn(`[GlobalImageViewerWindow] ${context} fallback`, {
+    reason: result.reason,
+  });
+}
 
 type DetailFavoriteAction = {
   errorMessage: string | null;
@@ -603,7 +622,8 @@ function LargePlaceholder({ config }: DetailPageProps) {
   const aspectClass =
     config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
   const [imageFailed, setImageFailed] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPayload, setPreviewPayload] =
+    useState<GlobalImageViewerWindowPayload | null>(null);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(config.coverPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
@@ -614,8 +634,22 @@ function LargePlaceholder({ config }: DetailPageProps) {
 
   useEffect(() => {
     setImageFailed(false);
-    setPreviewOpen(false);
+    setPreviewPayload(null);
   }, [assetSrc, mediaAssetScopeReady]);
+
+  async function handlePreviewOpen() {
+    const payload = createGlobalImageViewerWindowPayload({
+      ariaLabel: previewTitle,
+      images: [{ path: config.coverPath ?? "", title: previewTitle }],
+      initialIndex: 0,
+    });
+    const viewerResult = await openGlobalImageViewerWindow(payload);
+
+    if (viewerResult.mode === "fallback") {
+      logGlobalViewerFallback("detail cover preview", viewerResult);
+      setPreviewPayload(payload);
+    }
+  }
 
   return (
     <>
@@ -629,7 +663,7 @@ function LargePlaceholder({ config }: DetailPageProps) {
             type="button"
             aria-label={`Preview ${previewTitle}`}
             className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
-            onClick={() => setPreviewOpen(true)}
+            onClick={() => void handlePreviewOpen()}
           >
             <img
               src={assetSrc ?? undefined}
@@ -642,16 +676,13 @@ function LargePlaceholder({ config }: DetailPageProps) {
           <ContentThumbnailPlaceholder />
         )}
       </div>
-      {showImage && assetSrc && previewOpen && (
-        <ImagePreviewModal
-          alt={`${previewTitle} full size`}
-          src={assetSrc}
-          title={previewTitle}
-          onClose={() => setPreviewOpen(false)}
-          onImageError={() => {
-            setImageFailed(true);
-            setPreviewOpen(false);
-          }}
+      {showImage && assetSrc && previewPayload && (
+        <GlobalImageViewer
+          ariaLabel={previewPayload.ariaLabel}
+          images={previewPayload.images}
+          initialIndex={previewPayload.initialIndex}
+          onClose={() => setPreviewPayload(null)}
+          openRequestId={previewPayload.openRequestId}
         />
       )}
     </>
@@ -670,80 +701,32 @@ function coverPreviewTitle(kind: DetailConfig["kind"]) {
   return "Performer Cover";
 }
 
-function ImagePreviewModal({
-  alt,
-  src,
-  title,
-  onClose,
-  onImageError,
-}: {
-  alt: string;
-  src: string;
-  title: string;
-  onClose: () => void;
-  onImageError: () => void;
-}) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="flex max-h-full w-full max-w-5xl flex-col rounded-lg bg-white shadow-2xl"
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
-          >
-            <X size={14} />
-            Close
-          </button>
-        </div>
-        <div className="flex min-h-0 items-center justify-center bg-slate-950 p-4">
-          <img
-            src={src}
-            alt={alt}
-            className="max-h-[78vh] max-w-full object-contain"
-            onError={onImageError}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SmallThumbnail({ label, path }: { label: string; path?: string }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPayload, setPreviewPayload] =
+    useState<GlobalImageViewerWindowPayload | null>(null);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(path);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   useEffect(() => {
     setImageFailed(false);
-    setPreviewOpen(false);
+    setPreviewPayload(null);
   }, [assetSrc, mediaAssetScopeReady]);
+
+  async function handlePreviewOpen() {
+    const payload = createGlobalImageViewerWindowPayload({
+      ariaLabel: label,
+      images: [{ path: path ?? "", title: label }],
+      initialIndex: 0,
+    });
+    const viewerResult = await openGlobalImageViewerWindow(payload);
+
+    if (viewerResult.mode === "fallback") {
+      logGlobalViewerFallback("detail thumbnail preview", viewerResult);
+      setPreviewPayload(payload);
+    }
+  }
 
   return (
     <>
@@ -757,7 +740,7 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
             type="button"
             aria-label={`Preview ${label}`}
             className="absolute inset-0 cursor-zoom-in overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 focus-visible:ring-offset-2"
-            onClick={() => setPreviewOpen(true)}
+            onClick={() => void handlePreviewOpen()}
           >
             <img
               src={assetSrc ?? undefined}
@@ -770,16 +753,13 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
           <ContentThumbnailPlaceholder />
         )}
       </div>
-      {showImage && assetSrc && previewOpen && (
-        <ImagePreviewModal
-          alt={`${label} full size`}
-          src={assetSrc}
-          title={label}
-          onClose={() => setPreviewOpen(false)}
-          onImageError={() => {
-            setImageFailed(true);
-            setPreviewOpen(false);
-          }}
+      {showImage && assetSrc && previewPayload && (
+        <GlobalImageViewer
+          ariaLabel={previewPayload.ariaLabel}
+          images={previewPayload.images}
+          initialIndex={previewPayload.initialIndex}
+          onClose={() => setPreviewPayload(null)}
+          openRequestId={previewPayload.openRequestId}
         />
       )}
     </>
@@ -2195,21 +2175,31 @@ function RelatedEmptyState({
 }
 
 const GALLERY_BATCH_SIZE = 16;
-const GALLERY_CONTROLS_IDLE_DELAY_MS = 2000;
-const MIN_GALLERY_ZOOM = 0.5;
-const MAX_GALLERY_ZOOM = 3;
-const GALLERY_ZOOM_STEP = 0.25;
 
 function GalleryGrid({ paths }: { paths: string[] }) {
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [viewerPayload, setViewerPayload] =
+    useState<GlobalImageViewerWindowPayload | null>(null);
   const visiblePaths = paths.slice(0, visibleCount);
   const canLoadMore = visibleCount < paths.length;
 
   useEffect(() => {
     setVisibleCount(GALLERY_BATCH_SIZE);
-    setViewerIndex(null);
+    setViewerPayload(null);
   }, [paths]);
+
+  async function handlePreviewOpen(index: number) {
+    const payload = createGlobalImageViewerWindowPayload({
+      images: paths.map((path) => ({ path })),
+      initialIndex: index,
+    });
+    const viewerResult = await openGlobalImageViewerWindow(payload);
+
+    if (viewerResult.mode === "fallback") {
+      logGlobalViewerFallback("detail gallery preview", viewerResult);
+      setViewerPayload(payload);
+    }
+  }
 
   return (
     <>
@@ -2234,7 +2224,7 @@ function GalleryGrid({ paths }: { paths: string[] }) {
                   key={`${path}-${index}`}
                   path={path}
                   label={`Gallery image ${index + 1}`}
-                  onPreview={() => setViewerIndex(index)}
+                  onPreview={() => void handlePreviewOpen(index)}
                 />
               ))}
             </div>
@@ -2254,11 +2244,13 @@ function GalleryGrid({ paths }: { paths: string[] }) {
           </>
         )}
       </section>
-      {viewerIndex !== null && paths[viewerIndex] && (
-        <GalleryViewer
-          initialIndex={viewerIndex}
-          paths={paths}
-          onClose={() => setViewerIndex(null)}
+      {viewerPayload && viewerPayload.images[viewerPayload.initialIndex] && (
+        <GlobalImageViewer
+          ariaLabel={viewerPayload.ariaLabel}
+          images={viewerPayload.images}
+          initialIndex={viewerPayload.initialIndex}
+          onClose={() => setViewerPayload(null)}
+          openRequestId={viewerPayload.openRequestId}
         />
       )}
     </>
@@ -2314,362 +2306,6 @@ function GalleryImageTile({
       )}
     </div>
   );
-}
-
-function GalleryViewer({
-  initialIndex,
-  paths,
-  onClose,
-}: {
-  initialIndex: number;
-  paths: string[];
-  onClose: () => void;
-}) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [imageFailed, setImageFailed] = useState(false);
-  const [isFitMode, setIsFitMode] = useState(true);
-  const [zoom, setZoom] = useState(1);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const viewerRef = useRef<HTMLDivElement | null>(null);
-  const hideControlsTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
-  const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const path = paths[currentIndex] ?? "";
-  const assetSrc = localImagePathToAssetSrc(path);
-  const canShowImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
-  const canGoPrevious = currentIndex > 0;
-  const canGoNext = currentIndex < paths.length - 1;
-  const zoomLabel = isFitMode ? "Fit" : `${Math.round(zoom * 100)}%`;
-  const isFullscreenActive = isBrowserFullscreen || isExpanded;
-  const controlsVisibilityClass = controlsVisible
-    ? "opacity-100"
-    : "pointer-events-none opacity-0";
-  const overlayPillClass =
-    "bg-white/85 text-slate-800 shadow-lg shadow-slate-950/10 ring-1 ring-sakura-100/80 backdrop-blur-md";
-  const overlayButtonBaseClass =
-    "inline-flex items-center justify-center rounded-full bg-white/85 text-slate-700 shadow-lg shadow-slate-950/10 ring-1 ring-sakura-100/80 backdrop-blur-md transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45";
-  const overlayToggleClass =
-    "inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300";
-  const activeToggleClass = "bg-sakura-500 text-white shadow-sm";
-  const inactiveToggleClass = "bg-white/70 text-slate-700 hover:bg-sakura-50 hover:text-sakura-600";
-
-  function clearHideControlsTimer() {
-    if (hideControlsTimerRef.current) {
-      window.clearTimeout(hideControlsTimerRef.current);
-      hideControlsTimerRef.current = null;
-    }
-  }
-
-  function scheduleHideControls() {
-    clearHideControlsTimer();
-    hideControlsTimerRef.current = window.setTimeout(() => {
-      const activeElement = document.activeElement;
-      if (
-        viewerRef.current &&
-        activeElement instanceof HTMLElement &&
-        viewerRef.current.contains(activeElement) &&
-        activeElement !== viewerRef.current
-      ) {
-        scheduleHideControls();
-        return;
-      }
-
-      setControlsVisible(false);
-    }, GALLERY_CONTROLS_IDLE_DELAY_MS);
-  }
-
-  function showControlsAndResetIdleTimer() {
-    setControlsVisible(true);
-    scheduleHideControls();
-  }
-
-  async function closeViewer() {
-    if (document.fullscreenElement && document.exitFullscreen) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        // Closing the viewer should still work if the browser denies exit.
-      }
-    }
-
-    setIsExpanded(false);
-    onClose();
-  }
-
-  function goToIndex(nextIndex: number) {
-    if (nextIndex < 0 || nextIndex >= paths.length) {
-      return;
-    }
-
-    setCurrentIndex(nextIndex);
-    setImageFailed(false);
-    setIsFitMode(true);
-    setZoom(1);
-    showControlsAndResetIdleTimer();
-  }
-
-  function zoomIn() {
-    showControlsAndResetIdleTimer();
-    setIsFitMode(false);
-    setZoom((current) => Math.min(MAX_GALLERY_ZOOM, current + GALLERY_ZOOM_STEP));
-  }
-
-  function zoomOut() {
-    showControlsAndResetIdleTimer();
-    setIsFitMode(false);
-    setZoom((current) => Math.max(MIN_GALLERY_ZOOM, current - GALLERY_ZOOM_STEP));
-  }
-
-  async function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-        setIsExpanded(false);
-      } catch {
-        setIsExpanded(false);
-      }
-      return;
-    }
-
-    if (isExpanded) {
-      setIsExpanded(false);
-      return;
-    }
-
-    if (document.documentElement.requestFullscreen) {
-      try {
-        await document.documentElement.requestFullscreen();
-        return;
-      } catch {
-        setIsExpanded(true);
-        return;
-      }
-    }
-
-    setIsExpanded(true);
-  }
-
-  useEffect(() => {
-    scheduleHideControls();
-    return clearHideControlsTimer;
-  }, []);
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      showControlsAndResetIdleTimer();
-
-      if (event.key === "Escape") {
-        if (document.fullscreenElement) {
-          return;
-        }
-
-        if (isExpanded) {
-          setIsExpanded(false);
-          return;
-        }
-
-        void closeViewer();
-        return;
-      }
-
-      if (event.key === "ArrowLeft") {
-        goToIndex(currentIndex - 1);
-        return;
-      }
-
-      if (event.key === "ArrowRight") {
-        goToIndex(currentIndex + 1);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, isExpanded, onClose, paths.length]);
-
-  useEffect(() => {
-    function syncFullscreenState() {
-      setIsBrowserFullscreen(Boolean(document.fullscreenElement));
-    }
-
-    document.addEventListener("fullscreenchange", syncFullscreenState);
-    syncFullscreenState();
-    return () =>
-      document.removeEventListener("fullscreenchange", syncFullscreenState);
-  }, []);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Gallery full-size viewer"
-      ref={viewerRef}
-      tabIndex={-1}
-      className="fixed inset-0 z-50 m-0 h-screen w-screen overflow-hidden bg-slate-950 text-white"
-      onMouseMove={showControlsAndResetIdleTimer}
-      onMouseEnter={showControlsAndResetIdleTimer}
-      onPointerDown={showControlsAndResetIdleTimer}
-      onFocusCapture={showControlsAndResetIdleTimer}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          void closeViewer();
-        }
-      }}
-    >
-        <div
-          className={`pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-5.5rem)] flex-wrap items-center gap-2 transition-opacity duration-300 sm:left-4 sm:top-4 ${controlsVisibilityClass}`}
-        >
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${overlayPillClass}`}>
-            {currentIndex + 1} / {paths.length}
-          </span>
-          <span className={`max-w-[52vw] truncate rounded-full px-3 py-1 text-xs font-medium ${overlayPillClass}`}>
-            {fileNameFromPath(path) || "Gallery image"}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          aria-label="Close gallery viewer"
-          onClick={() => void closeViewer()}
-          className={`absolute right-3 top-3 z-20 h-10 w-10 transition-opacity duration-300 sm:right-4 sm:top-4 ${overlayButtonBaseClass} ${controlsVisibilityClass}`}
-        >
-          <X size={18} />
-        </button>
-
-        {canGoPrevious && (
-          <button
-            type="button"
-            aria-label="Previous gallery image"
-            onClick={() => goToIndex(currentIndex - 1)}
-            className={`absolute left-3 top-1/2 z-20 h-11 w-11 -translate-y-1/2 transition-opacity duration-300 sm:left-4 ${overlayButtonBaseClass} ${controlsVisibilityClass}`}
-          >
-            <ArrowLeft size={22} />
-          </button>
-        )}
-
-        {canGoNext && (
-          <button
-            type="button"
-            aria-label="Next gallery image"
-            onClick={() => goToIndex(currentIndex + 1)}
-            className={`absolute right-3 top-1/2 z-20 h-11 w-11 -translate-y-1/2 transition-opacity duration-300 sm:right-4 ${overlayButtonBaseClass} ${controlsVisibilityClass}`}
-          >
-            <ArrowRight size={22} />
-          </button>
-        )}
-
-        <div className="absolute inset-0 h-full w-full overflow-auto">
-          <div className="flex min-h-full min-w-full items-center justify-center">
-            {canShowImage && assetSrc ? (
-              <img
-                src={assetSrc}
-                alt={`Gallery image ${currentIndex + 1} full size`}
-                className={isFitMode ? "block max-h-screen max-w-full object-contain" : "block"}
-                style={
-                  isFitMode
-                    ? undefined
-                    : {
-                        maxWidth: "none",
-                        width: `${zoom * 100}%`,
-                        height: "auto",
-                      }
-                }
-                onError={() => setImageFailed(true)}
-              />
-            ) : (
-              <div
-                role="img"
-                aria-label={`Gallery image ${currentIndex + 1} unavailable`}
-                className="flex min-h-52 min-w-64 flex-col items-center justify-center gap-3 rounded-lg border border-white/10 bg-white/5 px-8 py-10 text-center text-slate-300"
-              >
-                <ImageIcon size={42} />
-                <p className="text-sm font-semibold">Image unavailable</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div
-          className={`absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-full bg-white/85 px-2 py-2 text-slate-700 shadow-lg shadow-slate-950/10 ring-1 ring-sakura-100/80 backdrop-blur-md transition-opacity duration-300 sm:bottom-4 ${controlsVisibilityClass}`}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setIsFitMode(true);
-              setZoom(1);
-            }}
-            aria-label="Fit gallery image"
-            className={`${overlayToggleClass} ${
-              isFitMode
-                ? activeToggleClass
-                : inactiveToggleClass
-            }`}
-          >
-            Fit
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsFitMode(false);
-              setZoom(1);
-            }}
-            aria-label="Show gallery image at 100 percent"
-            className={`${overlayToggleClass} ${
-              !isFitMode && zoom === 1
-                ? activeToggleClass
-                : inactiveToggleClass
-            }`}
-          >
-            100%
-          </button>
-          <button
-            type="button"
-            onClick={zoomOut}
-            disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
-            aria-label="Zoom out gallery image"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-700 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <Minus size={16} />
-          </button>
-          <span className="min-w-12 text-center text-xs font-semibold text-slate-700">
-            {zoomLabel}
-          </span>
-          <button
-            type="button"
-            onClick={zoomIn}
-            disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
-            aria-label="Zoom in gallery image"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-700 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <Plus size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            aria-label={
-              isFullscreenActive
-                ? "Exit fullscreen gallery mode"
-                : "Enter fullscreen gallery mode"
-            }
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-slate-700 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
-          >
-            {isFullscreenActive ? (
-              <Minimize2 size={16} />
-            ) : (
-              <Maximize2 size={16} />
-            )}
-          </button>
-        </div>
-    </div>
-  );
-}
-
-function fileNameFromPath(path: string) {
-  const normalized = path.trim().replace(/\\/g, "/");
-  const parts = normalized.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? "";
 }
 
 function CardTitle({

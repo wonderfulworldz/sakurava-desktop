@@ -8,6 +8,8 @@ import {
 } from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
+import GlobalImageViewer from "./components/gallery/GlobalImageViewer";
+import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
 import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
@@ -24,10 +26,35 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 type TestTauriInvoke = NonNullable<Window["__TAURI_INTERNALS__"]>["invoke"];
 
+type TestTauriEventCallback = (event: {
+  event: string;
+  id: number;
+  payload: any;
+}) => void;
+
+function createTauriEventHarness() {
+  let nextCallbackId = 1;
+  const callbacks = new Map<number, TestTauriEventCallback>();
+  const listenersByEvent = new Map<string, number>();
+
+  return {
+    callbacks,
+    listenersByEvent,
+    transformCallback: vi.fn((callback: TestTauriEventCallback) => {
+      const callbackId = nextCallbackId;
+      nextCallbackId += 1;
+      callbacks.set(callbackId, callback);
+      return callbackId;
+    }),
+  };
+}
+
 describe("App", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
+    delete (window as Partial<Window>).__TAURI_EVENT_PLUGIN_INTERNALS__;
     window.localStorage.clear();
     delete document.documentElement.dataset.theme;
     Object.defineProperty(document, "fullscreenElement", {
@@ -5558,7 +5585,6 @@ describe("App", () => {
       path: "/videos/video_test_001",
       buttonName: "Preview Video Cover",
       dialogName: "Video Cover",
-      fullSizeAlt: "Video Cover full size",
       command: "video_get",
       record: persistedVideo({
         title: "Preview Video Detail",
@@ -5569,7 +5595,6 @@ describe("App", () => {
       path: "/images/image_test_001",
       buttonName: "Preview Image Cover",
       dialogName: "Image Cover",
-      fullSizeAlt: "Image Cover full size",
       command: "image_get",
       record: persistedImage({
         title: "Preview Image Detail",
@@ -5580,7 +5605,6 @@ describe("App", () => {
       path: "/performers/performer_test_001",
       buttonName: "Preview Performer Cover",
       dialogName: "Performer Cover",
-      fullSizeAlt: "Performer Cover full size",
       command: "performer_get",
       record: persistedPerformer({
         name: "Preview Performer Detail",
@@ -5589,7 +5613,7 @@ describe("App", () => {
     },
   ])(
     "opens and closes full-size cover preview for $path",
-    async ({ path, buttonName, dialogName, fullSizeAlt, command, record }) => {
+    async ({ path, buttonName, dialogName, command, record }) => {
       window.history.pushState({}, "", path);
       const invoke = vi.fn(
         async (incomingCommand: string, args: Record<string, any> = {}) => {
@@ -5635,17 +5659,25 @@ describe("App", () => {
         { name: dialogName },
         { timeout: 5000 },
       );
-      const previewImage = within(dialog).getByAltText(fullSizeAlt);
+      expect(within(dialog).getByLabelText("Image metadata")).toBeInTheDocument();
+      expect(within(dialog).getByLabelText("Image viewer actions")).toBeInTheDocument();
+      expect(within(dialog).getByLabelText("Image viewer controls")).toBeInTheDocument();
+      const previewImage = within(dialog).getByAltText("Gallery image 1 full size");
       expect(previewImage).toHaveAttribute(
         "src",
         `asset://localhost/${record.coverPath}`,
       );
-      expect(within(dialog).queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
       expect(
-        within(dialog).queryByRole("button", { name: "Previous" }),
+        within(dialog).queryByRole("button", { name: "Next gallery image" }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByRole("button", { name: "Previous gallery image" }),
       ).not.toBeInTheDocument();
 
-      fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+      expect(
+        within(dialog).queryByRole("button", { name: "Close gallery viewer" }),
+      ).not.toBeInTheDocument();
+      fireEvent.keyDown(window, { key: "Escape" });
       await waitFor(() => {
         expect(
           screen.queryByRole("dialog", { name: dialogName }),
@@ -5653,9 +5685,12 @@ describe("App", () => {
       });
 
       fireEvent.click(previewButton);
-      expect(
-        await screen.findByRole("dialog", { name: dialogName }, { timeout: 5000 }),
-      ).toBeInTheDocument();
+      const reopenedDialog = await screen.findByRole(
+        "dialog",
+        { name: dialogName },
+        { timeout: 5000 },
+      );
+      expect(reopenedDialog).toBeInTheDocument();
       fireEvent.keyDown(window, { key: "Escape" });
       await waitFor(() => {
         expect(
@@ -5937,15 +5972,23 @@ describe("App", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Performer Thumbnail 1",
     });
+    expect(within(dialog).getByLabelText("Image metadata")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Image viewer actions")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Image viewer controls")).toBeInTheDocument();
     expect(
-      within(dialog).getByAltText("Performer Thumbnail 1 full size"),
+      within(dialog).getByAltText("Gallery image 1 full size"),
     ).toHaveAttribute("src", "asset://localhost/D:/Sakurava/thumb-1.jpg");
-    expect(within(dialog).queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
     expect(
-      within(dialog).queryByRole("button", { name: "Previous" }),
+      within(dialog).queryByRole("button", { name: "Next gallery image" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Previous gallery image" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(
+      within(dialog).queryByRole("button", { name: "Close gallery viewer" }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => {
       expect(
         screen.queryByRole("dialog", { name: "Performer Thumbnail 1" }),
@@ -8589,7 +8632,7 @@ describe("App", () => {
     );
   });
 
-  it("opens image detail gallery images in a navigable overlay viewer", async () => {
+  it("opens image detail gallery images in the reusable global preview viewer", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const galleryPaths = [
       "C:/Gallery/one.jpg",
@@ -8614,28 +8657,6 @@ describe("App", () => {
       invoke,
       convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
     };
-    let fullscreenElement: Element | null = null;
-    const requestFullscreen = vi.fn(async () => {
-      fullscreenElement = document.documentElement;
-      document.dispatchEvent(new Event("fullscreenchange"));
-    });
-    const exitFullscreen = vi.fn(async () => {
-      fullscreenElement = null;
-      document.dispatchEvent(new Event("fullscreenchange"));
-    });
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      get: () => fullscreenElement,
-    });
-    Object.defineProperty(document.documentElement, "requestFullscreen", {
-      configurable: true,
-      value: requestFullscreen,
-    });
-    Object.defineProperty(document, "exitFullscreen", {
-      configurable: true,
-      value: exitFullscreen,
-    });
-
     render(<App />);
 
     expect(await screen.findByText("Viewer Gallery Image")).toBeInTheDocument();
@@ -8648,6 +8669,34 @@ describe("App", () => {
       name: "Gallery full-size viewer",
     }, { timeout: 5000 });
     expect(within(viewer).queryByRole("heading")).not.toBeInTheDocument();
+    const metadataBar = within(viewer).getByLabelText("Image metadata");
+    const actionBar = within(viewer).getByLabelText("Image viewer actions");
+    const controlBar = within(viewer).getByLabelText("Image viewer controls");
+    expect(viewer).toHaveAttribute("data-theme-surface", "adaptive");
+    expect(viewer).toHaveClass("global-image-viewer");
+    expect(metadataBar).toBeInTheDocument();
+    expect(actionBar).toBeInTheDocument();
+    expect(controlBar).toBeInTheDocument();
+    expect(metadataBar).toHaveAttribute("data-layout-zone", "viewer-metadata");
+    expect(actionBar).toHaveAttribute("data-layout-zone", "viewer-actions");
+    expect(controlBar).toHaveAttribute("data-layout-zone", "viewer-controls");
+    expect(
+      within(actionBar).getByRole("button", {
+        name: "Show image viewer shortcuts",
+      }),
+    ).toBeInTheDocument();
+    expect(within(actionBar).getByRole("button", { name: "More image actions" }))
+      .toBeInTheDocument();
+    expect(within(actionBar).queryByRole("button", { name: "Close gallery viewer" }))
+      .not.toBeInTheDocument();
+    expect(within(actionBar).getByLabelText("Image aspect ratio"))
+      .toHaveTextContent("1:1");
+    expect(within(controlBar).getByRole("button", { name: "Reset gallery image view" }))
+      .toBeInTheDocument();
+    const bottomDock = within(viewer).getByLabelText("Image viewer bottom dock");
+    expect(bottomDock).toHaveClass("viewer-bottom-dock");
+    expect(bottomDock).toContainElement(controlBar);
+    expect(controlBar).toHaveClass("viewer-control-panel");
     expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
     expect(within(viewer).getByText("two.jpg")).toBeInTheDocument();
     expect(
@@ -8659,10 +8708,7 @@ describe("App", () => {
     expect(
       within(viewer).getByRole("button", { name: "Next gallery image" }),
     ).toBeInTheDocument();
-    const closeButton = within(viewer).getByRole("button", {
-      name: "Close gallery viewer",
-    });
-    expect(closeButton).toHaveClass("opacity-100");
+    expect(actionBar).toHaveClass("opacity-100");
 
     fireEvent.click(
       within(viewer).getByRole("button", { name: "Next gallery image" }),
@@ -8679,74 +8725,79 @@ describe("App", () => {
 
     fireEvent.click(
       within(viewer).getByRole("button", {
-        name: "Show gallery image at 100 percent",
+        name: "Open gallery image zoom controls",
       }),
     );
+    fireEvent.click(within(viewer).getByRole("menuitem", { name: "100%" }));
     expect(within(viewer).getAllByText("100%").length).toBeGreaterThan(0);
 
     fireEvent.click(
-      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
-    );
-    expect(within(viewer).getByText("125%")).toBeInTheDocument();
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
-    );
-    expect(within(viewer).getByText("150%")).toBeInTheDocument();
-
-    fireEvent.click(
       within(viewer).getByRole("button", {
-        name: "Enter fullscreen gallery mode",
+        name: "Open gallery image zoom controls",
       }),
     );
-    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+    expect(within(viewer).getAllByText("125%").length).toBeGreaterThan(0);
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+    expect(within(viewer).getAllByText("150%").length).toBeGreaterThan(0);
+    for (let count = 0; count < 10; count += 1) {
+      fireEvent.click(
+        within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+      );
+    }
+    expect(within(viewer).getAllByText("400%").length).toBeGreaterThan(0);
     expect(
       within(viewer).getByRole("button", {
-        name: "Exit fullscreen gallery mode",
+        name: "Enter full-window gallery mode",
       }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Exit fullscreen gallery mode",
-      }),
-    );
-    expect(exitFullscreen).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(window, { key: "Escape" });
 
     fireEvent.click(
       within(viewer).getByRole("button", { name: "Previous gallery image" }),
     );
     expect(within(viewer).getByText("1 / 3")).toBeInTheDocument();
-    expect(within(viewer).getAllByText("Fit").length).toBeGreaterThan(0);
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).toBeInTheDocument();
     expect(
       within(viewer).queryByRole("button", { name: "Previous gallery image" }),
     ).not.toBeInTheDocument();
 
-    vi.useFakeTimers();
-    fireEvent.mouseMove(viewer);
-    act(() => {
-      vi.advanceTimersByTime(2100);
-    });
-    expect(closeButton).toHaveClass("opacity-0");
+    try {
+      vi.useFakeTimers();
+      fireEvent.mouseMove(viewer);
+      act(() => {
+        vi.advanceTimersByTime(2100);
+      });
+      expect(actionBar).toHaveClass("opacity-0");
 
-    fireEvent.mouseMove(viewer);
-    expect(closeButton).toHaveClass("opacity-100");
+      fireEvent.mouseMove(viewer);
+      expect(actionBar).toHaveClass("opacity-100");
 
-    act(() => {
-      vi.advanceTimersByTime(2100);
-    });
-    expect(closeButton).toHaveClass("opacity-0");
+      act(() => {
+        vi.advanceTimersByTime(2100);
+      });
+      expect(actionBar).toHaveClass("opacity-0");
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(closeButton).toHaveClass("opacity-100");
-    expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
-    vi.useRealTimers();
+      fireEvent.keyDown(window, { key: "ArrowRight" });
+      expect(actionBar).toHaveClass("opacity-100");
+      expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
 
     fireEvent.keyDown(window, { key: "Escape" });
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Gallery full-size viewer" }),
-      ).not.toBeInTheDocument();
-    });
+    expect(
+      screen.queryByRole("dialog", { name: "Gallery full-size viewer" }),
+    ).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "gallery_folder_images_list",
       expect.anything(),
@@ -8754,18 +8805,302 @@ describe("App", () => {
     );
   });
 
-  it("falls back to in-app fullscreen-like gallery mode when browser fullscreen is unavailable", async () => {
-    window.history.pushState({}, "", "/images/image_test_001");
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "image_get") {
-        expect(args.id).toBe("image_test_001");
-        return persistedImage({
-          title: "Fallback Fullscreen Gallery Image",
-          galleryImagePathsJson: '["C:/Gallery/fallback.jpg"]',
-        });
-      }
-      if (command === "performer_list" || command === "video_list") {
-        return [];
+  it("focuses an existing separate Tauri image viewer window and sends payload", async () => {
+    const { openGlobalImageViewerWindow } = await import(
+      "./runtime/globalImageViewerWindow"
+    );
+    const eventHarness = createTauriEventHarness();
+    const eventOrder: string[] = [];
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:app|supports_multiple_windows") {
+          return true;
+        }
+
+        if (command === "plugin:window|get_all_windows") {
+          return ["image-viewer"];
+        }
+
+        if (command === "plugin:webview|create_webview_window") {
+          throw new Error("Existing viewer window should be reused");
+        }
+
+        if (command === "plugin:window|set_focus") {
+          expect(args.label).toBe("image-viewer");
+          return null;
+        }
+
+        if (command === "plugin:event|listen") {
+          eventOrder.push(`listen:${args.event}`);
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          eventOrder.push(`emit:${args.event}`);
+          expect(args.event).toBe("global-image-viewer:payload");
+          expect(args.payload.initialIndex).toBe(1);
+          expect(args.payload.openRequestId).toEqual(expect.any(String));
+          const ackHandlerId = eventHarness.listenersByEvent.get(
+            "global-image-viewer:payload-ack",
+          );
+          if (ackHandlerId) {
+            eventHarness.callbacks.get(ackHandlerId)?.({
+              event: "global-image-viewer:payload-ack",
+              id: ackHandlerId,
+              payload: { openRequestId: args.payload.openRequestId },
+            });
+          }
+          return null;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+
+    await expect(
+      openGlobalImageViewerWindow({
+        images: [
+          { path: "C:/Gallery/one.jpg" },
+          { path: "C:/Gallery/two.jpg" },
+        ],
+        initialIndex: 1,
+      }),
+    ).resolves.toEqual({ mode: "window" });
+
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command, args]) => {
+        return (
+          command === "plugin:window|set_focus" &&
+          (args as { label?: string })?.label === "image-viewer"
+        );
+      }),
+    ).toBe(true);
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command]) =>
+        command === "plugin:webview|create_webview_window"
+      ),
+    ).toBe(false);
+    expect(eventOrder.indexOf("listen:global-image-viewer:payload-ack"))
+      .toBeLessThan(eventOrder.indexOf("emit:global-image-viewer:payload"));
+  });
+
+  it("opens the same image twice with different global viewer request ids", async () => {
+    const { openGlobalImageViewerWindow } = await import(
+      "./runtime/globalImageViewerWindow"
+    );
+    const eventHarness = createTauriEventHarness();
+    const emittedOpenRequestIds: string[] = [];
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:app|supports_multiple_windows") {
+          return true;
+        }
+
+        if (command === "plugin:window|get_all_windows") {
+          return ["image-viewer"];
+        }
+
+        if (command === "plugin:window|set_focus") {
+          return null;
+        }
+
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          emittedOpenRequestIds.push(args.payload.openRequestId);
+          expect(args.payload.initialIndex).toBe(0);
+          expect(args.payload.images[0].path).toBe("C:/Gallery/same.jpg");
+          const ackHandlerId = eventHarness.listenersByEvent.get(
+            "global-image-viewer:payload-ack",
+          );
+          if (ackHandlerId) {
+            eventHarness.callbacks.get(ackHandlerId)?.({
+              event: "global-image-viewer:payload-ack",
+              id: ackHandlerId,
+              payload: { openRequestId: args.payload.openRequestId },
+            });
+          }
+          return null;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+
+    await openGlobalImageViewerWindow({
+      images: [{ path: "C:/Gallery/same.jpg" }],
+      initialIndex: 0,
+    });
+    const firstStoredPayload = JSON.parse(
+      window.localStorage.getItem("sakurava.globalImageViewer.payload.v1") ?? "{}",
+    );
+
+    await openGlobalImageViewerWindow({
+      images: [{ path: "C:/Gallery/same.jpg" }],
+      initialIndex: 0,
+    });
+    const secondStoredPayload = JSON.parse(
+      window.localStorage.getItem("sakurava.globalImageViewer.payload.v1") ?? "{}",
+    );
+
+    expect(emittedOpenRequestIds).toHaveLength(2);
+    expect(emittedOpenRequestIds[0]).toEqual(expect.any(String));
+    expect(emittedOpenRequestIds[1]).toEqual(expect.any(String));
+    expect(emittedOpenRequestIds[0]).not.toBe(emittedOpenRequestIds[1]);
+    expect(firstStoredPayload.openRequestId).toBe(emittedOpenRequestIds[0]);
+    expect(secondStoredPayload.openRequestId).toBe(emittedOpenRequestIds[1]);
+  });
+
+  it("does not return success when existing viewer payload delivery fails", async () => {
+    const { openGlobalImageViewerWindow } = await import(
+      "./runtime/globalImageViewerWindow"
+    );
+    const eventHarness = createTauriEventHarness();
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:app|supports_multiple_windows") {
+          return true;
+        }
+
+        if (command === "plugin:window|get_all_windows") {
+          return ["image-viewer"];
+        }
+
+        if (command === "plugin:window|set_focus") {
+          return null;
+        }
+
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          throw new Error("emit denied");
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+
+    await expect(
+      openGlobalImageViewerWindow({
+        images: [{ path: "C:/Gallery/same.jpg" }],
+        initialIndex: 0,
+      }),
+    ).resolves.toMatchObject({
+      mode: "fallback",
+    });
+  });
+
+  it("creates a separate Tauri image viewer window when one is not open", async () => {
+    const { openGlobalImageViewerWindow } = await import(
+      "./runtime/globalImageViewerWindow"
+    );
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:app|supports_multiple_windows") {
+          return true;
+        }
+
+        if (command === "plugin:window|get_all_windows") {
+          return [];
+        }
+
+        if (command === "plugin:webview|create_webview_window") {
+          expect(args.options.label).toBe("image-viewer");
+          expect(args.options.url).toBe("/?sakuravaWindow=image-viewer");
+          return null;
+        }
+
+        if (command === "plugin:window|set_focus") {
+          expect(args.label).toBe("image-viewer");
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          expect(args.event).toBe("global-image-viewer:payload");
+          expect(args.payload.initialIndex).toBe(1);
+          expect(args.payload.openRequestId).toEqual(expect.any(String));
+          return null;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    await expect(
+      openGlobalImageViewerWindow({
+        images: [
+          { path: "C:/Gallery/one.jpg" },
+          { path: "C:/Gallery/two.jpg" },
+        ],
+        initialIndex: 1,
+      }),
+    ).resolves.toEqual({ mode: "window" });
+
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command, args]) => {
+        const options = (args as { options?: { label?: string } })?.options;
+        return (
+          command === "plugin:webview|create_webview_window" &&
+          options?.label === "image-viewer"
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it("returns fallback diagnostics when separate Tauri windows are unsupported", async () => {
+    const { openGlobalImageViewerWindow } = await import(
+      "./runtime/globalImageViewerWindow"
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "plugin:app|supports_multiple_windows") {
+        return false;
       }
 
       throw new Error(`Unexpected command ${command}`);
@@ -8774,48 +9109,999 @@ describe("App", () => {
       invoke,
       convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
     };
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      get: () => null,
+
+    await expect(
+      openGlobalImageViewerWindow({
+        images: [{ path: "C:/Gallery/one.jpg" }],
+        initialIndex: 0,
+      }),
+    ).resolves.toEqual({
+      mode: "fallback",
+      reason: "multiple-windows-unsupported",
     });
-    Object.defineProperty(document.documentElement, "requestFullscreen", {
-      configurable: true,
-      value: undefined,
+  });
+
+  it("returns fallback diagnostics when separate viewer window creation fails", async () => {
+    const { openGlobalImageViewerWindow } = await import(
+      "./runtime/globalImageViewerWindow"
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "plugin:app|supports_multiple_windows") {
+        return true;
+      }
+
+      if (command === "plugin:window|get_all_windows") {
+        return [];
+      }
+
+      if (command === "plugin:webview|create_webview_window") {
+        throw new Error("create denied");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    await expect(
+      openGlobalImageViewerWindow({
+        images: [{ path: "C:/Gallery/one.jpg" }],
+        initialIndex: 0,
+      }),
+    ).resolves.toEqual({
+      mode: "fallback",
+      reason: "viewer-window-create-failed: create denied",
+    });
+  });
+
+  it("emits an ack when the separate viewer window receives a payload", async () => {
+    const eventHarness = createTauriEventHarness();
+    const emittedAcks: string[] = [];
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          if (args.event === "global-image-viewer:payload-ack") {
+            emittedAcks.push(args.payload.openRequestId);
+            return null;
+          }
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+
+    render(<GlobalImageViewerWindow />);
+
+    await waitFor(() => {
+      expect(eventHarness.listenersByEvent.get("global-image-viewer:payload"))
+        .toEqual(expect.any(Number));
     });
 
-    render(<App />);
+    const payloadHandlerId = eventHarness.listenersByEvent.get(
+      "global-image-viewer:payload",
+    );
+    if (!payloadHandlerId) {
+      throw new Error("Payload listener was not registered");
+    }
 
-    expect(
-      await screen.findByText("Fallback Fullscreen Gallery Image"),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Preview Gallery image 1" }),
+    await act(async () => {
+      eventHarness.callbacks.get(payloadHandlerId)?.({
+        event: "global-image-viewer:payload",
+        id: payloadHandlerId,
+        payload: {
+          images: [{ path: "C:/Gallery/direct.jpg" }],
+          initialIndex: 0,
+          openRequestId: "image-open-1000-direct",
+        },
+      });
+    });
+
+    expect(emittedAcks).toContain("image-open-1000-direct");
+    expect(await screen.findByText("direct.jpg")).toBeInTheDocument();
+  });
+
+  it("refresh request makes the separate viewer read localStorage and ack", async () => {
+    const eventHarness = createTauriEventHarness();
+    const emittedAcks: string[] = [];
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          if (args.event === "global-image-viewer:payload-ack") {
+            emittedAcks.push(args.payload.openRequestId);
+            return null;
+          }
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+
+    render(<GlobalImageViewerWindow />);
+
+    await waitFor(() => {
+      expect(eventHarness.listenersByEvent.get("global-image-viewer:payload-refresh"))
+        .toEqual(expect.any(Number));
+    });
+
+    window.localStorage.setItem(
+      "sakurava.globalImageViewer.payload.v1",
+      JSON.stringify({
+        images: [{ path: "C:/Gallery/refresh.jpg" }],
+        initialIndex: 0,
+        openRequestId: "image-open-1001-refresh",
+      }),
     );
 
-    const viewer = await screen.findByRole("dialog", {
+    const refreshHandlerId = eventHarness.listenersByEvent.get(
+      "global-image-viewer:payload-refresh",
+    );
+    if (!refreshHandlerId) {
+      throw new Error("Payload refresh listener was not registered");
+    }
+
+    await act(async () => {
+      eventHarness.callbacks.get(refreshHandlerId)?.({
+        event: "global-image-viewer:payload-refresh",
+        id: refreshHandlerId,
+        payload: { openRequestId: "image-open-1001-refresh" },
+      });
+    });
+
+    expect(emittedAcks).toContain("image-open-1001-refresh");
+    expect(await screen.findByText("refresh.jpg")).toBeInTheDocument();
+  });
+
+  it("does not let stale localStorage overwrite a newer viewer payload", async () => {
+    const eventHarness = createTauriEventHarness();
+    const emittedAcks: string[] = [];
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
+        if (command === "plugin:event|emit_to") {
+          if (args.event === "global-image-viewer:payload-ack") {
+            emittedAcks.push(args.payload.openRequestId);
+            return null;
+          }
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+
+    render(<GlobalImageViewerWindow />);
+
+    await waitFor(() => {
+      expect(eventHarness.listenersByEvent.get("global-image-viewer:payload"))
+        .toEqual(expect.any(Number));
+      expect(eventHarness.listenersByEvent.get("global-image-viewer:payload-refresh"))
+        .toEqual(expect.any(Number));
+    });
+
+    const payloadHandlerId = eventHarness.listenersByEvent.get(
+      "global-image-viewer:payload",
+    );
+    const refreshHandlerId = eventHarness.listenersByEvent.get(
+      "global-image-viewer:payload-refresh",
+    );
+    if (!payloadHandlerId || !refreshHandlerId) {
+      throw new Error("Viewer listeners were not registered");
+    }
+
+    await act(async () => {
+      eventHarness.callbacks.get(payloadHandlerId)?.({
+        event: "global-image-viewer:payload",
+        id: payloadHandlerId,
+        payload: {
+          images: [{ path: "C:/Gallery/newer.jpg" }],
+          initialIndex: 0,
+          openRequestId: "image-open-2000-newer",
+        },
+      });
+    });
+
+    window.localStorage.setItem(
+      "sakurava.globalImageViewer.payload.v1",
+      JSON.stringify({
+        images: [{ path: "C:/Gallery/older.jpg" }],
+        initialIndex: 0,
+        openRequestId: "image-open-1000-older",
+      }),
+    );
+
+    await act(async () => {
+      eventHarness.callbacks.get(refreshHandlerId)?.({
+        event: "global-image-viewer:payload-refresh",
+        id: refreshHandlerId,
+        payload: { openRequestId: "image-open-1000-older" },
+      });
+    });
+
+    expect(emittedAcks).toContain("image-open-2000-newer");
+    expect(emittedAcks).not.toContain("image-open-1000-older");
+    expect(screen.getByText("newer.jpg")).toBeInTheDocument();
+    expect(screen.queryByText("older.jpg")).not.toBeInTheDocument();
+  });
+
+  it("closes the separate-window viewer safely on Escape", async () => {
+    const onClose = vi.fn();
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "escape.jpg",
+            path: "C:/Gallery/escape.jpg",
+            resolution: "800 x 600",
+          },
+        ]}
+        initialIndex={0}
+        isSeparateWindow
+        onClose={onClose}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
       name: "Gallery full-size viewer",
-    }, { timeout: 5000 });
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Enter fullscreen gallery mode",
-      }),
-    );
-    expect(
-      within(viewer).getByRole("button", {
-        name: "Exit fullscreen gallery mode",
-      }),
-    ).toBeInTheDocument();
-
+    });
     fireEvent.keyDown(window, { key: "Escape" });
 
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders advanced viewer shortcuts, transforms, pointer zoom, and minimap controls", async () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+    const requestFullscreen = vi.fn(async () => undefined);
+    Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    vi.useFakeTimers();
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "wide.jpg",
+            path: "C:/Gallery/wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const actionBar = within(viewer).getByLabelText("Image viewer actions");
+    const controlBar = within(viewer).getByLabelText("Image viewer controls");
+    expect(viewer).toHaveAttribute("data-theme-surface", "adaptive");
+    expect(viewer).toHaveClass("global-image-viewer");
+    expect(within(actionBar).getByLabelText("Image aspect ratio"))
+      .toHaveTextContent("16:9");
+    expect(actionBar).toHaveClass("viewer-panel");
+    const bottomDock = within(viewer).getByLabelText("Image viewer bottom dock");
+    expect(bottomDock).toHaveClass("viewer-bottom-dock");
+    expect(bottomDock).toContainElement(controlBar);
+    expect(bottomDock).toHaveAttribute("data-dock-mode");
+    expect(controlBar).toHaveClass("viewer-control-panel");
+    expect(controlBar).not.toHaveClass("flex-wrap");
+    const controlPanel = controlBar;
+    const controlStrip = controlBar.querySelector('[data-control-strip="inline-or-stacked"]');
+    expect(controlPanel).toHaveClass("viewer-control-panel");
+    expect(controlStrip).toHaveClass("viewer-control-strip");
+    if (!(controlStrip instanceof HTMLElement)) {
+      throw new Error("Viewer control panel structure was not rendered");
+    }
+    for (const element of [
+      controlBar,
+      controlPanel,
+      controlStrip,
+      ...controlBar.querySelectorAll("[data-control-group]"),
+    ]) {
+      expect(element).not.toHaveClass("w-full");
+      expect(element).not.toHaveClass("w-fit");
+      expect(element).not.toHaveClass("flex-1");
+      expect(element).not.toHaveClass("grow");
+      expect(element).not.toHaveClass("basis-full");
+      expect(element).not.toHaveClass("flex-wrap");
+    }
+    expect(controlBar).not.toHaveClass("lg:max-w-[calc(100%-20rem)]");
+    expect(controlBar.querySelector("[data-control-row]"))
+      .not.toBeInTheDocument();
+    expect(controlBar.querySelector('[data-control-group="fit-mode"]'))
+      .toBeInTheDocument();
+    const zoomCommand = controlBar.querySelector('[data-control-group="zoom-command"]');
+    const rotationCommand = controlBar.querySelector('[data-control-group="rotation-command"]');
+    expect(zoomCommand)
+      .toBeInTheDocument();
+    expect(rotationCommand)
+      .toBeInTheDocument();
+    expect(rotationCommand).toHaveClass("viewer-command-wide");
+    expect(controlBar.querySelector('[data-control-group="actual-size"]'))
+      .toHaveClass("viewer-command-wide");
+    expect(controlBar.querySelector('[data-control-group="window-mode"]'))
+      .toHaveClass("viewer-command-medium");
+    expect(controlBar.querySelector('[data-control-group="view-reset"]'))
+      .toHaveClass("viewer-command-medium");
+    expect(controlBar.querySelector('[data-control-group="more"]'))
+      .toBeInTheDocument();
+
+    fireEvent.click(
+      within(actionBar).getByRole("button", {
+        name: "Show image viewer shortcuts",
+      }),
+    );
+    const shortcuts = within(viewer).getByLabelText("Image viewer shortcuts");
+    expect(shortcuts).toHaveTextContent("Esc");
+    expect(shortcuts).toHaveTextContent("F11");
+    expect(shortcuts).toHaveTextContent("Wheel");
+    expect(shortcuts).toHaveTextContent("Drag");
+    fireEvent.pointerLeave(shortcuts);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
     expect(
-      within(viewer).getByRole("button", {
-        name: "Enter fullscreen gallery mode",
+      within(viewer).queryByLabelText("Image viewer shortcuts"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(actionBar).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+    expect(within(moreMenu).getByRole("menuitem", { name: "100%" }))
+      .toBeInTheDocument();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Rotation" }))
+      .toBeInTheDocument();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Reset View" }))
+      .toBeInTheDocument();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Save As" }))
+      .toBeDisabled();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Copy Image" }))
+      .toBeDisabled();
+    await act(async () => {
+      fireEvent.click(within(moreMenu).getByRole("menuitem", { name: "Copy File Name" }));
+    });
+    expect(writeText).toHaveBeenCalledWith("wide.jpg");
+    expect(within(moreMenu).getByText("Copied")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(within(moreMenu).getByRole("menuitem", { name: "Copy Image Path" }));
+    });
+    expect(writeText).toHaveBeenCalledWith("C:/Gallery/wide.jpg");
+    expect(within(moreMenu).getAllByText("Copied").length).toBeGreaterThan(0);
+    fireEvent.click(within(moreMenu).getByRole("menuitem", { name: "File Info" }));
+    const fileInfo = within(viewer).getByLabelText("Image file info");
+    expect(fileInfo).toHaveTextContent("Name");
+    expect(fileInfo).toHaveTextContent("File Type");
+    expect(fileInfo).toHaveTextContent("JPG image");
+    expect(fileInfo).toHaveTextContent("Dimension");
+    expect(fileInfo).toHaveTextContent("1600 x 900 (16:9)");
+    expect(fileInfo).toHaveTextContent("Size");
+    expect(fileInfo).toHaveTextContent("Date Taken");
+    expect(fileInfo).toHaveTextContent("N/A");
+    expect(fileInfo).toHaveTextContent("Path");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(within(viewer).queryByLabelText("Image file info")).not.toBeInTheDocument();
+
+    fireEvent.click(within(actionBar).getByRole("button", { name: "More image actions" }));
+    fireEvent.click(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Always Show Controls",
+      }),
+    );
+    act(() => {
+      vi.advanceTimersByTime(2500);
+    });
+    expect(actionBar).toHaveClass("opacity-100");
+
+    expect(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Always Show Controls",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Remember Viewer Settings",
+      }),
+    );
+    expect(window.localStorage.getItem("sakurava.globalImageViewer.settings.v1"))
+      .toContain("rememberViewerSettings");
+    fireEvent.click(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Always Show Controls",
+      }),
+    );
+    expect(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Always Show Controls",
+      }),
+    ).toHaveAttribute("aria-checked", "false");
+
+    const fitButton = within(viewer).getByRole("button", {
+      name: "Cycle gallery image fit mode: Fit Window",
+    });
+    expect(fitButton).toHaveAccessibleName("Cycle gallery image fit mode: Fit Window");
+    expect(fitButton).not.toHaveTextContent(/Fit/);
+    fireEvent.click(fitButton);
+    expect(fitButton).toHaveAccessibleName("Cycle gallery image fit mode: Fit Width");
+    fireEvent.click(fitButton);
+    expect(fitButton).toHaveAccessibleName("Cycle gallery image fit mode: Fit Height");
+    fireEvent.click(fitButton);
+    expect(fitButton).toHaveAccessibleName("Cycle gallery image fit mode: Fit Window");
+    fireEvent.click(fitButton);
+    expect(fitButton)
+      .toHaveAccessibleName("Cycle gallery image fit mode: Fit Width");
+    expect(
+      within(controlBar).getByRole("button", {
+        name: "Open gallery image zoom controls",
       }),
     ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    const zoomMenu = within(viewer).getByRole("menu", {
+      name: "Gallery image zoom controls",
+    });
+    expect(zoomMenu.querySelector(".lucide-zoom-out"))
+      .toBeInTheDocument();
+    expect(zoomMenu.querySelector(".lucide-zoom-in"))
+      .toBeInTheDocument();
+    expect(within(zoomMenu).getByLabelText("Set gallery image zoom percentage"))
+      .toBeInTheDocument();
+    for (const preset of ["25%", "50%", "75%", "100%", "150%", "200%", "300%", "400%", "500%"]) {
+      expect(within(zoomMenu).getByRole("menuitem", { name: preset }))
+        .toBeInTheDocument();
+    }
+    fireEvent.click(within(zoomMenu).getByRole("menuitem", { name: "300%" }));
+    expect(within(viewer).getAllByText("300%").length).toBeGreaterThan(0);
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("menuitem", { name: "500%" }),
+    );
+    expect(within(viewer).getAllByText("500%").length).toBeGreaterThan(0);
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: /Cycle gallery image fit mode/,
+      }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: /Cycle gallery image fit mode/,
+      }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(within(viewer).getByRole("menuitem", { name: "100%" }));
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+
+    expect(within(viewer).getByText("125% - Drag to pan")).toBeInTheDocument();
+    const minimap = within(viewer).getByLabelText("Image minimap navigator");
+    const minimapPanel = within(viewer).getByLabelText("Image position overview");
+    expect(minimapPanel).toBeInTheDocument();
+    expect(minimapPanel).toHaveAttribute("data-layout-zone", "viewer-minimap");
+    expect(bottomDock).toContainElement(minimapPanel);
+    expect(minimapPanel).toHaveClass("viewer-minimap-slot");
+    expect(minimapPanel).not.toHaveClass("absolute");
+    expect(minimapPanel).not.toHaveClass("bottom-7");
+    expect(minimapPanel).not.toHaveClass("right-5");
+    expect(minimap).toHaveStyle({ width: "180px", height: "101px" });
+    const minimapViewport = within(viewer).getByTestId("image-minimap-viewport");
+    const initialMinimapLeft = minimapViewport.style.left;
+    const panSurface = within(viewer).getByLabelText("Image pan surface");
+
+    fireEvent.pointerDown(panSurface, { clientX: 500, clientY: 350, pointerId: 1 });
+    fireEvent.pointerMove(panSurface, { clientX: 430, clientY: 320, pointerId: 1 });
+
+    expect(panSurface).toHaveAttribute("data-pan-x", "-70");
+    expect(panSurface).toHaveAttribute("data-pan-y", "-30");
+    expect(minimapViewport.style.left).not.toBe(initialMinimapLeft);
+
+    fireEvent.pointerDown(minimap, { clientX: 20, clientY: 20, pointerId: 2 });
+    expect(panSurface).not.toHaveAttribute("data-pan-x", "-70");
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+    );
+    const rotationMenu = within(viewer).getByRole("menu", {
+      name: "Gallery image rotation controls",
+    });
+    fireEvent.click(
+      within(rotationMenu).getByRole("button", { name: "Rotate gallery image right" }),
+    );
+    expect(within(rotationMenu).getByLabelText("Image rotation value"))
+      .toHaveTextContent("15°");
+    fireEvent.change(within(rotationMenu).getByLabelText("Set image rotation degrees"), {
+      target: { value: "45" },
+    });
+    expect(within(rotationMenu).getByLabelText("Image rotation value"))
+      .toHaveTextContent("45°");
+
+    const panXBeforeWheel = panSurface.getAttribute("data-pan-x");
+    fireEvent.wheel(within(viewer).getByAltText("Gallery image 1 full size"), {
+      clientX: 250,
+      clientY: 220,
+      deltaY: -120,
+    });
+    expect(panSurface.getAttribute("data-pan-x")).not.toBe(panXBeforeWheel);
+
+    fireEvent.keyDown(window, { key: "F11" });
+    expect(requestFullscreen).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("resets pan, drag state, and pannability when a reused viewer receives a new image payload", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    const { rerender } = render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "first-wide.jpg",
+            path: "C:/Gallery/first-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        viewerEpoch={0}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
+
+    const firstPanSurface = within(viewer).getByLabelText("Image pan surface");
+    expect(firstPanSurface).toHaveAttribute("data-pannable", "true");
+    fireEvent.pointerDown(firstPanSurface, {
+      clientX: 500,
+      clientY: 350,
+      pointerId: 10,
+    });
+    fireEvent.pointerMove(firstPanSurface, {
+      clientX: 420,
+      clientY: 330,
+      pointerId: 10,
+    });
+    expect(firstPanSurface).toHaveAttribute("data-pan-x", "-80");
+    expect(firstPanSurface).toHaveClass("cursor-grabbing");
+
+    rerender(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "first-wide.jpg",
+            path: "C:/Gallery/first-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        viewerEpoch={1}
+      />,
+    );
+
+    const samePayloadPanSurface = within(viewer).getByLabelText("Image pan surface");
+    expect(samePayloadPanSurface).toHaveAttribute("data-pan-x", "0");
+    expect(samePayloadPanSurface).toHaveAttribute("data-pan-y", "0");
+    expect(samePayloadPanSurface).not.toHaveClass("cursor-grabbing");
+
+    rerender(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "second-tall.jpg",
+            path: "C:/Gallery/second-tall.jpg",
+            resolution: "800 x 1200",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        viewerEpoch={2}
+      />,
+    );
+
+    expect(within(viewer).getByText("second-tall.jpg")).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image aspect ratio"))
+      .toHaveTextContent("2:3");
+    const secondPanSurface = within(viewer).getByLabelText("Image pan surface");
+    expect(secondPanSurface).toHaveAttribute("data-pan-x", "0");
+    expect(secondPanSurface).toHaveAttribute("data-pan-y", "0");
+    expect(secondPanSurface).toHaveAttribute("data-pannable", "false");
+    expect(secondPanSurface).toHaveClass("cursor-default");
+    expect(secondPanSurface).not.toHaveClass("cursor-grabbing");
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
+    expect(secondPanSurface).toHaveAttribute("data-pannable", "true");
+    expect(secondPanSurface).toHaveClass("cursor-grab");
+
+    fireEvent.pointerDown(secondPanSurface, {
+      clientX: 500,
+      clientY: 350,
+      pointerId: 11,
+    });
+    fireEvent.pointerMove(secondPanSurface, {
+      clientX: 470,
+      clientY: 290,
+      pointerId: 11,
+    });
+    expect(secondPanSurface).toHaveAttribute("data-pan-x", "-30");
+    expect(secondPanSurface).toHaveAttribute("data-pan-y", "-60");
+  });
+
+  it("resets same-image reopen state when only the open request id changes", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    const { rerender } = render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "same-wide.jpg",
+            path: "C:/Gallery/same-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        openRequestId="request-1"
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
+
+    const panSurface = within(viewer).getByLabelText("Image pan surface");
+    fireEvent.pointerDown(panSurface, {
+      clientX: 500,
+      clientY: 350,
+      pointerId: 20,
+    });
+    fireEvent.pointerMove(panSurface, {
+      clientX: 410,
+      clientY: 315,
+      pointerId: 20,
+    });
+    expect(panSurface).toHaveAttribute("data-pan-x", "-90");
+    expect(panSurface).toHaveAttribute("data-pan-y", "-35");
+    expect(panSurface).toHaveClass("cursor-grabbing");
+
+    rerender(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "same-wide.jpg",
+            path: "C:/Gallery/same-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        openRequestId="request-2"
+      />,
+    );
+
+    const reopenedPanSurface = within(viewer).getByLabelText("Image pan surface");
+    expect(reopenedPanSurface).toHaveAttribute("data-pan-x", "0");
+    expect(reopenedPanSurface).toHaveAttribute("data-pan-y", "0");
+    expect(reopenedPanSurface).not.toHaveClass("cursor-grabbing");
     expect(
-      screen.getByRole("dialog", { name: "Gallery full-size viewer" }),
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
     ).toBeInTheDocument();
+  });
+
+  it("ignores stale image loads from an older open request id", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    const { rerender } = render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "stale.jpg",
+            path: "C:/Gallery/stale.jpg",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        openRequestId="load-1"
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const staleImage = within(viewer).getByAltText("Gallery image 1 full size");
+    Object.defineProperty(staleImage, "naturalWidth", {
+      configurable: true,
+      value: 2000,
+    });
+    Object.defineProperty(staleImage, "naturalHeight", {
+      configurable: true,
+      value: 1000,
+    });
+
+    rerender(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "stale.jpg",
+            path: "C:/Gallery/stale.jpg",
+            resolution: "800 x 1200",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+        openRequestId="load-2"
+      />,
+    );
+
+    fireEvent.load(staleImage);
+
+    expect(within(viewer).getByLabelText("Image aspect ratio"))
+      .toHaveTextContent("2:3");
+    expect(within(viewer).getByText("800 x 1200")).toBeInTheDocument();
+  });
+
+  it("persists and clears remembered viewer fit, zoom, and rotation settings", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    const renderViewer = (filename: string) =>
+      render(
+        <GlobalImageViewer
+          images={[
+            {
+              filename,
+              path: `C:/Gallery/${filename}`,
+              resolution: "1600 x 900",
+            },
+          ]}
+          initialIndex={0}
+          onClose={vi.fn()}
+        />,
+      );
+
+    const firstRender = renderViewer("remembered-one.jpg");
+    let viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Rotate gallery image right" }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "More image actions" }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Remember Viewer Settings",
+      }),
+    );
+
+    const storedSettings = window.localStorage.getItem(
+      "sakurava.globalImageViewer.settings.v1",
+    );
+    expect(storedSettings).toContain('"fitMode":"width"');
+    expect(storedSettings).toContain('"isFitMode":false');
+    expect(storedSettings).toContain('"zoom":3');
+    expect(storedSettings).toContain('"rotation":15');
+    firstRender.unmount();
+
+    const rememberedRender = renderViewer("remembered-two.jpg");
+    viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Width",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("300%");
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+    );
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("15°");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-x", "0");
+    const storedBeforeReset = window.localStorage.getItem(
+      "sakurava.globalImageViewer.settings.v1",
+    );
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .not.toHaveTextContent("300%");
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+    );
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("0°");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-x", "0");
+    expect(window.localStorage.getItem("sakurava.globalImageViewer.settings.v1"))
+      .toBe(storedBeforeReset);
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "More image actions" }),
+    );
+    fireEvent.click(
+      within(viewer).getByRole("menuitemcheckbox", {
+        name: "Remember Viewer Settings",
+      }),
+    );
+    expect(window.localStorage.getItem("sakurava.globalImageViewer.settings.v1"))
+      .toBeNull();
+    rememberedRender.unmount();
+
+    renderViewer("default-after-clear.jpg");
+    viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+    );
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("0°");
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Open gallery image zoom controls",
+      }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .not.toHaveTextContent("300%");
+    fireEvent.keyDown(window, { key: "Escape" });
   });
 
   it("keeps a gallery viewer fallback when the selected full-size image fails", async () => {
@@ -8859,6 +10145,9 @@ describe("App", () => {
       }),
     ).toBeInTheDocument();
     expect(within(viewer).getByText("Image unavailable")).toBeInTheDocument();
+    expect(
+      within(viewer).queryByLabelText("Image position overview"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows an empty image detail gallery state for invalid saved gallery data", async () => {
