@@ -151,8 +151,14 @@ export async function openGlobalImageViewerWindow(
             return;
           }
 
-          const emitResult = await tryEmitViewerPayload(payload);
-          logViewerDiagnostic("createdWindowPayloadEmit", emitResult);
+          const deliveryResult = await deliverPayloadToCreatedWindow(payload);
+          logViewerDiagnostic("createdWindowPayloadDelivery", deliveryResult);
+
+          if (!deliveryResult.ok) {
+            settle(viewerFallback(deliveryResult.reason));
+            return;
+          }
+
           settle({ mode: "window" });
         })();
       });
@@ -252,6 +258,38 @@ async function deliverPayloadToExistingWindow(
     logViewerDiagnostic("viewer-payload-ack-timeout", {
       openRequestId: payload.openRequestId,
       phase: "refresh",
+      reason: refreshDelivery.reason,
+    });
+  }
+
+  return refreshDelivery;
+}
+
+async function deliverPayloadToCreatedWindow(
+  payload: GlobalImageViewerWindowPayload,
+) {
+  const directDelivery = await sendWithAck(payload, () =>
+    tryEmitViewerPayload(payload),
+  );
+
+  if (directDelivery.ok) {
+    return directDelivery;
+  }
+
+  logViewerDiagnostic("viewer-payload-ack-timeout", {
+    openRequestId: payload.openRequestId,
+    phase: "created-direct",
+    reason: directDelivery.reason,
+  });
+
+  const refreshDelivery = await sendWithAck(payload, () =>
+    tryEmitViewerPayloadRefreshRequest(payload.openRequestId),
+  );
+
+  if (!refreshDelivery.ok) {
+    logViewerDiagnostic("viewer-payload-ack-timeout", {
+      openRequestId: payload.openRequestId,
+      phase: "created-refresh",
       reason: refreshDelivery.reason,
     });
   }

@@ -9032,6 +9032,8 @@ describe("App", () => {
     const { openGlobalImageViewerWindow } = await import(
       "./runtime/globalImageViewerWindow"
     );
+    const eventHarness = createTauriEventHarness();
+    const eventOrder: string[] = [];
     const invoke = vi.fn(
       async (command: string, args: Record<string, any> = {}) => {
         if (command === "plugin:app|supports_multiple_windows") {
@@ -9053,10 +9055,31 @@ describe("App", () => {
           return null;
         }
 
+        if (command === "plugin:event|listen") {
+          eventOrder.push(`listen:${args.event}`);
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+
+        if (command === "plugin:event|unlisten") {
+          return null;
+        }
+
         if (command === "plugin:event|emit_to") {
+          eventOrder.push(`emit:${args.event}`);
           expect(args.event).toBe("global-image-viewer:payload");
           expect(args.payload.initialIndex).toBe(1);
           expect(args.payload.openRequestId).toEqual(expect.any(String));
+          const ackHandlerId = eventHarness.listenersByEvent.get(
+            "global-image-viewer:payload-ack",
+          );
+          if (ackHandlerId) {
+            eventHarness.callbacks.get(ackHandlerId)?.({
+              event: "global-image-viewer:payload-ack",
+              id: ackHandlerId,
+              payload: { openRequestId: args.payload.openRequestId },
+            });
+          }
           return null;
         }
 
@@ -9066,6 +9089,10 @@ describe("App", () => {
     window.__TAURI_INTERNALS__ = {
       invoke,
       convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
     };
 
     await expect(
@@ -9087,6 +9114,8 @@ describe("App", () => {
         );
       }),
     ).toBe(true);
+    expect(eventOrder.indexOf("listen:global-image-viewer:payload-ack"))
+      .toBeLessThan(eventOrder.indexOf("emit:global-image-viewer:payload"));
   });
 
   it("returns fallback diagnostics when separate Tauri windows are unsupported", async () => {
@@ -10965,9 +10994,9 @@ describe("App", () => {
               command === "video_create" &&
               args.input.ratingJson ===
                 '{"rewatch":5,"performance":4,"visual":4,"intensity":3,"story":4,"chemistry":5}',
-          ),
-        ).toBe(true);
-      });
+      ),
+    ).toBe(true);
+  });
       expect(screen.queryByTestId("rating-validation-error")).not.toBeInTheDocument();
     });
 
