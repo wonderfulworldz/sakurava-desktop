@@ -4182,6 +4182,47 @@ describe("App", () => {
     },
   );
 
+  it.each([
+    {
+      path: "/videos",
+      buttonName: "Filter 0",
+      regionName: "Videos filters",
+      sectionLabels: ["Catalog filters", "Media filters"],
+      controls: ["Categories", "Quality", "Rating", "Year", "Duration"],
+    },
+    {
+      path: "/images",
+      buttonName: "Filter 0",
+      regionName: "Images filters",
+      sectionLabels: ["Catalog filters", "Media filters"],
+      controls: ["Categories", "Quality", "Rating", "Year", "Image Count"],
+    },
+    {
+      path: "/performers",
+      buttonName: "Filter 0",
+      regionName: "Performers filters",
+      sectionLabels: ["Profile filters", "Activity filters"],
+      controls: ["Categories", "Status", "Rating", "Debut Year", "Filmography", "Pictorial"],
+    },
+  ])(
+    "opens the advanced filter panel for $path",
+    ({ path, buttonName, regionName, sectionLabels, controls }) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: buttonName }));
+
+      const panel = within(screen.getByRole("region", { name: regionName }));
+      for (const sectionLabel of sectionLabels) {
+        expect(panel.getByText(sectionLabel)).toBeInTheDocument();
+      }
+      for (const control of controls) {
+        expect(panel.getByLabelText(control)).toBeInTheDocument();
+      }
+      expect(panel.getByRole("button", { name: "Reset all filters" })).toBeInTheDocument();
+    },
+  );
+
   it("keeps manual path typing available when browse is enabled", () => {
     window.history.pushState({}, "", "/videos/new");
     window.__TAURI_INTERNALS__ = {
@@ -5267,6 +5308,76 @@ describe("App", () => {
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.getByText("Beta Clip")).toBeInTheDocument();
+  });
+
+  it("resets advanced panel filters without resetting sort or page size", async () => {
+    window.history.pushState({}, "", "/images");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_1",
+            title: "Alpha Gallery",
+            categoriesJson: '["Category A"]',
+            imageCount: 42,
+            ratingJson: '{"visual":5}',
+          }),
+          persistedImage({
+            id: "image_2",
+            title: "Beta Gallery",
+            categoriesJson: '["Category B"]',
+            imageCount: 120,
+            ratingJson: '{"visual":2}',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Alpha Gallery")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
+    const panel = within(screen.getByRole("region", { name: "Images filters" }));
+    fireEvent.change(screen.getByLabelText("Images search"), {
+      target: { value: "alpha" },
+    });
+    fireEvent.change(panel.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+    fireEvent.change(panel.getByLabelText("Image Count"), {
+      target: { value: "Some" },
+    });
+    fireEvent.change(screen.getByLabelText("Sorting"), {
+      target: { value: "Title A-Z" },
+    });
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "64" },
+    });
+
+    expect(screen.getByRole("button", { name: "Filter 3" })).toBeInTheDocument();
+    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByText("Category: Category A")).toBeInTheDocument();
+    expect(screen.getByText("Image Count: Some")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Gallery")).not.toBeInTheDocument();
+
+    fireEvent.click(panel.getByRole("button", { name: "Reset all filters" }));
+
+    expect(screen.getByRole("button", { name: "Filter 0" })).toBeInTheDocument();
+    expect(screen.getByText("No filters selected")).toBeInTheDocument();
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
+    expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
+    expect(screen.queryByText("Image Count: Some")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Images search")).toHaveValue("");
+    expect(panel.getByLabelText("Image Count")).toHaveDisplayValue("All image counts");
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.getByText("Alpha Gallery")).toBeInTheDocument();
+    expect(screen.getByText("Beta Gallery")).toBeInTheDocument();
   });
 
   it("applies category multi-filter with AND behavior and caps active filters", async () => {

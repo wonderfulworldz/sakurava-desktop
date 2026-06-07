@@ -322,7 +322,12 @@ function CollectionToolbar({
 
         <button
           type="button"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
+          className={[
+            "inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition",
+            activeFilterCount > 0 || filterPanelOpen
+              ? "border-sakura-200 bg-sakura-50 text-sakura-700 hover:border-sakura-300"
+              : "border-slate-200 bg-white text-slate-700 hover:border-sakura-200 hover:text-sakura-600",
+          ].join(" ")}
           aria-label={`${t("collection.filter")} ${activeFilterCount}`}
           aria-expanded={filterPanelOpen}
           aria-controls={`${config.kind}-filter-panel`}
@@ -371,27 +376,60 @@ function CollectionToolbar({
           id={`${config.kind}-filter-panel`}
           role="region"
           aria-label={`${title} filters`}
-          className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+          className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <SelectBox
-              id={`${config.kind}-category-filter`}
-              label={t("collection.categories")}
-              options={[t("collection.addCategoryFilter"), ...selectableCategories]}
-              value={t("collection.addCategoryFilter")}
-              onChange={onAddCategoryFilter}
-              disabled={categorySelectDisabled}
-            />
-            {catalogFilterGroups(config.kind).map((filter) => (
-              <SelectBox
-                key={filter.id}
-                id={`${config.kind}-${filter.id}-filter`}
-                label={filter.label}
-                options={filter.options}
-                value={dataFilters[filter.id] ?? filter.options[0]}
-                onChange={(value) => onDataFilterChange(filter.id, value)}
-              />
+          <div className="grid md:grid-cols-2">
+            {catalogFilterPanelSections(config.kind).map((section, sectionIndex) => (
+              <div
+                key={section.label}
+                className={[
+                  "space-y-3 p-4",
+                  sectionIndex > 0 ? "border-t border-slate-100 md:border-l md:border-t-0" : "",
+                ].join(" ")}
+              >
+                <p className="text-xs font-bold uppercase tracking-normal text-slate-500">
+                  {section.label}
+                </p>
+                {section.includeCategories && (
+                  <SelectBox
+                    id={`${config.kind}-category-filter`}
+                    label={t("collection.categories")}
+                    options={[t("collection.addCategoryFilter"), ...selectableCategories]}
+                    value={t("collection.addCategoryFilter")}
+                    onChange={onAddCategoryFilter}
+                    disabled={categorySelectDisabled}
+                  />
+                )}
+                {section.filterIds.map((filterId) => {
+                  const filter = catalogFilterById(config.kind, filterId);
+
+                  if (!filter) {
+                    return null;
+                  }
+
+                  return (
+                    <SelectBox
+                      key={filter.id}
+                      id={`${config.kind}-${filter.id}-filter`}
+                      label={filter.label}
+                      options={filter.options}
+                      value={dataFilters[filter.id] ?? filter.options[0]}
+                      onChange={(value) => onDataFilterChange(filter.id, value)}
+                    />
+                  );
+                })}
+              </div>
             ))}
+          </div>
+          <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-4 py-3">
+            <button
+              type="button"
+              aria-label="Reset all filters"
+              className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-semibold text-sakura-600 transition hover:bg-sakura-50 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+              onClick={onClearAllFilters}
+            >
+              Reset all
+            </button>
           </div>
         </div>
       )}
@@ -542,6 +580,55 @@ function catalogFilterGroups(kind: CollectionConfig["kind"]) {
     { id: "year", label: "Year", options: yearFilterOptions("All years") },
     { id: "duration", label: "Duration", options: ["All durations", "Short", "Medium", "Long"] },
   ];
+}
+
+function catalogFilterPanelSections(kind: CollectionConfig["kind"]) {
+  if (kind === "performers") {
+    return [
+      {
+        label: "Profile filters",
+        includeCategories: true,
+        filterIds: ["status", "rating"],
+      },
+      {
+        label: "Activity filters",
+        includeCategories: false,
+        filterIds: ["debutYear", "filmography", "pictorials"],
+      },
+    ];
+  }
+
+  if (kind === "images") {
+    return [
+      {
+        label: "Catalog filters",
+        includeCategories: true,
+        filterIds: ["quality", "rating"],
+      },
+      {
+        label: "Media filters",
+        includeCategories: false,
+        filterIds: ["year", "imageCount"],
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "Catalog filters",
+      includeCategories: true,
+      filterIds: ["quality", "rating"],
+    },
+    {
+      label: "Media filters",
+      includeCategories: false,
+      filterIds: ["year", "duration"],
+    },
+  ];
+}
+
+function catalogFilterById(kind: CollectionConfig["kind"], filterId: string) {
+  return catalogFilterGroups(kind).find((filter) => filter.id === filterId);
 }
 
 function getActiveDataFilterEntries(
