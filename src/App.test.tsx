@@ -481,10 +481,11 @@ describe("App", () => {
     expect(screen.getByText(count)).toBeInTheDocument();
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
-    expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter 0" })).toBeInTheDocument();
+    expect(screen.getByText("No filters selected")).toBeInTheDocument();
     expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Added");
     expect(screen.queryByDisplayValue("Add category filter")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
     expect(screen.getByText("Categories")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
@@ -580,13 +581,13 @@ describe("App", () => {
       render(<App />);
 
       expect(screen.getByPlaceholderText(/Search .*\.{3}/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filter 0" })).toBeInTheDocument();
       expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Last Added");
       expect(
         screen.getByRole("button", { name: "Switch to list view" }),
       ).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
       const panel = within(screen.getByRole("region", { name: panelName }));
 
       expect(panel.getByLabelText("Categories")).toBeInTheDocument();
@@ -4131,6 +4132,56 @@ describe("App", () => {
     },
   );
 
+  it.each([
+    {
+      path: "/videos",
+      searchLabel: "Videos search",
+      searchValue: "sample",
+      dataFilterLabel: "Duration",
+      dataFilterValue: "Short",
+      dataChip: "Duration: Short",
+    },
+    {
+      path: "/images",
+      searchLabel: "Images search",
+      searchValue: "sample",
+      dataFilterLabel: "Image Count",
+      dataFilterValue: "Many",
+      dataChip: "Image Count: Many",
+    },
+    {
+      path: "/performers",
+      searchLabel: "Performers search",
+      searchValue: "sample",
+      dataFilterLabel: "Status",
+      dataFilterValue: "Active",
+      dataChip: "Status: Active",
+    },
+  ])(
+    "renders active toolbar chips for $path",
+    ({ path, searchLabel, searchValue, dataFilterLabel, dataFilterValue, dataChip }) => {
+      window.history.pushState({}, "", path);
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
+      fireEvent.change(screen.getByLabelText(searchLabel), {
+        target: { value: searchValue },
+      });
+      fireEvent.change(screen.getByLabelText("Categories"), {
+        target: { value: "Category A" },
+      });
+      fireEvent.change(screen.getByLabelText(dataFilterLabel), {
+        target: { value: dataFilterValue },
+      });
+
+      expect(screen.getByRole("button", { name: "Filter 3" })).toBeInTheDocument();
+      expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+      expect(screen.getByText(`Search: ${searchValue}`)).toBeInTheDocument();
+      expect(screen.getByText("Category: Category A")).toBeInTheDocument();
+      expect(screen.getByText(dataChip)).toBeInTheDocument();
+    },
+  );
+
   it("keeps manual path typing available when browse is enabled", () => {
     window.history.pushState({}, "", "/videos/new");
     window.__TAURI_INTERNALS__ = {
@@ -4853,7 +4904,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Long Rated Video")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
     const panel = within(screen.getByRole("region", { name: "Videos filters" }));
 
     fireEvent.change(panel.getByLabelText("Rating"), {
@@ -4901,7 +4952,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Some Rated Image")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
     const panel = within(screen.getByRole("region", { name: "Images filters" }));
 
     expect(panel.getByLabelText("Image Count")).toBeInTheDocument();
@@ -4961,7 +5012,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Active Rated Performer")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
     const panel = within(screen.getByRole("region", { name: "Performers filters" }));
 
     fireEvent.change(panel.getByLabelText("Status"), {
@@ -5046,7 +5097,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Classic Video")).toBeInTheDocument();
     expect(screen.getByText("Modern Video")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
 
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
@@ -5054,9 +5105,13 @@ describe("App", () => {
 
     expect(screen.getByText("Classic Video")).toBeInTheDocument();
     expect(screen.queryByText("Modern Video")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove Category A" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove category filter Category A" }),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove Category A" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove category filter Category A" }),
+    );
 
     expect(screen.getByText("Classic Video")).toBeInTheDocument();
     expect(screen.getByText("Modern Video")).toBeInTheDocument();
@@ -5064,7 +5119,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category B" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
     expect(screen.getByText("Classic Video")).toBeInTheDocument();
     expect(screen.getByText("Modern Video")).toBeInTheDocument();
@@ -5102,7 +5157,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Zulu Archive")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
 
     fireEvent.change(screen.getByLabelText("Videos search"), {
       target: { value: "archive" },
@@ -5157,7 +5212,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Alpha Archive")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
     fireEvent.change(screen.getByLabelText("Videos search"), {
       target: { value: "alpha" },
     });
@@ -5177,14 +5232,37 @@ describe("App", () => {
     expect(screen.getByLabelText("Videos search")).toHaveValue("alpha");
     expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.getByRole("button", { name: "Filter 3" })).toBeInTheDocument();
+    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByText("Category: Category A")).toBeInTheDocument();
+    expect(screen.getByText("Duration: Long")).toBeInTheDocument();
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.queryByText("Beta Clip")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Duration filter" }));
+
+    expect(screen.getByLabelText("Duration")).toHaveDisplayValue("All durations");
+    expect(screen.getByRole("button", { name: "Filter 2" })).toBeInTheDocument();
+    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByText("Category: Category A")).toBeInTheDocument();
+    expect(screen.queryByText("Duration: Long")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Duration"), {
+      target: { value: "Long" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
     expect(screen.getByLabelText("Videos search")).toHaveValue("");
     expect(screen.getByLabelText("Duration")).toHaveDisplayValue("All durations");
-    expect(screen.queryByRole("button", { name: "Remove Category A" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Remove category filter Category A" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
+    expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
+    expect(screen.queryByText("Duration: Long")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter 0" })).toBeInTheDocument();
+    expect(screen.getByText("No filters selected")).toBeInTheDocument();
     expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
@@ -5229,7 +5307,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Two Category Video")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
 
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
@@ -5242,6 +5320,19 @@ describe("App", () => {
     expect(screen.getByText("Five Category Video")).toBeInTheDocument();
     expect(screen.queryByText("Single Category Video")).not.toBeInTheDocument();
     expect(screen.queryByText("Sixth Category Video")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter 2" })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove category filter Category A" }),
+    );
+
+    expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
+    expect(screen.getByText("Category: Category B")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter 1" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
 
     for (const category of ["Category C", "Category D", "Category E"]) {
       fireEvent.change(screen.getByLabelText("Categories"), {
@@ -5286,7 +5377,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Category A Video 01")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
 
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category A" },
@@ -5294,7 +5385,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Category A Video 33")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
     fireEvent.change(screen.getByLabelText("Categories"), {
       target: { value: "Category B" },
     });
@@ -5392,7 +5483,7 @@ describe("App", () => {
     expect(await screen.findByText("Zulu Archive 01")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
-    fireEvent.click(screen.getByRole("button", { name: /filter/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
     fireEvent.change(screen.getByLabelText("Videos search"), {
       target: { value: "archive" },
     });

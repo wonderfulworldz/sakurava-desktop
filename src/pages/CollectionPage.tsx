@@ -5,6 +5,7 @@ import {
   List,
   Plus,
   Search,
+  X,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -88,11 +89,6 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     resetToFirstPage();
   }
 
-  function clearCategoryFilters() {
-    setActiveCategoryFilters([]);
-    resetToFirstPage();
-  }
-
   function clearAllFilters() {
     setSearchQuery("");
     setActiveCategoryFilters([]);
@@ -144,10 +140,21 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
         onToggleFilterPanel={() => setFilterPanelOpen((open) => !open)}
         onAddCategoryFilter={addCategoryFilter}
         onRemoveCategoryFilter={removeCategoryFilter}
-        onClearCategoryFilters={clearCategoryFilters}
         onClearAllFilters={clearAllFilters}
+        onClearSearch={() => {
+          setSearchQuery("");
+          resetToFirstPage();
+        }}
         onDataFilterChange={(filterId, value) => {
           setDataFilters((filters) => ({ ...filters, [filterId]: value }));
+          resetToFirstPage();
+        }}
+        onClearDataFilter={(filterId) => {
+          setDataFilters((filters) => {
+            const nextFilters = { ...filters };
+            delete nextFilters[filterId];
+            return nextFilters;
+          });
           resetToFirstPage();
         }}
         onSortChange={(value) => {
@@ -240,9 +247,10 @@ function CollectionToolbar({
   onToggleFilterPanel,
   onAddCategoryFilter,
   onRemoveCategoryFilter,
-  onClearCategoryFilters,
   onClearAllFilters,
+  onClearSearch,
   onDataFilterChange,
+  onClearDataFilter,
   onSortChange,
   onViewModeChange,
 }: CollectionPageProps & {
@@ -257,9 +265,10 @@ function CollectionToolbar({
   onToggleFilterPanel: () => void;
   onAddCategoryFilter: (value: string) => void;
   onRemoveCategoryFilter: (value: string) => void;
-  onClearCategoryFilters: () => void;
   onClearAllFilters: () => void;
+  onClearSearch: () => void;
   onDataFilterChange: (filterId: string, value: string) => void;
+  onClearDataFilter: (filterId: string) => void;
   onSortChange: (value: string) => void;
   onViewModeChange: (value: ViewMode) => void;
 }) {
@@ -269,45 +278,69 @@ function CollectionToolbar({
   const reachedCategoryLimit = activeCategoryFilters.length >= 5;
   const categorySelectDisabled =
     reachedCategoryLimit || selectableCategories.length === 0;
-  const hasActiveFilters =
-    searchQuery.trim().length > 0 ||
-    activeCategoryFilters.length > 0 ||
-    Object.entries(dataFilters).some(
-      ([filterId, value]) => !isAllFilterValue(filterId, value),
-    );
   const { t } = useLanguage();
   const viewAction = viewMode === "card" ? "table" : "card";
   const viewLabel = viewMode === "card" ? t("collection.switchToListView") : t("collection.switchToGridView");
   const ViewIcon = viewMode === "card" ? List : Grid2X2;
   const searchPlaceholder = t(`collection.searchPlaceholder.${config.kind}`);
   const title = t(`collection.title.${config.kind}`);
+  const activeDataFilters = getActiveDataFilterEntries(config.kind, dataFilters);
+  const trimmedSearch = searchQuery.trim();
+  const activeFilterCount =
+    (trimmedSearch ? 1 : 0) +
+    activeCategoryFilters.length +
+    activeDataFilters.length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3" aria-label={`${title} catalog toolbar`}>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_auto_minmax(180px,230px)_auto] xl:items-center">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_auto_minmax(190px,240px)_auto] xl:items-center">
         <label className="relative block">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             size={18}
           />
           <input
-            className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
             placeholder={searchPlaceholder}
             aria-label={`${title} search`}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
           />
+          {trimmedSearch && (
+            <button
+              type="button"
+              aria-label={`Clear ${title} search`}
+              title={`Clear ${title} search`}
+              className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+              onClick={onClearSearch}
+            >
+              <X size={15} />
+            </button>
+          )}
         </label>
 
         <button
           type="button"
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
+          aria-label={`${t("collection.filter")} ${activeFilterCount}`}
           aria-expanded={filterPanelOpen}
           aria-controls={`${config.kind}-filter-panel`}
           onClick={onToggleFilterPanel}
         >
           <Filter size={18} />
           {t("collection.filter")}
+          <span
+            aria-label={`${activeFilterCount} active filters`}
+            className={[
+              "inline-flex min-w-6 items-center justify-center rounded-md border px-1.5 py-0.5 text-xs font-bold",
+              activeFilterCount > 0
+                ? "border-sakura-200 bg-sakura-50 text-sakura-700"
+                : "border-slate-200 bg-slate-50 text-slate-500",
+            ].join(" ")}
+          >
+            {activeFilterCount}
+          </span>
           <ChevronDown
             size={16}
             className={filterPanelOpen ? "rotate-180 transition" : "transition"}
@@ -360,55 +393,83 @@ function CollectionToolbar({
               />
             ))}
           </div>
-          {hasActiveFilters && (
-            <div className="mt-3 border-t border-slate-200 pt-3">
-              <button
-                type="button"
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600"
-                onClick={onClearAllFilters}
-              >
-                {t("collection.clearAllFilters")}
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {(activeCategoryFilters.length > 0 || reachedCategoryLimit) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-          {activeCategoryFilters.map((category) => (
-            <span
-              key={normalizeCategoryKey(category)}
-              className="inline-flex max-w-full items-center gap-2 rounded-full bg-sakura-50 px-3 py-1.5 text-xs font-semibold text-sakura-700"
-            >
-              <span className="truncate">{category}</span>
-              <button
-                type="button"
-                aria-label={`Remove ${category}`}
-                className="rounded-full text-sakura-500 hover:text-sakura-700"
-                onClick={() => onRemoveCategoryFilter(category)}
-              >
-                Remove
-              </button>
+      <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {!hasActiveFilters && (
+            <span className="text-xs font-semibold text-slate-500">
+              No filters selected
             </span>
-          ))}
-          {activeCategoryFilters.length > 0 && (
-            <button
-              type="button"
-              className="text-xs font-semibold text-slate-500 hover:text-sakura-600"
-              onClick={onClearCategoryFilters}
-            >
-              {t("collection.clearAll")}
-            </button>
           )}
+          {trimmedSearch && (
+            <FilterChip
+              label={`Search: ${trimmedSearch}`}
+              removeLabel={`Clear ${title} search filter`}
+              onRemove={onClearSearch}
+            />
+          )}
+          {activeCategoryFilters.map((category) => (
+            <FilterChip
+              key={normalizeCategoryKey(category)}
+              label={`Category: ${category}`}
+              removeLabel={`Remove category filter ${category}`}
+              onRemove={() => onRemoveCategoryFilter(category)}
+            />
+          ))}
+          {activeDataFilters.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={`${filter.label}: ${filter.value}`}
+              removeLabel={`Remove ${filter.label} filter`}
+              onRemove={() => onClearDataFilter(filter.id)}
+            />
+          ))}
           {reachedCategoryLimit && (
             <span className="text-xs font-semibold text-slate-500">
               {t("collection.categoryLimitReached")}
             </span>
           )}
         </div>
-      )}
+        {hasActiveFilters && (
+          <div className="shrink-0">
+            <button
+              type="button"
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-700"
+              onClick={onClearAllFilters}
+            >
+              {t("collection.clearAllFilters")}
+            </button>
+          </div>
+        )}
+      </div>
     </section>
+  );
+}
+
+function FilterChip({
+  label,
+  removeLabel,
+  onRemove,
+}: {
+  label: string;
+  removeLabel: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-sakura-100 bg-sakura-50 px-2.5 py-1.5 text-xs font-semibold text-sakura-700">
+      <span className="max-w-56 truncate">{label}</span>
+      <button
+        type="button"
+        aria-label={removeLabel}
+        title={removeLabel}
+        className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-sakura-500 transition hover:bg-white hover:text-sakura-700 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+        onClick={onRemove}
+      >
+        <X size={13} />
+      </button>
+    </span>
   );
 }
 
@@ -481,6 +542,29 @@ function catalogFilterGroups(kind: CollectionConfig["kind"]) {
     { id: "year", label: "Year", options: yearFilterOptions("All years") },
     { id: "duration", label: "Duration", options: ["All durations", "Short", "Medium", "Long"] },
   ];
+}
+
+function getActiveDataFilterEntries(
+  kind: CollectionConfig["kind"],
+  dataFilters: DataFilterValues,
+) {
+  const filtersById = new Map(
+    catalogFilterGroups(kind).map((filter) => [filter.id, filter]),
+  );
+
+  return Object.entries(dataFilters)
+    .filter(([filterId, value]) => {
+      return filtersById.has(filterId) && !isAllFilterValue(filterId, value);
+    })
+    .map(([filterId, value]) => {
+      const filter = filtersById.get(filterId);
+
+      return {
+        id: filterId,
+        label: filter?.label ?? filterId,
+        value,
+      };
+    });
 }
 
 function qualityFilterOptions() {
