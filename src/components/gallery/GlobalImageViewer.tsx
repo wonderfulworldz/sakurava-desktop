@@ -134,6 +134,7 @@ function GlobalImageViewer({
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [rotationMenuOpen, setRotationMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [viewerControlsMenuOpen, setViewerControlsMenuOpen] = useState(false);
   const [fileInfoOpen, setFileInfoOpen] = useState(false);
   const [alwaysShowControls, setAlwaysShowControls] = useState(
     () => readStoredViewerSettings().alwaysShowControls,
@@ -207,9 +208,9 @@ function GlobalImageViewer({
     : "pointer-events-none opacity-0";
   const glassPanelClass = "viewer-panel";
   const glassButtonClass =
-    "viewer-button inline-flex items-center justify-center rounded-xl transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-40";
+    "viewer-button inline-flex items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 disabled:cursor-not-allowed disabled:opacity-40";
   const pillButtonClass =
-    "inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:px-4";
+    "inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 sm:px-4";
   const activePillClass = "bg-sakura-500/85 text-white shadow-sm";
   const inactivePillClass = "viewer-button hover:text-sakura-600";
   const viewportRect = useMemo(
@@ -225,7 +226,12 @@ function GlobalImageViewer({
   });
   const dockMinimapVisible = showMinimap && bottomDockMode !== "compact";
   const anyPopoverOpen =
-    shortcutsOpen || zoomMenuOpen || rotationMenuOpen || moreMenuOpen || fileInfoOpen;
+    shortcutsOpen ||
+    zoomMenuOpen ||
+    rotationMenuOpen ||
+    moreMenuOpen ||
+    viewerControlsMenuOpen ||
+    fileInfoOpen;
   const canCopyText =
     typeof navigator !== "undefined" &&
     typeof navigator.clipboard?.writeText === "function";
@@ -259,6 +265,7 @@ function GlobalImageViewer({
     setZoomMenuOpen(false);
     setRotationMenuOpen(false);
     setMoreMenuOpen(false);
+    setViewerControlsMenuOpen(false);
     setFileInfoOpen(false);
     clearPopoverCloseTimer();
   }
@@ -304,7 +311,9 @@ function GlobalImageViewer({
     scheduleHideControls();
   }
 
-  function openPopover(popover: "shortcuts" | "zoom" | "rotation" | "more" | "fileInfo") {
+  function openPopover(
+    popover: "shortcuts" | "zoom" | "rotation" | "more" | "viewerControls" | "fileInfo",
+  ) {
     setControlsVisible(true);
     clearHideControlsTimer();
     clearPopoverCloseTimer();
@@ -312,6 +321,7 @@ function GlobalImageViewer({
     setZoomMenuOpen(popover === "zoom");
     setRotationMenuOpen(popover === "rotation");
     setMoreMenuOpen(popover === "more");
+    setViewerControlsMenuOpen(popover === "viewerControls");
     setFileInfoOpen(popover === "fileInfo");
   }
 
@@ -474,9 +484,15 @@ function GlobalImageViewer({
     resetPan();
   }
 
+  function snapRotation(value: number) {
+    const snapPoints = [-180, -90, 0, 90, 180];
+    const closeSnap = snapPoints.find((snapPoint) => Math.abs(value - snapPoint) <= 2);
+    return closeSnap ?? value;
+  }
+
   function setRotationDegrees(nextRotation: number) {
     showControlsAndResetIdleTimer();
-    setRotation(normalizeRotation(nextRotation));
+    setRotation(normalizeRotation(snapRotation(nextRotation)));
     resetPan();
   }
 
@@ -832,6 +848,7 @@ function GlobalImageViewer({
     isFitMode,
     isFullWindow,
     moreMenuOpen,
+    viewerControlsMenuOpen,
     normalizedImages.length,
     onClose,
     panBounds,
@@ -903,7 +920,7 @@ function GlobalImageViewer({
       <div
         aria-label="Image metadata"
         data-layout-zone="viewer-metadata"
-        className={`pointer-events-none absolute left-3 top-3 z-20 flex max-w-[calc(100%-6rem)] min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-opacity duration-300 sm:left-5 sm:top-5 sm:max-w-[calc(100%-16rem)] sm:gap-3 sm:px-4 sm:py-3 ${glassPanelClass} ${controlsVisibilityClass}`}
+        className={`pointer-events-none absolute left-3 top-3 z-20 flex max-w-[calc(100%-6rem)] min-w-0 items-center gap-2 rounded-xl px-3 py-2 transition-opacity duration-300 sm:left-5 sm:top-5 sm:max-w-[calc(100%-16rem)] sm:gap-3 sm:px-4 sm:py-3 ${glassPanelClass} ${controlsVisibilityClass}`}
       >
         <span className="shrink-0 text-sm font-semibold">
           {currentIndex + 1} / {normalizedImages.length}
@@ -923,7 +940,7 @@ function GlobalImageViewer({
       <div
         aria-label="Image viewer actions"
         data-layout-zone="viewer-actions"
-        className={`absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-2xl p-1.5 transition-opacity duration-300 sm:right-5 sm:top-5 sm:gap-2 sm:p-2 ${glassPanelClass} ${controlsVisibilityClass}`}
+        className={`absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-xl p-1.5 transition-opacity duration-300 sm:right-5 sm:top-5 sm:gap-2 sm:p-2 ${glassPanelClass} ${controlsVisibilityClass}`}
       >
         <button
           type="button"
@@ -965,7 +982,7 @@ function GlobalImageViewer({
         <div
           aria-label="Image viewer shortcuts"
           data-layout-zone="viewer-shortcuts"
-          className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-2xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
+          className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
           onFocus={clearPopoverCloseTimer}
@@ -997,7 +1014,7 @@ function GlobalImageViewer({
         <div
           role="menu"
           aria-label="More image actions menu"
-          className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-2xl p-2 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
+          className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-xl p-2 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
           onFocus={clearPopoverCloseTimer}
@@ -1058,45 +1075,6 @@ function GlobalImageViewer({
           </button>
           <div className="my-1 h-px bg-[var(--viewer-divider)]" />
           <button
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setActualSize();
-              closePopovers();
-            }}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
-          >
-            100%
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => openPopover("rotation")}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
-          >
-            Rotation
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => void toggleFullWindow()}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
-          >
-            {isFullWindow ? "Exit Full Window" : "Full Window"}
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              resetView();
-              closePopovers();
-            }}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
-          >
-            Reset View
-          </button>
-          <div className="my-1 h-px bg-[var(--viewer-divider)]" />
-          <button
             role="menuitemcheckbox"
             type="button"
             aria-checked={alwaysShowControls}
@@ -1126,7 +1104,7 @@ function GlobalImageViewer({
       {fileInfoOpen && (
         <div
           aria-label="Image file info"
-          className={`absolute right-3 top-16 z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-2xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
+          className={`absolute right-3 top-16 z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
           onFocus={clearPopoverCloseTimer}
@@ -1151,7 +1129,7 @@ function GlobalImageViewer({
       )}
 
       {!isFitMode && (
-        <div className={`absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-2xl px-4 py-2 text-sm font-medium transition-opacity duration-300 sm:top-[12%] ${glassPanelClass} ${controlsVisibilityClass}`}>
+        <div className={`absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-xl px-4 py-2 text-sm font-medium transition-opacity duration-300 sm:top-[12%] ${glassPanelClass} ${controlsVisibilityClass}`}>
           {zoomLabel}
           {isPannable ? " - Drag to pan" : ""}
         </div>
@@ -1314,7 +1292,7 @@ function GlobalImageViewer({
               onClick={cycleFitMode}
               data-control-group="fit-mode"
               data-control-slot="fit"
-              className={`viewer-command-fit inline-flex size-10 items-center justify-center rounded-xl text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 ${
+              className={`viewer-command-fit inline-flex size-10 items-center justify-center rounded-lg text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 ${
                 isFitMode ? activePillClass : inactivePillClass
               }`}
             >
@@ -1323,7 +1301,7 @@ function GlobalImageViewer({
               ) : fitMode === "height" ? (
                 <ArrowUpDown size={17} aria-hidden="true" />
               ) : (
-                <Maximize2 size={17} aria-hidden="true" />
+                <ImageIcon size={17} aria-hidden="true" />
               )}
             </button>
             <div
@@ -1336,11 +1314,49 @@ function GlobalImageViewer({
                 onClick={() => zoomMenuOpen ? closePopovers() : openPopover("zoom")}
                 aria-expanded={zoomMenuOpen}
                 aria-label="Open gallery image zoom controls"
-                className={`${pillButtonClass} ${inactivePillClass} gap-2`}
+                className={`viewer-command-compact ${pillButtonClass} ${inactivePillClass} gap-2`}
               >
                 <ZoomIn size={16} aria-hidden="true" />
                 <span className="viewer-command-zoom-value">{zoomControlLabel}</span>
               </button>
+              <div
+                aria-label="Gallery image zoom control"
+                className="viewer-command-wide viewer-inline-control"
+              >
+                <button
+                  type="button"
+                  onClick={() => zoomOut()}
+                  disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
+                  aria-label="Zoom out gallery image"
+                  className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+                >
+                  <ZoomOut size={16} />
+                </button>
+                <label className="viewer-inline-slider">
+                  <span aria-label="Image zoom value" className="min-w-12 text-center text-xs font-semibold">{zoomControlLabel}</span>
+                  <input
+                    aria-label="Set gallery image zoom percentage"
+                    type="range"
+                    min={MIN_GALLERY_ZOOM}
+                    max={MAX_GALLERY_ZOOM}
+                    step={GALLERY_ZOOM_STEP}
+                    value={zoomControlSliderValue}
+                    onChange={(event) => applyZoom(Number(event.currentTarget.value))}
+                    onPointerDown={clearHideControlsTimer}
+                    onPointerUp={scheduleHideControls}
+                    className="viewer-range w-28 accent-sakura-400"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => zoomIn()}
+                  disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
+                  aria-label="Zoom in gallery image"
+                  className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+                >
+                  <ZoomIn size={16} />
+                </button>
+              </div>
               {zoomMenuOpen && (
                 <div
                   role="menu"
@@ -1373,7 +1389,7 @@ function GlobalImageViewer({
                         onChange={(event) => applyZoom(Number(event.currentTarget.value))}
                         onPointerDown={clearHideControlsTimer}
                         onPointerUp={scheduleHideControls}
-                        className="w-32 accent-sakura-400"
+                        className="viewer-range w-32 accent-sakura-400"
                       />
                     </label>
                     <button
@@ -1402,29 +1418,68 @@ function GlobalImageViewer({
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => rotationMenuOpen ? closePopovers() : openPopover("rotation")}
-              aria-expanded={rotationMenuOpen}
-              aria-label="Open gallery image rotation controls"
+            <div
+              className="relative"
               data-control-group="rotation-command"
               data-control-slot="rotation"
-              className={`viewer-command-wide ${pillButtonClass} ${inactivePillClass} gap-2`}
             >
-              <RotateCwSquare size={16} aria-hidden="true" />
-              <span>{rotation}°</span>
-            </button>
-            {rotationMenuOpen && (
-              <div
-                role="menu"
-                aria-label="Gallery image rotation controls"
-                className={`viewer-command-popover bottom-12 left-1/2 -translate-x-1/2 ${glassPanelClass}`}
-                onPointerEnter={clearPopoverCloseTimer}
-                onPointerLeave={schedulePopoverClose}
-                onFocus={clearPopoverCloseTimer}
-                onBlur={schedulePopoverClose}
+              <button
+                type="button"
+                onClick={() => rotationMenuOpen ? closePopovers() : openPopover("rotation")}
+                aria-expanded={rotationMenuOpen}
+                aria-label="Open gallery image rotation controls"
+                className={`viewer-command-compact ${pillButtonClass} ${inactivePillClass} gap-2`}
               >
-                <div className="flex items-center gap-2">
+                <RotateCwSquare size={16} aria-hidden="true" />
+                <span className="viewer-command-rotation-value">{rotation}°</span>
+              </button>
+              <div
+                aria-label="Gallery image rotation control"
+                className="viewer-command-wide viewer-inline-control"
+              >
+                <button
+                  type="button"
+                  onClick={() => rotateBy(-15)}
+                  aria-label="Rotate gallery image left"
+                  className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+                >
+                  <RotateCcwSquare size={16} />
+                </button>
+                <label className="viewer-inline-slider">
+                  <span aria-label="Image rotation value" className="min-w-10 text-center text-xs font-semibold">{rotation}°</span>
+                  <input
+                    aria-label="Set image rotation degrees"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    value={rotation}
+                    onChange={(event) => setRotationDegrees(Number(event.currentTarget.value))}
+                    onPointerDown={clearHideControlsTimer}
+                    onPointerUp={scheduleHideControls}
+                    className="viewer-range w-28 accent-sakura-400"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => rotateBy(15)}
+                  aria-label="Rotate gallery image right"
+                  className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+                >
+                  <RotateCwSquare size={16} />
+                </button>
+              </div>
+              {rotationMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Gallery image rotation controls"
+                  className={`viewer-command-popover bottom-12 left-1/2 -translate-x-1/2 ${glassPanelClass}`}
+                  onPointerEnter={clearPopoverCloseTimer}
+                  onPointerLeave={schedulePopoverClose}
+                  onFocus={clearPopoverCloseTimer}
+                  onBlur={schedulePopoverClose}
+                >
+                  <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => rotateBy(-15)}
@@ -1445,7 +1500,7 @@ function GlobalImageViewer({
                       onChange={(event) => setRotationDegrees(Number(event.currentTarget.value))}
                       onPointerDown={clearHideControlsTimer}
                       onPointerUp={scheduleHideControls}
-                      className="w-32 accent-sakura-400"
+                      className="viewer-range w-32 accent-sakura-400"
                     />
                   </label>
                   <button
@@ -1456,29 +1511,10 @@ function GlobalImageViewer({
                   >
                     <RotateCwSquare size={16} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={setDefaultRotation}
-                    aria-label="Reset image rotation"
-                    className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
-                  >
-                    <RotateCcw size={16} />
-                  </button>
                 </div>
               </div>
             )}
-            <button
-              type="button"
-              onClick={setActualSize}
-              aria-label="Show gallery image at 100 percent"
-              data-control-group="actual-size"
-              data-control-slot="actual-size"
-              className={`viewer-command-wide ${pillButtonClass} ${
-                !isFitMode && zoom === 1 ? activePillClass : inactivePillClass
-              }`}
-            >
-              100%
-            </button>
+            </div>
             <button
               type="button"
               onClick={() => void toggleFullWindow()}
@@ -1503,17 +1539,93 @@ function GlobalImageViewer({
             >
               <RotateCcw size={17} />
             </button>
-            <button
-              type="button"
-              aria-label="More viewer commands"
-              aria-expanded={moreMenuOpen}
-              onClick={() => moreMenuOpen ? closePopovers() : openPopover("more")}
-              data-control-group="more"
-              data-control-slot="more"
-              className={`${glassButtonClass} size-10`}
-            >
-              <MoreVertical size={17} />
-            </button>
+            <div className="relative viewer-command-bottom-more">
+              <button
+                type="button"
+                aria-label="More viewer controls"
+                aria-expanded={viewerControlsMenuOpen}
+                onClick={() => viewerControlsMenuOpen ? closePopovers() : openPopover("viewerControls")}
+                data-control-group="viewer-more"
+                data-control-slot="more"
+                className={`${glassButtonClass} size-10`}
+              >
+                <MoreVertical size={17} />
+              </button>
+              {viewerControlsMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label="More viewer controls menu"
+                  className={`viewer-command-popover bottom-12 right-0 ${glassPanelClass}`}
+                  onPointerEnter={clearPopoverCloseTimer}
+                  onPointerLeave={schedulePopoverClose}
+                  onFocus={clearPopoverCloseTimer}
+                  onBlur={schedulePopoverClose}
+                >
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      resetView();
+                      closePopovers();
+                    }}
+                    className="viewer-menu-medium-item w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
+                  >
+                    Reset View
+                  </button>
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      void toggleFullWindow();
+                      closePopovers();
+                    }}
+                    className="viewer-menu-medium-item w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
+                  >
+                    {isFullWindow ? "Exit Full Window" : "Full Window"}
+                  </button>
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      cycleFitMode();
+                      closePopovers();
+                    }}
+                    className="viewer-menu-very-small-item w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
+                  >
+                    {fitModeLabel}
+                  </button>
+                  <div className="viewer-menu-very-small-item px-3 py-2">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Rotation
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => rotateBy(-15)}
+                        aria-label="Rotate gallery image left"
+                        className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+                      >
+                        <RotateCcwSquare size={16} />
+                      </button>
+                      <span
+                        aria-label="Image rotation value"
+                        className="min-w-10 text-center text-sm font-semibold"
+                      >
+                        {rotation}°
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => rotateBy(15)}
+                        aria-label="Rotate gallery image right"
+                        className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
+                      >
+                        <RotateCwSquare size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         </div>

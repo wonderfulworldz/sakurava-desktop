@@ -8723,30 +8723,24 @@ describe("App", () => {
 
     expect(within(viewer).getByText("2 / 3")).toBeInTheDocument();
 
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
+    const galleryZoomControl = within(viewer).getByLabelText("Gallery image zoom control");
+    fireEvent.change(
+      within(galleryZoomControl).getByLabelText("Set gallery image zoom percentage"),
+      { target: { value: "1" } },
     );
-    fireEvent.click(within(viewer).getByRole("menuitem", { name: "100%" }));
     expect(within(viewer).getAllByText("100%").length).toBeGreaterThan(0);
 
     fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+      within(galleryZoomControl).getByRole("button", { name: "Zoom in gallery image" }),
     );
     expect(within(viewer).getAllByText("125%").length).toBeGreaterThan(0);
     fireEvent.click(
-      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+      within(galleryZoomControl).getByRole("button", { name: "Zoom in gallery image" }),
     );
     expect(within(viewer).getAllByText("150%").length).toBeGreaterThan(0);
     for (let count = 0; count < 10; count += 1) {
       fireEvent.click(
-        within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+        within(galleryZoomControl).getByRole("button", { name: "Zoom in gallery image" }),
       );
     }
     expect(within(viewer).getAllByText("400%").length).toBeGreaterThan(0);
@@ -8755,12 +8749,13 @@ describe("App", () => {
         name: "Enter full-window gallery mode",
       }),
     ).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "Escape" });
 
     fireEvent.click(
       within(viewer).getByRole("button", { name: "Previous gallery image" }),
     );
-    expect(within(viewer).getByText("1 / 3")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(viewer).getByText("1 / 3")).toBeInTheDocument();
+    });
     expect(
       within(viewer).getByRole("button", {
         name: "Cycle gallery image fit mode: Fit Window",
@@ -9478,15 +9473,41 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(rotationCommand)
       .toBeInTheDocument();
-    expect(rotationCommand).toHaveClass("viewer-command-wide");
+    expect(within(controlBar).getByLabelText("Gallery image zoom control"))
+      .toBeInTheDocument();
+    expect(within(controlBar).getByLabelText("Gallery image rotation control"))
+      .toBeInTheDocument();
     expect(controlBar.querySelector('[data-control-group="actual-size"]'))
-      .toHaveClass("viewer-command-wide");
+      .not.toBeInTheDocument();
     expect(controlBar.querySelector('[data-control-group="window-mode"]'))
       .toHaveClass("viewer-command-medium");
     expect(controlBar.querySelector('[data-control-group="view-reset"]'))
       .toHaveClass("viewer-command-medium");
-    expect(controlBar.querySelector('[data-control-group="more"]'))
+    expect(controlBar.querySelector('[data-control-group="viewer-more"]'))
       .toBeInTheDocument();
+    const fitIcon = controlBar.querySelector('[data-control-group="fit-mode"] svg');
+    const fullscreenIcon = controlBar.querySelector('[data-control-group="window-mode"] svg');
+    expect(fitIcon).toHaveClass("lucide-image");
+    expect(fullscreenIcon).toHaveClass("lucide-maximize-2");
+    const bottomMoreButton = controlBar.querySelector(
+      '[data-control-group="viewer-more"]',
+    );
+    if (!(bottomMoreButton instanceof HTMLElement)) {
+      throw new Error("Viewer bottom More control was not rendered");
+    }
+    fireEvent.click(bottomMoreButton);
+    const viewerMoreMenu = within(viewer).getByRole("menu", {
+      name: "More viewer controls menu",
+    });
+    expect(within(viewerMoreMenu).getByRole("menuitem", { name: "Reset View" }))
+      .toBeInTheDocument();
+    expect(within(viewerMoreMenu).getByRole("menuitem", { name: "Full Window" }))
+      .toBeInTheDocument();
+    expect(within(viewerMoreMenu).queryByRole("menuitem", { name: "Copy Image Path" }))
+      .not.toBeInTheDocument();
+    expect(within(viewerMoreMenu).queryByRole("menuitem", { name: "Copy File Name" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(bottomMoreButton);
 
     fireEvent.click(
       within(actionBar).getByRole("button", {
@@ -9510,12 +9531,14 @@ describe("App", () => {
     const moreMenu = within(viewer).getByRole("menu", {
       name: "More image actions menu",
     });
-    expect(within(moreMenu).getByRole("menuitem", { name: "100%" }))
-      .toBeInTheDocument();
-    expect(within(moreMenu).getByRole("menuitem", { name: "Rotation" }))
-      .toBeInTheDocument();
-    expect(within(moreMenu).getByRole("menuitem", { name: "Reset View" }))
-      .toBeInTheDocument();
+    expect(within(moreMenu).queryByRole("menuitem", { name: "100%" }))
+      .not.toBeInTheDocument();
+    expect(within(moreMenu).queryByRole("menuitem", { name: "Rotation" }))
+      .not.toBeInTheDocument();
+    expect(within(moreMenu).queryByRole("menuitem", { name: "Reset View" }))
+      .not.toBeInTheDocument();
+    expect(within(moreMenu).queryByRole("menuitem", { name: "Full Window" }))
+      .not.toBeInTheDocument();
     expect(within(moreMenu).getByRole("menuitem", { name: "Save As" }))
       .toBeDisabled();
     expect(within(moreMenu).getByRole("menuitem", { name: "Copy Image" }))
@@ -9592,41 +9615,21 @@ describe("App", () => {
     fireEvent.click(fitButton);
     expect(fitButton)
       .toHaveAccessibleName("Cycle gallery image fit mode: Fit Width");
-    expect(
-      within(controlBar).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
-    const zoomMenu = within(viewer).getByRole("menu", {
-      name: "Gallery image zoom controls",
+    const zoomControl = within(controlBar).getByLabelText("Gallery image zoom control");
+    expect(zoomControl.querySelector(".lucide-zoom-out"))
+      .toBeInTheDocument();
+    expect(zoomControl.querySelector(".lucide-zoom-in"))
+      .toBeInTheDocument();
+    expect(within(zoomControl).getByLabelText("Set gallery image zoom percentage"))
+      .toBeInTheDocument();
+    fireEvent.change(within(zoomControl).getByLabelText("Set gallery image zoom percentage"), {
+      target: { value: "3" },
     });
-    expect(zoomMenu.querySelector(".lucide-zoom-out"))
-      .toBeInTheDocument();
-    expect(zoomMenu.querySelector(".lucide-zoom-in"))
-      .toBeInTheDocument();
-    expect(within(zoomMenu).getByLabelText("Set gallery image zoom percentage"))
-      .toBeInTheDocument();
-    for (const preset of ["25%", "50%", "75%", "100%", "150%", "200%", "300%", "400%", "500%"]) {
-      expect(within(zoomMenu).getByRole("menuitem", { name: preset }))
-        .toBeInTheDocument();
-    }
-    fireEvent.click(within(zoomMenu).getByRole("menuitem", { name: "300%" }));
     expect(within(viewer).getAllByText("300%").length).toBeGreaterThan(0);
 
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
-    fireEvent.click(
-      within(viewer).getByRole("menuitem", { name: "500%" }),
-    );
+    fireEvent.change(within(zoomControl).getByLabelText("Set gallery image zoom percentage"), {
+      target: { value: "5" },
+    });
     expect(within(viewer).getAllByText("500%").length).toBeGreaterThan(0);
 
     fireEvent.click(
@@ -9639,19 +9642,11 @@ describe("App", () => {
         name: /Cycle gallery image fit mode/,
       }),
     );
+    fireEvent.change(within(zoomControl).getByLabelText("Set gallery image zoom percentage"), {
+      target: { value: "1" },
+    });
     fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
-    fireEvent.click(within(viewer).getByRole("menuitem", { name: "100%" }));
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+      within(zoomControl).getByRole("button", { name: "Zoom in gallery image" }),
     );
 
     expect(within(viewer).getByText("125% - Drag to pan")).toBeInTheDocument();
@@ -9679,22 +9674,19 @@ describe("App", () => {
     fireEvent.pointerDown(minimap, { clientX: 20, clientY: 20, pointerId: 2 });
     expect(panSurface).not.toHaveAttribute("data-pan-x", "-70");
 
+    const rotationControl = within(controlBar).getByLabelText("Gallery image rotation control");
     fireEvent.click(
-      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+      within(rotationControl).getByRole("button", { name: "Rotate gallery image right" }),
     );
-    const rotationMenu = within(viewer).getByRole("menu", {
-      name: "Gallery image rotation controls",
-    });
-    fireEvent.click(
-      within(rotationMenu).getByRole("button", { name: "Rotate gallery image right" }),
-    );
-    expect(within(rotationMenu).getByLabelText("Image rotation value"))
+    expect(within(rotationControl).getByLabelText("Image rotation value"))
       .toHaveTextContent("15°");
-    fireEvent.change(within(rotationMenu).getByLabelText("Set image rotation degrees"), {
+    fireEvent.change(within(rotationControl).getByLabelText("Set image rotation degrees"), {
       target: { value: "45" },
     });
-    expect(within(rotationMenu).getByLabelText("Image rotation value"))
+    expect(within(rotationControl).getByLabelText("Image rotation value"))
       .toHaveTextContent("45°");
+    expect(within(rotationControl).queryByRole("button", { name: "Reset image rotation" }))
+      .not.toBeInTheDocument();
 
     const panXBeforeWheel = panSurface.getAttribute("data-pan-x");
     fireEvent.wheel(within(viewer).getByAltText("Gallery image 1 full size"), {
@@ -9733,12 +9725,10 @@ describe("App", () => {
     const viewer = screen.getByRole("dialog", {
       name: "Gallery full-size viewer",
     });
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
+    fireEvent.change(
+      within(viewer).getByLabelText("Set gallery image zoom percentage"),
+      { target: { value: "3" } },
     );
-    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
 
     const firstPanSurface = within(viewer).getByLabelText("Image pan surface");
     expect(firstPanSurface).toHaveAttribute("data-pannable", "true");
@@ -9800,12 +9790,10 @@ describe("App", () => {
     expect(secondPanSurface).toHaveClass("cursor-default");
     expect(secondPanSurface).not.toHaveClass("cursor-grabbing");
 
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
+    fireEvent.change(
+      within(viewer).getByLabelText("Set gallery image zoom percentage"),
+      { target: { value: "3" } },
     );
-    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
     expect(secondPanSurface).toHaveAttribute("data-pannable", "true");
     expect(secondPanSurface).toHaveClass("cursor-grab");
 
@@ -9847,12 +9835,10 @@ describe("App", () => {
     const viewer = screen.getByRole("dialog", {
       name: "Gallery full-size viewer",
     });
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
+    fireEvent.change(
+      within(viewer).getByLabelText("Set gallery image zoom percentage"),
+      { target: { value: "3" } },
     );
-    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
 
     const panSurface = within(viewer).getByLabelText("Image pan surface");
     fireEvent.pointerDown(panSurface, {
@@ -9981,14 +9967,9 @@ describe("App", () => {
         name: "Cycle gallery image fit mode: Fit Window",
       }),
     );
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
-    fireEvent.click(within(viewer).getByRole("menuitem", { name: "300%" }));
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
+    fireEvent.change(
+      within(viewer).getByLabelText("Set gallery image zoom percentage"),
+      { target: { value: "3" } },
     );
     fireEvent.click(
       within(viewer).getByRole("button", { name: "Rotate gallery image right" }),
@@ -10020,20 +10001,10 @@ describe("App", () => {
         name: "Cycle gallery image fit mode: Fit Width",
       }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
     expect(within(viewer).getByLabelText("Image zoom value"))
       .toHaveTextContent("300%");
-    fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
-    );
     expect(within(viewer).getByLabelText("Image rotation value"))
       .toHaveTextContent("15°");
-    fireEvent.keyDown(window, { key: "Escape" });
     expect(within(viewer).getByLabelText("Image pan surface"))
       .toHaveAttribute("data-pan-x", "0");
     const storedBeforeReset = window.localStorage.getItem(
@@ -10048,20 +10019,10 @@ describe("App", () => {
         name: "Cycle gallery image fit mode: Fit Window",
       }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
     expect(within(viewer).getByLabelText("Image zoom value"))
       .not.toHaveTextContent("300%");
-    fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
-    );
     expect(within(viewer).getByLabelText("Image rotation value"))
       .toHaveTextContent("0°");
-    fireEvent.keyDown(window, { key: "Escape" });
     expect(within(viewer).getByLabelText("Image pan surface"))
       .toHaveAttribute("data-pan-x", "0");
     expect(window.localStorage.getItem("sakurava.globalImageViewer.settings.v1"))
@@ -10088,20 +10049,10 @@ describe("App", () => {
         name: "Cycle gallery image fit mode: Fit Window",
       }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      within(viewer).getByRole("button", { name: "Open gallery image rotation controls" }),
-    );
     expect(within(viewer).getByLabelText("Image rotation value"))
       .toHaveTextContent("0°");
-    fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.click(
-      within(viewer).getByRole("button", {
-        name: "Open gallery image zoom controls",
-      }),
-    );
     expect(within(viewer).getByLabelText("Image zoom value"))
       .not.toHaveTextContent("300%");
-    fireEvent.keyDown(window, { key: "Escape" });
   });
 
   it("keeps a gallery viewer fallback when the selected full-size image fails", async () => {
