@@ -12,7 +12,7 @@ If you discover a security vulnerability (such as a local command injection, dir
 
 Instead, please report the vulnerability privately by:
 1. Using the **GitHub Private Vulnerability Reporting** feature on the repository (if enabled).
-2. Contacting the repository owner/maintainers directly at [EMAIL_ADDRESS].
+2. Contacting the repository owner/maintainers directly at sakurava-project@gmail.com.
 3. Proposing a fix or detailing the reproduction steps clearly.
 
 We will investigate the report and work on a fix as quickly as possible. Once the issue is resolved, a patch will be published.
