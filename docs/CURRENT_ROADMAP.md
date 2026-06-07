@@ -6,20 +6,27 @@
 - Managed Categories (local UI config) and `categoriesJson` storage.
 - Settings page with Appearance, Dark Mode, Backup/Restore, CSV import/export.
 - Language core & picker (English & Indonesian) – Batch 34.11.
+- Related picker/storage/detail systems completed through the implemented post-MVP batches.
+- Final product polish completed through:
+  - **35.2 - Form System Finalization**
+  - **35.3 - Category Library Finalization**
+  - **35.4 - Detail System Finalization**
+  - **35.5 - Global Gallery Preview Finalization**
 
-## Current Active Batch (35.x)
-- **Batch 35.x – Language System Polish & UI tweaks** (finalizing language picker UI, improving fallback handling, polishing Settings labels).
-- Minor quality‑assurance tasks and smoke tests for recently merged batches.
+## Current Active Batch
+- None. Batch 35.5 is closed at checkpoint `post-mvp-35-5-global-gallery-preview-finalization-v1`.
+- The next batch is planned only and must not be treated as started until explicitly approved.
 
 ## Near‑Term Priorities (next batches)
-1. **Batch 36 – Related Performer & Video/Image Picker implementation**
-   - Finalize picker UI, persist selections in JSON fields.
-2. **Batch 37 – Media File Status & External Media Open enhancements**
-   - Finish runtime implementation, add UI indicators.
-3. **Batch 38 – Cover/Thumbnail Full‑Size Preview improvements**
-   - Add viewer controls, performance optimizations.
-4. **Batch 39 – Performer Mini Thumbnail storage & forms**
-   - Complete storage schema, UI forms.
+1. **35.6 - Collection Toolbar + Table Finalization** (planned, not started)
+   - Follow `docs/43-final-product-sequential-plan.md`.
+   - Do not implement Batch 35.6 work until the batch is explicitly started.
+2. **35.7 - Glossary Library** (planned)
+3. **35.8 - Settings System Finalization** (planned)
+4. **35.9 - Performance + Translation + Copy Cleanup** (planned)
+5. **35.10 - Branding + App Shell + Installer Release Candidate** (planned)
+
+Older near-term references to Batch 36/37/38/39 are superseded by the active 35.2 - 35.10 sequential plan.
 
 ## Later Priorities (post‑MVP roadmap)
 - Expand Settings with advanced data‑migration tools.
@@ -27,7 +34,8 @@
 - Implement optional plugin system for community extensions (future architecture batch).
 
 ## Documentation Guidance
-- This roadmap supersedes all older batch lists; historic batch documents remain archived for reference only.
+- `docs/43-final-product-sequential-plan.md` is the source of truth for Batches 35.6 - 35.10.
+- This roadmap supersedes older conflicting batch lists; historic batch documents remain archived for reference only.
 - Public reviewers should follow this roadmap for the current development direction.
 
 ---

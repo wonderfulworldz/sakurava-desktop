@@ -5,38 +5,53 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-34-10-language-system-plan-v1
+post-mvp-35-5-global-gallery-preview-finalization-v1
 ```
 
 Current batch:
 
 ```text
-34.11 - Language Core + Language Picker
+None / awaiting confirmation after roadmap audit
 ```
 
 Current focus:
 
 ```text
-Implement Language Core + Picker with built-in English and Indonesian dictionaries, local language preference persistence, safe fallback behavior, and limited app UI translation for App Shell navigation and Settings labels. User catalog data is never translated. Next batch remains 34.12 - Language Editor UI.
+Batch 35.5 is closed. The recommended next planned batch is 35.6 - Collection Toolbar + Table Finalization, but it is not started until explicitly approved.
 ```
 
-Current locked Settings roadmap:
+Current active execution roadmap:
 
 ```text
-34.2 - Settings Layout Redesign Implementation
-34.3 - Backup/Restore + Clear Cache Implementation
-34.4 - Import/Export Bulk Data Planning
-34.5 - Appearance + Dark Mode Implementation
-34.6 - Export CSV Implementation
-34.7 - Import CSV Preview + Validation
-34.8 - Import CSV Apply + Report
-34.9 - Settings Full Smoke Test + Cleanup
-34.10 - Language System Planning
-34.11 - Language Core + Language Picker
-34.12 - Language Editor UI
-34.13 - Language CSV Export/Import
-34.14 - Custom Language Add/Manage
-34.15 - Language Full Smoke Test + Cleanup
+docs/43-final-product-sequential-plan.md
+Completed: 35.2, 35.3, 35.4, 35.5
+Next planned only: 35.6 - Collection Toolbar + Table Finalization
+```
+
+The older Batch 34.11 Language Core + Language Picker status text below is historical/outdated as current-batch guidance. Language behavior remains part of completed project history, but the active roadmap is now the 35.2 - 35.10 sequential plan.
+
+## Completed Final Product Checkpoints
+
+```text
+post-mvp-35-2-form-system-finalization-v1
+post-mvp-35-3-category-library-finalization-v1
+post-mvp-35-4-detail-system-finalization-v1
+post-mvp-35-5-global-gallery-preview-finalization-v1
+```
+
+Batch 35.5 verification:
+
+```text
+npm.cmd run test -- src/App.test.tsx = 291 passed
+npm.cmd run build = passed
+cd src-tauri && cargo test = 42 passed
+```
+
+Known deferred before full app audit:
+
+```text
+Save As implementation
+Open Folder implementation
 ```
 
 Latest known stable category checkpoint:
@@ -504,18 +519,22 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 ## Recommended Next Phase
 
-Proceed with the locked roadmap in `docs/ROADMAP_LOCKED.md`.
+Proceed with the active final product sequential roadmap in `docs/43-final-product-sequential-plan.md`.
 
-Recommended next implementation batch after Batch 34.11:
+Recommended next planned batch after Batch 35.5:
 
 ```text
-34.12 - Language Editor UI
+35.6 - Collection Toolbar + Table Finalization
 ```
+
+Batch 35.6 is planned only and is not started until explicitly approved.
+
+Older Batch 34.11 language roadmap guidance below is historical/outdated for current execution status.
 
 Latest roadmap implementation batch:
 
 ```text
-Batch 22.5 - Related Performer Detail Display and Smoke Validation
+Batch 35.5 - Global Gallery Preview Finalization
 ```
 
 Recommended phase after Batch 25.7:
