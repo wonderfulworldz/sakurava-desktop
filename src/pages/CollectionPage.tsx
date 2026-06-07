@@ -175,12 +175,23 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
               ))}
             </section>
           ) : (
-            <CollectionTable config={config} items={pageItems} />
+            <CollectionTable
+              config={config}
+              items={pageItems}
+              sortValue={sortValue}
+              onSortChange={(value) => {
+                setSortValue(value);
+                resetToFirstPage();
+              }}
+            />
           )}
           <PaginationBar
             page={currentPage}
             pageCount={pageCount}
             pageSize={pageSize}
+            startItem={startIndex + 1}
+            endItem={startIndex + pageItems.length}
+            totalItems={sortedItems.length}
             onPageChange={setPage}
             onPageSizeChange={(value) => {
               const nextPageSize = normalizeCatalogPageSize(value);
@@ -687,26 +698,61 @@ function countFilterOptions(allLabel: string) {
 function CollectionTable({
   config,
   items,
+  sortValue,
+  onSortChange,
 }: {
   config: CollectionConfig;
   items: CollectionItem[];
+  sortValue: string;
+  onSortChange: (value: string) => void;
 }) {
+  const columns = tableColumns(config.kind);
+
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <table className="min-w-full table-fixed divide-y divide-slate-200 text-left text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
             <tr>
-              {tableHeaders(config.kind).map((header) => (
-                <th key={header} className="whitespace-nowrap px-4 py-3">
-                  {header}
+              {columns.map((column) => (
+                <th
+                  key={column.id}
+                  aria-sort={ariaSortForColumn(column, sortValue)}
+                  className={["px-4 py-3", column.className ?? ""].join(" ")}
+                >
+                  {column.sortValue ? (
+                    <button
+                      type="button"
+                      aria-label={`Sort by ${column.header}`}
+                      title={`Sort by ${column.header}`}
+                      className={[
+                        "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200",
+                        sortValue === column.sortValue ? "text-sakura-600" : "",
+                      ].join(" ")}
+                      onClick={() => onSortChange(column.sortValue!)}
+                    >
+                      <span className="truncate">{column.header}</span>
+                      {sortValue === column.sortValue && (
+                        <span aria-hidden="true" className="text-[10px] text-sakura-500">
+                          {sortDirectionLabel(column.sortValue)}
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="block truncate">{column.header}</span>
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.map((item) => (
-              <CollectionTableRow key={item.key} config={config} item={item} />
+              <CollectionTableRow
+                key={item.key}
+                config={config}
+                item={item}
+                columns={columns}
+              />
             ))}
           </tbody>
         </table>
@@ -718,27 +764,30 @@ function CollectionTable({
 function CollectionTableRow({
   config,
   item,
+  columns,
 }: {
   config: CollectionConfig;
   item: CollectionItem;
+  columns: TableColumn[];
 }) {
   return (
     <tr className="transition hover:bg-sakura-50/60">
-      {tableCells(item).map((cell, index) => (
+      {columns.map((column, index) => (
         <td
-          key={`${item.key}-${index}`}
-          className="whitespace-nowrap px-4 py-3 text-slate-700"
+          key={`${item.key}-${column.id}`}
+          className={["px-4 py-3 text-slate-700", column.className ?? ""].join(" ")}
         >
           <Link
             to={`/${config.kind}/${item.key}`}
             className={[
-              "block",
+              "block truncate",
               index === 0
                 ? "font-semibold text-slate-950 hover:text-sakura-600"
                 : "",
             ].join(" ")}
+            title={column.value(item)}
           >
-            {cell}
+            {column.value(item)}
           </Link>
         </td>
       ))}
@@ -771,12 +820,18 @@ function PaginationBar({
   page,
   pageCount,
   pageSize,
+  startItem,
+  endItem,
+  totalItems,
   onPageChange,
   onPageSizeChange,
 }: {
   page: number;
   pageCount: number;
   pageSize: string;
+  startItem: number;
+  endItem: number;
+  totalItems: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: string) => void;
 }) {
@@ -787,22 +842,27 @@ function PaginationBar({
       className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       aria-label="Collection pagination"
     >
-      <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-        {t("collection.pageSize")}
-        <select
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-          value={pageSize}
-          onChange={(event) => onPageSizeChange(event.target.value)}
-          aria-label={t("collection.itemsPerPage")}
-        >
-          {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        <span>{t("collection.perPage")}</span>
-      </label>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <p className="text-sm font-semibold text-slate-600">
+          Showing {startItem}-{endItem} of {totalItems}
+        </p>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          {t("collection.pageSize")}
+          <select
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(event.target.value)}
+            aria-label={t("collection.itemsPerPage")}
+          >
+            {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <span>{t("collection.perPage")}</span>
+        </label>
+      </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -1243,72 +1303,221 @@ function pageNumbers(pageCount: number) {
   return Array.from({ length: pageCount }, (_, index) => index + 1);
 }
 
-function tableHeaders(kind: CollectionConfig["kind"]) {
+type TableColumn = {
+  id: string;
+  header: string;
+  sortValue?: string;
+  className?: string;
+  value: (item: CollectionItem) => string;
+};
+
+function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
   if (kind === "performers") {
     return [
-      "Name",
-      "Original Name",
-      "Status",
-      "Filmography",
-      "Pictorials",
-      "Categories",
+      {
+        id: "name",
+        header: "Name",
+        sortValue: "Name A-Z",
+        className: "w-56",
+        value: (item) => item.kind === "performers" ? item.name : "",
+      },
+      {
+        id: "categories",
+        header: "Categories",
+        className: "w-52",
+        value: (item) => categorySummary(item.categories),
+      },
+      {
+        id: "status",
+        header: "Status",
+        sortValue: "Status",
+        className: "w-32",
+        value: (item) => item.kind === "performers" ? item.status : "",
+      },
+      {
+        id: "rating",
+        header: "Rating",
+        sortValue: "Rating",
+        className: "w-28",
+        value: ratingSummary,
+      },
+      {
+        id: "debutYear",
+        header: "Debut Year",
+        className: "w-32",
+        value: (item) => item.kind === "performers" ? yearSummary(item.debutYear) : "",
+      },
+      {
+        id: "filmography",
+        header: "Filmography",
+        sortValue: "Filmography",
+        className: "w-36",
+        value: (item) => item.kind === "performers" ? item.filmographyCount : "",
+      },
+      {
+        id: "pictorials",
+        header: "Pictorials",
+        sortValue: "Pictorials",
+        className: "w-32",
+        value: (item) => item.kind === "performers" ? item.pictorialsCount : "",
+      },
+      {
+        id: "favorite",
+        header: "Favorite",
+        className: "w-28",
+        value: favoriteSummary,
+      },
     ];
   }
 
   if (kind === "images") {
     return [
-      "Title",
-      "Original Title",
-      "Code",
-      "Availability",
-      "Image Count",
-      "Categories",
+      {
+        id: "title",
+        header: "Title",
+        sortValue: "Title A-Z",
+        className: "w-64",
+        value: (item) => item.kind === "images" ? item.title : "",
+      },
+      {
+        id: "code",
+        header: "Code",
+        className: "w-32",
+        value: (item) => item.kind === "images" ? fallbackText(item.code) : "",
+      },
+      {
+        id: "categories",
+        header: "Categories",
+        className: "w-52",
+        value: (item) => categorySummary(item.categories),
+      },
+      {
+        id: "rating",
+        header: "Rating",
+        sortValue: "Rating",
+        className: "w-28",
+        value: ratingSummary,
+      },
+      {
+        id: "year",
+        header: "Year",
+        sortValue: "Release Year",
+        className: "w-24",
+        value: (item) => item.kind === "images" ? yearSummary(item.releaseYear) : "",
+      },
+      {
+        id: "imageCount",
+        header: "Image Count",
+        sortValue: "Image Count",
+        className: "w-36",
+        value: (item) => item.kind === "images" ? item.imageCount : "",
+      },
+      {
+        id: "quality",
+        header: "Quality",
+        className: "w-28",
+        value: (item) => item.kind === "images" ? fallbackText(item.quality) : "",
+      },
+      {
+        id: "favorite",
+        header: "Favorite",
+        className: "w-28",
+        value: favoriteSummary,
+      },
     ];
   }
 
   return [
-    "Title",
-    "Original Title",
-    "Censorship",
-    "Availability",
-    "Duration",
-    "Categories",
+    {
+      id: "title",
+      header: "Title",
+      sortValue: "Title A-Z",
+      className: "w-64",
+      value: (item) => item.kind === "videos" ? item.title : "",
+    },
+    {
+      id: "code",
+      header: "Code",
+      className: "w-32",
+      value: (item) => item.kind === "videos" ? fallbackText(item.code) : "",
+    },
+    {
+      id: "categories",
+      header: "Categories",
+      className: "w-52",
+      value: (item) => categorySummary(item.categories),
+    },
+    {
+      id: "rating",
+      header: "Rating",
+      sortValue: "Rating",
+      className: "w-28",
+      value: ratingSummary,
+    },
+    {
+      id: "year",
+      header: "Year",
+      sortValue: "Release Year",
+      className: "w-24",
+      value: (item) => item.kind === "videos" ? yearSummary(item.releaseYear) : "",
+    },
+    {
+      id: "duration",
+      header: "Duration",
+      sortValue: "Duration",
+      className: "w-28",
+      value: (item) => item.kind === "videos" ? fallbackText(item.duration) : "",
+    },
+    {
+      id: "quality",
+      header: "Quality",
+      className: "w-28",
+      value: (item) => item.kind === "videos" ? fallbackText(item.quality) : "",
+    },
+    {
+      id: "favorite",
+      header: "Favorite",
+      className: "w-28",
+      value: favoriteSummary,
+    },
   ];
 }
 
-function tableCells(item: CollectionItem) {
-  const categories = item.categories.length > 0 ? item.categories.join(", ") : "None";
+function ariaSortForColumn(column: TableColumn, sortValue: string) {
+  return column.sortValue && column.sortValue === sortValue
+    ? sortDirectionForValue(column.sortValue)
+    : undefined;
+}
 
-  if (item.kind === "performers") {
-    return [
-      item.name,
-      item.originalName,
-      item.status,
-      item.filmographyCount,
-      item.pictorialsCount,
-      categories,
-    ];
-  }
+function sortDirectionForValue(sortValue: string): "ascending" | "descending" {
+  return sortValue === "Title A-Z" || sortValue === "Name A-Z" || sortValue === "Status"
+    ? "ascending"
+    : "descending";
+}
 
-  if (item.kind === "images") {
-    return [
-      item.title,
-      item.originalTitle,
-      item.code,
-      item.availability ?? "Unspecified",
-      item.imageCount,
-      categories,
-    ];
-  }
+function sortDirectionLabel(sortValue: string) {
+  return sortDirectionForValue(sortValue) === "ascending" ? "ASC" : "DESC";
+}
 
-  return [
-    item.title,
-    item.originalTitle,
-    item.censorship ?? "Unspecified",
-    item.availability ?? "Unspecified",
-    item.duration,
-    categories,
-  ];
+function categorySummary(categories: string[]) {
+  return categories.length > 0 ? categories.join(", ") : "None";
+}
+
+function ratingSummary(item: CollectionItem) {
+  return typeof item.ratingBucket === "number" ? `${item.ratingBucket} star` : "Unrated";
+}
+
+function yearSummary(year: number | null | undefined) {
+  return typeof year === "number" && Number.isInteger(year) ? String(year) : "Unknown";
+}
+
+function favoriteSummary(item: CollectionItem) {
+  return item.favorite ? "Favorite" : "Not favorite";
+}
+
+function fallbackText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : "Unknown";
 }
 
 export default CollectionPage;

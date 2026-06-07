@@ -5535,12 +5535,13 @@ describe("App", () => {
 
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("columnheader", { name: "Original Title" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("columnheader", { name: "Censorship" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Categories" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Quality" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Favorite" })).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Table Video" }),
     ).toHaveAttribute("href", "/videos/video_1");
@@ -5639,10 +5640,16 @@ describe("App", () => {
 
     expect(await screen.findByText("Table Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Categories" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Image Count" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Quality" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Favorite" })).toBeInTheDocument();
     expect(screen.getByText("IMG-TABLE")).toBeInTheDocument();
     imageRender.unmount();
 
@@ -5670,12 +5677,149 @@ describe("App", () => {
     expect(await screen.findByText("Table Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Categories" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Debut Year" })).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Filmography" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Pictorials" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Favorite" })).toBeInTheDocument();
+  });
+
+  it("sorts the Video Catalog table from a sortable header without clearing filters or page size", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_1",
+            title: "Short Archive",
+            categoriesJson: '["Category A"]',
+            durationMinutes: 10,
+          }),
+          persistedVideo({
+            id: "video_2",
+            title: "Long Archive",
+            categoriesJson: '["Category A"]',
+            durationMinutes: 120,
+          }),
+          persistedVideo({
+            id: "video_3",
+            title: "Other Clip",
+            categoriesJson: '["Category B"]',
+            durationMinutes: 300,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Short Archive")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "64" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter 0" }));
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "archive" },
+    });
+    fireEvent.change(screen.getByLabelText("Categories"), {
+      target: { value: "Category A" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
+
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Duration");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.getByText("Showing 1-2 of 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Long Archive");
+    expect(screen.queryByText("Other Clip")).not.toBeInTheDocument();
+    expect(screen.getByText("Search: archive")).toBeInTheDocument();
+    expect(screen.getByText("Category: Category A")).toBeInTheDocument();
+  });
+
+  it("sorts the Image Catalog table from a sortable header", async () => {
+    window.history.pushState({}, "", "/images");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_1",
+            title: "Small Image Set",
+            imageCount: 24,
+          }),
+          persistedImage({
+            id: "image_2",
+            title: "Large Image Set",
+            imageCount: 140,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Small Image Set")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Image Count" }));
+
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Image Count");
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Large Image Set");
+    expect(
+      screen.getByRole("button", { name: "Sort by Image Count" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("sorts the Performer Catalog table from a sortable header", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_1",
+            name: "Small Performer",
+            relatedVideosJson: relatedCatalogJson("video", 4),
+          }),
+          persistedPerformer({
+            id: "performer_2",
+            name: "Large Performer",
+            relatedVideosJson: relatedCatalogJson("video", 40),
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+    };
+
+    render(<App />);
+
+    expect(await screen.findByText("Small Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Filmography" }));
+
+    expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Filmography");
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Large Performer");
+    expect(
+      screen.getByRole("button", { name: "Sort by Filmography" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "descending");
   });
 
   it.each([
