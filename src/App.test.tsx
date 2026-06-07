@@ -6,10 +6,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import App from "./App";
 import GlobalImageViewer from "./components/gallery/GlobalImageViewer";
 import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
+import CategoriesPage from "./pages/CategoriesPage";
 import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
@@ -485,8 +487,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /filter/i }));
     expect(screen.getByText("Categories")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("30");
-    for (const pageSize of ["30", "60", "90", "120"]) {
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+    for (const pageSize of ["32", "64", "128", "256"]) {
       expect(screen.getByRole("option", { name: pageSize })).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Previous" })).toBeInTheDocument();
@@ -501,6 +503,55 @@ describe("App", () => {
     expect(
       screen.queryByRole("button", { name: "List view" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("uses global page-size options on the Category Catalog", () => {
+    setManagedCategories(
+      Array.from(
+        { length: 40 },
+        (_, index) => `Catalog Category ${String(index + 1).padStart(2, "0")}`,
+      ),
+    );
+
+    render(
+      <MemoryRouter>
+        <CategoriesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Showing 1-32 of 40 categories")).toBeInTheDocument();
+    expect(screen.getByLabelText("Categories per page")).toHaveDisplayValue("32");
+    for (const pageSize of ["32", "64", "128", "256"]) {
+      expect(
+        within(screen.getByLabelText("Categories per page"))
+          .getByRole("option", { name: pageSize }),
+      ).toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Showing 33-40 of 40 categories")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Categories per page"), {
+      target: { value: "64" },
+    });
+    expect(screen.getByText("Showing 1-40 of 40 categories")).toBeInTheDocument();
+  });
+
+  it("normalizes persisted catalog page sizes", () => {
+    window.history.pushState({}, "", "/videos");
+    window.localStorage.setItem("sakurava.catalog.videos.pageSize.v1", "90");
+
+    const { unmount } = render(<App />);
+
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+
+    unmount();
+    window.history.pushState({}, "", "/images");
+    window.localStorage.setItem("sakurava.catalog.images.pageSize.v1", "64");
+
+    render(<App />);
+
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
   });
 
   it.each([
@@ -4932,7 +4983,7 @@ describe("App", () => {
 
   it("slices collection cards by page size and navigates pages", async () => {
     window.history.pushState({}, "", "/videos");
-    const videos = Array.from({ length: 31 }, (_, index) =>
+    const videos = Array.from({ length: 33 }, (_, index) =>
       persistedVideo({
         id: `video_${index + 1}`,
         title: `Paged Video ${String(index + 1).padStart(2, "0")}`,
@@ -4952,19 +5003,19 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Paged Video 01")).toBeInTheDocument();
-    expect(screen.queryByText("Paged Video 31")).not.toBeInTheDocument();
+    expect(screen.queryByText("Paged Video 33")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(screen.getByText("Paged Video 31")).toBeInTheDocument();
+    expect(screen.getByText("Paged Video 33")).toBeInTheDocument();
     expect(screen.queryByText("Paged Video 01")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Items per page"), {
-      target: { value: "60" },
+      target: { value: "64" },
     });
 
     expect(screen.getByText("Paged Video 01")).toBeInTheDocument();
-    expect(screen.getByText("Paged Video 31")).toBeInTheDocument();
+    expect(screen.getByText("Paged Video 33")).toBeInTheDocument();
   });
 
   it("filters collection cards by category and restores all categories", async () => {
@@ -5120,12 +5171,12 @@ describe("App", () => {
       target: { value: "Title A-Z" },
     });
     fireEvent.change(screen.getByLabelText("Items per page"), {
-      target: { value: "60" },
+      target: { value: "64" },
     });
 
     expect(screen.getByLabelText("Videos search")).toHaveValue("alpha");
     expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("60");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.queryByText("Beta Clip")).not.toBeInTheDocument();
 
@@ -5135,7 +5186,7 @@ describe("App", () => {
     expect(screen.getByLabelText("Duration")).toHaveDisplayValue("All durations");
     expect(screen.queryByRole("button", { name: "Remove Category A" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Sorting")).toHaveDisplayValue("Title A-Z");
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("60");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.getByText("Beta Clip")).toBeInTheDocument();
   });
@@ -5206,7 +5257,7 @@ describe("App", () => {
 
   it("applies pagination after category filter and resets to page one", async () => {
     window.history.pushState({}, "", "/videos");
-    const categoryAVideos = Array.from({ length: 31 }, (_, index) =>
+    const categoryAVideos = Array.from({ length: 33 }, (_, index) =>
       persistedVideo({
         id: `video_a_${index + 1}`,
         title: `Category A Video ${String(index + 1).padStart(2, "0")}`,
@@ -5241,7 +5292,7 @@ describe("App", () => {
       target: { value: "Category A" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Category A Video 31")).toBeInTheDocument();
+    expect(screen.getByText("Category A Video 33")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
     fireEvent.change(screen.getByLabelText("Categories"), {
@@ -5249,7 +5300,7 @@ describe("App", () => {
     });
 
     expect(screen.getByText("Category B Video 01")).toBeInTheDocument();
-    expect(screen.queryByText("Category A Video 31")).not.toBeInTheDocument();
+    expect(screen.queryByText("Category A Video 33")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
   });
 
@@ -5317,7 +5368,7 @@ describe("App", () => {
         title: "Beta Clip 03",
         categoriesJson: '["Category B"]',
       }),
-      ...Array.from({ length: 29 }, (_, index) =>
+      ...Array.from({ length: 33 }, (_, index) =>
         persistedVideo({
           id: `video_extra_${index + 1}`,
           title: `Extra Archive ${String(index + 4).padStart(2, "0")}`,
@@ -10774,7 +10825,7 @@ describe("App", () => {
   it("renders read-only Tech Info fields on Video and Image forms", async () => {
     // 1. Video Form Tech Info Check
     window.history.pushState({}, "", "/videos/sample-id/edit");
-    
+
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_get") {
         return persistedVideo({

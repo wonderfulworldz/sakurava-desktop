@@ -9,6 +9,12 @@ import {
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/cards";
+import {
+  CATALOG_PAGE_SIZE_OPTIONS,
+  normalizeCatalogPageSize,
+  readStoredCatalogPageSize,
+  storeCatalogPageSize,
+} from "../lib/catalogPagination";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
 
@@ -22,12 +28,15 @@ type DataFilterValues = Record<string, string>;
 
 function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [searchParams] = useSearchParams();
+  const pageSizeStorageKey = catalogPageSizeStorageKey(config.kind);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
   const [dataFilters, setDataFilters] = useState<DataFilterValues>({});
   const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [pageSize, setPageSize] = useState("30");
+  const [pageSize, setPageSize] = useState(() =>
+    readStoredCatalogPageSize(pageSizeStorageKey),
+  );
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const categoryOptions = useMemo(
@@ -112,8 +121,9 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   useEffect(() => {
     setSortValue(config.sortOptions[0] ?? "");
     setDataFilters({});
+    setPageSize(readStoredCatalogPageSize(pageSizeStorageKey));
     setPage(1);
-  }, [config.kind, config.sortOptions]);
+  }, [config.kind, config.sortOptions, pageSizeStorageKey]);
 
   return (
     <div className="space-y-6">
@@ -151,12 +161,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
         <>
           {viewMode === "card" ? (
             <section
-              className={[
-                "grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]",
-                config.kind === "performers"
-                  ? "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]"
-                  : "[@media(min-width:1536px)]:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]",
-              ].join(" ")}
+              className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))] xl:[grid-template-columns:repeat(4,minmax(0,1fr))]"
             >
               {pageItems.map((item) => (
                 <FullCard key={item.key} config={config} item={item} onFavoriteToggle={onFavoriteToggle} />
@@ -171,7 +176,9 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={(value) => {
-              setPageSize(value);
+              const nextPageSize = normalizeCatalogPageSize(value);
+              setPageSize(nextPageSize);
+              storeCatalogPageSize(pageSizeStorageKey, nextPageSize);
               resetToFirstPage();
             }}
           />
@@ -617,7 +624,7 @@ function PaginationBar({
           onChange={(event) => onPageSizeChange(event.target.value)}
           aria-label={t("collection.itemsPerPage")}
         >
-          {["30", "60", "90", "120"].map((option) => (
+          {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -1055,6 +1062,10 @@ function timestamp(value: number | string | null | undefined) {
 
 function normalizeSearchText(value: string) {
   return value.trim().toLocaleLowerCase();
+}
+
+function catalogPageSizeStorageKey(kind: CollectionConfig["kind"]) {
+  return `sakurava.catalog.${kind}.pageSize.v1`;
 }
 
 function pageNumbers(pageCount: number) {

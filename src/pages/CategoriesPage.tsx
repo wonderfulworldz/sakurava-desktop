@@ -10,6 +10,12 @@ import CategoryCatalogCard, {
   type CategoryCatalogCardData,
   type CategoryCatalogCardStatus,
 } from "../components/CategoryCatalogCard";
+import {
+  CATALOG_PAGE_SIZE_OPTIONS,
+  normalizeCatalogPageSize,
+  readStoredCatalogPageSize,
+  storeCatalogPageSize,
+} from "../lib/catalogPagination";
 import { getStoredManagedCategories } from "../lib/managedCategories";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { listImages } from "../runtime/imageCommands";
@@ -34,6 +40,7 @@ const emptyAudit = buildCategoryAudit({
   images: [],
   performers: [],
 });
+const categoryCatalogPageSizeStorageKey = "sakurava.catalog.categories.pageSize.v1";
 
 function CategoriesPage() {
   const [auditRows, setAuditRows] = useState<CategoryAuditRow[]>([]);
@@ -41,7 +48,9 @@ function CategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [usageFilter, setUsageFilter] = useState<UsageFilter>("all");
   const [sortValue, setSortValue] = useState<SortValue>("name");
-  const [pageSize, setPageSize] = useState("24");
+  const [pageSize, setPageSize] = useState(() =>
+    readStoredCatalogPageSize(categoryCatalogPageSizeStorageKey),
+  );
   const [page, setPage] = useState(1);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
     "idle",
@@ -213,7 +222,7 @@ function CategoriesPage() {
         <CategoryEmptyState message="Loading category usage..." />
       ) : visibleCategories.length > 0 ? (
         <>
-          <section className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+          <section className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))] xl:[grid-template-columns:repeat(4,minmax(0,1fr))]">
             {pageCategories.map((category) => (
               <CategoryCard key={category.key} category={category} />
             ))}
@@ -226,7 +235,11 @@ function CategoriesPage() {
             startIndex={startIndex}
             visibleCount={pageCategories.length}
             onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            onPageSizeChange={(value) => {
+              const nextPageSize = normalizeCatalogPageSize(value);
+              setPageSize(nextPageSize);
+              storeCatalogPageSize(categoryCatalogPageSizeStorageKey, nextPageSize);
+            }}
           />
         </>
       ) : (
@@ -321,7 +334,7 @@ function CategoryPaginationBar({
             onChange={(event) => onPageSizeChange(event.target.value)}
             aria-label="Categories per page"
           >
-            {["12", "24", "48"].map((option) => (
+            {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
