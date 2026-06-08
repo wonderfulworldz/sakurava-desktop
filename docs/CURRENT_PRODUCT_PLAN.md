@@ -16,12 +16,15 @@ Sakurava is a **local‑first, privacy‑first** Windows desktop application for
 - Related Performer, Video, and Image picker/storage/detail systems implemented through the completed post-MVP related-system batches.
 - Form, Category Library, and Detail system finalization completed through Batches 35.2, 35.3, and 35.4.
 - Global Gallery Preview and the separate Global Image Viewer flow finalized through Batch 35.5.
+- Collection toolbar, table view, sorting, filter panel, active filter chips, and global catalog pagination finalized through Batch 35.6.
 - Settings page with Appearance, Dark Mode, Backup/Restore, CSV import/export.
 - No cloud services, telemetry, or external account integration.
 
 ## Known Deferred Before Full App Audit
 - Save As implementation.
 - Open Folder implementation.
+- Performer Gender filter.
+- Performer Body Type filter.
 
 ## Out‑of‑Scope (for now)
 - Automatic media sync or cloud backup.

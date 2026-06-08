@@ -5,27 +5,27 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-35-5-global-gallery-preview-finalization-v1
+post-mvp-35-6-collection-toolbar-table-finalization-v1
 ```
 
 Current batch:
 
 ```text
-None / awaiting confirmation after roadmap audit
+None / awaiting confirmation
 ```
 
 Current focus:
 
 ```text
-Batch 35.5 is closed. The recommended next planned batch is 35.6 - Collection Toolbar + Table Finalization, but it is not started until explicitly approved.
+Batch 35.6 is closed. The recommended next planned batch is 35.7 - Glossary Library, but it is not started until explicitly approved.
 ```
 
 Current active execution roadmap:
 
 ```text
 docs/43-final-product-sequential-plan.md
-Completed: 35.2, 35.3, 35.4, 35.5
-Next planned only: 35.6 - Collection Toolbar + Table Finalization
+Completed: 35.2, 35.3, 35.4, 35.5, 35.6
+Next planned only: 35.7 - Glossary Library
 ```
 
 The older Batch 34.11 Language Core + Language Picker status text below is historical/outdated as current-batch guidance. Language behavior remains part of completed project history, but the active roadmap is now the 35.2 - 35.10 sequential plan.
@@ -37,6 +37,7 @@ post-mvp-35-2-form-system-finalization-v1
 post-mvp-35-3-category-library-finalization-v1
 post-mvp-35-4-detail-system-finalization-v1
 post-mvp-35-5-global-gallery-preview-finalization-v1
+post-mvp-35-6-collection-toolbar-table-finalization-v1
 ```
 
 Batch 35.5 verification:
@@ -47,9 +48,20 @@ npm.cmd run build = passed
 cd src-tauri && cargo test = 42 passed
 ```
 
+Batch 35.6 verification:
+
+```text
+git diff --check = passed
+npm.cmd run test -- src/App.test.tsx = 309 passed
+npm.cmd run build = passed
+cd src-tauri && cargo test = 42 passed
+```
+
 Known deferred before full app audit:
 
 ```text
+Performer Gender filter
+Performer Body Type filter
 Save As implementation
 Open Folder implementation
 ```
@@ -410,7 +422,7 @@ Current app capabilities include:
 - SQLite-backed persistence;
 - Tauri runtime;
 - create, list, detail, update, and delete flows;
-- collection search, sort, view toggle, pagination, and category filtering;
+- collection search, sort, view toggle, table view, pagination, active filter chips, and catalog filtering finalized through Batch 35.6;
 - Categories sidebar browse/discovery page;
 - Managed Categories-only form category picker;
 - Related Performer JSON storage foundation for Videos and Images;
@@ -521,20 +533,20 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the active final product sequential roadmap in `docs/43-final-product-sequential-plan.md`.
 
-Recommended next planned batch after Batch 35.5:
+Recommended next planned batch after Batch 35.6:
 
 ```text
-35.6 - Collection Toolbar + Table Finalization
+35.7 - Glossary Library
 ```
 
-Batch 35.6 is planned only and is not started until explicitly approved.
+Batch 35.7 is planned only and is not started until explicitly approved.
 
 Older Batch 34.11 language roadmap guidance below is historical/outdated for current execution status.
 
 Latest roadmap implementation batch:
 
 ```text
-Batch 35.5 - Global Gallery Preview Finalization
+Batch 35.6 - Collection Toolbar + Table Finalization
 ```
 
 Recommended phase after Batch 25.7:
