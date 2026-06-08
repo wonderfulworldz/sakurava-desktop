@@ -188,7 +188,7 @@ describe("App", () => {
         "Store and manage definitions, references, and terms for your personal use.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Entry" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add Entry" })).toBeEnabled();
     expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -197,6 +197,165 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Navigate to Settings" }))
       .toHaveAttribute("href", "/settings");
+  });
+
+  it("opens the non-persistent Glossary add form and validates required fields", async () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+
+    expect(screen.getByRole("heading", { name: "Add/Edit Glossary Entry" }))
+      .toBeInTheDocument();
+    for (const field of [
+      "Term",
+      "Synonyms",
+      "Category",
+      "Thumbnail",
+      "Favorite",
+      "Source Title",
+      "Source URL",
+      "Definition",
+    ]) {
+      expect(screen.getByLabelText(field)).toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    expect(await screen.findByText("Term is required.")).toBeInTheDocument();
+    expect(screen.getByText("Definition is required.")).toBeInTheDocument();
+  });
+
+  it("supports local-only Glossary form fields and synonym chips", async () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "Temporary Term" },
+    });
+    fireEvent.change(screen.getByLabelText("Definition"), {
+      target: { value: "Temporary definition preview only." },
+    });
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "Media Terms" },
+    });
+    fireEvent.change(screen.getByLabelText("Thumbnail"), {
+      target: { value: "D:/Reference/thumb.png" },
+    });
+    fireEvent.click(screen.getByLabelText("Favorite"));
+    fireEvent.change(screen.getByLabelText("Source Title"), {
+      target: { value: "Temporary source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source URL"), {
+      target: { value: "https://example.invalid/source" },
+    });
+    fireEvent.change(screen.getByLabelText("Synonyms"), {
+      target: { value: "Sample synonym" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(screen.getByRole("button", { name: "Remove synonym Sample synonym" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("Category")).toHaveDisplayValue("Media Terms");
+    expect(screen.getByLabelText("Favorite")).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove synonym Sample synonym" }));
+    expect(screen.queryByRole("button", { name: "Remove synonym Sample synonym" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Synonyms"), {
+      target: { value: "Preview chip" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Synonyms"), {
+      key: "Enter",
+      code: "Enter",
+    });
+    expect(screen.getByRole("button", { name: "Remove synonym Preview chip" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    expect(
+      await screen.findByText(
+        "Glossary persistence is planned for a later batch. This entry preview was not saved.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Temporary Term")).not.toBeInTheDocument();
+    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
+  });
+
+  it("validates Glossary Source URL without opening external links", async () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "URL Term" },
+    });
+    fireEvent.change(screen.getByLabelText("Definition"), {
+      target: { value: "Definition with invalid URL." },
+    });
+    fireEvent.change(screen.getByLabelText("Source URL"), {
+      target: { value: "example.invalid/source" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    expect(
+      await screen.findByText("Source URL must start with http:// or https://."),
+    ).toBeInTheDocument();
+  });
+
+  it("clears and cancels the local-only Glossary form", () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "Clear Me" },
+    });
+    fireEvent.change(screen.getByLabelText("Definition"), {
+      target: { value: "Clear this definition." },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
+    expect(screen.getByLabelText("Term")).toHaveValue("");
+    expect(screen.getByLabelText("Definition")).toHaveValue("");
+
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "Cancel Me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByLabelText("Term")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    expect(screen.getByLabelText("Term")).toHaveValue("");
+  });
+
+  it("opens a static Glossary row in edit preview without mutating the table", async () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Alias Mapping" }));
+
+    expect(screen.getByLabelText("Term")).toHaveValue("Alias Mapping");
+    expect(screen.getByLabelText("Source Title"))
+      .toHaveValue("Internal reference note");
+    expect(screen.getByRole("button", { name: "Preview Entry" }))
+      .toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "Changed Alias Mapping" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview Entry" }));
+
+    expect(
+      await screen.findByText(
+        "Glossary persistence is planned for a later batch. Static sample data was not changed.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
+    expect(screen.queryByText("Changed Alias Mapping")).not.toBeInTheDocument();
   });
 
   it("renders the static Glossary table columns and rows-per-page options", () => {

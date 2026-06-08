@@ -1,4 +1,10 @@
-import { useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useMemo,
+  useState,
+} from "react";
 
 type GlossarySampleEntry = {
   id: string;
@@ -13,8 +19,43 @@ type GlossarySampleEntry = {
 };
 
 type GlossarySortKey = "term-asc" | "term-desc";
+type GlossaryFormMode = "add" | "edit";
+
+type GlossaryFormState = {
+  term: string;
+  synonyms: string[];
+  category: string;
+  thumbnailPath: string;
+  favorite: boolean;
+  sourceTitle: string;
+  sourceUrl: string;
+  definition: string;
+};
+
+type GlossaryFormErrors = Partial<
+  Record<"term" | "definition" | "sourceUrl", string>
+>;
 
 const pageSizeOptions = [32, 64, 128, 256] as const;
+
+const glossaryFormCategoryOptions = [
+  "Concepts",
+  "People",
+  "Media Terms",
+  "Production",
+  "Setting",
+] as const;
+
+const emptyFormState: GlossaryFormState = {
+  term: "",
+  synonyms: [],
+  category: glossaryFormCategoryOptions[0],
+  thumbnailPath: "",
+  favorite: false,
+  sourceTitle: "",
+  sourceUrl: "",
+  definition: "",
+};
 
 const sampleGlossaryEntries: GlossarySampleEntry[] = [
   {
@@ -67,12 +108,38 @@ const sampleGlossaryEntries: GlossarySampleEntry[] = [
   },
 ];
 
+function entryToFormState(entry: GlossarySampleEntry): GlossaryFormState {
+  const matchingCategory = glossaryFormCategoryOptions.includes(
+    entry.category as (typeof glossaryFormCategoryOptions)[number],
+  )
+    ? entry.category
+    : glossaryFormCategoryOptions[0];
+
+  return {
+    term: entry.term,
+    synonyms: entry.synonyms,
+    category: matchingCategory,
+    thumbnailPath: entry.thumbnailPath ?? "",
+    favorite: entry.favorite,
+    sourceTitle: entry.sourceTitle,
+    sourceUrl: entry.sourceUrl,
+    definition: entry.definition,
+  };
+}
+
 function GlossaryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortKey, setSortKey] = useState<GlossarySortKey>("term-asc");
   const [pageSize, setPageSize] = useState<(typeof pageSizeOptions)[number]>(32);
   const [page, setPage] = useState(1);
+  const [formVisible, setFormVisible] = useState(false);
+  const [formMode, setFormMode] = useState<GlossaryFormMode>("add");
+  const [editingEntryTerm, setEditingEntryTerm] = useState("");
+  const [formState, setFormState] = useState<GlossaryFormState>(emptyFormState);
+  const [synonymDraft, setSynonymDraft] = useState("");
+  const [formErrors, setFormErrors] = useState<GlossaryFormErrors>({});
+  const [formMessage, setFormMessage] = useState("");
 
   const categoryOptions = useMemo(
     () =>
@@ -135,6 +202,120 @@ function GlossaryPage() {
     setPage(1);
   };
 
+  const openAddForm = () => {
+    setFormVisible(true);
+    setFormMode("add");
+    setEditingEntryTerm("");
+    setFormState(emptyFormState);
+    setSynonymDraft("");
+    setFormErrors({});
+    setFormMessage("");
+  };
+
+  const openEditForm = (entry: GlossarySampleEntry) => {
+    setFormVisible(true);
+    setFormMode("edit");
+    setEditingEntryTerm(entry.term);
+    setFormState(entryToFormState(entry));
+    setSynonymDraft("");
+    setFormErrors({});
+    setFormMessage("");
+  };
+
+  const closeForm = () => {
+    setFormVisible(false);
+    setFormMode("add");
+    setEditingEntryTerm("");
+    setFormState(emptyFormState);
+    setSynonymDraft("");
+    setFormErrors({});
+    setFormMessage("");
+  };
+
+  const clearForm = () => {
+    setFormState(emptyFormState);
+    setSynonymDraft("");
+    setFormErrors({});
+    setFormMessage("");
+  };
+
+  const updateFormField = <TKey extends keyof GlossaryFormState>(
+    key: TKey,
+    value: GlossaryFormState[TKey],
+  ) => {
+    setFormState((current) => ({ ...current, [key]: value }));
+    if (key === "term" || key === "definition" || key === "sourceUrl") {
+      setFormErrors((current) => ({ ...current, [key]: undefined }));
+    }
+    setFormMessage("");
+  };
+
+  const addSynonym = () => {
+    const nextSynonym = synonymDraft.trim();
+    if (!nextSynonym) {
+      return;
+    }
+
+    setFormState((current) => {
+      const exists = current.synonyms.some(
+        (synonym) => synonym.toLowerCase() === nextSynonym.toLowerCase(),
+      );
+      return exists
+        ? current
+        : { ...current, synonyms: [...current.synonyms, nextSynonym] };
+    });
+    setSynonymDraft("");
+    setFormMessage("");
+  };
+
+  const handleSynonymKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addSynonym();
+    }
+  };
+
+  const removeSynonym = (synonymToRemove: string) => {
+    setFormState((current) => ({
+      ...current,
+      synonyms: current.synonyms.filter((synonym) => synonym !== synonymToRemove),
+    }));
+    setFormMessage("");
+  };
+
+  const validateForm = () => {
+    const nextErrors: GlossaryFormErrors = {};
+    if (!formState.term.trim()) {
+      nextErrors.term = "Term is required.";
+    }
+    if (!formState.definition.trim()) {
+      nextErrors.definition = "Definition is required.";
+    }
+    if (
+      formState.sourceUrl.trim() &&
+      !/^https?:\/\//i.test(formState.sourceUrl.trim())
+    ) {
+      nextErrors.sourceUrl = "Source URL must start with http:// or https://.";
+    }
+
+    setFormErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const submitForm = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormMessage("");
+    if (!validateForm()) {
+      return;
+    }
+
+    setFormMessage(
+      formMode === "add"
+        ? "Glossary persistence is planned for a later batch. This entry preview was not saved."
+        : "Glossary persistence is planned for a later batch. Static sample data was not changed.",
+    );
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 rounded-lg border border-sakura-100 bg-white px-6 py-5 shadow-sm sm:flex-row sm:items-start sm:justify-between">
@@ -154,62 +335,216 @@ function GlossaryPage() {
         </div>
         <button
           type="button"
-          disabled
-          className="inline-flex h-10 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-4 text-sm font-semibold text-sakura-500 shadow-sm opacity-75"
+          onClick={openAddForm}
+          className="inline-flex h-10 items-center justify-center rounded-lg border border-sakura-200 bg-sakura-50 px-4 text-sm font-semibold text-sakura-600 shadow-sm transition hover:bg-sakura-100"
         >
           Add Entry
         </button>
       </header>
 
-      <section
-        className="rounded-lg border border-dashed border-sakura-200 bg-sakura-50/60 px-6 py-5"
-        aria-labelledby="glossary-form-shell-title"
-      >
-        <div className="flex flex-col gap-2">
-          <h2
-            id="glossary-form-shell-title"
-            className="text-lg font-semibold text-slate-950"
-          >
-            Add/Edit Glossary Entry
-          </h2>
-          <p className="max-w-3xl text-sm text-slate-600">
-            Persistence is planned for a later batch. These fields are static
-            placeholders and do not save or update glossary data.
-          </p>
-        </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {[
-            "Term",
-            "Synonyms",
-            "Category",
-            "Thumbnail",
-            "Source Title",
-            "Source URL",
-          ].map((label) => (
-            <label key={label} className="block text-sm font-medium text-slate-700">
-              {label}
-              <input
-                type="text"
-                disabled
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500"
-                placeholder="Planned"
-              />
-            </label>
-          ))}
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input type="checkbox" disabled className="size-4 accent-sakura-500" />
-            Favorite
-          </label>
-          <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-            Definition
-            <textarea
-              disabled
-              className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500"
-              placeholder="Planned"
-            />
-          </label>
-        </div>
-      </section>
+      {formVisible && (
+        <section
+          className="rounded-lg border border-sakura-100 bg-white px-6 py-5 shadow-sm"
+          aria-labelledby="glossary-form-title"
+        >
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-sakura-600">
+              {formMode === "add" ? "Add state" : "Edit preview"}
+            </p>
+            <h2
+              id="glossary-form-title"
+              className="text-lg font-semibold text-slate-950"
+            >
+              Add/Edit Glossary Entry
+            </h2>
+            <p className="max-w-3xl text-sm text-slate-600">
+              This form is a UI preview only. Persistence is planned for a later
+              batch, so saving does not create, update, or delete glossary data.
+              {formMode === "edit" && editingEntryTerm
+                ? ` Editing preview: ${editingEntryTerm}.`
+                : ""}
+            </p>
+          </div>
+
+          {formMessage && (
+            <div
+              className="mt-4 rounded-lg border border-sakura-100 bg-sakura-50 px-4 py-3 text-sm font-medium text-sakura-700"
+              role="status"
+            >
+              {formMessage}
+            </div>
+          )}
+
+          <form className="mt-5 space-y-5" onSubmit={submitForm} noValidate>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FieldErrorLabel label="Term" error={formErrors.term}>
+                <input
+                  type="text"
+                  value={formState.term}
+                  onChange={(event) => updateFormField("term", event.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                />
+              </FieldErrorLabel>
+
+              <label className="block text-sm font-medium text-slate-700">
+                Category
+                <select
+                  value={formState.category}
+                  onChange={(event) =>
+                    updateFormField("category", event.target.value)
+                  }
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                >
+                  {glossaryFormCategoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700">
+                  Synonyms
+                  <div className="mt-1 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm focus-within:border-sakura-300 focus-within:ring-2 focus-within:ring-sakura-100">
+                    <div className="flex flex-wrap gap-2">
+                      {formState.synonyms.map((synonym) => (
+                        <button
+                          key={synonym}
+                          type="button"
+                          onClick={() => removeSynonym(synonym)}
+                          className="rounded-full bg-sakura-50 px-3 py-1 text-xs font-semibold text-sakura-600 transition hover:bg-sakura-100"
+                          aria-label={`Remove synonym ${synonym}`}
+                        >
+                          {synonym} x
+                        </button>
+                      ))}
+                      {formState.synonyms.length === 0 && (
+                        <span className="px-1 py-1 text-xs text-slate-500">
+                          No synonyms added
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={synonymDraft}
+                        onChange={(event) => setSynonymDraft(event.target.value)}
+                        onKeyDown={handleSynonymKeyDown}
+                        className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-sm text-slate-900 outline-none"
+                        placeholder="Type synonym and press Enter"
+                        aria-label="Synonyms"
+                      />
+                      <button
+                        type="button"
+                        onClick={addSynonym}
+                        className="h-9 rounded-lg border border-sakura-200 px-3 text-sm font-semibold text-sakura-600"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <label className="block text-sm font-medium text-slate-700">
+                Thumbnail
+                <div className="mt-1 flex gap-2">
+                  <input
+                    type="text"
+                    value={formState.thumbnailPath}
+                    onChange={(event) =>
+                      updateFormField("thumbnailPath", event.target.value)
+                    }
+                    className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                    placeholder="Path reference only"
+                  />
+                  <button
+                    type="button"
+                    disabled
+                    className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-500 opacity-75"
+                  >
+                    Browse planned
+                  </button>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 self-end rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={formState.favorite}
+                  onChange={(event) =>
+                    updateFormField("favorite", event.target.checked)
+                  }
+                  className="size-4 accent-sakura-500"
+                />
+                Favorite
+              </label>
+
+              <label className="block text-sm font-medium text-slate-700">
+                Source Title
+                <input
+                  type="text"
+                  value={formState.sourceTitle}
+                  onChange={(event) =>
+                    updateFormField("sourceTitle", event.target.value)
+                  }
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                />
+              </label>
+
+              <FieldErrorLabel label="Source URL" error={formErrors.sourceUrl}>
+                <input
+                  type="url"
+                  value={formState.sourceUrl}
+                  onChange={(event) =>
+                    updateFormField("sourceUrl", event.target.value)
+                  }
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                  placeholder="https://"
+                />
+              </FieldErrorLabel>
+
+              <FieldErrorLabel
+                label="Definition"
+                error={formErrors.definition}
+                className="md:col-span-2"
+              >
+                <textarea
+                  value={formState.definition}
+                  onChange={(event) =>
+                    updateFormField("definition", event.target.value)
+                  }
+                  className="mt-1 min-h-28 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                />
+              </FieldErrorLabel>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={clearForm}
+                className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Clear form
+              </button>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="h-10 rounded-lg border border-sakura-200 bg-sakura-50 px-4 text-sm font-semibold text-sakura-600 transition hover:bg-sakura-100"
+              >
+                {formMode === "add" ? "Save Draft" : "Preview Entry"}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section
         className="rounded-lg border border-slate-200 bg-white shadow-sm"
@@ -345,15 +680,25 @@ function GlossaryPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-950">
-                          {entry.term}
-                        </span>
-                        {entry.favorite && (
-                          <span className="rounded-full bg-sakura-50 px-2 py-0.5 text-xs font-semibold text-sakura-600">
-                            Favorite
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-slate-950">
+                            {entry.term}
                           </span>
-                        )}
+                          {entry.favorite && (
+                            <span className="rounded-full bg-sakura-50 px-2 py-0.5 text-xs font-semibold text-sakura-600">
+                              Favorite
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(entry)}
+                          className="w-fit text-xs font-semibold text-sakura-600 hover:text-sakura-700"
+                          aria-label={`Edit ${entry.term}`}
+                        >
+                          Edit preview
+                        </button>
                       </div>
                     </td>
                     <td className="px-4 py-4">
@@ -416,6 +761,26 @@ function GlossaryPage() {
         Category catalog metadata.
       </footer>
     </div>
+  );
+}
+
+function FieldErrorLabel({
+  label,
+  error,
+  className = "",
+  children,
+}: {
+  label: string;
+  error?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className={`block text-sm font-medium text-slate-700 ${className}`}>
+      {label}
+      {children}
+      {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
+    </label>
   );
 }
 
