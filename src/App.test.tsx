@@ -51,6 +51,27 @@ function createTauriEventHarness() {
   };
 }
 
+function confirmDialog(confirmName: string | RegExp) {
+  const dialog = screen.getByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: confirmName }));
+}
+
+function clickAndConfirm(
+  buttonName: string | RegExp,
+  confirmName: string | RegExp,
+) {
+  fireEvent.click(screen.getByRole("button", { name: buttonName }));
+  confirmDialog(confirmName);
+}
+
+function clickSaveAndConfirm() {
+  clickAndConfirm("Save", /^(Save|Save changes)$/);
+}
+
+function clickSaveEntryAndConfirm() {
+  clickAndConfirm("Save Entry", /^(Save|Save changes)$/);
+}
+
 describe("App", () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -342,6 +363,9 @@ describe("App", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+    confirmDialog("Discard");
     expect(screen.queryByLabelText("Term")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
@@ -812,7 +836,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("switch", { name: "Favorite" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    clickSaveEntryAndConfirm();
 
     expect(await screen.findByText("Glossary entry saved."))
       .toBeInTheDocument();
@@ -871,7 +895,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Definition"), {
       target: { value: "Updated definition." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    clickSaveEntryAndConfirm();
 
     expect(await screen.findByText("Glossary entry updated."))
       .toBeInTheDocument();
@@ -942,7 +966,6 @@ describe("App", () => {
       }
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
@@ -950,11 +973,11 @@ describe("App", () => {
     expect(await screen.findByText("Delete Runtime Term")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("row", { name: "Edit glossary entry Delete Runtime Term" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog", { name: "Delete glossary entry?" }))
+      .toBeInTheDocument();
+    confirmDialog("Delete");
 
     await waitFor(() => {
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Delete glossary entry "Delete Runtime Term"?',
-      );
       expect(
         vi.mocked(invoke).mock.calls.some(([command]) =>
           command === "glossary_delete"
@@ -963,7 +986,6 @@ describe("App", () => {
     });
     expect(screen.queryByText("Delete Runtime Term")).not.toBeInTheDocument();
     expect(screen.getByText("Glossary entry deleted.")).toBeInTheDocument();
-    confirmSpy.mockRestore();
   });
 
   it.each([
@@ -2705,6 +2727,9 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Save Entry" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+    confirmDialog("Discard");
     expect(screen.queryByRole("heading", { name: "Add Category" }))
       .not.toBeInTheDocument();
 
@@ -2814,7 +2839,7 @@ describe("App", () => {
       target: { value: "  New Category  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Show in Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    clickSaveEntryAndConfirm();
     expect(await screen.findByText('Added category "New Category".'))
       .toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Edit Category" }))
@@ -2876,7 +2901,7 @@ describe("App", () => {
       target: { value: "  Updated definition  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Show in Performers" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    clickSaveEntryAndConfirm();
     expect(await screen.findByText('Saved category "Updated Child".'))
       .toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Edit Category" }))
@@ -2922,7 +2947,6 @@ describe("App", () => {
         parentKey: "cat_parent",
       }),
     ];
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [
@@ -2949,53 +2973,49 @@ describe("App", () => {
       invoke,
     };
 
-    try {
-      render(<App />);
+    render(<App />);
 
-      await screen.findByRole("button", { name: "Collapse Parent Category" });
-      fireEvent.click(
-        screen.getByRole("button", { name: "Edit Parent Category" }),
-      );
-      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-      expect(
-        screen.getByText("Delete is blocked while this category has child categories."),
-      ).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Collapse Parent Category" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Parent Category" }),
+    );
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(
+      screen.getByText("Delete is blocked while this category has child categories."),
+    ).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      fireEvent.click(
-        screen.getByRole("button", { name: "Edit Used Category" }),
-      );
-      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-      expect(
-        screen.getByText("Delete is blocked while records use this category."),
-      ).toBeInTheDocument();
-      expect(invoke).not.toHaveBeenCalledWith(
-        "managed_category_delete",
-        expect.anything(),
-        undefined,
-      );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Used Category" }),
+    );
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(
+      screen.getByText("Delete is blocked while records use this category."),
+    ).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "managed_category_delete",
+      expect.anything(),
+      undefined,
+    );
 
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      fireEvent.click(
-        screen.getByRole("button", { name: "Edit Unused Category" }),
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Unused Category" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog", { name: "Delete category?" }))
+      .toBeInTheDocument();
+    confirmDialog("Delete");
 
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Delete "Unused Category"? This only deletes unused managed category metadata.',
-      );
-      expect(await screen.findByText('Deleted category "Unused Category".'))
-        .toBeInTheDocument();
-      expect(invoke).toHaveBeenCalledWith(
-        "managed_category_delete",
-        { key: "cat_unused" },
-        undefined,
-      );
-      expect(screen.queryByRole("button", { name: "Edit Unused Category" }))
-        .not.toBeInTheDocument();
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    expect(await screen.findByText('Deleted category "Unused Category".'))
+      .toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "managed_category_delete",
+      { key: "cat_unused" },
+      undefined,
+    );
+    expect(screen.queryByRole("button", { name: "Edit Unused Category" }))
+      .not.toBeInTheDocument();
   });
 
   it("renders Category Management table hierarchy and prevents self-parent selection", async () => {
@@ -4287,7 +4307,7 @@ describe("App", () => {
       target: { value: "Related Video" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Related Video")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4369,7 +4389,7 @@ describe("App", () => {
       target: { value: "Video With Images" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Video With Images")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4446,7 +4466,7 @@ describe("App", () => {
       target: { value: "Image With Videos" },
     });
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Image With Videos")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4500,7 +4520,7 @@ describe("App", () => {
       expect(screen.queryByText("Former Gallery")).not.toBeInTheDocument(),
     );
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     await waitFor(() => {
       expect(
@@ -4567,7 +4587,7 @@ describe("App", () => {
       target: { value: "Related Image" },
     });
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Related Image")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4662,7 +4682,7 @@ describe("App", () => {
       target: { value: "Related Performer" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Related Performer")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4718,7 +4738,7 @@ describe("App", () => {
       }),
     );
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     await waitFor(() => {
       expect(
@@ -5536,7 +5556,7 @@ describe("App", () => {
       target: { value: "A" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -8340,7 +8360,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Created Video")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
@@ -8405,7 +8425,7 @@ describe("App", () => {
       target: { value: "D:/Media/detected.mp4" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Detected Video")).toBeInTheDocument();
   });
@@ -8590,7 +8610,7 @@ describe("App", () => {
       target: { value: "Picker Video" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Picker Video")).toBeInTheDocument();
     expect(screen.getByText("Drama")).toBeInTheDocument();
@@ -9134,12 +9154,13 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Video Detail" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Delete permanently" }),
+      screen.queryByRole("dialog", { name: /Delete/i }),
     ).not.toBeInTheDocument();
   });
 
   it("opens delete confirmation with item-specific safety copy", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
+    const nativeConfirm = vi.spyOn(window, "confirm");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_get") {
         return persistedVideo({ title: "Delete Candidate Video" });
@@ -9158,9 +9179,12 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-    expect(
-      screen.getByRole("region", { name: "Delete confirmation" }),
-    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", {
+      name: "Delete Delete Candidate Video?",
+    });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByTestId("confirm-dialog-backdrop")).toBeInTheDocument();
+    expect(nativeConfirm).not.toHaveBeenCalled();
     expect(screen.getByText("Delete Delete Candidate Video?")).toBeInTheDocument();
     expect(
       screen.getByText(/removes the saved Sakurava record for Delete Candidate Video/i),
@@ -9169,8 +9193,9 @@ describe("App", () => {
       screen.getByText(/does not delete local media files/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Delete permanently" }),
+      within(dialog).getByRole("button", { name: "Delete" }),
     ).toBeInTheDocument();
+    nativeConfirm.mockRestore();
   });
 
   it("cancels delete confirmation without calling the delete command", async () => {
@@ -9192,9 +9217,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(
-      screen.queryByRole("region", { name: "Delete confirmation" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Delete Cancel Delete Video?" }))
+      .not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_delete",
       expect.anything(),
@@ -9269,7 +9293,7 @@ describe("App", () => {
 
       expect(await screen.findByText(title)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-      fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+      confirmDialog("Delete");
 
       await waitFor(() => expect(window.location.pathname).toBe(collectionPath));
       expect(
@@ -9305,7 +9329,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Failed Delete Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    confirmDialog("Delete");
 
     expect(
       await screen.findByText(
@@ -9345,7 +9369,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Pending Delete Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    confirmDialog("Delete");
 
     const pendingButton = await screen.findByRole("button", { name: "Deleting..." });
     expect(pendingButton).toBeDisabled();
@@ -9645,7 +9669,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillVideoRatingFields({ Rewatch: "5" });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Updated Video")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
@@ -9730,7 +9754,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
@@ -9795,7 +9819,7 @@ describe("App", () => {
       target: { value: "D:/Images/one.jpg" },
     });
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Detected Image")).toBeInTheDocument();
   });
@@ -9890,7 +9914,7 @@ describe("App", () => {
     );
 
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Folder Gallery Image")).toBeInTheDocument();
   });
@@ -9898,7 +9922,6 @@ describe("App", () => {
   it("confirms before replacing existing image Gallery Images rows from a folder", async () => {
     window.history.pushState({}, "", "/images/image_test_001/edit");
     dialogMocks.open.mockResolvedValue("C:/Replacement");
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const existing = persistedImage({
       title: "Existing Gallery Image",
       galleryImagePathsJson: '["C:/Old/one.jpg"]',
@@ -9943,19 +9966,18 @@ describe("App", () => {
       screen.getAllByRole("button", { name: "Browse" })[1],
     );
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Replace current Gallery Images path rows?",
-    );
+    expect(screen.getByRole("dialog", { name: "Replace Gallery Images?" }))
+      .toBeInTheDocument();
+    confirmDialog("Replace");
     expect(
       await screen.findByDisplayValue("C:/Replacement/new.gif"),
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("C:/Old/one.jpg")).not.toBeInTheDocument();
 
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Existing Gallery Image")).toBeInTheDocument();
-    confirmSpy.mockRestore();
   });
 
   it("loads and updates an image through Tauri commands", async () => {
@@ -10025,7 +10047,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillImageRatingFields({ Memorability: "5" });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(
       await screen.findByText("Updated Image", {}, { timeout: 5000 }),
@@ -11852,7 +11874,7 @@ describe("App", () => {
       target: { value: "D:/Thumbs/created-2.jpg" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Created Performer")).toBeInTheDocument();
     expect(screen.getByText("Typed Alias")).toBeInTheDocument();
@@ -11911,7 +11933,7 @@ describe("App", () => {
       target: { value: "Empty Thumbnail Performer" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Empty Thumbnail Performer")).toBeInTheDocument();
   });
@@ -12067,7 +12089,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
       target: { value: "D:/Thumbs/updated-3.jpg" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(
       await screen.findByText("Updated Performer", {}, { timeout: 5000 }),
@@ -12207,7 +12229,7 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
   it.each([
@@ -12465,7 +12487,7 @@ describe("App", () => {
         Story: "4",
         Chemistry: "5",
       });
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      clickSaveAndConfirm();
 
       await waitFor(() => {
         expect(

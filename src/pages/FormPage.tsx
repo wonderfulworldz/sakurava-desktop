@@ -8,7 +8,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type {
   FormConfig,
   FormMode,
@@ -46,6 +46,7 @@ import {
   detectImageTechInfo,
   detectVideoTechInfo,
 } from "../lib/mediaTechInfo";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const BUTTON_STYLES = {
   primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-xs font-bold text-white transition-colors duration-150 hover:bg-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:cursor-not-allowed disabled:opacity-50",
@@ -91,6 +92,13 @@ type FormSubmitResult = {
   message?: string;
 };
 
+type FormConfirmation =
+  | "save"
+  | "discard"
+  | "replaceGallery"
+  | "clearGallery"
+  | null;
+
 type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
 type RelatedCatalogLoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -108,6 +116,7 @@ const performerSuggestionCacheKeys = [
 ];
 
 function FormPage({ config, mode, onSubmit }: FormPageProps) {
+  const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
     normalizeFormCategories(config.initialCategories[mode]),
@@ -150,6 +159,20 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [galleryFolderMessage, setGalleryFolderMessage] = useState("");
   const [techInfoMessage, setTechInfoMessage] = useState("");
   const [showRatingError, setShowRatingError] = useState(false);
+  const [confirmation, setConfirmation] = useState<FormConfirmation>(null);
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  const [cleanSnapshot, setCleanSnapshot] = useState(() =>
+    formSnapshot({
+      values: config.initialValues[mode],
+      categories: normalizeFormCategories(config.initialCategories[mode]),
+      aliases: config.initialAliases?.[mode] ?? [],
+      relatedPerformers: config.initialRelatedPerformers?.[mode] ?? [],
+      relatedCatalogRecords: config.initialRelatedCatalogRecords?.[mode] ?? [],
+      performerRelatedVideos: config.initialPerformerRelatedVideos?.[mode] ?? [],
+      performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
+      galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
+    }),
+  );
   const canBrowsePaths = isTauriRuntimeAvailable();
   const supportsRelatedPerformerPicker =
     config.kind === "videos" || config.kind === "images";
@@ -182,6 +205,20 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setGalleryFolderMessage("");
     setTechInfoMessage("");
     setShowRatingError(false);
+    setConfirmation(null);
+    setConfirmationPending(false);
+    setCleanSnapshot(
+      formSnapshot({
+        values: config.initialValues[mode],
+        categories: normalizeFormCategories(config.initialCategories[mode]),
+        aliases: config.initialAliases?.[mode] ?? [],
+        relatedPerformers: config.initialRelatedPerformers?.[mode] ?? [],
+        relatedCatalogRecords: config.initialRelatedCatalogRecords?.[mode] ?? [],
+        performerRelatedVideos: config.initialPerformerRelatedVideos?.[mode] ?? [],
+        performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
+        galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
+      }),
+    );
   }, [config, mode]);
 
   useEffect(() => {
@@ -434,6 +471,17 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const formLabel = mode === "create" ? config.createLabel : config.editLabel;
   const cancelTo =
     mode === "create" ? config.createCancelTo : config.editCancelTo;
+  const currentSnapshot = formSnapshot({
+    values,
+    categories: normalizeFormCategories(categories),
+    aliases,
+    relatedPerformers,
+    relatedCatalogRecords,
+    performerRelatedVideos,
+    performerRelatedImages,
+    galleryImagePaths,
+  });
+  const isDirty = currentSnapshot !== cleanSnapshot;
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -473,14 +521,16 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       return;
     }
 
-    try {
-      if (
-        galleryImagePaths.length > 0 &&
-        !window.confirm("Replace current Gallery Images path rows?")
-      ) {
-        return;
-      }
+    if (galleryImagePaths.length > 0) {
+      setConfirmation("replaceGallery");
+      return;
+    }
 
+    await replaceGalleryFolder();
+  }
+
+  async function replaceGalleryFolder() {
+    try {
       const selectedFolder = await selectGalleryFolder();
       if (!selectedFolder) {
         return;
@@ -504,6 +554,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    validateAndRequestSave();
+  }
+
+  function validateAndRequestSave() {
     const requiredValue = values[config.requiredField];
 
     if (typeof requiredValue !== "string" || requiredValue.trim() === "") {
@@ -523,9 +577,21 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       return;
     }
 
+    setConfirmation("save");
+  }
+
+  async function executeSave() {
+    if (confirmationPending) {
+      return;
+    }
+
+    setConfirmationPending(true);
     if (!onSubmit) {
       setSaveState("saved");
       setSaveMessage("Local visual save state only");
+      setCleanSnapshot(currentSnapshot);
+      setConfirmation(null);
+      setConfirmationPending(false);
       return;
     }
 
@@ -545,6 +611,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         result.message ??
           (result.state === "saved" ? "Saved." : "Unable to save."),
       );
+      if (result.state === "saved") {
+        setCleanSnapshot(currentSnapshot);
+        setConfirmation(null);
+      }
       if (result.state === "saved" && config.kind === "performers") {
         setPerformerSuggestionOptions((current) => {
           const next = addPerformerValuesToSuggestionCache(current, values);
@@ -555,6 +625,55 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     } catch {
       setSaveState("error");
       setSaveMessage("Unable to save.");
+    } finally {
+      setConfirmationPending(false);
+    }
+  }
+
+  function requestCancel() {
+    if (!isDirty) {
+      navigate(cancelTo);
+      return;
+    }
+    setConfirmation("discard");
+  }
+
+  function clearGalleryPaths() {
+    if (galleryImagePaths.length === 0) {
+      setGalleryImagePaths([]);
+      return;
+    }
+    setConfirmation("clearGallery");
+  }
+
+  function closeConfirmation() {
+    if (!confirmationPending) {
+      setConfirmation(null);
+    }
+  }
+
+  async function confirmCurrentAction() {
+    if (confirmation === "save") {
+      await executeSave();
+      return;
+    }
+    if (confirmation === "discard") {
+      navigate(cancelTo);
+      return;
+    }
+    if (confirmation === "replaceGallery") {
+      if (confirmationPending) {
+        return;
+      }
+      setConfirmationPending(true);
+      await replaceGalleryFolder();
+      setConfirmationPending(false);
+      setConfirmation(null);
+      return;
+    }
+    if (confirmation === "clearGallery") {
+      setGalleryImagePaths([]);
+      setConfirmation(null);
     }
   }
 
@@ -593,7 +712,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             ? `Back to ${collectionLabel(config.kind)}`
             : config.editBackLabel
         }
-        backTo={cancelTo}
+        onBack={requestCancel}
         title={title}
         subtitle={subtitle}
         formLabel={formLabel}
@@ -712,6 +831,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   folderMessage={galleryFolderMessage}
                   browseFolderDisabled={!canBrowsePaths}
                   onBrowseFolder={browseGalleryFolder}
+                  onClearPaths={clearGalleryPaths}
                 />
               )}
             </FieldGrid>
@@ -996,12 +1116,13 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             )}
           </div>
           <div className="flex justify-end gap-2.5">
-            <Link
-              to={cancelTo}
+            <button
+              type="button"
+              onClick={requestCancel}
               className={BUTTON_STYLES.secondary}
             >
               Cancel
-            </Link>
+            </button>
             <button
               type="submit"
               className={BUTTON_STYLES.primary}
@@ -1012,19 +1133,29 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmation !== null}
+        title={formConfirmationCopy(confirmation, config.kind, mode).title}
+        description={formConfirmationCopy(confirmation, config.kind, mode).description}
+        confirmLabel={formConfirmationCopy(confirmation, config.kind, mode).confirmLabel}
+        pending={confirmationPending}
+        pendingLabel={formConfirmationCopy(confirmation, config.kind, mode).pendingLabel}
+        onCancel={closeConfirmation}
+        onConfirm={() => void confirmCurrentAction()}
+      />
     </form>
   );
 }
 
 function FormHeader({
   backLabel,
-  backTo,
+  onBack,
   title,
   subtitle,
   formLabel,
 }: {
   backLabel: string;
-  backTo: string;
+  onBack: () => void;
   title: string;
   subtitle: string;
   formLabel: string;
@@ -1032,13 +1163,14 @@ function FormHeader({
   return (
     <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 mb-2">
       <div>
-        <Link
-          to={backTo}
+        <button
+          type="button"
+          onClick={onBack}
           className={BUTTON_STYLES.secondary}
         >
           <ArrowLeft size={14} />
           {backLabel}
-        </Link>
+        </button>
       </div>
       <div>
         <p className="mb-1 text-xs font-bold uppercase tracking-wider text-sakura-500">
@@ -1375,12 +1507,14 @@ function GalleryImagePathRows({
   folderMessage,
   browseFolderDisabled,
   onBrowseFolder,
+  onClearPaths,
 }: {
   paths: string[];
   onChange: Dispatch<SetStateAction<string[]>>;
   folderMessage: string;
   browseFolderDisabled: boolean;
   onBrowseFolder: () => void;
+  onClearPaths: () => void;
 }) {
   const [showAllPaths, setShowAllPaths] = useState(false);
 
@@ -1396,15 +1530,6 @@ function GalleryImagePathRows({
     onChange((current) =>
       current.filter((_, currentIndex) => currentIndex !== index),
     );
-  }
-
-  function clearPaths() {
-    if (
-      paths.length === 0 ||
-      window.confirm("Clear all Gallery Images path rows?")
-    ) {
-      onChange([]);
-    }
   }
 
   const visiblePaths = showAllPaths ? paths : paths.slice(0, 5);
@@ -1499,7 +1624,7 @@ function GalleryImagePathRows({
             type="button"
             disabled={paths.length === 0}
             className={BUTTON_STYLES.secondary}
-            onClick={clearPaths}
+            onClick={onClearPaths}
           >
             Clear All
           </button>
@@ -2480,6 +2605,59 @@ function addChip(
 
   setChips((current) => [...current, nextChip]);
   setDraft("");
+}
+
+function formSnapshot(data: FormSubmitData) {
+  return JSON.stringify(data);
+}
+
+function formConfirmationCopy(
+  confirmation: FormConfirmation,
+  kind: FormConfig["kind"],
+  mode: FormMode,
+) {
+  const noun = kind === "videos" ? "video" : kind === "images" ? "image" : "performer";
+
+  if (confirmation === "discard") {
+    return {
+      title: "Discard changes?",
+      description: "Unsaved changes will be lost.",
+      confirmLabel: "Discard",
+      pendingLabel: "Discarding...",
+    };
+  }
+
+  if (confirmation === "replaceGallery") {
+    return {
+      title: "Replace Gallery Images?",
+      description: "Current Gallery Images path rows will be replaced.",
+      confirmLabel: "Replace",
+      pendingLabel: "Replacing...",
+    };
+  }
+
+  if (confirmation === "clearGallery") {
+    return {
+      title: "Clear Gallery Images?",
+      description: "Current Gallery Images path rows will be removed from this form.",
+      confirmLabel: "Clear",
+      pendingLabel: "Clearing...",
+    };
+  }
+
+  return mode === "create"
+    ? {
+        title: `Save new ${noun}?`,
+        description: "Review the form before saving this new record.",
+        confirmLabel: "Save",
+        pendingLabel: "Saving...",
+      }
+    : {
+        title: "Save changes?",
+        description: "The saved record will be updated with these changes.",
+        confirmLabel: "Save changes",
+        pendingLabel: "Saving...",
+      };
 }
 
 function inputClass(inactive: boolean) {

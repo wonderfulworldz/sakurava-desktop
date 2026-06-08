@@ -20,6 +20,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
+import ConfirmDialog from "../components/ConfirmDialog";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
 import GlobalImageViewer from "../components/gallery/GlobalImageViewer";
 import type {
@@ -215,42 +216,30 @@ function DetailHeader({ config, deleteAction }: DetailPageProps) {
           {config.subtitle}
         </p>
       </div>
-      {deleteAction && confirmOpen && (
-        <section
-          aria-label="Delete confirmation"
-          className="rounded-lg border border-rose-200 bg-rose-50/70 p-4"
-        >
-          <h2 className="text-base font-semibold text-rose-900">
-            Delete {deleteAction.itemLabel}?
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-rose-800">
-            This removes the saved Sakurava record for {deleteAction.itemLabel}.
-            It does not delete local media files from this device.
-          </p>
-          {deleteAction.errorMessage && (
-            <p className="mt-3 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700">
-              {deleteAction.errorMessage}
-            </p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={closeConfirmation}
-              disabled={deleteAction.isPending}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={deleteAction.onConfirm}
-              disabled={deleteAction.isPending}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {deleteAction.isPending ? "Deleting..." : "Delete permanently"}
-            </button>
-          </div>
-        </section>
+      {deleteAction && (
+        <ConfirmDialog
+          open={confirmOpen}
+          title={`Delete ${deleteAction.itemLabel}?`}
+          description={
+            <>
+              <p>
+                This removes the saved Sakurava record for {deleteAction.itemLabel}.
+                It does not delete local media files from this device.
+              </p>
+              {deleteAction.errorMessage && (
+                <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+                  {deleteAction.errorMessage}
+                </p>
+              )}
+            </>
+          }
+          confirmLabel="Delete"
+          pendingLabel="Deleting..."
+          variant="destructive"
+          pending={deleteAction.isPending}
+          onCancel={closeConfirmation}
+          onConfirm={deleteAction.onConfirm}
+        />
       )}
     </div>
   );

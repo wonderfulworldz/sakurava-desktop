@@ -37,6 +37,7 @@ import { listImages } from "../runtime/imageCommands";
 import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { listVideos } from "../runtime/videoCommands";
+import ConfirmDialog from "./ConfirmDialog";
 
 type FormState = {
   name: string;
@@ -53,6 +54,8 @@ type StatusState =
   | { state: "pending"; message: string }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
+
+type CategoryConfirmation = "save" | "delete" | "discard" | null;
 type FormErrors = Partial<Record<keyof FormState | "parent", string>>;
 
 type FilterValue =
@@ -129,6 +132,11 @@ function CategoryManagementPanel() {
     25,
   );
   const [status, setStatus] = useState<StatusState>({ state: "idle" });
+  const [confirmation, setConfirmation] = useState<CategoryConfirmation>(null);
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  const [cleanFormSnapshot, setCleanFormSnapshot] = useState(() =>
+    categoryFormSnapshot(emptyForm),
+  );
   const formSectionRef = useRef<HTMLElement | null>(null);
 
   const editingCategory = useMemo(
@@ -401,6 +409,15 @@ function CategoryManagementPanel() {
       return;
     }
 
+    setConfirmation("save");
+  }
+
+  async function executeSubmit() {
+    if (confirmationPending) {
+      return;
+    }
+
+    setConfirmationPending(true);
     setStatus({
       state: "pending",
       message: editingCategory ? "Saving category..." : "Adding category...",
@@ -425,6 +442,7 @@ function CategoryManagementPanel() {
           null;
         if (updatedCategory) {
           setForm(categoryToFormState(updatedCategory));
+          setCleanFormSnapshot(categoryFormSnapshot(categoryToFormState(updatedCategory)));
         }
       } else {
         const created = await createManagedCategory({
@@ -443,13 +461,18 @@ function CategoryManagementPanel() {
           nextCategories.find((category) => category.key === created.key) ??
           created;
         setEditingKey(createdCategory.key);
-        setForm(categoryToFormState(createdCategory));
+        const nextForm = categoryToFormState(createdCategory);
+        setForm(nextForm);
+        setCleanFormSnapshot(categoryFormSnapshot(nextForm));
       }
+      setConfirmation(null);
     } catch (error) {
       setStatus({
         state: "error",
         message: formatError(error, "Category could not be saved."),
       });
+    } finally {
+      setConfirmationPending(false);
     }
   }
 
@@ -463,12 +486,15 @@ function CategoryManagementPanel() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete "${editingCategory.name}"? This only deletes unused managed category metadata.`,
-    );
-    if (!confirmed) {
+    setConfirmation("delete");
+  }
+
+  async function executeDelete() {
+    if (!editingCategory || confirmationPending) {
       return;
     }
+
+    setConfirmationPending(true);
 
     setStatus({ state: "pending", message: "Deleting category..." });
 
@@ -476,11 +502,14 @@ function CategoryManagementPanel() {
       await deleteManagedCategory(editingCategory.key);
       await refreshCategories(`Deleted category "${editingCategory.name}".`);
       resetForm();
+      setConfirmation(null);
     } catch (error) {
       setStatus({
         state: "error",
         message: formatError(error, "Category could not be deleted."),
       });
+    } finally {
+      setConfirmationPending(false);
     }
   }
 
@@ -500,7 +529,9 @@ function CategoryManagementPanel() {
     setEditingKey(category.key);
     setFormVisible(true);
     setFormErrors({});
-    setForm(categoryToFormState(category));
+    const nextForm = categoryToFormState(category);
+    setForm(nextForm);
+    setCleanFormSnapshot(categoryFormSnapshot(nextForm));
     setStatus({ state: "idle" });
     window.requestAnimationFrame(() => {
       scrollFormIntoView(formSectionRef.current);
@@ -512,6 +543,9 @@ function CategoryManagementPanel() {
     setForm(emptyForm);
     setFormErrors({});
     setFormVisible(false);
+    setCleanFormSnapshot(categoryFormSnapshot(emptyForm));
+    setConfirmation(null);
+    setConfirmationPending(false);
   }
 
   function handleAddEntry() {
@@ -519,6 +553,7 @@ function CategoryManagementPanel() {
     setForm(emptyForm);
     setFormErrors({});
     setFormVisible(true);
+    setCleanFormSnapshot(categoryFormSnapshot(emptyForm));
     setStatus({ state: "idle" });
     window.requestAnimationFrame(() => {
       scrollFormIntoView(formSectionRef.current);
@@ -547,6 +582,7 @@ function CategoryManagementPanel() {
     paginatedRows,
     expandedParentKeys,
   );
+  const isFormDirty = categoryFormSnapshot(form) !== cleanFormSnapshot;
 
   function toggleParentExpansion(key: string) {
     setExpandedParentKeys((current) => {
@@ -558,6 +594,34 @@ function CategoryManagementPanel() {
       }
       return next;
     });
+  }
+
+  function requestCancelForm() {
+    if (!isFormDirty) {
+      resetForm();
+      return;
+    }
+    setConfirmation("discard");
+  }
+
+  function closeConfirmation() {
+    if (!confirmationPending) {
+      setConfirmation(null);
+    }
+  }
+
+  async function confirmCurrentAction() {
+    if (confirmation === "save") {
+      await executeSubmit();
+      return;
+    }
+    if (confirmation === "delete") {
+      await executeDelete();
+      return;
+    }
+    if (confirmation === "discard") {
+      resetForm();
+    }
   }
 
   return (
@@ -746,7 +810,7 @@ function CategoryManagementPanel() {
             )}
             <button
               type="button"
-              onClick={resetForm}
+              onClick={requestCancelForm}
               className="h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Cancel
@@ -987,6 +1051,17 @@ function CategoryManagementPanel() {
           Delete is blocked for categories with children or record usage.
         </p>
       </div>
+      <ConfirmDialog
+        open={confirmation !== null}
+        title={categoryConfirmationCopy(confirmation, editingCategory).title}
+        description={categoryConfirmationCopy(confirmation, editingCategory).description}
+        confirmLabel={categoryConfirmationCopy(confirmation, editingCategory).confirmLabel}
+        variant={confirmation === "delete" ? "destructive" : "default"}
+        pending={confirmationPending}
+        pendingLabel={categoryConfirmationCopy(confirmation, editingCategory).pendingLabel}
+        onCancel={closeConfirmation}
+        onConfirm={() => void confirmCurrentAction()}
+      />
     </div>
   );
 }
@@ -1278,6 +1353,49 @@ function categoryToFormState(category: ManagedCategory): FormState {
     showInImages: category.showInImages,
     showInPerformers: category.showInPerformers,
   };
+}
+
+function categoryFormSnapshot(form: FormState) {
+  return JSON.stringify(form);
+}
+
+function categoryConfirmationCopy(
+  confirmation: CategoryConfirmation,
+  editingCategory: ManagedCategory | null,
+) {
+  if (confirmation === "delete") {
+    return {
+      title: "Delete category?",
+      description: `This action cannot be undone. This only deletes unused managed category metadata${
+        editingCategory ? ` for ${editingCategory.name}` : ""
+      }.`,
+      confirmLabel: "Delete",
+      pendingLabel: "Deleting...",
+    };
+  }
+
+  if (confirmation === "discard") {
+    return {
+      title: "Discard changes?",
+      description: "Unsaved category changes will be lost.",
+      confirmLabel: "Discard",
+      pendingLabel: "Discarding...",
+    };
+  }
+
+  return editingCategory
+    ? {
+        title: "Save changes?",
+        description: "The category will be updated with these changes.",
+        confirmLabel: "Save changes",
+        pendingLabel: "Saving...",
+      }
+    : {
+        title: "Save new category?",
+        description: "Review the category before saving it.",
+        confirmLabel: "Save",
+        pendingLabel: "Saving...",
+      };
 }
 
 function buildVisibleTableRows(

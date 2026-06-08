@@ -14,9 +14,11 @@ import {
   updateGlossaryEntry,
 } from "../runtime/glossaryCommands";
 import { selectLocalImageFile } from "../runtime/dialogCommands";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 type GlossarySortKey = "az" | "za" | "created-desc" | "updated-desc";
 type GlossaryFormMode = "add" | "edit";
+type GlossaryConfirmation = "save" | "delete" | "discard" | null;
 type GlossaryTableDisplayRow = {
   entry: GlossaryEntry;
   depth: number;
@@ -186,6 +188,50 @@ function formStateToInput(formState: GlossaryFormState): NewGlossaryEntry {
   };
 }
 
+function glossaryFormSnapshot(formState: GlossaryFormState, synonymDraft: string) {
+  return JSON.stringify({
+    formState,
+    synonymDraft: synonymDraft.trim(),
+  });
+}
+
+function glossaryConfirmationCopy(
+  confirmation: GlossaryConfirmation,
+  formMode: GlossaryFormMode,
+) {
+  if (confirmation === "delete") {
+    return {
+      title: "Delete glossary entry?",
+      description: "This action cannot be undone.",
+      confirmLabel: "Delete",
+      pendingLabel: "Deleting...",
+    };
+  }
+
+  if (confirmation === "discard") {
+    return {
+      title: "Discard changes?",
+      description: "Unsaved Glossary entry changes will be lost.",
+      confirmLabel: "Discard",
+      pendingLabel: "Discarding...",
+    };
+  }
+
+  return formMode === "add"
+    ? {
+        title: "Save glossary entry?",
+        description: "Review the entry before saving it.",
+        confirmLabel: "Save",
+        pendingLabel: "Saving...",
+      }
+    : {
+        title: "Save changes?",
+        description: "The Glossary entry will be updated with these changes.",
+        confirmLabel: "Save changes",
+        pendingLabel: "Saving...",
+      };
+}
+
 function GlossaryPage() {
   const [entries, setEntries] = useState<GlossaryEntry[]>(() =>
     isGlossaryRuntimeAvailable() ? [] : sampleGlossaryEntries,
@@ -208,6 +254,10 @@ function GlossaryPage() {
   const [formErrors, setFormErrors] = useState<GlossaryFormErrors>({});
   const [formMessage, setFormMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState<GlossaryConfirmation>(null);
+  const [cleanFormSnapshot, setCleanFormSnapshot] = useState(() =>
+    glossaryFormSnapshot(emptyFormState, ""),
+  );
   const [parentPickerOpen, setParentPickerOpen] = useState(false);
   const [parentSearch, setParentSearch] = useState("");
   const [filterPickerOpen, setFilterPickerOpen] = useState(false);
@@ -430,19 +480,24 @@ function GlossaryPage() {
     setFormMode("add");
     setEditingEntryId("");
     setFormState(emptyFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(emptyFormState, ""));
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
+    setConfirmation(null);
   };
 
   const openEditForm = (entry: GlossaryEntry) => {
+    const nextFormState = entryToFormState(entry);
     setFormVisible(true);
     setFormMode("edit");
     setEditingEntryId(entry.id);
-    setFormState(entryToFormState(entry));
+    setFormState(nextFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(nextFormState, ""));
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
+    setConfirmation(null);
   };
 
   const closeForm = () => {
@@ -450,10 +505,12 @@ function GlossaryPage() {
     setFormMode("add");
     setEditingEntryId("");
     setFormState(emptyFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(emptyFormState, ""));
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
     setIsSubmitting(false);
+    setConfirmation(null);
   };
 
   const updateFormField = <TKey extends keyof GlossaryFormState>(
@@ -572,6 +629,14 @@ function GlossaryPage() {
       return;
     }
 
+    setConfirmation("save");
+  };
+
+  const executeSubmitForm = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const input = formStateToInput({
@@ -585,7 +650,9 @@ function GlossaryPage() {
           setExpandedEntryIds((current) => new Set(current).add(created.parentId));
         }
         setFormMessage("Glossary entry saved.");
-        setFormState(entryToFormState(created));
+        const nextFormState = entryToFormState(created);
+        setFormState(nextFormState);
+        setCleanFormSnapshot(glossaryFormSnapshot(nextFormState, ""));
         setEditingEntryId(created.id);
         setFormMode("edit");
       } else if (editingEntryId) {
@@ -603,10 +670,13 @@ function GlossaryPage() {
         if (updated.parentId) {
           setExpandedEntryIds((current) => new Set(current).add(updated.parentId));
         }
-        setFormState(entryToFormState(updated));
+        const nextFormState = entryToFormState(updated);
+        setFormState(nextFormState);
+        setCleanFormSnapshot(glossaryFormSnapshot(nextFormState, ""));
         setFormMessage("Glossary entry updated.");
       }
       setSynonymDraft("");
+      setConfirmation(null);
     } catch (error) {
       setFormMessage(
         error instanceof Error
@@ -658,10 +728,15 @@ function GlossaryPage() {
       setDataStatus("Open the desktop app to delete Glossary entries.");
       return;
     }
-    if (!window.confirm(`Delete glossary entry "${editingEntry.term}"?`)) {
+    setConfirmation("delete");
+  };
+
+  const executeDeleteEditingEntry = async () => {
+    if (!editingEntry || isSubmitting) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const result = await deleteGlossaryEntry(editingEntry.id);
       if (!result.deleted) {
@@ -679,6 +754,40 @@ function GlossaryPage() {
           ? error.message
           : "Unable to delete Glossary entry.",
       );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isFormDirty =
+    formVisible &&
+    glossaryFormSnapshot(formState, synonymDraft) !== cleanFormSnapshot;
+
+  const requestCloseForm = () => {
+    if (!isFormDirty) {
+      closeForm();
+      return;
+    }
+    setConfirmation("discard");
+  };
+
+  const closeConfirmation = () => {
+    if (!isSubmitting) {
+      setConfirmation(null);
+    }
+  };
+
+  const confirmCurrentAction = async () => {
+    if (confirmation === "save") {
+      await executeSubmitForm();
+      return;
+    }
+    if (confirmation === "delete") {
+      await executeDeleteEditingEntry();
+      return;
+    }
+    if (confirmation === "discard") {
+      closeForm();
     }
   };
 
@@ -883,7 +992,7 @@ function GlossaryPage() {
               </button>
               <button
                 type="button"
-                onClick={closeForm}
+                onClick={requestCloseForm}
                 className={secondaryButtonClassName}
               >
                 Cancel
@@ -1089,6 +1198,17 @@ function GlossaryPage() {
         Glossary entries are independent from Video, Image, Performer, and
         Category catalog metadata.
       </footer>
+      <ConfirmDialog
+        open={confirmation !== null}
+        title={glossaryConfirmationCopy(confirmation, formMode).title}
+        description={glossaryConfirmationCopy(confirmation, formMode).description}
+        confirmLabel={glossaryConfirmationCopy(confirmation, formMode).confirmLabel}
+        variant={confirmation === "delete" ? "destructive" : "default"}
+        pending={isSubmitting}
+        pendingLabel={glossaryConfirmationCopy(confirmation, formMode).pendingLabel}
+        onCancel={closeConfirmation}
+        onConfirm={() => void confirmCurrentAction()}
+      />
     </div>
   );
 }
