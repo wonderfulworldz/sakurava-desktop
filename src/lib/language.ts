@@ -76,6 +76,7 @@ const englishDictionary: TranslationDictionary = {
   "nav.images": "Images",
   "nav.performers": "Performers",
   "nav.categories": "Categories",
+  "nav.glossary": "Glossary",
   "nav.settings": "Settings",
 
   // Settings
@@ -202,6 +203,7 @@ const indonesianDictionary: TranslationDictionary = {
   "nav.images": "Gambar",
   "nav.performers": "Performer",
   "nav.categories": "Kategori",
+  "nav.glossary": "Glosarium",
   "nav.settings": "Pengaturan",
 
   // Settings

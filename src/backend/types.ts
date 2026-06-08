@@ -90,6 +90,21 @@ export interface ManagedCategory {
   updatedAt: IsoDateTimeString;
 }
 
+export interface GlossaryEntry {
+  id: EntityId;
+  term: string;
+  definition: string;
+  synonymsJson: JsonText;
+  category: string;
+  parentId: string;
+  thumbnailPath: string;
+  favorite: boolean;
+  sourceTitle: string;
+  sourceUrl: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 type GeneratedFields = "id" | "createdAt" | "updatedAt";
 type ManagedCategoryGeneratedFields = "createdAt" | "updatedAt";
 
@@ -110,6 +125,10 @@ export type NewManagedCategory = Pick<ManagedCategory, "name"> &
 export type ManagedCategoryPatch = Partial<
   Omit<ManagedCategory, ManagedCategoryGeneratedFields | "key">
 >;
+
+export type NewGlossaryEntry = Pick<GlossaryEntry, "term" | "definition"> &
+  Partial<Omit<GlossaryEntry, GeneratedFields | "term" | "definition">>;
+export type GlossaryEntryPatch = Partial<NewGlossaryEntry>;
 
 export interface ValidationError {
   field: string;

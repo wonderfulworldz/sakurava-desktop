@@ -105,11 +105,29 @@ CREATE TABLE IF NOT EXISTS managedCategories (
 );
 `;
 
+export const CREATE_GLOSSARY_ENTRIES_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS glossary_entries (
+  id TEXT PRIMARY KEY NOT NULL,
+  term TEXT NOT NULL,
+  definition TEXT NOT NULL,
+  synonyms_json TEXT NOT NULL DEFAULT '[]',
+  category TEXT NOT NULL DEFAULT '',
+  parent_id TEXT NOT NULL DEFAULT '',
+  thumbnail_path TEXT NOT NULL DEFAULT '',
+  favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
+  source_title TEXT NOT NULL DEFAULT '',
+  source_url TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+`;
+
 export const SCHEMA_SQL = [
   CREATE_VIDEOS_TABLE_SQL,
   CREATE_IMAGES_TABLE_SQL,
   CREATE_PERFORMERS_TABLE_SQL,
   CREATE_MANAGED_CATEGORIES_TABLE_SQL,
+  CREATE_GLOSSARY_ENTRIES_TABLE_SQL,
 ] as const;
 
 export const TABLE_NAMES = [
@@ -117,4 +135,5 @@ export const TABLE_NAMES = [
   "images",
   "performers",
   "managedCategories",
+  "glossary_entries",
 ] as const;

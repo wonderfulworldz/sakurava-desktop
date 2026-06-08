@@ -1,4 +1,5 @@
 import {
+  CircleHelp,
   Home,
   Image,
   PanelLeftClose,
@@ -10,7 +11,12 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useLanguage } from "../lib/LanguageContext";
-import { sidebarItems } from "../lib/navigation";
+import {
+  lowerSidebarItems,
+  primarySidebarItems,
+  sidebarItems,
+} from "../lib/navigation";
+type SidebarNavigationItem = (typeof sidebarItems)[number];
 
 const icons = {
   home: Home,
@@ -18,6 +24,7 @@ const icons = {
   images: Image,
   performers: UserRound,
   categories: Tags,
+  glossary: CircleHelp,
   settings: Settings,
 };
 
@@ -33,6 +40,38 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const exactActivePath = sidebarItems.find(
     (item) => item.to !== "/" && item.to === location.pathname,
   )?.to;
+  const renderNavigationItems = (items: readonly SidebarNavigationItem[]) =>
+    items.map((item) => {
+      const Icon = icons[item.icon];
+      const label = t(item.labelKey);
+      const navigationLabel = t("app.sidebar.navigateTo", { label });
+
+      return (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.to === "/"}
+          aria-label={collapsed ? navigationLabel : undefined}
+          title={collapsed ? navigationLabel : undefined}
+          className={({ isActive }) => {
+            const itemIsActive = exactActivePath
+              ? item.to === exactActivePath
+              : isActive;
+
+            return [
+              "flex h-11 items-center rounded-lg text-sm font-medium transition",
+              collapsed ? "justify-center px-0" : "gap-3 px-3",
+              itemIsActive
+                ? "bg-sakura-100 text-sakura-600"
+                : "text-slate-600 hover:bg-white hover:text-slate-950",
+            ].join(" ");
+          }}
+        >
+          <Icon size={18} strokeWidth={2.1} />
+          {!collapsed && <span>{label}</span>}
+        </NavLink>
+      );
+    });
 
   return (
     <aside
@@ -81,37 +120,14 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         className="flex flex-1 flex-col gap-1 px-3"
         aria-label="Primary navigation"
       >
-        {sidebarItems.map((item) => {
-          const Icon = icons[item.icon];
-          const label = t(item.labelKey);
-          const navigationLabel = t("app.sidebar.navigateTo", { label });
+        {renderNavigationItems(primarySidebarItems)}
+      </nav>
 
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              aria-label={collapsed ? navigationLabel : undefined}
-              title={collapsed ? navigationLabel : undefined}
-              className={({ isActive }) => {
-                const itemIsActive = exactActivePath
-                  ? item.to === exactActivePath
-                  : isActive;
-
-                return [
-                  "flex h-11 items-center rounded-lg text-sm font-medium transition",
-                  collapsed ? "justify-center px-0" : "gap-3 px-3",
-                  itemIsActive
-                    ? "bg-sakura-100 text-sakura-600"
-                    : "text-slate-600 hover:bg-white hover:text-slate-950",
-                ].join(" ");
-              }}
-            >
-              <Icon size={18} strokeWidth={2.1} />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
-          );
-        })}
+      <nav
+        className="flex flex-col gap-1 px-3 pb-4"
+        aria-label="Support navigation"
+      >
+        {renderNavigationItems(lowerSidebarItems)}
       </nav>
     </aside>
   );
