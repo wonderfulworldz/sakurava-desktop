@@ -181,6 +181,7 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
     quality: deriveQualityBucket(video),
     availability: video.availability || "Unspecified",
     censorship: video.censorship || "Unspecified",
+    publisherLabel: video.publisherLabel,
     categories: parseTextLabelArray(video.categoriesJson),
     favorite: video.favorite,
   };

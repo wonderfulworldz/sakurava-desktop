@@ -10,6 +10,7 @@ type BaseCollectionItem = {
   updatedAt?: number | string | null;
   availability?: string;
   censorship?: string;
+  publisherLabel?: string;
   releaseYear?: number | null;
   ratingAverage?: number | null;
   ratingBucket?: number | null;
@@ -46,6 +47,10 @@ export type PerformerCollectionItem = {
   createdAt?: number | string | null;
   updatedAt?: number | string | null;
   status: string;
+  birthDate?: string;
+  nationality?: string;
+  heightCm?: number | null;
+  cupSize?: string;
   debutYear?: number | null;
   ratingAverage?: number | null;
   ratingBucket?: number | null;
@@ -200,10 +205,12 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       code: `VID-${String(index + 1).padStart(3, "0")}`,
       duration,
       durationMinutes: numberFromDisplayText(duration),
-      releaseYear: null,
-      ratingBucket: null,
+      releaseYear: 2026 - (index % 6),
+      ratingBucket: (index % 5) + 1,
+      quality: index % 5 === 0 ? "4K" : index % 3 === 0 ? "FHD" : "HD",
       availability: "Owned",
       censorship: "Censored",
+      publisherLabel: index % 2 === 0 ? "Sample Publisher" : "Studio Sakura",
       categories,
       favorite: index === 0 || index === 2 || index === 5 || index === 9,
     })),
@@ -229,10 +236,12 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       code: `IMG-${String(index + 1).padStart(3, "0")}`,
       imageCount,
       imageCountValue: numberFromDisplayText(imageCount),
-      releaseYear: null,
-      ratingBucket: null,
+      releaseYear: 2026 - (index % 6),
+      ratingBucket: (index % 5) + 1,
+      quality: index % 5 === 0 ? "4K" : index % 3 === 0 ? "FHD" : "HD",
       availability: "Owned",
       censorship: "Censored",
+      publisherLabel: index % 2 === 0 ? "Sample Publisher" : "Studio Sakura",
       categories,
       favorite: index === 0 || index === 2 || index === 5 || index === 7,
     })),
@@ -259,12 +268,17 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       yearsActive: "Unknown - Now",
       activeAges: "Age unknown",
       status,
-      ratingBucket: null,
+      birthDate: `19${90 + (index % 10)}-01-01`,
+      nationality: index % 2 === 0 ? "Japan" : "Korea",
+      heightCm: 152 + (index % 18),
+      cupSize: ["A", "B", "C", "D"][index % 4],
+      debutYear: 2010 + (index % 6),
+      ratingBucket: (index % 5) + 1,
       filmographyCount,
       filmographyCountValue: numberFromDisplayText(filmographyCount),
       pictorialsCount,
       pictorialsCountValue: numberFromDisplayText(pictorialsCount),
-      categories,
+      categories: [...categories, `Body Type: ${["Slim", "Average", "Curvy"][index % 3]}`],
       favorite: index === 0 || index === 2 || index === 5 || index === 7,
     })),
   },
