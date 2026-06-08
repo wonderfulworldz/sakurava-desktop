@@ -194,6 +194,7 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
     quality: deriveQualityBucket(image),
     availability: image.availability || "Unspecified",
     censorship: image.censorship || "Unspecified",
+    publisherLabel: image.publisherLabel,
     categories: parseTextLabelArray(image.categoriesJson),
     favorite: image.favorite,
   };
