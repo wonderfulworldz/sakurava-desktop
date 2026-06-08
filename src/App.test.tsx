@@ -189,7 +189,7 @@ describe("App", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Entry" })).toBeDisabled();
-    expect(screen.getByText("No glossary entries yet")).toBeInTheDocument();
+    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Glossary entries are independent from Video, Image, Performer, and Category catalog metadata.",
@@ -197,6 +197,84 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Navigate to Settings" }))
       .toHaveAttribute("href", "/settings");
+  });
+
+  it("renders the static Glossary table columns and rows-per-page options", () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    for (const column of [
+      "Thumbnail",
+      "Term",
+      "Synonyms",
+      "Category",
+      "Definition",
+      "Source",
+    ]) {
+      expect(screen.getByRole("columnheader", { name: column })).toBeInTheDocument();
+    }
+
+    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
+    expect(screen.getByText("Source Citation")).toBeInTheDocument();
+    expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("32");
+    for (const pageSize of ["32", "64", "128", "256"]) {
+      expect(
+        within(screen.getByLabelText("Rows per page")).getByRole("option", {
+          name: pageSize,
+        }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("filters static Glossary entries by search and category", () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Search glossary"), {
+      target: { value: "taxonomy" },
+    });
+
+    expect(screen.getByText("Category Drift")).toBeInTheDocument();
+    expect(screen.queryByText("Alias Mapping")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search glossary"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Category filter"), {
+      target: { value: "Reference" },
+    });
+
+    expect(screen.getByText("Source Citation")).toBeInTheDocument();
+    expect(screen.queryByText("Local Reference")).not.toBeInTheDocument();
+  });
+
+  it("sorts static Glossary entries by term", () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    const tableBody = screen.getByRole("table").querySelector("tbody");
+    expect(tableBody).not.toBeNull();
+    expect(within(tableBody as HTMLElement).getAllByRole("row")[0])
+      .toHaveTextContent("Alias Mapping");
+
+    fireEvent.change(screen.getByLabelText("Sort"), {
+      target: { value: "term-desc" },
+    });
+
+    expect(within(tableBody as HTMLElement).getAllByRole("row")[0])
+      .toHaveTextContent("Source Citation");
+  });
+
+  it("shows a neutral Glossary empty state for unmatched static filters", () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Search glossary"), {
+      target: { value: "no matching glossary sample" },
+    });
+
+    expect(screen.getByText("No glossary entries found")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it.each([
