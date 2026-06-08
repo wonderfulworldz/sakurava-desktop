@@ -441,43 +441,38 @@ function CollectionToolbar({
         />
       )}
 
-      <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          {!hasActiveFilters && !filterPanelOpen && (
-            <span className="text-xs font-semibold text-slate-500">
-              No filters selected
-            </span>
-          )}
-          {trimmedSearch && (
-            <FilterChip
-              label={`Search: ${trimmedSearch}`}
-              removeLabel={`Clear ${title} search filter`}
-              onRemove={onClearSearch}
-            />
-          )}
-          {activeCategoryFilters.map((category) => (
-            <FilterChip
-              key={normalizeCategoryKey(category)}
-              label={`Category: ${category}`}
-              removeLabel={`Remove category filter ${category}`}
-              onRemove={() => onRemoveCategoryFilter(category)}
-            />
-          ))}
-          {activeDataFilters.map((filter) => (
-            <FilterChip
-              key={filter.id}
-              label={`${filter.label}: ${filter.value}`}
-              removeLabel={`Remove ${filter.label} filter`}
-              onRemove={() => onClearDataFilter(filter.id)}
-            />
-          ))}
-          {reachedCategoryLimit && (
-            <span className="text-xs font-semibold text-slate-500">
-              {t("collection.categoryLimitReached")}
-            </span>
-          )}
-        </div>
-        {hasActiveFilters && (
+      {hasActiveFilters && (
+        <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {trimmedSearch && (
+              <FilterChip
+                label={`Search: ${trimmedSearch}`}
+                removeLabel={`Clear ${title} search filter`}
+                onRemove={onClearSearch}
+              />
+            )}
+            {activeCategoryFilters.map((category) => (
+              <FilterChip
+                key={normalizeCategoryKey(category)}
+                label={`Category: ${category}`}
+                removeLabel={`Remove category filter ${category}`}
+                onRemove={() => onRemoveCategoryFilter(category)}
+              />
+            ))}
+            {activeDataFilters.map((filter) => (
+              <FilterChip
+                key={filter.id}
+                label={`${filter.label}: ${filter.value}`}
+                removeLabel={`Remove ${filter.label} filter`}
+                onRemove={() => onClearDataFilter(filter.id)}
+              />
+            ))}
+            {reachedCategoryLimit && (
+              <span className="text-xs font-semibold text-slate-500">
+                {t("collection.categoryLimitReached")}
+              </span>
+            )}
+          </div>
           <div className="shrink-0">
             <button
               type="button"
@@ -487,8 +482,8 @@ function CollectionToolbar({
               {t("collection.clearAllFilters")}
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

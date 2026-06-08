@@ -1307,12 +1307,19 @@ describe("App", () => {
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-    expect(screen.getByText("No filters selected")).toBeInTheDocument();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Last Added");
     expect(screen.queryByDisplayValue("Add category filter")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     expect(screen.getByText("Category")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     for (const pageSize of ["32", "64", "128", "256"]) {
       expect(screen.getByRole("option", { name: pageSize })).toBeInTheDocument();
@@ -6367,7 +6374,10 @@ describe("App", () => {
     expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
     expect(screen.queryByText("Duration: Long")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-    expect(screen.getByText("No filters selected")).toBeInTheDocument();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
@@ -6431,7 +6441,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-    expect(screen.getByText("No filters selected")).toBeInTheDocument();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
     expect(screen.queryByText("Image Count: Some")).not.toBeInTheDocument();
