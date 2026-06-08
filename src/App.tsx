@@ -14,6 +14,7 @@ import CategoryManagementPage from "./pages/CategoryManagementPage";
 import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
+import GlossaryPage from "./pages/GlossaryPage";
 import HomePage from "./pages/HomePage";
 import ImageCollectionPage from "./pages/ImageCollectionPage";
 import ImageDetailPage from "./pages/ImageDetailPage";
@@ -106,6 +107,7 @@ function App() {
                 path="settings/category-management"
                 element={<CategoryManagementPage />}
               />
+              <Route path="glossary" element={<GlossaryPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

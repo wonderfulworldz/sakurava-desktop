@@ -102,6 +102,7 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /categories/i }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /glossary/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Expand sidebar" }),
@@ -132,6 +133,9 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Navigate to Settings" }),
     ).toHaveAttribute("href", "/settings");
+    expect(
+      screen.getByRole("link", { name: "Navigate to Glossary" }),
+    ).toHaveAttribute("href", "/glossary");
 
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
 
@@ -143,6 +147,58 @@ describe("App", () => {
     expect(screen.queryByText(/Static frontend preview/i)).not.toBeInTheDocument();
   });
 
+  it("keeps main navigation separate and places Glossary above Settings", () => {
+    render(<App />);
+
+    const primaryNavigation = screen.getByRole("navigation", {
+      name: "Primary navigation",
+    });
+    expect(
+      within(primaryNavigation).getAllByRole("link").map((link) =>
+        link.getAttribute("href")
+      ),
+    ).toEqual([
+      "/",
+      "/videos",
+      "/images",
+      "/performers",
+      "/settings/category-management",
+    ]);
+
+    const supportNavigation = screen.getByRole("navigation", {
+      name: "Support navigation",
+    });
+    expect(
+      within(supportNavigation).getAllByRole("link").map((link) =>
+        link.getAttribute("href")
+      ),
+    ).toEqual(["/glossary", "/settings"]);
+  });
+
+  it("opens the Glossary Library shell from the sidebar", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("link", { name: "Navigate to Glossary" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Glossary Library" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Store and manage definitions, references, and terms for your personal use.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Entry" })).toBeDisabled();
+    expect(screen.getByText("No glossary entries yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Glossary entries are independent from Video, Image, Performer, and Category catalog metadata.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Navigate to Settings" }))
+      .toHaveAttribute("href", "/settings");
+  });
+
   it.each([
     ["/", "Sakurava - Home"],
     ["/videos", "Sakurava - Videos"],
@@ -150,6 +206,7 @@ describe("App", () => {
     ["/images", "Sakurava - Images"],
     ["/performers", "Sakurava - Performers"],
     ["/categories", "Sakurava - Category Management"],
+    ["/glossary", "Sakurava - Glossary Library"],
     ["/settings", "Sakurava - Settings"],
     ["/settings/category-management", "Sakurava - Category Management"],
   ])("sets page title for %s", async (path, expectedTitle) => {
@@ -177,6 +234,7 @@ describe("App", () => {
     ["/performers/sample-id", "Performer Detail"],
     ["/performers/sample-id/edit", "Edit Performer"],
     ["/categories", "Category Management"],
+    ["/glossary", "Glossary Library"],
     ["/settings", "Settings"],
   ])("renders %s", (path, heading) => {
     window.history.pushState({}, "", path);
