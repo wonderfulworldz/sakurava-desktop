@@ -1414,13 +1414,13 @@ describe("App", () => {
       path: "/videos",
       panelName: "Videos filters",
       filters: ["Availability", "Censorship", "Release Years", "Publisher / Label", "Category", "Quality", "Rating", "Duration"],
-      absent: ["Image Count", "Debut Years", "Status", "Filmography Count", "Pictorials Count"],
+      absent: ["Image Count", "Debut Years", "Status", "Filmography Count", "Pictorials Count", "Gender", "Body Type"],
     },
     {
       path: "/images",
       panelName: "Images filters",
       filters: ["Availability", "Censorship", "Release Years", "Publisher / Label", "Category", "Quality", "Rating", "Image Count"],
-      absent: ["Duration", "Debut Years", "Status", "Filmography Count", "Pictorials Count"],
+      absent: ["Duration", "Debut Years", "Status", "Filmography Count", "Pictorials Count", "Gender", "Body Type"],
     },
     {
       path: "/performers",
@@ -1452,11 +1452,182 @@ describe("App", () => {
       }
       expect(
         panel.queryByText(
-          "Data-dependent filters are unavailable until reliable fields or helpers exist.",
+      "Data-dependent filters are unavailable until reliable fields or helpers exist.",
         ),
       ).not.toBeInTheDocument();
     },
   );
+
+  it("does not render Performer taxonomy filters on Category Management", () => {
+    window.history.pushState({}, "", "/categories");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Category Management" })).toBeInTheDocument();
+    expect(screen.queryByText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByText("Body Type")).not.toBeInTheDocument();
+  });
+
+  it.each(["Body Type", "bodytype", "body-type", "body_type"])(
+    "sources Performer Catalog Body Type options from taxonomy parent %s",
+    async (bodyTypeParentName) => {
+      window.history.pushState({}, "", "/performers");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "performer_list") {
+          return [
+            persistedPerformer({
+              name: "Taxonomy Performer",
+              categoriesJson: '["Woman","Athletic"]',
+            }),
+          ];
+        }
+        if (command === "managed_category_list") {
+          return performerTaxonomyFixtures(bodyTypeParentName);
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText("Taxonomy Performer")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+      const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+      await waitFor(() => expect(panel.getByLabelText("Body Type")).toBeEnabled());
+
+      fireEvent.click(panel.getByRole("button", { name: "Open Body Type options" }));
+      const listbox = within(screen.getByRole("listbox", { name: "Body Type options" }));
+      expect(listbox.getByText("Athletic")).toBeInTheDocument();
+      expect(listbox.queryByText(bodyTypeParentName)).not.toBeInTheDocument();
+    },
+  );
+
+  it("filters Performer Catalog by Gender and Body Type taxonomy labels", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_alpha",
+            name: "Alpha Performer",
+            categoriesJson: '["Woman","Athletic","Featured"]',
+          }),
+          persistedPerformer({
+            id: "performer_beta",
+            name: "Beta Performer",
+            categoriesJson: '["Man","Slim","Featured"]',
+          }),
+          persistedPerformer({
+            id: "performer_gamma",
+            name: "Gamma Performer",
+            categoriesJson: '["Woman","Slim"]',
+          }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return [
+          ...performerTaxonomyFixtures("Body Type"),
+          managedCategoryFixture({
+            key: "cat_gender_man",
+            name: "Man",
+            parentKey: "cat_gender",
+            showInVideos: false,
+            showInImages: false,
+            showInPerformers: true,
+          }),
+          managedCategoryFixture({
+            key: "cat_body_type_slim",
+            name: "Slim",
+            parentKey: "cat_body_type",
+            showInVideos: false,
+            showInImages: false,
+            showInPerformers: true,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+    await waitFor(() => expect(panel.getByLabelText("Gender")).toBeEnabled());
+
+    fireEvent.click(panel.getByRole("button", { name: "Open Gender options" }));
+    const genderOptions = within(screen.getByRole("listbox", { name: "Gender options" }));
+    expect(genderOptions.queryByText("Gender")).not.toBeInTheDocument();
+    fireEvent.click(genderOptions.getByText("Woman"));
+
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.getByText("Gamma Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Performer")).not.toBeInTheDocument();
+    expect(screen.getByText("Gender: Woman")).toBeInTheDocument();
+
+    fireEvent.click(panel.getByRole("button", { name: "Open Body Type options" }));
+    const bodyTypeOptions = within(screen.getByRole("listbox", { name: "Body Type options" }));
+    expect(bodyTypeOptions.queryByText("Body Type")).not.toBeInTheDocument();
+    fireEvent.click(bodyTypeOptions.getByText("Athletic"));
+
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    expect(screen.getByText("Gender: Woman")).toBeInTheDocument();
+    expect(screen.getByText("Body Type: Athletic")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Gamma Performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Beta Performer")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Performers search"), {
+      target: { value: "alpha" },
+    });
+    expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+    expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    expect(screen.queryByText("Gender: Woman")).not.toBeInTheDocument();
+    expect(screen.queryByText("Body Type: Athletic")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.getByText("Beta Performer")).toBeInTheDocument();
+    expect(screen.getByText("Gamma Performer")).toBeInTheDocument();
+  });
+
+  it("shows clean empty taxonomy filter states when Performer Catalog parents are missing", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [persistedPerformer({ name: "No Taxonomy Performer" })];
+      }
+      if (command === "managed_category_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("No Taxonomy Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+
+    expect(panel.getByText("No Gender categories found")).toBeInTheDocument();
+    expect(panel.getByText("No Body Type categories found")).toBeInTheDocument();
+    expect(panel.getByLabelText("Gender")).toBeDisabled();
+    expect(panel.getByLabelText("Body Type")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
+  });
 
   it.each([
     [
@@ -5072,7 +5243,11 @@ describe("App", () => {
       }
       expect(panel.queryByRole("button", { name: "Reset all filters" })).not.toBeInTheDocument();
       if (path === "/performers") {
-        expect(panel.getAllByText("Deferred")).toHaveLength(2);
+        expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
+        expect(panel.getByText("No Gender categories found")).toBeInTheDocument();
+        expect(panel.getByText("No Body Type categories found")).toBeInTheDocument();
+        expect(panel.getByLabelText("Gender")).toBeDisabled();
+        expect(panel.getByLabelText("Body Type")).toBeDisabled();
       } else {
         expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
       }
@@ -6100,7 +6275,7 @@ describe("App", () => {
     expect(screen.queryByText("Retired Smaller Performer")).not.toBeInTheDocument();
   });
 
-  it("filters Performer Catalog by age, height, nationality, debut year, and cup size while keeping deferred cells inert", async () => {
+  it("filters Performer Catalog by age, height, nationality, debut year, and cup size while keeping taxonomy filters inactive by default", async () => {
     window.history.pushState({}, "", "/performers");
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_list") {
@@ -6137,7 +6312,9 @@ describe("App", () => {
     expect(await screen.findByText("Adult Japan Medium Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     const panel = within(screen.getByRole("region", { name: "Performers filters" }));
-    expect(panel.getAllByText("Deferred")).toHaveLength(2);
+    expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
+    expect(panel.getByLabelText("Gender")).toBeDisabled();
+    expect(panel.getByLabelText("Body Type")).toBeDisabled();
     fireEvent.click(panel.getByRole("button", { name: "Age: Adult" }));
     fireEvent.click(panel.getByRole("button", { name: "Body Height: Medium" }));
     fireEvent.change(panel.getByLabelText("Nationality"), {

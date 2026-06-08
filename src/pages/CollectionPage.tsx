@@ -16,8 +16,11 @@ import {
   readStoredCatalogPageSize,
   storeCatalogPageSize,
 } from "../lib/catalogPagination";
+import type { ManagedCategory } from "../backend/types";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
+import { listManagedCategories } from "../runtime/managedCategoryCommands";
+import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
 type CollectionPageProps = {
   config: CollectionConfig;
@@ -26,6 +29,10 @@ type CollectionPageProps = {
 
 type ViewMode = "card" | "table";
 type DataFilterValues = Record<string, string>;
+type PerformerTaxonomyFilterOptions = {
+  gender: string[];
+  bodyType: string[];
+};
 type DropdownState = {
   openDropdownKey: string | null;
   onOpenDropdownChange: (key: string | null) => void;
@@ -44,9 +51,14 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   );
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const [managedCategoryRecords, setManagedCategoryRecords] = useState<ManagedCategory[]>([]);
   const categoryOptions = useMemo(
     () => getCategoryOptions(config.items),
     [config.items],
+  );
+  const performerTaxonomyFilterOptions = useMemo(
+    () => buildPerformerTaxonomyFilterOptions(managedCategoryRecords),
+    [managedCategoryRecords],
   );
 
   const sortedItems = sortItems(
@@ -125,6 +137,33 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     setPage(1);
   }, [config.kind, config.sortOptions, pageSizeStorageKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (config.kind !== "performers" || !isTauriRuntimeAvailable()) {
+      setManagedCategoryRecords([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void listManagedCategories()
+      .then((records) => {
+        if (!cancelled) {
+          setManagedCategoryRecords(records);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setManagedCategoryRecords([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config.kind]);
+
   return (
     <div className="space-y-6">
       <CollectionHeader config={config} />
@@ -132,6 +171,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
         config={config}
         searchQuery={searchQuery}
         categoryOptions={categoryOptions}
+        performerTaxonomyFilterOptions={performerTaxonomyFilterOptions}
         activeCategoryFilters={activeCategoryFilters}
         dataFilters={dataFilters}
         sortValue={sortValue}
@@ -253,6 +293,7 @@ function CollectionToolbar({
   config,
   searchQuery,
   categoryOptions,
+  performerTaxonomyFilterOptions,
   activeCategoryFilters,
   dataFilters,
   sortValue,
@@ -271,6 +312,7 @@ function CollectionToolbar({
 }: CollectionPageProps & {
   searchQuery: string;
   categoryOptions: string[];
+  performerTaxonomyFilterOptions: PerformerTaxonomyFilterOptions;
   activeCategoryFilters: string[];
   dataFilters: DataFilterValues;
   sortValue: string;
@@ -433,6 +475,7 @@ function CollectionToolbar({
         <CollectionFilterPanel
           config={config}
           categoryOptions={selectableCategories}
+          performerTaxonomyFilterOptions={performerTaxonomyFilterOptions}
           categorySelectDisabled={categorySelectDisabled}
           dataFilters={dataFilters}
           onAddCategoryFilter={onAddCategoryFilter}
@@ -606,6 +649,7 @@ function SortPicker({
 function CollectionFilterPanel({
   config,
   categoryOptions,
+  performerTaxonomyFilterOptions,
   categorySelectDisabled,
   dataFilters,
   onAddCategoryFilter,
@@ -614,6 +658,7 @@ function CollectionFilterPanel({
 }: {
   config: CollectionConfig;
   categoryOptions: string[];
+  performerTaxonomyFilterOptions: PerformerTaxonomyFilterOptions;
   categorySelectDisabled: boolean;
   dataFilters: DataFilterValues;
   onAddCategoryFilter: (value: string) => void;
@@ -630,7 +675,7 @@ function CollectionFilterPanel({
       className="mt-3 overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm"
     >
       <div className="grid md:grid-cols-2">
-        {filterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState)}
+        {filterPanelCells(config, categoryOptions, performerTaxonomyFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState)}
       </div>
     </div>
   );
@@ -639,6 +684,7 @@ function CollectionFilterPanel({
 function filterPanelCells(
   config: CollectionConfig,
   categoryOptions: string[],
+  performerTaxonomyFilterOptions: PerformerTaxonomyFilterOptions,
   categorySelectDisabled: boolean,
   dataFilters: DataFilterValues,
   onAddCategoryFilter: (value: string) => void,
@@ -650,7 +696,7 @@ function filterPanelCells(
   }
 
   if (config.kind === "performers") {
-    return performerFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
+    return performerFilterPanelCells(config, categoryOptions, performerTaxonomyFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
   }
 
   return videoFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
@@ -871,6 +917,7 @@ function imageFilterPanelCells(
 function performerFilterPanelCells(
   config: CollectionConfig,
   categoryOptions: string[],
+  taxonomyOptions: PerformerTaxonomyFilterOptions,
   categorySelectDisabled: boolean,
   dataFilters: DataFilterValues,
   onAddCategoryFilter: (value: string) => void,
@@ -918,7 +965,20 @@ function performerFilterPanelCells(
         dropdownState={dropdownState}
       />
     ) : null,
-    <DeferredFilterCell key="gender" label="Gender" />,
+    <PickerFilterCell
+      key="gender"
+      kind={config.kind}
+      filterId="gender"
+      label="Gender"
+      allLabel="All genders"
+      options={taxonomyOptions.gender}
+      value={dataFilters.gender}
+      onChange={onDataFilterChange}
+      dropdownKey={`${config.kind}.gender`}
+      dropdownState={dropdownState}
+      disabled={taxonomyOptions.gender.length === 0}
+      emptyMessage="No Gender categories found"
+    />,
     hasHeights ? (
       <SegmentedFilterCell
         key="height"
@@ -943,7 +1003,20 @@ function performerFilterPanelCells(
         onCloseDropdowns={() => dropdownState.onOpenDropdownChange(null)}
       />
     ) : null,
-    <DeferredFilterCell key="bodyType" label="Body Type" />,
+    <PickerFilterCell
+      key="bodyType"
+      kind={config.kind}
+      filterId="bodyType"
+      label="Body Type"
+      allLabel="All body types"
+      options={taxonomyOptions.bodyType}
+      value={dataFilters.bodyType}
+      onChange={onDataFilterChange}
+      dropdownKey={`${config.kind}.bodyType`}
+      dropdownState={dropdownState}
+      disabled={taxonomyOptions.bodyType.length === 0}
+      emptyMessage="No Body Type categories found"
+    />,
     nationalityOptions.length > 0 ? (
       <PickerFilterCell
         key="nationality"
@@ -1098,6 +1171,8 @@ function PickerFilterCell({
   onChange,
   dropdownKey,
   dropdownState,
+  disabled = false,
+  emptyMessage,
 }: {
   kind: CollectionConfig["kind"];
   filterId: string;
@@ -1108,6 +1183,8 @@ function PickerFilterCell({
   onChange: (filterId: string, value: string) => void;
   dropdownKey: string;
   dropdownState: DropdownState;
+  disabled?: boolean;
+  emptyMessage?: string;
 }) {
   const [query, setQuery] = useState("");
   const open = dropdownState.openDropdownKey === dropdownKey;
@@ -1118,6 +1195,9 @@ function PickerFilterCell({
   );
 
   function openPicker() {
+    if (disabled) {
+      return;
+    }
     dropdownState.onOpenDropdownChange(dropdownKey);
     setQuery("");
   }
@@ -1130,16 +1210,23 @@ function PickerFilterCell({
   return (
     <div className="relative">
       <PanelLabel>{label}</PanelLabel>
-      <label className="mt-3 flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left text-sm font-semibold text-slate-700 transition focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
+      <label className={[
+        "mt-3 flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 px-3 text-left text-sm font-semibold transition focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100",
+        disabled ? "bg-slate-50 text-slate-400" : "bg-white text-slate-700",
+      ].join(" ")}>
         <Search size={16} className="shrink-0 text-slate-400" />
         <input
           id={`${kind}-${filterId}-panel-filter`}
           aria-label={label}
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400 disabled:text-slate-400"
           placeholder={pickerPlaceholder(label)}
           value={inputValue}
+          disabled={disabled}
           onFocus={openPicker}
           onChange={(event) => {
+            if (disabled) {
+              return;
+            }
             const nextQuery = event.target.value;
             dropdownState.onOpenDropdownChange(dropdownKey);
             setQuery(nextQuery);
@@ -1158,8 +1245,12 @@ function PickerFilterCell({
         <button
           type="button"
           aria-label={`Open ${label} options`}
-          className="inline-flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-sakura-50 hover:text-sakura-600"
+          className="inline-flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-sakura-50 hover:text-sakura-600 disabled:cursor-not-allowed disabled:text-slate-300"
+          disabled={disabled}
           onClick={() => {
+            if (disabled) {
+              return;
+            }
             dropdownState.onOpenDropdownChange(open ? null : dropdownKey);
             setQuery("");
           }}
@@ -1199,6 +1290,9 @@ function PickerFilterCell({
             )}
           </div>
         </div>
+      )}
+      {disabled && emptyMessage && (
+        <p className="mt-1 text-xs font-semibold text-slate-500">{emptyMessage}</p>
       )}
     </div>
   );
@@ -1328,17 +1422,6 @@ function PickerOption({
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className={selected ? "text-sakura-600" : "text-slate-400"}>+</span>
     </button>
-  );
-}
-
-function DeferredFilterCell({ label }: { label: string }) {
-  return (
-    <>
-      <PanelLabel>{label}</PanelLabel>
-      <div className="mt-3 flex h-11 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-500">
-        Deferred
-      </div>
-    </>
   );
 }
 
@@ -1502,8 +1585,10 @@ function catalogFilterGroups(kind: CollectionConfig["kind"]) {
   if (kind === "performers") {
     return [
       { id: "status", label: "Status", options: ["All status", "Active", "Retired", "Unknown"] },
+      { id: "gender", label: "Gender", options: ["All genders"] },
       { id: "age", label: "Age", options: ["All age", "Young", "Adult", "Mature", "Senior"] },
       { id: "height", label: "Body Height", options: ["All height", "Short", "Medium", "Tall"] },
+      { id: "bodyType", label: "Body Type", options: ["All body types"] },
       { id: "nationality", label: "Nationality", options: ["All nationalities"] },
       { id: "cupSize", label: "Cup Size", options: ["All cup sizes"] },
       { id: "rating", label: "Rating", options: ratingFilterOptions() },
@@ -1922,6 +2007,10 @@ function itemMatchesDataFilter(
     );
   }
 
+  if (filterId === "gender" || filterId === "bodyType") {
+    return item.kind === "performers" && performerCategoryMatches(item, value);
+  }
+
   if (filterId === "age") {
     return item.kind === "performers" && ageMatchesBucket(item.birthDate, value);
   }
@@ -1945,6 +2034,11 @@ function itemMatchesDataFilter(
   }
 
   return true;
+}
+
+function performerCategoryMatches(item: CollectionItem, value: string) {
+  const filterKey = normalizeCategoryKey(value);
+  return item.categories.some((category) => normalizeCategoryKey(category) === filterKey);
 }
 
 function sortItems(items: CollectionItem[], sortValue: string) {
@@ -2117,6 +2211,81 @@ function getCategoryOptions(items: CollectionItem[]) {
   return [...categoriesByKey.values()].sort((left, right) =>
     left.localeCompare(right),
   );
+}
+
+function buildPerformerTaxonomyFilterOptions(categories: ManagedCategory[]) {
+  return {
+    gender: childTaxonomyFilterOptions(categories, ["gender"]),
+    bodyType: childTaxonomyFilterOptions(categories, [
+      "bodytype",
+      "body type",
+      "body-type",
+      "body_type",
+    ]),
+  };
+}
+
+function childTaxonomyFilterOptions(
+  categories: ManagedCategory[],
+  parentAliases: string[],
+) {
+  const parent = findTaxonomyParent(categories, parentAliases);
+  if (!parent) {
+    return [];
+  }
+
+  const optionsByKey = new Map<string, string>();
+  for (const category of categories) {
+    const label = category.name.trim();
+    if (
+      category.parentKey !== parent.key ||
+      !category.showInPerformers ||
+      !label
+    ) {
+      continue;
+    }
+
+    const key = normalizeCategoryKey(label);
+    if (!optionsByKey.has(key)) {
+      optionsByKey.set(key, label);
+    }
+  }
+
+  return [...optionsByKey.values()].sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function findTaxonomyParent(
+  categories: ManagedCategory[],
+  aliases: string[],
+) {
+  const normalizedAliases = aliases.map(normalizeTaxonomyName);
+  const matchingParents = categories.filter((category) =>
+    !category.parentKey &&
+    normalizedAliases.includes(normalizeTaxonomyName(category.name)),
+  );
+
+  return matchingParents.sort((first, second) => {
+    const firstExactRank = exactTaxonomyAliasRank(first.name, aliases);
+    const secondExactRank = exactTaxonomyAliasRank(second.name, aliases);
+    if (firstExactRank !== secondExactRank) {
+      return firstExactRank - secondExactRank;
+    }
+    return categories.indexOf(first) - categories.indexOf(second);
+  })[0] ?? null;
+}
+
+function exactTaxonomyAliasRank(name: string, aliases: string[]) {
+  const normalizedName = name.trim().toLowerCase();
+  const exactIndex = aliases.findIndex(
+    (alias) => alias.trim().toLowerCase() === normalizedName,
+  );
+  return exactIndex === -1 ? Number.MAX_SAFE_INTEGER : exactIndex;
+}
+
+function normalizeTaxonomyName(value: string) {
+  return value.trim().toLowerCase().replace(/[\s_-]/g, "");
 }
 
 function hasCategoryFilter(filters: string[], category: string) {
