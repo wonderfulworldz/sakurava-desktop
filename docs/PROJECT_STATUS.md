@@ -5,7 +5,7 @@
 Latest completed implementation checkpoint:
 
 ```text
-post-mvp-35-6-collection-toolbar-table-finalization-v1
+post-mvp-35-7-glossary-library-v1
 ```
 
 Current batch:
@@ -17,15 +17,15 @@ None / awaiting confirmation
 Current focus:
 
 ```text
-Batch 35.6 is closed. The recommended next planned batch is 35.7 - Glossary Library, but it is not started until explicitly approved.
+Batch 35.7 - Glossary Library is closed, merged to main, and tagged post-mvp-35-7-glossary-library-v1. The recommended next planned batch is 35.8 - Settings System Finalization, but it is not started until explicitly approved.
 ```
 
 Current active execution roadmap:
 
 ```text
 docs/43-final-product-sequential-plan.md
-Completed: 35.2, 35.3, 35.4, 35.5, 35.6
-Next planned only: 35.7 - Glossary Library
+Completed: 35.2, 35.3, 35.4, 35.5, 35.6, 35.7
+Next planned only: 35.8 - Settings System Finalization
 ```
 
 The older Batch 34.11 Language Core + Language Picker status text below is historical/outdated as current-batch guidance. Language behavior remains part of completed project history, but the active roadmap is now the 35.2 - 35.10 sequential plan.
@@ -38,6 +38,27 @@ post-mvp-35-3-category-library-finalization-v1
 post-mvp-35-4-detail-system-finalization-v1
 post-mvp-35-5-global-gallery-preview-finalization-v1
 post-mvp-35-6-collection-toolbar-table-finalization-v1
+post-mvp-35-7-glossary-library-v1
+```
+
+Batch 35.7 verification before closeout:
+
+```text
+git diff --check = passed
+npm.cmd run test -- src/App.test.tsx = 328 passed
+npm.cmd run build = passed
+cd src-tauri && cargo test = 45 passed
+```
+
+Batch 35.7 deliverables:
+
+```text
+Glossary route/sidebar support placement
+Glossary page/form/table/toolbar/filter chips
+Independent SQLite glossary_entries storage
+CRUD commands/runtime helper
+Parent/child hierarchy validation
+Category Library UI Pattern v1 docs: docs/audits/category-library-ui-pattern-v1.md
 ```
 
 Batch 35.5 verification:
@@ -533,20 +554,20 @@ For Batch 28.3, Video/Image Create/Edit forms use searchable Related Performer a
 
 Proceed with the active final product sequential roadmap in `docs/43-final-product-sequential-plan.md`.
 
-Recommended next planned batch after Batch 35.6:
+Recommended next planned batch after Batch 35.7:
 
 ```text
-35.7 - Glossary Library
+35.8 - Settings System Finalization
 ```
 
-Batch 35.7 is planned only and is not started until explicitly approved.
+Batch 35.7 is closed, merged to main, and tagged `post-mvp-35-7-glossary-library-v1`. No newly identified deferred items were recorded at 35.7 closeout. Batch 35.8 is planned only and is not started until explicitly approved.
 
 Older Batch 34.11 language roadmap guidance below is historical/outdated for current execution status.
 
 Latest roadmap implementation batch:
 
 ```text
-Batch 35.6 - Collection Toolbar + Table Finalization
+Batch 35.7 - Glossary Library
 ```
 
 Recommended phase after Batch 25.7:

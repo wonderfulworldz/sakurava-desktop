@@ -17,6 +17,7 @@ Sakurava is a **local‑first, privacy‑first** Windows desktop application for
 - Form, Category Library, and Detail system finalization completed through Batches 35.2, 35.3, and 35.4.
 - Global Gallery Preview and the separate Global Image Viewer flow finalized through Batch 35.5.
 - Collection toolbar, table view, sorting, filter panel, active filter chips, and global catalog pagination finalized through Batch 35.6.
+- Glossary Library finalized through Batch 35.7, including support-sidebar route placement, Glossary page/form/table/toolbar/filter chips, independent SQLite `glossary_entries` storage, CRUD commands/runtime helper, parent/child hierarchy validation, and Category Library UI Pattern v1 documentation.
 - Settings page with Appearance, Dark Mode, Backup/Restore, CSV import/export.
 - No cloud services, telemetry, or external account integration.
 
