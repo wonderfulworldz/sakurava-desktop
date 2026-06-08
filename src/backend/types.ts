@@ -96,6 +96,7 @@ export interface GlossaryEntry {
   definition: string;
   synonymsJson: JsonText;
   category: string;
+  parentId: string;
   thumbnailPath: string;
   favorite: boolean;
   sourceTitle: string;

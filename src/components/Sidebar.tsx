@@ -1,7 +1,7 @@
 import {
+  CircleHelp,
   Home,
   Image,
-  Library,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -24,7 +24,7 @@ const icons = {
   images: Image,
   performers: UserRound,
   categories: Tags,
-  glossary: Library,
+  glossary: CircleHelp,
   settings: Settings,
 };
 

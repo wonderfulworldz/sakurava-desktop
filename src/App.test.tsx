@@ -173,6 +173,11 @@ describe("App", () => {
         link.getAttribute("href")
       ),
     ).toEqual(["/glossary", "/settings"]);
+    expect(
+      within(supportNavigation)
+        .getByRole("link", { name: "Navigate to Glossary" })
+        .querySelector("svg"),
+    ).not.toBeNull();
   });
 
   it("opens the Glossary Library shell from the sidebar", async () => {
@@ -183,15 +188,19 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "Glossary Library" }),
     ).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { name: "Glossary Library" });
+    expect(heading).toHaveClass("text-4xl", "font-semibold", "tracking-normal");
     expect(
       screen.getByText(
         "Store and manage definitions, references, and terms for your personal use.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Entry" })).toBeEnabled();
-    expect(screen.getByText("Browser preview uses static Glossary samples."))
-      .toBeInTheDocument();
-    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Entry" }))
+      .toHaveClass("bg-sakura-500", "text-white");
+    expect(screen.queryByText("Reference Library")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         "Glossary entries are independent from Video, Image, Performer, and Category catalog metadata.",
@@ -207,20 +216,27 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
 
-    expect(screen.getByRole("heading", { name: "Add/Edit Glossary Entry" }))
+    expect(screen.getByRole("heading", { name: "Add Glossary Entry" }))
       .toBeInTheDocument();
+    expect(screen.queryByText("Add state")).not.toBeInTheDocument();
     for (const field of [
       "Term",
       "Synonyms",
-      "Category",
+      "Search glossary parent terms",
       "Thumbnail",
-      "Favorite",
       "Source Title",
       "Source URL",
       "Definition",
     ]) {
       expect(screen.getByLabelText(field)).toBeInTheDocument();
     }
+    expect(screen.getByRole("switch", { name: "Favorite" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Favorite" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByLabelText("Term").closest("label"))
+      .toHaveTextContent("Term *");
+    expect(screen.getByLabelText("Definition").closest("label"))
+      .toHaveTextContent("Definition *");
 
     fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
@@ -239,13 +255,16 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Definition"), {
       target: { value: "Temporary definition preview only." },
     });
-    fireEvent.change(screen.getByLabelText("Category"), {
-      target: { value: "Media Terms" },
-    });
+    fireEvent.focus(screen.getByLabelText("Search glossary parent terms"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select glossary parent Alias Mapping",
+      }),
+    );
     fireEvent.change(screen.getByLabelText("Thumbnail"), {
       target: { value: "D:/Reference/thumb.png" },
     });
-    fireEvent.click(screen.getByLabelText("Favorite"));
+    fireEvent.click(screen.getByRole("switch", { name: "Favorite" }));
     fireEvent.change(screen.getByLabelText("Source Title"), {
       target: { value: "Temporary source" },
     });
@@ -253,26 +272,26 @@ describe("App", () => {
       target: { value: "https://example.invalid/source" },
     });
     fireEvent.change(screen.getByLabelText("Synonyms"), {
-      target: { value: "Sample synonym" },
+      target: { value: "Synonyms1,Synonyms2,Synonyms3," },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
-    expect(screen.getByRole("button", { name: "Remove synonym Sample synonym" }))
+    expect(screen.getByRole("button", { name: "Remove synonym Synonyms1" }))
       .toBeInTheDocument();
-    expect(screen.getByLabelText("Category")).toHaveDisplayValue("Media Terms");
-    expect(screen.getByLabelText("Favorite")).toBeChecked();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Search glossary parent terms"))
+        .toHaveDisplayValue("Alias Mapping");
+    });
+    expect(screen.getByRole("switch", { name: "Favorite" }))
+      .toHaveAttribute("aria-checked", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove synonym Sample synonym" }));
-    expect(screen.queryByRole("button", { name: "Remove synonym Sample synonym" }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove synonym Synonyms2" }));
+    expect(screen.queryByRole("button", { name: "Remove synonym Synonyms2" }))
       .not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Synonyms"), {
       target: { value: "Preview chip" },
     });
-    fireEvent.keyDown(screen.getByLabelText("Synonyms"), {
-      key: "Enter",
-      code: "Enter",
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Add synonym" }));
     expect(screen.getByRole("button", { name: "Remove synonym Preview chip" }))
       .toBeInTheDocument();
 
@@ -280,11 +299,13 @@ describe("App", () => {
 
     expect(
       await screen.findByText(
-        "Browser preview does not persist Glossary entries. Use the desktop app to save.",
+        "Open the desktop app to save Glossary entries.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Temporary Term")).not.toBeInTheDocument();
-    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }),
+    ).toBeInTheDocument();
   });
 
   it("validates Glossary Source URL without opening external links", async () => {
@@ -308,7 +329,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("clears and cancels the local-only Glossary form", () => {
+  it("cancels the local-only Glossary form and clears temporary fields", () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
@@ -320,43 +341,39 @@ describe("App", () => {
       target: { value: "Clear this definition." },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
-    expect(screen.getByLabelText("Term")).toHaveValue("");
-    expect(screen.getByLabelText("Definition")).toHaveValue("");
-
-    fireEvent.change(screen.getByLabelText("Term"), {
-      target: { value: "Cancel Me" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByLabelText("Term")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
     expect(screen.getByLabelText("Term")).toHaveValue("");
+    expect(screen.getByLabelText("Definition")).toHaveValue("");
   });
 
-  it("opens a static Glossary row in edit preview without mutating the table", async () => {
+  it("opens a static Glossary row on click without mutating the table", async () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit Alias Mapping" }));
+    fireEvent.click(screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }));
 
     expect(screen.getByLabelText("Term")).toHaveValue("Alias Mapping");
     expect(screen.getByLabelText("Source Title"))
       .toHaveValue("Internal reference note");
-    expect(screen.getByRole("button", { name: "Update Entry" }))
+    expect(screen.getByRole("heading", { name: "Edit Glossary Entry" }))
       .toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Term"), {
       target: { value: "Changed Alias Mapping" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Update Entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
     expect(
       await screen.findByText(
-        "Browser preview does not persist Glossary entries. Use the desktop app to save.",
+        "Open the desktop app to save Glossary entries.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Changed Alias Mapping")).not.toBeInTheDocument();
   });
 
@@ -364,19 +381,86 @@ describe("App", () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
-    for (const column of [
-      "Thumbnail",
-      "Term",
-      "Synonyms",
-      "Category",
-      "Definition",
-      "Source",
-    ]) {
+    for (const column of ["Term", "Synonyms", "Categories", "Definition", "Source"]) {
       expect(screen.getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
+    expect(screen.queryByRole("columnheader", { name: "Thumbnail" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Favorite" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByText("Thumbnail")).not.toBeInTheDocument();
+    expect(screen.queryByText("Favorite")).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Action" }))
+      .not.toBeInTheDocument();
 
-    expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
-    expect(screen.getByText("Source Citation")).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Source Citation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Nested Child" }),
+    ).toBeInTheDocument();
+    const aliasRow = screen.getByRole("row", {
+      name: "Edit glossary entry Alias Mapping",
+    });
+    expect(aliasRow).toHaveAttribute("data-glossary-row-kind", "parent");
+    expect(aliasRow.querySelector("td:first-child button")).toHaveAttribute(
+      "aria-label",
+      "Collapse glossary children for Alias Mapping",
+    );
+    expect(within(aliasRow).getByTitle("Alias Mapping")).toHaveClass("truncate");
+    const aliasPlaceholder = within(aliasRow).getByLabelText(
+      "Alias Mapping thumbnail not available",
+    );
+    expect(aliasPlaceholder).not.toHaveTextContent("N/A");
+    expect(aliasPlaceholder.querySelector("svg")).not.toBeNull();
+    expect(aliasPlaceholder).toHaveClass("glossary-thumbnail-box", "aspect-square", "size-11");
+    expect(
+      screen.getByTitle(
+        "A reference note that tracks alternate names for a term without changing performer aliases or catalog metadata.",
+      ),
+    ).toHaveClass("truncate");
+    expect(within(aliasRow).getByText("+3"))
+      .toHaveAttribute("title", "Alternate name, Nickname, Reference alias");
+    expect(within(aliasRow).queryByText("Alternate name")).not.toBeInTheDocument();
+    expect(within(aliasRow).queryByText("Nickname")).not.toBeInTheDocument();
+    const nestedChildRow = screen.getByRole("row", {
+      name: "Edit glossary entry Nested Child",
+    });
+    expect(nestedChildRow).toHaveAttribute(
+      "data-glossary-child-indent",
+      "from-thumbnail",
+    );
+    const nestedChildPlaceholder = within(nestedChildRow).getByLabelText(
+      "Nested Child thumbnail not available",
+    );
+    expect(nestedChildPlaceholder).toHaveClass(
+      "glossary-thumbnail-box",
+      "aspect-square",
+      "size-11",
+    );
+    expect(nestedChildPlaceholder.parentElement).toHaveClass("ml-6");
+    expect(within(nestedChildRow).getByRole("button", {
+      name: "Toggle favorite Nested Child",
+    })).toHaveClass("ml-6");
+    const localReferenceRow = screen.getByRole("row", {
+      name: "Edit glossary entry Local Reference",
+    });
+    expect(localReferenceRow).toHaveAttribute("data-glossary-row-kind", "parent");
+    expect(within(localReferenceRow).getAllByText("N/A").length)
+      .toBeGreaterThanOrEqual(4);
+    expect(within(localReferenceRow).getAllByTitle("N/A")[0])
+      .toHaveClass("inline-flex");
+    expect(screen.getByRole("link", { name: "Open source Internal reference note" }))
+      .toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Open source Internal reference note" }))
+      .toHaveAttribute("rel", "noreferrer");
+    expect(screen.getByRole("link", { name: "Open source Internal reference note" }))
+      .toHaveClass("truncate");
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("32");
     for (const pageSize of ["32", "64", "128", "256"]) {
       expect(
@@ -387,26 +471,197 @@ describe("App", () => {
     }
   });
 
+  it("expands and collapses Glossary parent rows without opening edit", () => {
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    const childRow = screen.getByRole("row", {
+      name: "Edit glossary entry Category Drift",
+    });
+    expect(childRow).toHaveAttribute("data-glossary-row-depth", "1");
+    expect(childRow).toHaveAttribute("data-glossary-row-kind", "parent");
+    expect(childRow.querySelector("td:first-child button")).toHaveAttribute(
+      "aria-label",
+      "Collapse glossary children for Category Drift",
+    );
+    expect(
+      (childRow.querySelector("td:first-child") as HTMLTableCellElement).style
+        .paddingLeft,
+    ).toBe("2rem");
+    const nestedChildRow = screen.getByRole("row", {
+      name: "Edit glossary entry Nested Child",
+    });
+    expect(nestedChildRow.querySelector("td:first-child [data-glossary-hierarchy-spacer]"))
+      .not.toBeNull();
+    expect(
+      (nestedChildRow.querySelector("td:first-child") as HTMLTableCellElement)
+        .style.paddingLeft,
+    ).toBe("3.25rem");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Collapse glossary children for Alias Mapping",
+      }),
+    );
+
+    expect(screen.queryByLabelText("Term")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: "Edit glossary entry Category Drift" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: "Edit glossary entry Nested Child" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Expand glossary children for Alias Mapping",
+      }),
+    );
+
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
+    ).toHaveAttribute("data-glossary-row-depth", "1");
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Nested Child" }),
+    ).toHaveAttribute("data-glossary-row-depth", "2");
+  });
+
   it("filters static Glossary entries by search and category", () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText("Search glossary"), {
+    expect(screen.getByPlaceholderText("Search terms...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Category Filter" }))
+      .toHaveTextContent("Categories");
+    expect(screen.queryByText("All parent terms")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Sort")).toBeInTheDocument();
+    expect(screen.queryByText("View")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search terms"), {
       target: { value: "taxonomy" },
     });
 
-    expect(screen.getByText("Category Drift")).toBeInTheDocument();
-    expect(screen.queryByText("Alias Mapping")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Glossary active filters")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove filter Search: taxonomy" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: "Edit glossary entry Alias Mapping" }),
+    ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search glossary"), {
-      target: { value: "" },
-    });
-    fireEvent.change(screen.getByLabelText("Category filter"), {
-      target: { value: "Reference" },
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove filter Search: taxonomy" }),
+    );
+    expect(screen.getByLabelText("Search terms")).toHaveValue("");
+    expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
 
-    expect(screen.getByText("Source Citation")).toBeInTheDocument();
-    expect(screen.queryByText("Local Reference")).not.toBeInTheDocument();
+    fireEvent.focus(screen.getByRole("button", { name: "Category Filter" }));
+    expect(
+      screen.getByRole("button", {
+        name: "Select glossary category filter AAA Standalone",
+      }),
+    ).toHaveTextContent("AAA Standalone");
+    expect(
+      within(
+        screen.getByRole("button", {
+          name: "Select glossary category filter Alias Mapping",
+        }),
+      ).getByText("Parent"),
+    ).toBeInTheDocument();
+    const subParentOption = screen.getByRole("button", {
+      name: "Select glossary category filter Alias Mapping > Category Drift",
+    });
+    expect(subParentOption).toHaveTextContent("Category Drift");
+    expect(subParentOption).toHaveTextContent("Sub-Parent");
+    expect(subParentOption).not.toHaveTextContent("Alias Mapping > Category Drift");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select glossary category filter Alias Mapping",
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: "Category Filter" }))
+      .toHaveTextContent("Categories");
+    const oneSelectedBadge = screen.getByLabelText("Selected category filters: 1");
+    expect(oneSelectedBadge).toBeInTheDocument();
+    expect(oneSelectedBadge).toHaveClass("rounded-md");
+    expect(oneSelectedBadge).not.toHaveClass("rounded-full");
+    expect(
+      screen
+        .getByRole("button", {
+          name: "Select glossary category filter Alias Mapping",
+        })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
+    ).toHaveTextContent("Cat: Alias Mapping");
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: "Edit glossary entry Source Citation" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select glossary category filter Local Reference",
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: "Category Filter" }))
+      .toHaveTextContent("Categories");
+    expect(screen.getByLabelText("Selected category filters: 2")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove filter Category: Local Reference" }),
+    ).toHaveTextContent("Cat: Local Reference");
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("row", { name: "Edit glossary entry Source Citation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: "Edit glossary entry AAA Standalone" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select glossary category filter Alias Mapping > Category Drift > Nested Child",
+      }),
+    );
+    const compactNestedChip = screen.getByRole("button", {
+      name: "Remove filter Category: Alias Mapping > Category Drift > Nested Child",
+    });
+    expect(compactNestedChip).toHaveTextContent("Cat: ... > Cat > Nested Child");
+    expect(compactNestedChip).toHaveAttribute(
+      "title",
+      "Category: Alias Mapping > Category Drift > Nested Child",
+    );
+    const threeSelectedBadge = screen.getByLabelText("Selected category filters: 3");
+    expect(threeSelectedBadge).toBeInTheDocument();
+    expect(threeSelectedBadge).toHaveTextContent("3");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
+    );
+    expect(screen.queryByRole("row", { name: "Edit glossary entry Category Drift" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole("row", { name: "Edit glossary entry Source Citation" }))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+    expect(screen.getByRole("button", { name: "Category Filter" }))
+      .toHaveTextContent("Categories");
+    expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
+    expect(screen.getByRole("row", { name: "Edit glossary entry AAA Standalone" }))
+      .toBeInTheDocument();
   });
 
   it("sorts static Glossary entries by term", () => {
@@ -415,22 +670,43 @@ describe("App", () => {
 
     const tableBody = screen.getByRole("table").querySelector("tbody");
     expect(tableBody).not.toBeNull();
-    expect(within(tableBody as HTMLElement).getAllByRole("row")[0])
-      .toHaveTextContent("Alias Mapping");
+    let rows = within(tableBody as HTMLElement).getAllByRole("row");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Alias Mapping"),
+      expect.stringContaining("Category Drift"),
+      expect.stringContaining("Nested Child"),
+      expect.stringContaining("Local Reference"),
+      expect.stringContaining("Source Citation"),
+      expect.stringContaining("AAA Standalone"),
+    ]);
 
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "term-desc" },
-    });
+    fireEvent.focus(screen.getByLabelText("Sort"));
+    expect(screen.getByRole("listbox", { name: "Sort options" }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Select sort Z-A" }));
 
-    expect(within(tableBody as HTMLElement).getAllByRole("row")[0])
-      .toHaveTextContent("Source Citation");
+    rows = within(tableBody as HTMLElement).getAllByRole("row");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Local Reference"),
+      expect.stringContaining("Source Citation"),
+      expect.stringContaining("Alias Mapping"),
+      expect.stringContaining("Category Drift"),
+      expect.stringContaining("Nested Child"),
+      expect.stringContaining("AAA Standalone"),
+    ]);
+
+    for (const option of ["A-Z", "Z-A", "Last Added", "Last Updated"]) {
+      fireEvent.focus(screen.getByLabelText("Sort"));
+      expect(screen.getByRole("button", { name: `Select sort ${option}` }))
+        .toBeInTheDocument();
+    }
   });
 
   it("shows a neutral Glossary empty state for unmatched static filters", () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText("Search glossary"), {
+    fireEvent.change(screen.getByLabelText("Search terms"), {
       target: { value: "no matching glossary sample" },
     });
 
@@ -454,7 +730,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Persisted Runtime Term"))
       .toBeInTheDocument();
-    expect(screen.getByText("Runtime synonym")).toBeInTheDocument();
+    expect(screen.getByText("+1")).toHaveAttribute("title", "Runtime synonym");
     expect(screen.queryByText("Alias Mapping")).not.toBeInTheDocument();
     expect(
       vi.mocked(invoke).mock.calls.some(([command]) =>
@@ -470,17 +746,24 @@ describe("App", () => {
       term: "Created Runtime Term",
       definition: "Created runtime definition.",
       synonymsJson: '["Created synonym"]',
-      category: "Media Terms",
+      category: "",
+      parentId: "glossary_parent",
       favorite: true,
       sourceTitle: "Created source",
       sourceUrl: "https://example.invalid/created",
       updatedAt: 3,
     });
+    const parent = persistedGlossaryEntry({
+      id: "glossary_parent",
+      term: "Runtime Parent",
+      definition: "Parent definition.",
+      synonymsJson: "[]",
+    });
     const invoke = vi.fn(async (
       command: string,
       args: { input?: Record<string, unknown> } = {},
     ) => {
-      if (command === "glossary_list") return [];
+      if (command === "glossary_list") return [parent];
       if (command === "glossary_create") {
         return {
           ...created,
@@ -496,8 +779,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("No glossary entries found"))
-      .toBeInTheDocument();
+    expect(await screen.findByText("Runtime Parent")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
     fireEvent.change(screen.getByLabelText("Term"), {
       target: { value: "Created Runtime Term" },
@@ -505,9 +787,16 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Definition"), {
       target: { value: "Created runtime definition." },
     });
-    fireEvent.change(screen.getByLabelText("Category"), {
-      target: { value: "Media Terms" },
-    });
+    fireEvent.focus(screen.getByLabelText("Search glossary parent terms"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select glossary parent Runtime Parent",
+      }),
+    );
+    dialogMocks.open.mockResolvedValue("D:/Reference/created-thumb.png");
+    fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+    expect(await screen.findByLabelText("Thumbnail"))
+      .toHaveValue("D:/Reference/created-thumb.png");
     fireEvent.change(screen.getByLabelText("Source Title"), {
       target: { value: "Created source" },
     });
@@ -517,8 +806,11 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Synonyms"), {
       target: { value: "Created synonym" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    fireEvent.click(screen.getByLabelText("Favorite"));
+    fireEvent.keyDown(screen.getByLabelText("Synonyms"), {
+      key: "Enter",
+      code: "Enter",
+    });
+    fireEvent.click(screen.getByRole("switch", { name: "Favorite" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
@@ -533,7 +825,9 @@ describe("App", () => {
           input?.term === "Created Runtime Term" &&
           input?.definition === "Created runtime definition." &&
           input?.synonymsJson === '["Created synonym"]' &&
-          input?.category === "Media Terms" &&
+          input?.category === "" &&
+          input?.parentId === "glossary_parent" &&
+          input?.thumbnailPath === "D:/Reference/created-thumb.png" &&
           input?.favorite === true;
       }),
     ).toBe(true);
@@ -570,14 +864,14 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Edit Runtime Term")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Edit Edit Runtime Term" }));
+    fireEvent.click(screen.getByRole("row", { name: "Edit glossary entry Edit Runtime Term" }));
     fireEvent.change(screen.getByLabelText("Term"), {
       target: { value: "Updated Runtime Term" },
     });
     fireEvent.change(screen.getByLabelText("Definition"), {
       target: { value: "Updated definition." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Update Entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
     expect(await screen.findByText("Glossary entry updated."))
       .toBeInTheDocument();
@@ -654,9 +948,8 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Delete Runtime Term")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete Delete Runtime Term" }),
-    );
+    fireEvent.click(screen.getByRole("row", { name: "Edit glossary entry Delete Runtime Term" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -12384,6 +12677,7 @@ function persistedGlossaryEntry(overrides: Record<string, unknown> = {}) {
     definition: "Persisted glossary definition.",
     synonymsJson: '["Persisted synonym"]',
     category: "Concepts",
+    parentId: "",
     thumbnailPath: "",
     favorite: false,
     sourceTitle: "Persisted source",

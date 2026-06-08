@@ -296,6 +296,7 @@ pub struct GlossaryEntry {
     pub definition: String,
     pub synonyms_json: String,
     pub category: String,
+    pub parent_id: String,
     pub thumbnail_path: String,
     pub favorite: bool,
     pub source_title: String,
@@ -311,6 +312,7 @@ pub struct GlossaryEntryInput {
     pub definition: String,
     pub synonyms_json: Option<String>,
     pub category: Option<String>,
+    pub parent_id: Option<String>,
     pub thumbnail_path: Option<String>,
     pub favorite: Option<bool>,
     pub source_title: Option<String>,
@@ -324,6 +326,7 @@ pub struct GlossaryEntryPatch {
     pub definition: Option<String>,
     pub synonyms_json: Option<String>,
     pub category: Option<String>,
+    pub parent_id: Option<String>,
     pub thumbnail_path: Option<String>,
     pub favorite: Option<bool>,
     pub source_title: Option<String>,
@@ -709,6 +712,9 @@ pub fn glossary_delete(
         let Some(_) = get_glossary_entry(connection, &id)? else {
             return Err("Glossary entry was not found".to_string());
         };
+        if glossary_child_count(connection, &id)? > 0 {
+            return Err("Glossary entry cannot be deleted while child entries use it.".to_string());
+        }
         let deleted = connection
             .execute("DELETE FROM glossary_entries WHERE id = ?1", [&id])
             .map_err(database_error)?
@@ -1529,6 +1535,7 @@ fn create_glossary_entry(
     let term = require_text(input.term, "Glossary term is required")?;
     let definition = require_text(input.definition, "Glossary definition is required")?;
     let source_url = normalize_source_url(input.source_url)?;
+    let parent_id = normalize_glossary_parent_id(connection, "", input.parent_id)?;
     let timestamp = current_timestamp_i64();
     let entry = GlossaryEntry {
         id: new_id("glossary"),
@@ -1536,6 +1543,7 @@ fn create_glossary_entry(
         definition,
         synonyms_json: normalize_string_array_json(input.synonyms_json),
         category: default_text(input.category),
+        parent_id,
         thumbnail_path: default_text(input.thumbnail_path),
         favorite: input.favorite.unwrap_or(false),
         source_title: default_text(input.source_title),
@@ -1547,15 +1555,17 @@ fn create_glossary_entry(
     connection
         .execute(
             "INSERT INTO glossary_entries (
-                id, term, definition, synonyms_json, category, thumbnail_path,
-                favorite, source_title, source_url, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                id, term, definition, synonyms_json, category, parent_id,
+                thumbnail_path, favorite, source_title, source_url,
+                created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 entry.id,
                 entry.term,
                 entry.definition,
                 entry.synonyms_json,
                 entry.category,
+                entry.parent_id,
                 entry.thumbnail_path,
                 bool_to_int(entry.favorite),
                 entry.source_title,
@@ -1596,6 +1606,46 @@ fn get_glossary_entry(
         .map_err(database_error)
 }
 
+fn normalize_glossary_parent_id(
+    connection: &Connection,
+    entry_id: &str,
+    parent_id: Option<String>,
+) -> Result<String, String> {
+    let parent_id = default_text(parent_id);
+    if parent_id.is_empty() {
+        return Ok(String::new());
+    }
+    if !entry_id.is_empty() && parent_id == entry_id {
+        return Err("A glossary entry cannot use itself as parent.".to_string());
+    }
+
+    get_glossary_entry(connection, &parent_id)?
+        .ok_or_else(|| "Parent glossary entry could not be found.".to_string())?;
+
+    let mut next_parent_id = parent_id.clone();
+    while !next_parent_id.is_empty() {
+        if next_parent_id == entry_id {
+            return Err("Parent glossary entry would create a circular hierarchy.".to_string());
+        }
+        let Some(next_parent) = get_glossary_entry(connection, &next_parent_id)? else {
+            break;
+        };
+        next_parent_id = next_parent.parent_id;
+    }
+
+    Ok(parent_id)
+}
+
+fn glossary_child_count(connection: &Connection, id: &str) -> Result<i64, String> {
+    connection
+        .query_row(
+            "SELECT COUNT(*) FROM glossary_entries WHERE parent_id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)
+}
+
 fn update_glossary_entry(
     connection: &Connection,
     id: &str,
@@ -1615,6 +1665,9 @@ fn update_glossary_entry(
         entry.synonyms_json = normalize_string_array_json(patch.synonyms_json);
     }
     apply_text(&mut entry.category, patch.category);
+    if patch.parent_id.is_some() {
+        entry.parent_id = normalize_glossary_parent_id(connection, id, patch.parent_id)?;
+    }
     apply_text(&mut entry.thumbnail_path, patch.thumbnail_path);
     if let Some(favorite) = patch.favorite {
         entry.favorite = favorite;
@@ -1629,8 +1682,8 @@ fn update_glossary_entry(
         .execute(
             "UPDATE glossary_entries SET
                 term = ?2, definition = ?3, synonyms_json = ?4, category = ?5,
-                thumbnail_path = ?6, favorite = ?7, source_title = ?8,
-                source_url = ?9, updated_at = ?10
+                parent_id = ?6, thumbnail_path = ?7, favorite = ?8,
+                source_title = ?9, source_url = ?10, updated_at = ?11
              WHERE id = ?1",
             params![
                 entry.id,
@@ -1638,6 +1691,7 @@ fn update_glossary_entry(
                 entry.definition,
                 entry.synonyms_json,
                 entry.category,
+                entry.parent_id,
                 entry.thumbnail_path,
                 bool_to_int(entry.favorite),
                 entry.source_title,
@@ -2325,6 +2379,7 @@ fn glossary_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Glossary
         definition: row.get("definition")?,
         synonyms_json: row.get("synonyms_json")?,
         category: row.get("category")?,
+        parent_id: row.get("parent_id")?,
         thumbnail_path: row.get("thumbnail_path")?,
         favorite: int_to_bool(row.get("favorite")?),
         source_title: row.get("source_title")?,
@@ -2858,6 +2913,7 @@ mod tests {
                     r#"["Reference link"," Reference link ","Source note",7]"#.to_string(),
                 ),
                 category: Some("  Reference  ".to_string()),
+                parent_id: None,
                 thumbnail_path: Some("  D:/Glossary/thumb.png  ".to_string()),
                 favorite: Some(true),
                 source_title: Some("  Safety plan  ".to_string()),
@@ -2871,6 +2927,7 @@ mod tests {
         assert_eq!(created.definition, "Stores a source title and URL as text.");
         assert_eq!(created.synonyms_json, r#"["Reference link","Reference link","Source note"]"#);
         assert_eq!(created.category, "Reference");
+        assert_eq!(created.parent_id, "");
         assert_eq!(created.thumbnail_path, "D:/Glossary/thumb.png");
         assert!(created.favorite);
         assert_eq!(created.source_title, "Safety plan");
@@ -2890,6 +2947,7 @@ mod tests {
                 definition: Some("Updated definition".to_string()),
                 synonyms_json: Some(r#"["Updated"]"#.to_string()),
                 category: Some("Updated Category".to_string()),
+                parent_id: None,
                 thumbnail_path: Some("D:/Glossary/updated.png".to_string()),
                 favorite: Some(false),
                 source_title: Some("Updated Source".to_string()),
@@ -2905,6 +2963,7 @@ mod tests {
         assert_eq!(updated.definition, "Updated definition");
         assert_eq!(updated.synonyms_json, r#"["Updated"]"#);
         assert_eq!(updated.category, "Updated Category");
+        assert_eq!(updated.parent_id, "");
         assert_eq!(updated.thumbnail_path, "D:/Glossary/updated.png");
         assert!(!updated.favorite);
         assert_eq!(updated.source_title, "Updated Source");
@@ -2947,6 +3006,7 @@ mod tests {
                     definition: "Definition".to_string(),
                     synonyms_json: None,
                     category: None,
+                    parent_id: None,
                     thumbnail_path: None,
                     favorite: None,
                     source_title: None,
@@ -2965,6 +3025,7 @@ mod tests {
                     definition: " ".to_string(),
                     synonyms_json: None,
                     category: None,
+                    parent_id: None,
                     thumbnail_path: None,
                     favorite: None,
                     source_title: None,
@@ -2983,6 +3044,7 @@ mod tests {
                     definition: "Definition".to_string(),
                     synonyms_json: Some("{bad json".to_string()),
                     category: None,
+                    parent_id: None,
                     thumbnail_path: None,
                     favorite: None,
                     source_title: None,
@@ -3000,6 +3062,7 @@ mod tests {
                 definition: "Definition".to_string(),
                 synonyms_json: Some("{bad json".to_string()),
                 category: None,
+                parent_id: None,
                 thumbnail_path: None,
                 favorite: None,
                 source_title: None,
@@ -3008,6 +3071,67 @@ mod tests {
         )
         .expect("bad synonyms normalize");
         assert_eq!(created.synonyms_json, "[]");
+    }
+
+    #[test]
+    fn glossary_parent_relation_is_glossary_only_and_blocks_dangling_delete() {
+        let connection = test_connection();
+        let parent = create_glossary_entry(
+            &connection,
+            GlossaryEntryInput {
+                term: "Parent Term".to_string(),
+                definition: "Parent definition".to_string(),
+                synonyms_json: None,
+                category: None,
+                parent_id: None,
+                thumbnail_path: None,
+                favorite: None,
+                source_title: None,
+                source_url: None,
+            },
+        )
+        .expect("create parent");
+
+        let child = create_glossary_entry(
+            &connection,
+            GlossaryEntryInput {
+                term: "Child Term".to_string(),
+                definition: "Child definition".to_string(),
+                synonyms_json: None,
+                category: None,
+                parent_id: Some(parent.id.clone()),
+                thumbnail_path: None,
+                favorite: None,
+                source_title: None,
+                source_url: None,
+            },
+        )
+        .expect("create child");
+
+        assert_eq!(child.parent_id, parent.id);
+        assert_eq!(
+            glossary_child_count(&connection, &parent.id).expect("child count"),
+            1
+        );
+        assert_eq!(
+            update_glossary_entry(
+                &connection,
+                &parent.id,
+                GlossaryEntryPatch {
+                    term: None,
+                    definition: None,
+                    synonyms_json: None,
+                    category: None,
+                    parent_id: Some(child.id),
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect_err("cycle rejected"),
+            "Parent glossary entry would create a circular hierarchy."
+        );
     }
 
     #[test]

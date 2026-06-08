@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
   definition TEXT NOT NULL,
   synonyms_json TEXT NOT NULL DEFAULT '[]',
   category TEXT NOT NULL DEFAULT '',
+  parent_id TEXT NOT NULL DEFAULT '',
   thumbnail_path TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
   source_title TEXT NOT NULL DEFAULT '',

@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
   definition TEXT NOT NULL,
   synonyms_json TEXT NOT NULL DEFAULT '[]',
   category TEXT NOT NULL DEFAULT '',
+  parent_id TEXT NOT NULL DEFAULT '',
   thumbnail_path TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
   source_title TEXT NOT NULL DEFAULT '',
@@ -238,6 +239,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_boolean_column(connection, "managedCategories", "showInVideos", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInImages", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
+    ensure_text_column(connection, "glossary_entries", "parent_id", "")?;
 
     Ok(())
 }
