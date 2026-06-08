@@ -482,6 +482,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     galleryImagePaths,
   });
   const isDirty = currentSnapshot !== cleanSnapshot;
+  const performerTaxonomyOptions =
+    config.kind === "performers"
+      ? buildPerformerTaxonomyOptions(managedCategoryRecords)
+      : null;
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -961,6 +965,14 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                     />
                   )
                 ))}
+              {performerTaxonomyOptions && (
+                <PerformerTaxonomyFields
+                  genderOptions={performerTaxonomyOptions.gender}
+                  bodyTypeOptions={performerTaxonomyOptions.bodyType}
+                  selectedCategories={categories}
+                  onChange={setCategories}
+                />
+              )}
               {config.performerSections?.physical
                 .map((field) => (
                   field.name === "measurements" ? (
@@ -1917,6 +1929,90 @@ function ChipInput({
   );
 }
 
+function PerformerTaxonomyFields({
+  genderOptions,
+  bodyTypeOptions,
+  selectedCategories,
+  onChange,
+}: {
+  genderOptions: TaxonomyCategoryOption[];
+  bodyTypeOptions: TaxonomyCategoryOption[];
+  selectedCategories: string[];
+  onChange: Dispatch<SetStateAction<string[]>>;
+}) {
+  return (
+    <>
+      <TaxonomySelect
+        label="Gender"
+        placeholder="Select gender"
+        emptyMessage="No Gender categories found"
+        options={genderOptions}
+        selectedCategories={selectedCategories}
+        onChange={onChange}
+      />
+      <TaxonomySelect
+        label="Body Type"
+        placeholder="Select body type"
+        emptyMessage="No Body Type categories found"
+        options={bodyTypeOptions}
+        selectedCategories={selectedCategories}
+        onChange={onChange}
+      />
+    </>
+  );
+}
+
+function TaxonomySelect({
+  label,
+  placeholder,
+  emptyMessage,
+  options,
+  selectedCategories,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  emptyMessage: string;
+  options: TaxonomyCategoryOption[];
+  selectedCategories: string[];
+  onChange: Dispatch<SetStateAction<string[]>>;
+}) {
+  const optionLabels = new Set(options.map((option) => option.name));
+  const selectedValue =
+    selectedCategories.find((category) => optionLabels.has(category)) ?? "";
+  const disabled = options.length === 0;
+
+  return (
+    <div className={FORM_ROW_START_STYLES}>
+      <label className="pt-2" htmlFor={`performer-taxonomy-${taxonomyFieldId(label)}`}>
+        {label}
+      </label>
+      <div className="grid gap-1.5">
+        <select
+          id={`performer-taxonomy-${taxonomyFieldId(label)}`}
+          aria-label={label}
+          value={selectedValue}
+          disabled={disabled}
+          className={inputClass(disabled)}
+          onChange={(event) => {
+            updateTaxonomyCategorySelection(onChange, options, event.target.value);
+          }}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((option) => (
+            <option key={option.key} value={option.name}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        {disabled && (
+          <p className="text-xs font-semibold text-slate-500">{emptyMessage}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CategoryPicker({
   kind,
   selected,
@@ -2173,6 +2269,96 @@ type CategoryOption = {
   pathParts: string[];
   searchText: string;
 };
+
+type TaxonomyCategoryOption = {
+  key: string;
+  name: string;
+};
+
+function buildPerformerTaxonomyOptions(categories: ManagedCategory[]) {
+  return {
+    gender: childTaxonomyOptions(categories, ["gender"]),
+    bodyType: childTaxonomyOptions(categories, [
+      "bodytype",
+      "body type",
+      "body-type",
+      "body_type",
+    ]),
+  };
+}
+
+function childTaxonomyOptions(
+  categories: ManagedCategory[],
+  parentAliases: string[],
+): TaxonomyCategoryOption[] {
+  const parent = findTaxonomyParent(categories, parentAliases);
+  if (!parent) {
+    return [];
+  }
+
+  return categories
+    .filter((category) =>
+      category.parentKey === parent.key &&
+      category.showInPerformers &&
+      category.name.trim(),
+    )
+    .map((category) => ({
+      key: category.key,
+      name: category.name.trim(),
+    }));
+}
+
+function findTaxonomyParent(
+  categories: ManagedCategory[],
+  aliases: string[],
+) {
+  const normalizedAliases = aliases.map(normalizeTaxonomyName);
+  const matchingParents = categories.filter((category) =>
+    !category.parentKey &&
+    normalizedAliases.includes(normalizeTaxonomyName(category.name)),
+  );
+
+  return matchingParents.sort((first, second) => {
+    const firstExactRank = exactTaxonomyAliasRank(first.name, aliases);
+    const secondExactRank = exactTaxonomyAliasRank(second.name, aliases);
+    if (firstExactRank !== secondExactRank) {
+      return firstExactRank - secondExactRank;
+    }
+    return categories.indexOf(first) - categories.indexOf(second);
+  })[0] ?? null;
+}
+
+function exactTaxonomyAliasRank(name: string, aliases: string[]) {
+  const normalizedName = name.trim().toLowerCase();
+  const exactIndex = aliases.findIndex(
+    (alias) => alias.trim().toLowerCase() === normalizedName,
+  );
+  return exactIndex === -1 ? Number.MAX_SAFE_INTEGER : exactIndex;
+}
+
+function normalizeTaxonomyName(value: string) {
+  return value.trim().toLowerCase().replace(/[\s_-]/g, "");
+}
+
+function taxonomyFieldId(label: string) {
+  return label.toLowerCase().replace(/\s+/g, "-");
+}
+
+function updateTaxonomyCategorySelection(
+  onChange: Dispatch<SetStateAction<string[]>>,
+  options: TaxonomyCategoryOption[],
+  value: string,
+) {
+  const optionNames = new Set(options.map((option) => option.name));
+  onChange((current) => {
+    const withoutPreviousTaxonomy = current.filter(
+      (category) => !optionNames.has(category),
+    );
+    return value
+      ? normalizeFormCategories([...withoutPreviousTaxonomy, value])
+      : normalizeFormCategories(withoutPreviousTaxonomy);
+  });
+}
 
 function buildCategoryOptions(
   managedCategories: string[],

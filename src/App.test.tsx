@@ -11906,6 +11906,213 @@ describe("App", () => {
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
 
+  it("renders Gender and Body Type taxonomy fields only on Performer forms", () => {
+    window.history.pushState({}, "", "/videos/new");
+    const { unmount } = render(<App />);
+
+    expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+    unmount();
+
+    window.history.pushState({}, "", "/images/new");
+    const imageRender = render(<App />);
+
+    expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    expect(screen.getByLabelText("Gender")).toBeInTheDocument();
+    expect(screen.getByLabelText("Body Type")).toBeInTheDocument();
+    expect(screen.getByText("No Gender categories found")).toBeInTheDocument();
+    expect(screen.getByText("No Body Type categories found")).toBeInTheDocument();
+  });
+
+  it("reads Gender and Body Type options from Category Management taxonomy children", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const gender = await screen.findByLabelText("Gender");
+    const bodyType = screen.getByLabelText("Body Type");
+    expect(gender).toHaveDisplayValue("Select gender");
+    expect(bodyType).toHaveDisplayValue("Select body type");
+    expect(within(gender).queryByRole("option", { name: "Gender" }))
+      .not.toBeInTheDocument();
+    expect(within(gender).getByRole("option", { name: "Woman" }))
+      .toBeInTheDocument();
+    expect(within(bodyType).queryByRole("option", { name: "Body Type" }))
+      .not.toBeInTheDocument();
+    expect(within(bodyType).getByRole("option", { name: "Athletic" }))
+      .toBeInTheDocument();
+
+    fireEvent.change(gender, { target: { value: "Woman" } });
+    fireEvent.change(bodyType, { target: { value: "Athletic" } });
+
+    expect(gender).toHaveDisplayValue("Woman");
+    expect(bodyType).toHaveDisplayValue("Athletic");
+  });
+
+  it.each(["bodytype", "body-type", "body_type"])(
+    "reads Body Type taxonomy children from parent variant %s",
+    async (bodyTypeParentName) => {
+      window.history.pushState({}, "", "/performers/new");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "managed_category_list") {
+          return performerTaxonomyFixtures(bodyTypeParentName);
+        }
+        if (
+          command === "performer_list" ||
+          command === "video_list" ||
+          command === "image_list"
+        ) {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      const bodyType = await screen.findByLabelText("Body Type");
+      expect(within(bodyType).getByRole("option", { name: "Athletic" }))
+        .toBeInTheDocument();
+      expect(within(bodyType).queryByRole("option", { name: bodyTypeParentName }))
+        .not.toBeInTheDocument();
+    },
+  );
+
+  it("shows discard confirmation after changing Performer taxonomy fields", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Gender"), {
+      target: { value: "Woman" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+  });
+
+  it("saves Performer taxonomy selections through categoriesJson after confirmation", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const created = persistedPerformer({
+      name: "Taxonomy Performer",
+      categoriesJson: '["Woman","Athletic"]',
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (command === "performer_create") {
+        expect(args.input.categoriesJson).toBe('["Woman","Athletic"]');
+        expect(args.input.measurements).toBe("");
+        expect(args.input.cupSize).toBe("");
+        return created;
+      }
+      if (command === "performer_get") {
+        return created;
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Gender"), {
+      target: { value: "Woman" },
+    });
+    fireEvent.change(screen.getByLabelText("Body Type"), {
+      target: { value: "Athletic" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Taxonomy Performer" },
+    });
+    fillPerformerRatingFields();
+    clickSaveAndConfirm();
+
+    expect(await screen.findByText("Taxonomy Performer")).toBeInTheDocument();
+    expect(screen.getByText("Woman")).toBeInTheDocument();
+    expect(screen.getByText("Athletic")).toBeInTheDocument();
+  });
+
+  it("loads saved Performer taxonomy selections from categoriesJson", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001/edit");
+    const existing = persistedPerformer({
+      name: "Saved Taxonomy Performer",
+      categoriesJson: '["Woman","Athletic","Classic"]',
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (command === "performer_get") {
+        return existing;
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Saved Taxonomy Performer"))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("Gender")).toHaveDisplayValue("Woman");
+    expect(screen.getByLabelText("Body Type")).toHaveDisplayValue("Athletic");
+    expect(screen.getByText("Classic")).toBeInTheDocument();
+  });
+
   it("saves empty performer mini thumbnail fields safely", async () => {
     window.history.pushState({}, "", "/performers/new");
     const created = persistedPerformer({ name: "Empty Thumbnail Performer" });
@@ -12703,6 +12910,35 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,
   };
+}
+
+function performerTaxonomyFixtures(bodyTypeParentName: string) {
+  return [
+    managedCategoryFixture({
+      key: "cat_gender",
+      name: "Gender",
+    }),
+    managedCategoryFixture({
+      key: "cat_gender_woman",
+      name: "Woman",
+      parentKey: "cat_gender",
+      showInVideos: false,
+      showInImages: false,
+      showInPerformers: true,
+    }),
+    managedCategoryFixture({
+      key: "cat_body_type",
+      name: bodyTypeParentName,
+    }),
+    managedCategoryFixture({
+      key: "cat_body_type_athletic",
+      name: "Athletic",
+      parentKey: "cat_body_type",
+      showInVideos: false,
+      showInImages: false,
+      showInPerformers: true,
+    }),
+  ];
 }
 
 function persistedGlossaryEntry(overrides: Record<string, unknown> = {}) {
