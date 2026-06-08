@@ -2,21 +2,23 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
+  useEffect,
   useMemo,
   useState,
 } from "react";
-
-type GlossarySampleEntry = {
-  id: string;
-  term: string;
-  definition: string;
-  synonyms: string[];
-  category: string;
-  thumbnailPath: string | null;
-  favorite: boolean;
-  sourceTitle: string;
-  sourceUrl: string;
-};
+import type {
+  GlossaryEntry,
+  GlossaryEntryPatch,
+  NewGlossaryEntry,
+} from "../backend/types";
+import { parseTextLabelArray, stringifyTextLabelArray } from "../backend/json";
+import {
+  createGlossaryEntry,
+  deleteGlossaryEntry,
+  isGlossaryRuntimeAvailable,
+  listGlossaryEntries,
+  updateGlossaryEntry,
+} from "../runtime/glossaryCommands";
 
 type GlossarySortKey = "term-asc" | "term-desc";
 type GlossaryFormMode = "add" | "edit";
@@ -57,58 +59,70 @@ const emptyFormState: GlossaryFormState = {
   definition: "",
 };
 
-const sampleGlossaryEntries: GlossarySampleEntry[] = [
+const sampleGlossaryEntries: GlossaryEntry[] = [
   {
     id: "glossary-alias-mapping",
     term: "Alias Mapping",
     definition:
       "A reference note that tracks alternate names for a term without changing performer aliases or catalog metadata.",
-    synonyms: ["Alternate name", "Nickname", "Reference alias"],
+    synonymsJson: stringifyTextLabelArray([
+      "Alternate name",
+      "Nickname",
+      "Reference alias",
+    ]),
     category: "Vocabulary",
-    thumbnailPath: null,
+    thumbnailPath: "",
     favorite: true,
     sourceTitle: "Internal reference note",
     sourceUrl: "https://example.invalid/glossary/alias-mapping",
+    createdAt: 1,
+    updatedAt: 4,
   },
   {
     id: "glossary-category-drift",
     term: "Category Drift",
     definition:
       "A planning phrase for when labels become inconsistent over time and need review without automatic catalog mutation.",
-    synonyms: ["Label drift", "Taxonomy drift"],
+    synonymsJson: stringifyTextLabelArray(["Label drift", "Taxonomy drift"]),
     category: "Planning",
-    thumbnailPath: null,
+    thumbnailPath: "",
     favorite: false,
     sourceTitle: "Glossary planning memo",
     sourceUrl: "https://example.invalid/glossary/category-drift",
+    createdAt: 2,
+    updatedAt: 3,
   },
   {
     id: "glossary-local-reference",
     term: "Local Reference",
     definition:
       "A private note stored for personal use inside the desktop app, independent from remote services or account systems.",
-    synonyms: ["Offline note", "Private reference"],
+    synonymsJson: stringifyTextLabelArray(["Offline note", "Private reference"]),
     category: "Storage",
-    thumbnailPath: null,
+    thumbnailPath: "",
     favorite: false,
     sourceTitle: "Local-first product notes",
     sourceUrl: "https://example.invalid/glossary/local-reference",
+    createdAt: 3,
+    updatedAt: 2,
   },
   {
     id: "glossary-source-citation",
     term: "Source Citation",
     definition:
       "A title and URL kept with a glossary entry so the reference can be inspected later without fetching metadata during save.",
-    synonyms: ["Reference link", "Source note"],
+    synonymsJson: stringifyTextLabelArray(["Reference link", "Source note"]),
     category: "Reference",
-    thumbnailPath: null,
+    thumbnailPath: "",
     favorite: true,
     sourceTitle: "Source safety plan",
     sourceUrl: "https://example.invalid/glossary/source-citation",
+    createdAt: 4,
+    updatedAt: 1,
   },
 ];
 
-function entryToFormState(entry: GlossarySampleEntry): GlossaryFormState {
+function entryToFormState(entry: GlossaryEntry): GlossaryFormState {
   const matchingCategory = glossaryFormCategoryOptions.includes(
     entry.category as (typeof glossaryFormCategoryOptions)[number],
   )
@@ -117,9 +131,9 @@ function entryToFormState(entry: GlossarySampleEntry): GlossaryFormState {
 
   return {
     term: entry.term,
-    synonyms: entry.synonyms,
+    synonyms: parseTextLabelArray(entry.synonymsJson),
     category: matchingCategory,
-    thumbnailPath: entry.thumbnailPath ?? "",
+    thumbnailPath: entry.thumbnailPath,
     favorite: entry.favorite,
     sourceTitle: entry.sourceTitle,
     sourceUrl: entry.sourceUrl,
@@ -127,7 +141,28 @@ function entryToFormState(entry: GlossarySampleEntry): GlossaryFormState {
   };
 }
 
+function formStateToInput(formState: GlossaryFormState): NewGlossaryEntry {
+  return {
+    term: formState.term.trim(),
+    definition: formState.definition.trim(),
+    synonymsJson: stringifyTextLabelArray(formState.synonyms),
+    category: formState.category.trim(),
+    thumbnailPath: formState.thumbnailPath.trim(),
+    favorite: formState.favorite,
+    sourceTitle: formState.sourceTitle.trim(),
+    sourceUrl: formState.sourceUrl.trim(),
+  };
+}
+
 function GlossaryPage() {
+  const [entries, setEntries] = useState<GlossaryEntry[]>(() =>
+    isGlossaryRuntimeAvailable() ? [] : sampleGlossaryEntries,
+  );
+  const [isRuntimeMode, setIsRuntimeMode] = useState(() =>
+    isGlossaryRuntimeAvailable(),
+  );
+  const [isLoading, setIsLoading] = useState(() => isGlossaryRuntimeAvailable());
+  const [dataStatus, setDataStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortKey, setSortKey] = useState<GlossarySortKey>("term-asc");
@@ -135,22 +170,66 @@ function GlossaryPage() {
   const [page, setPage] = useState(1);
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<GlossaryFormMode>("add");
+  const [editingEntryId, setEditingEntryId] = useState("");
   const [editingEntryTerm, setEditingEntryTerm] = useState("");
   const [formState, setFormState] = useState<GlossaryFormState>(emptyFormState);
   const [synonymDraft, setSynonymDraft] = useState("");
   const [formErrors, setFormErrors] = useState<GlossaryFormErrors>({});
   const [formMessage, setFormMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isGlossaryRuntimeAvailable()) {
+      setIsRuntimeMode(false);
+      setEntries(sampleGlossaryEntries);
+      setIsLoading(false);
+      setDataStatus("Browser preview uses static Glossary samples.");
+      return;
+    }
+
+    let isMounted = true;
+    setIsRuntimeMode(true);
+    setIsLoading(true);
+    setDataStatus("");
+    listGlossaryEntries()
+      .then((loadedEntries) => {
+        if (!isMounted) {
+          return;
+        }
+        setEntries(loadedEntries);
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+        setEntries([]);
+        setDataStatus(
+          error instanceof Error
+            ? error.message
+            : "Unable to load Glossary entries.",
+        );
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const categoryOptions = useMemo(
     () =>
-      Array.from(new Set(sampleGlossaryEntries.map((entry) => entry.category)))
+      Array.from(new Set(entries.map((entry) => entry.category).filter(Boolean)))
         .sort((left, right) => left.localeCompare(right)),
-    [],
+    [entries],
   );
 
   const filteredEntries = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    const matchesSearch = (entry: GlossarySampleEntry) => {
+    const matchesSearch = (entry: GlossaryEntry) => {
       if (!normalizedQuery) {
         return true;
       }
@@ -160,11 +239,11 @@ function GlossaryPage() {
         entry.definition,
         entry.category,
         entry.sourceTitle,
-        ...entry.synonyms,
+        ...parseTextLabelArray(entry.synonymsJson),
       ].some((value) => value.toLowerCase().includes(normalizedQuery));
     };
 
-    return sampleGlossaryEntries
+    return entries
       .filter((entry) =>
         categoryFilter === "all" ? true : entry.category === categoryFilter,
       )
@@ -173,7 +252,7 @@ function GlossaryPage() {
         const comparison = left.term.localeCompare(right.term);
         return sortKey === "term-asc" ? comparison : -comparison;
       });
-  }, [categoryFilter, searchQuery, sortKey]);
+  }, [categoryFilter, entries, searchQuery, sortKey]);
 
   const totalPages = Math.max(1, Math.ceil(filteredEntries.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -205,6 +284,7 @@ function GlossaryPage() {
   const openAddForm = () => {
     setFormVisible(true);
     setFormMode("add");
+    setEditingEntryId("");
     setEditingEntryTerm("");
     setFormState(emptyFormState);
     setSynonymDraft("");
@@ -212,9 +292,10 @@ function GlossaryPage() {
     setFormMessage("");
   };
 
-  const openEditForm = (entry: GlossarySampleEntry) => {
+  const openEditForm = (entry: GlossaryEntry) => {
     setFormVisible(true);
     setFormMode("edit");
+    setEditingEntryId(entry.id);
     setEditingEntryTerm(entry.term);
     setFormState(entryToFormState(entry));
     setSynonymDraft("");
@@ -225,11 +306,13 @@ function GlossaryPage() {
   const closeForm = () => {
     setFormVisible(false);
     setFormMode("add");
+    setEditingEntryId("");
     setEditingEntryTerm("");
     setFormState(emptyFormState);
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
+    setIsSubmitting(false);
   };
 
   const clearForm = () => {
@@ -302,18 +385,116 @@ function GlossaryPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const submitForm = (event: FormEvent<HTMLFormElement>) => {
+  const submitForm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormMessage("");
     if (!validateForm()) {
       return;
     }
 
-    setFormMessage(
-      formMode === "add"
-        ? "Glossary persistence is planned for a later batch. This entry preview was not saved."
-        : "Glossary persistence is planned for a later batch. Static sample data was not changed.",
-    );
+    if (!isRuntimeMode) {
+      setFormMessage(
+        "Browser preview does not persist Glossary entries. Use the desktop app to save.",
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (formMode === "add") {
+        const created = await createGlossaryEntry(formStateToInput(formState));
+        setEntries((currentEntries) => [created, ...currentEntries]);
+        setFormMessage("Glossary entry saved.");
+        setFormState(entryToFormState(created));
+        setEditingEntryId(created.id);
+        setEditingEntryTerm(created.term);
+        setFormMode("edit");
+      } else if (editingEntryId) {
+        const patch: GlossaryEntryPatch = formStateToInput(formState);
+        const updated = await updateGlossaryEntry(editingEntryId, patch);
+        if (!updated) {
+          setFormMessage("Glossary entry was not found.");
+          return;
+        }
+        setEntries((currentEntries) =>
+          currentEntries.map((entry) =>
+            entry.id === updated.id ? updated : entry,
+          ),
+        );
+        setEditingEntryTerm(updated.term);
+        setFormState(entryToFormState(updated));
+        setFormMessage("Glossary entry updated.");
+      }
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save Glossary entry.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleFavorite = async (entry: GlossaryEntry) => {
+    if (!isRuntimeMode) {
+      setDataStatus("Browser preview does not persist favorite changes.");
+      return;
+    }
+
+    try {
+      const updated = await updateGlossaryEntry(entry.id, {
+        favorite: !entry.favorite,
+      });
+      if (!updated) {
+        setDataStatus("Glossary entry was not found.");
+        return;
+      }
+      setEntries((currentEntries) =>
+        currentEntries.map((currentEntry) =>
+          currentEntry.id === updated.id ? updated : currentEntry,
+        ),
+      );
+      setDataStatus("Glossary favorite updated.");
+    } catch (error) {
+      setDataStatus(
+        error instanceof Error
+          ? error.message
+          : "Unable to update Glossary favorite.",
+      );
+    }
+  };
+
+  const deleteEntry = async (entry: GlossaryEntry) => {
+    if (!isRuntimeMode) {
+      setDataStatus("Browser preview does not delete Glossary entries.");
+      return;
+    }
+
+    if (!window.confirm(`Delete glossary entry "${entry.term}"?`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteGlossaryEntry(entry.id);
+      if (!result.deleted) {
+        setDataStatus("Glossary entry was not found.");
+        return;
+      }
+      setEntries((currentEntries) =>
+        currentEntries.filter((currentEntry) => currentEntry.id !== entry.id),
+      );
+      if (editingEntryId === entry.id) {
+        closeForm();
+      }
+      setDataStatus("Glossary entry deleted.");
+    } catch (error) {
+      setDataStatus(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete Glossary entry.",
+      );
+    }
   };
 
   return (
@@ -342,6 +523,15 @@ function GlossaryPage() {
         </button>
       </header>
 
+      {(dataStatus || isLoading) && (
+        <div
+          className="rounded-lg border border-sakura-100 bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm"
+          role="status"
+        >
+          {isLoading ? "Loading Glossary entries..." : dataStatus}
+        </div>
+      )}
+
       {formVisible && (
         <section
           className="rounded-lg border border-sakura-100 bg-white px-6 py-5 shadow-sm"
@@ -349,7 +539,7 @@ function GlossaryPage() {
         >
           <div className="flex flex-col gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-sakura-600">
-              {formMode === "add" ? "Add state" : "Edit preview"}
+              {formMode === "add" ? "Add state" : "Edit"}
             </p>
             <h2
               id="glossary-form-title"
@@ -358,10 +548,11 @@ function GlossaryPage() {
               Add/Edit Glossary Entry
             </h2>
             <p className="max-w-3xl text-sm text-slate-600">
-              This form is a UI preview only. Persistence is planned for a later
-              batch, so saving does not create, update, or delete glossary data.
+              Glossary entries are saved only to the independent Glossary table.
+              They do not change catalog metadata, Category Management, or
+              record categories.
               {formMode === "edit" && editingEntryTerm
-                ? ` Editing preview: ${editingEntryTerm}.`
+                ? ` Editing: ${editingEntryTerm}.`
                 : ""}
             </p>
           </div>
@@ -537,9 +728,14 @@ function GlossaryPage() {
               </button>
               <button
                 type="submit"
-                className="h-10 rounded-lg border border-sakura-200 bg-sakura-50 px-4 text-sm font-semibold text-sakura-600 transition hover:bg-sakura-100"
+                disabled={isSubmitting}
+                className="h-10 rounded-lg border border-sakura-200 bg-sakura-50 px-4 text-sm font-semibold text-sakura-600 transition hover:bg-sakura-100 disabled:opacity-60"
               >
-                {formMode === "add" ? "Save Draft" : "Preview Entry"}
+                {isSubmitting
+                  ? "Saving..."
+                  : formMode === "add"
+                    ? "Save Entry"
+                    : "Update Entry"}
               </button>
             </div>
           </form>
@@ -559,8 +755,7 @@ function GlossaryPage() {
               Glossary Entries
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Static sample entries for table, search, filter, sort, and
-              pagination review only.
+              Search, filter, sort, and paginate independent Glossary entries.
             </p>
           </div>
 
@@ -691,19 +886,39 @@ function GlossaryPage() {
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(entry)}
-                          className="w-fit text-xs font-semibold text-sakura-600 hover:text-sakura-700"
-                          aria-label={`Edit ${entry.term}`}
-                        >
-                          Edit preview
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(entry)}
+                            className="w-fit text-xs font-semibold text-sakura-600 hover:text-sakura-700"
+                            aria-label={`Edit ${entry.term}`}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleFavorite(entry)}
+                            className="w-fit text-xs font-semibold text-sakura-600 hover:text-sakura-700"
+                            aria-label={`Toggle favorite ${entry.term}`}
+                          >
+                            Favorite
+                          </button>
+                          {isRuntimeMode && (
+                            <button
+                              type="button"
+                              onClick={() => deleteEntry(entry)}
+                              className="w-fit text-xs font-semibold text-red-600 hover:text-red-700"
+                              aria-label={`Delete ${entry.term}`}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex max-w-56 flex-wrap gap-1.5">
-                        {entry.synonyms.map((synonym) => (
+                        {parseTextLabelArray(entry.synonymsJson).map((synonym) => (
                           <span
                             key={synonym}
                             className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600"
@@ -715,7 +930,7 @@ function GlossaryPage() {
                     </td>
                     <td className="px-4 py-4">
                       <span className="rounded-full bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-600">
-                        {entry.category}
+                        {entry.category || "Uncategorized"}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -728,9 +943,9 @@ function GlossaryPage() {
                         type="button"
                         disabled
                         className="text-left text-sm font-semibold text-sakura-600 disabled:opacity-75"
-                        aria-label={`Source ${entry.sourceTitle}`}
+                        aria-label={`Source ${entry.sourceTitle || "No source title"}`}
                       >
-                        {entry.sourceTitle}
+                        {entry.sourceTitle || "No source"}
                       </button>
                     </td>
                   </tr>
@@ -748,8 +963,8 @@ function GlossaryPage() {
                 No glossary entries found
               </h3>
               <p className="mt-2 text-sm text-slate-600">
-                Try a different search term or category filter. This table uses
-                static sample entries only.
+                Try a different search term or category filter, or add a new
+                Glossary entry.
               </p>
             </div>
           </div>

@@ -189,6 +189,8 @@ describe("App", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Entry" })).toBeEnabled();
+    expect(screen.getByText("Browser preview uses static Glossary samples."))
+      .toBeInTheDocument();
     expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -220,7 +222,7 @@ describe("App", () => {
       expect(screen.getByLabelText(field)).toBeInTheDocument();
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
     expect(await screen.findByText("Term is required.")).toBeInTheDocument();
     expect(screen.getByText("Definition is required.")).toBeInTheDocument();
@@ -274,11 +276,11 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Remove synonym Preview chip" }))
       .toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
     expect(
       await screen.findByText(
-        "Glossary persistence is planned for a later batch. This entry preview was not saved.",
+        "Browser preview does not persist Glossary entries. Use the desktop app to save.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Temporary Term")).not.toBeInTheDocument();
@@ -299,7 +301,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Source URL"), {
       target: { value: "example.invalid/source" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
 
     expect(
       await screen.findByText("Source URL must start with http:// or https://."),
@@ -341,17 +343,17 @@ describe("App", () => {
     expect(screen.getByLabelText("Term")).toHaveValue("Alias Mapping");
     expect(screen.getByLabelText("Source Title"))
       .toHaveValue("Internal reference note");
-    expect(screen.getByRole("button", { name: "Preview Entry" }))
+    expect(screen.getByRole("button", { name: "Update Entry" }))
       .toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Term"), {
       target: { value: "Changed Alias Mapping" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Preview Entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Update Entry" }));
 
     expect(
       await screen.findByText(
-        "Glossary persistence is planned for a later batch. Static sample data was not changed.",
+        "Browser preview does not persist Glossary entries. Use the desktop app to save.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Alias Mapping")).toBeInTheDocument();
@@ -434,6 +436,241 @@ describe("App", () => {
 
     expect(screen.getByText("No glossary entries found")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("loads persisted Glossary entries from the runtime", async () => {
+    window.history.pushState({}, "", "/glossary");
+    const persisted = persistedGlossaryEntry({
+      term: "Persisted Runtime Term",
+      synonymsJson: '["Runtime synonym"]',
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "glossary_list") return [persisted];
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Persisted Runtime Term"))
+      .toBeInTheDocument();
+    expect(screen.getByText("Runtime synonym")).toBeInTheDocument();
+    expect(screen.queryByText("Alias Mapping")).not.toBeInTheDocument();
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command]) =>
+        command === "glossary_list"
+      ),
+    ).toBe(true);
+  });
+
+  it("creates a persisted Glossary entry through the runtime command", async () => {
+    window.history.pushState({}, "", "/glossary");
+    const created = persistedGlossaryEntry({
+      id: "glossary_created",
+      term: "Created Runtime Term",
+      definition: "Created runtime definition.",
+      synonymsJson: '["Created synonym"]',
+      category: "Media Terms",
+      favorite: true,
+      sourceTitle: "Created source",
+      sourceUrl: "https://example.invalid/created",
+      updatedAt: 3,
+    });
+    const invoke = vi.fn(async (
+      command: string,
+      args: { input?: Record<string, unknown> } = {},
+    ) => {
+      if (command === "glossary_list") return [];
+      if (command === "glossary_create") {
+        return {
+          ...created,
+          ...args.input,
+          id: created.id,
+          createdAt: created.createdAt,
+          updatedAt: created.updatedAt,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("No glossary entries found"))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "Created Runtime Term" },
+    });
+    fireEvent.change(screen.getByLabelText("Definition"), {
+      target: { value: "Created runtime definition." },
+    });
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "Media Terms" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Title"), {
+      target: { value: "Created source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source URL"), {
+      target: { value: "https://example.invalid/created" },
+    });
+    fireEvent.change(screen.getByLabelText("Synonyms"), {
+      target: { value: "Created synonym" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(screen.getByLabelText("Favorite"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+
+    expect(await screen.findByText("Glossary entry saved."))
+      .toBeInTheDocument();
+    expect(screen.getByText("Created Runtime Term")).toBeInTheDocument();
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command, args]) => {
+        const input = (args as { input?: Record<string, unknown> } | undefined)
+          ?.input;
+        return command === "glossary_create" &&
+          input?.term === "Created Runtime Term" &&
+          input?.definition === "Created runtime definition." &&
+          input?.synonymsJson === '["Created synonym"]' &&
+          input?.category === "Media Terms" &&
+          input?.favorite === true;
+      }),
+    ).toBe(true);
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command]) =>
+        ["video_update", "image_update", "performer_update"].includes(command)
+      ),
+    ).toBe(false);
+  });
+
+  it("updates a persisted Glossary entry through the runtime command", async () => {
+    window.history.pushState({}, "", "/glossary");
+    const persisted = persistedGlossaryEntry({
+      id: "glossary_edit",
+      term: "Edit Runtime Term",
+      definition: "Original definition.",
+    });
+    const updated = {
+      ...persisted,
+      term: "Updated Runtime Term",
+      definition: "Updated definition.",
+      updatedAt: 4,
+    };
+    const invoke = vi.fn(async (
+      command: string,
+      args: { id?: string; patch?: Record<string, unknown> } = {},
+    ) => {
+      if (command === "glossary_list") return [persisted];
+      if (command === "glossary_update") return { ...updated, ...args.patch };
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Edit Runtime Term")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Edit Runtime Term" }));
+    fireEvent.change(screen.getByLabelText("Term"), {
+      target: { value: "Updated Runtime Term" },
+    });
+    fireEvent.change(screen.getByLabelText("Definition"), {
+      target: { value: "Updated definition." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update Entry" }));
+
+    expect(await screen.findByText("Glossary entry updated."))
+      .toBeInTheDocument();
+    expect(screen.getByText("Updated Runtime Term")).toBeInTheDocument();
+    expect(
+      vi.mocked(invoke).mock.calls.some(([command, args]) => {
+        const updateArgs = args as
+          | { id?: string; patch?: Record<string, unknown> }
+          | undefined;
+        return command === "glossary_update" &&
+          updateArgs?.id === "glossary_edit" &&
+          updateArgs.patch?.term === "Updated Runtime Term" &&
+          updateArgs.patch?.definition === "Updated definition.";
+      }),
+    ).toBe(true);
+  });
+
+  it("persists Glossary favorite changes through update", async () => {
+    window.history.pushState({}, "", "/glossary");
+    const persisted = persistedGlossaryEntry({
+      id: "glossary_favorite",
+      term: "Favorite Runtime Term",
+      favorite: false,
+    });
+    const invoke = vi.fn(async (
+      command: string,
+      args: { patch?: Record<string, unknown> } = {},
+    ) => {
+      if (command === "glossary_list") return [persisted];
+      if (command === "glossary_update") {
+        return { ...persisted, ...args.patch, updatedAt: 5 };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Favorite Runtime Term"))
+      .toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Toggle favorite Favorite Runtime Term" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        vi.mocked(invoke).mock.calls.some(([command, args]) => {
+          const patch = (args as
+            | { patch?: Record<string, unknown> }
+            | undefined)?.patch;
+          return command === "glossary_update" && patch?.favorite === true;
+        }),
+      ).toBe(true);
+    });
+    expect(screen.getByText("Glossary favorite updated.")).toBeInTheDocument();
+  });
+
+  it("requires confirmation before deleting a persisted Glossary entry", async () => {
+    window.history.pushState({}, "", "/glossary");
+    const persisted = persistedGlossaryEntry({
+      id: "glossary_delete",
+      term: "Delete Runtime Term",
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "glossary_list") return [persisted];
+      if (command === "glossary_delete") {
+        return { id: persisted.id, deleted: true };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Delete Runtime Term")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Delete Runtime Term" }),
+    );
+
+    await waitFor(() => {
+      expect(confirmSpy).toHaveBeenCalledWith(
+        'Delete glossary entry "Delete Runtime Term"?',
+      );
+      expect(
+        vi.mocked(invoke).mock.calls.some(([command]) =>
+          command === "glossary_delete"
+        ),
+      ).toBe(true);
+    });
+    expect(screen.queryByText("Delete Runtime Term")).not.toBeInTheDocument();
+    expect(screen.getByText("Glossary entry deleted.")).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   it.each([
@@ -12136,6 +12373,23 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     showInPerformers: true,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function persistedGlossaryEntry(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "glossary_test_001",
+    term: "Persisted Term",
+    definition: "Persisted glossary definition.",
+    synonymsJson: '["Persisted synonym"]',
+    category: "Concepts",
+    thumbnailPath: "",
+    favorite: false,
+    sourceTitle: "Persisted source",
+    sourceUrl: "https://example.invalid/persisted",
+    createdAt: 1,
+    updatedAt: 2,
     ...overrides,
   };
 }

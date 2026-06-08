@@ -290,6 +290,48 @@ pub struct DeleteResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct GlossaryEntry {
+    pub id: String,
+    pub term: String,
+    pub definition: String,
+    pub synonyms_json: String,
+    pub category: String,
+    pub thumbnail_path: String,
+    pub favorite: bool,
+    pub source_title: String,
+    pub source_url: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlossaryEntryInput {
+    pub term: String,
+    pub definition: String,
+    pub synonyms_json: Option<String>,
+    pub category: Option<String>,
+    pub thumbnail_path: Option<String>,
+    pub favorite: Option<bool>,
+    pub source_title: Option<String>,
+    pub source_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlossaryEntryPatch {
+    pub term: Option<String>,
+    pub definition: Option<String>,
+    pub synonyms_json: Option<String>,
+    pub category: Option<String>,
+    pub thumbnail_path: Option<String>,
+    pub favorite: Option<bool>,
+    pub source_title: Option<String>,
+    pub source_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct ManagedCategory {
     pub key: String,
     pub name: String,
@@ -629,6 +671,49 @@ pub fn managed_category_delete(
 ) -> Result<ManagedCategoryDeleteResult, String> {
     with_connection(&database, |connection| {
         delete_managed_category_if_unused(connection, key)
+    })
+}
+
+#[tauri::command]
+pub fn glossary_create(
+    database: State<'_, RuntimeDatabase>,
+    input: GlossaryEntryInput,
+) -> Result<GlossaryEntry, String> {
+    with_connection(&database, |connection| {
+        create_glossary_entry(connection, input)
+    })
+}
+
+#[tauri::command]
+pub fn glossary_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<GlossaryEntry>, String> {
+    with_connection(&database, list_glossary_entries)
+}
+
+#[tauri::command]
+pub fn glossary_update(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+    patch: GlossaryEntryPatch,
+) -> Result<Option<GlossaryEntry>, String> {
+    with_connection(&database, |connection| {
+        update_glossary_entry(connection, &id, patch)
+    })
+}
+
+#[tauri::command]
+pub fn glossary_delete(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<DeleteResult, String> {
+    with_connection(&database, |connection| {
+        let Some(_) = get_glossary_entry(connection, &id)? else {
+            return Err("Glossary entry was not found".to_string());
+        };
+        let deleted = connection
+            .execute("DELETE FROM glossary_entries WHERE id = ?1", [&id])
+            .map_err(database_error)?
+            > 0;
+        Ok(DeleteResult { id, deleted })
     })
 }
 
@@ -1437,6 +1522,134 @@ fn delete_row(
     Ok(DeleteResult { id, deleted })
 }
 
+fn create_glossary_entry(
+    connection: &Connection,
+    input: GlossaryEntryInput,
+) -> Result<GlossaryEntry, String> {
+    let term = require_text(input.term, "Glossary term is required")?;
+    let definition = require_text(input.definition, "Glossary definition is required")?;
+    let source_url = normalize_source_url(input.source_url)?;
+    let timestamp = current_timestamp_i64();
+    let entry = GlossaryEntry {
+        id: new_id("glossary"),
+        term,
+        definition,
+        synonyms_json: normalize_string_array_json(input.synonyms_json),
+        category: default_text(input.category),
+        thumbnail_path: default_text(input.thumbnail_path),
+        favorite: input.favorite.unwrap_or(false),
+        source_title: default_text(input.source_title),
+        source_url,
+        created_at: timestamp,
+        updated_at: timestamp,
+    };
+
+    connection
+        .execute(
+            "INSERT INTO glossary_entries (
+                id, term, definition, synonyms_json, category, thumbnail_path,
+                favorite, source_title, source_url, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                entry.id,
+                entry.term,
+                entry.definition,
+                entry.synonyms_json,
+                entry.category,
+                entry.thumbnail_path,
+                bool_to_int(entry.favorite),
+                entry.source_title,
+                entry.source_url,
+                entry.created_at,
+                entry.updated_at
+            ],
+        )
+        .map_err(database_error)?;
+
+    get_glossary_entry(connection, &entry.id)?
+        .ok_or_else(|| "Created glossary entry could not be read".to_string())
+}
+
+fn list_glossary_entries(connection: &Connection) -> Result<Vec<GlossaryEntry>, String> {
+    let mut statement = connection
+        .prepare("SELECT * FROM glossary_entries ORDER BY updated_at DESC, term ASC")
+        .map_err(database_error)?;
+    let rows = statement
+        .query_map([], glossary_entry_from_row)
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+    Ok(rows)
+}
+
+fn get_glossary_entry(
+    connection: &Connection,
+    id: &str,
+) -> Result<Option<GlossaryEntry>, String> {
+    connection
+        .query_row(
+            "SELECT * FROM glossary_entries WHERE id = ?1",
+            [id],
+            glossary_entry_from_row,
+        )
+        .optional()
+        .map_err(database_error)
+}
+
+fn update_glossary_entry(
+    connection: &Connection,
+    id: &str,
+    patch: GlossaryEntryPatch,
+) -> Result<Option<GlossaryEntry>, String> {
+    let Some(mut entry) = get_glossary_entry(connection, id)? else {
+        return Ok(None);
+    };
+
+    if let Some(term) = patch.term {
+        entry.term = require_text(term, "Glossary term is required")?;
+    }
+    if let Some(definition) = patch.definition {
+        entry.definition = require_text(definition, "Glossary definition is required")?;
+    }
+    if patch.synonyms_json.is_some() {
+        entry.synonyms_json = normalize_string_array_json(patch.synonyms_json);
+    }
+    apply_text(&mut entry.category, patch.category);
+    apply_text(&mut entry.thumbnail_path, patch.thumbnail_path);
+    if let Some(favorite) = patch.favorite {
+        entry.favorite = favorite;
+    }
+    apply_text(&mut entry.source_title, patch.source_title);
+    if patch.source_url.is_some() {
+        entry.source_url = normalize_source_url(patch.source_url)?;
+    }
+    entry.updated_at = current_timestamp_i64();
+
+    connection
+        .execute(
+            "UPDATE glossary_entries SET
+                term = ?2, definition = ?3, synonyms_json = ?4, category = ?5,
+                thumbnail_path = ?6, favorite = ?7, source_title = ?8,
+                source_url = ?9, updated_at = ?10
+             WHERE id = ?1",
+            params![
+                entry.id,
+                entry.term,
+                entry.definition,
+                entry.synonyms_json,
+                entry.category,
+                entry.thumbnail_path,
+                bool_to_int(entry.favorite),
+                entry.source_title,
+                entry.source_url,
+                entry.updated_at
+            ],
+        )
+        .map_err(database_error)?;
+
+    get_glossary_entry(connection, id)
+}
+
 fn check_path_status(path: &str) -> PathStatusResult {
     let trimmed = path.trim();
 
@@ -2105,6 +2318,22 @@ fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Manage
     })
 }
 
+fn glossary_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<GlossaryEntry> {
+    Ok(GlossaryEntry {
+        id: row.get("id")?,
+        term: row.get("term")?,
+        definition: row.get("definition")?,
+        synonyms_json: row.get("synonyms_json")?,
+        category: row.get("category")?,
+        thumbnail_path: row.get("thumbnail_path")?,
+        favorite: int_to_bool(row.get("favorite")?),
+        source_title: row.get("source_title")?,
+        source_url: row.get("source_url")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
+    })
+}
+
 fn require_text(value: String, message: &str) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -2445,6 +2674,18 @@ fn normalize_object_json(value: Option<String>) -> String {
     }
 }
 
+fn normalize_source_url(value: Option<String>) -> Result<String, String> {
+    let normalized = default_text(value);
+    if normalized.is_empty()
+        || normalized.starts_with("http://")
+        || normalized.starts_with("https://")
+    {
+        return Ok(normalized);
+    }
+
+    Err("Source URL must start with http:// or https://.".to_string())
+}
+
 fn normalize_related_performers_json(value: Option<String>) -> String {
     let Some(value) = value else {
         return "[]".to_string();
@@ -2554,6 +2795,13 @@ fn current_timestamp() -> String {
         .unwrap_or_else(|_| "0".to_string())
 }
 
+fn current_timestamp_i64() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 fn new_id(prefix: &str) -> String {
     let timestamp = current_timestamp();
     let counter = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -2585,6 +2833,181 @@ mod tests {
         let connection = Connection::open_in_memory().expect("in-memory database");
         initialize_schema(&connection).expect("schema init");
         connection
+    }
+
+    fn glossary_delete_for_test(
+        connection: &Connection,
+        id: String,
+    ) -> Result<DeleteResult, String> {
+        let deleted = connection
+            .execute("DELETE FROM glossary_entries WHERE id = ?1", [&id])
+            .map_err(database_error)?
+            > 0;
+        Ok(DeleteResult { id, deleted })
+    }
+
+    #[test]
+    fn glossary_crud_uses_independent_sqlite_table() {
+        let connection = test_connection();
+        let created = create_glossary_entry(
+            &connection,
+            GlossaryEntryInput {
+                term: "  Source Citation  ".to_string(),
+                definition: "  Stores a source title and URL as text.  ".to_string(),
+                synonyms_json: Some(
+                    r#"["Reference link"," Reference link ","Source note",7]"#.to_string(),
+                ),
+                category: Some("  Reference  ".to_string()),
+                thumbnail_path: Some("  D:/Glossary/thumb.png  ".to_string()),
+                favorite: Some(true),
+                source_title: Some("  Safety plan  ".to_string()),
+                source_url: Some(" https://example.invalid/source ".to_string()),
+            },
+        )
+        .expect("create glossary");
+
+        assert!(created.id.starts_with("glossary_"));
+        assert_eq!(created.term, "Source Citation");
+        assert_eq!(created.definition, "Stores a source title and URL as text.");
+        assert_eq!(created.synonyms_json, r#"["Reference link","Reference link","Source note"]"#);
+        assert_eq!(created.category, "Reference");
+        assert_eq!(created.thumbnail_path, "D:/Glossary/thumb.png");
+        assert!(created.favorite);
+        assert_eq!(created.source_title, "Safety plan");
+        assert_eq!(created.source_url, "https://example.invalid/source");
+        assert!(created.created_at > 0);
+        assert!(created.updated_at >= created.created_at);
+
+        let listed = list_glossary_entries(&connection).expect("list glossary");
+        assert_eq!(listed, vec![created.clone()]);
+
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        let updated = update_glossary_entry(
+            &connection,
+            &created.id,
+            GlossaryEntryPatch {
+                term: Some("Updated Citation".to_string()),
+                definition: Some("Updated definition".to_string()),
+                synonyms_json: Some(r#"["Updated"]"#.to_string()),
+                category: Some("Updated Category".to_string()),
+                thumbnail_path: Some("D:/Glossary/updated.png".to_string()),
+                favorite: Some(false),
+                source_title: Some("Updated Source".to_string()),
+                source_url: Some("http://example.invalid/updated".to_string()),
+            },
+        )
+        .expect("update glossary")
+        .expect("updated glossary entry");
+
+        assert_eq!(updated.created_at, created.created_at);
+        assert!(updated.updated_at >= created.updated_at);
+        assert_eq!(updated.term, "Updated Citation");
+        assert_eq!(updated.definition, "Updated definition");
+        assert_eq!(updated.synonyms_json, r#"["Updated"]"#);
+        assert_eq!(updated.category, "Updated Category");
+        assert_eq!(updated.thumbnail_path, "D:/Glossary/updated.png");
+        assert!(!updated.favorite);
+        assert_eq!(updated.source_title, "Updated Source");
+        assert_eq!(updated.source_url, "http://example.invalid/updated");
+
+        let deleted = glossary_delete_for_test(&connection, updated.id.clone())
+            .expect("delete glossary");
+        assert_eq!(
+            deleted,
+            DeleteResult {
+                id: updated.id,
+                deleted: true
+            }
+        );
+        assert!(list_glossary_entries(&connection)
+            .expect("list after delete")
+            .is_empty());
+
+        for table_name in ["videos", "images", "performers", "managedCategories"] {
+            let count: i64 = connection
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM {table_name}"),
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("catalog table count");
+            assert_eq!(count, 0, "{table_name} should not be mutated");
+        }
+    }
+
+    #[test]
+    fn glossary_validation_rejects_required_and_url_errors() {
+        let connection = test_connection();
+
+        assert_eq!(
+            create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    term: " ".to_string(),
+                    definition: "Definition".to_string(),
+                    synonyms_json: None,
+                    category: None,
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect_err("term required"),
+            "Glossary term is required"
+        );
+
+        assert_eq!(
+            create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    term: "Term".to_string(),
+                    definition: " ".to_string(),
+                    synonyms_json: None,
+                    category: None,
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect_err("definition required"),
+            "Glossary definition is required"
+        );
+
+        assert_eq!(
+            create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    term: "Term".to_string(),
+                    definition: "Definition".to_string(),
+                    synonyms_json: Some("{bad json".to_string()),
+                    category: None,
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: Some("example.invalid/source".to_string()),
+                },
+            )
+            .expect_err("source url protocol required"),
+            "Source URL must start with http:// or https://."
+        );
+
+        let created = create_glossary_entry(
+            &connection,
+            GlossaryEntryInput {
+                term: "Term".to_string(),
+                definition: "Definition".to_string(),
+                synonyms_json: Some("{bad json".to_string()),
+                category: None,
+                thumbnail_path: None,
+                favorite: None,
+                source_title: None,
+                source_url: None,
+            },
+        )
+        .expect("bad synonyms normalize");
+        assert_eq!(created.synonyms_json, "[]");
     }
 
     #[test]
