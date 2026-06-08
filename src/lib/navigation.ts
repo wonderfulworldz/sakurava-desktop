@@ -1,4 +1,4 @@
-export const sidebarItems = [
+export const primarySidebarItems = [
   {
     label: "Home",
     labelKey: "nav.home",
@@ -29,10 +29,24 @@ export const sidebarItems = [
     to: "/settings/category-management",
     icon: "categories",
   },
+] as const;
+
+export const lowerSidebarItems = [
+  {
+    label: "Glossary",
+    labelKey: "nav.glossary",
+    to: "/glossary",
+    icon: "glossary",
+  },
   {
     label: "Settings",
     labelKey: "nav.settings",
     to: "/settings",
     icon: "settings",
   },
+] as const;
+
+export const sidebarItems = [
+  ...primarySidebarItems,
+  ...lowerSidebarItems,
 ] as const;

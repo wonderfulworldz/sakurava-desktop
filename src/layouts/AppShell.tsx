@@ -24,6 +24,10 @@ function pageTitleFromPath(pathname: string, t: (key: string) => string) {
     return "Category Management";
   }
 
+  if (pathname.startsWith("/glossary")) {
+    return "Glossary Library";
+  }
+
   if (pathname.startsWith("/categories")) {
     return "Category Management";
   }
