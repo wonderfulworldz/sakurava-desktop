@@ -12,7 +12,11 @@ import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, VideoDetailConfig } from "./detailData";
-import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
+import {
+  DETAIL_EMPTY_VALUE,
+  formatSystemTimestamp,
+  sourceLinksFromRecord,
+} from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
@@ -21,7 +25,7 @@ import type {
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
-import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 
 type FormValues = Record<string, string | boolean>;
@@ -65,7 +69,7 @@ export function buildVideoDetailConfig(
       { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(video.updatedAt) },
     ],
-    rating: getRatingDimensions(video.ratingJson, videoRatingFields),
+    rating: getDetailRatingDimensions(video.ratingJson, videoRatingFields),
     techItems: [
       { label: "Duration", value: formatDuration(video.durationMinutes) },
       { label: "Resolution", value: formatDetectedText(video.resolution) },
@@ -73,6 +77,7 @@ export function buildVideoDetailConfig(
       { label: "File Type", value: formatOptionalText(video.fileType) },
     ],
     notes: detailNotes(video.notes),
+    sourceLinks: sourceLinksFromRecord(video),
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       video.relatedPerformersJson,

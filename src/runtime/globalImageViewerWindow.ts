@@ -79,19 +79,19 @@ export async function openGlobalImageViewerWindow(
         await existingWindow.setFocus();
         logViewerDiagnostic("existingWindowFocus", { ok: true });
       } catch (error) {
-        const reason = `viewer-window-focus-failed: ${formatViewerError(error)}`;
         logViewerDiagnostic("existingWindowFocus", {
           ok: false,
-          reason,
+          reason: `viewer-window-focus-failed: ${formatViewerError(error)}`,
         });
-        return viewerFallback(reason);
       }
 
       const deliveryResult = await deliverPayloadToExistingWindow(payload);
       logViewerDiagnostic("existingWindowPayloadDelivery", deliveryResult);
 
       if (!deliveryResult.ok) {
-        return viewerFallback(deliveryResult.reason);
+        logViewerDiagnostic("existingWindowPayloadDeliveryIgnored", {
+          reason: deliveryResult.reason,
+        });
       }
 
       return { mode: "window" };
@@ -140,23 +140,19 @@ export async function openGlobalImageViewerWindow(
             await viewerWindow.setFocus();
             logViewerDiagnostic("createdWindowFocus", { ok: true });
           } catch (error) {
-            const reason = `viewer-window-focus-failed: ${formatViewerError(error)}`;
             logViewerDiagnostic("createdWindowFocus", {
               ok: false,
-              reason,
+              reason: `viewer-window-focus-failed: ${formatViewerError(error)}`,
             });
-            settle(
-              viewerFallback(reason),
-            );
-            return;
           }
 
           const deliveryResult = await deliverPayloadToCreatedWindow(payload);
           logViewerDiagnostic("createdWindowPayloadDelivery", deliveryResult);
 
           if (!deliveryResult.ok) {
-            settle(viewerFallback(deliveryResult.reason));
-            return;
+            logViewerDiagnostic("createdWindowPayloadDeliveryIgnored", {
+              reason: deliveryResult.reason,
+            });
           }
 
           settle({ mode: "window" });

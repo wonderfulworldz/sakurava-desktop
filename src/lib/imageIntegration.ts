@@ -14,7 +14,11 @@ import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, ImageDetailConfig } from "./detailData";
-import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
+import {
+  DETAIL_EMPTY_VALUE,
+  formatSystemTimestamp,
+  sourceLinksFromRecord,
+} from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
@@ -23,7 +27,7 @@ import type {
   RelatedPerformerFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
-import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 
 type FormValues = Record<string, string | boolean>;
@@ -68,7 +72,7 @@ export function buildImageDetailConfig(
       { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
       { label: "Gallery status", value: formatSavedListStatus(galleryImagePaths) },
     ],
-    rating: getRatingDimensions(image.ratingJson, imageRatingFields),
+    rating: getDetailRatingDimensions(image.ratingJson, imageRatingFields),
     techItems: [
       { label: "Image Count", value: formatGalleryCount(image.imageCount, galleryImagePaths) },
       { label: "Main Resolution", value: formatOptionalText(image.mainResolution) },
@@ -76,6 +80,7 @@ export function buildImageDetailConfig(
       { label: "Main File Type", value: formatOptionalText(image.mainFileType) },
     ],
     notes: detailNotes(image.notes),
+    sourceLinks: sourceLinksFromRecord(image),
     galleryImagePaths,
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,

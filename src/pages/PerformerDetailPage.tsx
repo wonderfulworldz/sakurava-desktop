@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { parseRelatedCatalogRecordArray } from "../backend/json";
-import type { Image, Video } from "../backend/types";
+import type { Image, ManagedCategory, Video } from "../backend/types";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import { buildPerformerDetailConfig } from "../lib/performerIntegration";
@@ -15,6 +15,10 @@ import {
   getPerformer,
   isPerformerRuntimeAvailable,
 } from "../runtime/performerCommands";
+import {
+  isManagedCategoryRuntimeAvailable,
+  listManagedCategories,
+} from "../runtime/managedCategoryCommands";
 import {
   isVideoRuntimeAvailable,
   listVideos,
@@ -57,6 +61,7 @@ function PerformerDetailPage() {
         setMissing(false);
         let videos: Video[] = [];
         let images: Image[] = [];
+        let managedCategories: ManagedCategory[] = [];
         if (
           parseRelatedCatalogRecordArray(performer.relatedVideosJson).length > 0 &&
           isVideoRuntimeAvailable()
@@ -77,10 +82,24 @@ function PerformerDetailPage() {
             images = [];
           }
         }
+        if (isManagedCategoryRuntimeAvailable()) {
+          try {
+            managedCategories = await listManagedCategories();
+          } catch {
+            managedCategories = [];
+          }
+        }
         if (cancelled) {
           return;
         }
-        setConfig(buildPerformerDetailConfig(performer, videos, images));
+        setConfig(
+          buildPerformerDetailConfig(
+            performer,
+            videos,
+            images,
+            managedCategories,
+          ),
+        );
         setLoading(false);
       })
       .catch(() => {

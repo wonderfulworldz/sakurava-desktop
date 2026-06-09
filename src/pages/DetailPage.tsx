@@ -8,6 +8,7 @@ import {
   Edit3,
   FileImage,
   Film,
+  Globe2,
   Heart,
   Image as ImageIcon,
   Info,
@@ -15,9 +16,10 @@ import {
   Ruler,
   Star,
   Trash2,
+  type LucideIcon,
   UserRound,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -281,8 +283,8 @@ function CatalogDetailPage({
         <GalleryGrid paths={config.galleryImagePaths} />
         {detailSummarySection}
         <NotesCard notes={config.notes} />
-        <SourceLinksCard links={config.sourceLinks} />
         <RelatedRows sections={config.relatedSections} />
+        <SourceLinksCard links={config.sourceLinks} />
         <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
       </div>
     );
@@ -294,8 +296,8 @@ function CatalogDetailPage({
       {heroSection}
       {detailSummarySection}
       <NotesCard notes={config.notes} />
-      <SourceLinksCard links={config.sourceLinks} />
       <RelatedRows sections={config.relatedSections} />
+      <SourceLinksCard links={config.sourceLinks} />
       <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
   );
@@ -378,9 +380,14 @@ function PerformerDetailPage({
   deleteAction?: DetailDeleteAction;
   favoriteAction: DetailFavoriteAction;
 }) {
-  const profileMetadataItems = config.gender
-    ? [config.gender, ...config.metadata]
-    : config.metadata;
+  const profileMetadataItems = [
+    config.gender ?? { label: "Gender", value: "N/A" },
+    ...config.metadata,
+  ];
+  const physicalItems = [
+    config.bodyType ?? { label: "Body Type", value: "N/A" },
+    ...config.physical,
+  ];
 
   return (
     <div className="space-y-5">
@@ -398,7 +405,7 @@ function PerformerDetailPage({
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
-            <RowsCard title="Physical" icon={Ruler} items={config.physical} />
+            <RowsCard title="Physical" icon={Ruler} items={physicalItems} />
           </section>
           <NotesCard notes={config.notes} />
         </div>
@@ -613,6 +620,7 @@ function LargePlaceholder({ config }: DetailPageProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [previewPayload, setPreviewPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
+  const previewOpeningRef = useRef(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(config.coverPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
@@ -624,19 +632,29 @@ function LargePlaceholder({ config }: DetailPageProps) {
   useEffect(() => {
     setImageFailed(false);
     setPreviewPayload(null);
+    previewOpeningRef.current = false;
   }, [assetSrc, mediaAssetScopeReady]);
 
   async function handlePreviewOpen() {
+    if (previewOpeningRef.current) {
+      return;
+    }
+
+    previewOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: previewTitle,
       images: [{ path: config.coverPath ?? "", title: previewTitle }],
       initialIndex: 0,
     });
-    const viewerResult = await openGlobalImageViewerWindow(payload);
+    try {
+      const viewerResult = await openGlobalImageViewerWindow(payload);
 
-    if (viewerResult.mode === "fallback") {
-      logGlobalViewerFallback("detail cover preview", viewerResult);
-      setPreviewPayload(payload);
+      if (viewerResult.mode === "fallback") {
+        logGlobalViewerFallback("detail cover preview", viewerResult);
+        setPreviewPayload(payload);
+      }
+    } finally {
+      previewOpeningRef.current = false;
     }
   }
 
@@ -694,6 +712,7 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [previewPayload, setPreviewPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
+  const previewOpeningRef = useRef(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(path);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
@@ -701,19 +720,29 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
   useEffect(() => {
     setImageFailed(false);
     setPreviewPayload(null);
+    previewOpeningRef.current = false;
   }, [assetSrc, mediaAssetScopeReady]);
 
   async function handlePreviewOpen() {
+    if (previewOpeningRef.current) {
+      return;
+    }
+
+    previewOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: label,
       images: [{ path: path ?? "", title: label }],
       initialIndex: 0,
     });
-    const viewerResult = await openGlobalImageViewerWindow(payload);
+    try {
+      const viewerResult = await openGlobalImageViewerWindow(payload);
 
-    if (viewerResult.mode === "fallback") {
-      logGlobalViewerFallback("detail thumbnail preview", viewerResult);
-      setPreviewPayload(payload);
+      if (viewerResult.mode === "fallback") {
+        logGlobalViewerFallback("detail thumbnail preview", viewerResult);
+        setPreviewPayload(payload);
+      }
+    } finally {
+      previewOpeningRef.current = false;
     }
   }
 
@@ -1024,12 +1053,11 @@ function RatingSummaryCard({
   rating: { label: string; value: number }[];
 }) {
   const average = calculateAverageRating(rating);
-  const canRenderChart =
-    average !== null && rating.length >= 3 && rating.length <= 8;
+  const canRenderChart = rating.length >= 3 && rating.length <= 8;
 
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title={title} icon={Info} />
+      <CardTitle title={title} icon={Star} />
       {canRenderChart ? (
         <SpiderChart dimensions={rating} average={average} />
       ) : (
@@ -1049,32 +1077,51 @@ function SpiderChart({
   average,
 }: {
   dimensions: { label: string; value: number }[];
-  average: number;
+  average: number | null;
 }) {
-  const center = 130;
-  const radius = 72;
-  const labelRadius = 105;
+  const gradientId = useId().replace(/:/g, "");
+  const center = 210;
+  const radius = 84;
+  const labelRadius = 158;
   const levels = [0.2, 0.4, 0.6, 0.8, 1];
   const dimensionCount = dimensions.length;
   const shapeName = spiderShapeName(dimensionCount);
+  const normalizedDimensions = dimensions.map((dimension) => ({
+    ...dimension,
+    value: normalizeRadarValue(dimension.value),
+  }));
   const outerPoints = dimensions.map((_, index) =>
     polarPoint(index, dimensionCount, radius, center),
   );
-  const scorePoints = dimensions.map((dimension, index) =>
+  const scorePoints = normalizedDimensions.map((dimension, index) =>
     polarPoint(index, dimensionCount, radius * (dimension.value / 5), center),
   );
+  const radarPath = buildSmoothClosedPath(scorePoints);
 
   return (
     <div className="mt-4 flex justify-center">
       <svg
-        viewBox="0 0 260 260"
-        className="aspect-square w-full max-w-[310px]"
+        viewBox="0 0 420 420"
+        className="aspect-square w-full max-w-[420px]"
         role="img"
-        aria-label={`${dimensionCount}-dimension spider chart`}
+        aria-label={`${dimensionCount}-dimension radar map`}
         data-testid="spider-chart"
         data-dimension-count={dimensionCount}
         data-shape={shapeName}
       >
+        <title>Rating radar map</title>
+        <desc>
+          {dimensions
+            .map((dimension) => `${dimension.label}: ${formatRadarValue(dimension.value)}`)
+            .join(", ")}
+        </desc>
+        <defs>
+          <radialGradient id={gradientId} cx="50%" cy="42%" r="74%">
+            <stop offset="0%" stopColor="rgb(255 255 255)" stopOpacity="0.28" />
+            <stop offset="58%" stopColor="rgb(252 231 243)" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="rgb(244 114 182)" stopOpacity="0.06" />
+          </radialGradient>
+        </defs>
         {levels.map((level) => (
           <polygon
             key={level}
@@ -1085,9 +1132,11 @@ function SpiderChart({
                 ),
               )
               .join(" ")}
-            fill={level === 1 ? "rgb(255 241 246 / 0.55)" : "none"}
-            stroke="rgb(251 207 232)"
-            strokeWidth="1"
+            fill="none"
+            stroke={level === 1 ? "rgb(203 213 225)" : "rgb(226 232 240)"}
+            strokeWidth={level === 1 ? "1" : "0.85"}
+            opacity={level === 1 ? "0.9" : "0.72"}
+            vectorEffect="non-scaling-stroke"
           />
         ))}
         {outerPoints.map((point, index) => (
@@ -1098,40 +1147,67 @@ function SpiderChart({
             x2={point.x}
             y2={point.y}
             stroke="rgb(226 232 240)"
-            strokeWidth="1"
+            strokeWidth="0.85"
+            opacity="0.72"
+            vectorEffect="non-scaling-stroke"
           />
         ))}
-        <polygon
-          points={scorePoints.map(pointString).join(" ")}
-          fill="rgb(244 114 182 / 0.28)"
+        <path
+          d={radarPath}
+          data-testid="spider-chart-path"
+          fill={`url(#${gradientId})`}
           stroke="rgb(244 114 182)"
           strokeLinejoin="round"
-          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
         />
+        {scorePoints.map((point, index) => (
+          <circle
+            key={`${dimensions[index].label}-point`}
+            cx={point.x}
+            cy={point.y}
+            r="3.2"
+            fill="rgb(244 114 182)"
+            stroke="white"
+            strokeWidth="1.25"
+          />
+        ))}
         {dimensions.map((dimension, index) => {
           const point = polarPoint(index, dimensionCount, labelRadius, center);
+          const anchor = labelAnchor(point.x, center);
+          const labelX = point.x + (anchor === "end" ? -14 : anchor === "start" ? 14 : 0);
           return (
-            <text
-              key={dimension.label}
-              x={point.x}
-              y={point.y}
-              textAnchor={labelAnchor(point.x, center)}
-              dominantBaseline="middle"
-              className="fill-slate-500 text-[10px] font-medium"
-            >
-              {dimension.label}
-            </text>
+            <g key={dimension.label}>
+              <text
+                x={labelX}
+                y={point.y - 9}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className="fill-slate-600 text-[11px] font-medium"
+              >
+                {dimension.label}
+              </text>
+              <text
+                x={labelX}
+                y={point.y + 8}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className="fill-slate-400 text-[10px] font-medium"
+              >
+                {formatRadarValue(dimension.value)}
+              </text>
+            </g>
           );
         })}
-        <circle cx={center} cy={center} r="25" fill="white" stroke="rgb(251 207 232)" />
         <text
           x={center}
           y={center}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-slate-900 text-[13px] font-bold"
+          className="fill-slate-900 text-[16px] font-semibold [paint-order:stroke] [stroke:#ffffff] [stroke-width:4px]"
         >
-          {average.toFixed(1)} / 5
+          {average === null ? "N/A" : average.toFixed(1)}
         </text>
       </svg>
     </div>
@@ -1153,6 +1229,38 @@ function polarPoint(
 
 function pointString(point: { x: number; y: number }) {
   return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
+}
+
+function buildSmoothClosedPath(points: { x: number; y: number }[]) {
+  if (points.length === 0) {
+    return "";
+  }
+
+  if (points.length === 1) {
+    return `M ${pointString(points[0])}`;
+  }
+
+  const segments = points.map((point, index) => {
+    const previous = points[(index - 1 + points.length) % points.length];
+    const current = point;
+    const next = points[(index + 1) % points.length];
+    const afterNext = points[(index + 2) % points.length];
+
+    const control1 = {
+      x: current.x + (next.x - previous.x) / 6,
+      y: current.y + (next.y - previous.y) / 6,
+    };
+    const control2 = {
+      x: next.x - (afterNext.x - current.x) / 6,
+      y: next.y - (afterNext.y - current.y) / 6,
+    };
+
+    return `${index === 0 ? `M ${pointString(current)} ` : ""}C ${pointString(
+      control1,
+    )} ${pointString(control2)} ${pointString(next)}`;
+  });
+
+  return `${segments.join(" ")} Z`;
 }
 
 function labelAnchor(x: number, center: number) {
@@ -1190,40 +1298,53 @@ function NotesCard({ notes }: { notes: string }) {
 }
 
 function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
-  const visibleLinks = (links ?? [])
-    .map((link) => ({
-      title: link.title.trim(),
-      url: link.url.trim(),
-    }))
-    .filter((link) => link.title && isSafeSourceUrl(link.url));
-
-  if (visibleLinks.length === 0) {
-    return null;
-  }
+  const visibleLinks = normalizeSourceLinks(links);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Source Links" icon={Info} />
+      <CardTitle title="Source Links" icon={Globe2} />
       <div className="mt-4 divide-y divide-slate-100">
-        {visibleLinks.map((link) => (
+        {visibleLinks.length === 0 ? (
           <div
-            key={`${link.title}-${link.url}`}
             className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
           >
-            <span className="min-w-0 break-words font-semibold text-slate-700 [overflow-wrap:anywhere]">
-              {link.title}
-            </span>
-            <a
-              href={link.url}
-              target="_blank"
-              rel="noreferrer"
-              title={link.url}
-              className="min-w-0 truncate text-sakura-600 underline-offset-4 hover:underline"
-            >
-              {link.url}
-            </a>
+            <span className="font-semibold text-slate-700">Source URL</span>
+            <span className="text-slate-500">N/A</span>
           </div>
-        ))}
+        ) : (
+          visibleLinks.map((link) => (
+            <div
+              key={`${link.title}-${link.url}`}
+              className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
+            >
+              <span className="min-w-0 font-semibold text-slate-700">
+                Source Title
+              </span>
+              {link.safe ? (
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`${link.title}\n${link.url}`}
+                  className="min-w-0 truncate text-sakura-600 underline-offset-4 hover:underline"
+                  aria-label={`Open source ${link.title}`}
+                >
+                  {link.title}
+                </a>
+              ) : (
+                <span className="min-w-0 truncate text-slate-500" title={link.title}>
+                  {link.title}
+                </span>
+              )}
+              <span className="min-w-0 font-semibold text-slate-700">
+                Source URL
+              </span>
+              <span className="min-w-0 truncate text-slate-500" title={link.url}>
+                {link.url || "N/A"}
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </section>
   );
@@ -1231,6 +1352,32 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
 
 function isSafeSourceUrl(url: string) {
   return /^https?:\/\//i.test(url);
+}
+
+function normalizeSourceLinks(links: SourceLinkItem[] | undefined) {
+  return (links ?? [])
+    .map((link) => {
+      const url = link.url?.trim() ?? "";
+      const title = link.title?.trim() || sourceLabelFromUrl(url);
+      return {
+        title,
+        url,
+        safe: isSafeSourceUrl(url),
+      };
+    })
+    .filter((link) => link.title || link.url);
+}
+
+function sourceLabelFromUrl(url: string) {
+  if (!url) {
+    return "N/A";
+  }
+
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
 }
 
 function RelatedRows({
@@ -1869,6 +2016,16 @@ function RelatedControls({
   );
 }
 
+function normalizeRadarValue(value: number) {
+  return Number.isFinite(value) && value >= 1 && value <= 5 ? value : 0;
+}
+
+function formatRadarValue(value: number) {
+  return Number.isFinite(value) && value >= 1 && value <= 5
+    ? `${value}/5`
+    : "N/A";
+}
+
 function buildDetailPaginationPages(currentPage: number, totalPages: number) {
   if (totalPages <= 5) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -2204,24 +2361,35 @@ function GalleryGrid({ paths }: { paths: string[] }) {
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
   const [viewerPayload, setViewerPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
+  const viewerOpeningRef = useRef(false);
   const visiblePaths = paths.slice(0, visibleCount);
   const canLoadMore = visibleCount < paths.length;
 
   useEffect(() => {
     setVisibleCount(GALLERY_BATCH_SIZE);
     setViewerPayload(null);
+    viewerOpeningRef.current = false;
   }, [paths]);
 
   async function handlePreviewOpen(index: number) {
+    if (viewerOpeningRef.current) {
+      return;
+    }
+
+    viewerOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
       images: paths.map((path) => ({ path })),
       initialIndex: index,
     });
-    const viewerResult = await openGlobalImageViewerWindow(payload);
+    try {
+      const viewerResult = await openGlobalImageViewerWindow(payload);
 
-    if (viewerResult.mode === "fallback") {
-      logGlobalViewerFallback("detail gallery preview", viewerResult);
-      setViewerPayload(payload);
+      if (viewerResult.mode === "fallback") {
+        logGlobalViewerFallback("detail gallery preview", viewerResult);
+        setViewerPayload(payload);
+      }
+    } finally {
+      viewerOpeningRef.current = false;
     }
   }
 
@@ -2337,11 +2505,16 @@ function CardTitle({
   icon: Icon,
 }: {
   title: string;
-  icon: typeof Info;
+  icon: LucideIcon;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon size={18} className="text-sakura-500" />
+      <span
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-sakura-100 bg-sakura-50/80 text-sakura-500"
+        data-testid="detail-section-icon"
+      >
+        <Icon size={17} aria-hidden="true" />
+      </span>
       <h2 className="text-base font-semibold text-slate-950">{title}</h2>
     </div>
   );

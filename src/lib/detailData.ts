@@ -53,8 +53,8 @@ type MetadataItem = {
 };
 
 export type SourceLinkItem = {
-  title: string;
-  url: string;
+  title?: string;
+  url?: string;
 };
 
 export type MediaPathItem = {
@@ -80,6 +80,7 @@ type BaseDetailConfig = {
   chips: string[];
   categories: string[];
   gender?: MetadataItem;
+  bodyType?: MetadataItem;
   metadata: MetadataItem[];
   sourceLinks?: SourceLinkItem[];
   mediaPaths: MediaPathItem[];
@@ -148,6 +149,53 @@ export function formatSystemTimestamp(
     timeZone: "UTC",
     timeZoneName: "short",
   }).format(date);
+}
+
+export function sourceLinksFromRecord(record: unknown): SourceLinkItem[] {
+  if (!record || typeof record !== "object") {
+    return [];
+  }
+
+  const sourceRecord = record as {
+    sourceTitle?: unknown;
+    sourceUrl?: unknown;
+    sourceLinksJson?: unknown;
+  };
+  const links: SourceLinkItem[] = [];
+  const sourceTitle =
+    typeof sourceRecord.sourceTitle === "string" ? sourceRecord.sourceTitle : "";
+  const sourceUrl =
+    typeof sourceRecord.sourceUrl === "string" ? sourceRecord.sourceUrl : "";
+
+  if (sourceTitle.trim() || sourceUrl.trim()) {
+    links.push({
+      title: sourceTitle,
+      url: sourceUrl,
+    });
+  }
+
+  if (typeof sourceRecord.sourceLinksJson === "string") {
+    try {
+      const parsed = JSON.parse(sourceRecord.sourceLinksJson);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (!item || typeof item !== "object") {
+            continue;
+          }
+
+          const link = item as { title?: unknown; url?: unknown };
+          links.push({
+            title: typeof link.title === "string" ? link.title : "",
+            url: typeof link.url === "string" ? link.url : "",
+          });
+        }
+      }
+    } catch {
+      return links;
+    }
+  }
+
+  return links;
 }
 
 export const detailConfigs: Record<DetailKind, DetailConfig> = {
@@ -292,10 +340,9 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Pictorials", value: "9" },
     ],
     metadata: [
+      { label: "Birth Date", value: "1999-04-12" },
       { label: "Debut Date", value: "2015-04-01" },
       { label: "Retired Date", value: DETAIL_EMPTY_VALUE },
-      { label: "Birth Date", value: "1999-04-12" },
-      { label: "Status", value: "Active" },
     ],
     mediaPaths: [{ label: "Profile image status", path: "" }],
     systemInfo: [
@@ -303,10 +350,9 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Last edited", value: DETAIL_EMPTY_VALUE },
     ],
     personal: [
-      { label: "Birth Date", value: "1999-04-12" },
-      { label: "Birthplace", value: DETAIL_EMPTY_VALUE },
+      { label: "Birth Place", value: DETAIL_EMPTY_VALUE },
       { label: "Nationality", value: DETAIL_EMPTY_VALUE },
-      { label: "Astrological Sign", value: "Aries" },
+      { label: "Zodiac", value: "Aries" },
       { label: "Blood Type", value: DETAIL_EMPTY_VALUE },
     ],
     physical: [

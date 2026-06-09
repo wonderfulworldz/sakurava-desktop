@@ -1,4 +1,11 @@
-import type { Image, NewPerformer, Performer, PerformerPatch, Video } from "../backend/types";
+import type {
+  Image,
+  ManagedCategory,
+  NewPerformer,
+  Performer,
+  PerformerPatch,
+  Video,
+} from "../backend/types";
 import {
   normalizePerformerThumbnailPathsJson,
   parsePerformerThumbnailPathArray,
@@ -13,11 +20,16 @@ import type { CollectionConfig, PerformerCollectionItem } from "./collectionData
 import { collectionConfigs } from "./collectionData";
 import { deriveDebutYear } from "./catalogDerivedFields";
 import type { DetailSection, PerformerDetailConfig } from "./detailData";
-import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
+import {
+  DETAIL_EMPTY_VALUE,
+  formatSystemTimestamp,
+  sourceLinksFromRecord,
+} from "./detailData";
 import { detailConfigs } from "./detailData";
 import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
-import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
+import { MANAGED_CATEGORIES_STORAGE_KEY } from "./managedCategories";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -40,6 +52,7 @@ export function buildPerformerDetailConfig(
   performer: Performer,
   videos: Video[] = [],
   images: Image[] = [],
+  managedCategories: ManagedCategory[] = readStoredManagedCategoryRecords(),
 ): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
   const thumbnailPaths = parsePerformerThumbnailPathArray(
@@ -48,6 +61,11 @@ export function buildPerformerDetailConfig(
   const derivedStatus = derivePerformerStatus(performer);
   const filmographyCount = derivedRelatedCount(performer.relatedVideosJson);
   const pictorialsCount = derivedRelatedCount(performer.relatedImagesJson);
+  const performerCategories = parseTextLabelArray(performer.categoriesJson);
+  const taxonomy = derivePerformerTaxonomyValues(
+    performerCategories,
+    managedCategories,
+  );
   return {
     ...baseConfig,
     recordId: performer.id,
@@ -59,7 +77,12 @@ export function buildPerformerDetailConfig(
     chips: [derivedStatus],
     aliases: parseTextLabelArray(performer.aliasesJson),
     thumbnailPaths,
-    categories: parseTextLabelArray(performer.categoriesJson),
+    categories: performerCategories,
+    gender: { label: "Gender", value: taxonomy.gender ?? DETAIL_EMPTY_VALUE },
+    bodyType: {
+      label: "Body Type",
+      value: taxonomy.bodyType ?? DETAIL_EMPTY_VALUE,
+    },
     summary: [
       {
         label: "Years Active",
@@ -70,9 +93,9 @@ export function buildPerformerDetailConfig(
       { label: "Pictorials", value: String(pictorialsCount) },
     ],
     metadata: [
+      { label: "Birth Date", value: detailText(performer.birthDate) },
       { label: "Debut Date", value: detailText(performer.debutDate) },
       { label: "Retired Date", value: detailText(performer.retiredDate) },
-      { label: "Birth Date", value: detailText(performer.birthDate) },
     ],
     mediaPaths: [{ label: "Profile image status", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
@@ -85,10 +108,9 @@ export function buildPerformerDetailConfig(
       { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },
     ],
     personal: [
-      { label: "Birth Date", value: detailText(performer.birthDate) },
-      { label: "Birthplace", value: detailText(performer.birthplace) },
+      { label: "Birth Place", value: detailText(performer.birthplace) },
       { label: "Nationality", value: detailText(performer.nationality) },
-      { label: "Astrological Sign", value: deriveAstrologicalSign(performer.birthDate) },
+      { label: "Zodiac", value: deriveAstrologicalSign(performer.birthDate) },
       { label: "Blood Type", value: detailText(performer.bloodType) },
     ],
     physical: [
@@ -97,8 +119,9 @@ export function buildPerformerDetailConfig(
       { label: "Measurement", value: detailText(performer.measurements) },
       { label: "Cup Size", value: detailText(performer.cupSize) },
     ],
-    rating: getRatingDimensions(performer.ratingJson, performerRatingFields),
+    rating: getDetailRatingDimensions(performer.ratingJson, performerRatingFields),
     notes: detailNotes(performer.notes),
+    sourceLinks: sourceLinksFromRecord(performer),
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       performer.relatedVideosJson,
@@ -107,6 +130,88 @@ export function buildPerformerDetailConfig(
       images,
     ),
   };
+}
+
+function derivePerformerTaxonomyValues(
+  performerCategories: string[],
+  managedCategories: ManagedCategory[],
+) {
+  const categoryByKey = new Map(
+    managedCategories.map((category) => [category.key, category]),
+  );
+  const performerCategoryKeys = new Set(
+    performerCategories.map((category) => category.trim().toLowerCase()),
+  );
+  const values = {
+    gender: null as string | null,
+    bodyType: null as string | null,
+  };
+
+  for (const category of managedCategories) {
+    if (!category.parentKey || !performerCategoryKeys.has(category.name.trim().toLowerCase())) {
+      continue;
+    }
+
+    const parent = categoryByKey.get(category.parentKey);
+    const parentKey = normalizeTaxonomyParentName(parent?.name ?? "");
+    if (parentKey === "gender" && !values.gender) {
+      values.gender = category.name;
+    }
+    if (parentKey === "bodyType" && !values.bodyType) {
+      values.bodyType = category.name;
+    }
+  }
+
+  return values;
+}
+
+function normalizeTaxonomyParentName(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "gender") {
+    return "gender";
+  }
+  if (
+    normalized === "bodytype" ||
+    normalized === "body type" ||
+    normalized === "body-type" ||
+    normalized === "body_type"
+  ) {
+    return "bodyType";
+  }
+
+  return "";
+}
+
+function readStoredManagedCategoryRecords(): ManagedCategory[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(MANAGED_CATEGORIES_STORAGE_KEY) ?? "[]",
+    );
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(isManagedCategoryRecord);
+  } catch {
+    return [];
+  }
+}
+
+function isManagedCategoryRecord(value: unknown): value is ManagedCategory {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Partial<ManagedCategory>;
+  return (
+    typeof record.key === "string" &&
+    typeof record.name === "string" &&
+    (typeof record.parentKey === "string" || record.parentKey === null)
+  );
 }
 
 export function buildPerformerFormConfig(

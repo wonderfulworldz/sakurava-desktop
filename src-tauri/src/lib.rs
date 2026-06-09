@@ -27,6 +27,8 @@ pub fn run() {
             commands::path_status_check,
             commands::media_metadata_probe,
             commands::open_media_path,
+            commands::detail_source_file_copy_as,
+            commands::detail_source_folder_reveal,
             commands::gallery_folder_images_list,
             commands::video_create,
             commands::video_list,

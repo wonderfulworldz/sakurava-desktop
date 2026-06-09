@@ -1729,9 +1729,9 @@ describe("App", () => {
   );
 
   it.each([
-    ["/videos/sample-id", "hexagon", "3.8 / 5"],
-    ["/images/sample-id", "hexagon", "4.2 / 5"],
-    ["/performers/sample-id", "hexagon", "3.8 / 5"],
+    ["/videos/sample-id", "hexagon", "3.8"],
+    ["/images/sample-id", "hexagon", "4.2"],
+    ["/performers/sample-id", "hexagon", "3.8"],
   ])(
     "renders spider chart only for static detail rating summary at %s",
     (path, shape, score) => {
@@ -1746,6 +1746,7 @@ describe("App", () => {
       expect(chart).toHaveAttribute("data-dimension-count", "6");
       expect(chart).toHaveAttribute("data-shape", shape);
       expect(ratingSection.getByText(score)).toBeInTheDocument();
+      expect(ratingSection.queryByText(`${score} / 5`)).not.toBeInTheDocument();
       expect(ratingSection.queryByLabelText("4/5")).not.toBeInTheDocument();
       expect(ratingSection.queryByLabelText("5/5")).not.toBeInTheDocument();
     },
@@ -1764,6 +1765,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
       screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
       screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "Source Links" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
   });
@@ -1779,8 +1781,24 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
       screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
+      screen.getByRole("heading", { name: "Source Links" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
+  });
+
+  it("renders Detail section title icons inside rounded square backgrounds", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    for (const title of ["Rating Summary", "Source Links", "System Info", "Related Performers"]) {
+      const section = screen
+        .getByRole("heading", { name: title })
+        .closest("section") as HTMLElement;
+      const iconWrapper = within(section).getByTestId("detail-section-icon");
+
+      expect(iconWrapper).toHaveClass("rounded-lg", "bg-sakura-50/80");
+      expect(iconWrapper.querySelector("svg")).not.toBeNull();
+    }
   });
 
   it("keeps Performer Detail section order unchanged", () => {
@@ -1795,11 +1813,12 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Physical" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
       screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "Source Links" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
   });
 
-  it("renders a pentagon spider chart for five valid persisted rating dimensions", async () => {
+  it("renders the full detail radar map for partial persisted rating dimensions", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     window.__TAURI_INTERNALS__ = {
       invoke: vi.fn(async (command: string) => {
@@ -1820,14 +1839,38 @@ describe("App", () => {
     expect(await screen.findByText("Persisted Video")).toBeInTheDocument();
     const section = screen.getByText("Rating Summary").closest("section");
     expect(section).not.toBeNull();
-    const chart = within(section as HTMLElement).getByTestId("spider-chart");
+    const sectionElement = section as HTMLElement;
+    const ratingSection = within(sectionElement);
+    const chart = ratingSection.getByTestId("spider-chart");
 
-    expect(chart).toHaveAttribute("data-dimension-count", "5");
-    expect(chart).toHaveAttribute("data-shape", "pentagon");
-    expect(within(section as HTMLElement).getByText("4.2 / 5")).toBeInTheDocument();
+    expect(chart).toHaveAttribute("data-dimension-count", "6");
+    expect(chart).toHaveAttribute("data-shape", "hexagon");
+    expect(chart).toHaveAttribute("aria-label", "6-dimension radar map");
+    const gradient = chart.querySelector("defs radialGradient");
+    expect(gradient).not.toBeNull();
+    const gradientStops = Array.from(
+      gradient?.querySelectorAll("stop") ?? [],
+    ).map((stop) => stop.getAttribute("stop-opacity") ?? stop.getAttribute("stopOpacity"));
+    expect(gradientStops).toEqual(["0.28", "0.22", "0.06"]);
+    expect(chart.getAttribute("viewBox")).toBe("0 0 420 420");
+    expect(ratingSection.getByText("4.2")).toBeInTheDocument();
+    expect(ratingSection.queryByText("4.2 / 5")).not.toBeInTheDocument();
+    expect(ratingSection.getByText("Chemistry")).toBeInTheDocument();
+    expect(ratingSection.getByTestId("spider-chart-path")).toHaveAttribute("fill");
+    expect(ratingSection.getByTestId("spider-chart-path"))
+      .toHaveAttribute("stroke-width", "1");
+    expect(ratingSection.getByTestId("spider-chart-path").getAttribute("d"))
+      .toContain("C");
+    expect(chart.querySelectorAll("polygon").length).toBeGreaterThanOrEqual(5);
+    expect(chart.querySelectorAll("line").length).toBe(6);
+    expect(ratingSection.getAllByRole("img").length).toBeGreaterThan(0);
+    expect(sectionElement.querySelector("[data-testid='detail-section-icon'] svg.lucide-star"))
+      .not.toBeNull();
+    expect(sectionElement.querySelector("svg.lucide-info")).toBeNull();
+    expect(chart.querySelector('circle[r="25"]')).toBeNull();
   });
 
-  it("shows an honest empty state when detail ratingJson has no valid rating", async () => {
+  it("keeps radar labels visible when detail ratingJson has no valid rating", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     window.__TAURI_INTERNALS__ = {
       invoke: vi.fn(async (command: string) => {
@@ -1847,8 +1890,45 @@ describe("App", () => {
     expect(section).not.toBeNull();
     const ratingSection = within(section as HTMLElement);
 
-    expect(ratingSection.queryByTestId("spider-chart")).not.toBeInTheDocument();
-    expect(ratingSection.getByText("Not rated")).toBeInTheDocument();
+    expect(ratingSection.getByTestId("spider-chart")).toBeInTheDocument();
+    expect(ratingSection.getAllByText("N/A").length).toBeGreaterThan(0);
+    expect(ratingSection.getByText("Rewatch")).toBeInTheDocument();
+    expect(ratingSection.getByText("Chemistry")).toBeInTheDocument();
+    expect(ratingSection.queryByText("Not rated")).not.toBeInTheDocument();
+  });
+
+  it("renders the clipped Signature radar label on Image Detail", () => {
+    window.history.pushState({}, "", "/images/sample-id");
+    const { unmount } = render(<App />);
+
+    const ratingSection = screen
+      .getByRole("heading", { name: "Rating Summary" })
+      .closest("section") as HTMLElement;
+    expect(within(ratingSection).getByText("Signature")).toBeInTheDocument();
+    expect(within(ratingSection).getByText("Atmosphere")).toBeInTheDocument();
+
+    unmount();
+    window.history.pushState({}, "", "/performers/sample-id");
+    render(<App />);
+    const ratingHeadings = screen.getAllByRole("heading", { name: "Rating Summary" });
+    const performerRatingSection = ratingHeadings[ratingHeadings.length - 1]
+      .closest("section") as HTMLElement;
+    expect(within(performerRatingSection).getByText("Exceptional"))
+      .toBeInTheDocument();
+  });
+
+  it("does not render file actions in Detail System Info", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    const systemInfo = screen
+      .getByRole("heading", { name: "System Info" })
+      .closest("section") as HTMLElement;
+
+    expect(within(systemInfo).queryByRole("button", { name: /Save as/i }))
+      .not.toBeInTheDocument();
+    expect(within(systemInfo).queryByRole("button", { name: /Open folder/i }))
+      .not.toBeInTheDocument();
   });
 
   it.each([
@@ -7218,7 +7298,7 @@ describe("App", () => {
     expect(within(imageTable).getByText("THUMBNAIL")).toHaveClass("sr-only");
     expect(within(imageTable).getByLabelText("Image Placeholder"))
       .toHaveAttribute("data-thumbnail-shape", "16:9");
-    expect(within(imageTable).getByText("1,240 pics")).toBeInTheDocument();
+    expect(within(imageTable).getByText(/1[,.]240 pics/)).toBeInTheDocument();
     expect(within(imageTable).getByText("Leaked").closest("[data-testid='catalog-table-status-chip']"))
       .toHaveClass("inline-flex", "w-fit");
     expect(within(imageTable).getByLabelText("1 more categories")).toHaveTextContent("+1");
@@ -7687,6 +7767,59 @@ describe("App", () => {
     },
   );
 
+  it("opens Detail cover viewer once for a rapid double click", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "image_get") {
+          expect(args.id).toBe("image_test_001");
+          return persistedImage({
+            title: "Single Viewer Detail",
+            coverPath: "D:/Sakurava/image-preview-cover.jpg",
+          });
+        }
+        if (command === "performer_list" || command === "video_list") {
+          return [];
+        }
+        if (command === "path_status_check") {
+          return {
+            path: args.path,
+            status: "exists",
+            kind: "file",
+            message: "Path exists",
+          };
+        }
+        if (command === "plugin:app|supports_multiple_windows") {
+          return false;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    const previewButton = await screen.findByRole("button", {
+      name: "Preview Image Cover",
+    });
+    fireEvent.click(previewButton);
+    fireEvent.click(previewButton);
+
+    expect(await screen.findByRole("dialog", { name: "Image Cover" }))
+      .toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        vi.mocked(invoke).mock.calls.filter(
+          ([command]) => command === "plugin:app|supports_multiple_windows",
+        ),
+      ).toHaveLength(1);
+    });
+  });
+
   it("keeps detail placeholder non-interactive when no safe image source exists", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const invoke = vi.fn(async (command: string) => {
@@ -7780,7 +7913,51 @@ describe("App", () => {
       .toHaveAttribute("aria-expanded", "true");
   });
 
-  it("does not render gender or source links on detail without persisted fields", async () => {
+  it("renders Performer Detail Gender and Body Type from taxonomy categories", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          name: "Taxonomy Detail Performer",
+          categoriesJson: '["Woman","Athletic","Classic"]',
+        });
+      }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Taxonomy Detail Performer"))
+      .toBeInTheDocument();
+    const metadata = screen
+      .getByRole("heading", { name: "Profile Metadata" })
+      .closest("section") as HTMLElement;
+    const physical = screen
+      .getByRole("heading", { name: "Physical" })
+      .closest("section") as HTMLElement;
+    expect(within(metadata).getByText("Gender")).toBeInTheDocument();
+    expect(within(metadata).getByText("Woman")).toBeInTheDocument();
+    expect(within(metadata).queryByText("Body Type")).not.toBeInTheDocument();
+    expectPrecedes(metadata, "Gender", "Birth Date");
+    expectPrecedes(metadata, "Birth Date", "Debut Date");
+    expectPrecedes(metadata, "Debut Date", "Retired Date");
+    expect(within(physical).getByText("Body Type")).toBeInTheDocument();
+    expect(within(physical).getByText("Athletic")).toBeInTheDocument();
+    expectPrecedes(physical, "Body Type", "Height");
+    expectPrecedes(physical, "Height", "Weight");
+    expectPrecedes(physical, "Weight", "Measurement");
+    expectPrecedes(physical, "Measurement", "Cup Size");
+  });
+
+  it("renders Performer Detail Gender and Body Type as N/A when missing", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_get") {
@@ -7791,6 +7968,9 @@ describe("App", () => {
       if (command === "video_list" || command === "image_list") {
         return [];
       }
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
 
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
@@ -7800,10 +7980,194 @@ describe("App", () => {
 
     expect(await screen.findByText("No Deferred Fields Performer"))
       .toBeInTheDocument();
-    expect(screen.queryByText("Gender")).not.toBeInTheDocument();
-    expect(screen.queryByText("Source Links")).not.toBeInTheDocument();
+    const metadata = screen
+      .getByRole("heading", { name: "Profile Metadata" })
+      .closest("section") as HTMLElement;
+    const physical = screen
+      .getByRole("heading", { name: "Physical" })
+      .closest("section") as HTMLElement;
+    expect(within(metadata).getByText("Gender")).toBeInTheDocument();
+    expect(within(metadata).queryByText("Body Type")).not.toBeInTheDocument();
+    expect(within(metadata).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
+    expect(within(physical).getByText("Body Type")).toBeInTheDocument();
+    expect(within(physical).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Source Links")).toBeInTheDocument();
     expect(screen.queryByText("Deferred: source links are not saved yet."))
       .not.toBeInTheDocument();
+  });
+
+  it("does not render Gender or Body Type metadata on Video and Image Detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const videoInvoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({ title: "No Taxonomy Video" });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke: videoInvoke };
+
+    const { unmount } = render(<App />);
+    expect(await screen.findByText("No Taxonomy Video")).toBeInTheDocument();
+    const videoMetadata = screen
+      .getByRole("heading", { name: "Metadata" })
+      .closest("section") as HTMLElement;
+    expect(within(videoMetadata).queryByText("Gender")).not.toBeInTheDocument();
+    expect(within(videoMetadata).queryByText("Body Type")).not.toBeInTheDocument();
+
+    unmount();
+    window.history.pushState({}, "", "/images/image_test_001");
+    const imageInvoke = vi.fn(async (command: string) => {
+      if (command === "image_get") {
+        return persistedImage({ title: "No Taxonomy Image" });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke: imageInvoke };
+
+    render(<App />);
+    expect(await screen.findByText("No Taxonomy Image")).toBeInTheDocument();
+    const imageMetadata = screen
+      .getByRole("heading", { name: "Metadata" })
+      .closest("section") as HTMLElement;
+    expect(within(imageMetadata).queryByText("Gender")).not.toBeInTheDocument();
+    expect(within(imageMetadata).queryByText("Body Type")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "/videos/video_test_001",
+      "video_get",
+      persistedVideo({
+        title: "Source Video",
+        sourceTitle: "Studio source",
+        sourceUrl: "https://example.invalid/video/source",
+      }),
+    ],
+    [
+      "/images/image_test_001",
+      "image_get",
+      persistedImage({
+        title: "Source Image",
+        sourceTitle: "Image source",
+        sourceUrl: "https://example.invalid/image/source",
+      }),
+    ],
+    [
+      "/performers/performer_test_001",
+      "performer_get",
+      persistedPerformer({
+        name: "Source Performer",
+        sourceTitle: "Performer source",
+        sourceUrl: "https://example.invalid/performer/source",
+      }),
+    ],
+  ])("renders safe Source Links on Detail for %s", async (path, getCommand, record) => {
+    window.history.pushState({}, "", path);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === getCommand) {
+        return record;
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText(/Source (Video|Image|Performer)/))
+      .toBeInTheDocument();
+    const sourceSection = screen
+      .getByRole("heading", { name: "Source Links" })
+      .closest("section") as HTMLElement;
+    const link = within(sourceSection).getByRole("link", { name: /Open source/ });
+
+    const sourceIcon = sourceSection
+      .querySelector("[data-testid='detail-section-icon'] svg");
+    expect(sourceIcon).not.toBeNull();
+    expect(sourceIcon).toHaveClass("lucide-earth");
+    expect(sourceSection.querySelector("svg.lucide-info")).toBeNull();
+    expect(within(sourceSection).getByText("Source Title")).toBeInTheDocument();
+    expect(within(sourceSection).getByText("Source URL")).toBeInTheDocument();
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+    expect(link).toHaveClass("truncate");
+    expect(within(sourceSection).queryByText(/sourceLinksJson/))
+      .not.toBeInTheDocument();
+  });
+
+  it("renders Source Links URL as N/A when missing", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Missing URL Source Video",
+          sourceTitle: "Missing URL source",
+          sourceUrl: "",
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Missing URL Source Video"))
+      .toBeInTheDocument();
+    const sourceSection = screen
+      .getByRole("heading", { name: "Source Links" })
+      .closest("section") as HTMLElement;
+    expect(within(sourceSection).getByText("Missing URL source"))
+      .toBeInTheDocument();
+    expect(within(sourceSection).getByText("N/A")).toBeInTheDocument();
+    expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("keeps extreme detail text constrained in title, chips, and metadata rows", async () => {
@@ -9444,7 +9808,8 @@ describe("App", () => {
       { path: "D:/Sakurava/videos/status-video.mp4" },
       undefined,
     );
-    expect(screen.queryByRole("button", { name: /open/i })).not.toBeInTheDocument();
+    expect(within(statusSection as HTMLElement).queryByRole("button", { name: /Open folder/i }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reveal/i })).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_update",
@@ -10979,7 +11344,7 @@ describe("App", () => {
     expect(secondStoredPayload.openRequestId).toBe(emittedOpenRequestIds[1]);
   });
 
-  it("does not return success when existing viewer payload delivery fails", async () => {
+  it("keeps the existing viewer window when payload delivery does not ack", async () => {
     const { openGlobalImageViewerWindow } = await import(
       "./runtime/globalImageViewerWindow"
     );
@@ -11028,9 +11393,7 @@ describe("App", () => {
         images: [{ path: "C:/Gallery/same.jpg" }],
         initialIndex: 0,
       }),
-    ).resolves.toMatchObject({
-      mode: "fallback",
-    });
+    ).resolves.toEqual({ mode: "window" });
   });
 
   it("creates a separate Tauri image viewer window when one is not open", async () => {
@@ -11574,7 +11937,9 @@ describe("App", () => {
     expect(within(moreMenu).queryByRole("menuitem", { name: "Full Window" }))
       .not.toBeInTheDocument();
     expect(within(moreMenu).getByRole("menuitem", { name: "Save As" }))
-      .toBeDisabled();
+      .toBeEnabled();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Open Folder" }))
+      .toBeEnabled();
     expect(within(moreMenu).getByRole("menuitem", { name: "Copy Image" }))
       .toBeDisabled();
     await act(async () => {
@@ -12089,6 +12454,111 @@ describe("App", () => {
       .not.toHaveTextContent("300%");
   });
 
+  it("runs Image Viewer More menu Save As and Open Folder for the current image path", async () => {
+    dialogMocks.save.mockResolvedValue("C:/Export/two-copy.jpg");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "detail_source_file_copy_as") {
+        return {
+          sourcePath: args.sourcePath,
+          destinationPath: args.destinationPath,
+          success: true,
+          message: "Source file saved",
+        };
+      }
+      if (command === "detail_source_folder_reveal") {
+        return {
+          sourcePath: args.sourcePath,
+          folderPath: "C:/Gallery",
+          success: true,
+          message: "Source folder open request sent",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          { filename: "one.jpg", path: "C:/Gallery/one.jpg", resolution: "800 x 600" },
+          { filename: "two.jpg", path: "C:/Gallery/two.jpg", resolution: "800 x 600" },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", { name: "Gallery full-size viewer" });
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    fireEvent.click(within(viewer).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+    const saveAs = within(moreMenu).getByRole("menuitem", { name: "Save As" });
+    const openFolder = within(moreMenu).getByRole("menuitem", { name: "Open Folder" });
+
+    expect(saveAs).toBeEnabled();
+    expect(openFolder).toBeEnabled();
+
+    fireEvent.click(saveAs);
+    fireEvent.click(saveAs);
+    await waitFor(() => {
+      expect(vi.mocked(invoke).mock.calls.filter(
+        ([command]) => command === "detail_source_file_copy_as",
+      )).toHaveLength(1);
+    });
+    expect(invoke).toHaveBeenCalledWith(
+      "detail_source_file_copy_as",
+      {
+        sourcePath: "C:/Gallery/two.jpg",
+        destinationPath: "C:/Export/two-copy.jpg",
+      },
+      undefined,
+    );
+    expect(await within(moreMenu).findByText("Source file saved"))
+      .toBeInTheDocument();
+
+    fireEvent.click(openFolder);
+    fireEvent.click(openFolder);
+    await waitFor(() => {
+      expect(vi.mocked(invoke).mock.calls.filter(
+        ([command]) => command === "detail_source_folder_reveal",
+      )).toHaveLength(1);
+    });
+    expect(invoke).toHaveBeenCalledWith(
+      "detail_source_folder_reveal",
+      { sourcePath: "C:/Gallery/two.jpg" },
+      undefined,
+    );
+    expect(await within(moreMenu).findByText("Source folder open request sent"))
+      .toBeInTheDocument();
+  });
+
+  it("disables Image Viewer More menu file actions when the current image path is missing", () => {
+    render(
+      <GlobalImageViewer
+        images={[{ filename: "missing.jpg", path: "", resolution: "800 x 600" }]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", { name: "Gallery full-size viewer" });
+    fireEvent.click(within(viewer).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+
+    expect(within(moreMenu).getByRole("menuitem", { name: "Save As" }))
+      .toBeDisabled();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Open Folder" }))
+      .toBeDisabled();
+  });
+
   it("keeps a gallery viewer fallback when the selected full-size image fails", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -12578,8 +13048,8 @@ describe("App", () => {
     clickSaveAndConfirm();
 
     expect(await screen.findByText("Taxonomy Performer")).toBeInTheDocument();
-    expect(screen.getByText("Woman")).toBeInTheDocument();
-    expect(screen.getByText("Athletic")).toBeInTheDocument();
+    expect(screen.getAllByText("Woman").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Athletic").length).toBeGreaterThan(0);
   });
 
   it("loads saved Performer taxonomy selections from categoriesJson", async () => {
@@ -12878,19 +13348,46 @@ describe("App", () => {
       .closest("section");
     expect(metadataSection).not.toBeNull();
     const metadata = within(metadataSection as HTMLElement);
-    expect(screen.getByText("Debut Date")).toBeInTheDocument();
+    expect(metadata.getByText("Gender")).toBeInTheDocument();
+    expect(metadata.getByText("Birth Date")).toBeInTheDocument();
+    expect(metadata.getByText("Debut Date")).toBeInTheDocument();
     expect(metadata.getByText("2020-01-02")).toBeInTheDocument();
     expect(metadata.getByText("Retired Date")).toBeInTheDocument();
     expect(metadata.getByText("2024-03-04")).toBeInTheDocument();
-    expect(metadata.getByText("Birth Date")).toBeInTheDocument();
+    expectPrecedes(metadataSection as HTMLElement, "Gender", "Birth Date");
+    expectPrecedes(metadataSection as HTMLElement, "Birth Date", "Debut Date");
+    expectPrecedes(metadataSection as HTMLElement, "Debut Date", "Retired Date");
     expect(metadata.queryByText("Status")).not.toBeInTheDocument();
-    expect(screen.getByText("Birthplace")).toBeInTheDocument();
-    expect(screen.getByText("Tokyo")).toBeInTheDocument();
-    expect(screen.getByText("Japanese")).toBeInTheDocument();
-    expect(screen.getByText("Aquarius")).toBeInTheDocument();
-    expect(screen.getByText("160 cm")).toBeInTheDocument();
-    expect(screen.getByText("48 kg")).toBeInTheDocument();
-    expect(screen.getByText("11 / 22 / 33 cm")).toBeInTheDocument();
+    const personalSection = screen
+      .getByRole("heading", { name: "Personal" })
+      .closest("section") as HTMLElement;
+    expect(within(personalSection).queryByText("Birth Date")).not.toBeInTheDocument();
+    expect(within(personalSection).getByText("Birth Place")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Tokyo")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Nationality")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Japanese")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Zodiac")).toBeInTheDocument();
+    expect(within(personalSection).queryByText("Astrological Sign")).not.toBeInTheDocument();
+    expect(within(personalSection).getByText("Aquarius")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Blood Type")).toBeInTheDocument();
+    expectPrecedes(personalSection, "Birth Place", "Nationality");
+    expectPrecedes(personalSection, "Nationality", "Zodiac");
+    expectPrecedes(personalSection, "Zodiac", "Blood Type");
+    const physicalSection = screen
+      .getByRole("heading", { name: "Physical" })
+      .closest("section") as HTMLElement;
+    expect(within(physicalSection).getByText("Body Type")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Height")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("160 cm")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Weight")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("48 kg")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Measurement")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("11 / 22 / 33 cm")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Cup Size")).toBeInTheDocument();
+    expectPrecedes(physicalSection, "Body Type", "Height");
+    expectPrecedes(physicalSection, "Height", "Weight");
+    expectPrecedes(physicalSection, "Weight", "Measurement");
+    expectPrecedes(physicalSection, "Measurement", "Cup Size");
     expect(screen.queryByText("Not saved")).not.toBeInTheDocument();
   });
 

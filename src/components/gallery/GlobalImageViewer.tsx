@@ -28,6 +28,10 @@ import {
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { localImagePathToAssetSrc } from "../../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../../runtime/MediaAssetScopeContext";
+import {
+  openDetailSourceFolder,
+  saveDetailSourceFileAs,
+} from "../../runtime/detailActions";
 import { isTauriRuntimeAvailable } from "../../runtime/tauriClient";
 
 export type GlobalImageViewerItem = {
@@ -143,6 +147,10 @@ function GlobalImageViewer({
     () => readStoredViewerSettings().rememberViewerSettings,
   );
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [fileActionFeedback, setFileActionFeedback] = useState<string | null>(null);
+  const [pendingFileAction, setPendingFileAction] = useState<"save" | "folder" | null>(
+    null,
+  );
   const [minimapDragging, setMinimapDragging] = useState(false);
   const [isFullWindow, setIsFullWindow] = useState(false);
   const viewerRef = useRef<HTMLDivElement | null>(null);
@@ -158,6 +166,7 @@ function GlobalImageViewer({
   const copyFeedbackTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
   );
+  const fileActionPendingRef = useRef<"save" | "folder" | null>(null);
   const panSurfaceRef = useRef<HTMLDivElement | null>(null);
   const minimapRef = useRef<HTMLDivElement | null>(null);
   const activeImageKeyRef = useRef("");
@@ -238,6 +247,8 @@ function GlobalImageViewer({
   const fitModeLabel =
     FIT_MODES.find((mode) => mode.value === fitMode)?.label ?? "Fit Window";
   const fileType = getFileType(displayName || path);
+  const actionSourcePath = path.trim();
+  const hasActionSourcePath = actionSourcePath.length > 0;
 
   function clearHideControlsTimer() {
     if (hideControlsTimerRef.current) {
@@ -671,6 +682,50 @@ function GlobalImageViewer({
     showControlsAndResetIdleTimer();
   }
 
+  async function saveCurrentImageAs() {
+    if (!hasActionSourcePath || fileActionPendingRef.current) {
+      setFileActionFeedback("No source file available");
+      return;
+    }
+
+    fileActionPendingRef.current = "save";
+    setPendingFileAction("save");
+    setFileActionFeedback(null);
+    try {
+      const result = await saveDetailSourceFileAs(actionSourcePath);
+      setFileActionFeedback(
+        result.message ||
+          (result.success ? "Source file saved" : "Source file could not be saved"),
+      );
+    } finally {
+      fileActionPendingRef.current = null;
+      setPendingFileAction(null);
+      showControlsAndResetIdleTimer();
+    }
+  }
+
+  async function openCurrentImageFolder() {
+    if (!hasActionSourcePath || fileActionPendingRef.current) {
+      setFileActionFeedback("No source folder available");
+      return;
+    }
+
+    fileActionPendingRef.current = "folder";
+    setPendingFileAction("folder");
+    setFileActionFeedback(null);
+    try {
+      const result = await openDetailSourceFolder(actionSourcePath);
+      setFileActionFeedback(
+        result.message ||
+          (result.success ? "Source folder opened" : "Source folder could not be opened"),
+      );
+    } finally {
+      fileActionPendingRef.current = null;
+      setPendingFileAction(null);
+      showControlsAndResetIdleTimer();
+    }
+  }
+
   function toggleAlwaysShowControls() {
     setAlwaysShowControls((current) => {
       const next = !current;
@@ -716,11 +771,20 @@ function GlobalImageViewer({
     releasePointerState();
     resetTransform();
     setNaturalSize(null);
+    setFileActionFeedback(null);
+    fileActionPendingRef.current = null;
+    setPendingFileAction(null);
     syncViewportSizeNow();
     closePopovers();
     setControlsVisible(true);
     scheduleHideControls();
   }, [initialIndex, normalizedImagesKey, openRequestId, viewerEpoch]);
+
+  useEffect(() => {
+    setFileActionFeedback(null);
+    fileActionPendingRef.current = null;
+    setPendingFileAction(null);
+  }, [actionSourcePath]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -1020,9 +1084,17 @@ function GlobalImageViewer({
           onFocus={clearPopoverCloseTimer}
           onBlur={schedulePopoverClose}
         >
-          {/* Disabled until a safe save/export command is wired for viewer images. */}
-          <button role="menuitem" type="button" disabled className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold opacity-45">
-            Save As
+          <button
+            role="menuitem"
+            type="button"
+            disabled={!hasActionSourcePath || pendingFileAction !== null}
+            onClick={() => void saveCurrentImageAs()}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
+          >
+            <span>{pendingFileAction === "save" ? "Saving..." : "Save As"}</span>
+            {fileActionFeedback === "Source file saved" && (
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Saved</span>
+            )}
           </button>
           {/* Disabled because the current runtime only exposes safe text clipboard here. */}
           <button role="menuitem" type="button" disabled className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold opacity-45">
@@ -1055,16 +1127,17 @@ function GlobalImageViewer({
           <button
             role="menuitem"
             type="button"
-            disabled={!onOpenFolder || !path}
-            onClick={() => {
-              if (onOpenFolder) {
-                onOpenFolder(path);
-              }
-            }}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
+            disabled={!hasActionSourcePath || pendingFileAction !== null}
+            onClick={() => void openCurrentImageFolder()}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            Open Folder
+            <span>{pendingFileAction === "folder" ? "Opening..." : "Open Folder"}</span>
           </button>
+          {fileActionFeedback && (
+            <p className="px-3 py-1 text-xs font-semibold text-slate-500">
+              {fileActionFeedback}
+            </p>
+          )}
           <button
             role="menuitem"
             type="button"

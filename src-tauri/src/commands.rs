@@ -424,6 +424,16 @@ pub struct MediaOpenResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct DetailFileActionResult {
+    pub source_path: String,
+    pub destination_path: Option<String>,
+    pub folder_path: Option<String>,
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportCsvWriteResult {
     pub destination_path: String,
     pub bytes_written: usize,
@@ -742,6 +752,33 @@ pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
         path: media_path.display().to_string(),
         opened: true,
         message: "Media file open request sent".to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn detail_source_file_copy_as(
+    source_path: String,
+    destination_path: String,
+) -> Result<DetailFileActionResult, String> {
+    copy_detail_source_file_as(&source_path, &destination_path)
+}
+
+#[tauri::command]
+pub fn detail_source_folder_reveal(source_path: String) -> Result<DetailFileActionResult, String> {
+    let source = validate_detail_source_file_path(&source_path)?;
+    let folder = source
+        .parent()
+        .ok_or_else(|| "Source folder could not be resolved".to_string())?
+        .to_path_buf();
+
+    reveal_detail_source_folder(&source)?;
+
+    Ok(DetailFileActionResult {
+        source_path: source.display().to_string(),
+        destination_path: None,
+        folder_path: Some(folder.display().to_string()),
+        success: true,
+        message: "Source folder open request sent".to_string(),
     })
 }
 
@@ -2120,6 +2157,126 @@ fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
     }
 
     Ok(PathBuf::from(trimmed))
+}
+
+fn copy_detail_source_file_as(
+    source_path: &str,
+    destination_path: &str,
+) -> Result<DetailFileActionResult, String> {
+    let source = validate_detail_source_file_path(source_path)?;
+    let destination = validate_detail_destination_file_path(destination_path)?;
+
+    if paths_refer_to_same_file(&source, &destination) {
+        return Err("Destination must be different from the source file".to_string());
+    }
+
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|_| "Destination folder could not be prepared".to_string())?;
+    }
+
+    fs::copy(&source, &destination)
+        .map_err(|_| "Source file could not be saved".to_string())?;
+
+    Ok(DetailFileActionResult {
+        source_path: source.display().to_string(),
+        destination_path: Some(destination.display().to_string()),
+        folder_path: None,
+        success: true,
+        message: "Source file saved".to_string(),
+    })
+}
+
+fn validate_detail_source_file_path(path: &str) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return Err("Source file path is required".to_string());
+    }
+
+    let metadata = fs::metadata(trimmed).map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => "Source file does not exist".to_string(),
+        io::ErrorKind::PermissionDenied => "Source file is inaccessible".to_string(),
+        _ => "Source file could not be checked".to_string(),
+    })?;
+
+    if !metadata.is_file() {
+        return Err("Source path must be a file".to_string());
+    }
+
+    Ok(PathBuf::from(trimmed))
+}
+
+fn validate_detail_destination_file_path(path: &str) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return Err("Destination path is required".to_string());
+    }
+
+    let destination = PathBuf::from(trimmed);
+    if destination.is_dir() {
+        return Err("Destination must be a file path".to_string());
+    }
+
+    Ok(destination)
+}
+
+fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn reveal_detail_source_folder(path: &Path) -> Result<(), String> {
+    const SW_SHOWNORMAL: i32 = 1;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: isize,
+            lp_operation: *const u16,
+            lp_file: *const u16,
+            lp_parameters: *const u16,
+            lp_directory: *const u16,
+            n_show_cmd: i32,
+        ) -> isize;
+    }
+
+    let explorer = wide_null("explorer.exe");
+    let parameters = wide_null(&format!("/select,\"{}\"", path.display()));
+
+    let result = unsafe {
+        ShellExecuteW(
+            0,
+            std::ptr::null(),
+            explorer.as_ptr(),
+            parameters.as_ptr(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    if result <= 32 {
+        return Err("Source folder could not be opened".to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn reveal_detail_source_folder(_path: &Path) -> Result<(), String> {
+    Err("Source folder open is unavailable on this platform".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn wide_null(value: &str) -> Vec<u16> {
+    std::ffi::OsStr::new(value)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
 }
 
 fn write_export_csv_file(
@@ -3775,6 +3932,95 @@ mod tests {
         let accepted =
             validate_media_open_file_path(file_path.to_string_lossy().as_ref()).expect("file path");
         assert_eq!(accepted, file_path);
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn detail_source_copy_rejects_missing_source() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "sakurava-detail-copy-missing-test-{}",
+            std::process::id()
+        ));
+        let destination_path = std::env::temp_dir().join(format!(
+            "sakurava-detail-copy-destination-test-{}.mp4",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&missing_path);
+        let _ = std::fs::remove_file(&destination_path);
+
+        assert_eq!(
+            copy_detail_source_file_as(
+                missing_path.to_string_lossy().as_ref(),
+                destination_path.to_string_lossy().as_ref(),
+            )
+            .expect_err("missing source should fail"),
+            "Source file does not exist"
+        );
+        assert!(!destination_path.exists());
+    }
+
+    #[test]
+    fn detail_source_copy_writes_destination_without_deleting_original() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-detail-copy-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let source_path = temp_root.join("source.mp4");
+        let destination_path = temp_root.join("export").join("source-copy.mp4");
+        std::fs::write(&source_path, "source bytes").expect("write source");
+
+        let result = copy_detail_source_file_as(
+            source_path.to_string_lossy().as_ref(),
+            destination_path.to_string_lossy().as_ref(),
+        )
+        .expect("copy source");
+
+        assert!(result.success);
+        assert!(source_path.is_file());
+        assert!(destination_path.is_file());
+        assert_eq!(
+            std::fs::read_to_string(&source_path).expect("read source"),
+            "source bytes"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&destination_path).expect("read destination"),
+            "source bytes"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn detail_source_folder_reveal_validation_rejects_missing_path() {
+        assert_eq!(
+            validate_detail_source_file_path("   ").expect_err("empty path should fail"),
+            "Source file path is required"
+        );
+    }
+
+    #[test]
+    fn detail_source_copy_rejects_same_source_and_destination() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-detail-same-path-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let source_path = temp_root.join("source.mp4");
+        std::fs::write(&source_path, "source bytes").expect("write source");
+
+        assert_eq!(
+            copy_detail_source_file_as(
+                source_path.to_string_lossy().as_ref(),
+                source_path.to_string_lossy().as_ref(),
+            )
+            .expect_err("same path should fail"),
+            "Destination must be different from the source file"
+        );
+        assert!(source_path.is_file());
 
         let _ = std::fs::remove_dir_all(temp_root);
     }

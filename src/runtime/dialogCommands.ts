@@ -108,11 +108,28 @@ export async function selectLocalMediaFile() {
   });
 }
 
+export async function selectDetailSaveAsDestination(sourcePath: string) {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: "Save Source File As",
+    defaultPath: defaultDetailSaveAsFileName(sourcePath),
+  });
+}
+
 export async function selectLocalFolder() {
   return selectLocalPath({
     title: "Select Folder",
     directory: true,
   });
+}
+
+function defaultDetailSaveAsFileName(sourcePath: string) {
+  const normalizedPath = sourcePath.trim().replace(/\\/g, "/");
+  return normalizedPath.split("/").filter(Boolean).pop() ?? "sakurava-source-file";
 }
 
 export async function selectGalleryFolder() {
