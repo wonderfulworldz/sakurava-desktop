@@ -2,7 +2,7 @@ import CategoryManagementPanel from "../components/CategoryManagementPanel";
 
 function CategoryManagementPage() {
   return (
-    <div className="mx-auto max-w-[1180px] space-y-4">
+    <div className="space-y-6" data-testid="category-management-route-page">
       <CategoryManagementPanel />
     </div>
   );

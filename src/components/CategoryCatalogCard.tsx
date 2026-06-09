@@ -22,9 +22,15 @@ export type CategoryCatalogCardData = {
 function CategoryCatalogCard({
   category,
   actions,
+  density = "comfortable",
+  thumbnailShape = "wide",
+  emptyDescriptionText = "No description yet.",
 }: {
   category: CategoryCatalogCardData;
   actions?: ReactNode;
+  density?: "comfortable" | "compact";
+  thumbnailShape?: "wide" | "square";
+  emptyDescriptionText?: string;
 }) {
   const cardKind = category.childCount && category.childCount > 0
     ? "parent"
@@ -37,7 +43,8 @@ function CategoryCatalogCard({
       : cardKind === "child"
         ? "border-slate-200 bg-white"
         : "border-slate-200 bg-slate-50";
-  const contentTone = "px-3 pb-3 pt-4";
+  const contentTone =
+    density === "compact" ? "px-3 pb-3 pt-3" : "px-3 pb-3 pt-4";
   const statBaseTone =
     cardKind === "parent"
       ? "bg-white"
@@ -59,12 +66,16 @@ function CategoryCatalogCard({
       data-category-card-kind={cardKind}
       className={`rounded-lg border p-3 shadow-sm ${articleTone}`}
     >
-      <CategoryThumbnail category={category} />
+      <CategoryThumbnail category={category} shape={thumbnailShape} />
 
       <div className={contentTone}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
+            <h2
+              className={`truncate font-semibold tracking-normal text-slate-950 ${
+                density === "compact" ? "text-base" : "text-lg"
+              }`}
+            >
               {category.name}
             </h2>
             <p className="mt-1 truncate text-sm font-medium text-slate-500">
@@ -73,13 +84,17 @@ function CategoryCatalogCard({
           </div>
           <div className="min-w-12 text-right">
             <p className="text-xs font-semibold text-slate-500">Records</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">
+            <p
+              className={`mt-1 font-semibold text-slate-950 ${
+                density === "compact" ? "text-xl" : "text-2xl"
+              }`}
+            >
               {category.total}
             </p>
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-3 gap-2 pt-2">
+        <dl className="mt-3 grid grid-cols-3 gap-2 pt-1">
           <CountBlock
             label="Videos"
             value={category.videos}
@@ -103,8 +118,8 @@ function CategoryCatalogCard({
           />
         </dl>
 
-        <p className="mt-5 max-h-12 overflow-hidden text-sm font-medium leading-6 text-slate-500">
-          {formatDescription(category.description)}
+        <p className="mt-4 line-clamp-2 text-sm font-medium leading-6 text-slate-500">
+          {formatDescription(category.description, emptyDescriptionText)}
         </p>
 
         {actions && <div className="mt-4">{actions}</div>}
@@ -113,7 +128,13 @@ function CategoryCatalogCard({
   );
 }
 
-function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) {
+function CategoryThumbnail({
+  category,
+  shape,
+}: {
+  category: CategoryCatalogCardData;
+  shape: "wide" | "square";
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(category.thumbnailPath);
@@ -124,7 +145,11 @@ function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) 
   }, [assetSrc, mediaAssetScopeReady]);
 
   return (
-    <div className="relative flex aspect-[3/2] w-full items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.96),transparent_34%),radial-gradient(circle_at_78%_82%,rgba(244,114,182,0.14),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(253,242,248,0.94)_50%,rgba(252,231,243,0.78))] text-sakura-500">
+    <div
+      className={`relative flex ${
+        shape === "square" ? "aspect-square" : "aspect-[3/2]"
+      } w-full items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.96),transparent_34%),radial-gradient(circle_at_78%_82%,rgba(244,114,182,0.14),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(253,242,248,0.94)_50%,rgba(252,231,243,0.78))] text-sakura-500`}
+    >
       {showImage ? (
         <img
           src={assetSrc ?? undefined}
@@ -202,10 +227,10 @@ function categoryUsageLink(kind: "videos" | "images" | "performers", category: s
   return `/${kind}?category=${encodeURIComponent(category)}`;
 }
 
-function formatDescription(description: string) {
+function formatDescription(description: string, emptyDescriptionText: string) {
   const trimmed = description.trim();
   if (!trimmed) {
-    return "No description yet.";
+    return emptyDescriptionText;
   }
 
   const maxLength = 118;

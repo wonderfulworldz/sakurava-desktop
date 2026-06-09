@@ -1,4 +1,5 @@
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   Grid2X2,
@@ -24,6 +25,11 @@ import {
   findManagedCategoryDescendantKeys,
 } from "../backend/managedCategoryModel";
 import CategoryCatalogCard from "./CategoryCatalogCard";
+import {
+  CATALOG_PAGE_SIZE_OPTIONS,
+  DEFAULT_CATALOG_PAGE_SIZE,
+  type CatalogPageSize,
+} from "../lib/catalogPagination";
 import { getStoredManagedCategories, storeManagedCategories } from "../lib/managedCategories";
 import { selectLocalImageFile } from "../runtime/dialogCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
@@ -67,6 +73,16 @@ type FilterValue =
   | "performers"
   | "active"
   | "unused";
+type ActiveFilterValue = Exclude<FilterValue, "all">;
+type CategoryFilterOption = {
+  value: FilterValue;
+  label: string;
+  chipLabel: string;
+  chipPrefix: string;
+};
+type ActiveCategoryFilterOption = CategoryFilterOption & {
+  value: ActiveFilterValue;
+};
 type SortValue =
   | "name"
   | "usage-desc"
@@ -75,9 +91,30 @@ type SortValue =
   | "created-desc";
 type ViewValue = "card" | "table";
 
-const rowsPerPageOptions = [25, 50, 100] as const;
 const parentPickerRowStyles =
   "group grid h-12 w-full grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-4";
+const categoryTableThumbnailClassName =
+  "category-table-thumbnail-box aspect-square size-11 h-11 w-11 min-h-11 min-w-11 max-h-11 max-w-11 shrink-0 overflow-hidden rounded-lg";
+const filterOptions: CategoryFilterOption[] = [
+  { value: "all", label: "All", chipLabel: "All", chipPrefix: "Filter" },
+  { value: "parent-only", label: "Parent categories", chipLabel: "Parent", chipPrefix: "Parent" },
+  { value: "child-only", label: "Child categories", chipLabel: "Child", chipPrefix: "Parent" },
+  { value: "videos", label: "Used by Videos", chipLabel: "Videos", chipPrefix: "Usage" },
+  { value: "images", label: "Used by Images", chipLabel: "Images", chipPrefix: "Usage" },
+  { value: "performers", label: "Used by Performers", chipLabel: "Performers", chipPrefix: "Usage" },
+  { value: "active", label: "In Use", chipLabel: "Active", chipPrefix: "Status" },
+  { value: "unused", label: "Unused", chipLabel: "Unused", chipPrefix: "Status" },
+];
+const selectableFilterOptions = filterOptions.filter(
+  (option): option is ActiveCategoryFilterOption => option.value !== "all",
+);
+const sortOptions: Array<{ value: SortValue; label: string }> = [
+  { value: "name", label: "Name A-Z" },
+  { value: "usage-desc", label: "Usage high-low" },
+  { value: "usage-asc", label: "Usage low-high" },
+  { value: "updated-desc", label: "Last Updated" },
+  { value: "created-desc", label: "Last Added" },
+];
 
 const emptyForm: FormState = {
   name: "",
@@ -121,15 +158,17 @@ function CategoryManagementPanel() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<FilterValue>("all");
+  const [selectedFilters, setSelectedFilters] = useState<ActiveFilterValue[]>([]);
   const [sort, setSort] = useState<SortValue>("name");
   const [view, setView] = useState<ViewValue>("table");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [expandedParentKeys, setExpandedParentKeys] = useState<Set<string>>(
     () => new Set(),
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<(typeof rowsPerPageOptions)[number]>(
-    25,
+  const [rowsPerPage, setRowsPerPage] = useState<CatalogPageSize>(
+    DEFAULT_CATALOG_PAGE_SIZE,
   );
   const [status, setStatus] = useState<StatusState>({ state: "idle" });
   const [confirmation, setConfirmation] = useState<CategoryConfirmation>(null);
@@ -216,28 +255,13 @@ function CategoryManagementPanel() {
         );
       })
       .filter((row) => {
-        if (filter === "parent-only") {
-          return row.childCount > 0;
+        if (selectedFilters.length === 0) {
+          return true;
         }
-        if (filter === "child-only") {
-          return !!row.category.parentKey;
-        }
-        if (filter === "videos") {
-          return row.usage.videos > 0;
-        }
-        if (filter === "images") {
-          return row.usage.images > 0;
-        }
-        if (filter === "performers") {
-          return row.usage.performers > 0;
-        }
-        if (filter === "active") {
-          return row.usage.total > 0;
-        }
-        if (filter === "unused") {
-          return row.usage.total === 0;
-        }
-        return true;
+
+        return selectedFilters.some((filter) =>
+          matchesCategoryFilter(row, filter),
+        );
       })
       .sort((first, second) => {
         if (sort === "usage-desc") {
@@ -262,22 +286,23 @@ function CategoryManagementPanel() {
           sensitivity: "base",
         });
       });
-  }, [categories, filter, records, search, sort]);
+  }, [categories, records, search, selectedFilters, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+  const numericRowsPerPage = Number(rowsPerPage);
+  const totalPages = Math.max(1, Math.ceil(rows.length / numericRowsPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageStartIndex = (safeCurrentPage - 1) * rowsPerPage;
-  const paginatedRows = rows.slice(pageStartIndex, pageStartIndex + rowsPerPage);
+  const pageStartIndex = (safeCurrentPage - 1) * numericRowsPerPage;
+  const paginatedRows = rows.slice(pageStartIndex, pageStartIndex + numericRowsPerPage);
   const rangeStart = rows.length === 0 ? 0 : pageStartIndex + 1;
-  const rangeEnd = Math.min(pageStartIndex + rowsPerPage, rows.length);
+  const rangeEnd = Math.min(pageStartIndex + numericRowsPerPage, rows.length);
   const rangeText =
     rows.length === 0
-      ? "Showing 0 of 0 categories"
-      : `Showing ${rangeStart}-${rangeEnd} of ${rows.length} categories`;
+      ? "Showing 0 of 0"
+      : `Showing ${rangeStart}-${rangeEnd} of ${rows.length}`;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter, rowsPerPage, search, sort]);
+  }, [rowsPerPage, search, selectedFilters, sort]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -583,6 +608,27 @@ function CategoryManagementPanel() {
     expandedParentKeys,
   );
   const isFormDirty = categoryFormSnapshot(form) !== cleanFormSnapshot;
+  const activeFilterCount = selectedFilters.length;
+  const selectedSortLabel =
+    sortOptions.find((option) => option.value === sort)?.label ?? "Name A-Z";
+  const activeFilterChips = [
+    ...(search.trim()
+      ? [{ key: "search", label: `Search: ${search.trim()}`, onRemove: () => setSearch("") }]
+      : []),
+    ...selectedFilters.map((filter) => {
+      const option = selectableFilterOptions.find((item) => item.value === filter);
+      const label = option
+        ? `${option.chipPrefix}: ${option.chipLabel}`
+        : `Filter: ${filter}`;
+
+      return {
+        key: `filter-${filter}`,
+        label,
+        onRemove: () =>
+          setSelectedFilters((current) => current.filter((item) => item !== filter)),
+      };
+    }),
+  ];
 
   function toggleParentExpansion(key: string) {
     setExpandedParentKeys((current) => {
@@ -602,6 +648,29 @@ function CategoryManagementPanel() {
       return;
     }
     setConfirmation("discard");
+  }
+
+  function clearActiveFilters() {
+    setSearch("");
+    setSelectedFilters([]);
+  }
+
+  function toggleCategoryFilter(nextFilter: FilterValue) {
+    if (nextFilter === "all") {
+      setSelectedFilters([]);
+      return;
+    }
+
+    setSelectedFilters((current) =>
+      current.includes(nextFilter)
+        ? current.filter((filter) => filter !== nextFilter)
+        : [...current, nextFilter],
+    );
+  }
+
+  function updateSort(nextSort: SortValue) {
+    setSort(nextSort);
+    setSortOpen(false);
   }
 
   function closeConfirmation() {
@@ -625,8 +694,8 @@ function CategoryManagementPanel() {
   }
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-col gap-4 px-1 py-2 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-6" data-testid="category-management-page">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1
             aria-label="Category Management"
@@ -645,7 +714,7 @@ function CategoryManagementPanel() {
           className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100"
         >
           <Plus size={20} />
-          Add Entry
+          Add Category
         </button>
       </header>
 
@@ -662,7 +731,9 @@ function CategoryManagementPanel() {
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <label className="space-y-1 text-sm font-medium text-slate-700">
-              <span>Category</span>
+              <span>
+                Category <span className="text-red-600">*</span>
+              </span>
               <input
                 value={form.name}
                 onChange={(event) => {
@@ -700,7 +771,9 @@ function CategoryManagementPanel() {
             </div>
 
             <fieldset className="w-full space-y-2 text-sm font-medium text-slate-700">
-              <legend>Used In</legend>
+              <legend>
+                Used In <span className="text-red-600">*</span>
+              </legend>
               <div
                 aria-label="Used In controls"
                 className="grid w-full grid-cols-3 gap-2 text-sm font-semibold"
@@ -794,7 +867,7 @@ function CategoryManagementPanel() {
               disabled={!canSave}
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              Save Entry
+              Save Category
             </button>
             {editingCategory && (
               <button
@@ -835,8 +908,11 @@ function CategoryManagementPanel() {
           className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
           aria-label="Category Management toolbar"
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_180px_minmax(180px,230px)_auto] xl:items-center">
-            <label className="relative flex-1">
+          <div
+            className="grid grid-cols-[minmax(9rem,1fr)_minmax(8rem,11rem)_minmax(8rem,11rem)_auto] items-center gap-2 sm:gap-3"
+            data-testid="category-management-toolbar-row"
+          >
+            <label className="relative block min-w-0">
               <span className="sr-only">Search categories</span>
               <Search
                 aria-hidden="true"
@@ -851,55 +927,148 @@ function CategoryManagementPanel() {
               />
             </label>
 
-            <label
-              className="flex h-11 min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3"
-              htmlFor="category-management-filter"
+            <div
+              className="relative"
+              onBlur={() => {
+                window.setTimeout(() => setFilterOpen(false), 120);
+              }}
             >
-              <span className="shrink-0 text-xs font-semibold text-slate-500">
-                Filter
-              </span>
-              <select
-                id="category-management-filter"
+              <button
+                type="button"
                 aria-label="Filter categories"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value as FilterValue)}
-                className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none"
+                aria-haspopup="listbox"
+                aria-expanded={filterOpen}
+                onClick={() => {
+                  setSortOpen(false);
+                  setFilterOpen((open) => !open);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setFilterOpen(false);
+                  }
+                }}
+                className="flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left transition hover:border-sakura-200 focus:outline-none focus:ring-4 focus:ring-sakura-100"
               >
-                <option value="all">All</option>
-                <option value="parent-only">Parent</option>
-                <option value="child-only">Child</option>
-                <option value="videos">Videos</option>
-                <option value="images">Images</option>
-                <option value="performers">Performers</option>
-                <option value="active">In Use</option>
-                <option value="unused">Unused</option>
-              </select>
-            </label>
+                <span className="shrink-0 text-xs font-semibold text-slate-500">
+                  Filter
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950">
+                  {selectedFilters.length === 0
+                    ? "All"
+                    : selectedFilters
+                        .map(
+                          (filter) =>
+                            selectableFilterOptions.find((option) => option.value === filter)
+                              ?.chipLabel ?? filter,
+                        )
+                        .join(", ")}
+                </span>
+                <span
+                  aria-label={`${activeFilterCount} active filters`}
+                  className="shrink-0 rounded-md bg-sakura-50 px-2 py-0.5 text-xs font-semibold text-sakura-700"
+                >
+                  {activeFilterCount}
+                </span>
+                <ChevronDown size={16} className="shrink-0 text-slate-400" />
+              </button>
+              {filterOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Category filter options"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                >
+                  {filterOptions.map((option) => {
+                    const selected =
+                      option.value === "all"
+                        ? selectedFilters.length === 0
+                        : selectedFilters.includes(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className={`flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-semibold transition ${
+                          selected
+                            ? "bg-sakura-50 text-sakura-700"
+                            : "bg-white text-slate-700 hover:bg-sakura-50 hover:text-sakura-700"
+                        }`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          toggleCategoryFilter(option.value);
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        {selected && <Check size={15} aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-            <label
-              className="flex h-11 min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3"
-              htmlFor="category-management-sort"
+            <div
+              className="relative"
+              onBlur={() => {
+                window.setTimeout(() => setSortOpen(false), 120);
+              }}
             >
-              <span className="shrink-0 text-xs font-semibold text-slate-500">
-                Sorting
-              </span>
-              <select
-                id="category-management-sort"
-                aria-label="Sort categories"
-                value={sort}
-                onChange={(event) => setSort(event.target.value as SortValue)}
-                className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none"
+              <button
+                type="button"
+                aria-label="Sort"
+                aria-haspopup="listbox"
+                aria-expanded={sortOpen}
+                onClick={() => {
+                  setFilterOpen(false);
+                  setSortOpen((open) => !open);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setSortOpen(false);
+                  }
+                }}
+                className="flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left transition hover:border-sakura-200 focus:outline-none focus:ring-4 focus:ring-sakura-100"
               >
-                <option value="name">Name A-Z</option>
-                <option value="usage-desc">Usage high-low</option>
-                <option value="usage-asc">Usage low-high</option>
-                <option value="updated-desc">Last Updated</option>
-                <option value="created-desc">Last Added</option>
-              </select>
-            </label>
+                <span className="shrink-0 text-xs font-semibold text-slate-500">
+                  Sort
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950">
+                  {selectedSortLabel}
+                </span>
+                <ChevronDown size={16} className="shrink-0 text-slate-400" />
+              </button>
+              {sortOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Sort options"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                >
+                  {sortOptions.map((option) => {
+                    const selected = option.value === sort;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className={`flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-semibold transition ${
+                          selected
+                            ? "bg-sakura-50 text-sakura-700"
+                            : "bg-white text-slate-700 hover:bg-sakura-50 hover:text-sakura-700"
+                        }`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => updateSort(option.value)}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <button
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600 md:justify-self-end xl:justify-self-auto"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
               type="button"
               aria-label={view === "table" ? "Card view" : "Table view"}
               onClick={() => setView(view === "table" ? "card" : "table")}
@@ -908,66 +1077,93 @@ function CategoryManagementPanel() {
               View
             </button>
           </div>
+
+          {activeFilterChips.length > 0 && (
+            <div
+              aria-label="Active category filters"
+              className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex flex-wrap gap-2">
+                {activeFilterChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={chip.onRemove}
+                    className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-sakura-100 bg-sakura-50 px-2.5 text-xs font-semibold text-sakura-700 transition hover:border-sakura-200 hover:bg-white"
+                    aria-label={`Remove ${chip.label} filter`}
+                  >
+                    <span className="truncate">{chip.label}</span>
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={clearActiveFilters}
+                className="h-8 self-start rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-700 sm:self-auto"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
 
         <nav
-          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm lg:flex-row lg:items-center lg:justify-between"
+          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between"
           aria-label="Category Management pagination"
         >
-          <div>{rangeText}</div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <p className="text-sm font-semibold text-slate-600">{rangeText}</p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              <span>Rows per page</span>
+              Page size
               <select
-                aria-label="Rows per page"
+                aria-label="Categories per page"
                 value={rowsPerPage}
                 onChange={(event) =>
-                  setRowsPerPage(
-                    Number(event.target.value) as (typeof rowsPerPageOptions)[number],
-                  )
+                  setRowsPerPage(event.target.value as CatalogPageSize)
                 }
                 className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
               >
-                {rowsPerPageOptions.map((option) => (
+                {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
               </select>
+              <span>per page</span>
             </label>
-            <div className="flex items-center gap-1">
-              {buildPaginationPages(safeCurrentPage, totalPages).map((page) => (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => setCurrentPage(page)}
-                  aria-current={page === safeCurrentPage ? "page" : undefined}
-                  className={`flex size-9 items-center justify-center rounded-lg text-sm font-semibold ${
-                    page === safeCurrentPage
-                      ? "bg-sakura-500 text-white"
-                      : "border border-slate-200 bg-white text-slate-500"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={safeCurrentPage === 1}
-              aria-label="Previous page"
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
             >
               Previous
             </button>
+            {buildPaginationPages(safeCurrentPage, totalPages).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                aria-current={page === safeCurrentPage ? "page" : undefined}
+                aria-label={`Page ${page}`}
+                className={`flex size-9 items-center justify-center rounded-lg text-sm font-semibold ${
+                  page === safeCurrentPage
+                    ? "bg-sakura-500 text-white"
+                    : "border border-slate-200 bg-white text-slate-500"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() =>
                 setCurrentPage((page) => Math.min(totalPages, page + 1))
               }
               disabled={safeCurrentPage === totalPages}
-              aria-label="Next page"
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
             >
               Next
@@ -1003,22 +1199,30 @@ function CategoryManagementPanel() {
                       Edit
                     </button>
                   }
+                  density="compact"
+                  thumbnailShape="square"
+                  emptyDescriptionText="N/A"
                 />
               ))}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] table-fixed text-left text-sm">
+              <table className="w-full min-w-[860px] table-fixed text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="w-20 px-3 py-3 font-semibold">Thumbnail</th>
-                    <th className="w-[28%] px-3 py-3 font-semibold">Name</th>
-                    <th className="w-[34%] px-3 py-3 font-semibold">
+                    <th className="w-12 px-3 py-3 font-semibold">
+                      <span className="sr-only">Hierarchy</span>
+                    </th>
+                    <th className="w-20 px-3 py-3 font-semibold">
+                      <span className="sr-only">Thumbnail</span>
+                    </th>
+                    <th className="w-[22%] px-3 py-3 font-semibold">Name</th>
+                    <th className="w-[16%] px-3 py-3 font-semibold">Parent</th>
+                    <th className="w-[28%] px-3 py-3 font-semibold">
                       Description
                     </th>
                     <th className="w-40 px-3 py-3 font-semibold">Usage</th>
                     <th className="w-24 px-3 py-3 font-semibold">Total Usage</th>
-                    <th className="w-16 px-3 py-3 font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1486,6 +1690,31 @@ function addCategoryUsageCounts(
   };
 }
 
+function matchesCategoryFilter(
+  row: CategoryUsageRow,
+  filter: ActiveFilterValue,
+) {
+  if (filter === "parent-only") {
+    return row.childCount > 0;
+  }
+  if (filter === "child-only") {
+    return !!row.category.parentKey;
+  }
+  if (filter === "videos") {
+    return row.usage.videos > 0;
+  }
+  if (filter === "images") {
+    return row.usage.images > 0;
+  }
+  if (filter === "performers") {
+    return row.usage.performers > 0;
+  }
+  if (filter === "active") {
+    return row.usage.total > 0;
+  }
+  return row.usage.total === 0;
+}
+
 function CategoryTableRow({
   row,
   expanded,
@@ -1500,45 +1729,54 @@ function CategoryTableRow({
   const hasChildren = row.childCount > 0;
   const isChild = row.kind === "child";
   const isParent = row.kind === "parent";
+  const childContentIndentClass = isChild ? "pl-6" : "";
   const nameTitle = row.parent
     ? `${row.category.name} child of ${row.parent.name}`
     : row.category.name;
 
   return (
     <tr
+      onClick={() => onEdit(row.category)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEdit(row.category);
+        }
+      }}
+      tabIndex={0}
+      aria-label={`Edit ${row.category.name}`}
+      data-category-row-kind={row.kind}
+      data-category-child-indent={isChild ? "from-thumbnail" : undefined}
       className={`align-middle ${
         isParent
-          ? "border-l-2 border-sakura-300 bg-sakura-50/70"
+          ? "cursor-pointer bg-slate-50 hover:bg-sakura-50/60"
           : isChild
-            ? "border-l-2 border-slate-200 bg-white"
-            : "bg-white"
+            ? "cursor-pointer bg-white hover:bg-sakura-50/50"
+            : "cursor-pointer bg-white hover:bg-sakura-50/50"
       }`}
     >
       <td className="px-3 py-3">
-        <div
-          className={`flex size-10 shrink-0 items-center justify-center ${
-            isChild ? "ml-10" : ""
-          }`}
-        >
-          <ThumbnailPreview category={row.category} />
-        </div>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleParent(row.category.key);
+              }}
+              aria-label={`${expanded ? "Collapse" : "Expand"} ${row.category.name}`}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-sakura-100"
+            >
+              {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+          ) : null}
+        </span>
       </td>
-      <td className="px-3 py-3">
-        <div className={`flex min-w-0 items-start gap-2 ${isChild ? "pl-4" : ""}`}>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center">
-            {hasChildren ? (
-              <button
-                type="button"
-                onClick={() => onToggleParent(row.category.key)}
-                aria-label={`${expanded ? "Collapse" : "Expand"} ${row.category.name}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-sakura-100"
-              >
-                {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </button>
-            ) : isChild ? (
-              <span className="h-px w-5 bg-slate-300" aria-hidden="true" />
-            ) : null}
-          </span>
+      <td className={`px-3 py-3 ${childContentIndentClass}`}>
+        <ThumbnailPreview category={row.category} />
+      </td>
+      <td className={`px-3 py-3 ${childContentIndentClass}`}>
+        <div className="flex min-w-0 items-start gap-2">
           <div className="min-w-0 flex-1">
             <div
               className={`flex min-w-0 items-center gap-2 truncate font-semibold ${
@@ -1564,15 +1802,28 @@ function CategoryTableRow({
           </div>
         </div>
       </td>
-      <td className="px-3 py-3 text-slate-600">
+      <td className={`px-3 py-3 text-slate-600 ${childContentIndentClass}`}>
+        {row.parent ? (
+          <span
+            className="inline-flex w-fit max-w-full items-center rounded-md border border-sakura-200 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-700"
+            title={row.parent.name}
+            data-testid="category-parent-chip"
+          >
+            <span className="min-w-0 truncate">{row.parent.name}</span>
+          </span>
+        ) : (
+          <span className="text-slate-400">N/A</span>
+        )}
+      </td>
+      <td className={`px-3 py-3 text-slate-600 ${childContentIndentClass}`}>
         <span
           className="line-clamp-2 break-words"
-          title={row.category.description || "No definition"}
+          title={row.category.description || "N/A"}
         >
-          {row.category.description || "No definition"}
+          {row.category.description || "N/A"}
         </span>
       </td>
-      <td className="px-3 py-3 text-slate-600">
+      <td className={`px-3 py-3 text-slate-600 ${childContentIndentClass}`}>
         <div className="flex min-w-0 items-center gap-3 text-xs font-semibold">
           <UsageShortcut
             label="Videos"
@@ -1594,18 +1845,8 @@ function CategoryTableRow({
           />
         </div>
       </td>
-      <td className="px-3 py-3 font-semibold text-slate-900">
+      <td className={`px-3 py-3 font-semibold text-slate-900 ${childContentIndentClass}`}>
         {row.usage.total}
-      </td>
-      <td className="px-3 py-3">
-        <button
-          type="button"
-          onClick={() => onEdit(row.category)}
-          aria-label={`Edit ${row.category.name}`}
-          className="inline-flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-100"
-        >
-          <Pencil size={14} />
-        </button>
       </td>
     </tr>
   );
@@ -1635,6 +1876,7 @@ function UsageShortcut({
       aria-label={`${label} ${value}`}
       title={label}
       to={to}
+      onClick={(event) => event.stopPropagation()}
     >
       {content}
     </Link>
@@ -1668,7 +1910,8 @@ function ThumbnailPreview({ category }: { category: ManagedCategory }) {
     return (
       <div
         aria-label="Category thumbnail placeholder"
-        className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sakura-50 text-sakura-500"
+        data-testid="category-table-thumbnail-placeholder"
+        className={`relative flex ${categoryTableThumbnailClassName} items-center justify-center overflow-hidden bg-sakura-50 text-sakura-500`}
       >
         <span
           className="absolute inset-0 bg-gradient-to-br from-sakura-50 via-rose-50 to-pink-50"
@@ -1683,7 +1926,8 @@ function ThumbnailPreview({ category }: { category: ManagedCategory }) {
     return (
       <div
         aria-label="Thumbnail path saved"
-        className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400"
+        data-testid="category-table-thumbnail-placeholder"
+        className={`flex ${categoryTableThumbnailClassName} items-center justify-center border border-slate-200 bg-slate-50 text-slate-400`}
       >
         <Tags size={16} />
       </div>
@@ -1691,15 +1935,20 @@ function ThumbnailPreview({ category }: { category: ManagedCategory }) {
   }
 
   return (
-    <img
-      src={assetSrc}
-      alt=""
-      className="size-10 shrink-0 rounded-lg border border-slate-200 object-cover"
-      onError={(event) => {
-        event.currentTarget.style.display = "none";
-        setImageFailed(true);
-      }}
-    />
+    <div
+      data-testid="category-table-thumbnail"
+      className={`${categoryTableThumbnailClassName} border border-slate-200 bg-slate-50`}
+    >
+      <img
+        src={assetSrc}
+        alt=""
+        className="h-full w-full object-cover"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+          setImageFailed(true);
+        }}
+      />
+    </div>
   );
 }
 

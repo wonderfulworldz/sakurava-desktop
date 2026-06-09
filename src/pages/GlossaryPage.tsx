@@ -1086,23 +1086,24 @@ function GlossaryPage() {
         </div>
 
         <nav
-          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm lg:flex-row lg:items-center lg:justify-between"
+          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between"
           aria-label="Glossary pagination"
         >
-          <div>
-            Showing {showingStart}-{showingEnd} of {tableRows.length} entries
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <p className="text-sm font-semibold text-slate-600">
+              Showing {showingStart}-{showingEnd} of {tableRows.length}
+            </p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              Rows per page
+              Page size
               <select
                 value={pageSize}
+                aria-label="Terms per page"
                 onChange={(event) =>
                   updatePageSize(
                     Number(event.target.value) as (typeof pageSizeOptions)[number],
                   )
                 }
-                className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
               >
                 {pageSizeOptions.map((option) => (
                   <option key={option} value={option}>
@@ -1110,7 +1111,10 @@ function GlossaryPage() {
                   </option>
                 ))}
               </select>
+              <span>per page</span>
             </label>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={safePage === 1}
@@ -1119,9 +1123,22 @@ function GlossaryPage() {
             >
               Previous
             </button>
-            <span className="rounded-lg bg-sakura-50 px-3 py-2 text-sm font-semibold text-sakura-600">
-              {safePage} / {totalPages}
-            </span>
+            {buildGlossaryPaginationPages(safePage, totalPages).map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                onClick={() => setPage(pageNumber)}
+                aria-current={pageNumber === safePage ? "page" : undefined}
+                aria-label={`Page ${pageNumber}`}
+                className={`flex size-9 items-center justify-center rounded-lg text-sm font-semibold ${
+                  pageNumber === safePage
+                    ? "bg-sakura-500 text-white"
+                    : "border border-slate-200 bg-white text-slate-500"
+                }`}
+              >
+                {pageNumber}
+              </button>
+            ))}
             <button
               type="button"
               disabled={safePage === totalPages}
@@ -1688,16 +1705,27 @@ function PickerShell({
             onSearchChange("");
           }}
         >
-          <span className="flex min-w-0 items-center gap-2">
+          <span
+            className="flex min-w-0 flex-1 items-center gap-2"
+            data-testid={badgeLabel ? "glossary-category-filter-label" : undefined}
+          >
             <span className="truncate">{displayValue}</span>
+          </span>
+          <span className="ml-auto flex shrink-0 items-center gap-2">
             {badgeLabel && (
               <span
                 aria-label={`Selected category filters: ${badgeLabel}`}
+                data-testid="glossary-category-filter-badge"
                 className="inline-flex min-w-6 items-center justify-center rounded-md border border-sakura-200 bg-sakura-50 px-1.5 py-0.5 text-xs font-bold text-sakura-700"
               >
                 {badgeLabel}
               </span>
             )}
+            <ChevronDown
+              size={18}
+              className="text-slate-500"
+              data-testid={badgeLabel ? "glossary-category-filter-chevron" : undefined}
+            />
           </span>
         </button>
       ) : (
@@ -1721,10 +1749,12 @@ function PickerShell({
           }}
         />
       )}
-      <ChevronDown
-        size={18}
-        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
-      />
+      {!buttonTrigger && (
+        <ChevronDown
+          size={18}
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+        />
+      )}
 
       {open && (
         <div
@@ -2075,6 +2105,15 @@ const secondaryButtonClassName =
   "h-11 rounded-lg border border-slate-300 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50";
 
 const paginationButtonClassName =
-  "h-9 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50";
+
+function buildGlossaryPaginationPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: 5 }, (_, index) => start + index);
+}
 
 export default GlossaryPage;

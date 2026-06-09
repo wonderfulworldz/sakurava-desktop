@@ -1761,11 +1761,11 @@ function RelatedControls({
   onSortModeChange: (sortMode: RelatedSortMode) => void;
   onViewModeChange: (viewMode: "card" | "table") => void;
 }) {
+  const rangeStart = itemCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, itemCount);
+
   return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
-      <p className="text-xs font-semibold text-slate-500">
-        {itemCount} {itemCount === 1 ? "item" : "items"}
-      </p>
+    <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -1804,11 +1804,20 @@ function RelatedControls({
             <option value="old">Old Release</option>
           </select>
         </label>
+      </div>
+      <nav
+        className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
+        aria-label="Related section pagination"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <p className="text-sm font-semibold text-slate-600">
+            Showing {rangeStart}-{rangeEnd} of {itemCount}
+          </p>
         <label className="text-xs font-semibold text-slate-500">
-          Per page
+          Page size
           <select
-            aria-label="Per page"
-            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+            aria-label="Related items per page"
+            className="ml-2 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
           >
@@ -1818,29 +1827,55 @@ function RelatedControls({
               </option>
             ))}
           </select>
+          <span className="ml-2">per page</span>
         </label>
+        </div>
+        <div className="flex items-center gap-2">
         <button
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 disabled:opacity-50"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
           Previous
         </button>
-        <span className="text-xs font-semibold text-slate-500">
-          {page} / {totalPages}
-        </span>
+        {buildDetailPaginationPages(page, totalPages).map((pageNumber) => (
+          <button
+            key={pageNumber}
+            type="button"
+            onClick={() => onPageChange(pageNumber)}
+            aria-current={pageNumber === page ? "page" : undefined}
+            aria-label={`Page ${pageNumber}`}
+            className={`flex size-9 items-center justify-center rounded-lg text-sm font-semibold ${
+              pageNumber === page
+                ? "bg-sakura-500 text-white"
+                : "border border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            {pageNumber}
+          </button>
+        ))}
         <button
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 disabled:opacity-50"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
           Next
         </button>
       </div>
+      </nav>
     </div>
   );
+}
+
+function buildDetailPaginationPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: 5 }, (_, index) => start + index);
 }
 
 function RelatedCatalogTable({

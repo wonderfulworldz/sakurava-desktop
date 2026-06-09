@@ -2,13 +2,17 @@ import {
   ChevronDown,
   Filter,
   Grid2X2,
+  Image as ImageIcon,
   List,
   Plus,
   Search,
+  Star,
+  UserRound,
+  Video,
   X,
 } from "lucide-react";
-import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/cards";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
@@ -19,6 +23,7 @@ import {
 import type { ManagedCategory } from "../backend/types";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
+import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 
@@ -223,6 +228,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
               config={config}
               items={pageItems}
               sortValue={sortValue}
+              onFavoriteToggle={onFavoriteToggle}
               onSortChange={(value) => {
                 setSortValue(value);
                 resetToFirstPage();
@@ -1682,39 +1688,49 @@ function CollectionTable({
   config,
   items,
   sortValue,
+  onFavoriteToggle,
   onSortChange,
 }: {
   config: CollectionConfig;
   items: CollectionItem[];
   sortValue: string;
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
   onSortChange: (value: string) => void;
 }) {
   const columns = tableColumns(config.kind);
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="overflow-x-auto">
-        <table className="min-w-full table-fixed divide-y divide-slate-200 text-left text-sm">
+    <section
+      className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+      data-testid={`${config.kind}-catalog-table-card`}
+    >
+      <div className="overflow-x-auto" data-testid={`${config.kind}-catalog-table-scroll`}>
+        <table
+          className={`table-fixed divide-y divide-slate-200 text-left text-sm ${catalogTableMinWidth(config.kind)}`}
+          data-testid={`${config.kind}-catalog-table`}
+        >
           <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.id}
                   aria-sort={ariaSortForColumn(column, sortValue)}
-                  className={["px-4 py-3", column.className ?? ""].join(" ")}
+                  className={["px-3 py-3", column.className ?? ""].join(" ")}
                 >
                   {column.sortValue ? (
                     <button
                       type="button"
-                      aria-label={`Sort by ${column.header}`}
-                      title={`Sort by ${column.header}`}
+                      aria-label={`Sort by ${column.sortLabel ?? column.header}`}
+                      title={`Sort by ${column.sortLabel ?? column.header}`}
                       className={[
                         "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200",
                         sortValue === column.sortValue ? "text-sakura-600" : "",
                       ].join(" ")}
                       onClick={() => onSortChange(column.sortValue!)}
                     >
-                      <span className="truncate">{column.header}</span>
+                      <span className={column.hiddenHeader ? "sr-only" : "truncate"}>
+                        {column.header}
+                      </span>
                       {sortValue === column.sortValue && (
                         <span aria-hidden="true" className="text-[10px] text-sakura-500">
                           {sortDirectionLabel(column.sortValue)}
@@ -1722,7 +1738,9 @@ function CollectionTable({
                       )}
                     </button>
                   ) : (
-                    <span className="block truncate">{column.header}</span>
+                    <span className={column.hiddenHeader ? "sr-only" : "block truncate"}>
+                      {column.header}
+                    </span>
                   )}
                 </th>
               ))}
@@ -1735,6 +1753,7 @@ function CollectionTable({
                 config={config}
                 item={item}
                 columns={columns}
+                onFavoriteToggle={onFavoriteToggle}
               />
             ))}
           </tbody>
@@ -1748,30 +1767,37 @@ function CollectionTableRow({
   config,
   item,
   columns,
+  onFavoriteToggle,
 }: {
   config: CollectionConfig;
   item: CollectionItem;
   columns: TableColumn[];
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
 }) {
+  const navigate = useNavigate();
+  const detailPath = `/${config.kind}/${item.key}`;
+
+  const openDetail = () => navigate(detailPath);
+
   return (
-    <tr className="transition hover:bg-sakura-50/60">
-      {columns.map((column, index) => (
+    <tr
+      className="cursor-pointer align-middle transition hover:bg-sakura-50/60"
+      aria-label={`Open ${getPrimaryTitle(item)}`}
+      tabIndex={0}
+      onClick={openDetail}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetail();
+        }
+      }}
+    >
+      {columns.map((column) => (
         <td
           key={`${item.key}-${column.id}`}
-          className={["px-4 py-3 text-slate-700", column.className ?? ""].join(" ")}
+          className={["px-3 py-3 text-slate-700", column.className ?? ""].join(" ")}
         >
-          <Link
-            to={`/${config.kind}/${item.key}`}
-            className={[
-              "block truncate",
-              index === 0
-                ? "font-semibold text-slate-950 hover:text-sakura-600"
-                : "",
-            ].join(" ")}
-            title={column.value(item)}
-          >
-            {column.value(item)}
-          </Link>
+          {column.render(item, config, onFavoriteToggle)}
         </td>
       ))}
     </tr>
@@ -2494,66 +2520,110 @@ function pageNumbers(pageCount: number) {
 type TableColumn = {
   id: string;
   header: string;
+  sortLabel?: string;
   sortValue?: string;
   className?: string;
-  value: (item: CollectionItem) => string;
+  hiddenHeader?: boolean;
+  render: (
+    item: CollectionItem,
+    config: CollectionConfig,
+    onFavoriteToggle?: (key: string, currentFavorite: boolean) => void,
+  ) => ReactNode;
 };
 
 function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
   if (kind === "performers") {
     return [
       {
-        id: "name",
-        header: "Name",
-        sortValue: "Name A-Z",
-        className: "w-56",
-        value: (item) => item.kind === "performers" ? item.name : "",
-      },
-      {
-        id: "categories",
-        header: "Categories",
-        className: "w-52",
-        value: (item) => categorySummary(item.categories),
-      },
-      {
         id: "status",
-        header: "Status",
+        header: "STATUS",
+        sortLabel: "Status",
         sortValue: "Status",
         className: "w-32",
-        value: (item) => item.kind === "performers" ? item.status : "",
+        render: (item) =>
+          item.kind === "performers" ? (
+            <StatusChip value={formatPerformerStatus(item.status)} tone="performer-status" />
+          ) : null,
       },
       {
-        id: "rating",
-        header: "Rating",
-        sortValue: "Rating",
-        className: "w-28",
-        value: ratingSummary,
-      },
-      {
-        id: "debutYear",
-        header: "Debut Year",
-        className: "w-32",
-        value: (item) => item.kind === "performers" ? yearSummary(item.debutYear) : "",
-      },
-      {
-        id: "filmography",
-        header: "Filmography",
-        sortValue: "Filmography",
-        className: "w-36",
-        value: (item) => item.kind === "performers" ? item.filmographyCount : "",
-      },
-      {
-        id: "pictorials",
-        header: "Pictorials",
-        sortValue: "Pictorials",
-        className: "w-32",
-        value: (item) => item.kind === "performers" ? item.pictorialsCount : "",
+        id: "thumbnail",
+        header: "THUMBNAIL",
+        hiddenHeader: true,
+        className: "w-24",
+        render: (item, config) => (
+          <CatalogTableThumbnail item={item} placeholderLabel={config.placeholderLabel} />
+        ),
       },
       {
         id: "favorite",
-        header: "Favorite",
+        header: "FAVORITE",
+        hiddenHeader: true,
+        className: "w-16",
+        render: (item, _config, onFavoriteToggle) => (
+          <CatalogTableFavorite item={item} onFavoriteToggle={onFavoriteToggle} />
+        ),
+      },
+      {
+        id: "name",
+        header: "NAME",
+        sortLabel: "Name",
+        sortValue: "Name A-Z",
+        className: "w-64",
+        render: (item) => <PrimaryTextCell value={item.kind === "performers" ? item.name : ""} />,
+      },
+      {
+        id: "categories",
+        header: "CATEGORIES",
+        className: "w-60",
+        render: (item) => <CatalogCategoryChips categories={item.categories} />,
+      },
+      {
+        id: "debutYear",
+        header: "DEBUT",
+        className: "w-32",
+        render: (item) => (
+          <PlainTableValue value={item.kind === "performers" ? formatYear(item.debutYear) : tableNA} />
+        ),
+      },
+      {
+        id: "filmography",
+        header: "FILMOGRAPHY",
+        sortLabel: "Filmography",
+        sortValue: "Filmography",
+        className: "w-36",
+        render: (item) => (
+          <PlainTableValue
+            value={
+              item.kind === "performers"
+                ? formatCount(item.filmographyCountValue, "video", "videos")
+                : tableNA
+            }
+          />
+        ),
+      },
+      {
+        id: "pictorials",
+        header: "PICTORIALS",
+        sortLabel: "Pictorials",
+        sortValue: "Pictorials",
+        className: "w-32",
+        render: (item) => (
+          <PlainTableValue
+            value={
+              item.kind === "performers"
+                ? formatCount(item.pictorialsCountValue, "set", "sets")
+                : tableNA
+            }
+          />
+        ),
+      },
+      {
+        id: "rating",
+        header: "RATING",
+        sortLabel: "Rating",
+        sortValue: "Rating",
         className: "w-28",
-        value: favoriteSummary,
+        render: (item) => <RatingChip value={formatRating(item)} />,
       },
     ];
   }
@@ -2561,112 +2631,202 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
   if (kind === "images") {
     return [
       {
-        id: "title",
-        header: "Title",
-        sortValue: "Title A-Z",
-        className: "w-64",
-        value: (item) => item.kind === "images" ? item.title : "",
-      },
-      {
-        id: "code",
-        header: "Code",
-        className: "w-32",
-        value: (item) => item.kind === "images" ? fallbackText(item.code) : "",
-      },
-      {
-        id: "categories",
-        header: "Categories",
-        className: "w-52",
-        value: (item) => categorySummary(item.categories),
-      },
-      {
-        id: "rating",
-        header: "Rating",
-        sortValue: "Rating",
-        className: "w-28",
-        value: ratingSummary,
-      },
-      {
-        id: "year",
-        header: "Year",
-        sortValue: "Release Year",
-        className: "w-24",
-        value: (item) => item.kind === "images" ? yearSummary(item.releaseYear) : "",
-      },
-      {
-        id: "imageCount",
-        header: "Image Count",
-        sortValue: "Image Count",
+        id: "availability",
+        header: "AVAILABILITY",
         className: "w-36",
-        value: (item) => item.kind === "images" ? item.imageCount : "",
+        render: (item) =>
+          item.kind === "images" ? (
+            <StatusChip value={formatAvailability(item.availability)} tone="availability" />
+          ) : null,
       },
       {
-        id: "quality",
-        header: "Quality",
+        id: "thumbnail",
+        header: "THUMBNAIL",
+        hiddenHeader: true,
         className: "w-28",
-        value: (item) => item.kind === "images" ? fallbackText(item.quality) : "",
+        render: (item, config) => (
+          <CatalogTableThumbnail item={item} placeholderLabel={config.placeholderLabel} />
+        ),
       },
       {
         id: "favorite",
-        header: "Favorite",
+        header: "FAVORITE",
+        hiddenHeader: true,
+        className: "w-16",
+        render: (item, _config, onFavoriteToggle) => (
+          <CatalogTableFavorite item={item} onFavoriteToggle={onFavoriteToggle} />
+        ),
+      },
+      {
+        id: "title",
+        header: "TITLE",
+        sortLabel: "Title",
+        sortValue: "Title A-Z",
+        className: "w-64",
+        render: (item) => <PrimaryTextCell value={item.kind === "images" ? item.title : ""} />,
+      },
+      {
+        id: "code",
+        header: "CODE",
+        className: "w-32",
+        render: (item) => (
+          <PlainTableValue value={item.kind === "images" ? formatTableValue(item.code) : tableNA} />
+        ),
+      },
+      {
+        id: "categories",
+        header: "CATEGORIES",
+        className: "w-60",
+        render: (item) => <CatalogCategoryChips categories={item.categories} />,
+      },
+      {
+        id: "year",
+        header: "RELEASE",
+        sortLabel: "Release Year",
+        sortValue: "Release Year",
+        className: "w-24",
+        render: (item) => (
+          <PlainTableValue value={item.kind === "images" ? formatYear(item.releaseYear) : tableNA} />
+        ),
+      },
+      {
+        id: "imageCount",
+        header: "TOTAL PICS",
+        sortLabel: "Image Count",
+        sortValue: "Image Count",
+        className: "w-36",
+        render: (item) => (
+          <PlainTableValue
+            value={
+              item.kind === "images"
+                ? formatCount(item.imageCountValue, "pic", "pics")
+                : tableNA
+            }
+          />
+        ),
+      },
+      {
+        id: "quality",
+        header: "QUALITY",
         className: "w-28",
-        value: favoriteSummary,
+        render: (item) => (
+          <PlainTableValue value={item.kind === "images" ? formatTableValue(item.quality) : tableNA} />
+        ),
+      },
+      {
+        id: "censorship",
+        header: "CENSORSHIP",
+        className: "w-32",
+        render: (item) =>
+          item.kind === "images" ? (
+            <StatusChip value={formatCensorship(item.censorship)} tone="censorship" />
+          ) : null,
+      },
+      {
+        id: "rating",
+        header: "RATING",
+        sortLabel: "Rating",
+        sortValue: "Rating",
+        className: "w-28",
+        render: (item) => <RatingChip value={formatRating(item)} />,
       },
     ];
   }
 
   return [
     {
-      id: "title",
-      header: "Title",
-      sortValue: "Title A-Z",
-      className: "w-64",
-      value: (item) => item.kind === "videos" ? item.title : "",
+      id: "availability",
+      header: "AVAILABILITY",
+      className: "w-36",
+      render: (item) =>
+        item.kind === "videos" ? (
+          <StatusChip value={formatAvailability(item.availability)} tone="availability" />
+        ) : null,
     },
     {
-      id: "code",
-      header: "Code",
-      className: "w-32",
-      value: (item) => item.kind === "videos" ? fallbackText(item.code) : "",
-    },
-    {
-      id: "categories",
-      header: "Categories",
-      className: "w-52",
-      value: (item) => categorySummary(item.categories),
-    },
-    {
-      id: "rating",
-      header: "Rating",
-      sortValue: "Rating",
+      id: "thumbnail",
+      header: "THUMBNAIL",
+      hiddenHeader: true,
       className: "w-28",
-      value: ratingSummary,
-    },
-    {
-      id: "year",
-      header: "Year",
-      sortValue: "Release Year",
-      className: "w-24",
-      value: (item) => item.kind === "videos" ? yearSummary(item.releaseYear) : "",
-    },
-    {
-      id: "duration",
-      header: "Duration",
-      sortValue: "Duration",
-      className: "w-28",
-      value: (item) => item.kind === "videos" ? fallbackText(item.duration) : "",
-    },
-    {
-      id: "quality",
-      header: "Quality",
-      className: "w-28",
-      value: (item) => item.kind === "videos" ? fallbackText(item.quality) : "",
+      render: (item, config) => (
+        <CatalogTableThumbnail item={item} placeholderLabel={config.placeholderLabel} />
+      ),
     },
     {
       id: "favorite",
-      header: "Favorite",
+      header: "FAVORITE",
+      hiddenHeader: true,
+      className: "w-16",
+      render: (item, _config, onFavoriteToggle) => (
+        <CatalogTableFavorite item={item} onFavoriteToggle={onFavoriteToggle} />
+      ),
+    },
+    {
+      id: "title",
+      header: "TITLE",
+      sortLabel: "Title",
+      sortValue: "Title A-Z",
+      className: "w-64",
+      render: (item) => <PrimaryTextCell value={item.kind === "videos" ? item.title : ""} />,
+    },
+    {
+      id: "code",
+      header: "CODE",
+      className: "w-32",
+      render: (item) => (
+        <PlainTableValue value={item.kind === "videos" ? formatTableValue(item.code) : tableNA} />
+      ),
+    },
+    {
+      id: "categories",
+      header: "CATEGORIES",
+      className: "w-60",
+      render: (item) => <CatalogCategoryChips categories={item.categories} />,
+    },
+    {
+      id: "year",
+      header: "RELEASE",
+      sortLabel: "Release Year",
+      sortValue: "Release Year",
+      className: "w-24",
+      render: (item) => (
+        <PlainTableValue value={item.kind === "videos" ? formatYear(item.releaseYear) : tableNA} />
+      ),
+    },
+    {
+      id: "duration",
+      header: "DURATION",
+      sortLabel: "Duration",
+      sortValue: "Duration",
       className: "w-28",
-      value: favoriteSummary,
+      render: (item) => (
+        <PlainTableValue value={item.kind === "videos" ? formatDuration(item) : tableNA} />
+      ),
+    },
+    {
+      id: "quality",
+      header: "QUALITY",
+      className: "w-28",
+      render: (item) => (
+        <PlainTableValue value={item.kind === "videos" ? formatTableValue(item.quality) : tableNA} />
+      ),
+    },
+    {
+      id: "rating",
+      header: "RATING",
+      sortLabel: "Rating",
+      sortValue: "Rating",
+      className: "w-28",
+      render: (item) => <RatingChip value={formatRating(item)} />,
+    },
+    {
+      id: "censorship",
+      header: "CENSORSHIP",
+      className: "w-32",
+      render: (item) =>
+        item.kind === "videos" ? (
+          <StatusChip value={formatCensorship(item.censorship)} tone="censorship" />
+        ) : null,
     },
   ];
 }
@@ -2687,25 +2847,363 @@ function sortDirectionLabel(sortValue: string) {
   return sortDirectionForValue(sortValue) === "ascending" ? "ASC" : "DESC";
 }
 
-function categorySummary(categories: string[]) {
-  return categories.length > 0 ? categories.join(", ") : "None";
+const tableNA = "N/A";
+
+function catalogTableMinWidth(kind: CollectionConfig["kind"]) {
+  if (kind === "performers") {
+    return "min-w-[1040px]";
+  }
+
+  return "min-w-[1320px]";
 }
 
-function ratingSummary(item: CollectionItem) {
-  return typeof item.ratingBucket === "number" ? `${item.ratingBucket} star` : "Unrated";
-}
+function formatTableValue(value: string | number | null | undefined) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value !== 0 ? String(value) : tableNA;
+  }
 
-function yearSummary(year: number | null | undefined) {
-  return typeof year === "number" && Number.isInteger(year) ? String(year) : "Unknown";
-}
-
-function favoriteSummary(item: CollectionItem) {
-  return item.favorite ? "Favorite" : "Not favorite";
-}
-
-function fallbackText(value: string | null | undefined) {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : "Unknown";
+  if (!trimmed) {
+    return tableNA;
+  }
+
+  if (
+    trimmed === "-" ||
+    trimmed === "0" ||
+    trimmed.toLowerCase() === "null" ||
+    trimmed.toLowerCase() === "undefined" ||
+    trimmed.toLowerCase() === "nan" ||
+    trimmed.toLowerCase() === "not set" ||
+    trimmed.toLowerCase() === "unspecified" ||
+    trimmed.toLowerCase() === "no code" ||
+    trimmed.toLowerCase() === "no quality"
+  ) {
+    return tableNA;
+  }
+
+  return trimmed === "Unknow" ? "Unknown" : trimmed;
+}
+
+function formatYear(year: number | null | undefined) {
+  return typeof year === "number" && Number.isInteger(year) && year > 0
+    ? String(year)
+    : tableNA;
+}
+
+function formatCount(
+  count: number | null | undefined,
+  singular: string,
+  plural: string,
+) {
+  if (typeof count !== "number" || !Number.isFinite(count) || count <= 0) {
+    return tableNA;
+  }
+
+  return `${count.toLocaleString()} ${count === 1 ? singular : plural}`;
+}
+
+function formatDuration(item: CollectionItem) {
+  if (item.kind !== "videos") {
+    return tableNA;
+  }
+
+  const minutes = item.durationMinutes;
+  if (typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (hours > 0 && remainingMinutes > 0) {
+      return `${hours}h ${remainingMinutes}m`;
+    }
+
+    if (hours > 0) {
+      return `${hours}h`;
+    }
+
+    return `${minutes} min`;
+  }
+
+  return formatTableValue(item.duration);
+}
+
+function formatRating(item: CollectionItem) {
+  const value = item.ratingBucket;
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value.toFixed(1)
+    : tableNA;
+}
+
+function normalizeUnknown(value: string | null | undefined) {
+  const formatted = formatTableValue(value);
+  if (formatted === tableNA) {
+    return tableNA;
+  }
+
+  return formatted.toLowerCase() === "unknow" ? "Unknown" : formatted;
+}
+
+function formatAvailability(value: string | null | undefined) {
+  const formatted = normalizeUnknown(value);
+  if (formatted === tableNA) {
+    return tableNA;
+  }
+
+  const normalized = formatted.toLowerCase();
+  if (normalized === "owned") {
+    return "Owned";
+  }
+  if (normalized === "not owned" || normalized === "notowned") {
+    return "Not Owned";
+  }
+  if (normalized === "missing") {
+    return "Missing";
+  }
+
+  return formatted;
+}
+
+function formatCensorship(value: string | null | undefined) {
+  const formatted = normalizeUnknown(value);
+  if (formatted === tableNA) {
+    return tableNA;
+  }
+
+  const normalized = formatted.toLowerCase();
+  if (normalized === "censored") {
+    return "Censored";
+  }
+  if (normalized === "uncensored") {
+    return "Uncensored";
+  }
+  if (normalized === "leaked") {
+    return "Leaked";
+  }
+  if (normalized === "unknown" || normalized === "reduced") {
+    return "Unknown";
+  }
+
+  return formatted;
+}
+
+function formatPerformerStatus(value: string | null | undefined) {
+  const formatted = normalizeUnknown(value);
+  if (formatted === tableNA) {
+    return tableNA;
+  }
+
+  const normalized = formatted.toLowerCase();
+  if (normalized === "active") {
+    return "Active";
+  }
+  if (normalized === "retired") {
+    return "Retired";
+  }
+  if (normalized === "unknown") {
+    return "Unknown";
+  }
+
+  return formatted;
+}
+
+function PrimaryTextCell({ value }: { value: string | null | undefined }) {
+  const formatted = formatTableValue(value);
+  return (
+    <span
+      className="block truncate font-semibold text-slate-950"
+      title={formatted}
+      data-testid="catalog-table-primary-text"
+    >
+      {formatted}
+    </span>
+  );
+}
+
+function PlainTableValue({ value }: { value: string }) {
+  return (
+    <span className="block truncate" title={value}>
+      {value}
+    </span>
+  );
+}
+
+function CatalogCategoryChips({ categories }: { categories: string[] }) {
+  const cleanCategories = categories
+    .map((category) => category.trim())
+    .filter(Boolean);
+
+  if (cleanCategories.length === 0) {
+    return <PlainTableValue value={tableNA} />;
+  }
+
+  const visibleCategories = cleanCategories.slice(0, 2);
+  const hiddenCount = cleanCategories.length - visibleCategories.length;
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1.5 overflow-hidden"
+      title={cleanCategories.join(", ")}
+      data-testid="catalog-table-category-chips"
+    >
+      {visibleCategories.map((category) => (
+        <span
+          key={category}
+          className="inline-flex max-w-[7rem] shrink items-center rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700"
+        >
+          <span className="truncate">{category}</span>
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <span
+          className="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"
+          aria-label={`${hiddenCount} more categories`}
+        >
+          +{hiddenCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function StatusChip({
+  value,
+  tone,
+}: {
+  value: string;
+  tone: "availability" | "censorship" | "performer-status";
+}) {
+  const className = [
+    "inline-flex w-fit max-w-full items-center rounded-md border px-2.5 py-1 text-xs font-semibold",
+    tableChipToneClassName(value, tone),
+  ].join(" ");
+
+  return (
+    <span className={className} title={value} data-testid="catalog-table-status-chip">
+      <span className="truncate">{value}</span>
+    </span>
+  );
+}
+
+function RatingChip({ value }: { value: string }) {
+  return (
+    <span
+      className="inline-flex w-fit max-w-full items-center rounded-md border border-sakura-200 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-700"
+      title={value}
+      data-testid="catalog-table-rating-chip"
+    >
+      {value}
+    </span>
+  );
+}
+
+function tableChipToneClassName(
+  value: string,
+  tone: "availability" | "censorship" | "performer-status",
+) {
+  if (value === tableNA) {
+    return "border-slate-200 bg-slate-50 text-slate-500";
+  }
+
+  if (tone === "availability") {
+    if (value === "Owned") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+    if (value === "Not Owned") {
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    }
+    if (value === "Missing") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+  }
+
+  if (tone === "performer-status") {
+    if (value === "Active") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+    if (value === "Retired") {
+      return "border-slate-200 bg-slate-50 text-slate-600";
+    }
+    if (value === "Unknown") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+  }
+
+  if (value === "Unknown") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
+function CatalogTableThumbnail({
+  item,
+  placeholderLabel,
+}: {
+  item: CollectionItem;
+  placeholderLabel: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const assetSrc = localImagePathToAssetSrc(item.coverPath);
+  const showImage = Boolean(assetSrc && !imageFailed);
+  const isPerformer = item.kind === "performers";
+  const Icon = item.kind === "videos" ? Video : item.kind === "images" ? ImageIcon : UserRound;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [assetSrc]);
+
+  return (
+    <div
+      className={[
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sakura-50 text-sakura-500",
+        isPerformer ? "h-14 w-11" : "h-12 w-20",
+      ].join(" ")}
+      data-testid={`${item.kind}-catalog-table-thumbnail`}
+      data-thumbnail-shape={isPerformer ? "portrait" : "16:9"}
+      role={showImage ? undefined : "img"}
+      aria-label={showImage ? undefined : placeholderLabel}
+    >
+      {showImage ? (
+        <img
+          src={assetSrc ?? undefined}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <Icon size={18} aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
+function CatalogTableFavorite({
+  item,
+  onFavoriteToggle,
+}: {
+  item: CollectionItem;
+  onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={item.favorite ? "Remove from Favorites" : "Add to Favorites"}
+      title={item.favorite ? "Favorite" : "Not favorite"}
+      className={[
+        "inline-flex size-9 items-center justify-center rounded-lg border transition focus:outline-none focus:ring-2 focus:ring-sakura-200",
+        item.favorite
+          ? "border-sakura-200 bg-sakura-50 text-sakura-600"
+          : "border-slate-200 bg-white text-slate-400 hover:border-sakura-200 hover:text-sakura-500",
+      ].join(" ")}
+      data-testid="catalog-table-favorite-button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onFavoriteToggle?.(item.key, item.favorite);
+      }}
+    >
+      <Star size={16} fill={item.favorite ? "currentColor" : "none"} aria-hidden="true" />
+    </button>
+  );
 }
 
 export default CollectionPage;
