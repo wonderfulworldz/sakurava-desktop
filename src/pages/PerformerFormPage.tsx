@@ -101,6 +101,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
         aliases,
         performerRelatedVideos,
         performerRelatedImages,
+        sourceLinks,
       }) => {
         if (!isPerformerRuntimeAvailable()) {
           return {
@@ -118,6 +119,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
               aliases,
               performerRelatedVideos,
               performerRelatedImages,
+              sourceLinks,
             ),
           );
           navigate(`/performers/${created.id}`);
@@ -136,6 +138,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
             aliases,
             performerRelatedVideos,
             performerRelatedImages,
+            sourceLinks,
           ),
         );
         if (!updated) {

@@ -4399,9 +4399,15 @@ describe("App", () => {
       .not.toBeInTheDocument();
   });
 
-  it("renders Source Links as deferred title and link rows", () => {
+  it("renders functional Source Links row controls", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
+
+    expect(screen.getByText("No source links added.")).toBeInTheDocument();
+    expect(screen.queryByText("Deferred: source links are not saved yet."))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
 
     expect(screen.getByLabelText("Source Link Title 1")).toHaveAttribute(
       "placeholder",
@@ -4409,19 +4415,45 @@ describe("App", () => {
     );
     expect(screen.getByLabelText("Source Link URL 1")).toHaveAttribute(
       "placeholder",
-      "Link 1",
+      "URL 1",
     );
-    expect(screen.getByText("Deferred: source links are not saved yet."))
+    expect(screen.getByRole("button", { name: "Remove Source Link 1" }))
       .toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
-      .not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
 
     expect(screen.getByLabelText("Source Link Title 2")).toBeInTheDocument();
     expect(screen.getByLabelText("Source Link URL 2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete Source Link 2" }))
+    expect(screen.getByRole("button", { name: "Remove Source Link 2" }))
       .toBeInTheDocument();
+  });
+
+  it("removes one Source Link row without clearing the others", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "First source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/first" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link Title 2"), {
+      target: { value: "Second source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 2"), {
+      target: { value: "https://example.invalid/second" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Source Link 1" }));
+
+    expect(screen.getByLabelText("Source Link Title 1"))
+      .toHaveValue("Second source");
+    expect(screen.getByLabelText("Source Link URL 1"))
+      .toHaveValue("https://example.invalid/second");
+    expect(screen.queryByDisplayValue("First source")).not.toBeInTheDocument();
   });
 
   it("renders Availability and Performer Status with matching rectangular chip sets", () => {
@@ -7992,8 +8024,6 @@ describe("App", () => {
     expect(within(physical).getByText("Body Type")).toBeInTheDocument();
     expect(within(physical).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Source Links")).toBeInTheDocument();
-    expect(screen.queryByText("Deferred: source links are not saved yet."))
-      .not.toBeInTheDocument();
   });
 
   it("does not render Gender or Body Type metadata on Video and Image Detail", async () => {
@@ -8061,8 +8091,8 @@ describe("App", () => {
       "video_get",
       persistedVideo({
         title: "Source Video",
-        sourceTitle: "Studio source",
-        sourceUrl: "https://example.invalid/video/source",
+        sourceLinksJson:
+          '[{"title":"Studio source","url":"https://example.invalid/video/source"}]',
       }),
     ],
     [
@@ -8070,8 +8100,8 @@ describe("App", () => {
       "image_get",
       persistedImage({
         title: "Source Image",
-        sourceTitle: "Image source",
-        sourceUrl: "https://example.invalid/image/source",
+        sourceLinksJson:
+          '[{"title":"Image source","url":"https://example.invalid/image/source"}]',
       }),
     ],
     [
@@ -8079,8 +8109,8 @@ describe("App", () => {
       "performer_get",
       persistedPerformer({
         name: "Source Performer",
-        sourceTitle: "Performer source",
-        sourceUrl: "https://example.invalid/performer/source",
+        sourceLinksJson:
+          '[{"title":"Performer source","url":"https://example.invalid/performer/source"}]',
       }),
     ],
   ])("renders safe Source Links on Detail for %s", async (path, getCommand, record) => {
@@ -9201,6 +9231,9 @@ describe("App", () => {
           expect(args.input.title).toBe("Created Video");
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
           expect(args.input.relatedPerformersJson).toBe("[]");
+          expect(args.input.sourceLinksJson).toBe(
+            '[{"title":"Official source","url":"https://example.invalid/video"}]',
+          );
           return created;
         }
         if (command === "video_get") {
@@ -9226,6 +9259,13 @@ describe("App", () => {
       target: { value: "typed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: " Official source " },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: " https://example.invalid/video " },
+    });
     fillVideoRatingFields();
     clickSaveAndConfirm();
 
@@ -10476,11 +10516,15 @@ describe("App", () => {
       title: "Existing Video",
       categoriesJson: '["Classic"]',
       ratingJson: '{"rewatch":3}',
+      sourceLinksJson:
+        '[{"title":"Existing source","url":"https://example.invalid/old-video"}]',
     });
     const updated = persistedVideo({
       title: "Updated Video",
       categoriesJson: '["Classic","Updated"]',
       ratingJson: '{"rewatch":5}',
+      sourceLinksJson:
+        '[{"title":"Updated source","url":"https://example.invalid/new-video"}]',
     });
     let currentVideo = existing;
     const invoke = vi.fn(
@@ -10508,6 +10552,9 @@ describe("App", () => {
           expect(args.patch.title).toBe("Updated Video");
           expect(args.patch.categoriesJson).toBe('["Classic","Updated"]');
           expect(args.patch.relatedPerformersJson).toBe("[]");
+          expect(args.patch.sourceLinksJson).toBe(
+            '[{"title":"Updated source","url":"https://example.invalid/new-video"}]',
+          );
           expect(args.patch.ratingJson).toContain('"rewatch":5');
           currentVideo = updated;
           return updated;
@@ -10529,8 +10576,17 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Video")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Existing source")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.invalid/old-video"))
+      .toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Video" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Updated source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/new-video" },
     });
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "updated" },
@@ -10582,6 +10638,9 @@ describe("App", () => {
             '["C:/Gallery/one.jpg","C:/Gallery/two.jpg"]',
           );
           expect(args.input.relatedPerformersJson).toBe("[]");
+          expect(args.input.sourceLinksJson).toBe(
+            '[{"title":"Image source","url":"https://example.invalid/image"}]',
+          );
           return created;
         }
         if (command === "image_get") {
@@ -10621,6 +10680,13 @@ describe("App", () => {
       target: { value: "typed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Image source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/image" },
+    });
     fillImageRatingFields();
     clickSaveAndConfirm();
 
@@ -10857,12 +10923,16 @@ describe("App", () => {
         '["C:/Gallery/existing-one.jpg","C:/Gallery/existing-two.jpg"]',
       categoriesJson: '["Portrait"]',
       ratingJson: '{"memorability":3}',
+      sourceLinksJson:
+        '[{"title":"Existing image source","url":"https://example.invalid/old-image"}]',
     });
     const updated = persistedImage({
       title: "Updated Image",
       galleryImagePathsJson: '["C:/Gallery/updated.jpg"]',
       categoriesJson: '["Portrait","Updated"]',
       ratingJson: '{"memorability":5}',
+      sourceLinksJson:
+        '[{"title":"","url":"https://example.invalid/url-only-image"}]',
     });
     let currentImage = existing;
     const invoke = vi.fn(
@@ -10879,6 +10949,9 @@ describe("App", () => {
             '["C:/Gallery/updated.jpg","C:/Gallery/existing-two.jpg"]',
           );
           expect(args.patch.relatedPerformersJson).toBe("[]");
+          expect(args.patch.sourceLinksJson).toBe(
+            '[{"title":"","url":"https://example.invalid/url-only-image"}]',
+          );
           expect(args.patch.ratingJson).toContain('"memorability":5');
           currentImage = updated;
           return updated;
@@ -10897,9 +10970,18 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Image")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Existing image source")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.invalid/old-image"))
+      .toBeInTheDocument();
     expect(
       screen.getByDisplayValue("C:/Gallery/existing-one.jpg"),
     ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/url-only-image" },
+    });
     fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
       target: { value: " C:/Gallery/updated.jpg " },
     });
@@ -12730,6 +12812,9 @@ describe("App", () => {
           expect(args.input.name).toBe("Created Performer");
           expect(args.input.aliasesJson).toBe('["Typed Alias"]');
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          expect(args.input.sourceLinksJson).toBe(
+            '[{"title":"Performer source","url":"https://example.invalid/performer"}]',
+          );
           expect(args.input.performerThumbnailPathsJson).toBe(
             '["D:/Thumbs/created-1.jpg","D:/Thumbs/created-2.jpg"]',
           );
@@ -12837,6 +12922,13 @@ describe("App", () => {
       target: { value: "related image" },
     });
     fireEvent.click(await screen.findByRole("button", { name: "Add related image Related Image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Performer source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/performer" },
+    });
     fireEvent.change(screen.getByLabelText("Thumbnail 1"), {
       target: { value: " D:/Thumbs/created-1.jpg " },
     });
@@ -13143,12 +13235,16 @@ describe("App", () => {
         '["D:/Thumbs/existing-1.jpg","D:/Thumbs/existing-2.jpg"]',
       categoriesJson: '["Classic"]',
       ratingJson: '{"attraction":3}',
+      sourceLinksJson:
+        '[{"title":"Existing performer source","url":"https://example.invalid/old-performer"}]',
     });
     const updated = persistedPerformer({
       name: "Updated Performer",
       aliasesJson: '["Alias One","Alias Two"]',
       categoriesJson: '["Classic","Updated"]',
       ratingJson: '{"attraction":5}',
+      sourceLinksJson:
+        '[{"title":"Updated performer source","url":"https://example.invalid/new-performer"}]',
     });
     let currentPerformer = existing;
     const invoke = vi.fn(
@@ -13183,6 +13279,9 @@ describe("App", () => {
           expect(args.patch.relatedImagesJson).toBe(
             '[{"recordId":"image_existing","titleSnapshot":"Existing Image"}]',
           );
+          expect(args.patch.sourceLinksJson).toBe(
+            '[{"title":"Updated performer source","url":"https://example.invalid/new-performer"}]',
+          );
           currentPerformer = updated;
           return updated;
         }
@@ -13215,6 +13314,9 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Performer")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Existing performer source")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.invalid/old-performer"))
+      .toBeInTheDocument();
     expect(screen.getByLabelText("Thumbnail 1")).toHaveValue(
       "D:/Thumbs/existing-1.jpg",
     );
@@ -13231,6 +13333,12 @@ describe("App", () => {
     expect(screen.getByLabelText("Pictorials")).toHaveValue("1");
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Updated Performer" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Updated performer source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/new-performer" },
     });
     fireEvent.change(screen.getByLabelText("Debut Date"), {
       target: { value: "2021-02-03" },
@@ -13465,22 +13573,89 @@ describe("App", () => {
     "/images/new",
     "/performers/new",
   ])(
-    "source links section shows deferred row controls on %s",
+    "source links section shows functional row controls on %s",
     (path) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       expect(screen.getByText("Source Links")).toBeInTheDocument();
+      expect(screen.getByText("No source links added.")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+
       expect(screen.getByLabelText("Source Link Title 1")).toBeInTheDocument();
       expect(screen.getByLabelText("Source Link URL 1")).toBeInTheDocument();
-      expect(screen.getByText("Deferred: source links are not saved yet."))
+      expect(screen.getByRole("button", { name: "Add Source Link" }))
         .toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add Link" }))
+      expect(screen.getByRole("button", { name: "Remove Source Link 1" }))
         .toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
-        .not.toBeInTheDocument();
     },
   );
+
+  it("blocks invalid Source Link URLs before saving", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Invalid Source Video" },
+    });
+    fillVideoRatingFields();
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Invalid source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "example.invalid/source" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText("Source URL must start with http:// or https://."),
+    ).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("marks Source Link edits dirty and confirms discard", async () => {
+    window.history.pushState({}, "", "/images/image_test_001/edit");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Dirty Source Image",
+          sourceLinksJson:
+            '[{"title":"Existing source","url":"https://example.invalid/source"}]',
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Existing source")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/changed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+  });
 
   it("renders read-only Tech Info fields on Video and Image forms", async () => {
     // 1. Video Form Tech Info Check
@@ -14012,6 +14187,7 @@ function persistedVideo(overrides: Record<string, unknown> = {}) {
     categoriesJson: '["Classic"]',
     relatedPerformersJson: "[]",
     relatedImagesJson: "[]",
+    sourceLinksJson: "[]",
     ratingJson: '{"rewatch":4,"performance":3}',
     notes: "Persisted notes",
     favorite: true,
@@ -14041,6 +14217,7 @@ function persistedImage(overrides: Record<string, unknown> = {}) {
     categoriesJson: '["Portrait"]',
     relatedPerformersJson: "[]",
     relatedVideosJson: "[]",
+    sourceLinksJson: "[]",
     ratingJson: '{"memorability":4,"visual":3}',
     notes: "Persisted image notes",
     favorite: true,
@@ -14073,6 +14250,7 @@ function persistedPerformer(overrides: Record<string, unknown> = {}) {
     pictorialsCount: 8,
     relatedVideosJson: "[]",
     relatedImagesJson: "[]",
+    sourceLinksJson: "[]",
     categoriesJson: '["Classic"]',
     ratingJson: '{"attraction":4,"visual":3}',
     notes: "Persisted performer notes",

@@ -14,6 +14,7 @@ import type {
   FormMode,
   RelatedCatalogRecordFormValue,
   ReadOnlyField,
+  SourceLinkFormValue,
   RelatedPerformerFormValue,
   TextField,
 } from "../lib/formData";
@@ -85,6 +86,7 @@ type FormSubmitData = {
   performerRelatedVideos: RelatedCatalogRecordFormValue[];
   performerRelatedImages: RelatedCatalogRecordFormValue[];
   galleryImagePaths: string[];
+  sourceLinks: SourceLinkFormValue[];
 };
 
 type FormSubmitResult = {
@@ -139,6 +141,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [galleryImagePaths, setGalleryImagePaths] = useState<string[]>(
     config.initialGalleryImagePaths?.[mode] ?? [],
   );
+  const [sourceLinks, setSourceLinks] = useState<SourceLinkFormValue[]>(
+    config.initialSourceLinks?.[mode] ?? [],
+  );
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [managedCategoryRecords, setManagedCategoryRecords] = useState<
@@ -171,6 +176,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       performerRelatedVideos: config.initialPerformerRelatedVideos?.[mode] ?? [],
       performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
       galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
+      sourceLinks: config.initialSourceLinks?.[mode] ?? [],
     }),
   );
   const canBrowsePaths = isTauriRuntimeAvailable();
@@ -199,6 +205,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setPerformerRelatedVideos(config.initialPerformerRelatedVideos?.[mode] ?? []);
     setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
+    setSourceLinks(config.initialSourceLinks?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
@@ -217,6 +224,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         performerRelatedVideos: config.initialPerformerRelatedVideos?.[mode] ?? [],
         performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
         galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
+        sourceLinks: config.initialSourceLinks?.[mode] ?? [],
       }),
     );
   }, [config, mode]);
@@ -480,6 +488,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     performerRelatedVideos,
     performerRelatedImages,
     galleryImagePaths,
+    sourceLinks,
   });
   const isDirty = currentSnapshot !== cleanSnapshot;
   const performerTaxonomyOptions =
@@ -581,6 +590,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       return;
     }
 
+    if (sourceLinkValidationErrors(sourceLinks).length > 0) {
+      setSaveState("error");
+      setSaveMessage("Please fix Source Links before saving.");
+      return;
+    }
+
     setConfirmation("save");
   }
 
@@ -609,6 +624,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         performerRelatedVideos,
         performerRelatedImages,
         galleryImagePaths,
+        sourceLinks,
       });
       setSaveState(result.state);
       setSaveMessage(
@@ -802,7 +818,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   />
                 )
               )}
-              <SourceLinksInput />
+              <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
 
@@ -994,7 +1010,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                     />
                   )
                 ))}
-              <SourceLinksInput />
+              <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
         </>
@@ -3004,11 +3020,18 @@ function SearchTextInput({
   );
 }
 
-function SourceLinksInput() {
-  const [rows, setRows] = useState([{ title: "", link: "" }]);
+function SourceLinksInput({
+  rows,
+  onChange,
+}: {
+  rows: SourceLinkFormValue[];
+  onChange: Dispatch<SetStateAction<SourceLinkFormValue[]>>;
+}) {
+  const visibleRows = rows.length > 0 ? rows : [];
+  const errors = sourceLinkValidationErrors(rows);
 
-  function updateRow(index: number, field: "title" | "link", value: string) {
-    setRows((current) =>
+  function updateRow(index: number, field: keyof SourceLinkFormValue, value: string) {
+    onChange((current) =>
       current.map((row, currentIndex) =>
         currentIndex === index ? { ...row, [field]: value } : row,
       ),
@@ -3016,67 +3039,112 @@ function SourceLinksInput() {
   }
 
   function removeRow(index: number) {
-    setRows((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    onChange((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  function addRow() {
+    onChange((current) => [...current, { title: "", url: "" }]);
   }
 
   return (
     <div className={FORM_ROW_START_STYLES}>
       <span className="pt-2">Source Links</span>
       <div className="grid gap-2">
-        {rows.map((row, index) => {
-          const canDelete = rows.length > 1;
-
-          return (
-            <div
-              key={index}
-              className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_2.25rem]"
-            >
-              <input
-                className={inputClass(false)}
-                aria-label={`Source Link Title ${index + 1}`}
-                placeholder={`Title ${index + 1}`}
-                value={row.title}
-                onChange={(event) => updateRow(index, "title", event.target.value)}
-              />
-              <input
-                className={inputClass(false)}
-                aria-label={`Source Link URL ${index + 1}`}
-                placeholder={`Link ${index + 1}`}
-                value={row.link}
-                onChange={(event) => updateRow(index, "link", event.target.value)}
-              />
-              {canDelete ? (
-                <button
-                  type="button"
-                  className={BUTTON_STYLES.iconDanger}
-                  aria-label={`Delete Source Link ${index + 1}`}
-                  title="Delete"
-                  onClick={() => removeRow(index)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              ) : (
-                <span aria-hidden="true" />
-              )}
-            </div>
-          );
-        })}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-medium text-amber-700">
-            Deferred: source links are not saved yet.
+        {visibleRows.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+            No source links added.
           </p>
+        ) : (
+          visibleRows.map((row, index) => {
+            const error = errors.find((item) => item.index === index)?.message;
+
+            return (
+              <div key={index} className="grid gap-1">
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_2.25rem]">
+                  <input
+                    className={inputClass(false)}
+                    aria-label={`Source Link Title ${index + 1}`}
+                    placeholder={`Title ${index + 1}`}
+                    value={row.title}
+                    onChange={(event) => updateRow(index, "title", event.target.value)}
+                  />
+                  <input
+                    className={inputClass(Boolean(error))}
+                    aria-label={`Source Link URL ${index + 1}`}
+                    placeholder={`URL ${index + 1}`}
+                    value={row.url}
+                    onChange={(event) => updateRow(index, "url", event.target.value)}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `source-link-error-${index + 1}` : undefined}
+                  />
+                  <button
+                    type="button"
+                    className={BUTTON_STYLES.iconDanger}
+                    aria-label={`Remove Source Link ${index + 1}`}
+                    title="Remove"
+                    onClick={() => removeRow(index)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                {error && (
+                  <p
+                    id={`source-link-error-${index + 1}`}
+                    className="text-xs font-semibold text-rose-600"
+                  >
+                    {error}
+                  </p>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div className="flex justify-end">
           <button
             type="button"
             className={BUTTON_STYLES.action}
-            onClick={() => setRows((current) => [...current, { title: "", link: "" }])}
+            onClick={addRow}
           >
             <Plus size={14} />
-            Add Link
+            Add Source Link
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function sourceLinkValidationErrors(rows: SourceLinkFormValue[]) {
+  return rows
+    .map((row, index) => {
+      const title = row.title.trim();
+      const url = row.url.trim();
+
+      if (!title && !url) {
+        return null;
+      }
+
+      if (!url) {
+        return {
+          index,
+          message: "Source URL is required when a title is entered.",
+        };
+      }
+
+      if (!isHttpSourceUrl(url)) {
+        return {
+          index,
+          message: "Source URL must start with http:// or https://.",
+        };
+      }
+
+      return null;
+    })
+    .filter((error): error is { index: number; message: string } => error !== null);
+}
+
+function isHttpSourceUrl(url: string) {
+  return /^https?:\/\//i.test(url.trim());
 }
 
 export default FormPage;

@@ -2,10 +2,12 @@ import type { Image, NewVideo, Performer, Video, VideoPatch } from "../backend/t
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
+  parseSourceLinkArray,
   parseRatingObject,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
+  stringifySourceLinkArray,
   stringifyTextLabelArray,
 } from "../backend/json";
 import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
@@ -23,6 +25,7 @@ import type {
   FormMode,
   RelatedCatalogRecordFormValue,
   RelatedPerformerFormValue,
+  SourceLinkFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
@@ -115,6 +118,11 @@ export function buildVideoFormConfig(video: Video | null, mode: FormMode): FormC
       edit: formConfigs.videos.initialRelatedCatalogRecords?.edit ?? [],
       [mode]: parseRelatedCatalogRecordArray(video.relatedImagesJson),
     },
+    initialSourceLinks: {
+      create: formConfigs.videos.initialSourceLinks?.create ?? [],
+      edit: formConfigs.videos.initialSourceLinks?.edit ?? [],
+      [mode]: parseSourceLinkArray(video.sourceLinksJson),
+    },
   };
 }
 
@@ -123,6 +131,7 @@ export function videoFormToCreateInput(
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): NewVideo {
   return {
     title: textValue(values.title),
@@ -146,6 +155,7 @@ export function videoFormToCreateInput(
     relatedImagesJson: normalizeRelatedCatalogRecordsJson(
       JSON.stringify(relatedImages),
     ),
+    sourceLinksJson: stringifySourceLinkArray(sourceLinks),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -156,12 +166,14 @@ export function videoFormToPatch(
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): VideoPatch {
   return videoFormToCreateInput(
     values,
     categories,
     relatedPerformers,
     relatedImages,
+    sourceLinks,
   );
 }
 

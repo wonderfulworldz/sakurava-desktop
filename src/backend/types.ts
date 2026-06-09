@@ -11,6 +11,7 @@ export interface BaseCatalogRecord {
   id: EntityId;
   categoriesJson: JsonText;
   ratingJson: JsonText;
+  sourceLinksJson: JsonText;
   notes: string;
   favorite: boolean;
   createdAt: IsoDateTimeString;

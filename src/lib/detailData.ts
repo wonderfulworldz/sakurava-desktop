@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Image, UserRound, Video } from "lucide-react";
+import { parseSourceLinkArray } from "../backend/json";
 
 export type DetailKind = "videos" | "images" | "performers";
 export const DETAIL_EMPTY_VALUE = "N/A";
@@ -175,24 +176,7 @@ export function sourceLinksFromRecord(record: unknown): SourceLinkItem[] {
   }
 
   if (typeof sourceRecord.sourceLinksJson === "string") {
-    try {
-      const parsed = JSON.parse(sourceRecord.sourceLinksJson);
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (!item || typeof item !== "object") {
-            continue;
-          }
-
-          const link = item as { title?: unknown; url?: unknown };
-          links.push({
-            title: typeof link.title === "string" ? link.title : "",
-            url: typeof link.url === "string" ? link.url : "",
-          });
-        }
-      }
-    } catch {
-      return links;
-    }
+    links.push(...parseSourceLinkArray(sourceRecord.sourceLinksJson));
   }
 
   return links;

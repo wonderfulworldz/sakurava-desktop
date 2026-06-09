@@ -102,6 +102,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
         relatedPerformers,
         relatedCatalogRecords,
         galleryImagePaths,
+        sourceLinks,
       }) => {
         if (!isImageRuntimeAvailable()) {
           return {
@@ -120,6 +121,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
               relatedPerformers,
               relatedCatalogRecords,
               galleryImagePaths,
+              sourceLinks,
             ),
           );
           navigate(`/images/${created.id}`);
@@ -138,6 +140,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
             relatedPerformers,
             relatedCatalogRecords,
             galleryImagePaths,
+            sourceLinks,
           ),
         );
         if (!updated) {

@@ -2,12 +2,14 @@ import type { Image, ImagePatch, NewImage, Performer, Video } from "../backend/t
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
+  parseSourceLinkArray,
   parseGalleryImagePathArray,
   parseRatingObject,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
   stringifyGalleryImagePathArray,
+  stringifySourceLinkArray,
   stringifyTextLabelArray,
 } from "../backend/json";
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
@@ -25,6 +27,7 @@ import type {
   FormMode,
   RelatedCatalogRecordFormValue,
   RelatedPerformerFormValue,
+  SourceLinkFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
@@ -124,6 +127,11 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
       edit: formConfigs.images.initialGalleryImagePaths?.edit ?? [],
       [mode]: parseGalleryImagePathArray(image.galleryImagePathsJson),
     },
+    initialSourceLinks: {
+      create: formConfigs.images.initialSourceLinks?.create ?? [],
+      edit: formConfigs.images.initialSourceLinks?.edit ?? [],
+      [mode]: parseSourceLinkArray(image.sourceLinksJson),
+    },
   };
 }
 
@@ -133,6 +141,7 @@ export function imageFormToCreateInput(
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   galleryImagePaths: string[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): NewImage {
   return {
     title: textValue(values.title),
@@ -157,6 +166,7 @@ export function imageFormToCreateInput(
     relatedVideosJson: normalizeRelatedCatalogRecordsJson(
       JSON.stringify(relatedVideos),
     ),
+    sourceLinksJson: stringifySourceLinkArray(sourceLinks),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -168,6 +178,7 @@ export function imageFormToPatch(
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   galleryImagePaths: string[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): ImagePatch {
   return imageFormToCreateInput(
     values,
@@ -175,6 +186,7 @@ export function imageFormToPatch(
     relatedPerformers,
     relatedVideos,
     galleryImagePaths,
+    sourceLinks,
   );
 }
 

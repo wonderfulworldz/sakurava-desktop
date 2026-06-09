@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS videos (
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedImagesJson TEXT NOT NULL DEFAULT '[]',
+  source_links_json TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS images (
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
+  source_links_json TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -92,6 +94,7 @@ CREATE TABLE IF NOT EXISTS performers (
   pictorialsCount INTEGER,
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
   relatedImagesJson TEXT NOT NULL DEFAULT '[]',
+  source_links_json TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
@@ -210,12 +213,14 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
 
     ensure_text_json_column(connection, "videos", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "videos", "relatedImagesJson", "[]")?;
+    ensure_text_json_column(connection, "videos", "source_links_json", "[]")?;
     ensure_text_column(connection, "videos", "resolution", "")?;
     ensure_integer_column(connection, "videos", "fileSizeBytes")?;
     ensure_text_column(connection, "videos", "fileType", "")?;
     ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedVideosJson", "[]")?;
     ensure_text_json_column(connection, "images", "galleryImagePathsJson", "[]")?;
+    ensure_text_json_column(connection, "images", "source_links_json", "[]")?;
     ensure_text_column(connection, "images", "mainResolution", "")?;
     ensure_integer_column(connection, "images", "totalFileSizeBytes")?;
     ensure_text_column(connection, "images", "mainFileType", "")?;
@@ -236,6 +241,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_text_column(connection, "performers", "cupSize", "")?;
     ensure_text_json_column(connection, "performers", "relatedVideosJson", "[]")?;
     ensure_text_json_column(connection, "performers", "relatedImagesJson", "[]")?;
+    ensure_text_json_column(connection, "performers", "source_links_json", "[]")?;
     ensure_boolean_column(connection, "managedCategories", "showInVideos", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInImages", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
@@ -703,6 +709,7 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "videos", "relatedImagesJson"));
+        assert!(table_has_column(&connection, "videos", "source_links_json"));
         assert!(table_has_column(&connection, "videos", "resolution"));
         assert!(table_has_column(&connection, "videos", "fileSizeBytes"));
         assert!(table_has_column(&connection, "videos", "fileType"));
@@ -712,6 +719,7 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "images", "relatedVideosJson"));
+        assert!(table_has_column(&connection, "images", "source_links_json"));
         assert!(table_has_column(
             &connection,
             "images",
@@ -743,6 +751,11 @@ mod tests {
             &connection,
             "performers",
             "relatedImagesJson"
+        ));
+        assert!(table_has_column(
+            &connection,
+            "performers",
+            "source_links_json"
         ));
         assert!(table_has_column(
             &connection,

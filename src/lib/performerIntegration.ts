@@ -11,11 +11,16 @@ import {
   parsePerformerThumbnailPathArray,
   parseRatingObject,
   parseRelatedCatalogRecordArray,
+  parseSourceLinkArray,
   parseTextLabelArray,
   normalizeRelatedCatalogRecordsJson,
+  stringifySourceLinkArray,
   stringifyTextLabelArray,
 } from "../backend/json";
-import type { RelatedCatalogRecordFormValue } from "./formData";
+import type {
+  RelatedCatalogRecordFormValue,
+  SourceLinkFormValue,
+} from "./formData";
 import type { CollectionConfig, PerformerCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveDebutYear } from "./catalogDerivedFields";
@@ -252,6 +257,11 @@ export function buildPerformerFormConfig(
       }),
       [mode]: parseRelatedCatalogRecordArray(performer.relatedImagesJson),
     },
+    initialSourceLinks: {
+      create: formConfigs.performers.initialSourceLinks?.create ?? [],
+      edit: formConfigs.performers.initialSourceLinks?.edit ?? [],
+      [mode]: parseSourceLinkArray(performer.sourceLinksJson),
+    },
   };
 }
 
@@ -261,6 +271,7 @@ export function performerFormToCreateInput(
   aliases: string[],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): NewPerformer {
   return {
     name: textValue(values.name),
@@ -291,6 +302,7 @@ export function performerFormToCreateInput(
     relatedImagesJson: normalizeRelatedCatalogRecordsJson(
       JSON.stringify(relatedImages),
     ),
+    sourceLinksJson: stringifySourceLinkArray(sourceLinks),
     categoriesJson: stringifyTextLabelArray(categories),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
@@ -303,8 +315,16 @@ export function performerFormToPatch(
   aliases: string[],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): PerformerPatch {
-  return performerFormToCreateInput(values, categories, aliases, relatedVideos, relatedImages);
+  return performerFormToCreateInput(
+    values,
+    categories,
+    aliases,
+    relatedVideos,
+    relatedImages,
+    sourceLinks,
+  );
 }
 
 function toPerformerCollectionItem(

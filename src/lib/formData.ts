@@ -12,6 +12,11 @@ export type RelatedCatalogRecordFormValue = {
   titleSnapshot: string;
 };
 
+export type SourceLinkFormValue = {
+  title: string;
+  url: string;
+};
+
 export type TextField = {
   name: string;
   label: string;
@@ -78,6 +83,7 @@ export type FormConfig = {
   initialPerformerRelatedVideos?: Record<FormMode, RelatedCatalogRecordFormValue[]>;
   initialPerformerRelatedImages?: Record<FormMode, RelatedCatalogRecordFormValue[]>;
   initialGalleryImagePaths?: Record<FormMode, string[]>;
+  initialSourceLinks?: Record<FormMode, SourceLinkFormValue[]>;
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
@@ -212,6 +218,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialSourceLinks: {
+      create: [],
+      edit: [],
+    },
   },
   images: {
     kind: "images",
@@ -323,6 +333,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       edit: [],
     },
     initialRelatedCatalogRecords: {
+      create: [],
+      edit: [],
+    },
+    initialSourceLinks: {
       create: [],
       edit: [],
     },
@@ -481,6 +495,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       edit: [],
     },
     initialPerformerRelatedImages: {
+      create: [],
+      edit: [],
+    },
+    initialSourceLinks: {
       create: [],
       edit: [],
     },

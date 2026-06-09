@@ -58,6 +58,7 @@ pub struct Video {
     pub categories_json: String,
     pub related_performers_json: String,
     pub related_images_json: String,
+    pub source_links_json: String,
     pub rating_json: String,
     pub notes: String,
     pub favorite: bool,
@@ -84,6 +85,7 @@ pub struct VideoInput {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -108,6 +110,7 @@ pub struct VideoPatch {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -134,6 +137,7 @@ pub struct Image {
     pub categories_json: String,
     pub related_performers_json: String,
     pub related_videos_json: String,
+    pub source_links_json: String,
     pub rating_json: String,
     pub notes: String,
     pub favorite: bool,
@@ -161,6 +165,7 @@ pub struct ImageInput {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -186,6 +191,7 @@ pub struct ImagePatch {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -215,6 +221,7 @@ pub struct Performer {
     pub pictorials_count: Option<i64>,
     pub related_videos_json: String,
     pub related_images_json: String,
+    pub source_links_json: String,
     pub categories_json: String,
     pub rating_json: String,
     pub notes: String,
@@ -246,6 +253,7 @@ pub struct PerformerInput {
     pub pictorials_count: Option<i64>,
     pub related_videos_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
@@ -275,6 +283,7 @@ pub struct PerformerPatch {
     pub pictorials_count: Option<Option<i64>>,
     pub related_videos_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
@@ -821,6 +830,7 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
         categories_json: normalize_string_array_json(input.categories_json),
         related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_images_json: normalize_related_catalog_records_json(input.related_images_json),
+        source_links_json: normalize_source_links_json(input.source_links_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
@@ -834,8 +844,8 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 id, title, originalTitle, code, censorship, availability, releaseDate,
                 durationMinutes, resolution, fileSizeBytes, fileType,
                 publisherLabel, coverPath, mediaPath, categoriesJson,
-                relatedPerformersJson, relatedImagesJson, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+                relatedPerformersJson, relatedImagesJson, source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 video.id,
                 video.title,
@@ -854,6 +864,7 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 video.categories_json,
                 video.related_performers_json,
                 video.related_images_json,
+                video.source_links_json,
                 video.rating_json,
                 video.notes,
                 bool_to_int(video.favorite),
@@ -924,6 +935,9 @@ fn update_video(
         video.related_images_json =
             normalize_related_catalog_records_json(patch.related_images_json);
     }
+    if patch.source_links_json.is_some() {
+        video.source_links_json = normalize_source_links_json(patch.source_links_json);
+    }
     if patch.rating_json.is_some() {
         video.rating_json = normalize_object_json(patch.rating_json);
     }
@@ -941,8 +955,9 @@ fn update_video(
                 resolution = ?9, fileSizeBytes = ?10, fileType = ?11,
                 publisherLabel = ?12, coverPath = ?13, mediaPath = ?14,
                 categoriesJson = ?15, relatedPerformersJson = ?16,
-                relatedImagesJson = ?17, ratingJson = ?18, notes = ?19,
-                favorite = ?20, updatedAt = ?21
+                relatedImagesJson = ?17, source_links_json = ?18,
+                ratingJson = ?19, notes = ?20,
+                favorite = ?21, updatedAt = ?22
             WHERE id = ?1",
             params![
                 video.id,
@@ -962,6 +977,7 @@ fn update_video(
                 video.categories_json,
                 video.related_performers_json,
                 video.related_images_json,
+                video.source_links_json,
                 video.rating_json,
                 video.notes,
                 bool_to_int(video.favorite),
@@ -997,6 +1013,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
         categories_json: normalize_string_array_json(input.categories_json),
         related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
+        source_links_json: normalize_source_links_json(input.source_links_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
@@ -1010,9 +1027,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 id, title, originalTitle, code, censorship, availability, releaseDate,
                 publisherLabel, coverPath, folderPath, imageCount, galleryImagePathsJson,
                 mainResolution, totalFileSizeBytes, mainFileType,
-                categoriesJson, relatedPerformersJson, relatedVideosJson, ratingJson, notes,
-                favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+                categoriesJson, relatedPerformersJson, relatedVideosJson,
+                source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
             params![
                 image.id,
                 image.title,
@@ -1032,6 +1049,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
+                image.source_links_json,
                 image.rating_json,
                 image.notes,
                 bool_to_int(image.favorite),
@@ -1106,6 +1124,9 @@ fn update_image(
         image.related_videos_json =
             normalize_related_catalog_records_json(patch.related_videos_json);
     }
+    if patch.source_links_json.is_some() {
+        image.source_links_json = normalize_source_links_json(patch.source_links_json);
+    }
     if patch.rating_json.is_some() {
         image.rating_json = normalize_object_json(patch.rating_json);
     }
@@ -1124,7 +1145,8 @@ fn update_image(
                 galleryImagePathsJson = ?12, mainResolution = ?13,
                 totalFileSizeBytes = ?14, mainFileType = ?15, categoriesJson = ?16,
                 relatedPerformersJson = ?17, relatedVideosJson = ?18,
-                ratingJson = ?19, notes = ?20, favorite = ?21, updatedAt = ?22
+                source_links_json = ?19, ratingJson = ?20, notes = ?21,
+                favorite = ?22, updatedAt = ?23
             WHERE id = ?1",
             params![
                 image.id,
@@ -1145,6 +1167,7 @@ fn update_image(
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
+                image.source_links_json,
                 image.rating_json,
                 image.notes,
                 bool_to_int(image.favorite),
@@ -1187,6 +1210,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         related_images_json: normalize_related_catalog_records_json(
             input.related_images_json,
         ),
+        source_links_json: normalize_source_links_json(input.source_links_json),
         categories_json: normalize_string_array_json(input.categories_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
@@ -1202,9 +1226,9 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 birthDate, birthplace, nationality, bloodType, heightCm, weightKg,
                 measurements, cupSize, coverPath, performerThumbnailPathsJson,
                 filmographyCount, pictorialsCount, relatedVideosJson,
-                relatedImagesJson, categoriesJson, ratingJson, notes, favorite,
-                createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
+                relatedImagesJson, source_links_json, categoriesJson, ratingJson,
+                notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
             params![
                 performer.id,
                 performer.name,
@@ -1227,6 +1251,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 performer.pictorials_count,
                 performer.related_videos_json,
                 performer.related_images_json,
+                performer.source_links_json,
                 performer.categories_json,
                 performer.rating_json,
                 performer.notes,
@@ -1314,6 +1339,9 @@ fn update_performer(
         performer.related_images_json =
             normalize_related_catalog_records_json(patch.related_images_json);
     }
+    if patch.source_links_json.is_some() {
+        performer.source_links_json = normalize_source_links_json(patch.source_links_json);
+    }
     if patch.categories_json.is_some() {
         performer.categories_json = normalize_string_array_json(patch.categories_json);
     }
@@ -1336,8 +1364,8 @@ fn update_performer(
                 coverPath = ?16, performerThumbnailPathsJson = ?17,
                 filmographyCount = ?18, pictorialsCount = ?19,
                 relatedVideosJson = ?20, relatedImagesJson = ?21,
-                categoriesJson = ?22, ratingJson = ?23, notes = ?24,
-                favorite = ?25, updatedAt = ?26
+                source_links_json = ?22, categoriesJson = ?23, ratingJson = ?24,
+                notes = ?25, favorite = ?26, updatedAt = ?27
             WHERE id = ?1",
             params![
                 performer.id,
@@ -1361,6 +1389,7 @@ fn update_performer(
                 performer.pictorials_count,
                 performer.related_videos_json,
                 performer.related_images_json,
+                performer.source_links_json,
                 performer.categories_json,
                 performer.rating_json,
                 performer.notes,
@@ -2446,6 +2475,7 @@ fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
         categories_json: row.get("categoriesJson")?,
         related_performers_json: row.get("relatedPerformersJson")?,
         related_images_json: row.get("relatedImagesJson")?,
+        source_links_json: row.get("source_links_json")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
@@ -2474,6 +2504,7 @@ fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
         categories_json: row.get("categoriesJson")?,
         related_performers_json: row.get("relatedPerformersJson")?,
         related_videos_json: row.get("relatedVideosJson")?,
+        source_links_json: row.get("source_links_json")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
@@ -2505,6 +2536,7 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         pictorials_count: row.get("pictorialsCount")?,
         related_videos_json: row.get("relatedVideosJson")?,
         related_images_json: row.get("relatedImagesJson")?,
+        source_links_json: row.get("source_links_json")?,
         categories_json: row.get("categoriesJson")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
@@ -3000,6 +3032,46 @@ fn normalize_related_catalog_records_json(value: Option<String>) -> String {
     serde_json::to_string(&references).unwrap_or_else(|_| "[]".to_string())
 }
 
+fn normalize_source_links_json(value: Option<String>) -> String {
+    let Some(value) = value else {
+        return "[]".to_string();
+    };
+    let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&value) else {
+        return "[]".to_string();
+    };
+
+    let mut links = Vec::new();
+
+    for item in items {
+        let Value::Object(map) = item else {
+            continue;
+        };
+        let title = map
+            .get("title")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string();
+        let url = map
+            .get("url")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string();
+
+        if title.is_empty() && url.is_empty() {
+            continue;
+        }
+
+        links.push(json!({
+            "title": title,
+            "url": url,
+        }));
+    }
+
+    serde_json::to_string(&links).unwrap_or_else(|_| "[]".to_string())
+}
+
 fn current_timestamp() -> String {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -3317,6 +3389,9 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":" image-1 ","titleSnapshot":" Image One "},{"recordId":"image-1","titleSnapshot":"Duplicate"},{"recordId":"","titleSnapshot":"Legacy Image"}]"#.to_string(),
                 ),
+                source_links_json: Some(
+                    r#"[{"title":" Studio ","url":" https://example.invalid/video "},{"title":"","url":""}]"#.to_string(),
+                ),
                 rating_json: Some(r#"{"score":4,"source":"manual"}"#.to_string()),
                 notes: None,
                 favorite: None,
@@ -3333,6 +3408,10 @@ mod tests {
         assert_eq!(
             created.related_images_json,
             r#"[{"recordId":"image-1","titleSnapshot":"Image One"},{"recordId":"","titleSnapshot":"Legacy Image"}]"#
+        );
+        assert_eq!(
+            created.source_links_json,
+            r#"[{"title":"Studio","url":"https://example.invalid/video"}]"#
         );
         assert_eq!(created.rating_json, r#"{"score":4,"source":"manual"}"#);
         assert!(!created.favorite);
@@ -3368,6 +3447,7 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#.to_string(),
                 ),
+                source_links_json: Some("invalid".to_string()),
                 rating_json: Some("invalid".to_string()),
                 notes: Some("note".to_string()),
                 favorite: Some(true),
@@ -3382,6 +3462,7 @@ mod tests {
             updated.related_images_json,
             r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#
         );
+        assert_eq!(updated.source_links_json, "[]");
         assert_eq!(updated.rating_json, "{}");
         assert!(updated.favorite);
 
@@ -3428,6 +3509,9 @@ mod tests {
                 related_videos_json: Some(
                     r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#.to_string(),
                 ),
+                source_links_json: Some(
+                    r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#.to_string(),
+                ),
                 rating_json: Some(r#"{"score":5}"#.to_string()),
                 notes: None,
                 favorite: None,
@@ -3447,6 +3531,10 @@ mod tests {
         assert_eq!(
             created.related_videos_json,
             r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#
+        );
+        assert_eq!(
+            created.source_links_json,
+            r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#
         );
         assert_eq!(created.rating_json, r#"{"score":5}"#);
         assert!(!created.favorite);
@@ -3481,6 +3569,9 @@ mod tests {
                     r#"[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]"#.to_string(),
                 ),
                 related_videos_json: Some("invalid".to_string()),
+                source_links_json: Some(
+                    r#"[{"title":"","url":"https://example.invalid/url-only"}]"#.to_string(),
+                ),
                 rating_json: Some(r#"{"quality":"high"}"#.to_string()),
                 notes: None,
                 favorite: Some(true),
@@ -3496,6 +3587,10 @@ mod tests {
             r#"[{"nameSnapshot":"Performer Two","performerId":"performer-2"}]"#
         );
         assert_eq!(updated.related_videos_json, "[]");
+        assert_eq!(
+            updated.source_links_json,
+            r#"[{"title":"","url":"https://example.invalid/url-only"}]"#
+        );
         assert_eq!(updated.rating_json, r#"{"quality":"high"}"#);
         assert!(updated.favorite);
 
@@ -3594,6 +3689,9 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":"image-1","titleSnapshot":"Image One"}]"#.to_string(),
                 ),
+                source_links_json: Some(
+                    r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#.to_string(),
+                ),
                 categories_json: Some(r#"["Featured"]"#.to_string()),
                 rating_json: Some(r#"{"score":3}"#.to_string()),
                 notes: None,
@@ -3616,6 +3714,10 @@ mod tests {
         assert_eq!(
             created.related_images_json,
             r#"[{"recordId":"image-1","titleSnapshot":"Image One"}]"#
+        );
+        assert_eq!(
+            created.source_links_json,
+            r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#
         );
         assert_eq!(created.debut_date, "2020-01-02");
         assert_eq!(created.birthplace, "Tokyo");
@@ -3657,6 +3759,7 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#.to_string(),
                 ),
+                source_links_json: Some("{bad json".to_string()),
                 categories_json: None,
                 rating_json: Some("[]".to_string()),
                 notes: Some("note".to_string()),
@@ -3681,6 +3784,7 @@ mod tests {
             updated.related_images_json,
             r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#
         );
+        assert_eq!(updated.source_links_json, "[]");
         assert!(updated.favorite);
 
         assert!(
@@ -4162,6 +4266,7 @@ mod tests {
             categories_json: None,
             related_performers_json: None,
             related_images_json: None,
+            source_links_json: None,
             rating_json: None,
             notes: None,
             favorite: None,
@@ -4187,6 +4292,7 @@ mod tests {
             categories_json: None,
             related_performers_json: None,
             related_videos_json: None,
+            source_links_json: None,
             rating_json: None,
             notes: None,
             favorite: None,
@@ -4215,6 +4321,7 @@ mod tests {
             pictorials_count: None,
             related_videos_json: None,
             related_images_json: None,
+            source_links_json: None,
             categories_json: None,
             rating_json: None,
             notes: None,

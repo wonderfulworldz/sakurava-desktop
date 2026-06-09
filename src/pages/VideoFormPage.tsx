@@ -101,6 +101,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
         categories,
         relatedPerformers,
         relatedCatalogRecords,
+        sourceLinks,
       }) => {
         if (!isVideoRuntimeAvailable()) {
           return {
@@ -118,6 +119,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
               categories,
               relatedPerformers,
               relatedCatalogRecords,
+              sourceLinks,
             ),
           );
           navigate(`/videos/${created.id}`);
@@ -135,6 +137,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
             categories,
             relatedPerformers,
             relatedCatalogRecords,
+            sourceLinks,
           ),
         );
         if (!updated) {
