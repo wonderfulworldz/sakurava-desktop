@@ -1308,7 +1308,7 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
           <div
             className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
           >
-            <span className="font-semibold text-slate-700">Source URL</span>
+            <span className="font-semibold text-slate-700">Source Link</span>
             <span className="text-slate-500">N/A</span>
           </div>
         ) : (
@@ -1317,31 +1317,25 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
               key={`${link.title}-${link.url}`}
               className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
             >
-              <span className="min-w-0 font-semibold text-slate-700">
-                Source Title
+              <span className="min-w-0 truncate font-semibold text-slate-700" title={link.title}>
+                {link.title}
               </span>
               {link.safe ? (
                 <a
                   href={link.url}
                   target="_blank"
                   rel="noreferrer"
-                  title={`${link.title}\n${link.url}`}
+                  title={link.url}
                   className="min-w-0 truncate text-sakura-600 underline-offset-4 hover:underline"
-                  aria-label={`Open source ${link.title}`}
+                  aria-label={`Open source URL ${link.url}`}
                 >
-                  {link.title}
+                  {link.url}
                 </a>
               ) : (
-                <span className="min-w-0 truncate text-slate-500" title={link.title}>
-                  {link.title}
+                <span className="min-w-0 truncate text-slate-500" title={link.url}>
+                  {link.url || "N/A"}
                 </span>
               )}
-              <span className="min-w-0 font-semibold text-slate-700">
-                Source URL
-              </span>
-              <span className="min-w-0 truncate text-slate-500" title={link.url}>
-                {link.url || "N/A"}
-              </span>
             </div>
           ))
         )}
@@ -2510,7 +2504,7 @@ function CardTitle({
   return (
     <div className="flex items-center gap-2">
       <span
-        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-sakura-100 bg-sakura-50/80 text-sakura-500"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-sakura-50/80 text-sakura-500"
         data-testid="detail-section-icon"
       >
         <Icon size={17} aria-hidden="true" />

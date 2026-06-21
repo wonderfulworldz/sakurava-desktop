@@ -1096,10 +1096,6 @@ function GlobalImageViewer({
               <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Saved</span>
             )}
           </button>
-          {/* Disabled because the current runtime only exposes safe text clipboard here. */}
-          <button role="menuitem" type="button" disabled className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold opacity-45">
-            Copy Image
-          </button>
           <button
             role="menuitem"
             type="button"

@@ -1508,6 +1508,7 @@ function PathInput({
             className={inputClass(false)}
             aria-label={field.label}
             value={value}
+            placeholder={field.placeholder}
             onChange={(event) => onChange(event.target.value)}
           />
           <button
@@ -1856,6 +1857,7 @@ function PathInputCompact({
           className="h-8.5 min-w-0 flex-1 select-text rounded-md border border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
           aria-label={field.label}
           value={value}
+          placeholder={field.placeholder}
           onChange={(event) => onChange(event.target.value)}
         />
         <button
@@ -3071,7 +3073,7 @@ function SourceLinksInput({
                   <input
                     className={inputClass(Boolean(error))}
                     aria-label={`Source Link URL ${index + 1}`}
-                    placeholder={`URL ${index + 1}`}
+                    placeholder="https://example.com/source"
                     value={row.url}
                     onChange={(event) => updateRow(index, "url", event.target.value)}
                     aria-invalid={Boolean(error)}

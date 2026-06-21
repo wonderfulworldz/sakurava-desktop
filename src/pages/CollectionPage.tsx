@@ -1,4 +1,5 @@
 import {
+  ArrowUpDown,
   ChevronDown,
   Filter,
   Grid2X2,
@@ -14,6 +15,7 @@ import {
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/cards";
+import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
   normalizeCatalogPageSize,
@@ -23,6 +25,11 @@ import {
 import type { ManagedCategory } from "../backend/types";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage } from "../lib/LanguageContext";
+import {
+  clearSessionFilterState,
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
@@ -34,6 +41,18 @@ type CollectionPageProps = {
 
 type ViewMode = "card" | "table";
 type DataFilterValues = Record<string, string>;
+type TableSortState = {
+  value: string;
+  direction: "ascending" | "descending";
+} | null;
+type CatalogSessionFilters = {
+  searchQuery: string;
+  activeCategoryFilters: string[];
+  dataFilters: DataFilterValues;
+  sortValue?: string;
+  viewMode?: ViewMode;
+  pageSize?: string;
+};
 type PerformerTaxonomyFilterOptions = {
   gender: string[];
   bodyType: string[];
@@ -43,19 +62,43 @@ type DropdownState = {
   onOpenDropdownChange: (key: string | null) => void;
 };
 
+const emptyCatalogSessionFilters: CatalogSessionFilters = {
+  searchQuery: "",
+  activeCategoryFilters: [],
+  dataFilters: {},
+};
+
 function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [searchParams] = useSearchParams();
   const pageSizeStorageKey = catalogPageSizeStorageKey(config.kind);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>([]);
-  const [dataFilters, setDataFilters] = useState<DataFilterValues>({});
-  const [sortValue, setSortValue] = useState(config.sortOptions[0] ?? "");
+  const filterSessionKey = catalogFilterSessionKey(config.kind);
+  const initialFilters = readSessionFilterState(
+    filterSessionKey,
+    emptyCatalogSessionFilters,
+  );
+  const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery);
+  const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>(
+    initialFilters.activeCategoryFilters,
+  );
+  const [dataFilters, setDataFilters] = useState<DataFilterValues>(
+    initialFilters.dataFilters,
+  );
+  const [sortValue, setSortValue] = useState(
+    initialFilters.sortValue && config.sortOptions.includes(initialFilters.sortValue)
+      ? initialFilters.sortValue
+      : config.sortOptions[0] ?? "",
+  );
+  const [tableSort, setTableSort] = useState<TableSortState>(null);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pageSize, setPageSize] = useState(() =>
-    readStoredCatalogPageSize(pageSizeStorageKey),
+    initialFilters.pageSize
+      ? normalizeCatalogPageSize(initialFilters.pageSize)
+      : readStoredCatalogPageSize(pageSizeStorageKey),
   );
   const [page, setPage] = useState(1);
-  const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    initialFilters.viewMode === "table" ? "table" : "card",
+  );
   const [managedCategoryRecords, setManagedCategoryRecords] = useState<ManagedCategory[]>([]);
   const categoryOptions = useMemo(
     () => getCategoryOptions(config.items),
@@ -74,7 +117,8 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
       ),
       dataFilters,
     ),
-    sortValue,
+    tableSort?.value ?? sortValue,
+    tableSort?.direction,
   );
   const numericPageSize = Number(pageSize);
   const pageCount = Math.max(1, Math.ceil(sortedItems.length / numericPageSize));
@@ -114,6 +158,9 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     setSearchQuery("");
     setActiveCategoryFilters([]);
     setDataFilters({});
+    setSortValue(config.sortOptions[0] ?? "");
+    setTableSort(null);
+    clearSessionFilterState(filterSessionKey);
     resetToFirstPage();
   }
 
@@ -136,11 +183,46 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   }, [categoryOptions, searchParams]);
 
   useEffect(() => {
-    setSortValue(config.sortOptions[0] ?? "");
-    setDataFilters({});
-    setPageSize(readStoredCatalogPageSize(pageSizeStorageKey));
+    const savedFilters = readSessionFilterState(
+      filterSessionKey,
+      emptyCatalogSessionFilters,
+    );
+    setSearchQuery(savedFilters.searchQuery);
+    setActiveCategoryFilters(savedFilters.activeCategoryFilters);
+    setDataFilters(savedFilters.dataFilters);
+    setSortValue(
+      savedFilters.sortValue && config.sortOptions.includes(savedFilters.sortValue)
+        ? savedFilters.sortValue
+        : config.sortOptions[0] ?? "",
+    );
+    setTableSort(null);
+    setPageSize(
+      savedFilters.pageSize
+        ? normalizeCatalogPageSize(savedFilters.pageSize)
+        : readStoredCatalogPageSize(pageSizeStorageKey),
+    );
+    setViewMode(savedFilters.viewMode === "table" ? "table" : "card");
     setPage(1);
-  }, [config.kind, config.sortOptions, pageSizeStorageKey]);
+  }, [config.kind, config.sortOptions, filterSessionKey, pageSizeStorageKey]);
+
+  useEffect(() => {
+    writeSessionFilterState(filterSessionKey, {
+      searchQuery,
+      activeCategoryFilters,
+      dataFilters,
+      sortValue,
+      viewMode,
+      pageSize,
+    });
+  }, [
+    activeCategoryFilters,
+    dataFilters,
+    filterSessionKey,
+    pageSize,
+    searchQuery,
+    sortValue,
+    viewMode,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,9 +290,13 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
         }}
         onSortChange={(value) => {
           setSortValue(value);
+          setTableSort(null);
           resetToFirstPage();
         }}
-        onViewModeChange={setViewMode}
+        onViewModeChange={(value) => {
+          setViewMode(value);
+          resetToFirstPage();
+        }}
       />
 
       {hasVisibleItems ? (
@@ -228,9 +314,16 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
               config={config}
               items={pageItems}
               sortValue={sortValue}
+              tableSort={tableSort}
               onFavoriteToggle={onFavoriteToggle}
               onSortChange={(value) => {
-                setSortValue(value);
+                setTableSort((current) => ({
+                  value,
+                  direction:
+                    current?.value === value && current.direction === "ascending"
+                      ? "descending"
+                      : "ascending",
+                }));
                 resetToFirstPage();
               }}
             />
@@ -391,7 +484,10 @@ function CollectionToolbar({
 
   return (
     <section ref={toolbarRef} className="rounded-lg border border-slate-200 bg-white p-3" aria-label={`${title} catalog toolbar`}>
-      <div className="grid grid-cols-[minmax(9rem,1fr)_auto_minmax(8rem,12rem)_auto] items-center gap-2 sm:gap-3">
+      <div
+        className="grid grid-cols-[minmax(9rem,1fr)_minmax(10rem,14rem)_minmax(10rem,16rem)_minmax(7rem,9rem)] items-center gap-2 sm:gap-3"
+        data-testid={`${config.kind}-toolbar-row`}
+      >
         <label className="relative block min-w-0">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -421,7 +517,7 @@ function CollectionToolbar({
         <button
           type="button"
           className={[
-            "inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold transition sm:px-4",
+            "inline-flex h-11 w-full max-w-[14rem] min-w-[8.5rem] items-center justify-between gap-2 rounded-lg border px-3 text-sm font-semibold transition sm:px-4",
             activeFilterCount > 0 || filterPanelOpen
               ? "border-sakura-200 bg-sakura-50 text-sakura-700 hover:border-sakura-300"
               : "border-slate-200 bg-white text-slate-700 hover:border-sakura-200 hover:text-sakura-600",
@@ -434,9 +530,10 @@ function CollectionToolbar({
             setOpenDropdownKey(null);
             onToggleFilterPanel();
           }}
+          data-testid={`${config.kind}-toolbar-filter-button`}
         >
           <Filter size={18} />
-          <span className="hidden sm:inline">Filters</span>
+          <span className="hidden min-w-0 flex-1 text-left sm:inline">Filter</span>
           <span
             aria-label={`${activeFilterCount} active filters`}
             className={[
@@ -445,6 +542,7 @@ function CollectionToolbar({
                 ? "border-sakura-200 bg-sakura-50 text-sakura-700"
                 : "border-slate-200 bg-slate-50 text-slate-500",
             ].join(" ")}
+            data-testid={`${config.kind}-toolbar-filter-count`}
           >
             {activeFilterCount}
           </span>
@@ -463,7 +561,7 @@ function CollectionToolbar({
         />
 
         <button
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600 md:justify-self-end xl:justify-self-auto"
+          className="inline-flex h-11 w-full max-w-[9rem] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
           type="button"
           aria-label={viewLabel}
           onFocus={() => setOpenDropdownKey(null)}
@@ -575,72 +673,43 @@ function SortPicker({
   onChange: (value: string) => void;
   dropdownState: DropdownState;
 }) {
-  const [query, setQuery] = useState("");
   const open = dropdownState.openDropdownKey === dropdownKey;
-  const visibleOptions = options.filter((option) =>
-    normalizedFilterValue(option).includes(normalizedFilterValue(query)),
-  );
-  const inputValue = open ? query : value;
-
-  function openPicker() {
-    dropdownState.onOpenDropdownChange(dropdownKey);
-    setQuery("");
-  }
 
   function selectOption(option: string) {
     onChange(option);
     dropdownState.onOpenDropdownChange(null);
-    setQuery("");
   }
 
   return (
     <div className="relative min-w-0">
-      <label className="flex h-11 min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
-        <span className="hidden shrink-0 text-xs font-semibold text-slate-500 sm:inline">
-          Sort
+      <button
+        type="button"
+        aria-label={`Sort ${value}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex h-11 w-full max-w-[16rem] min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100"
+        data-testid={`${dropdownKey}-sort-control`}
+        onClick={() => dropdownState.onOpenDropdownChange(open ? null : dropdownKey)}
+      >
+        <ArrowUpDown size={18} className="shrink-0 text-slate-500" />
+        <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-950">
+          {value}
         </span>
-        <input
-          aria-label="Sort"
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
-          value={inputValue}
-          placeholder="Sort"
-          onFocus={openPicker}
-          onChange={(event) => {
-            const nextQuery = event.target.value;
-            dropdownState.onOpenDropdownChange(dropdownKey);
-            setQuery(nextQuery);
-            const exactOption = options.find(
-              (option) => normalizedFilterValue(option) === normalizedFilterValue(nextQuery),
-            );
-            if (exactOption) {
-              selectOption(exactOption);
-            }
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Open Sort options"
-          className="inline-flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-sakura-50 hover:text-sakura-600"
-          onClick={() => {
-            dropdownState.onOpenDropdownChange(open ? null : dropdownKey);
-            setQuery("");
-          }}
-        >
-          <ChevronDown size={16} className={open ? "rotate-180 transition" : "transition"} />
-        </button>
-      </label>
+        <ChevronDown size={16} className={open ? "rotate-180 transition" : "transition"} />
+      </button>
       {open && (
         <div className="absolute z-50 mt-2 w-full min-w-44 rounded-lg border border-slate-200 bg-white shadow-lg">
           <div role="listbox" aria-label="Sort options" className="max-h-64 overflow-y-auto p-1">
-            {visibleOptions.map((option) => (
+            {options.map((option) => (
               <PickerOption
                 key={option}
                 label={option}
                 selected={normalizedFilterValue(option) === normalizedFilterValue(value)}
+                showMarker={false}
                 onSelect={() => selectOption(option)}
               />
             ))}
-            {visibleOptions.length === 0 && (
+            {options.length === 0 && (
               <p className="px-3 py-2 text-xs font-semibold text-slate-500">
                 No matching options
               </p>
@@ -1406,10 +1475,12 @@ function CategoryFilterCell({
 function PickerOption({
   label,
   selected,
+  showMarker = true,
   onSelect,
 }: {
   label: string;
   selected: boolean;
+  showMarker?: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -1426,7 +1497,9 @@ function PickerOption({
       onClick={onSelect}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className={selected ? "text-sakura-600" : "text-slate-400"}>+</span>
+      {showMarker && (
+        <span className={selected ? "text-sakura-600" : "text-slate-400"}>+</span>
+      )}
     </button>
   );
 }
@@ -1688,12 +1761,14 @@ function CollectionTable({
   config,
   items,
   sortValue,
+  tableSort,
   onFavoriteToggle,
   onSortChange,
 }: {
   config: CollectionConfig;
   items: CollectionItem[];
   sortValue: string;
+  tableSort: TableSortState;
   onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
   onSortChange: (value: string) => void;
 }) {
@@ -1701,10 +1776,10 @@ function CollectionTable({
 
   return (
     <section
-      className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+      className="rounded-lg border border-slate-200 bg-white"
       data-testid={`${config.kind}-catalog-table-card`}
     >
-      <div className="overflow-x-auto" data-testid={`${config.kind}-catalog-table-scroll`}>
+      <StickyHorizontalScroll testId={`${config.kind}-catalog-table-scroll`}>
         <table
           className={`table-fixed divide-y divide-slate-200 text-left text-sm ${catalogTableMinWidth(config.kind)}`}
           data-testid={`${config.kind}-catalog-table`}
@@ -1714,7 +1789,7 @@ function CollectionTable({
               {columns.map((column) => (
                 <th
                   key={column.id}
-                  aria-sort={ariaSortForColumn(column, sortValue)}
+                  aria-sort={ariaSortForColumn(column, tableSort)}
                   className={["px-3 py-3", column.className ?? ""].join(" ")}
                 >
                   {column.sortValue ? (
@@ -1723,17 +1798,17 @@ function CollectionTable({
                       aria-label={`Sort by ${column.sortLabel ?? column.header}`}
                       title={`Sort by ${column.sortLabel ?? column.header}`}
                       className={[
-                        "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200",
-                        sortValue === column.sortValue ? "text-sakura-600" : "",
+                        "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200",
+                        tableSort?.value === column.sortValue ? "text-slate-700" : "",
                       ].join(" ")}
                       onClick={() => onSortChange(column.sortValue!)}
                     >
                       <span className={column.hiddenHeader ? "sr-only" : "truncate"}>
                         {column.header}
                       </span>
-                      {sortValue === column.sortValue && (
-                        <span aria-hidden="true" className="text-[10px] text-sakura-500">
-                          {sortDirectionLabel(column.sortValue)}
+                      {tableSort?.value === column.sortValue && (
+                        <span aria-hidden="true" className="text-[10px] text-slate-500">
+                          {tableSort.direction === "ascending" ? "ASC" : "DESC"}
                         </span>
                       )}
                     </button>
@@ -1758,7 +1833,7 @@ function CollectionTable({
             ))}
           </tbody>
         </table>
-      </div>
+      </StickyHorizontalScroll>
     </section>
   );
 }
@@ -1795,7 +1870,7 @@ function CollectionTableRow({
       {columns.map((column) => (
         <td
           key={`${item.key}-${column.id}`}
-          className={["px-3 py-3 text-slate-700", column.className ?? ""].join(" ")}
+          className={["px-3 py-3 text-slate-700 overflow-hidden", column.className ?? ""].join(" ")}
         >
           {column.render(item, config, onFavoriteToggle)}
         </td>
@@ -2067,17 +2142,28 @@ function performerCategoryMatches(item: CollectionItem, value: string) {
   return item.categories.some((category) => normalizeCategoryKey(category) === filterKey);
 }
 
-function sortItems(items: CollectionItem[], sortValue: string) {
+function sortItems(
+  items: CollectionItem[],
+  sortValue: string,
+  directionOverride?: "ascending" | "descending",
+) {
   const indexedItems = items.map((item, index) => ({ item, index }));
+  const textDirection = directionOverride ?? "ascending";
+  const numberDirection = directionOverride ?? "descending";
+  const newestDirection = directionOverride ?? "descending";
 
   if (sortValue === "Last Added") {
     return indexedItems
       .slice()
       .sort((left, right) => {
-        const rightTime = timestamp(right.item.createdAt) || timestamp(right.item.updatedAt);
         const leftTime = timestamp(left.item.createdAt) || timestamp(left.item.updatedAt);
+        const rightTime = timestamp(right.item.createdAt) || timestamp(right.item.updatedAt);
+        const compared =
+          newestDirection === "ascending"
+            ? leftTime - rightTime
+            : rightTime - leftTime;
 
-        return rightTime - leftTime || left.index - right.index;
+        return compared || left.index - right.index;
       })
       .map(({ item }) => item);
   }
@@ -2086,10 +2172,14 @@ function sortItems(items: CollectionItem[], sortValue: string) {
     return indexedItems
       .slice()
       .sort((left, right) => {
-        const rightTime = timestamp(right.item.updatedAt);
         const leftTime = timestamp(left.item.updatedAt);
+        const rightTime = timestamp(right.item.updatedAt);
+        const compared =
+          newestDirection === "ascending"
+            ? leftTime - rightTime
+            : rightTime - leftTime;
 
-        return rightTime - leftTime || left.index - right.index;
+        return compared || left.index - right.index;
       })
       .map(({ item }) => item);
   }
@@ -2097,33 +2187,42 @@ function sortItems(items: CollectionItem[], sortValue: string) {
   if (sortValue === "Title A-Z" || sortValue === "Name A-Z") {
     return indexedItems
       .slice()
-      .sort((left, right) =>
-        getPrimaryTitle(left.item).localeCompare(getPrimaryTitle(right.item)) ||
-        left.index - right.index,
-      )
+      .sort((left, right) => {
+        const compared = getPrimaryTitle(left.item).localeCompare(
+          getPrimaryTitle(right.item),
+        );
+        return (textDirection === "ascending" ? compared : -compared) ||
+          left.index - right.index;
+      })
       .map(({ item }) => item);
   }
 
   if (sortValue === "Duration") {
-    return sortByNumber(indexedItems, (item) =>
-      item.kind === "videos" ? item.durationMinutes ?? null : null,
+    return sortByNumber(
+      indexedItems,
+      (item) => (item.kind === "videos" ? item.durationMinutes ?? null : null),
+      numberDirection,
     );
   }
 
   if (sortValue === "Image Count") {
-    return sortByNumber(indexedItems, (item) =>
-      item.kind === "images" ? item.imageCountValue ?? null : null,
+    return sortByNumber(
+      indexedItems,
+      (item) => (item.kind === "images" ? item.imageCountValue ?? null : null),
+      numberDirection,
     );
   }
 
   if (sortValue === "Release Year") {
-    return sortByNumber(indexedItems, (item) =>
-      item.kind === "performers" ? null : item.releaseYear ?? null,
+    return sortByNumber(
+      indexedItems,
+      (item) => (item.kind === "performers" ? null : item.releaseYear ?? null),
+      numberDirection,
     );
   }
 
   if (sortValue === "Rating") {
-    return sortByNumber(indexedItems, (item) => item.ratingBucket ?? null);
+    return sortByNumber(indexedItems, (item) => item.ratingAverage ?? null, numberDirection);
   }
 
   if (sortValue === "Status") {
@@ -2132,24 +2231,32 @@ function sortItems(items: CollectionItem[], sortValue: string) {
       .sort((left, right) => {
         const leftStatus = left.item.kind === "performers" ? left.item.status : "";
         const rightStatus = right.item.kind === "performers" ? right.item.status : "";
-        return leftStatus.localeCompare(rightStatus) || left.index - right.index;
+        const compared = leftStatus.localeCompare(rightStatus);
+        return (textDirection === "ascending" ? compared : -compared) ||
+          left.index - right.index;
       })
       .map(({ item }) => item);
   }
 
   if (sortValue === "Filmography") {
-    return sortByNumber(indexedItems, (item) =>
-      item.kind === "performers"
-        ? item.filmographyCountValue ?? null
-        : null,
+    return sortByNumber(
+      indexedItems,
+      (item) =>
+        item.kind === "performers"
+          ? item.filmographyCountValue ?? null
+          : null,
+      numberDirection,
     );
   }
 
   if (sortValue === "Pictorials") {
-    return sortByNumber(indexedItems, (item) =>
-      item.kind === "performers"
-        ? item.pictorialsCountValue ?? null
-        : null,
+    return sortByNumber(
+      indexedItems,
+      (item) =>
+        item.kind === "performers"
+          ? item.pictorialsCountValue ?? null
+          : null,
+      numberDirection,
     );
   }
 
@@ -2159,6 +2266,7 @@ function sortItems(items: CollectionItem[], sortValue: string) {
 function sortByNumber(
   indexedItems: Array<{ item: CollectionItem; index: number }>,
   valueForItem: (item: CollectionItem) => number | null,
+  direction: "ascending" | "descending" = "descending",
 ) {
   return indexedItems
     .slice()
@@ -2178,7 +2286,11 @@ function sortByNumber(
         return -1;
       }
 
-      return rightValue - leftValue || left.index - right.index;
+      const compared =
+        direction === "ascending"
+          ? leftValue - rightValue
+          : rightValue - leftValue;
+      return compared || left.index - right.index;
     })
     .map(({ item }) => item);
 }
@@ -2513,6 +2625,10 @@ function catalogPageSizeStorageKey(kind: CollectionConfig["kind"]) {
   return `sakurava.catalog.${kind}.pageSize.v1`;
 }
 
+function catalogFilterSessionKey(kind: CollectionConfig["kind"]) {
+  return `catalog:${kind}:filters`;
+}
+
 function pageNumbers(pageCount: number) {
   return Array.from({ length: pageCount }, (_, index) => index + 1);
 }
@@ -2812,14 +2928,6 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       ),
     },
     {
-      id: "rating",
-      header: "RATING",
-      sortLabel: "Rating",
-      sortValue: "Rating",
-      className: "w-28",
-      render: (item) => <RatingChip value={formatRating(item)} />,
-    },
-    {
       id: "censorship",
       header: "CENSORSHIP",
       className: "w-32",
@@ -2828,23 +2936,21 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
           <StatusChip value={formatCensorship(item.censorship)} tone="censorship" />
         ) : null,
     },
+    {
+      id: "rating",
+      header: "RATING",
+      sortLabel: "Rating",
+      sortValue: "Rating",
+      className: "w-28",
+      render: (item) => <RatingChip value={formatRating(item)} />,
+    },
   ];
 }
 
-function ariaSortForColumn(column: TableColumn, sortValue: string) {
-  return column.sortValue && column.sortValue === sortValue
-    ? sortDirectionForValue(column.sortValue)
+function ariaSortForColumn(column: TableColumn, tableSort: TableSortState) {
+  return column.sortValue && tableSort?.value === column.sortValue
+    ? tableSort.direction
     : undefined;
-}
-
-function sortDirectionForValue(sortValue: string): "ascending" | "descending" {
-  return sortValue === "Title A-Z" || sortValue === "Name A-Z" || sortValue === "Status"
-    ? "ascending"
-    : "descending";
-}
-
-function sortDirectionLabel(sortValue: string) {
-  return sortDirectionForValue(sortValue) === "ascending" ? "ASC" : "DESC";
 }
 
 const tableNA = "N/A";
@@ -2927,10 +3033,10 @@ function formatDuration(item: CollectionItem) {
 }
 
 function formatRating(item: CollectionItem) {
-  const value = item.ratingBucket;
-  return typeof value === "number" && Number.isFinite(value) && value > 0
+  const value = item.ratingAverage;
+  return typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 5
     ? value.toFixed(1)
-    : tableNA;
+    : "-";
 }
 
 function normalizeUnknown(value: string | null | undefined) {
@@ -3047,7 +3153,7 @@ function CatalogCategoryChips({ categories }: { categories: string[] }) {
       {visibleCategories.map((category) => (
         <span
           key={category}
-          className="inline-flex max-w-[7rem] shrink items-center rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700"
+          className="inline-flex max-w-[7rem] shrink items-center overflow-hidden rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700"
         >
           <span className="truncate">{category}</span>
         </span>
@@ -3072,7 +3178,7 @@ function StatusChip({
   tone: "availability" | "censorship" | "performer-status";
 }) {
   const className = [
-    "inline-flex w-fit max-w-full items-center rounded-md border px-2.5 py-1 text-xs font-semibold",
+    "inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border px-2.5 py-1 text-xs font-semibold",
     tableChipToneClassName(value, tone),
   ].join(" ");
 
@@ -3086,7 +3192,7 @@ function StatusChip({
 function RatingChip({ value }: { value: string }) {
   return (
     <span
-      className="inline-flex w-fit max-w-full items-center rounded-md border border-sakura-200 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-700"
+      className="inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border border-sakura-200 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-700"
       title={value}
       data-testid="catalog-table-rating-chip"
     >
