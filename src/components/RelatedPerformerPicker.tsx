@@ -4,6 +4,10 @@ import { Link } from "react-router-dom";
 import type { RelatedPerformerReference } from "../backend/json";
 import type { Performer } from "../backend/types";
 import { performerSearchText } from "../lib/relatedPicker";
+import {
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
 
 const RELATED_CHIP_STYLES =
   "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
@@ -17,6 +21,7 @@ type RelatedPerformerPickerProps = {
   performers: Performer[];
   selected: RelatedPerformerReference[];
   loadState: LoadState;
+  sessionKey?: string;
   onChange: (nextSelected: RelatedPerformerReference[]) => void;
 };
 
@@ -24,9 +29,12 @@ function RelatedPerformerPicker({
   performers,
   selected,
   loadState,
+  sessionKey,
   onChange,
 }: RelatedPerformerPickerProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(
+    () => readSessionFilterState(sessionKey ?? "", { query: "" }).query,
+  );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
   const selectedIds = new Set(
@@ -65,6 +73,14 @@ function RelatedPerformerPicker({
       setShowAllSelected(false);
     }
   }, [selected.length]);
+
+  useEffect(() => {
+    if (!sessionKey) {
+      return;
+    }
+
+    writeSessionFilterState(sessionKey, { query });
+  }, [query, sessionKey]);
 
   function addPerformer(performer: Performer) {
     const nameSnapshot = performerBaseName(performer);

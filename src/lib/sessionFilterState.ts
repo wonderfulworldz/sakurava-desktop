@@ -1,5 +1,9 @@
 const sessionFilterState = new Map<string, unknown>();
 
+export function isSessionUiMemoryEnabled() {
+  return true;
+}
+
 function cloneSessionValue<TValue>(value: TValue): TValue {
   if (Array.isArray(value)) {
     return [...value] as TValue;
@@ -16,6 +20,10 @@ export function readSessionFilterState<TValue>(
   key: string,
   fallback: TValue,
 ): TValue {
+  if (!isSessionUiMemoryEnabled()) {
+    return cloneSessionValue(fallback);
+  }
+
   if (!sessionFilterState.has(key)) {
     return cloneSessionValue(fallback);
   }
@@ -24,6 +32,10 @@ export function readSessionFilterState<TValue>(
 }
 
 export function writeSessionFilterState<TValue>(key: string, value: TValue) {
+  if (!isSessionUiMemoryEnabled()) {
+    return;
+  }
+
   sessionFilterState.set(key, cloneSessionValue(value));
 }
 

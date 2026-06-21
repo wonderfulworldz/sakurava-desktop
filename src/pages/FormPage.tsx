@@ -25,6 +25,10 @@ import {
   removeFormCategory,
 } from "../lib/formCategories";
 import { getStoredManagedCategories } from "../lib/managedCategories";
+import {
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
 import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
 import {
@@ -1023,6 +1027,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             selected={categories}
             managedCategories={managedCategories}
             managedCategoryRecords={managedCategoryRecords}
+            sessionKey={formCategoryPickerSessionKey(config.kind)}
             onChange={setCategories}
           />
         </LabeledControl>
@@ -1069,6 +1074,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 performers={availablePerformers}
                 selected={relatedPerformers}
                 loadState={performerLoadState}
+                sessionKey={formRelatedPerformerSessionKey(config.kind)}
                 onChange={setRelatedPerformers}
               />
             </LabeledControl>
@@ -1088,6 +1094,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 selected={relatedCatalogRecords}
                 loadState={relatedCatalogLoadState}
                 targetKind={config.kind === "videos" ? "images" : "videos"}
+                sessionKey={formRelatedCatalogSessionKey(config.kind)}
                 onChange={setRelatedCatalogRecords}
               />
             </LabeledControl>
@@ -1102,6 +1109,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 selected={performerRelatedVideos}
                 loadState={relatedCatalogLoadState}
                 targetKind="videos"
+                sessionKey="form:performer:related-videos"
                 onChange={setPerformerRelatedVideos}
               />
             </LabeledControl>
@@ -1114,6 +1122,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 selected={performerRelatedImages}
                 loadState={relatedCatalogLoadState}
                 targetKind="images"
+                sessionKey="form:performer:related-images"
                 onChange={setPerformerRelatedImages}
               />
             </LabeledControl>
@@ -2036,15 +2045,19 @@ function CategoryPicker({
   selected,
   managedCategories,
   managedCategoryRecords,
+  sessionKey,
   onChange,
 }: {
   kind: FormConfig["kind"];
   selected: string[];
   managedCategories: string[];
   managedCategoryRecords: ManagedCategory[];
+  sessionKey: string;
   onChange: Dispatch<SetStateAction<string[]>>;
 }) {
-  const [categorySearch, setCategorySearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState(
+    () => readSessionFilterState(sessionKey, { query: "" }).query,
+  );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
   const normalizedSelected = normalizeFormCategories(selected);
@@ -2081,6 +2094,10 @@ function CategoryPicker({
       setShowAllSelected(false);
     }
   }, [normalizedSelected.length]);
+
+  useEffect(() => {
+    writeSessionFilterState(sessionKey, { query: categorySearch });
+  }, [categorySearch, sessionKey]);
 
   function addSelectedCategory(category: string) {
     onChange((current) => addFormCategory(current, category));
@@ -2883,6 +2900,34 @@ function selectPathForField(kind: FormConfig["kind"], fieldName: string) {
   }
 
   return selectLocalImageFile();
+}
+
+function formKindSessionName(kind: FormConfig["kind"]) {
+  if (kind === "videos") {
+    return "video";
+  }
+
+  if (kind === "images") {
+    return "image";
+  }
+
+  return "performer";
+}
+
+function formCategoryPickerSessionKey(kind: FormConfig["kind"]) {
+  return `form:${formKindSessionName(kind)}:category-picker`;
+}
+
+function formRelatedPerformerSessionKey(kind: FormConfig["kind"]) {
+  return `form:${formKindSessionName(kind)}:related-performers`;
+}
+
+function formRelatedCatalogSessionKey(kind: FormConfig["kind"]) {
+  if (kind === "videos") {
+    return "form:video:related-images";
+  }
+
+  return "form:image:related-videos";
 }
 
 function collectionLabel(kind: FormConfig["kind"]) {

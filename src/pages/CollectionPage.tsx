@@ -18,9 +18,8 @@ import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/c
 import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
+  DEFAULT_CATALOG_PAGE_SIZE,
   normalizeCatalogPageSize,
-  readStoredCatalogPageSize,
-  storeCatalogPageSize,
 } from "../lib/catalogPagination";
 import type { ManagedCategory } from "../backend/types";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
@@ -70,7 +69,6 @@ const emptyCatalogSessionFilters: CatalogSessionFilters = {
 
 function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [searchParams] = useSearchParams();
-  const pageSizeStorageKey = catalogPageSizeStorageKey(config.kind);
   const filterSessionKey = catalogFilterSessionKey(config.kind);
   const initialFilters = readSessionFilterState(
     filterSessionKey,
@@ -93,7 +91,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [pageSize, setPageSize] = useState(() =>
     initialFilters.pageSize
       ? normalizeCatalogPageSize(initialFilters.pageSize)
-      : readStoredCatalogPageSize(pageSizeStorageKey),
+      : DEFAULT_CATALOG_PAGE_SIZE,
   );
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>(
@@ -160,6 +158,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     setDataFilters({});
     setSortValue(config.sortOptions[0] ?? "");
     setTableSort(null);
+    setPageSize(DEFAULT_CATALOG_PAGE_SIZE);
     clearSessionFilterState(filterSessionKey);
     resetToFirstPage();
   }
@@ -199,11 +198,11 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     setPageSize(
       savedFilters.pageSize
         ? normalizeCatalogPageSize(savedFilters.pageSize)
-        : readStoredCatalogPageSize(pageSizeStorageKey),
+        : DEFAULT_CATALOG_PAGE_SIZE,
     );
     setViewMode(savedFilters.viewMode === "table" ? "table" : "card");
     setPage(1);
-  }, [config.kind, config.sortOptions, filterSessionKey, pageSizeStorageKey]);
+  }, [config.kind, config.sortOptions, filterSessionKey]);
 
   useEffect(() => {
     writeSessionFilterState(filterSessionKey, {
@@ -339,7 +338,6 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
             onPageSizeChange={(value) => {
               const nextPageSize = normalizeCatalogPageSize(value);
               setPageSize(nextPageSize);
-              storeCatalogPageSize(pageSizeStorageKey, nextPageSize);
               resetToFirstPage();
             }}
           />
@@ -2621,12 +2619,8 @@ function normalizeSearchText(value: string) {
   return value.trim().toLocaleLowerCase();
 }
 
-function catalogPageSizeStorageKey(kind: CollectionConfig["kind"]) {
-  return `sakurava.catalog.${kind}.pageSize.v1`;
-}
-
 function catalogFilterSessionKey(kind: CollectionConfig["kind"]) {
-  return `catalog:${kind}:filters`;
+  return `catalog:${kind}`;
 }
 
 function pageNumbers(pageCount: number) {

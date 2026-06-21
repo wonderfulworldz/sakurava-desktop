@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Image, UserRound, Video } from "lucide-react";
 import { parseSourceLinkArray } from "../backend/json";
+import { formatLocalTimestampDisplay } from "./dateDisplay";
 
 export type DetailKind = "videos" | "images" | "performers";
 export const DETAIL_EMPTY_VALUE = "N/A";
@@ -124,31 +125,7 @@ export type DetailConfig =
 export function formatSystemTimestamp(
   value: string | number | null | undefined,
 ) {
-  if (value === null || value === undefined) {
-    return DETAIL_EMPTY_VALUE;
-  }
-
-  const rawValue = String(value).trim();
-  if (!rawValue) {
-    return DETAIL_EMPTY_VALUE;
-  }
-
-  const date = /^\d+$/.test(rawValue)
-    ? new Date(Number(rawValue))
-    : new Date(rawValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return DETAIL_EMPTY_VALUE;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(date);
+  return formatLocalTimestampDisplay(value, DETAIL_EMPTY_VALUE);
 }
 
 export function sourceLinksFromRecord(record: unknown): SourceLinkItem[] {

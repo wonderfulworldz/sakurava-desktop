@@ -59,7 +59,7 @@ type GlossaryFormErrors = Partial<
 >;
 
 const pageSizeOptions = [32, 64, 128, 256] as const;
-const glossaryFilterSessionKey = "glossary:filters";
+const glossaryFilterSessionKey = "glossary-library";
 const emptyGlossarySessionFilters: GlossarySessionFilters = {
   searchQuery: "",
   parentFilter: [],
@@ -505,6 +505,7 @@ function GlossaryPage() {
     setParentFilter([]);
     setSortKey("updated-desc");
     setTableSort(null);
+    setPageSize(32);
     clearSessionFilterState(glossaryFilterSessionKey);
     setPage(1);
   };

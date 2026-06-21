@@ -111,7 +111,7 @@ type CategoryManagementSessionFilters = {
   rowsPerPage?: CatalogPageSize;
 };
 
-const categoryManagementFilterSessionKey = "category-management:filters";
+const categoryManagementFilterSessionKey = "category-management";
 const emptyCategoryManagementSessionFilters: CategoryManagementSessionFilters = {
   search: "",
   filterSearch: "",

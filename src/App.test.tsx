@@ -14,6 +14,7 @@ import GlobalImageViewer from "./components/gallery/GlobalImageViewer";
 import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
 import CategoriesPage from "./pages/CategoriesPage";
 import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
+import { formatDateOnlyDisplay, formatLocalTimestampDisplay } from "./lib/dateDisplay";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
 import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
@@ -35,6 +36,21 @@ type TestTauriEventCallback = (event: {
   id: number;
   payload: any;
 }) => void;
+
+describe("date display helpers", () => {
+  it("formats date-only values with padded days without timezone shifting", () => {
+    expect(formatDateOnlyDisplay("2026-02-02")).toBe("Feb 02, 2026");
+    expect(formatDateOnlyDisplay("2026-12-31")).toBe("Dec 31, 2026");
+  });
+
+  it("formats local timestamps without forcing UTC", () => {
+    const localTimestamp = new Date(2026, 1, 2, 3, 4).getTime();
+    const formatted = formatLocalTimestampDisplay(localTimestamp);
+
+    expect(formatted).toMatch(/^Feb 02, 2026,/);
+    expect(formatted).not.toContain("2026-02-02");
+  });
+});
 
 function createTauriEventHarness() {
   let nextCallbackId = 1;
@@ -760,6 +776,50 @@ describe("App", () => {
     expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
     expect(screen.getByRole("row", { name: "Edit glossary entry AAA Standalone" }))
       .toBeInTheDocument();
+  });
+
+  it("keeps Glossary search filter sort and page size in session memory", () => {
+    window.history.pushState({}, "", "/glossary");
+    const glossaryRender = render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Search terms"), {
+      target: { value: "taxonomy" },
+    });
+    fireEvent.click(screen.getByTestId("glossary-category-filter-control"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select glossary category filter Alias Mapping",
+      }),
+    );
+    fireEvent.focus(screen.getByLabelText("Sort"));
+    fireEvent.click(screen.getByRole("button", { name: "Select sort Z-A" }));
+    fireEvent.change(screen.getByLabelText("Terms per page"), {
+      target: { value: "64" },
+    });
+    glossaryRender.unmount();
+
+    window.history.pushState({}, "", "/glossary");
+    const restoredGlossaryRender = render(<App />);
+
+    expect(screen.getByLabelText("Search terms")).toHaveValue("taxonomy");
+    expect(screen.getByLabelText("Glossary active filters")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("glossary-sort-control")).toHaveTextContent("Z-A");
+    expect(screen.getByLabelText("Terms per page")).toHaveDisplayValue("64");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+    restoredGlossaryRender.unmount();
+
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    expect(screen.getByLabelText("Search terms")).toHaveValue("");
+    expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
+    expect(screen.getByTestId("glossary-sort-control"))
+      .toHaveTextContent("Last Updated");
+    expect(screen.getByLabelText("Terms per page")).toHaveDisplayValue("32");
   });
 
   it("sorts static Glossary entries by term", () => {
@@ -1570,13 +1630,19 @@ describe("App", () => {
     expect(screen.getByText("Showing 1-40 of 40 categories")).toBeInTheDocument();
   });
 
-  it("normalizes persisted catalog page sizes", () => {
+  it("keeps catalog page size in session memory instead of localStorage", () => {
     window.history.pushState({}, "", "/videos");
     window.localStorage.setItem("sakurava.catalog.videos.pageSize.v1", "90");
 
     const { unmount } = render(<App />);
 
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "64" },
+    });
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(window.localStorage.getItem("sakurava.catalog.videos.pageSize.v1"))
+      .toBe("90");
 
     unmount();
     window.history.pushState({}, "", "/images");
@@ -1584,7 +1650,9 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+    expect(window.localStorage.getItem("sakurava.catalog.images.pageSize.v1"))
+      .toBe("64");
   });
 
   it("keeps Catalog toolbar memory scoped by entity during the session", async () => {
@@ -1631,7 +1699,7 @@ describe("App", () => {
     imageRender.unmount();
 
     window.history.pushState({}, "", "/videos");
-    render(<App />);
+    const restoredVideoRender = render(<App />);
     expect(await screen.findByText("Memory Video")).toBeInTheDocument();
     expect(screen.getByLabelText("Videos search")).toHaveValue("memory");
     expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
@@ -1644,6 +1712,15 @@ describe("App", () => {
     expect(screen.getByLabelText("Videos search")).toHaveValue("");
     expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    restoredVideoRender.unmount();
+
+    window.history.pushState({}, "", "/videos");
+    render(<App />);
+    expect(await screen.findByText("Memory Video")).toBeInTheDocument();
+    expect(screen.getByLabelText("Videos search")).toHaveValue("");
+    expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
+    expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
   });
 
   it("syncs the sticky horizontal scrollbar mirror with table scrolling", async () => {
@@ -3979,7 +4056,7 @@ describe("App", () => {
       invoke,
     };
 
-    render(<App />);
+    const categoryRender = render(<App />);
 
     await screen.findAllByText("Parent Category");
     const table = screen.getByRole("table");
@@ -4045,16 +4122,47 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Remove Parent: Child filter" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
+    fireEvent.change(screen.getByLabelText("Search categories"), {
+      target: { value: "Child" },
+    });
+    selectCategorySort("Last Added");
+    categoryRender.unmount();
+
+    window.history.pushState({}, "", "/settings/category-management");
+    const restoredCategoryRender = render(<App />);
+    await screen.findByText("Child Category");
+    expect(screen.getByLabelText("Search categories")).toHaveValue("Child");
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Last Added",
+    );
+    expect(screen.getByRole("button", { name: "Remove Parent: Child filter" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
 
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
     expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
     expect(screen.getByLabelText("0 active filters")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Search categories")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Name A-Z",
+    );
+    restoredCategoryRender.unmount();
+
+    window.history.pushState({}, "", "/settings/category-management");
+    render(<App />);
+    await screen.findAllByText("Parent Category");
+    expect(screen.getByLabelText("Search categories")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Name A-Z",
+    );
+    expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
     expect(
       within(screen.getByTestId("category-management-filter-control")).getByRole(
         "searchbox",
         { name: "Search category filters" },
       ),
     ).toHaveValue("");
+    fireEvent.click(screen.getByTestId("category-management-filter-control"));
     expect(
       within(screen.getByRole("listbox", { name: "Category filter options" })).queryByRole(
         "searchbox",
@@ -5196,6 +5304,59 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("keeps form picker queries scoped by form kind during the session", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_cherry",
+            name: "Cherry Sakura",
+            aliasesJson: '["Cherry"]',
+          }),
+        ];
+      }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({ key: "cat_video", name: "Video Only" }),
+          managedCategoryFixture({ key: "cat_image", name: "Image Only" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    window.history.pushState({}, "", "/videos/new");
+    const videoRender = render(<App />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "Video" },
+    });
+    fireEvent.change(await screen.findByLabelText("Search related performers"), {
+      target: { value: "Cherry" },
+    });
+    videoRender.unmount();
+
+    window.history.pushState({}, "", "/images/new");
+    const imageRender = render(<App />);
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toHaveValue("");
+    expect(await screen.findByLabelText("Search related performers")).toHaveValue("");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "Image" },
+    });
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toHaveValue("Video");
+    expect(await screen.findByLabelText("Search related performers"))
+      .toHaveValue("Cherry");
   });
 
   it("selects existing Images on video forms and saves relatedImagesJson", async () => {
@@ -7196,7 +7357,7 @@ describe("App", () => {
     expect(screen.getByText("No matching items")).toBeInTheDocument();
   });
 
-  it("clears catalog search, category filters, data filters, and sort without resetting page size", async () => {
+  it("clears catalog search, category filters, data filters, sort, and page size", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list") {
@@ -7278,12 +7439,12 @@ describe("App", () => {
       screen.queryByRole("button", { name: "Clear all filters" }),
     ).not.toBeInTheDocument();
     expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.getByText("Beta Clip")).toBeInTheDocument();
   });
 
-  it("resets advanced panel filters and sort without resetting page size", async () => {
+  it("resets advanced panel filters, sort, and page size", async () => {
     window.history.pushState({}, "", "/images");
     const invoke = vi.fn(async (command: string) => {
       if (command === "image_list") {
@@ -7351,7 +7512,7 @@ describe("App", () => {
       screen.getByRole("button", { name: "Image Count: Some" }),
     ).toHaveAttribute("aria-pressed", "false");
     expect(catalogSortControl("images")).toHaveTextContent("Last Added");
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     expect(screen.getByText("Alpha Gallery")).toBeInTheDocument();
     expect(screen.getByText("Beta Gallery")).toBeInTheDocument();
   });
@@ -10166,6 +10327,7 @@ describe("App", () => {
         expect(args.id).toBe("video_test_001");
         return persistedVideo({
           title: "Timestamped Video",
+          releaseDate: "2026-02-02",
           createdAt: "1778611681088",
           updatedAt: "1778611707544",
         });
@@ -10180,6 +10342,9 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Timestamped Video")).toBeInTheDocument();
+    expect(screen.getByText("Release Date")).toBeInTheDocument();
+    expect(screen.getByText("Feb 02, 2026")).toBeInTheDocument();
+    expect(screen.queryByText("2026-02-02")).not.toBeInTheDocument();
     expect(screen.getByText("System Info")).toBeInTheDocument();
     expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
     expect(screen.getByText("Last edited")).toBeInTheDocument();
@@ -13153,6 +13318,7 @@ describe("App", () => {
         expect(args.id).toBe("image_test_001");
         return persistedImage({
           title: "Timestamped Image",
+          releaseDate: "2026-02-02",
           createdAt: "2026-05-10T01:02:03.000Z",
           updatedAt: "2026-05-12T07:08:09.000Z",
         });
@@ -13167,6 +13333,9 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Timestamped Image")).toBeInTheDocument();
+    expect(screen.getByText("Release Date")).toBeInTheDocument();
+    expect(screen.getByText("Feb 02, 2026")).toBeInTheDocument();
+    expect(screen.queryByText("2026-02-02")).not.toBeInTheDocument();
     expect(screen.getByText("System Info")).toBeInTheDocument();
     expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
     expect(screen.getByText(formatExpectedLocalTimestamp("2026-05-10T01:02:03.000Z"))).toBeInTheDocument();
@@ -13858,10 +14027,14 @@ describe("App", () => {
     const metadata = within(metadataSection as HTMLElement);
     expect(metadata.getByText("Gender")).toBeInTheDocument();
     expect(metadata.getByText("Birth Date")).toBeInTheDocument();
+    expect(metadata.getByText("Jan 20, 1998")).toBeInTheDocument();
     expect(metadata.getByText("Debut Date")).toBeInTheDocument();
-    expect(metadata.getByText("2020-01-02")).toBeInTheDocument();
+    expect(metadata.getByText("Jan 02, 2020")).toBeInTheDocument();
     expect(metadata.getByText("Retired Date")).toBeInTheDocument();
-    expect(metadata.getByText("2024-03-04")).toBeInTheDocument();
+    expect(metadata.getByText("Mar 04, 2024")).toBeInTheDocument();
+    expect(metadata.queryByText("1998-01-20")).not.toBeInTheDocument();
+    expect(metadata.queryByText("2020-01-02")).not.toBeInTheDocument();
+    expect(metadata.queryByText("2024-03-04")).not.toBeInTheDocument();
     expectPrecedes(metadataSection as HTMLElement, "Gender", "Birth Date");
     expectPrecedes(metadataSection as HTMLElement, "Birth Date", "Debut Date");
     expectPrecedes(metadataSection as HTMLElement, "Debut Date", "Retired Date");
@@ -14462,19 +14635,7 @@ function expectPrecedes(container: HTMLElement, firstText: string, secondText: s
 }
 
 function formatExpectedLocalTimestamp(value: string | number) {
-  const rawValue = String(value).trim();
-  const date = /^\d+$/.test(rawValue)
-    ? new Date(Number(rawValue))
-    : new Date(rawValue);
-
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(date);
+  return formatLocalTimestampDisplay(value);
 }
 
 function setManagedCategories(categories: string[]) {

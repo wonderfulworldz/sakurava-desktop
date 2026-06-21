@@ -42,6 +42,11 @@ import {
   type GlobalImageViewerWindowPayload,
   type GlobalImageViewerWindowResult,
 } from "../runtime/globalImageViewerWindow";
+import { formatDateOnlyDisplay, isDateOnlyValue } from "../lib/dateDisplay";
+import {
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import {
@@ -828,6 +833,10 @@ function detailDisplayValue(value: string | number | null | undefined) {
     return "N/A";
   }
 
+  if (isDateOnlyValue(label)) {
+    return formatDateOnlyDisplay(label);
+  }
+
   return label;
 }
 
@@ -1495,12 +1504,40 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const emptyText = section.title.includes("Image")
     ? "No related images saved."
     : "No related videos saved.";
-  const [viewMode, setViewMode] = useState<"card" | "table">("card");
-  const [sortMode, setSortMode] = useState<RelatedSortMode>("new");
-  const [pageSize, setPageSize] = useState(12);
-  const [page, setPage] = useState(1);
   const hasControls = section.controls === "performer-related";
   const kind = section.title.includes("Image") ? "images" : "videos";
+  const sessionKey = hasControls ? performerRelatedSessionKey(kind) : "";
+  const initialSessionState = readSessionFilterState(sessionKey, {
+    viewMode: "card",
+    sortMode: "new",
+    pageSize: 12,
+  });
+  const [viewMode, setViewMode] = useState<"card" | "table">(
+    initialSessionState.viewMode === "table" ? "table" : "card",
+  );
+  const [sortMode, setSortMode] = useState<RelatedSortMode>(
+    isRelatedSortMode(initialSessionState.sortMode)
+      ? initialSessionState.sortMode
+      : "new",
+  );
+  const [pageSize, setPageSize] = useState(
+    isRelatedPageSize(initialSessionState.pageSize)
+      ? initialSessionState.pageSize
+      : 12,
+  );
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (!hasControls) {
+      return;
+    }
+
+    writeSessionFilterState(sessionKey, {
+      viewMode,
+      sortMode,
+      pageSize,
+    });
+  }, [hasControls, pageSize, sessionKey, sortMode, viewMode]);
 
   if (relatedCatalogRecords.length === 0) {
     return <RelatedEmptyState message={emptyText} title={section.title} />;
@@ -1595,6 +1632,24 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
 }
 
 type RelatedSortMode = "az" | "za" | "new" | "old";
+
+function performerRelatedSessionKey(kind: "videos" | "images") {
+  return kind === "videos"
+    ? "detail:performer:related-videos"
+    : "detail:performer:related-images";
+}
+
+function isRelatedSortMode(value: unknown): value is RelatedSortMode {
+  return value === "az" || value === "za" || value === "new" || value === "old";
+}
+
+function isRelatedPageSize(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    [12, 24, 48, 96].includes(value)
+  );
+}
 
 function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   const relatedPerformers = section.relatedPerformers ?? [];

@@ -7,6 +7,10 @@ import {
   catalogRecordChipLabel,
   catalogRecordSearchText,
 } from "../lib/relatedPicker";
+import {
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 type TargetKind = "videos" | "images";
@@ -23,6 +27,7 @@ type RelatedCatalogPickerProps = {
   selected: RelatedCatalogRecordReference[];
   loadState: LoadState;
   targetKind: TargetKind;
+  sessionKey?: string;
   onChange: (nextSelected: RelatedCatalogRecordReference[]) => void;
 };
 
@@ -31,9 +36,12 @@ function RelatedCatalogPicker({
   selected,
   loadState,
   targetKind,
+  sessionKey,
   onChange,
 }: RelatedCatalogPickerProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(
+    () => readSessionFilterState(sessionKey ?? "", { query: "" }).query,
+  );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
   const selectedIds = new Set(
@@ -77,6 +85,14 @@ function RelatedCatalogPicker({
       setShowAllSelected(false);
     }
   }, [selected.length]);
+
+  useEffect(() => {
+    if (!sessionKey) {
+      return;
+    }
+
+    writeSessionFilterState(sessionKey, { query });
+  }, [query, sessionKey]);
 
   function addRecord(record: RelatedCatalogRecord) {
     onChange([
