@@ -1,19 +1,22 @@
 import { Plus, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type UIEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { RelatedPerformerReference } from "../backend/json";
-import type { Performer } from "../backend/types";
-import { performerSearchText } from "../lib/relatedPicker";
 import {
-  readSessionFilterState,
-  writeSessionFilterState,
-} from "../lib/sessionFilterState";
+  parseTextLabelArray,
+  type RelatedPerformerReference,
+} from "../backend/json";
+import type { Performer } from "../backend/types";
+import {
+  rankPickerSearchResults,
+  splitPickerHighlight,
+} from "../lib/relatedPicker";
 
 const RELATED_CHIP_STYLES =
   "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
 const RELATED_CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const RELATED_ROW_GRID_STYLES =
-  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
+  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)_2.25rem] items-center gap-4";
+const PICKER_RENDER_BATCH_SIZE = 30;
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -21,7 +24,6 @@ type RelatedPerformerPickerProps = {
   performers: Performer[];
   selected: RelatedPerformerReference[];
   loadState: LoadState;
-  sessionKey?: string;
   onChange: (nextSelected: RelatedPerformerReference[]) => void;
 };
 
@@ -29,13 +31,13 @@ function RelatedPerformerPicker({
   performers,
   selected,
   loadState,
-  sessionKey,
   onChange,
 }: RelatedPerformerPickerProps) {
-  const [query, setQuery] = useState(
-    () => readSessionFilterState(sessionKey ?? "", { query: "" }).query,
-  );
+  const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [visibleResultCount, setVisibleResultCount] = useState(
+    PICKER_RENDER_BATCH_SIZE,
+  );
   const [showAllSelected, setShowAllSelected] = useState(false);
   const selectedIds = new Set(
     selected.map((relation) => relation.performerId).filter(Boolean),
@@ -50,23 +52,27 @@ function RelatedPerformerPicker({
     () => new Map(performers.map((performer) => [performer.id, performer])),
     [performers],
   );
-  const normalizedQuery = query.trim().toLowerCase();
-  const availablePerformers = performers
+  const availablePerformers = rankPickerSearchResults(
+    performers
     .filter((performer) => !selectedIds.has(performer.id))
     .filter(
       (performer) =>
         !selectedNames.has(performerBaseName(performer).trim().toLowerCase()),
-    )
-    .filter((performer) => {
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return performerSearchText(performer).includes(normalizedQuery);
-    });
+    ),
+    query,
+    (performer) => ({
+      id: performer.id,
+      primary: performerBaseName(performer),
+      secondary: [
+        performer.originalName,
+        ...parseTextLabelArray(performer.aliasesJson),
+      ],
+    }),
+  );
   const visibleSelected = showAllSelected ? selected : selected.slice(0, 3);
   const hiddenSelectedCount = Math.max(selected.length - visibleSelected.length, 0);
-  const shouldShowResults = isSearchOpen && query.trim().length > 0;
+  const shouldShowResults = isSearchOpen;
+  const visiblePerformers = availablePerformers.slice(0, visibleResultCount);
 
   useEffect(() => {
     if (selected.length <= 3) {
@@ -75,12 +81,8 @@ function RelatedPerformerPicker({
   }, [selected.length]);
 
   useEffect(() => {
-    if (!sessionKey) {
-      return;
-    }
-
-    writeSessionFilterState(sessionKey, { query });
-  }, [query, sessionKey]);
+    setVisibleResultCount(PICKER_RENDER_BATCH_SIZE);
+  }, [query, isSearchOpen, performers.length]);
 
   function addPerformer(performer: Performer) {
     const nameSnapshot = performerBaseName(performer);
@@ -91,7 +93,7 @@ function RelatedPerformerPicker({
         nameSnapshot,
       },
     ]);
-    setIsSearchOpen(query.trim().length > 0);
+    setIsSearchOpen(true);
   }
 
   function removeRelation(relation: RelatedPerformerReference) {
@@ -102,6 +104,19 @@ function RelatedPerformerPicker({
           : item.nameSnapshot.trim().toLowerCase() !==
             relation.nameSnapshot.trim().toLowerCase(),
       ),
+    );
+  }
+
+  function handleResultsScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.currentTarget;
+    const remaining =
+      target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remaining > 48) {
+      return;
+    }
+
+    setVisibleResultCount((current) =>
+      Math.min(current + PICKER_RENDER_BATCH_SIZE, availablePerformers.length),
     );
   }
 
@@ -128,14 +143,10 @@ function RelatedPerformerPicker({
           aria-label="Search related performers"
           placeholder="Search performer name, alias, tag..."
           value={query}
-          onFocus={() => {
-            if (query.trim()) {
-              setIsSearchOpen(true);
-            }
-          }}
+          onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
-            setIsSearchOpen(event.target.value.trim().length > 0);
+            setIsSearchOpen(true);
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -158,7 +169,10 @@ function RelatedPerformerPicker({
         )}
 
         {shouldShowResults && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div
+            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+            onScroll={handleResultsScroll}
+          >
             {loadState === "loading" && (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
                 Loading performers...
@@ -181,9 +195,9 @@ function RelatedPerformerPicker({
                   No matching performers available. Use Performers to add it first.
                 </p>
               )}
-            {availablePerformers.map((performer) => {
+            {visiblePerformers.map((performer) => {
               const name = performerBaseName(performer);
-              const meta = performerMeta(performer);
+              const meta = performerMetaParts(performer);
 
               return (
                 <button
@@ -196,11 +210,9 @@ function RelatedPerformerPicker({
                   onClick={() => addPerformer(performer)}
                 >
                   <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-900">
-                    {name}
+                    <HighlightedPickerText text={name} query={query} />
                   </span>
-                  <span className="min-w-0 truncate whitespace-nowrap text-right text-sm font-medium text-slate-500">
-                    {meta}
-                  </span>
+                  <PerformerMeta parts={meta} />
                   <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
                     <Plus size={14} />
                   </span>
@@ -311,18 +323,63 @@ function RelatedPerformerPicker({
   );
 }
 
+function HighlightedPickerText({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {splitPickerHighlight(text, query).map((part, index) =>
+        part.highlighted ? (
+          <mark
+            key={`${part.text}-${index}`}
+            className="rounded bg-sakura-100 px-0 text-inherit"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${part.text}-${index}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function performerBaseName(performer: Performer) {
   return performer.name || performer.originalName || "Unnamed Performer";
 }
 
-function performerMeta(performer: Performer) {
-  return [
+function PerformerMeta({ parts }: { parts: { context: string[]; rating: string } }) {
+  if (parts.context.length === 0 && !parts.rating) {
+    return <span aria-hidden="true" />;
+  }
+
+  return (
+    <span className="flex min-w-0 items-center justify-end gap-1.5 text-right text-sm font-medium text-slate-500">
+      {parts.context.length > 0 && (
+        <span className="min-w-0 truncate whitespace-nowrap">
+          {parts.context.join(" · ")}
+        </span>
+      )}
+      {parts.context.length > 0 && parts.rating && (
+        <span className="shrink-0" aria-hidden="true">
+          {" · "}
+        </span>
+      )}
+      {parts.rating && (
+        <span className="shrink-0 whitespace-nowrap">{parts.rating}</span>
+      )}
+    </span>
+  );
+}
+
+function performerMetaParts(performer: Performer) {
+  const context = [
     performer.nationality.trim(),
     performerActiveRange(performer),
-    ratingLabel(performer.ratingJson),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ].filter(Boolean);
+
+  return {
+    context,
+    rating: ratingLabel(performer.ratingJson),
+  };
 }
 
 function performerActiveRange(performer: Performer) {
@@ -336,7 +393,7 @@ function performerActiveRange(performer: Performer) {
   }
 
   if (debut && performer.status === "Active") {
-    return `${debut}-Present`;
+    return `${debut}-Now`;
   }
 
   return debut || retired;
@@ -355,7 +412,7 @@ function ratingLabel(ratingJson: string) {
 
     const average =
       ratings.reduce((total, rating) => total + rating, 0) / ratings.length;
-    return `Rating ${average.toFixed(1)}`;
+    return `★ ${average.toFixed(1)}`;
   } catch {
     return "";
   }

@@ -1,16 +1,13 @@
 import { Plus, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type UIEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { RelatedCatalogRecordReference } from "../backend/json";
 import type { Image, Video } from "../backend/types";
 import {
   catalogRecordChipLabel,
-  catalogRecordSearchText,
+  rankPickerSearchResults,
+  splitPickerHighlight,
 } from "../lib/relatedPicker";
-import {
-  readSessionFilterState,
-  writeSessionFilterState,
-} from "../lib/sessionFilterState";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 type TargetKind = "videos" | "images";
@@ -20,14 +17,14 @@ const RELATED_CHIP_STYLES =
   "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
 const RELATED_CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const RELATED_ROW_GRID_STYLES =
-  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
+  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_max-content_2.25rem] items-center gap-4";
+const PICKER_RENDER_BATCH_SIZE = 30;
 
 type RelatedCatalogPickerProps = {
   records: RelatedCatalogRecord[];
   selected: RelatedCatalogRecordReference[];
   loadState: LoadState;
   targetKind: TargetKind;
-  sessionKey?: string;
   onChange: (nextSelected: RelatedCatalogRecordReference[]) => void;
 };
 
@@ -36,14 +33,14 @@ function RelatedCatalogPicker({
   selected,
   loadState,
   targetKind,
-  sessionKey,
   onChange,
 }: RelatedCatalogPickerProps) {
-  const [query, setQuery] = useState(
-    () => readSessionFilterState(sessionKey ?? "", { query: "" }).query,
-  );
+  const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
+  const [visibleResultCount, setVisibleResultCount] = useState(
+    PICKER_RENDER_BATCH_SIZE,
+  );
   const selectedIds = new Set(
     selected.map((relation) => relation.recordId).filter(Boolean),
   );
@@ -57,8 +54,8 @@ function RelatedCatalogPicker({
     () => new Map(records.map((record) => [record.id, record])),
     [records],
   );
-  const normalizedQuery = query.trim().toLowerCase();
-  const availableRecords = records
+  const availableRecords = rankPickerSearchResults(
+    records
     .filter((record) => !selectedIds.has(record.id))
     .filter(
       (record) =>
@@ -67,18 +64,19 @@ function RelatedCatalogPicker({
             .trim()
             .toLowerCase(),
         ),
-    )
-    .filter((record) => {
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return catalogRecordSearchText(record).includes(normalizedQuery);
-    });
+    ),
+    query,
+    (record) => ({
+      id: [record.id, record.code].filter(Boolean).join(" "),
+      primary: catalogRecordPlainTitle(record),
+      secondary: [record.originalTitle, record.code],
+    }),
+  );
   const copy = pickerCopy(targetKind);
   const visibleSelected = showAllSelected ? selected : selected.slice(0, 3);
   const hiddenSelectedCount = Math.max(selected.length - visibleSelected.length, 0);
-  const shouldShowResults = isSearchOpen && query.trim().length > 0;
+  const shouldShowResults = isSearchOpen;
+  const visibleRecords = availableRecords.slice(0, visibleResultCount);
 
   useEffect(() => {
     if (selected.length <= 3) {
@@ -87,12 +85,8 @@ function RelatedCatalogPicker({
   }, [selected.length]);
 
   useEffect(() => {
-    if (!sessionKey) {
-      return;
-    }
-
-    writeSessionFilterState(sessionKey, { query });
-  }, [query, sessionKey]);
+    setVisibleResultCount(PICKER_RENDER_BATCH_SIZE);
+  }, [query, isSearchOpen, records.length]);
 
   function addRecord(record: RelatedCatalogRecord) {
     onChange([
@@ -102,7 +96,7 @@ function RelatedCatalogPicker({
         titleSnapshot: record.title || record.originalTitle || "Untitled Record",
       },
     ]);
-    setIsSearchOpen(query.trim().length > 0);
+    setIsSearchOpen(true);
   }
 
   function removeRelation(relation: RelatedCatalogRecordReference) {
@@ -113,6 +107,19 @@ function RelatedCatalogPicker({
           : item.titleSnapshot.trim().toLowerCase() !==
             relation.titleSnapshot.trim().toLowerCase(),
       ),
+    );
+  }
+
+  function handleResultsScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.currentTarget;
+    const remaining =
+      target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remaining > 48) {
+      return;
+    }
+
+    setVisibleResultCount((current) =>
+      Math.min(current + PICKER_RENDER_BATCH_SIZE, availableRecords.length),
     );
   }
 
@@ -139,14 +146,10 @@ function RelatedCatalogPicker({
           aria-label={copy.searchAriaLabel}
           placeholder={copy.searchPlaceholder}
           value={query}
-          onFocus={() => {
-            if (query.trim()) {
-              setIsSearchOpen(true);
-            }
-          }}
+          onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
-            setIsSearchOpen(event.target.value.trim().length > 0);
+            setIsSearchOpen(true);
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -169,7 +172,10 @@ function RelatedCatalogPicker({
         )}
 
         {shouldShowResults && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div
+            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+            onScroll={handleResultsScroll}
+          >
             {loadState === "loading" && (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
                 {copy.loadingText}
@@ -192,9 +198,9 @@ function RelatedCatalogPicker({
                   {copy.noMatches}
                 </p>
               )}
-            {availableRecords.map((record) => {
+            {visibleRecords.map((record) => {
               const title = catalogRecordPlainTitle(record);
-              const meta = catalogRecordMeta(record, targetKind);
+              const meta = catalogRecordMeta(record);
 
               return (
                 <button
@@ -207,11 +213,9 @@ function RelatedCatalogPicker({
                   onClick={() => addRecord(record)}
                 >
                   <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-900">
-                    {title}
+                    <HighlightedPickerText text={title} query={query} />
                   </span>
-                  <span className="min-w-0 truncate whitespace-nowrap text-right text-sm font-medium text-slate-500">
-                    {meta}
-                  </span>
+                  <CatalogRecordMeta parts={meta} />
                   <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
                     <Plus size={14} />
                   </span>
@@ -370,15 +374,36 @@ function catalogRecordPlainTitle(record: RelatedCatalogRecord) {
   return record.title || record.originalTitle || "Untitled Record";
 }
 
-function catalogRecordMeta(record: RelatedCatalogRecord, targetKind: TargetKind) {
+function catalogRecordMeta(record: RelatedCatalogRecord) {
   const year = record.releaseDate.trim() ? record.releaseDate.trim().slice(0, 4) : "";
   const rating = ratingLabel(record.ratingJson);
-  const imageCount =
-    targetKind === "images" && "imageCount" in record && record.imageCount
-      ? `${record.imageCount} images`
-      : "";
 
-  return [record.code.trim(), year, rating || imageCount].filter(Boolean).join(" · ");
+  return {
+    context: [record.code.trim(), year].filter(Boolean),
+    rating,
+  };
+}
+
+function CatalogRecordMeta({ parts }: { parts: { context: string[]; rating: string } }) {
+  if (parts.context.length === 0 && !parts.rating) {
+    return <span aria-hidden="true" />;
+  }
+
+  return (
+    <span className="flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-sm font-medium text-slate-500">
+      {parts.context.length > 0 && (
+        <span className="shrink-0 whitespace-nowrap">{parts.context.join(" · ")}</span>
+      )}
+      {parts.context.length > 0 && parts.rating && (
+        <span className="shrink-0" aria-hidden="true">
+          {" · "}
+        </span>
+      )}
+      {parts.rating && (
+        <span className="shrink-0 whitespace-nowrap">{parts.rating}</span>
+      )}
+    </span>
+  );
 }
 
 function ratingLabel(ratingJson: string) {
@@ -394,10 +419,29 @@ function ratingLabel(ratingJson: string) {
 
     const average =
       ratings.reduce((total, rating) => total + rating, 0) / ratings.length;
-    return `Rating ${average.toFixed(1)}`;
+    return `★ ${average.toFixed(1)}`;
   } catch {
     return "";
   }
+}
+
+function HighlightedPickerText({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {splitPickerHighlight(text, query).map((part, index) =>
+        part.highlighted ? (
+          <mark
+            key={`${part.text}-${index}`}
+            className="rounded bg-sakura-100 px-0 text-inherit"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${part.text}-${index}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 export default RelatedCatalogPicker;

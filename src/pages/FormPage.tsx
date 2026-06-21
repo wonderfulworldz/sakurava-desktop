@@ -5,6 +5,7 @@ import {
   type FormEvent,
   type ReactNode,
   type SetStateAction,
+  type UIEvent,
   useEffect,
   useState,
 } from "react";
@@ -26,9 +27,9 @@ import {
 } from "../lib/formCategories";
 import { getStoredManagedCategories } from "../lib/managedCategories";
 import {
-  readSessionFilterState,
-  writeSessionFilterState,
-} from "../lib/sessionFilterState";
+  rankPickerSearchResults,
+  splitPickerHighlight,
+} from "../lib/relatedPicker";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
 import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
 import {
@@ -67,6 +68,7 @@ const PILL_STYLES = "inline-flex h-7 max-w-full min-w-0 items-center justify-cen
 const CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const PICKER_ROW_GRID_STYLES =
   "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
+const PICKER_RENDER_BATCH_SIZE = 30;
 const FORM_ROW_STYLES =
   "grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-center";
 const FORM_ROW_START_STYLES =
@@ -1027,7 +1029,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             selected={categories}
             managedCategories={managedCategories}
             managedCategoryRecords={managedCategoryRecords}
-            sessionKey={formCategoryPickerSessionKey(config.kind)}
             onChange={setCategories}
           />
         </LabeledControl>
@@ -1074,7 +1075,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 performers={availablePerformers}
                 selected={relatedPerformers}
                 loadState={performerLoadState}
-                sessionKey={formRelatedPerformerSessionKey(config.kind)}
                 onChange={setRelatedPerformers}
               />
             </LabeledControl>
@@ -1094,7 +1094,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 selected={relatedCatalogRecords}
                 loadState={relatedCatalogLoadState}
                 targetKind={config.kind === "videos" ? "images" : "videos"}
-                sessionKey={formRelatedCatalogSessionKey(config.kind)}
                 onChange={setRelatedCatalogRecords}
               />
             </LabeledControl>
@@ -1109,7 +1108,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 selected={performerRelatedVideos}
                 loadState={relatedCatalogLoadState}
                 targetKind="videos"
-                sessionKey="form:performer:related-videos"
                 onChange={setPerformerRelatedVideos}
               />
             </LabeledControl>
@@ -1122,7 +1120,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 selected={performerRelatedImages}
                 loadState={relatedCatalogLoadState}
                 targetKind="images"
-                sessionKey="form:performer:related-images"
                 onChange={setPerformerRelatedImages}
               />
             </LabeledControl>
@@ -2045,21 +2042,20 @@ function CategoryPicker({
   selected,
   managedCategories,
   managedCategoryRecords,
-  sessionKey,
   onChange,
 }: {
   kind: FormConfig["kind"];
   selected: string[];
   managedCategories: string[];
   managedCategoryRecords: ManagedCategory[];
-  sessionKey: string;
   onChange: Dispatch<SetStateAction<string[]>>;
 }) {
-  const [categorySearch, setCategorySearch] = useState(
-    () => readSessionFilterState(sessionKey, { query: "" }).query,
-  );
+  const [categorySearch, setCategorySearch] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
+  const [visibleResultCount, setVisibleResultCount] = useState(
+    PICKER_RENDER_BATCH_SIZE,
+  );
   const normalizedSelected = normalizeFormCategories(selected);
   const normalizedManagedCategories = normalizeFormCategories(managedCategories);
   const categoryOptions = buildCategoryOptions(
@@ -2070,15 +2066,21 @@ function CategoryPicker({
   const availableCategories = categoryOptions.filter(
     (category) => !hasFormCategory(normalizedSelected, category.label),
   );
-  const categorySearchKey = categorySearch.trim().toLowerCase();
-  const filteredCategories = availableCategories.filter((category) =>
-    category.searchText.includes(categorySearchKey),
+  const filteredCategories = rankPickerSearchResults(
+    availableCategories,
+    categorySearch,
+    (category) => ({
+      id: category.label,
+      primary: category.label,
+      secondary: [],
+    }),
   );
   const visibleSelected = showAllSelected
     ? normalizedSelected
     : normalizedSelected.slice(0, 4);
   const hiddenSelectedCount = Math.max(normalizedSelected.length - visibleSelected.length, 0);
-  const shouldShowResults = isSearchOpen && categorySearch.trim().length > 0;
+  const shouldShowResults = isSearchOpen;
+  const visibleCategories = filteredCategories.slice(0, visibleResultCount);
 
   useEffect(() => {
     if (
@@ -2096,12 +2098,25 @@ function CategoryPicker({
   }, [normalizedSelected.length]);
 
   useEffect(() => {
-    writeSessionFilterState(sessionKey, { query: categorySearch });
-  }, [categorySearch, sessionKey]);
+    setVisibleResultCount(PICKER_RENDER_BATCH_SIZE);
+  }, [categorySearch, isSearchOpen, availableCategories.length]);
 
   function addSelectedCategory(category: string) {
     onChange((current) => addFormCategory(current, category));
-    setIsSearchOpen(categorySearch.trim().length > 0);
+    setIsSearchOpen(true);
+  }
+
+  function handleResultsScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.currentTarget;
+    const remaining =
+      target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remaining > 48) {
+      return;
+    }
+
+    setVisibleResultCount((current) =>
+      Math.min(current + PICKER_RENDER_BATCH_SIZE, filteredCategories.length),
+    );
   }
 
   return (
@@ -2127,14 +2142,10 @@ function CategoryPicker({
           aria-label="Search categories"
           value={categorySearch}
           placeholder={categorySearchPlaceholder(kind)}
-          onFocus={() => {
-            if (categorySearch.trim()) {
-              setIsSearchOpen(true);
-            }
-          }}
+          onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
             setCategorySearch(event.target.value);
-            setIsSearchOpen(event.target.value.trim().length > 0);
+            setIsSearchOpen(true);
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -2157,13 +2168,16 @@ function CategoryPicker({
         )}
 
         {shouldShowResults && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div
+            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+            onScroll={handleResultsScroll}
+          >
             {normalizedManagedCategories.length === 0 ? (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
                 No Managed Categories available.
               </p>
             ) : filteredCategories.length > 0 ? (
-              filteredCategories.map((category) => (
+              visibleCategories.map((category) => (
                 <button
                   key={category.label}
                   type="button"
@@ -2174,7 +2188,10 @@ function CategoryPicker({
                   onClick={() => addSelectedCategory(category.label)}
                 >
                   <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-800">
-                    {category.displayPath}
+                    <HighlightedPickerText
+                      text={category.displayPath}
+                      query={categorySearch}
+                    />
                   </span>
                   <span
                     className="min-w-0 truncate whitespace-nowrap text-right text-sm font-medium text-slate-500"
@@ -2298,11 +2315,29 @@ function categorySearchPlaceholder(kind: FormConfig["kind"]) {
   return "Search categories, genre, setting, attribute...";
 }
 
+function HighlightedPickerText({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {splitPickerHighlight(text, query).map((part, index) =>
+        part.highlighted ? (
+          <mark
+            key={`${part.text}-${index}`}
+            className="rounded bg-sakura-100 px-0 text-inherit"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${part.text}-${index}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 type CategoryOption = {
   label: string;
   displayPath: string;
   pathParts: string[];
-  searchText: string;
 };
 
 type TaxonomyCategoryOption = {
@@ -2409,10 +2444,18 @@ function buildCategoryOptions(
   const recordsByKey = new Map(
     managedCategoryRecords.map((category) => [category.key, category]),
   );
+  const parentKeys = new Set(
+    managedCategoryRecords
+      .map((category) => category.parentKey)
+      .filter((key): key is string => Boolean(key)),
+  );
 
   for (const category of managedCategoryRecords) {
     const label = category.name.trim();
     if (!label) {
+      continue;
+    }
+    if (parentKeys.has(category.key)) {
       continue;
     }
     if (!categorySupportsFormKind(category, kind)) {
@@ -2425,7 +2468,6 @@ function buildCategoryOptions(
       label,
       displayPath,
       pathParts,
-      searchText: `${label} ${displayPath}`.toLowerCase(),
     });
   }
 
@@ -2440,7 +2482,6 @@ function buildCategoryOptions(
       label: normalizedLabel,
       displayPath: normalizedLabel,
       pathParts: [normalizedLabel],
-      searchText: normalizedLabel.toLowerCase(),
     });
   }
 
@@ -2900,34 +2941,6 @@ function selectPathForField(kind: FormConfig["kind"], fieldName: string) {
   }
 
   return selectLocalImageFile();
-}
-
-function formKindSessionName(kind: FormConfig["kind"]) {
-  if (kind === "videos") {
-    return "video";
-  }
-
-  if (kind === "images") {
-    return "image";
-  }
-
-  return "performer";
-}
-
-function formCategoryPickerSessionKey(kind: FormConfig["kind"]) {
-  return `form:${formKindSessionName(kind)}:category-picker`;
-}
-
-function formRelatedPerformerSessionKey(kind: FormConfig["kind"]) {
-  return `form:${formKindSessionName(kind)}:related-performers`;
-}
-
-function formRelatedCatalogSessionKey(kind: FormConfig["kind"]) {
-  if (kind === "videos") {
-    return "form:video:related-images";
-  }
-
-  return "form:image:related-videos";
 }
 
 function collectionLabel(kind: FormConfig["kind"]) {

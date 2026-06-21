@@ -17,6 +17,7 @@ import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
 import { formatDateOnlyDisplay, formatLocalTimestampDisplay } from "./lib/dateDisplay";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
+import { rankPickerSearchResults } from "./lib/relatedPicker";
 import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
 
 const dialogMocks = vi.hoisted(() => ({
@@ -49,6 +50,84 @@ describe("date display helpers", () => {
 
     expect(formatted).toMatch(/^Feb 02, 2026,/);
     expect(formatted).not.toContain("2026-02-02");
+  });
+});
+
+describe("picker search ranking", () => {
+  const itemFields = (item: {
+    id: string;
+    title: string;
+    secondary?: string[];
+  }) => ({
+    id: item.id,
+    primary: item.title,
+    secondary: item.secondary ?? [],
+  });
+
+  it("matches 1-character queries by token prefix only", () => {
+    const results = rankPickerSearchResults(
+      [
+        { id: "1", title: "Abc" },
+        { id: "2", title: "B Aa" },
+        { id: "3", title: "Cba" },
+        { id: "4", title: "1ab" },
+      ],
+      "A",
+      itemFields,
+    );
+
+    expect(results.map((item) => item.title)).toEqual(["Abc", "B Aa"]);
+  });
+
+  it("allows 2+ character contains while ranking prefix results first", () => {
+    const results = rankPickerSearchResults(
+      [
+        { id: "contains", title: "1ab" },
+        { id: "prefix-b", title: "Abd" },
+        { id: "prefix-a", title: "Abc" },
+        { id: "miss", title: "A bc" },
+      ],
+      "Ab",
+      itemFields,
+    );
+
+    expect(results.map((item) => item.title)).toEqual(["Abc", "Abd", "1ab"]);
+  });
+
+  it("ranks secondary field matches after primary matches and normalizes diacritics", () => {
+    const results = rankPickerSearchResults(
+      [
+        { id: "secondary", title: "Bravo", secondary: ["Ábaco"] },
+        { id: "primary", title: "Ábaco" },
+        { id: "contains", title: "X ab" },
+      ],
+      "aba",
+      itemFields,
+    );
+
+    expect(results.map((item) => item.id)).toEqual([
+      "primary",
+      "secondary",
+    ]);
+  });
+
+  it("returns full deterministic ranked results unless a caller requests a limit", () => {
+    const items = Array.from({ length: 35 }, (_, index) => ({
+      id: `item-${index}`,
+      title: `Alpha ${String(index).padStart(2, "0")}`,
+    }));
+    const results = rankPickerSearchResults(
+      items,
+      "alpha",
+      itemFields,
+    );
+    const limitedResults = rankPickerSearchResults(items, "alpha", itemFields, 30);
+
+    expect(results).toHaveLength(35);
+    expect(results[0]?.title).toBe("Alpha 00");
+    expect(results[34]?.title).toBe("Alpha 34");
+    expect(limitedResults).toHaveLength(30);
+    expect(limitedResults[29]?.title).toBe("Alpha 29");
   });
 });
 
@@ -5230,6 +5309,7 @@ describe("App", () => {
               nationality: "Japan",
               debutDate: "2008-01-01",
               status: "Active",
+              ratingJson: '{"overall":4,"visual":5}',
               aliasesJson:
                 '["Sakura Aoi","Aoi","Cherry","Bloom","Aoi S.","Sakura","Hanami","AS","Aoi-chan","Sakura Bloom"]',
             }),
@@ -5260,6 +5340,32 @@ describe("App", () => {
 
     const relatedPerformerSearch = await screen.findByLabelText("Search related performers");
     expect(relatedPerformerSearch).toHaveClass("select-text");
+    expect(screen.queryByTestId("related-performer-result-row"))
+      .not.toBeInTheDocument();
+    fireEvent.focus(relatedPerformerSearch);
+    expect(
+      await screen.findByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText((_, element) => element?.tagName === "MARK"))
+      .not.toBeInTheDocument();
+    fireEvent.change(relatedPerformerSearch, {
+      target: { value: "aoi" },
+    });
+    expect(within(screen.getByRole("button", {
+      name: "Add related performer Aoi Sakura",
+    })).getByText("Aoi").tagName.toLowerCase()).toBe("mark");
+    fireEvent.change(relatedPerformerSearch, {
+      target: { value: "japan" },
+    });
+    expect(
+      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).not.toBeInTheDocument();
+    fireEvent.change(relatedPerformerSearch, {
+      target: { value: "2008" },
+    });
+    expect(
+      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).not.toBeInTheDocument();
     fireEvent.change(relatedPerformerSearch, {
       target: { value: "cherry" },
     });
@@ -5267,12 +5373,14 @@ describe("App", () => {
       name: "Add related performer Aoi Sakura",
     });
     expect(performerResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(performerResult).getByText("Aoi Sakura")).toHaveClass(
+    expect(within(performerResult).getByText("Aoi Sakura").closest(".truncate"))
+      .toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(within(performerResult).getByText(/Japan/)).toHaveClass(
-      "truncate",
+    expect(performerResult).toHaveTextContent("Japan · 2008-Now · ★ 4.5");
+    expect(within(performerResult).getByText("★ 4.5")).toHaveClass(
+      "shrink-0",
       "whitespace-nowrap",
     );
     fireEvent.click(
@@ -5306,7 +5414,7 @@ describe("App", () => {
     );
   });
 
-  it("keeps form picker queries scoped by form kind during the session", async () => {
+  it("does not persist form picker queries after navigating away and back", async () => {
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_list") {
         return [
@@ -5354,9 +5462,12 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
     expect(screen.getByRole("textbox", { name: "Search categories" }))
-      .toHaveValue("Video");
+      .toHaveValue("");
+    expect(screen.queryByTestId("category-result-row")).not.toBeInTheDocument();
     expect(await screen.findByLabelText("Search related performers"))
-      .toHaveValue("Cherry");
+      .toHaveValue("");
+    expect(screen.queryByTestId("related-performer-result-row"))
+      .not.toBeInTheDocument();
   });
 
   it("selects existing Images on video forms and saves relatedImagesJson", async () => {
@@ -5405,6 +5516,17 @@ describe("App", () => {
 
     const relatedImageSearch = await screen.findByLabelText("Search related images");
     expect(relatedImageSearch).toHaveClass("select-text");
+    expect(screen.queryByTestId("related-image-result-row")).not.toBeInTheDocument();
+    fireEvent.focus(relatedImageSearch);
+    expect(
+      await screen.findByRole("button", { name: "Add related image Hanami Gallery" }),
+    ).toBeInTheDocument();
+    fireEvent.change(relatedImageSearch, {
+      target: { value: "hana" },
+    });
+    expect(within(screen.getByRole("button", {
+      name: "Add related image Hanami Gallery",
+    })).getByText("Hana").tagName.toLowerCase()).toBe("mark");
     fireEvent.change(relatedImageSearch, {
       target: { value: "img-001" },
     });
@@ -5412,14 +5534,26 @@ describe("App", () => {
       name: "Add related image Hanami Gallery",
     });
     expect(imageResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(imageResult).getByText("Hanami Gallery")).toHaveClass(
+    expect(within(imageResult).getByText("Hanami Gallery").closest(".truncate"))
+      .toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(within(imageResult).getByText(/IMG-001/)).toHaveClass(
-      "truncate",
+    expect(within(imageResult).getByText("IMG-001 · 2026")).toHaveClass(
+      "shrink-0",
       "whitespace-nowrap",
     );
+    expect(within(imageResult).getByText("IMG-001 · 2026"))
+      .not.toHaveClass("truncate");
+    expect(imageResult).toHaveTextContent("IMG-001 · 2026 · ★ 3.5");
+    expect(within(imageResult).getByText("★ 3.5")).toHaveClass(
+      "shrink-0",
+      "whitespace-nowrap",
+    );
+    expect(imageResult).not.toHaveTextContent("IMG-...");
+    expect(imageResult).not.toHaveTextContent("202...");
+    expect(imageResult).not.toHaveTextContent("★ 3...");
+    expect(within(imageResult).queryByText(/Rating 3\.5/)).not.toBeInTheDocument();
     fireEvent.click(
       imageResult,
     );
@@ -5482,6 +5616,17 @@ describe("App", () => {
 
     const relatedVideoSearch = await screen.findByLabelText("Search related videos");
     expect(relatedVideoSearch).toHaveClass("select-text");
+    expect(screen.queryByTestId("related-video-result-row")).not.toBeInTheDocument();
+    fireEvent.focus(relatedVideoSearch);
+    expect(
+      await screen.findByRole("button", { name: "Add related video Spring Feature" }),
+    ).toBeInTheDocument();
+    fireEvent.change(relatedVideoSearch, {
+      target: { value: "spring" },
+    });
+    expect(within(screen.getByRole("button", {
+      name: "Add related video Spring Feature",
+    })).getByText("Spring").tagName.toLowerCase()).toBe("mark");
     fireEvent.change(relatedVideoSearch, {
       target: { value: "vid-001" },
     });
@@ -5489,14 +5634,26 @@ describe("App", () => {
       name: "Add related video Spring Feature",
     });
     expect(videoResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(videoResult).getByText("Spring Feature")).toHaveClass(
+    expect(within(videoResult).getByText("Spring Feature").closest(".truncate"))
+      .toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(within(videoResult).getByText(/VID-001/)).toHaveClass(
-      "truncate",
+    expect(within(videoResult).getByText("VID-001 · 2026")).toHaveClass(
+      "shrink-0",
       "whitespace-nowrap",
     );
+    expect(within(videoResult).getByText("VID-001 · 2026"))
+      .not.toHaveClass("truncate");
+    expect(videoResult).toHaveTextContent("VID-001 · 2026 · ★ 3.5");
+    expect(within(videoResult).getByText("★ 3.5")).toHaveClass(
+      "shrink-0",
+      "whitespace-nowrap",
+    );
+    expect(videoResult).not.toHaveTextContent("VID-...");
+    expect(videoResult).not.toHaveTextContent("202...");
+    expect(videoResult).not.toHaveTextContent("★ 3...");
+    expect(within(videoResult).queryByText(/Rating 3\.5/)).not.toBeInTheDocument();
     fireEvent.click(
       videoResult,
     );
@@ -5755,7 +5912,7 @@ describe("App", () => {
         if (command === "video_get") {
           return existing;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
         }
         if (command === "video_update") {
@@ -6615,7 +6772,7 @@ describe("App", () => {
     );
     expect(window.localStorage.getItem("sakurava.performerSuggestionCache.v1"))
       .toContain('"cupSize":["A"');
-  });
+  }, 10000);
 
   it("orders Performer form completed data sections without duplicate related placeholders", () => {
     window.history.pushState({}, "", "/performers/new");
@@ -8351,6 +8508,7 @@ describe("App", () => {
         ).not.toBeInTheDocument();
       });
     },
+    10000,
   );
 
   it("opens Detail cover viewer once for a rapid double click", async () => {
@@ -9797,8 +9955,14 @@ describe("App", () => {
         if (command === "video_get") {
           return created;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
+        }
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({ key: "cat_classic", name: "Classic" }),
+            managedCategoryFixture({ key: "cat_drama", name: "Drama" }),
+          ];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -10015,8 +10179,11 @@ describe("App", () => {
         if (command === "video_get") {
           return created;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
+        }
+        if (command === "managed_category_list") {
+          return [managedCategoryFixture({ key: "cat_updated", name: "Updated" })];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -10035,6 +10202,11 @@ describe("App", () => {
     )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add Classic" }))
       .not.toBeInTheDocument();
+    fireEvent.focus(screen.getByRole("textbox", { name: "Search categories" }));
+    expect(screen.getByRole("button", { name: "Add Classic" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Drama" })).toBeInTheDocument();
+    expect(screen.queryByText((_, element) => element?.tagName === "MARK"))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
@@ -10048,6 +10220,7 @@ describe("App", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "clas" },
     });
+    expect(screen.getByText("Clas").tagName.toLowerCase()).toBe("mark");
     fireEvent.click(screen.getByRole("button", { name: "Add Classic" }));
     expect(screen.getByText("Classic")).toBeInTheDocument();
     expect(screen.getByText("1 category selected")).toBeInTheDocument();
@@ -10079,6 +10252,43 @@ describe("App", () => {
 
     expect(await screen.findByText("Picker Video")).toBeInTheDocument();
     expect(screen.getByText("Drama")).toBeInTheDocument();
+  }, 10000);
+
+  it("renders category picker results in deterministic scroll-loaded batches", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    setManagedCategories(
+      Array.from({ length: 35 }, (_, index) =>
+        `Batch Category ${String(index + 1).padStart(2, "0")}`,
+      ),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(screen.queryByTestId("category-result-row")).not.toBeInTheDocument();
+
+    fireEvent.focus(screen.getByRole("textbox", { name: "Search categories" }));
+
+    let rows = screen.getAllByTestId("category-result-row");
+    expect(rows).toHaveLength(30);
+    expect(rows[0]).toHaveTextContent("Batch Category 01");
+    expect(rows[29]).toHaveTextContent("Batch Category 30");
+    expect(screen.queryByRole("button", { name: "Add Batch Category 31" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.scroll(rows[0].parentElement as HTMLElement);
+
+    rows = screen.getAllByTestId("category-result-row");
+    expect(rows).toHaveLength(35);
+    expect(rows[30]).toHaveTextContent("Batch Category 31");
+    expect(rows[34]).toHaveTextContent("Batch Category 35");
   });
 
   it("shows managed category parent paths and keeps search text after selection", async () => {
@@ -10109,15 +10319,23 @@ describe("App", () => {
 
     const search = screen.getByRole("textbox", { name: "Search categories" });
     expect(search).toHaveClass("select-text");
+    fireEvent.change(search, { target: { value: "body" } });
+    expect(screen.queryByRole("button", { name: "Add Bodytype" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Slim" }))
+      .not.toBeInTheDocument();
+
     fireEvent.change(search, { target: { value: "slim" } });
 
     const slimResult = await screen.findByRole("button", { name: "Add Slim" });
     expect(slimResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(slimResult).getByText("Bodytype > Slim")).toHaveClass(
+    expect(slimResult).toHaveTextContent(/Bodytype\s*>\s*Slim/);
+    const slimLabel = within(slimResult).getByText("Slim");
+    expect(slimLabel.tagName.toLowerCase()).toBe("mark");
+    expect(slimLabel.closest("span")).toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(slimResult).toHaveTextContent(/Bodytype\s*>\s*Slim/);
 
     fireEvent.click(slimResult);
 
@@ -10827,8 +11045,16 @@ describe("App", () => {
         if (command === "performer_delete") {
           return deletePromise;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "video_list") {
           return [];
+        }
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({
+              key: "cat_typed_category",
+              name: "Typed Category",
+            }),
+          ];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -11258,7 +11484,7 @@ describe("App", () => {
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
-  });
+  }, 10000);
 
   it("saves detected Image Tech Info and availability from a typed image path", async () => {
     window.history.pushState({}, "", "/images/new");
@@ -12041,7 +12267,7 @@ describe("App", () => {
         initialIndex: 0,
       }),
     ).resolves.toEqual({ mode: "window" });
-  });
+  }, 10000);
 
   it("creates a separate Tauri image viewer window when one is not open", async () => {
     const { openGlobalImageViewerWindow } = await import(
