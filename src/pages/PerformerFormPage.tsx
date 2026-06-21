@@ -10,6 +10,7 @@ import {
 import FormPage from "./FormPage";
 import {
   createPerformer,
+  deletePerformer,
   getPerformer,
   isPerformerRuntimeAvailable,
   updatePerformer,
@@ -27,6 +28,8 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
   const [loading, setLoading] = useState(() =>
     Boolean(mode === "edit" && itemKey && isPerformerRuntimeAvailable()),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +70,34 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     };
   }, [itemKey, mode]);
 
+  async function handleDelete() {
+    if (!itemKey || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    setDeleteError(null);
+
+    try {
+      const result = await deletePerformer(itemKey);
+
+      if (!result.deleted) {
+        setDeleteError(
+          "Performer delete failed. The saved Sakurava record was not removed.",
+        );
+        return;
+      }
+
+      navigate("/performers", { replace: true });
+    } catch {
+      setDeleteError(
+        "Performer delete failed. The saved Sakurava record was not removed.",
+      );
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -95,6 +126,17 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      deleteAction={
+        mode === "edit" && itemKey && isPerformerRuntimeAvailable()
+          ? {
+              itemLabel: String(config.initialValues.edit.name || "this performer"),
+              isPending: deletePending,
+              errorMessage: deleteError,
+              onOpen: () => setDeleteError(null),
+              onConfirm: handleDelete,
+            }
+          : undefined
+      }
       onSubmit={async ({
         values,
         categories,

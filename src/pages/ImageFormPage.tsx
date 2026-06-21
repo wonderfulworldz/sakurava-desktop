@@ -11,6 +11,7 @@ import FormPage from "./FormPage";
 import { prepareImageValuesForSave } from "../lib/mediaTechInfo";
 import {
   createImage,
+  deleteImage,
   getImage,
   isImageRuntimeAvailable,
   updateImage,
@@ -28,6 +29,8 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
   const [loading, setLoading] = useState(() =>
     Boolean(mode === "edit" && itemKey && isImageRuntimeAvailable()),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +71,30 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
     };
   }, [itemKey, mode]);
 
+  async function handleDelete() {
+    if (!itemKey || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    setDeleteError(null);
+
+    try {
+      const result = await deleteImage(itemKey);
+
+      if (!result.deleted) {
+        setDeleteError("Image delete failed. The saved Sakurava record was not removed.");
+        return;
+      }
+
+      navigate("/images", { replace: true });
+    } catch {
+      setDeleteError("Image delete failed. The saved Sakurava record was not removed.");
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -96,6 +123,17 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      deleteAction={
+        mode === "edit" && itemKey && isImageRuntimeAvailable()
+          ? {
+              itemLabel: String(config.initialValues.edit.title || "this image"),
+              isPending: deletePending,
+              errorMessage: deleteError,
+              onOpen: () => setDeleteError(null),
+              onConfirm: handleDelete,
+            }
+          : undefined
+      }
       onSubmit={async ({
         values,
         categories,

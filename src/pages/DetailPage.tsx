@@ -15,14 +15,12 @@ import {
   Play,
   Ruler,
   Star,
-  Trash2,
   type LucideIcon,
   UserRound,
 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
-import ConfirmDialog from "../components/ConfirmDialog";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
 import GlobalImageViewer from "../components/gallery/GlobalImageViewer";
 import type {
@@ -58,17 +56,8 @@ import { updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { updateVideo } from "../runtime/videoCommands";
 
-export type DetailDeleteAction = {
-  itemLabel: string;
-  isPending: boolean;
-  errorMessage: string | null;
-  onOpen: () => void;
-  onConfirm: () => void;
-};
-
 type DetailPageProps = {
   config: DetailConfig;
-  deleteAction?: DetailDeleteAction;
 };
 
 function logGlobalViewerFallback(
@@ -95,7 +84,7 @@ type DetailFavoriteAction = {
   onToggle: () => void;
 };
 
-function DetailPage({ config, deleteAction }: DetailPageProps) {
+function DetailPage({ config }: DetailPageProps) {
   const [favorite, setFavorite] = useState(config.favorite);
   const [favoritePending, setFavoritePending] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
@@ -156,7 +145,6 @@ function DetailPage({ config, deleteAction }: DetailPageProps) {
     return (
       <PerformerDetailPage
         config={localConfig}
-        deleteAction={deleteAction}
         favoriteAction={favoriteAction}
       />
     );
@@ -165,26 +153,12 @@ function DetailPage({ config, deleteAction }: DetailPageProps) {
   return (
     <CatalogDetailPage
       config={localConfig}
-      deleteAction={deleteAction}
       favoriteAction={favoriteAction}
     />
   );
 }
 
-function DetailHeader({ config, deleteAction }: DetailPageProps) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  function openConfirmation() {
-    deleteAction?.onOpen();
-    setConfirmOpen(true);
-  }
-
-  function closeConfirmation() {
-    if (!deleteAction?.isPending) {
-      setConfirmOpen(false);
-    }
-  }
-
+function DetailHeader({ config }: DetailPageProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -196,16 +170,6 @@ function DetailHeader({ config, deleteAction }: DetailPageProps) {
           {config.backLabel}
         </Link>
         <div className="flex items-center gap-2">
-          {deleteAction && (
-            <button
-              type="button"
-              onClick={openConfirmation}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-600 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
-            >
-              <Trash2 size={16} />
-              Delete
-            </button>
-          )}
           <Link
             to={config.editTo}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
@@ -223,38 +187,12 @@ function DetailHeader({ config, deleteAction }: DetailPageProps) {
           {config.subtitle}
         </p>
       </div>
-      {deleteAction && (
-        <ConfirmDialog
-          open={confirmOpen}
-          title={`Delete ${deleteAction.itemLabel}?`}
-          description={
-            <>
-              <p>
-                This removes the saved Sakurava record for {deleteAction.itemLabel}.
-                It does not delete local media files from this device.
-              </p>
-              {deleteAction.errorMessage && (
-                <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
-                  {deleteAction.errorMessage}
-                </p>
-              )}
-            </>
-          }
-          confirmLabel="Delete"
-          pendingLabel="Deleting..."
-          variant="destructive"
-          pending={deleteAction.isPending}
-          onCancel={closeConfirmation}
-          onConfirm={deleteAction.onConfirm}
-        />
-      )}
     </div>
   );
 }
 
 function CatalogDetailPage({
   config,
-  deleteAction,
   favoriteAction,
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
@@ -283,7 +221,7 @@ function CatalogDetailPage({
   if (config.kind === "images") {
     return (
       <div className="space-y-5">
-        <DetailHeader config={config} deleteAction={deleteAction} />
+        <DetailHeader config={config} />
         {heroSection}
         <GalleryGrid paths={config.galleryImagePaths} />
         {detailSummarySection}
@@ -297,7 +235,7 @@ function CatalogDetailPage({
 
   return (
     <div className="space-y-5">
-      <DetailHeader config={config} deleteAction={deleteAction} />
+      <DetailHeader config={config} />
       {heroSection}
       {detailSummarySection}
       <NotesCard notes={config.notes} />
@@ -378,11 +316,9 @@ function CatalogIdentity({
 
 function PerformerDetailPage({
   config,
-  deleteAction,
   favoriteAction,
 }: {
   config: PerformerDetailConfig;
-  deleteAction?: DetailDeleteAction;
   favoriteAction: DetailFavoriteAction;
 }) {
   const profileMetadataItems = [
@@ -396,7 +332,7 @@ function PerformerDetailPage({
 
   return (
     <div className="space-y-5">
-      <DetailHeader config={config} deleteAction={deleteAction} />
+      <DetailHeader config={config} />
 
       <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
         <PerformerProfileCard

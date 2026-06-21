@@ -11,6 +11,7 @@ import FormPage from "./FormPage";
 import { prepareVideoValuesForSave } from "../lib/mediaTechInfo";
 import {
   createVideo,
+  deleteVideo,
   getVideo,
   isVideoRuntimeAvailable,
   updateVideo,
@@ -28,6 +29,8 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
   const [loading, setLoading] = useState(() =>
     Boolean(mode === "edit" && itemKey && isVideoRuntimeAvailable()),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +71,30 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
     };
   }, [itemKey, mode]);
 
+  async function handleDelete() {
+    if (!itemKey || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    setDeleteError(null);
+
+    try {
+      const result = await deleteVideo(itemKey);
+
+      if (!result.deleted) {
+        setDeleteError("Video delete failed. The saved Sakurava record was not removed.");
+        return;
+      }
+
+      navigate("/videos", { replace: true });
+    } catch {
+      setDeleteError("Video delete failed. The saved Sakurava record was not removed.");
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -96,6 +123,17 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      deleteAction={
+        mode === "edit" && itemKey && isVideoRuntimeAvailable()
+          ? {
+              itemLabel: String(config.initialValues.edit.title || "this video"),
+              isPending: deletePending,
+              errorMessage: deleteError,
+              onOpen: () => setDeleteError(null),
+              onConfirm: handleDelete,
+            }
+          : undefined
+      }
       onSubmit={async ({
         values,
         categories,

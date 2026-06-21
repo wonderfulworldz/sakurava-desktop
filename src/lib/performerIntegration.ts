@@ -424,12 +424,12 @@ function formRating(values: FormValues): Record<string, number> {
 
 function normalizeFormRatingValue(value: FormValues[string] | unknown): number {
   const number = Number(value);
-  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 1;
 }
 
 function formatFormRatingValue(value: FormValues[string] | unknown): string {
   const rating = normalizeFormRatingValue(value);
-  return rating > 0 ? String(rating) : "";
+  return String(rating);
 }
 
 function textValue(value: FormValues[string]) {

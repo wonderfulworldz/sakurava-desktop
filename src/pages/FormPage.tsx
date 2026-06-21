@@ -78,6 +78,7 @@ type FormPageProps = {
   config: FormConfig;
   mode: FormMode;
   onSubmit?: (data: FormSubmitData) => Promise<FormSubmitResult> | FormSubmitResult;
+  deleteAction?: FormDeleteAction;
 };
 
 type FormValues = Record<string, string | boolean>;
@@ -100,11 +101,20 @@ type FormSubmitResult = {
   message?: string;
 };
 
+export type FormDeleteAction = {
+  itemLabel: string;
+  isPending: boolean;
+  errorMessage: string | null;
+  onOpen: () => void;
+  onConfirm: () => void;
+};
+
 type FormConfirmation =
   | "save"
   | "discard"
   | "replaceGallery"
   | "clearGallery"
+  | "delete"
   | null;
 
 type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
@@ -123,7 +133,7 @@ const performerSuggestionCacheKeys = [
   legacyPerformerSuggestionCacheResetKey,
 ];
 
-function FormPage({ config, mode, onSubmit }: FormPageProps) {
+function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
   const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
@@ -585,17 +595,6 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       return;
     }
 
-    const missingRatings = config.ratingFields.filter(
-      (field) => getRatingControlValue(values[field.name]) === null,
-    );
-
-    if (missingRatings.length > 0) {
-      setSaveState("error");
-      setSaveMessage("Please complete all rating criteria.");
-      setShowRatingError(true);
-      return;
-    }
-
     if (sourceLinkValidationErrors(sourceLinks).length > 0) {
       setSaveState("error");
       setSaveMessage("Please fix Source Links before saving.");
@@ -664,6 +663,15 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setConfirmation("discard");
   }
 
+  function requestDelete() {
+    if (!deleteAction || mode !== "edit") {
+      return;
+    }
+
+    deleteAction.onOpen();
+    setConfirmation("delete");
+  }
+
   function clearGalleryPaths() {
     if (galleryImagePaths.length === 0) {
       setGalleryImagePaths([]);
@@ -673,6 +681,13 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }
 
   function closeConfirmation() {
+    if (confirmation === "delete") {
+      if (!deleteAction?.isPending) {
+        setConfirmation(null);
+      }
+      return;
+    }
+
     if (!confirmationPending) {
       setConfirmation(null);
     }
@@ -700,6 +715,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     if (confirmation === "clearGallery") {
       setGalleryImagePaths([]);
       setConfirmation(null);
+      return;
+    }
+    if (confirmation === "delete") {
+      deleteAction?.onConfirm();
     }
   }
 
@@ -731,7 +750,11 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }
 
   return (
-    <form className="max-w-4xl mx-auto px-4 pt-8 pb-24 space-y-6" onSubmit={handleSubmit}>
+    <form
+      aria-label={formLabel}
+      className="max-w-4xl mx-auto px-4 pt-8 pb-24 space-y-6"
+      onSubmit={handleSubmit}
+    >
       <FormHeader
         backLabel={
           mode === "create"
@@ -1150,6 +1173,17 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             )}
           </div>
           <div className="flex justify-end gap-2.5">
+            {mode === "edit" && deleteAction && (
+              <button
+                type="button"
+                onClick={requestDelete}
+                disabled={deleteAction.isPending}
+                className={BUTTON_STYLES.danger}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            )}
             <button
               type="button"
               onClick={requestCancel}
@@ -1169,11 +1203,12 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       </div>
       <ConfirmDialog
         open={confirmation !== null}
-        title={formConfirmationCopy(confirmation, config.kind, mode).title}
-        description={formConfirmationCopy(confirmation, config.kind, mode).description}
-        confirmLabel={formConfirmationCopy(confirmation, config.kind, mode).confirmLabel}
-        pending={confirmationPending}
-        pendingLabel={formConfirmationCopy(confirmation, config.kind, mode).pendingLabel}
+        title={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).title}
+        description={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).description}
+        confirmLabel={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).confirmLabel}
+        pending={confirmation === "delete" ? deleteAction?.isPending : confirmationPending}
+        pendingLabel={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).pendingLabel}
+        variant={confirmation === "delete" ? "destructive" : "default"}
         onCancel={closeConfirmation}
         onConfirm={() => void confirmCurrentAction()}
       />
@@ -2877,8 +2912,31 @@ function formConfirmationCopy(
   confirmation: FormConfirmation,
   kind: FormConfig["kind"],
   mode: FormMode,
+  deleteAction?: FormDeleteAction,
 ) {
   const noun = kind === "videos" ? "video" : kind === "images" ? "image" : "performer";
+
+  if (confirmation === "delete") {
+    const itemLabel = deleteAction?.itemLabel ?? `this ${noun}`;
+    return {
+      title: `Delete ${itemLabel}?`,
+      description: (
+        <>
+          <p>
+            This removes the saved Sakurava record for {itemLabel}. It does not
+            delete local media files from this device.
+          </p>
+          {deleteAction?.errorMessage && (
+            <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              {deleteAction.errorMessage}
+            </p>
+          )}
+        </>
+      ),
+      confirmLabel: "Delete",
+      pendingLabel: "Deleting...",
+    };
+  }
 
   if (confirmation === "discard") {
     return {

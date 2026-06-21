@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import type { Performer, Video } from "../backend/types";
 import { buildImageDetailConfig } from "../lib/imageIntegration";
 import DetailPage from "./DetailPage";
-import {
-  deleteImage,
-  getImage,
-  isImageRuntimeAvailable,
-} from "../runtime/imageCommands";
+import { getImage, isImageRuntimeAvailable } from "../runtime/imageCommands";
 import {
   isPerformerRuntimeAvailable,
   listPerformers,
@@ -21,14 +17,11 @@ import {
 
 function ImageDetailPage() {
   const { itemKey } = useParams();
-  const navigate = useNavigate();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.images);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isImageRuntimeAvailable()),
   );
-  const [deletePending, setDeletePending] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,30 +81,6 @@ function ImageDetailPage() {
     };
   }, [itemKey]);
 
-  async function handleDelete() {
-    if (!itemKey || deletePending) {
-      return;
-    }
-
-    setDeletePending(true);
-    setDeleteError(null);
-
-    try {
-      const result = await deleteImage(itemKey);
-
-      if (!result.deleted) {
-        setDeleteError("Image delete failed. The saved Sakurava record was not removed.");
-        return;
-      }
-
-      navigate("/images", { replace: true });
-    } catch {
-      setDeleteError("Image delete failed. The saved Sakurava record was not removed.");
-    } finally {
-      setDeletePending(false);
-    }
-  }
-
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
@@ -136,18 +105,7 @@ function ImageDetailPage() {
     );
   }
 
-  const deleteAction =
-    itemKey && isImageRuntimeAvailable()
-      ? {
-          itemLabel: config.displayTitle || "this image",
-          isPending: deletePending,
-          errorMessage: deleteError,
-          onOpen: () => setDeleteError(null),
-          onConfirm: handleDelete,
-        }
-      : undefined;
-
-  return <DetailPage config={config} deleteAction={deleteAction} />;
+  return <DetailPage config={config} />;
 }
 
 export default ImageDetailPage;

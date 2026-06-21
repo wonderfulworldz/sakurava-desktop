@@ -10838,36 +10838,137 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
   });
 
-  it("hides destructive delete controls in browser preview detail pages", () => {
-    window.history.pushState({}, "", "/videos/sample-id");
-    render(<App />);
-
-    expect(screen.getByRole("heading", { name: "Video Detail" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("dialog", { name: /Delete/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("opens delete confirmation with item-specific safety copy", async () => {
-    window.history.pushState({}, "", "/videos/video_test_001");
-    const nativeConfirm = vi.spyOn(window, "confirm");
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      title: "Read Only Detail Video",
+      heading: "Video Detail",
+      getCommand: "video_get",
+      record: persistedVideo({ title: "Read Only Detail Video" }),
+    },
+    {
+      path: "/images/image_test_001",
+      title: "Read Only Detail Image",
+      heading: "Image Detail",
+      getCommand: "image_get",
+      record: persistedImage({ title: "Read Only Detail Image" }),
+    },
+    {
+      path: "/performers/performer_test_001",
+      title: "Read Only Detail Performer",
+      heading: "Performer Detail",
+      getCommand: "performer_get",
+      record: persistedPerformer({ name: "Read Only Detail Performer" }),
+    },
+  ])("does not render Delete on $heading pages", async ({ path, title, heading, getCommand, record }) => {
+    window.history.pushState({}, "", path);
     const invoke = vi.fn(async (command: string) => {
-      if (command === "video_get") {
-        return persistedVideo({ title: "Delete Candidate Video" });
+      if (command === getCommand) return record;
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
       }
-
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
-    window.__TAURI_INTERNALS__ = {
-      invoke,
-    };
+    window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
 
-    expect(await screen.findByText("Delete Candidate Video")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+    expect(await screen.findByText(title)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Delete/i })).not.toBeInTheDocument();
+  });
 
+  it.each([
+    ["/videos/new", "Video Create Form"],
+    ["/images/new", "Image Create Form"],
+    ["/performers/new", "Performer Create Form"],
+  ])("does not render Delete on create form %s", async (path, formLabel) => {
+    window.history.pushState({}, "", path);
+    const invoke = vi.fn(async (command: string) => {
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByRole("form", { name: formLabel })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      path: "/videos/video_test_001/edit",
+      title: "Editable Delete Video",
+      formLabel: "Video Edit Form",
+      getCommand: "video_get",
+      record: persistedVideo({ title: "Editable Delete Video" }),
+    },
+    {
+      path: "/images/image_test_001/edit",
+      title: "Editable Delete Image",
+      formLabel: "Image Edit Form",
+      getCommand: "image_get",
+      record: persistedImage({ title: "Editable Delete Image" }),
+    },
+    {
+      path: "/performers/performer_test_001/edit",
+      title: "Editable Delete Performer",
+      formLabel: "Performer Edit Form",
+      getCommand: "performer_get",
+      record: persistedPerformer({ name: "Editable Delete Performer" }),
+    },
+  ])("renders Delete on $formLabel", async ({ path, title, formLabel, getCommand, record }) => {
+    window.history.pushState({}, "", path);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === getCommand) return record;
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue(title)).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: formLabel })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("opens edit form delete confirmation with item-specific safety copy", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const nativeConfirm = vi.spyOn(window, "confirm");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") return persistedVideo({ title: "Delete Candidate Video" });
+      if (command === "performer_list" || command === "image_list" || command === "managed_category_list") {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Delete Candidate Video")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog", {
@@ -10880,33 +10981,27 @@ describe("App", () => {
     expect(
       screen.getByText(/removes the saved Sakurava record for Delete Candidate Video/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/does not delete local media files/i),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: "Delete" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/does not delete local media files/i)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeInTheDocument();
     nativeConfirm.mockRestore();
   });
 
-  it("cancels delete confirmation without calling the delete command", async () => {
-    window.history.pushState({}, "", "/videos/video_test_001");
+  it("cancels edit form delete confirmation without calling the delete command", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
     const invoke = vi.fn(async (command: string) => {
-      if (command === "video_get") {
-        return persistedVideo({ title: "Cancel Delete Video" });
+      if (command === "video_get") return persistedVideo({ title: "Cancel Delete Video" });
+      if (command === "performer_list" || command === "image_list" || command === "managed_category_list") {
+        return [];
       }
-
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
-    window.__TAURI_INTERNALS__ = {
-      invoke,
-    };
+    window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
 
-    expect(await screen.findByText("Cancel Delete Video")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Cancel Delete Video")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("dialog", { name: "Delete Cancel Delete Video?" }))
       .not.toBeInTheDocument();
@@ -10919,7 +11014,7 @@ describe("App", () => {
 
   it.each([
     {
-      path: "/videos/video_test_001",
+      path: "/videos/video_test_001/edit",
       title: "Deletable Video",
       getCommand: "video_get",
       deleteCommand: "video_delete",
@@ -10929,7 +11024,7 @@ describe("App", () => {
       record: persistedVideo({ title: "Deletable Video" }),
     },
     {
-      path: "/images/image_test_001",
+      path: "/images/image_test_001/edit",
       title: "Deletable Image",
       getCommand: "image_get",
       deleteCommand: "image_delete",
@@ -10939,7 +11034,7 @@ describe("App", () => {
       record: persistedImage({ title: "Deletable Image" }),
     },
     {
-      path: "/performers/performer_test_001",
+      path: "/performers/performer_test_001/edit",
       title: "Deletable Performer",
       getCommand: "performer_get",
       deleteCommand: "performer_delete",
@@ -10969,7 +11064,13 @@ describe("App", () => {
           if (command === deleteCommand) {
             return { id: args.id, deleted: true };
           }
-          if (command === listCommand) {
+          if (
+            command === listCommand ||
+            command === "performer_list" ||
+            command === "image_list" ||
+            command === "video_list" ||
+            command === "managed_category_list"
+          ) {
             return [];
           }
 
@@ -10982,7 +11083,7 @@ describe("App", () => {
 
       render(<App />);
 
-      expect(await screen.findByText(title)).toBeInTheDocument();
+      expect(await screen.findByDisplayValue(title)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
       confirmDialog("Delete");
 
@@ -10992,14 +11093,14 @@ describe("App", () => {
       ).toBeInTheDocument();
       expect(invoke).toHaveBeenCalledWith(
         deleteCommand,
-        { id: path.split("/").pop() },
+        { id: path.split("/")[2] },
         undefined,
       );
     },
   );
 
-  it("shows an error and stays on detail when delete returns false", async () => {
-    window.history.pushState({}, "", "/images/image_test_001");
+  it("shows an error and stays on edit form when delete returns false", async () => {
+    window.history.pushState({}, "", "/images/image_test_001/edit");
     const invoke = vi.fn(
       async (command: string, args: Record<string, any> = {}) => {
         if (command === "image_get") {
@@ -11007,6 +11108,13 @@ describe("App", () => {
         }
         if (command === "image_delete") {
           return { id: args.id, deleted: false };
+        }
+        if (
+          command === "performer_list" ||
+          command === "video_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -11018,7 +11126,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Failed Delete Image")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Failed Delete Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     confirmDialog("Delete");
 
@@ -11027,12 +11135,12 @@ describe("App", () => {
         "Image delete failed. The saved Sakurava record was not removed.",
       ),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/images/image_test_001");
-    expect(screen.getByRole("heading", { name: "Image Detail" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/images/image_test_001/edit");
+    expect(screen.getByRole("form", { name: "Image Edit Form" })).toBeInTheDocument();
   });
 
   it("disables delete confirmation while pending and prevents duplicate submits", async () => {
-    window.history.pushState({}, "", "/performers/performer_test_001");
+    window.history.pushState({}, "", "/performers/performer_test_001/edit");
     let resolveDelete: (value: { id: string; deleted: boolean }) => void = () => {};
     const deletePromise = new Promise<{ id: string; deleted: boolean }>((resolve) => {
       resolveDelete = resolve;
@@ -11045,7 +11153,11 @@ describe("App", () => {
         if (command === "performer_delete") {
           return deletePromise;
         }
-        if (command === "performer_list" || command === "video_list") {
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list"
+        ) {
           return [];
         }
         if (command === "managed_category_list") {
@@ -11066,7 +11178,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Pending Delete Performer")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Pending Delete Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     confirmDialog("Delete");
 
@@ -11081,11 +11193,18 @@ describe("App", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/performers"));
   });
 
-  it("does not add bulk, checkbox, or row delete behavior to detail pages", async () => {
-    window.history.pushState({}, "", "/videos/video_test_001");
+  it("does not add bulk, checkbox, or row delete behavior to edit form delete", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_get") {
         return persistedVideo({ title: "Single Delete Only Video" });
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
       }
 
       throw new Error(`Unexpected command ${command}`);
@@ -11096,10 +11215,12 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Single Delete Only Video")).toBeInTheDocument();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(await screen.findByDisplayValue("Single Delete Only Video")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /delete|select/i }))
+      .not.toBeInTheDocument();
     expect(screen.queryByText(/bulk/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/select/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /bulk|select all/i }))
+      .not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
   });
 
@@ -14612,23 +14733,73 @@ describe("App", () => {
       expect(screen.getByTestId("average-rating-display")).toHaveTextContent("1.0");
     });
 
-    it("saves new Video forms with default rating criteria of 1", async () => {
-      window.history.pushState({}, "", "/videos/new");
-      const created = persistedVideo({
+    it.each([
+      {
+        path: "/videos/new",
+        titleLabel: /^Title/,
         title: "Default Rating Video",
-        ratingJson:
-          '{"rewatch":1,"performance":1,"visual":1,"intensity":1,"story":1,"chemistry":1}',
-      });
-      const invoke = vi.fn(async (command: string, args?: any) => {
-        if (command === "performer_list") return [];
-        if (command === "image_list") return [];
-        if (command === "video_create") {
-          expect(args.input.ratingJson).toBe(
+        createCommand: "video_create",
+        getCommand: "video_get",
+        created: persistedVideo({
+          title: "Default Rating Video",
+          ratingJson:
             '{"rewatch":1,"performance":1,"visual":1,"intensity":1,"story":1,"chemistry":1}',
-          );
+        }),
+        expectedRatingJson:
+          '{"rewatch":1,"performance":1,"visual":1,"intensity":1,"story":1,"chemistry":1}',
+      },
+      {
+        path: "/images/new",
+        titleLabel: /^Title/,
+        title: "Default Rating Image",
+        createCommand: "image_create",
+        getCommand: "image_get",
+        created: persistedImage({
+          title: "Default Rating Image",
+          ratingJson:
+            '{"memorability":1,"visual":1,"posing":1,"atmosphere":1,"flow":1,"signature":1}',
+        }),
+        expectedRatingJson:
+          '{"memorability":1,"visual":1,"posing":1,"atmosphere":1,"flow":1,"signature":1}',
+      },
+      {
+        path: "/performers/new",
+        titleLabel: /^Name/,
+        title: "Default Rating Performer",
+        createCommand: "performer_create",
+        getCommand: "performer_get",
+        created: persistedPerformer({
+          name: "Default Rating Performer",
+          ratingJson:
+            '{"attraction":1,"visual":1,"performance":1,"popularity":1,"exceptional":1,"versatility":1}',
+        }),
+        expectedRatingJson:
+          '{"attraction":1,"visual":1,"performance":1,"popularity":1,"exceptional":1,"versatility":1}',
+      },
+    ])("saves new default rating criteria of 1 at $path", async ({
+      path,
+      titleLabel,
+      title,
+      createCommand,
+      getCommand,
+      created,
+      expectedRatingJson,
+    }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (command: string, args?: any) => {
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === createCommand) {
+          expect(args.input.ratingJson).toBe(expectedRatingJson);
           return created;
         }
-        if (command === "video_get") return created;
+        if (command === getCommand) return created;
         return [];
       }) as any;
       window.__TAURI_INTERNALS__ = {
@@ -14637,12 +14808,12 @@ describe("App", () => {
 
       render(<App />);
 
-      fireEvent.change(screen.getByLabelText(/^Title/), {
-        target: { value: "Default Rating Video" },
+      fireEvent.change(screen.getByLabelText(titleLabel), {
+        target: { value: title },
       });
       clickSaveAndConfirm();
 
-      expect(await screen.findByText("Default Rating Video")).toBeInTheDocument();
+      expect(await screen.findByText(title)).toBeInTheDocument();
     });
 
     it("saves when all rating criteria are filled", async () => {
@@ -14717,7 +14888,7 @@ describe("App", () => {
       expect(screen.getByTestId("average-rating-display")).toHaveTextContent("4.2");
     });
 
-    it("opens old invalid edit rating data as empty instead of 0", async () => {
+    it("opens old invalid edit rating data as the default instead of 0", async () => {
       window.history.pushState({}, "", "/videos/video_test_001/edit");
       const invoke = vi.fn(async (command: string) => {
         if (command === "video_get") {
@@ -14737,9 +14908,9 @@ describe("App", () => {
 
       expect(await screen.findByDisplayValue("Old Rating Video")).toBeInTheDocument();
       for (const label of ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]) {
-        expect(screen.getByLabelText(label)).toHaveValue(null);
+        expect(screen.getByLabelText(label)).toHaveValue(1);
       }
-      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("1.0");
       expect(screen.queryByDisplayValue("0")).not.toBeInTheDocument();
     });
 
