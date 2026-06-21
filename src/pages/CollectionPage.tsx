@@ -49,6 +49,7 @@ type CatalogSessionFilters = {
   activeCategoryFilters: string[];
   dataFilters: DataFilterValues;
   sortValue?: string;
+  tableSort?: TableSortState;
   viewMode?: ViewMode;
   pageSize?: string;
 };
@@ -86,7 +87,9 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
       ? initialFilters.sortValue
       : config.sortOptions[0] ?? "",
   );
-  const [tableSort, setTableSort] = useState<TableSortState>(null);
+  const [tableSort, setTableSort] = useState<TableSortState>(
+    initialFilters.tableSort ?? null,
+  );
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pageSize, setPageSize] = useState(() =>
     initialFilters.pageSize
@@ -158,6 +161,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     setDataFilters({});
     setSortValue(config.sortOptions[0] ?? "");
     setTableSort(null);
+    setViewMode("card");
     setPageSize(DEFAULT_CATALOG_PAGE_SIZE);
     clearSessionFilterState(filterSessionKey);
     resetToFirstPage();
@@ -194,7 +198,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
         ? savedFilters.sortValue
         : config.sortOptions[0] ?? "",
     );
-    setTableSort(null);
+    setTableSort(savedFilters.tableSort ?? null);
     setPageSize(
       savedFilters.pageSize
         ? normalizeCatalogPageSize(savedFilters.pageSize)
@@ -210,6 +214,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
       activeCategoryFilters,
       dataFilters,
       sortValue,
+      tableSort,
       viewMode,
       pageSize,
     });
@@ -220,6 +225,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     pageSize,
     searchQuery,
     sortValue,
+    tableSort,
     viewMode,
   ]);
 
@@ -442,11 +448,8 @@ function CollectionToolbar({
   const title = t(`collection.title.${config.kind}`);
   const activeDataFilters = getActiveDataFilterEntries(config.kind, dataFilters);
   const trimmedSearch = searchQuery.trim();
-  const activeFilterCount =
-    (trimmedSearch ? 1 : 0) +
-    activeCategoryFilters.length +
-    activeDataFilters.length;
-  const hasActiveFilters = activeFilterCount > 0;
+  const activeFilterCount = activeCategoryFilters.length + activeDataFilters.length;
+  const hasActiveFilterRow = activeFilterCount > 0;
   const dropdownState: DropdownState = {
     openDropdownKey,
     onOpenDropdownChange: setOpenDropdownKey,
@@ -483,10 +486,13 @@ function CollectionToolbar({
   return (
     <section ref={toolbarRef} className="rounded-lg border border-slate-200 bg-white p-3" aria-label={`${title} catalog toolbar`}>
       <div
-        className="grid grid-cols-[minmax(9rem,1fr)_minmax(10rem,14rem)_minmax(10rem,16rem)_minmax(7rem,9rem)] items-center gap-2 sm:gap-3"
+        className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-2"
         data-testid={`${config.kind}-toolbar-row`}
       >
-        <label className="relative block min-w-0">
+        <label
+          className="relative block min-w-0 flex-1"
+          data-testid={`${config.kind}-toolbar-search-region`}
+        >
           <Search
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             size={18}
@@ -515,7 +521,7 @@ function CollectionToolbar({
         <button
           type="button"
           className={[
-            "inline-flex h-11 w-full max-w-[14rem] min-w-[8.5rem] items-center justify-between gap-2 rounded-lg border px-3 text-sm font-semibold transition sm:px-4",
+            "inline-flex h-11 w-full shrink-0 items-center justify-between gap-2 rounded-lg border px-3 text-sm font-semibold transition sm:w-auto",
             activeFilterCount > 0 || filterPanelOpen
               ? "border-sakura-200 bg-sakura-50 text-sakura-700 hover:border-sakura-300"
               : "border-slate-200 bg-white text-slate-700 hover:border-sakura-200 hover:text-sakura-600",
@@ -531,7 +537,7 @@ function CollectionToolbar({
           data-testid={`${config.kind}-toolbar-filter-button`}
         >
           <Filter size={18} />
-          <span className="hidden min-w-0 flex-1 text-left sm:inline">Filter</span>
+          <span className="hidden min-w-0 text-left sm:inline">Filter</span>
           <span
             aria-label={`${activeFilterCount} active filters`}
             className={[
@@ -559,7 +565,7 @@ function CollectionToolbar({
         />
 
         <button
-          className="inline-flex h-11 w-full max-w-[9rem] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
+        className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600 sm:w-auto"
           type="button"
           aria-label={viewLabel}
           onFocus={() => setOpenDropdownKey(null)}
@@ -586,16 +592,12 @@ function CollectionToolbar({
         />
       )}
 
-      {hasActiveFilters && (
-        <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+      {hasActiveFilterRow && (
+        <div
+          className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between"
+          data-testid={`${config.kind}-active-filter-row`}
+        >
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {trimmedSearch && (
-              <FilterChip
-                label={`Search: ${trimmedSearch}`}
-                removeLabel={`Clear ${title} search filter`}
-                onRemove={onClearSearch}
-              />
-            )}
             {activeCategoryFilters.map((category) => (
               <FilterChip
                 key={normalizeCategoryKey(category)}
@@ -679,13 +681,13 @@ function SortPicker({
   }
 
   return (
-    <div className="relative min-w-0">
+    <div className="relative min-w-0 shrink-0 sm:w-auto">
       <button
         type="button"
         aria-label={`Sort ${value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-11 w-full max-w-[16rem] min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100"
+        className="flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100 sm:w-44"
         data-testid={`${dropdownKey}-sort-control`}
         onClick={() => dropdownState.onOpenDropdownChange(open ? null : dropdownKey)}
       >
@@ -1339,6 +1341,7 @@ function PickerFilterCell({
           <div role="listbox" aria-label={`${label} options`} className="max-h-56 overflow-y-auto p-1">
             <PickerOption
               label={allLabel}
+              highlightQuery={query}
               selected={isAllFilterValue(filterId, value)}
                 onSelect={() => {
                   onChange(filterId, allLabel);
@@ -1349,6 +1352,7 @@ function PickerFilterCell({
               <PickerOption
                 key={option}
                 label={option}
+                highlightQuery={query}
                 selected={normalizedFilterValue(currentValue) === normalizedFilterValue(option)}
                 onSelect={() => {
                   onChange(filterId, option);
@@ -1451,6 +1455,7 @@ function CategoryFilterCell({
               <PickerOption
               key={category}
               label={category}
+              highlightQuery={query}
               selected={false}
               onSelect={() => {
                 onAddCategoryFilter(category);
@@ -1472,11 +1477,13 @@ function CategoryFilterCell({
 
 function PickerOption({
   label,
+  highlightQuery = "",
   selected,
   showMarker = true,
   onSelect,
 }: {
   label: string;
+  highlightQuery?: string;
   selected: boolean;
   showMarker?: boolean;
   onSelect: () => void;
@@ -1494,11 +1501,45 @@ function PickerOption({
       ].join(" ")}
       onClick={onSelect}
     >
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate">
+        <HighlightedOptionText text={label} query={highlightQuery} />
+      </span>
       {showMarker && (
         <span className={selected ? "text-sakura-600" : "text-slate-400"}>+</span>
       )}
     </button>
+  );
+}
+
+function HighlightedOptionText({ text, query }: { text: string; query: string }) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return <>{text}</>;
+  }
+
+  const normalizedText = text.toLocaleLowerCase();
+  const normalizedQuery = trimmedQuery.toLocaleLowerCase();
+  const matchIndex = normalizedText.indexOf(normalizedQuery);
+
+  if (matchIndex === -1) {
+    return <>{text}</>;
+  }
+
+  const before = text.slice(0, matchIndex);
+  const match = text.slice(matchIndex, matchIndex + trimmedQuery.length);
+  const after = text.slice(matchIndex + trimmedQuery.length);
+
+  return (
+    <>
+      {before}
+      <mark
+        className="rounded-sm bg-sakura-100 px-0.5 text-sakura-800"
+        data-testid="catalog-query-highlight"
+      >
+        {match}
+      </mark>
+      {after}
+    </>
   );
 }
 
@@ -1771,6 +1812,7 @@ function CollectionTable({
   onSortChange: (value: string) => void;
 }) {
   const columns = tableColumns(config.kind);
+  const tableWidth = tableWidthPx(columns);
 
   return (
     <section
@@ -1781,14 +1823,27 @@ function CollectionTable({
         <table
           className={`table-fixed divide-y divide-slate-200 text-left text-sm ${catalogTableMinWidth(config.kind)}`}
           data-testid={`${config.kind}-catalog-table`}
+          style={{ minWidth: `${tableWidth}px`, width: `${tableWidth}px` }}
         >
+          <colgroup data-testid={`${config.kind}-catalog-table-colgroup`}>
+            {columns.map((column) => (
+              <col
+                key={column.id}
+                className={column.className}
+                data-column-id={column.id}
+                data-testid={`${config.kind}-catalog-table-col-${column.id}`}
+                style={{ width: `${column.widthPx}px` }}
+              />
+            ))}
+          </colgroup>
           <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.id}
                   aria-sort={ariaSortForColumn(column, tableSort)}
-                  className={["px-3 py-3", column.className ?? ""].join(" ")}
+                  className={["min-w-0 overflow-hidden px-3 py-3", column.className ?? ""].join(" ")}
+                  style={{ width: `${column.widthPx}px` }}
                 >
                   {column.sortValue ? (
                     <button
@@ -1796,8 +1851,8 @@ function CollectionTable({
                       aria-label={`Sort by ${column.sortLabel ?? column.header}`}
                       title={`Sort by ${column.sortLabel ?? column.header}`}
                       className={[
-                        "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200",
-                        tableSort?.value === column.sortValue ? "text-slate-700" : "",
+                        "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-700 focus:outline-none",
+                        tableSort?.value === column.sortValue ? "text-sakura-800" : "",
                       ].join(" ")}
                       onClick={() => onSortChange(column.sortValue!)}
                     >
@@ -1805,8 +1860,8 @@ function CollectionTable({
                         {column.header}
                       </span>
                       {tableSort?.value === column.sortValue && (
-                        <span aria-hidden="true" className="text-[10px] text-slate-500">
-                          {tableSort.direction === "ascending" ? "ASC" : "DESC"}
+                        <span aria-hidden="true" className="text-[10px] text-sakura-700">
+                          {tableSort.direction === "ascending" ? "↑" : "↓"}
                         </span>
                       )}
                     </button>
@@ -1868,7 +1923,8 @@ function CollectionTableRow({
       {columns.map((column) => (
         <td
           key={`${item.key}-${column.id}`}
-          className={["px-3 py-3 text-slate-700 overflow-hidden", column.className ?? ""].join(" ")}
+          className={["min-w-0 overflow-hidden px-3 py-3 text-slate-700", column.className ?? ""].join(" ")}
+          style={{ width: `${column.widthPx}px` }}
         >
           {column.render(item, config, onFavoriteToggle)}
         </td>
@@ -2182,17 +2238,64 @@ function sortItems(
       .map(({ item }) => item);
   }
 
-  if (sortValue === "Title A-Z" || sortValue === "Name A-Z") {
+  if (
+    sortValue === "Title A-Z" ||
+    sortValue === "Title Z-A" ||
+    sortValue === "Name A-Z" ||
+    sortValue === "Name Z-A"
+  ) {
+    const sortDescending = sortValue === "Title Z-A" || sortValue === "Name Z-A";
+    const effectiveDirection = directionOverride ?? (sortDescending ? "descending" : "ascending");
     return indexedItems
       .slice()
       .sort((left, right) => {
         const compared = getPrimaryTitle(left.item).localeCompare(
           getPrimaryTitle(right.item),
         );
-        return (textDirection === "ascending" ? compared : -compared) ||
+        return (effectiveDirection === "ascending" ? compared : -compared) ||
           left.index - right.index;
       })
       .map(({ item }) => item);
+  }
+
+  if (sortValue === "Original Title" || sortValue === "Original Name") {
+    return sortByText(indexedItems, originalNameOrTitle, textDirection);
+  }
+
+  if (sortValue === "Code") {
+    return sortByText(
+      indexedItems,
+      (item) => (item.kind === "videos" || item.kind === "images" ? item.code : ""),
+      textDirection,
+    );
+  }
+
+  if (sortValue === "Categories") {
+    return sortByText(indexedItems, (item) => item.categories.join(", "), textDirection);
+  }
+
+  if (sortValue === "Quality") {
+    return sortByText(
+      indexedItems,
+      (item) => (item.kind === "performers" ? "" : item.quality ?? ""),
+      textDirection,
+    );
+  }
+
+  if (sortValue === "Availability") {
+    return sortByText(
+      indexedItems,
+      (item) => (item.kind === "performers" ? "" : item.availability ?? ""),
+      textDirection,
+    );
+  }
+
+  if (sortValue === "Censorship") {
+    return sortByText(
+      indexedItems,
+      (item) => (item.kind === "performers" ? "" : item.censorship ?? ""),
+      textDirection,
+    );
   }
 
   if (sortValue === "Duration") {
@@ -2219,21 +2322,24 @@ function sortItems(
     );
   }
 
+  if (sortValue === "Debut Year") {
+    return sortByNumber(
+      indexedItems,
+      (item) => (item.kind === "performers" ? item.debutYear ?? null : null),
+      numberDirection,
+    );
+  }
+
   if (sortValue === "Rating") {
     return sortByNumber(indexedItems, (item) => item.ratingAverage ?? null, numberDirection);
   }
 
   if (sortValue === "Status") {
-    return indexedItems
-      .slice()
-      .sort((left, right) => {
-        const leftStatus = left.item.kind === "performers" ? left.item.status : "";
-        const rightStatus = right.item.kind === "performers" ? right.item.status : "";
-        const compared = leftStatus.localeCompare(rightStatus);
-        return (textDirection === "ascending" ? compared : -compared) ||
-          left.index - right.index;
-      })
-      .map(({ item }) => item);
+    return sortByText(
+      indexedItems,
+      (item) => (item.kind === "performers" ? item.status : ""),
+      textDirection,
+    );
   }
 
   if (sortValue === "Filmography") {
@@ -2259,6 +2365,40 @@ function sortItems(
   }
 
   return items;
+}
+
+function originalNameOrTitle(item: CollectionItem) {
+  return item.kind === "performers" ? item.originalName : item.originalTitle;
+}
+
+function sortByText(
+  indexedItems: Array<{ item: CollectionItem; index: number }>,
+  valueForItem: (item: CollectionItem) => string | null | undefined,
+  direction: "ascending" | "descending" = "ascending",
+) {
+  return indexedItems
+    .slice()
+    .sort((left, right) => {
+      const leftValue = valueForItem(left.item)?.trim() ?? "";
+      const rightValue = valueForItem(right.item)?.trim() ?? "";
+
+      if (!leftValue && !rightValue) {
+        return left.index - right.index;
+      }
+
+      if (!leftValue) {
+        return 1;
+      }
+
+      if (!rightValue) {
+        return -1;
+      }
+
+      const compared = leftValue.localeCompare(rightValue);
+      return (direction === "ascending" ? compared : -compared) ||
+        left.index - right.index;
+    })
+    .map(({ item }) => item);
 }
 
 function sortByNumber(
@@ -2299,6 +2439,7 @@ function getSearchText(item: CollectionItem) {
       [
         item.name,
         item.originalName,
+        item.aliases,
         item.status,
         item.nationality,
         item.cupSize,
@@ -2319,7 +2460,7 @@ function getSearchText(item: CollectionItem) {
   ];
 
   if (item.kind === "videos") {
-    fields.push(item.duration);
+    fields.push(item.code, item.duration);
   } else {
     fields.push(item.code, item.imageCount);
   }
@@ -2633,6 +2774,7 @@ type TableColumn = {
   sortLabel?: string;
   sortValue?: string;
   className?: string;
+  widthPx: number;
   hiddenHeader?: boolean;
   render: (
     item: CollectionItem,
@@ -2650,6 +2792,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Status",
         sortValue: "Status",
         className: "w-32",
+        widthPx: 128,
         render: (item) =>
           item.kind === "performers" ? (
             <StatusChip value={formatPerformerStatus(item.status)} tone="performer-status" />
@@ -2660,6 +2803,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         header: "THUMBNAIL",
         hiddenHeader: true,
         className: "w-24",
+        widthPx: 96,
         render: (item, config) => (
           <CatalogTableThumbnail item={item} placeholderLabel={config.placeholderLabel} />
         ),
@@ -2669,6 +2813,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         header: "FAVORITE",
         hiddenHeader: true,
         className: "w-16",
+        widthPx: 64,
         render: (item, _config, onFavoriteToggle) => (
           <CatalogTableFavorite item={item} onFavoriteToggle={onFavoriteToggle} />
         ),
@@ -2678,19 +2823,37 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         header: "NAME",
         sortLabel: "Name",
         sortValue: "Name A-Z",
-        className: "w-64",
+        className: "w-56",
+        widthPx: 224,
         render: (item) => <PrimaryTextCell value={item.kind === "performers" ? item.name : ""} />,
+      },
+      {
+        id: "originalName",
+        header: "ORIGINAL NAME",
+        sortLabel: "Original Name",
+        sortValue: "Original Name",
+        className: "w-56",
+        widthPx: 224,
+        render: (item) => (
+          <PlainTableValue value={item.kind === "performers" ? formatTableValue(item.originalName) : tableNA} />
+        ),
       },
       {
         id: "categories",
         header: "CATEGORIES",
+        sortLabel: "Categories",
+        sortValue: "Categories",
         className: "w-60",
+        widthPx: 240,
         render: (item) => <CatalogCategoryChips categories={item.categories} />,
       },
       {
         id: "debutYear",
         header: "DEBUT",
+        sortLabel: "Debut Year",
+        sortValue: "Debut Year",
         className: "w-32",
+        widthPx: 128,
         render: (item) => (
           <PlainTableValue value={item.kind === "performers" ? formatYear(item.debutYear) : tableNA} />
         ),
@@ -2701,6 +2864,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Filmography",
         sortValue: "Filmography",
         className: "w-36",
+        widthPx: 144,
         render: (item) => (
           <PlainTableValue
             value={
@@ -2717,6 +2881,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Pictorials",
         sortValue: "Pictorials",
         className: "w-32",
+        widthPx: 128,
         render: (item) => (
           <PlainTableValue
             value={
@@ -2733,6 +2898,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Rating",
         sortValue: "Rating",
         className: "w-28",
+        widthPx: 112,
         render: (item) => <RatingChip value={formatRating(item)} />,
       },
     ];
@@ -2743,7 +2909,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       {
         id: "availability",
         header: "AVAILABILITY",
+        sortLabel: "Availability",
+        sortValue: "Availability",
         className: "w-36",
+        widthPx: 144,
         render: (item) =>
           item.kind === "images" ? (
             <StatusChip value={formatAvailability(item.availability)} tone="availability" />
@@ -2754,6 +2923,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         header: "THUMBNAIL",
         hiddenHeader: true,
         className: "w-28",
+        widthPx: 112,
         render: (item, config) => (
           <CatalogTableThumbnail item={item} placeholderLabel={config.placeholderLabel} />
         ),
@@ -2763,6 +2933,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         header: "FAVORITE",
         hiddenHeader: true,
         className: "w-16",
+        widthPx: 64,
         render: (item, _config, onFavoriteToggle) => (
           <CatalogTableFavorite item={item} onFavoriteToggle={onFavoriteToggle} />
         ),
@@ -2772,13 +2943,28 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         header: "TITLE",
         sortLabel: "Title",
         sortValue: "Title A-Z",
-        className: "w-64",
+        className: "w-56",
+        widthPx: 224,
         render: (item) => <PrimaryTextCell value={item.kind === "images" ? item.title : ""} />,
+      },
+      {
+        id: "originalTitle",
+        header: "ORIGINAL TITLE",
+        sortLabel: "Original Title",
+        sortValue: "Original Title",
+        className: "w-56",
+        widthPx: 224,
+        render: (item) => (
+          <PlainTableValue value={item.kind === "images" ? formatTableValue(item.originalTitle) : tableNA} />
+        ),
       },
       {
         id: "code",
         header: "CODE",
+        sortLabel: "Code",
+        sortValue: "Code",
         className: "w-32",
+        widthPx: 128,
         render: (item) => (
           <PlainTableValue value={item.kind === "images" ? formatTableValue(item.code) : tableNA} />
         ),
@@ -2786,7 +2972,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       {
         id: "categories",
         header: "CATEGORIES",
+        sortLabel: "Categories",
+        sortValue: "Categories",
         className: "w-60",
+        widthPx: 240,
         render: (item) => <CatalogCategoryChips categories={item.categories} />,
       },
       {
@@ -2795,6 +2984,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Release Year",
         sortValue: "Release Year",
         className: "w-24",
+        widthPx: 96,
         render: (item) => (
           <PlainTableValue value={item.kind === "images" ? formatYear(item.releaseYear) : tableNA} />
         ),
@@ -2805,6 +2995,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Image Count",
         sortValue: "Image Count",
         className: "w-36",
+        widthPx: 144,
         render: (item) => (
           <PlainTableValue
             value={
@@ -2818,7 +3009,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       {
         id: "quality",
         header: "QUALITY",
+        sortLabel: "Quality",
+        sortValue: "Quality",
         className: "w-28",
+        widthPx: 112,
         render: (item) => (
           <PlainTableValue value={item.kind === "images" ? formatTableValue(item.quality) : tableNA} />
         ),
@@ -2826,7 +3020,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       {
         id: "censorship",
         header: "CENSORSHIP",
+        sortLabel: "Censorship",
+        sortValue: "Censorship",
         className: "w-32",
+        widthPx: 128,
         render: (item) =>
           item.kind === "images" ? (
             <StatusChip value={formatCensorship(item.censorship)} tone="censorship" />
@@ -2838,6 +3035,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
         sortLabel: "Rating",
         sortValue: "Rating",
         className: "w-28",
+        widthPx: 112,
         render: (item) => <RatingChip value={formatRating(item)} />,
       },
     ];
@@ -2847,7 +3045,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
     {
       id: "availability",
       header: "AVAILABILITY",
+      sortLabel: "Availability",
+      sortValue: "Availability",
       className: "w-36",
+      widthPx: 144,
       render: (item) =>
         item.kind === "videos" ? (
           <StatusChip value={formatAvailability(item.availability)} tone="availability" />
@@ -2858,6 +3059,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       header: "THUMBNAIL",
       hiddenHeader: true,
       className: "w-28",
+      widthPx: 112,
       render: (item, config) => (
         <CatalogTableThumbnail item={item} placeholderLabel={config.placeholderLabel} />
       ),
@@ -2867,6 +3069,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       header: "FAVORITE",
       hiddenHeader: true,
       className: "w-16",
+      widthPx: 64,
       render: (item, _config, onFavoriteToggle) => (
         <CatalogTableFavorite item={item} onFavoriteToggle={onFavoriteToggle} />
       ),
@@ -2876,13 +3079,28 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       header: "TITLE",
       sortLabel: "Title",
       sortValue: "Title A-Z",
-      className: "w-64",
+      className: "w-56",
+      widthPx: 224,
       render: (item) => <PrimaryTextCell value={item.kind === "videos" ? item.title : ""} />,
+    },
+    {
+      id: "originalTitle",
+      header: "ORIGINAL TITLE",
+      sortLabel: "Original Title",
+      sortValue: "Original Title",
+      className: "w-56",
+      widthPx: 224,
+      render: (item) => (
+        <PlainTableValue value={item.kind === "videos" ? formatTableValue(item.originalTitle) : tableNA} />
+      ),
     },
     {
       id: "code",
       header: "CODE",
+      sortLabel: "Code",
+      sortValue: "Code",
       className: "w-32",
+      widthPx: 128,
       render: (item) => (
         <PlainTableValue value={item.kind === "videos" ? formatTableValue(item.code) : tableNA} />
       ),
@@ -2890,7 +3108,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
     {
       id: "categories",
       header: "CATEGORIES",
+      sortLabel: "Categories",
+      sortValue: "Categories",
       className: "w-60",
+      widthPx: 240,
       render: (item) => <CatalogCategoryChips categories={item.categories} />,
     },
     {
@@ -2899,6 +3120,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       sortLabel: "Release Year",
       sortValue: "Release Year",
       className: "w-24",
+      widthPx: 96,
       render: (item) => (
         <PlainTableValue value={item.kind === "videos" ? formatYear(item.releaseYear) : tableNA} />
       ),
@@ -2909,6 +3131,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       sortLabel: "Duration",
       sortValue: "Duration",
       className: "w-28",
+      widthPx: 112,
       render: (item) => (
         <PlainTableValue value={item.kind === "videos" ? formatDuration(item) : tableNA} />
       ),
@@ -2916,7 +3139,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
     {
       id: "quality",
       header: "QUALITY",
+      sortLabel: "Quality",
+      sortValue: "Quality",
       className: "w-28",
+      widthPx: 112,
       render: (item) => (
         <PlainTableValue value={item.kind === "videos" ? formatTableValue(item.quality) : tableNA} />
       ),
@@ -2924,7 +3150,10 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
     {
       id: "censorship",
       header: "CENSORSHIP",
+      sortLabel: "Censorship",
+      sortValue: "Censorship",
       className: "w-32",
+      widthPx: 128,
       render: (item) =>
         item.kind === "videos" ? (
           <StatusChip value={formatCensorship(item.censorship)} tone="censorship" />
@@ -2936,6 +3165,7 @@ function tableColumns(kind: CollectionConfig["kind"]): TableColumn[] {
       sortLabel: "Rating",
       sortValue: "Rating",
       className: "w-28",
+      widthPx: 112,
       render: (item) => <RatingChip value={formatRating(item)} />,
     },
   ];
@@ -2951,10 +3181,14 @@ const tableNA = "N/A";
 
 function catalogTableMinWidth(kind: CollectionConfig["kind"]) {
   if (kind === "performers") {
-    return "min-w-[1040px]";
+    return "min-w-[1200px]";
   }
 
-  return "min-w-[1320px]";
+  return "min-w-[1480px]";
+}
+
+function tableWidthPx(columns: TableColumn[]) {
+  return columns.reduce((total, column) => total + column.widthPx, 0);
 }
 
 function formatTableValue(value: string | number | null | undefined) {
@@ -3109,7 +3343,7 @@ function PrimaryTextCell({ value }: { value: string | null | undefined }) {
   const formatted = formatTableValue(value);
   return (
     <span
-      className="block truncate font-semibold text-slate-950"
+      className="block min-w-0 max-w-full truncate whitespace-nowrap font-semibold text-slate-950"
       title={formatted}
       data-testid="catalog-table-primary-text"
     >
@@ -3120,7 +3354,7 @@ function PrimaryTextCell({ value }: { value: string | null | undefined }) {
 
 function PlainTableValue({ value }: { value: string }) {
   return (
-    <span className="block truncate" title={value}>
+    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={value}>
       {value}
     </span>
   );
@@ -3140,16 +3374,16 @@ function CatalogCategoryChips({ categories }: { categories: string[] }) {
 
   return (
     <div
-      className="flex min-w-0 items-center gap-1.5 overflow-hidden"
+      className="flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden"
       title={cleanCategories.join(", ")}
       data-testid="catalog-table-category-chips"
     >
       {visibleCategories.map((category) => (
         <span
           key={category}
-          className="inline-flex max-w-[7rem] shrink items-center overflow-hidden rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700"
+          className="inline-flex min-w-0 max-w-[7rem] shrink items-center overflow-hidden rounded-md border border-sakura-100 bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-700"
         >
-          <span className="truncate">{category}</span>
+          <span className="min-w-0 truncate whitespace-nowrap">{category}</span>
         </span>
       ))}
       {hiddenCount > 0 && (

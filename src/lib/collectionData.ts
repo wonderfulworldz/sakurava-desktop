@@ -195,7 +195,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Added", "Last Updated", "Title A-Z", "Release Year", "Rating", "Duration"],
+    sortOptions: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
     placeholderLabel: "Cover Placeholder",
     items: videoDurations.map((duration, index) => ({
       kind: "videos",
@@ -226,7 +226,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Added", "Last Updated", "Title A-Z", "Release Year", "Rating", "Image Count"],
+    sortOptions: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
     placeholderLabel: "Image Placeholder",
     items: imageCounts.map((imageCount, index) => ({
       kind: "images",
@@ -257,7 +257,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Added", "Last Updated", "Name A-Z", "Rating", "Status", "Filmography", "Pictorials"],
+    sortOptions: ["Name A-Z", "Name Z-A", "Last Added", "Last Updated"],
     placeholderLabel: "Profile Placeholder",
     items: performerStats.map(([status, filmographyCount, pictorialsCount], index) => ({
       kind: "performers",

@@ -191,6 +191,22 @@ function selectCatalogSort(
   );
 }
 
+function catalogColumnWidths(kind: "videos" | "images" | "performers") {
+  return Array.from(screen.getByTestId(`${kind}-catalog-table-colgroup`).children)
+    .map((column) => ({
+      id: column.getAttribute("data-column-id"),
+      width: (column as HTMLElement).style.width,
+    }));
+}
+
+function catalogTableInlineWidth(kind: "videos" | "images" | "performers") {
+  const table = screen.getByTestId(`${kind}-catalog-table`) as HTMLElement;
+  return {
+    minWidth: table.style.minWidth,
+    width: table.style.width,
+  };
+}
+
 function selectCategorySort(optionName: string) {
   fireEvent.click(screen.getByRole("button", { name: "Sort" }));
   fireEvent.click(screen.getByRole("option", { name: optionName }));
@@ -1648,7 +1664,9 @@ describe("App", () => {
       screen.queryByRole("button", { name: "Clear all filters" }),
     ).not.toBeInTheDocument();
     const sortControl = screen.getByTestId(`${path.slice(1)}.sort-sort-control`);
-    expect(sortControl).toHaveTextContent("Last Added");
+    expect(sortControl).toHaveTextContent(
+      path === "/performers" ? "Name A-Z" : "Title A-Z",
+    );
     expect(sortControl).not.toHaveTextContent(/^Sort$/);
     expect(sortControl.querySelector("svg")).not.toBeNull();
     expect(screen.queryByDisplayValue("Add category filter")).not.toBeInTheDocument();
@@ -1758,12 +1776,13 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Videos search"), {
       target: { value: "memory" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Memory Category" },
     });
     selectCatalogSort("videos", "Title A-Z");
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
     fireEvent.change(screen.getByLabelText("Items per page"), {
       target: { value: "64" },
     });
@@ -1773,7 +1792,7 @@ describe("App", () => {
     const imageRender = render(<App />);
     expect(await screen.findByText("Memory Image")).toBeInTheDocument();
     expect(screen.getByLabelText("Images search")).toHaveValue("");
-    expect(catalogSortControl("images")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("images")).toHaveTextContent("Title A-Z");
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
     imageRender.unmount();
 
@@ -1782,22 +1801,26 @@ describe("App", () => {
     expect(await screen.findByText("Memory Video")).toBeInTheDocument();
     expect(screen.getByLabelText("Videos search")).toHaveValue("memory");
     expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
-    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch to grid view" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Duration" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
 
-    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
     expect(screen.getByLabelText("Videos search")).toHaveValue("");
-    expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to list view" })).toBeInTheDocument();
     restoredVideoRender.unmount();
 
     window.history.pushState({}, "", "/videos");
     render(<App />);
     expect(await screen.findByText("Memory Video")).toBeInTheDocument();
     expect(screen.getByLabelText("Videos search")).toHaveValue("");
-    expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
   });
@@ -1902,7 +1925,7 @@ describe("App", () => {
       expect(screen.getByPlaceholderText(/Search .*\.{3}/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
       expect(screen.getByTestId(`${path.slice(1)}.sort-sort-control`))
-        .toHaveTextContent("Last Added");
+        .toHaveTextContent(path === "/performers" ? "Name A-Z" : "Title A-Z");
       expect(
         screen.getByRole("button", { name: "Switch to list view" }),
       ).toBeInTheDocument();
@@ -2052,7 +2075,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Performers search"), {
       target: { value: "alpha" },
     });
-    expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
     expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
@@ -6222,11 +6245,11 @@ describe("App", () => {
         target: { value: "Category A" },
       });
       fireEvent.click(panel.getByRole("button", { name: `${dataFilterLabel}: ${dataFilterValue}` }));
-      fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
+      fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
 
-      expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
       expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
-      expect(screen.getByText(`Search: ${searchValue}`)).toBeInTheDocument();
+      expect(screen.queryByText(`Search: ${searchValue}`)).not.toBeInTheDocument();
       expect(screen.getByText("Category: Category A")).toBeInTheDocument();
       expect(screen.getByText(dataChip)).toBeInTheDocument();
     },
@@ -6306,6 +6329,31 @@ describe("App", () => {
     expect(panel.getAllByPlaceholderText("Search debut years...")).toHaveLength(1);
   });
 
+  it("highlights catalog filter dropdown query matches without changing visible text", () => {
+    window.history.pushState({}, "", "/videos");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    const panel = within(screen.getByRole("region", { name: "Videos filters" }));
+
+    const categoryField = panel.getByLabelText("Category");
+    fireEvent.focus(categoryField);
+    fireEvent.change(categoryField, { target: { value: "cat" } });
+
+    const categoryOptions = panel.getByRole("listbox", { name: "Category options" });
+    const categoryOption = within(categoryOptions).getByRole("option", { name: "Category A+" });
+    expect(categoryOption).toHaveTextContent("Category A");
+    expect(within(categoryOption).getByTestId("catalog-query-highlight"))
+      .toHaveClass("bg-sakura-100", "text-sakura-800");
+
+    fireEvent.change(categoryField, { target: { value: "" } });
+    expect(
+      within(categoryOptions).getByRole("option", { name: "Category A+" }),
+    ).toHaveTextContent("Category A");
+    expect(within(categoryOptions).queryByTestId("catalog-query-highlight"))
+      .not.toBeInTheDocument();
+  });
+
   it("uses a custom Sort picker and closes other open filter dropdowns", () => {
     window.history.pushState({}, "", "/performers");
     render(<App />);
@@ -6323,10 +6371,50 @@ describe("App", () => {
     expect(screen.queryByRole("listbox", { name: "Category options" })).not.toBeInTheDocument();
     const sortOptions = screen.getByRole("listbox", { name: "Sort options" });
     expect(sortOptions).toBeInTheDocument();
-    fireEvent.click(within(sortOptions).getByRole("option", { name: "Rating" }));
+    expect(within(sortOptions).queryByRole("option", { name: "Rating" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(within(sortOptions).getByRole("option", { name: "Name Z-A" }));
 
-    expect(sortField).toHaveTextContent("Rating");
+    expect(sortField).toHaveTextContent("Name Z-A");
     expect(screen.queryByRole("listbox", { name: "Sort options" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      path: "/videos",
+      kind: "videos" as const,
+      expected: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
+      removed: ["Release Year", "Rating", "Duration", "Image Count", "Status", "Filmography", "Pictorials"],
+      defaultSort: "Title A-Z",
+    },
+    {
+      path: "/images",
+      kind: "images" as const,
+      expected: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
+      removed: ["Release Year", "Rating", "Duration", "Image Count", "Status", "Filmography", "Pictorials"],
+      defaultSort: "Title A-Z",
+    },
+    {
+      path: "/performers",
+      kind: "performers" as const,
+      expected: ["Name A-Z", "Name Z-A", "Last Added", "Last Updated"],
+      removed: ["Release Year", "Rating", "Duration", "Image Count", "Status", "Filmography", "Pictorials"],
+      defaultSort: "Name A-Z",
+    },
+  ])("renders simplified catalog toolbar sort options for $path", ({ path, kind, expected, removed, defaultSort }) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(catalogSortControl(kind)).toHaveTextContent(defaultSort);
+    fireEvent.click(catalogSortControl(kind));
+
+    const sortOptions = screen.getByRole("listbox", { name: "Sort options" });
+    expect(within(sortOptions).getAllByRole("option").map((option) => option.textContent))
+      .toEqual(expected);
+    for (const removedOption of removed) {
+      expect(within(sortOptions).queryByRole("option", { name: removedOption }))
+        .not.toBeInTheDocument();
+    }
   });
 
   it("keeps only one catalog filter dropdown open and closes it on Escape or another control", () => {
@@ -6991,6 +7079,113 @@ describe("App", () => {
     expect(screen.getByText("No matching items")).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      path: "/videos",
+      command: "video_list",
+      searchLabel: "Videos search",
+      searchValue: "VID-CODE-7788",
+      matchingText: "Code Match Video",
+      nonMatchingText: "Other Video",
+      records: [
+        persistedVideo({
+          id: "video_code",
+          title: "Code Match Video",
+          code: "VID-CODE-7788",
+        }),
+        persistedVideo({
+          id: "video_other",
+          title: "Other Video",
+          code: "VID-OTHER",
+        }),
+      ],
+    },
+    {
+      path: "/images",
+      command: "image_list",
+      searchLabel: "Images search",
+      searchValue: "IMG-CODE-7788",
+      matchingText: "Code Match Image",
+      nonMatchingText: "Other Image",
+      records: [
+        persistedImage({
+          id: "image_code",
+          title: "Code Match Image",
+          code: "IMG-CODE-7788",
+        }),
+        persistedImage({
+          id: "image_other",
+          title: "Other Image",
+          code: "IMG-OTHER",
+        }),
+      ],
+    },
+    {
+      path: "/performers",
+      command: "performer_list",
+      searchLabel: "Performers search",
+      searchValue: "Alias Needle",
+      matchingText: "Alias Match Performer",
+      nonMatchingText: "Other Performer",
+      records: [
+        persistedPerformer({
+          id: "performer_alias",
+          name: "Alias Match Performer",
+          aliasesJson: '["Alias Needle"]',
+        }),
+        persistedPerformer({
+          id: "performer_other",
+          name: "Other Performer",
+          aliasesJson: '["Other Alias"]',
+        }),
+      ],
+    },
+  ])(
+    "catalog search matches required secondary fields at $path in card and table views",
+    async ({ path, command, searchLabel, searchValue, matchingText, nonMatchingText, records }) => {
+      window.history.pushState({}, "", path);
+      const kind = path.slice(1);
+      const title = kind === "videos" ? "Videos" : kind === "images" ? "Images" : "Performers";
+      const invoke = vi.fn(async (incomingCommand: string) => {
+        if (incomingCommand === command) {
+          return records;
+        }
+
+        throw new Error(`Unexpected command ${incomingCommand}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText(matchingText)).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(searchLabel), {
+        target: { value: searchValue },
+      });
+
+      expect(screen.getByText(matchingText)).toBeInTheDocument();
+      expect(screen.queryByText(nonMatchingText)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+      expect(screen.queryByText(`Search: ${searchValue}`)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+      expect(screen.queryByTestId(`${kind}-active-filter-row`)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: `Clear ${title} search` }));
+      expect(screen.getByLabelText(searchLabel)).toHaveValue("");
+      expect(screen.getByText(matchingText)).toBeInTheDocument();
+      expect(screen.getByText(nonMatchingText)).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText(searchLabel), {
+        target: { value: searchValue },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.getByText(matchingText)).toBeInTheDocument();
+      expect(screen.queryByText(nonMatchingText)).not.toBeInTheDocument();
+    },
+  );
+
   it("sorts collection cards without mutating the loaded records", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
@@ -7023,16 +7218,16 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Zulu Video")).toBeInTheDocument();
-    expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
-    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
-      heading.textContent,
-    )).toEqual(["Zulu Video", "Alpha Video", "Beta Video"]);
-
-    selectCatalogSort("videos", "Title A-Z");
-
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
       heading.textContent,
     )).toEqual(["Alpha Video", "Beta Video", "Zulu Video"]);
+
+    selectCatalogSort("videos", "Title Z-A");
+
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
+      heading.textContent,
+    )).toEqual(["Zulu Video", "Beta Video", "Alpha Video"]);
 
     selectCatalogSort("videos", "Last Updated");
 
@@ -7509,7 +7704,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Category B" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
 
     expect(screen.getByText("No matching items")).toBeInTheDocument();
   });
@@ -7562,9 +7757,9 @@ describe("App", () => {
     expect(screen.getByLabelText("Videos search")).toHaveValue("alpha");
     expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
-    expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
-    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
     expect(screen.getByText("Duration: Long")).toBeInTheDocument();
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
@@ -7572,14 +7767,14 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Duration filter" }));
 
-    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
-    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
     expect(screen.queryByText("Duration: Long")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Duration: Long" }));
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
@@ -7595,7 +7790,7 @@ describe("App", () => {
     expect(
       screen.queryByRole("button", { name: "Clear all filters" }),
     ).not.toBeInTheDocument();
-    expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.getByText("Beta Clip")).toBeInTheDocument();
@@ -7646,9 +7841,9 @@ describe("App", () => {
       target: { value: "64" },
     });
 
-    expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
-    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
     expect(screen.getByText("Image Count: Some")).toBeInTheDocument();
     expect(screen.queryByText("Beta Gallery")).not.toBeInTheDocument();
@@ -7668,7 +7863,7 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "Image Count: Some" }),
     ).toHaveAttribute("aria-pressed", "false");
-    expect(catalogSortControl("images")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("images")).toHaveTextContent("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     expect(screen.getByText("Alpha Gallery")).toBeInTheDocument();
     expect(screen.getByText("Beta Gallery")).toBeInTheDocument();
@@ -7836,15 +8031,33 @@ describe("App", () => {
     expect(await screen.findByLabelText("Cover Placeholder")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Videos catalog toolbar")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Filters 0" })).toHaveClass("max-w-[14rem]");
-    expect(catalogSortControl("videos")).toHaveClass("max-w-[16rem]");
+    expect(screen.getByTestId("videos-toolbar-search-region")).toHaveClass("flex-1");
+    expect(screen.getByRole("button", { name: "Filters 0" })).toHaveClass("shrink-0", "sm:w-auto");
+    expect(catalogSortControl("videos")).toHaveClass("sm:w-44");
     expect(screen.getByRole("button", { name: "Switch to list view" }))
-      .toHaveClass("max-w-[9rem]");
+      .toHaveClass("shrink-0", "sm:w-auto");
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
 
     const table = screen.getByTestId("videos-catalog-table");
-    expect(table).toHaveClass("min-w-[1320px]", "table-fixed");
+    expect(table).toHaveClass("min-w-[1480px]", "table-fixed");
+    const videoTableWidth = catalogTableInlineWidth("videos");
+    expect(videoTableWidth).toEqual({ minWidth: "1696px", width: "1696px" });
+    const videoColumnWidths = catalogColumnWidths("videos");
+    expect(videoColumnWidths).toEqual([
+      { id: "availability", width: "144px" },
+      { id: "thumbnail", width: "112px" },
+      { id: "favorite", width: "64px" },
+      { id: "title", width: "224px" },
+      { id: "originalTitle", width: "224px" },
+      { id: "code", width: "128px" },
+      { id: "categories", width: "240px" },
+      { id: "year", width: "96px" },
+      { id: "duration", width: "112px" },
+      { id: "quality", width: "112px" },
+      { id: "censorship", width: "128px" },
+      { id: "rating", width: "112px" },
+    ]);
     const tableScroll = screen.getByTestId("videos-catalog-table-scroll");
     expect(tableScroll).toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
     expect(tableScroll.closest("[data-sticky-horizontal-scroll='true']"))
@@ -7859,6 +8072,7 @@ describe("App", () => {
       "THUMBNAIL",
       "FAVORITE",
       "TITLE",
+      "ORIGINAL TITLE",
       "CODE",
       "CATEGORIES",
       "RELEASE",
@@ -7883,6 +8097,7 @@ describe("App", () => {
       .toHaveClass("truncate");
     expect(within(table).getByText("Table Video With A Very Long Title For Truncation"))
       .toHaveAttribute("title", "Table Video With A Very Long Title For Truncation");
+    expect(within(table).getByText("Original Table Video")).toHaveAttribute("title", "Original Table Video");
     expect(within(table).getByText("1h 24m")).toBeInTheDocument();
     expect(within(table).getByText("Unknown")).toBeInTheDocument();
     expect(within(table).queryByText("Unknow")).not.toBeInTheDocument();
@@ -7891,6 +8106,10 @@ describe("App", () => {
       .toHaveAttribute("title", "Category A, Category B, Category C");
     expect(within(table).getByLabelText("1 more categories")).toHaveTextContent("+1");
     expect(within(table).queryByText(/categoriesJson/)).not.toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Sort by Rating" }));
+    expect(catalogTableInlineWidth("videos")).toEqual(videoTableWidth);
+    expect(catalogColumnWidths("videos")).toEqual(videoColumnWidths);
+    expect(within(table).getByRole("button", { name: "Sort by Rating" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
     expect(window.location.pathname).toBe("/videos");
@@ -7951,7 +8170,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Zulu Archive 01")).toBeInTheDocument();
+    expect(await screen.findByText("Alpha Archive 02")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
@@ -8003,6 +8222,23 @@ describe("App", () => {
     expect(await screen.findByText("Table Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     const imageTable = screen.getByTestId("images-catalog-table");
+    const imageTableWidth = catalogTableInlineWidth("images");
+    expect(imageTableWidth).toEqual({ minWidth: "1728px", width: "1728px" });
+    const imageColumnWidths = catalogColumnWidths("images");
+    expect(imageColumnWidths).toEqual([
+      { id: "availability", width: "144px" },
+      { id: "thumbnail", width: "112px" },
+      { id: "favorite", width: "64px" },
+      { id: "title", width: "224px" },
+      { id: "originalTitle", width: "224px" },
+      { id: "code", width: "128px" },
+      { id: "categories", width: "240px" },
+      { id: "year", width: "96px" },
+      { id: "imageCount", width: "144px" },
+      { id: "quality", width: "112px" },
+      { id: "censorship", width: "128px" },
+      { id: "rating", width: "112px" },
+    ]);
     expect(
       within(imageTable).getAllByRole("columnheader").map((header) => header.textContent),
     ).toEqual([
@@ -8010,6 +8246,7 @@ describe("App", () => {
       "THUMBNAIL",
       "FAVORITE",
       "TITLE",
+      "ORIGINAL TITLE",
       "CODE",
       "CATEGORIES",
       "RELEASE",
@@ -8028,6 +8265,10 @@ describe("App", () => {
     expect(within(imageTable).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
     expect(within(imageTable).getByText("-")).toBeInTheDocument();
     expect(within(imageTable).getByText("IMG-TABLE")).toHaveAttribute("title", "IMG-TABLE");
+    fireEvent.click(within(imageTable).getByRole("button", { name: "Sort by Rating" }));
+    expect(catalogTableInlineWidth("images")).toEqual(imageTableWidth);
+    expect(catalogColumnWidths("images")).toEqual(imageColumnWidths);
+    expect(within(imageTable).getByRole("button", { name: "Sort by Rating" })).toBeInTheDocument();
     imageRender.unmount();
 
     window.history.pushState({}, "", "/performers");
@@ -8060,6 +8301,21 @@ describe("App", () => {
     expect(await screen.findByText("Table Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     const performerTable = screen.getByTestId("performers-catalog-table");
+    const performerTableWidth = catalogTableInlineWidth("performers");
+    expect(performerTableWidth).toEqual({ minWidth: "1488px", width: "1488px" });
+    const performerColumnWidths = catalogColumnWidths("performers");
+    expect(performerColumnWidths).toEqual([
+      { id: "status", width: "128px" },
+      { id: "thumbnail", width: "96px" },
+      { id: "favorite", width: "64px" },
+      { id: "name", width: "224px" },
+      { id: "originalName", width: "224px" },
+      { id: "categories", width: "240px" },
+      { id: "debutYear", width: "128px" },
+      { id: "filmography", width: "144px" },
+      { id: "pictorials", width: "128px" },
+      { id: "rating", width: "112px" },
+    ]);
     expect(
       within(performerTable).getAllByRole("columnheader").map((header) => header.textContent),
     ).toEqual([
@@ -8067,13 +8323,14 @@ describe("App", () => {
       "THUMBNAIL",
       "FAVORITE",
       "NAME",
+      "ORIGINAL NAME",
       "CATEGORIES",
       "DEBUT",
       "FILMOGRAPHY",
       "PICTORIALS",
       "RATING",
     ]);
-    expect(performerTable).toHaveClass("min-w-[1040px]");
+    expect(performerTable).toHaveClass("min-w-[1200px]");
     expect(within(performerTable).getByLabelText("Profile Placeholder"))
       .toHaveAttribute("data-thumbnail-shape", "portrait");
     expect(within(performerTable).getByText("Unknown")).toBeInTheDocument();
@@ -8082,6 +8339,10 @@ describe("App", () => {
     expect(within(performerTable).getAllByText("N/A").length).toBeGreaterThanOrEqual(2);
     expect(within(performerTable).getByText("-")).toBeInTheDocument();
     expect(within(performerTable).getByLabelText("1 more categories")).toHaveTextContent("+1");
+    fireEvent.click(within(performerTable).getByRole("button", { name: "Sort by Rating" }));
+    expect(catalogTableInlineWidth("performers")).toEqual(performerTableWidth);
+    expect(catalogColumnWidths("performers")).toEqual(performerColumnWidths);
+    expect(within(performerTable).getByRole("button", { name: "Sort by Rating" })).toBeInTheDocument();
   });
 
   it("sorts the Video Catalog table from a sortable header without clearing filters or page size", async () => {
@@ -8130,24 +8391,30 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Category A" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
 
-    expect(catalogSortControl("videos")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Showing 1-2 of 2")).toBeInTheDocument();
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Short Archive");
     expect(
       screen.getByRole("button", { name: "Sort by Duration" }).closest("th"),
     ).toHaveAttribute("aria-sort", "ascending");
+    expect(screen.getByRole("button", { name: "Sort by Duration" }))
+      .toHaveClass("text-sakura-800");
+    expect(screen.getByRole("button", { name: "Sort by Duration" }).className)
+      .not.toContain("rounded");
+    expect(screen.getByRole("button", { name: "Sort by Duration" }).className)
+      .not.toContain("bg-");
     fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Long Archive");
     expect(
       screen.getByRole("button", { name: "Sort by Duration" }).closest("th"),
     ).toHaveAttribute("aria-sort", "descending");
     expect(screen.queryByText("Other Clip")).not.toBeInTheDocument();
-    expect(screen.getByText("Search: archive")).toBeInTheDocument();
+    expect(screen.queryByText("Search: archive")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
   });
 
@@ -8181,7 +8448,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     fireEvent.click(screen.getByRole("button", { name: "Sort by Image Count" }));
 
-    expect(catalogSortControl("images")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("images")).toHaveTextContent("Title A-Z");
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Small Image Set");
     expect(
       screen.getByRole("button", { name: "Sort by Image Count" }).closest("th"),
@@ -8223,7 +8490,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     fireEvent.click(screen.getByRole("button", { name: "Sort by Filmography" }));
 
-    expect(catalogSortControl("performers")).toHaveTextContent("Last Added");
+    expect(catalogSortControl("performers")).toHaveTextContent("Name A-Z");
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Small Performer");
     expect(
       screen.getByRole("button", { name: "Sort by Filmography" }).closest("th"),
