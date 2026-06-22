@@ -7,7 +7,6 @@ import {
   Grid2X2,
   Image,
   List,
-  Pencil,
   Plus,
   Search,
   ShieldCheck,
@@ -93,6 +92,8 @@ type ActiveCategoryFilterOption = CategoryFilterOption & {
 };
 type SortValue =
   | "name"
+  | "name-desc"
+  | "parent"
   | "usage-desc"
   | "usage-asc"
   | "updated-desc"
@@ -104,17 +105,18 @@ type CategoryTableSortState = {
 } | null;
 type CategoryManagementSessionFilters = {
   search: string;
-  filterSearch?: string;
   selectedFilters: ActiveFilterValue[];
   sort?: SortValue;
+  tableSort?: CategoryTableSortState;
   view?: ViewValue;
   rowsPerPage?: CatalogPageSize;
+  page?: number;
+  expandedParentKeys?: string[];
 };
 
 const categoryManagementFilterSessionKey = "category-management";
 const emptyCategoryManagementSessionFilters: CategoryManagementSessionFilters = {
   search: "",
-  filterSearch: "",
   selectedFilters: [],
 };
 
@@ -124,23 +126,20 @@ const categoryTableThumbnailClassName =
   "category-table-thumbnail-box aspect-square size-11 h-11 w-11 min-h-11 min-w-11 max-h-11 max-w-11 shrink-0 overflow-hidden rounded-lg";
 const filterOptions: CategoryFilterOption[] = [
   { value: "all", label: "All", chipLabel: "All", chipPrefix: "Filter" },
-  { value: "parent-only", label: "Parent categories", chipLabel: "Parent", chipPrefix: "Parent" },
-  { value: "child-only", label: "Child categories", chipLabel: "Child", chipPrefix: "Parent" },
-  { value: "videos", label: "Used by Videos", chipLabel: "Videos", chipPrefix: "Usage" },
-  { value: "images", label: "Used by Images", chipLabel: "Images", chipPrefix: "Usage" },
-  { value: "performers", label: "Used by Performers", chipLabel: "Performers", chipPrefix: "Usage" },
-  { value: "active", label: "In Use", chipLabel: "Active", chipPrefix: "Status" },
-  { value: "unused", label: "Unused", chipLabel: "Unused", chipPrefix: "Status" },
+  { value: "parent-only", label: "Parents Only", chipLabel: "Parents Only", chipPrefix: "Filter" },
+  { value: "child-only", label: "Childs Only", chipLabel: "Childs Only", chipPrefix: "Filter" },
+  { value: "videos", label: "Videos Used", chipLabel: "Videos Used", chipPrefix: "Filter" },
+  { value: "images", label: "Images Used", chipLabel: "Images Used", chipPrefix: "Filter" },
+  { value: "performers", label: "Performer Used", chipLabel: "Performer Used", chipPrefix: "Filter" },
 ];
 const selectableFilterOptions = filterOptions.filter(
   (option): option is ActiveCategoryFilterOption => option.value !== "all",
 );
 const sortOptions: Array<{ value: SortValue; label: string }> = [
-  { value: "name", label: "Name A-Z" },
-  { value: "usage-desc", label: "Usage high-low" },
-  { value: "usage-asc", label: "Usage low-high" },
-  { value: "updated-desc", label: "Last Updated" },
+  { value: "name", label: "Title A-Z" },
+  { value: "name-desc", label: "Title Z-A" },
   { value: "created-desc", label: "Last Added" },
+  { value: "updated-desc", label: "Last Updated" },
 ];
 
 const emptyForm: FormState = {
@@ -148,9 +147,9 @@ const emptyForm: FormState = {
   thumbnailPath: "",
   parentKey: "",
   description: "",
-  showInVideos: true,
-  showInImages: true,
-  showInPerformers: true,
+  showInVideos: false,
+  showInImages: false,
+  showInPerformers: false,
 };
 
 const emptyRecords = {
@@ -193,17 +192,18 @@ function CategoryManagementPanel() {
     initialFilters.selectedFilters,
   );
   const [sort, setSort] = useState<SortValue>(initialFilters.sort ?? "name");
-  const [tableSort, setTableSort] = useState<CategoryTableSortState>(null);
+  const [tableSort, setTableSort] = useState<CategoryTableSortState>(
+    initialFilters.tableSort ?? null,
+  );
   const [view, setView] = useState<ViewValue>(
     initialFilters.view === "card" ? "card" : "table",
   );
   const [filterOpen, setFilterOpen] = useState(false);
-  const [filterSearch, setFilterSearch] = useState(initialFilters.filterSearch ?? "");
   const [sortOpen, setSortOpen] = useState(false);
   const [expandedParentKeys, setExpandedParentKeys] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set(initialFilters.expandedParentKeys ?? []),
   );
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialFilters.page ?? 1);
   const [rowsPerPage, setRowsPerPage] = useState<CatalogPageSize>(
     initialFilters.rowsPerPage ?? DEFAULT_CATALOG_PAGE_SIZE,
   );
@@ -214,7 +214,6 @@ function CategoryManagementPanel() {
     categoryFormSnapshot(emptyForm),
   );
   const formSectionRef = useRef<HTMLElement | null>(null);
-  const filterSearchRef = useRef<HTMLInputElement | null>(null);
 
   const editingCategory = useMemo(
     () => categories.find((category) => category.key === editingKey) ?? null,
@@ -291,7 +290,12 @@ function CategoryManagementPanel() {
           return true;
         }
 
-        return [row.category.name, row.category.description, row.parent?.name ?? "No Parent"].some(
+        return [
+          row.category.name,
+          row.category.key,
+          row.category.description,
+          row.parent?.name ?? "No Parent Selected",
+        ].some(
           (value) => value.toLowerCase().includes(query),
         );
       })
@@ -330,45 +334,66 @@ function CategoryManagementPanel() {
               : rightTime - leftTime;
           return compared || first.category.name.localeCompare(second.category.name);
         }
+        if (activeSort === "parent") {
+          const compared = (first.parent?.name ?? "No Parent Selected").localeCompare(
+            second.parent?.name ?? "No Parent Selected",
+            undefined,
+            { sensitivity: "base" },
+          );
+          return activeDirection === "descending"
+            ? -compared || first.category.name.localeCompare(second.category.name)
+            : compared || first.category.name.localeCompare(second.category.name);
+        }
         const compared = first.category.name.localeCompare(second.category.name, undefined, {
           sensitivity: "base",
         });
-        return activeDirection === "descending" ? -compared : compared;
+        return activeDirection === "descending" || activeSort === "name-desc"
+          ? -compared
+          : compared;
       });
   }, [categories, records, search, selectedFilters, sort, tableSort]);
 
   const numericRowsPerPage = Number(rowsPerPage);
-  const allTableRows = useMemo(
-    () => buildVisibleTableRows(rows, expandedParentKeys),
-    [expandedParentKeys, rows],
-  );
-  const visibleRows = view === "table" ? allTableRows : rows;
-  const totalPages = Math.max(1, Math.ceil(visibleRows.length / numericRowsPerPage));
+  const totalPages = Math.max(1, Math.ceil(rows.length / numericRowsPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pageStartIndex = (safeCurrentPage - 1) * numericRowsPerPage;
   const paginatedRows = rows.slice(pageStartIndex, pageStartIndex + numericRowsPerPage);
-  const tableRows = allTableRows.slice(pageStartIndex, pageStartIndex + numericRowsPerPage);
-  const rangeStart = visibleRows.length === 0 ? 0 : pageStartIndex + 1;
-  const rangeEnd = Math.min(pageStartIndex + numericRowsPerPage, visibleRows.length);
+  const tableRows = useMemo(
+    () => buildVisibleTableRows(paginatedRows, expandedParentKeys),
+    [expandedParentKeys, paginatedRows],
+  );
+  const cardSections = useMemo(
+    () => buildCategoryCardSections(paginatedRows),
+    [paginatedRows],
+  );
+  const rangeStart = rows.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + numericRowsPerPage, rows.length);
   const rangeText =
-    visibleRows.length === 0
+    rows.length === 0
       ? "Showing 0 of 0"
-      : `Showing ${rangeStart}-${rangeEnd} of ${visibleRows.length}`;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [rowsPerPage, search, selectedFilters, sort, tableSort, view]);
+      : `Showing ${rangeStart}-${rangeEnd} of ${rows.length}`;
 
   useEffect(() => {
     writeSessionFilterState(categoryManagementFilterSessionKey, {
       search,
-      filterSearch,
       selectedFilters,
       sort,
+      tableSort,
       view,
       rowsPerPage,
+      page: currentPage,
+      expandedParentKeys: [...expandedParentKeys],
     });
-  }, [filterSearch, rowsPerPage, search, selectedFilters, sort, view]);
+  }, [
+    currentPage,
+    expandedParentKeys,
+    rowsPerPage,
+    search,
+    selectedFilters,
+    sort,
+    tableSort,
+    view,
+  ]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -397,7 +422,9 @@ function CategoryManagementPanel() {
             }),
           );
           if (!cancelled) {
-            setExpandedParentKeys(defaultExpandedParentKeys(localCategories));
+            setExpandedParentKeys((current) =>
+              initialFilters.expandedParentKeys ? current : defaultExpandedParentKeys(localCategories),
+            );
             setCategories(localCategories);
             setRecords(emptyRecords);
             setStatus({
@@ -417,7 +444,9 @@ function CategoryManagementPanel() {
         storeManagedCategories(nextCategories.map((category) => category.name));
 
         if (!cancelled) {
-          setExpandedParentKeys(defaultExpandedParentKeys(nextCategories));
+          setExpandedParentKeys((current) =>
+            initialFilters.expandedParentKeys ? current : defaultExpandedParentKeys(nextCategories),
+          );
           setRecords({ videos, images, performers });
           setCategories(nextCategories);
           setStatus({ state: "idle" });
@@ -664,15 +693,9 @@ function CategoryManagementPanel() {
   const isFormDirty = categoryFormSnapshot(form) !== cleanFormSnapshot;
   const activeFilterCount = selectedFilters.length;
   const selectedSortLabel =
-    sortOptions.find((option) => option.value === sort)?.label ?? "Name A-Z";
-  const filteredFilterOptions = filterOptions.filter((option) =>
-    option.label.toLowerCase().includes(filterSearch.trim().toLowerCase()),
-  );
-  const activeFilterChips = [
-    ...(search.trim()
-      ? [{ key: "search", label: `Search: ${search.trim()}`, onRemove: () => setSearch("") }]
-      : []),
-    ...selectedFilters.map((filter) => {
+    sortOptions.find((option) => option.value === sort)?.label ?? "Title A-Z";
+  const filteredFilterOptions = filterOptions;
+  const activeFilterChips = selectedFilters.map((filter) => {
       const option = selectableFilterOptions.find((item) => item.value === filter);
       const label = option
         ? `${option.chipPrefix}: ${option.chipLabel}`
@@ -681,11 +704,12 @@ function CategoryManagementPanel() {
       return {
         key: `filter-${filter}`,
         label,
-        onRemove: () =>
-          setSelectedFilters((current) => current.filter((item) => item !== filter)),
+        onRemove: () => {
+          setSelectedFilters((current) => current.filter((item) => item !== filter));
+          setCurrentPage(1);
+        },
       };
-    }),
-  ];
+    });
 
   function toggleParentExpansion(key: string) {
     setExpandedParentKeys((current) => {
@@ -709,16 +733,20 @@ function CategoryManagementPanel() {
 
   function clearActiveFilters() {
     setSearch("");
-    setFilterSearch("");
     setSelectedFilters([]);
     setSort("name");
     setTableSort(null);
+    setView("table");
+    setRowsPerPage(DEFAULT_CATALOG_PAGE_SIZE);
+    setCurrentPage(1);
+    setExpandedParentKeys(defaultExpandedParentKeys(categories));
     clearSessionFilterState(categoryManagementFilterSessionKey);
   }
 
   function toggleCategoryFilter(nextFilter: FilterValue) {
     if (nextFilter === "all") {
       setSelectedFilters([]);
+      setCurrentPage(1);
       return;
     }
 
@@ -727,11 +755,13 @@ function CategoryManagementPanel() {
         ? current.filter((filter) => filter !== nextFilter)
         : [...current, nextFilter],
     );
+    setCurrentPage(1);
   }
 
   function updateSort(nextSort: SortValue) {
     setSort(nextSort);
     setTableSort(null);
+    setCurrentPage(1);
     setSortOpen(false);
   }
 
@@ -982,10 +1012,10 @@ function CategoryManagementPanel() {
           aria-label="Category Management toolbar"
         >
           <div
-            className="grid grid-cols-[minmax(9rem,1fr)_minmax(10rem,16rem)_minmax(10rem,16rem)_minmax(7rem,9rem)] items-center gap-2 sm:gap-3"
+            className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-2"
             data-testid="category-management-toolbar-row"
           >
-            <label className="relative block min-w-0">
+            <label className="relative block min-w-0 flex-1">
               <span className="sr-only">Search categories</span>
               <Search
                 aria-hidden="true"
@@ -994,14 +1024,32 @@ function CategoryManagementPanel() {
               />
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                 placeholder="Search categories..."
+                aria-label="Search categories"
               />
+              {search.trim() && (
+                <button
+                  type="button"
+                  aria-label="Clear category search"
+                  title="Clear category search"
+                  className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+                  onClick={() => {
+                    setSearch("");
+                    setCurrentPage(1);
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              )}
             </label>
 
             <div
-              className="relative min-w-0 max-w-[18rem]"
+              className="relative min-w-0 shrink-0 sm:w-auto"
               onBlur={() => {
                 window.setTimeout(() => setFilterOpen(false), 120);
               }}
@@ -1012,35 +1060,19 @@ function CategoryManagementPanel() {
                 aria-expanded={filterOpen}
                 data-testid="category-management-filter-control"
                 className={[
-                  "flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border bg-white px-3 text-left text-sm font-semibold transition focus-within:ring-4",
+                  "flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border bg-white px-3 text-left text-sm font-semibold transition focus-within:ring-4 sm:w-auto",
                   filterOpen
                     ? "border-sakura-400 ring-sakura-100"
                     : "border-slate-200 hover:border-sakura-200 focus-within:border-sakura-300 focus-within:ring-sakura-100",
                 ].join(" ")}
                 onClick={() => {
-                  filterSearchRef.current?.focus();
                   setFilterOpen(true);
                 }}
               >
                 <Filter size={18} className="shrink-0 text-slate-500" />
-                <input
-                  ref={filterSearchRef}
-                  type="search"
-                  aria-label="Search category filters"
-                  value={filterSearch}
-                  onChange={(event) => {
-                    setFilterSearch(event.target.value);
-                    setFilterOpen(true);
-                  }}
-                  onFocus={() => setFilterOpen(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      setFilterOpen(false);
-                    }
-                  }}
-                  className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
-                  placeholder="Search categories..."
-                />
+                <span className="hidden text-sm font-semibold text-slate-700 sm:inline">
+                  Filter
+                </span>
                 <span
                   aria-label={`${activeFilterCount} active filters`}
                   className={[
@@ -1096,7 +1128,7 @@ function CategoryManagementPanel() {
             </div>
 
             <div
-              className="relative min-w-0 max-w-[16rem]"
+              className="relative min-w-0 shrink-0 sm:w-auto"
               onBlur={() => {
                 window.setTimeout(() => setSortOpen(false), 120);
               }}
@@ -1116,7 +1148,7 @@ function CategoryManagementPanel() {
                   }
                 }}
                 data-testid="category-management-sort-control"
-                className="flex h-11 w-full max-w-[16rem] min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left transition hover:border-sakura-200 focus:outline-none focus:ring-4 focus:ring-sakura-100"
+                className="flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left transition hover:border-sakura-200 focus:outline-none focus:ring-4 focus:ring-sakura-100 sm:w-44"
               >
                 <ArrowUpDown size={18} className="shrink-0 text-slate-500" />
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950">
@@ -1155,10 +1187,13 @@ function CategoryManagementPanel() {
             </div>
 
             <button
-              className="inline-flex h-11 w-full max-w-[9rem] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
+              className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600 sm:w-auto"
               type="button"
               aria-label={view === "table" ? "Card view" : "Table view"}
-              onClick={() => setView(view === "table" ? "card" : "table")}
+              onClick={() => {
+                setView(view === "table" ? "card" : "table");
+                setCurrentPage(1);
+              }}
             >
               {view === "table" ? <Grid2X2 size={18} /> : <List size={18} />}
               View
@@ -1206,9 +1241,10 @@ function CategoryManagementPanel() {
               <select
                 aria-label="Categories per page"
                 value={rowsPerPage}
-                onChange={(event) =>
-                  setRowsPerPage(event.target.value as CatalogPageSize)
-                }
+                onChange={(event) => {
+                  setRowsPerPage(event.target.value as CatalogPageSize);
+                  setCurrentPage(1);
+                }}
                 className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
               >
                 {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
@@ -1260,44 +1296,61 @@ function CategoryManagementPanel() {
 
         {view === "card" ? (
           <div
-            className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]"
+            className="space-y-5"
             data-testid="category-management-card-grid"
           >
-              {paginatedRows.map(({ category, parent, usage, childCount }) => (
-                <CategoryCatalogCard
-                  key={category.key}
-                  category={{
-                    name: category.name,
-                    parentName: parent?.name ?? null,
-                    description: category.description,
-                    thumbnailPath: category.thumbnailPath,
-                    childCount,
-                    videos: usage.videos,
-                    images: usage.images,
-                    performers: usage.performers,
-                    total: usage.total,
-                    status: usage.total > 0 ? "Managed" : "Unused Managed",
-                  }}
-                  actions={
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(category)}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      <Pencil size={14} />
-                      Edit
-                    </button>
-                  }
-                  density="compact"
-                  thumbnailShape="square"
-                  emptyDescriptionText="N/A"
-                />
-              ))}
+            {cardSections.map((section) => (
+              <section key={section.key} aria-labelledby={`category-card-section-${section.key}`}>
+                <h2
+                  id={`category-card-section-${section.key}`}
+                  className="mb-3 text-base font-semibold tracking-normal text-slate-700"
+                >
+                  {section.label}
+                </h2>
+                {section.rows.length > 0 && (
+                  <div
+                    className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                    data-testid="category-management-card-section-grid"
+                  >
+                    {section.rows.map(({ category, parent, usage, childCount }) => (
+                      <CategoryCatalogCard
+                        key={category.key}
+                        onClick={() => handleEdit(category)}
+                        category={{
+                          name: category.name,
+                          parentName: parent?.name ?? null,
+                          description: category.description,
+                          thumbnailPath: category.thumbnailPath,
+                          childCount,
+                          videos: usage.videos,
+                          images: usage.images,
+                          performers: usage.performers,
+                          total: usage.total,
+                          status: usage.total > 0 ? "Managed" : "Unused Managed",
+                        }}
+                        density="compact"
+                        thumbnailShape="square"
+                        emptyDescriptionText="N/A"
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            ))}
           </div>
         ) : (
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <StickyHorizontalScroll testId="category-management-table-scroll">
               <table className="w-full min-w-[860px] table-fixed text-left text-sm">
+                <colgroup>
+                  <col className="w-[48px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[220px]" />
+                  <col className="w-[160px]" />
+                  <col className="w-[260px]" />
+                  <col className="w-[160px]" />
+                  <col className="w-[104px]" />
+                </colgroup>
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="w-12 px-3 py-3 font-semibold">
@@ -1317,7 +1370,17 @@ function CategoryManagementPanel() {
                         onSort={updateTableSort}
                       />
                     </th>
-                    <th className="w-[16%] px-3 py-3 font-semibold">Parent</th>
+                    <th
+                      className="px-3 py-3 font-semibold"
+                      aria-sort={categoryAriaSort(tableSort, "parent")}
+                    >
+                      <CategorySortHeader
+                        label="Parent"
+                        sortValue="parent"
+                        tableSort={tableSort}
+                        onSort={updateTableSort}
+                      />
+                    </th>
                     <th className="w-[28%] px-3 py-3 font-semibold">
                       Description
                     </th>
@@ -1397,15 +1460,15 @@ function CategorySortHeader({
       type="button"
       aria-label={`Sort by ${label}`}
       className={[
-        "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200",
-        active ? "text-slate-700" : "",
+        "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-600 focus:outline-none",
+        active ? "text-sakura-700" : "",
       ].join(" ")}
       onClick={() => onSort(sortValue)}
     >
       <span className="truncate">{label}</span>
       {active && (
         <span aria-hidden="true" className="text-[10px] text-slate-500">
-          {tableSort.direction === "ascending" ? "ASC" : "DESC"}
+          {tableSort.direction === "ascending" ? "↑" : "↓"}
         </span>
       )}
     </button>
@@ -1568,21 +1631,6 @@ function ParentCategoryPicker({
 
       {showResults && (
         <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-          <button
-            type="button"
-            className={`${parentPickerRowStyles} overflow-hidden border-b border-slate-100 px-4 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none`}
-            aria-label="Select No Parent"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => selectParent("")}
-          >
-            <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-800">
-              No Parent
-            </span>
-            <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500">
-              <ChevronRight size={14} />
-            </span>
-          </button>
-
           {filteredOptions.length > 0 ? (
             filteredOptions.map((category) => (
               <button
@@ -1598,7 +1646,10 @@ function ParentCategoryPicker({
                   className="min-w-0 truncate whitespace-nowrap font-bold text-slate-800"
                   title={formatParentCategoryOption(category)}
                 >
-                  {formatParentCategoryOption(category)}
+                  <HighlightedText
+                    text={formatParentCategoryOption(category)}
+                    query={search}
+                  />
                 </span>
                 <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500">
                   <Plus size={14} />
@@ -1617,7 +1668,7 @@ function ParentCategoryPicker({
 }
 
 function formatParentCategoryOption(category: ManagedCategory | null) {
-  return category ? category.name : "No Parent";
+  return category ? category.name : "No Parent Selected";
 }
 
 function scrollFormIntoView(element: HTMLElement | null) {
@@ -1825,6 +1876,38 @@ function defaultExpandedParentKeys(categories: ManagedCategory[]) {
   );
 }
 
+function buildCategoryCardSections(rows: CategoryUsageRow[]) {
+  const sections = new Map<
+    string,
+    { key: string; label: string; rows: CategoryUsageRow[] }
+  >();
+
+  for (const row of rows) {
+    const isParentHeadingRecord = row.childCount > 0 && !row.category.parentKey;
+    const key = isParentHeadingRecord
+      ? row.category.key
+      : row.parent?.key ?? "__root__";
+    const label = isParentHeadingRecord
+      ? row.category.name
+      : row.parent?.name ?? "No Parent Selected";
+    const section = sections.get(key) ?? { key, label, rows: [] };
+    if (!isParentHeadingRecord) {
+      section.rows.push(row);
+    }
+    sections.set(key, section);
+  }
+
+  return [...sections.values()].sort((left, right) => {
+    if (left.key === "__root__") {
+      return 1;
+    }
+    if (right.key === "__root__") {
+      return -1;
+    }
+    return left.label.localeCompare(right.label, undefined, { sensitivity: "base" });
+  });
+}
+
 function createEmptyCategoryUsageCounts() {
   return {
     videos: 0,
@@ -1873,6 +1956,32 @@ function matchesCategoryFilter(
     return row.usage.total > 0;
   }
   return row.usage.total === 0;
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return <>{text}</>;
+  }
+
+  const matchIndex = text.toLowerCase().indexOf(trimmedQuery.toLowerCase());
+  if (matchIndex < 0) {
+    return <>{text}</>;
+  }
+
+  const before = text.slice(0, matchIndex);
+  const match = text.slice(matchIndex, matchIndex + trimmedQuery.length);
+  const after = text.slice(matchIndex + trimmedQuery.length);
+
+  return (
+    <>
+      {before}
+      <mark className="rounded-sm bg-sakura-100 px-0 text-slate-900">
+        {match}
+      </mark>
+      {after}
+    </>
+  );
 }
 
 function CategoryTableRow({

@@ -33,11 +33,14 @@ type GlossaryTableDisplayRow = {
 };
 type GlossarySessionFilters = {
   searchQuery: string;
-  parentFilter: string[];
-  filterSearch?: string;
+  parentFilter: GlossaryFilterValue | string[] | string;
   sortKey?: GlossarySortKey;
+  tableSort?: GlossaryTableSortState;
   pageSize?: (typeof pageSizeOptions)[number];
+  page?: number;
+  expandedEntryIds?: string[];
 };
+type GlossaryFilterValue = "all" | "parent" | "child";
 type GlossaryTableSortState = {
   value: GlossarySortKey;
   direction: "ascending" | "descending";
@@ -62,12 +65,16 @@ const pageSizeOptions = [32, 64, 128, 256] as const;
 const glossaryFilterSessionKey = "glossary-library";
 const emptyGlossarySessionFilters: GlossarySessionFilters = {
   searchQuery: "",
-  parentFilter: [],
-  filterSearch: "",
+  parentFilter: "all",
 };
+const glossaryFilterOptions: Array<{ value: GlossaryFilterValue; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "parent", label: "Parent Only" },
+  { value: "child", label: "Child Only" },
+];
 const sortOptions: Array<{ value: GlossarySortKey; label: string }> = [
-  { value: "az", label: "A-Z" },
-  { value: "za", label: "Z-A" },
+  { value: "az", label: "Term A-Z" },
+  { value: "za", label: "Term Z-A" },
   { value: "created-desc", label: "Last Added" },
   { value: "updated-desc", label: "Last Updated" },
 ];
@@ -269,17 +276,19 @@ function GlossaryPage() {
   const [isLoading, setIsLoading] = useState(() => isGlossaryRuntimeAvailable());
   const [dataStatus, setDataStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery);
-  const [parentFilter, setParentFilter] = useState<string[]>(
-    initialFilters.parentFilter,
+  const [parentFilter, setParentFilter] = useState<GlossaryFilterValue>(
+    normalizeGlossaryFilterValue(initialFilters.parentFilter),
   );
   const [sortKey, setSortKey] = useState<GlossarySortKey>(
-    initialFilters.sortKey ?? "updated-desc",
+    initialFilters.sortKey ?? "az",
   );
-  const [tableSort, setTableSort] = useState<GlossaryTableSortState>(null);
+  const [tableSort, setTableSort] = useState<GlossaryTableSortState>(
+    initialFilters.tableSort ?? null,
+  );
   const [pageSize, setPageSize] = useState<(typeof pageSizeOptions)[number]>(
     initialFilters.pageSize ?? 32,
   );
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialFilters.page ?? 1);
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<GlossaryFormMode>("add");
   const [editingEntryId, setEditingEntryId] = useState("");
@@ -295,11 +304,10 @@ function GlossaryPage() {
   const [parentPickerOpen, setParentPickerOpen] = useState(false);
   const [parentSearch, setParentSearch] = useState("");
   const [filterPickerOpen, setFilterPickerOpen] = useState(false);
-  const [filterSearch, setFilterSearch] = useState(initialFilters.filterSearch ?? "");
   const [sortPickerOpen, setSortPickerOpen] = useState(false);
   const [sortSearch, setSortSearch] = useState("");
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set(initialFilters.expandedEntryIds ?? []),
   );
   const formSectionRef = useRef<HTMLElement | null>(null);
 
@@ -354,6 +362,9 @@ function GlossaryPage() {
   );
 
   useEffect(() => {
+    if (initialFilters.expandedEntryIds) {
+      return;
+    }
     setExpandedEntryIds((current) => {
       const next = new Set(current);
       for (const parentId of parentIdsWithChildren) {
@@ -366,12 +377,22 @@ function GlossaryPage() {
   useEffect(() => {
     writeSessionFilterState(glossaryFilterSessionKey, {
       searchQuery,
-      filterSearch,
       parentFilter,
       sortKey,
+      tableSort,
       pageSize,
+      page,
+      expandedEntryIds: [...expandedEntryIds],
     });
-  }, [filterSearch, pageSize, parentFilter, searchQuery, sortKey]);
+  }, [
+    expandedEntryIds,
+    page,
+    pageSize,
+    parentFilter,
+    searchQuery,
+    sortKey,
+    tableSort,
+  ]);
   const parentOptions = useMemo(
     () =>
       entries
@@ -380,11 +401,6 @@ function GlossaryPage() {
         .sort((left, right) => left.term.localeCompare(right.term)),
     [editingEntryId, entries, entryById],
   );
-  const filterOptions = useMemo(
-    () => [...entries].sort((left, right) => left.term.localeCompare(right.term)),
-    [entries],
-  );
-
   const filteredEntries = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const matchesSearch = (entry: GlossaryEntry) => {
@@ -403,13 +419,13 @@ function GlossaryPage() {
 
     return entries
       .filter((entry) => {
-        if (parentFilter.length === 0) {
+        if (parentFilter === "all") {
           return true;
         }
-        if (parentFilter.includes("root") && !entry.parentId) {
-          return !entry.parentId;
+        if (parentFilter === "parent") {
+          return parentIdsWithChildren.has(entry.id);
         }
-        return parentFilter.includes(entry.parentId);
+        return Boolean(entry.parentId);
       })
       .filter(matchesSearch)
         .sort((left, right) =>
@@ -420,7 +436,15 @@ function GlossaryPage() {
             tableSort?.direction,
           ),
         );
-  }, [entries, entryById, parentFilter, searchQuery, sortKey, tableSort]);
+  }, [
+    entries,
+    entryById,
+    parentFilter,
+    parentIdsWithChildren,
+    searchQuery,
+    sortKey,
+    tableSort,
+  ]);
 
   const tableRows = useMemo(
     () =>
@@ -431,7 +455,7 @@ function GlossaryPage() {
         sortKey: tableSort?.value ?? sortKey,
         sortDirection: tableSort?.direction,
         hierarchical:
-          parentFilter.length === 0 && searchQuery.trim().length === 0,
+          parentFilter === "all" && searchQuery.trim().length === 0,
       }),
     [
       entries,
@@ -453,30 +477,20 @@ function GlossaryPage() {
   const editingEntry = editingEntryId ? entryById.get(editingEntryId) ?? null : null;
   const activeFilterChips = useMemo(
     () => {
-      const chips = searchQuery.trim()
-        ? [{
-            key: "search",
-            label: `Search: ${searchQuery.trim()}`,
-            fullLabel: `Search: ${searchQuery.trim()}`,
-          }]
-        : [];
-      for (const filterValue of parentFilter) {
-        const entry = entryById.get(filterValue);
-        const fullCategoryPath =
-          filterValue === "root"
-            ? "No Parent"
-            : entry
-              ? parentPathLabel(entry, entryById)
-              : "Unknown";
+      const chips: Array<{ key: string; label: string; fullLabel: string }> = [];
+      if (parentFilter !== "all") {
+        const label =
+          glossaryFilterOptions.find((option) => option.value === parentFilter)?.label ??
+          parentFilter;
         chips.push({
-          key: `category-${filterValue}`,
-          label: `Cat: ${compactCategoryPathLabel(fullCategoryPath)}`,
-          fullLabel: `Category: ${fullCategoryPath}`,
+          key: `filter-${parentFilter}`,
+          label: `Filter: ${label}`,
+          fullLabel: `Filter: ${label}`,
         });
       }
       return chips;
     },
-    [entryById, parentFilter, searchQuery],
+    [parentFilter],
   );
 
   const updateSearchQuery = (value: string) => {
@@ -484,28 +498,24 @@ function GlossaryPage() {
     setPage(1);
   };
 
-  const updateParentFilter = (value: string[]) => {
+  const updateParentFilter = (value: GlossaryFilterValue) => {
     setParentFilter(value);
     setPage(1);
   };
 
   const removeFilterChip = (key: string) => {
-    if (key === "search") {
-      updateSearchQuery("");
-      return;
-    }
-    if (key.startsWith("category-")) {
-      updateParentFilter(parentFilter.filter((value) => `category-${value}` !== key));
+    if (key.startsWith("filter-")) {
+      updateParentFilter("all");
     }
   };
 
   const clearTableFilters = () => {
     setSearchQuery("");
-    setFilterSearch("");
-    setParentFilter([]);
-    setSortKey("updated-desc");
+    setParentFilter("all");
+    setSortKey("az");
     setTableSort(null);
     setPageSize(32);
+    setExpandedEntryIds(defaultGlossaryExpandedEntryIds(entries));
     clearSessionFilterState(glossaryFilterSessionKey);
     setPage(1);
   };
@@ -1099,8 +1109,8 @@ function GlossaryPage() {
           className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
           aria-label="Glossary toolbar"
         >
-          <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_minmax(12rem,16rem)_minmax(12rem,16rem)] lg:items-center">
-            <label className="relative flex-1">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="relative min-w-0 flex-1">
               <span className="sr-only">Search terms</span>
               <Search
                 size={18}
@@ -1112,18 +1122,25 @@ function GlossaryPage() {
                 onChange={(event) => updateSearchQuery(event.target.value)}
                 placeholder="Search terms..."
                 aria-label="Search terms"
-                className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-12 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-12 pr-10 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
               />
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  aria-label="Clear glossary search"
+                  title="Clear glossary search"
+                  className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+                  onClick={() => updateSearchQuery("")}
+                >
+                  <X size={15} />
+                </button>
+              )}
             </label>
 
             <GlossaryParentFilter
               value={parentFilter}
-              options={filterOptions}
-              entryById={entryById}
               open={filterPickerOpen}
-              search={filterSearch}
               onOpenChange={setFilterPickerOpen}
-              onSearchChange={setFilterSearch}
               onChange={updateParentFilter}
             />
 
@@ -1490,15 +1507,15 @@ function GlossarySortHeader({
       type="button"
       aria-label={`Sort by ${label}`}
       className={[
-        "inline-flex max-w-full items-center gap-1 rounded-md text-left font-semibold transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200",
-        active ? "text-slate-700" : "",
+        "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-600 focus:outline-none",
+        active ? "text-sakura-700" : "",
       ].join(" ")}
       onClick={() => onSort(sortValue)}
     >
       <span className="truncate">{label}</span>
       {active && (
         <span aria-hidden="true" className="text-[10px] text-slate-500">
-          {tableSort.direction === "ascending" ? "ASC" : "DESC"}
+          {tableSort.direction === "ascending" ? "↑" : "↓"}
         </span>
       )}
     </button>
@@ -1628,6 +1645,7 @@ function GlossaryParentPicker({
         <PickerOption
           key={entry.id}
           label={parentPathLabel(entry, entryById)}
+          query={search}
           ariaLabel={`Select glossary parent ${parentPathLabel(entry, entryById)}`}
           metaLabel={glossaryRoleLabel(entry, options)}
           onSelect={() => {
@@ -1648,39 +1666,20 @@ function GlossaryParentPicker({
 
 function GlossaryParentFilter({
   value,
-  options,
-  entryById,
   open,
-  search,
   onOpenChange,
-  onSearchChange,
   onChange,
 }: {
-  value: string[];
-  options: GlossaryEntry[];
-  entryById: Map<string, GlossaryEntry>;
+  value: GlossaryFilterValue;
   open: boolean;
-  search: string;
   onOpenChange: (open: boolean) => void;
-  onSearchChange: (search: string) => void;
-  onChange: (value: string[]) => void;
+  onChange: (value: GlossaryFilterValue) => void;
 }) {
-  const filterSearchRef = useRef<HTMLInputElement | null>(null);
-  const query = search.trim().toLowerCase();
-  const filteredOptions = options.filter((entry) =>
-    parentPathLabel(entry, entryById).toLowerCase().includes(query),
-  );
-  const toggleValue = (selectedValue: string) => {
-    if (value.includes(selectedValue)) {
-      onChange(value.filter((currentValue) => currentValue !== selectedValue));
-      return;
-    }
-    onChange([...value, selectedValue]);
-  };
+  const activeFilterCount = value === "all" ? 0 : 1;
 
   return (
     <div
-      className="relative min-w-0 max-w-[18rem]"
+      className="relative min-w-0 shrink-0 sm:w-auto"
       onBlur={() => {
         window.setTimeout(() => onOpenChange(false), 120);
       }}
@@ -1691,44 +1690,30 @@ function GlossaryParentFilter({
         aria-expanded={open}
         data-testid="glossary-category-filter-control"
         className={[
-          "flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border bg-white px-3 text-left text-sm font-semibold transition focus-within:ring-4",
+          "flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border bg-white px-3 text-left text-sm font-semibold transition focus-within:ring-4 sm:w-auto",
           open
             ? "border-sakura-400 ring-sakura-100"
             : "border-slate-200 hover:border-sakura-200 focus-within:border-sakura-300 focus-within:ring-sakura-100",
         ].join(" ")}
         onClick={() => {
-          filterSearchRef.current?.focus();
           onOpenChange(true);
         }}
       >
         <Filter size={18} className="shrink-0 text-slate-500" />
-        <input
-          ref={filterSearchRef}
-          type="search"
-          aria-label="Search glossary categories"
-          value={search}
-          onChange={(event) => {
-            onSearchChange(event.target.value);
-            onOpenChange(true);
-          }}
-          onFocus={() => onOpenChange(true)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              onOpenChange(false);
-            }
-          }}
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
-          placeholder="Search categories..."
-        />
+        <span className="hidden text-sm font-semibold text-slate-700 sm:inline">
+          Filter
+        </span>
         <span
-          aria-label={`${value.length} active filters`}
+          aria-label={`${activeFilterCount} active filters`}
           data-testid="glossary-category-filter-badge"
           className={[
             "shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold",
-            value.length > 0 ? "bg-sakura-50 text-sakura-700" : "bg-slate-50 text-slate-500",
+            activeFilterCount > 0
+              ? "bg-sakura-50 text-sakura-700"
+              : "bg-slate-50 text-slate-500",
           ].join(" ")}
         >
-          {value.length}
+          {activeFilterCount}
         </span>
         <ChevronDown
           size={16}
@@ -1742,33 +1727,27 @@ function GlossaryParentFilter({
           aria-label="Category filter options"
           className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
         >
-          <ToolbarCategoryOption
-            label="No parent"
-            ariaLabel="Select glossary category filter No parent"
-            statusLabel="N/A"
-            selected={value.includes("root")}
-            onSelect={() => {
-              toggleValue("root");
-            }}
-          />
-          {filteredOptions.map((entry) => (
-            <ToolbarCategoryOption
-              key={entry.id}
-              label={entry.term}
-              ariaLabel={`Select glossary category filter ${parentPathLabel(entry, entryById)}`}
-              title={parentPathLabel(entry, entryById)}
-              statusLabel={glossaryRoleLabel(entry, options)}
-              selected={value.includes(entry.id)}
-              onSelect={() => {
-                toggleValue(entry.id);
+          {glossaryFilterOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={value === option.value}
+              className={`flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-semibold transition ${
+                value === option.value
+                  ? "bg-sakura-50 text-sakura-700"
+                  : "bg-white text-slate-700 hover:bg-sakura-50 hover:text-sakura-700"
+              }`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(option.value);
+                onOpenChange(false);
               }}
-            />
+            >
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              {value === option.value && <Check size={15} aria-hidden="true" />}
+            </button>
           ))}
-          {filteredOptions.length === 0 && (
-            <p className="px-3 py-2 text-xs font-semibold text-slate-500">
-              No matching filters
-            </p>
-          )}
         </div>
       )}
     </div>
@@ -1791,7 +1770,7 @@ function SortPicker({
   onChange: (value: GlossarySortKey) => void;
 }) {
   const selectedLabel =
-    sortOptions.find((option) => option.value === value)?.label ?? "Last Updated";
+    sortOptions.find((option) => option.value === value)?.label ?? "Term A-Z";
   void search;
 
   return (
@@ -1858,7 +1837,7 @@ function PickerShell({
   const badgeActive = Boolean(badgeLabel && badgeLabel !== "0");
   return (
     <div
-      className="relative mt-1"
+      className={buttonTrigger ? "relative min-w-0 shrink-0 sm:w-auto" : "relative mt-1"}
       onBlur={() => {
         window.setTimeout(() => {
           onOpenChange(false);
@@ -1876,7 +1855,7 @@ function PickerShell({
           aria-expanded={open}
           data-testid={testId}
           className={[
-            "flex h-11 w-full max-w-full items-center justify-between gap-3 rounded-lg border bg-white pl-12 pr-4 text-sm font-medium text-slate-700 outline-none transition",
+            "flex h-11 w-full max-w-full items-center justify-between gap-3 rounded-lg border bg-white pl-12 pr-3 text-sm font-medium text-slate-700 outline-none transition sm:w-44",
             open
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 hover:border-sakura-200 hover:text-sakura-600 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
@@ -1982,6 +1961,7 @@ function PickerShell({
 
 function ToolbarCategoryOption({
   label,
+  query = "",
   ariaLabel,
   title,
   statusLabel,
@@ -1989,6 +1969,7 @@ function ToolbarCategoryOption({
   onSelect,
 }: {
   label: string;
+  query?: string;
   ariaLabel: string;
   title?: string;
   statusLabel: string;
@@ -2009,7 +1990,7 @@ function ToolbarCategoryOption({
       onClick={onSelect}
     >
       <span className="min-w-0 truncate whitespace-nowrap font-semibold">
-        {label}
+        <HighlightedText text={label} query={query} />
       </span>
       <span className="shrink-0 rounded-md border border-sakura-100 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600">
         {statusLabel}
@@ -2025,6 +2006,7 @@ function ToolbarCategoryOption({
 
 function PickerOption({
   label,
+  query = "",
   ariaLabel,
   metaLabel,
   selected = false,
@@ -2032,6 +2014,7 @@ function PickerOption({
   onSelect,
 }: {
   label: string;
+  query?: string;
   ariaLabel: string;
   metaLabel?: string;
   selected?: boolean;
@@ -2051,7 +2034,7 @@ function PickerOption({
       onClick={onSelect}
     >
       <span className="min-w-0 truncate whitespace-nowrap font-semibold" title={label}>
-        {label}
+        <HighlightedText text={label} query={query} />
       </span>
       {metaLabel && (
         <span className="shrink-0 rounded-md border border-sakura-100 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600">
@@ -2223,6 +2206,47 @@ function buildGlossaryTableRows({
   }
 
   return rows;
+}
+
+function defaultGlossaryExpandedEntryIds(entries: GlossaryEntry[]) {
+  return new Set(
+    entries
+      .filter((entry) => entries.some((candidate) => candidate.parentId === entry.id))
+      .map((entry) => entry.id),
+  );
+}
+
+function normalizeGlossaryFilterValue(value: GlossarySessionFilters["parentFilter"]): GlossaryFilterValue {
+  if (value === "parent" || value === "child") {
+    return value;
+  }
+  return "all";
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return <>{text}</>;
+  }
+
+  const matchIndex = text.toLowerCase().indexOf(trimmedQuery.toLowerCase());
+  if (matchIndex < 0) {
+    return <>{text}</>;
+  }
+
+  const before = text.slice(0, matchIndex);
+  const match = text.slice(matchIndex, matchIndex + trimmedQuery.length);
+  const after = text.slice(matchIndex + trimmedQuery.length);
+
+  return (
+    <>
+      {before}
+      <mark className="rounded-sm bg-sakura-100 px-0 text-slate-900">
+        {match}
+      </mark>
+      {after}
+    </>
+  );
 }
 
 function parentPathLabel(entry: GlossaryEntry, entryById: Map<string, GlossaryEntry>) {

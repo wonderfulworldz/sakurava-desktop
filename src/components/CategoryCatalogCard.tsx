@@ -22,12 +22,14 @@ export type CategoryCatalogCardData = {
 function CategoryCatalogCard({
   category,
   actions,
+  onClick,
   density = "comfortable",
   thumbnailShape = "wide",
   emptyDescriptionText = "No description yet.",
 }: {
   category: CategoryCatalogCardData;
   actions?: ReactNode;
+  onClick?: () => void;
   density?: "comfortable" | "compact";
   thumbnailShape?: "wide" | "square";
   emptyDescriptionText?: string;
@@ -58,13 +60,24 @@ function CategoryCatalogCard({
         }`
       : category.parentName
         ? `Child of ${category.parentName}`
-        : "No Parent";
+        : "No Parent Selected";
 
   return (
     <article
       aria-label={`Category ${category.name}`}
       data-category-card-kind={cardKind}
-      className={`rounded-lg border p-3 shadow-sm ${articleTone}`}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick) {
+          return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`rounded-lg border p-3 shadow-sm ${onClick ? "cursor-pointer transition hover:border-sakura-200 focus:outline-none focus:ring-4 focus:ring-sakura-100" : ""} ${articleTone}`}
     >
       <CategoryThumbnail category={category} shape={thumbnailShape} />
 
@@ -210,6 +223,7 @@ function CountBlock({
       title={label}
       aria-label={`${label} ${value}`}
       to={to}
+      onClick={(event) => event.stopPropagation()}
     >
       {content}
     </Link>
