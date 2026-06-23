@@ -256,7 +256,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       { name: "publisherLabel", label: "Publisher / Label", placeholder: "Studio or label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Detect from Gallery Images when available.",
+    techMessage: "Detect from Gallery Path when available.",
     techInputFields: [
       { name: "imageCount", label: "Image Count", type: "number" },
       { name: "mainResolution", label: "Main Resolution" },

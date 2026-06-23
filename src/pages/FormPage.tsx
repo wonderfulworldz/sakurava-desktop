@@ -36,6 +36,7 @@ import {
   selectGalleryFolder,
   selectLocalFolder,
   selectLocalImageFile,
+  selectLocalImageFiles,
   selectLocalMediaFile,
 } from "../runtime/dialogCommands";
 import { listGalleryFolderImages } from "../runtime/galleryFolderCommands";
@@ -558,6 +559,48 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
     await replaceGalleryFolder();
   }
 
+  async function addGalleryImages() {
+    if (!canBrowsePaths) {
+      return;
+    }
+
+    try {
+      const selectedPaths = await selectLocalImageFiles();
+      if (selectedPaths.length === 0) {
+        return;
+      }
+
+      const existingPaths = new Set(
+        galleryImagePaths.map((path) => path.trim()).filter(Boolean),
+      );
+      const nextSelectedPaths: string[] = [];
+      for (const path of selectedPaths.map((selectedPath) => selectedPath.trim())) {
+        if (!path || existingPaths.has(path)) {
+          continue;
+        }
+
+        existingPaths.add(path);
+        nextSelectedPaths.push(path);
+      }
+
+      if (nextSelectedPaths.length === 0) {
+        return;
+      }
+
+      const nextGalleryPaths = [...galleryImagePaths, ...nextSelectedPaths];
+      setGalleryImagePaths(nextGalleryPaths);
+      setSaveState("idle");
+      setGalleryFolderMessage(
+        `Added ${nextSelectedPaths.length} Gallery Path row${
+          nextSelectedPaths.length === 1 ? "" : "s"
+        }.`,
+      );
+      void detectTechInfo(undefined, nextGalleryPaths);
+    } catch {
+      setGalleryFolderMessage("Unable to open image picker.");
+    }
+  }
+
   async function replaceGalleryFolder() {
     try {
       const selectedFolder = await selectGalleryFolder();
@@ -571,7 +614,7 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
       setGalleryFolderMessage(
         result.imagePaths.length === 0
           ? "No supported image files found in the selected folder."
-          : `Loaded ${result.imagePaths.length} Gallery Images path row${
+          : `Loaded ${result.imagePaths.length} Gallery Path row${
               result.imagePaths.length === 1 ? "" : "s"
             }.`,
       );
@@ -742,7 +785,7 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
       setTechInfoMessage(
         config.kind === "videos"
           ? "Tech Info checked from the Media Path. Save to persist these values."
-          : "Tech Info checked from Gallery Images. Save to persist these values.",
+          : "Tech Info checked from Gallery Path. Save to persist these values.",
       );
     } catch {
       setTechInfoMessage("Tech Info could not be checked.");
@@ -880,6 +923,8 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
                   folderMessage={galleryFolderMessage}
                   browseFolderDisabled={!canBrowsePaths}
                   onBrowseFolder={browseGalleryFolder}
+                  addImagesDisabled={!canBrowsePaths}
+                  onAddImages={addGalleryImages}
                   onClearPaths={clearGalleryPaths}
                 />
               )}
@@ -1577,6 +1622,8 @@ function GalleryImagePathRows({
   folderMessage,
   browseFolderDisabled,
   onBrowseFolder,
+  addImagesDisabled,
+  onAddImages,
   onClearPaths,
 }: {
   paths: string[];
@@ -1584,6 +1631,8 @@ function GalleryImagePathRows({
   folderMessage: string;
   browseFolderDisabled: boolean;
   onBrowseFolder: () => void;
+  addImagesDisabled: boolean;
+  onAddImages: () => void;
   onClearPaths: () => void;
 }) {
   const [showAllPaths, setShowAllPaths] = useState(false);
@@ -1606,7 +1655,7 @@ function GalleryImagePathRows({
 
   return (
     <div className={FORM_ROW_START_STYLES}>
-      <span className="pt-2">Gallery Images</span>
+      <span className="pt-2">Gallery Path</span>
       <div className="grid gap-3">
         {folderMessage && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
@@ -1619,7 +1668,7 @@ function GalleryImagePathRows({
         >
           {paths.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
-              No Gallery Images paths added.
+              No Gallery Path rows added.
             </p>
           ) : (
             visiblePaths.map((path, index) => (
@@ -1680,14 +1729,14 @@ function GalleryImagePathRows({
             className={BUTTON_STYLES.action}
             onClick={onBrowseFolder}
           >
-            Browse
+            Add Folder
           </button>
           <button
             type="button"
+            disabled={addImagesDisabled}
             className={BUTTON_STYLES.action}
-            onClick={() => onChange((current) => [...current, ""])}
+            onClick={onAddImages}
           >
-            <Plus size={14} />
             Add Images
           </button>
           <button
@@ -2949,8 +2998,8 @@ function formConfirmationCopy(
 
   if (confirmation === "replaceGallery") {
     return {
-      title: "Replace Gallery Images?",
-      description: "Current Gallery Images path rows will be replaced.",
+      title: "Replace Gallery Path?",
+      description: "Current Gallery Path rows will be replaced.",
       confirmLabel: "Replace",
       pendingLabel: "Replacing...",
     };
@@ -2958,8 +3007,8 @@ function formConfirmationCopy(
 
   if (confirmation === "clearGallery") {
     return {
-      title: "Clear Gallery Images?",
-      description: "Current Gallery Images path rows will be removed from this form.",
+      title: "Clear Gallery Path?",
+      description: "Current Gallery Path rows will be removed from this form.",
       confirmLabel: "Clear",
       pendingLabel: "Clearing...",
     };

@@ -5117,7 +5117,16 @@ describe("App", () => {
     );
 
     expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
+    const filesSection = within(
+      screen.getByRole("heading", { name: "Files" }).closest("section") as HTMLElement,
+    );
+    expect(filesSection.getByText("Gallery Path")).toBeInTheDocument();
+    expect(filesSection.queryByText("Gallery Images")).not.toBeInTheDocument();
+    expect(filesSection.queryByText("Galley Path")).not.toBeInTheDocument();
+    expect(filesSection.getByRole("button", { name: "Add Folder" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Images" })).toBeInTheDocument();
+    expect(filesSection.queryByRole("button", { name: "+ Add Images" }))
+      .not.toBeInTheDocument();
     expect(screen.getByTestId("gallery-image-path-list")).toHaveClass("overflow-y-auto");
     expect(metadata.queryByLabelText("Image Count")).not.toBeInTheDocument();
     expect(techInfo.getByLabelText("Image Count")).toBeInTheDocument();
@@ -5294,7 +5303,6 @@ describe("App", () => {
       },
     ) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
-
     render(<App />);
 
     const relatedPerformerSearch = await screen.findByLabelText("Search related performers");
@@ -12423,6 +12431,12 @@ describe("App", () => {
     window.__TAURI_INTERNALS__ = {
       invoke,
     };
+    dialogMocks.open.mockResolvedValue([
+      " C:/Gallery/one.jpg ",
+      "",
+      "C:/Gallery/two.jpg",
+      "C:/Gallery/one.jpg",
+    ]);
 
     render(<App />);
 
@@ -12430,19 +12444,8 @@ describe("App", () => {
       target: { value: "Created Image" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    const galleryInputs = screen.getAllByLabelText(/Gallery Image Path/);
-    fireEvent.change(galleryInputs[0], {
-      target: { value: " C:/Gallery/one.jpg " },
-    });
-    fireEvent.change(galleryInputs[2], {
-      target: { value: "C:/Gallery/two.jpg" },
-    });
-    fireEvent.change(galleryInputs[3], {
-      target: { value: "C:/Gallery/one.jpg" },
-    });
+    expect(await screen.findByDisplayValue("C:/Gallery/one.jpg")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("C:/Gallery/two.jpg")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "typed" },
     });
@@ -12509,6 +12512,7 @@ describe("App", () => {
       },
     ) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
+    dialogMocks.open.mockResolvedValue("D:/Images/one.jpg");
 
     render(<App />);
 
@@ -12516,9 +12520,7 @@ describe("App", () => {
       target: { value: "Detected Image" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
-      target: { value: "D:/Images/one.jpg" },
-    });
+    expect(await screen.findByDisplayValue("D:/Images/one.jpg")).toBeInTheDocument();
     fillImageRatingFields();
     clickSaveAndConfirm();
 
@@ -12596,7 +12598,7 @@ describe("App", () => {
       target: { value: "Folder Gallery Image" },
     });
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Browse" })[1],
+      screen.getByRole("button", { name: "Add Folder" }),
     );
 
     expect(
@@ -12604,7 +12606,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("C:/GalleryFolder/b.png")).toBeInTheDocument();
     expect(
-      screen.getByText("Loaded 3 Gallery Images path rows."),
+      screen.getByText("Loaded 3 Gallery Path rows."),
     ).toBeInTheDocument();
     expect(dialogMocks.open).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -12664,10 +12666,10 @@ describe("App", () => {
 
     expect(await screen.findByDisplayValue("C:/Old/one.jpg")).toBeInTheDocument();
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Browse" })[1],
+      screen.getByRole("button", { name: "Add Folder" }),
     );
 
-    expect(screen.getByRole("dialog", { name: "Replace Gallery Images?" }))
+    expect(screen.getByRole("dialog", { name: "Replace Gallery Path?" }))
       .toBeInTheDocument();
     confirmDialog("Replace");
     expect(
@@ -12680,6 +12682,159 @@ describe("App", () => {
 
     expect(await screen.findByText("Existing Gallery Image")).toBeInTheDocument();
   }, 10000);
+
+  it("does not mutate image gallery rows when Add Folder is canceled", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue(null);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Folder" }));
+
+    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("No Gallery Path rows added.")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "gallery_folder_images_list",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("adds selected image files to Gallery Path rows without mutating Cover Path", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue([
+      "C:/Gallery/one.jpg",
+      "C:/Gallery/two.png",
+      "C:/Gallery/one.jpg",
+    ]);
+    const probedPaths: string[] = [];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "media_metadata_probe") {
+        probedPaths.push(args.path);
+        return {
+          path: args.path,
+          status: "exists",
+          kind: "file",
+          fileSizeBytes: args.path.endsWith("one.jpg") ? 1000 : 2000,
+          fileType: args.path.endsWith("one.jpg") ? "JPG" : "PNG",
+          width: args.path.endsWith("one.jpg") ? 1200 : 800,
+          height: args.path.endsWith("one.jpg") ? 800 : 600,
+          resolution: args.path.endsWith("one.jpg") ? "1200 x 800" : "800 x 600",
+          message: "Metadata checked",
+        };
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Cover Path"), {
+      target: { value: "C:/Cover/cover.jpg" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+
+    expect(await screen.findByDisplayValue("C:/Gallery/one.jpg")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("C:/Gallery/two.png")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Path")).toHaveDisplayValue("C:/Cover/cover.jpg");
+    expect(screen.getByLabelText("Image Count")).toHaveDisplayValue("2");
+    expect(screen.getByLabelText("Main Resolution")).toHaveDisplayValue("1200 x 800");
+    expect(screen.getByLabelText("Total File Size")).toHaveDisplayValue("3000");
+    expect(screen.getByLabelText("Main File Type")).toHaveDisplayValue("JPG");
+    expect(probedPaths).toEqual(["C:/Gallery/one.jpg", "C:/Gallery/two.png"]);
+    expect(dialogMocks.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Select Image Files",
+        multiple: true,
+        directory: false,
+        filters: [
+          {
+            name: "Image",
+            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+          },
+        ],
+      }),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("does not mutate image gallery rows when Add Images is canceled", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue(null);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+
+    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("No Gallery Path rows added.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Gallery Image Path 1")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("does not drive Image Tech Info from Cover Path detection", async () => {
+    window.history.pushState({}, "", "/images/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Cover Path"), {
+      target: { value: "C:/Cover/cover.jpg" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Detect" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Image Count")).toHaveDisplayValue("");
+    });
+    expect(screen.getByLabelText("Main Resolution")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Total File Size")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Main File Type")).toHaveDisplayValue("");
+    expect(invoke).not.toHaveBeenCalledWith(
+      "media_metadata_probe",
+      expect.objectContaining({ path: "C:/Cover/cover.jpg" }),
+      expect.anything(),
+    );
+  });
 
   it("loads and updates an image through Tauri commands", async () => {
     window.history.pushState({}, "", "/images/image_test_001/edit");
@@ -12752,10 +12907,6 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
       target: { value: " C:/Gallery/updated.jpg " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.change(screen.getByLabelText("Gallery Image Path 3"), {
-      target: { value: "C:/Gallery/updated.jpg" },
-    });
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Image" },
     });
@@ -12809,31 +12960,35 @@ describe("App", () => {
 
     expect(await screen.findByText("Gallery Detail Image")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Gallery" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 16 of 40 images")).toBeInTheDocument();
+    expect(screen.getByText("Showing 15 of 40 images")).toBeInTheDocument();
     const initialImages = screen.getAllByRole("img", {
       name: /Gallery image/i,
     });
-    expect(initialImages).toHaveLength(16);
+    expect(initialImages).toHaveLength(15);
+    expect(screen.getByTestId("image-detail-gallery-grid")).toHaveClass("lg:grid-cols-5");
     expect(initialImages[0]).toHaveAttribute(
       "src",
       "asset://localhost/C:/Gallery/01.jpg",
     );
+    expect(initialImages[0]).toHaveAttribute("loading", "lazy");
     expect(initialImages[1]).toHaveAttribute(
       "src",
       "asset://localhost/C:/Gallery/02.jpg",
     );
+    expect(screen.queryByAltText("Gallery image 16")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show All" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Load More" }));
 
     await waitFor(() => {
       expect(
         screen.getAllByRole("img", { name: /Gallery image/i }),
-      ).toHaveLength(32);
+      ).toHaveLength(30);
     });
-    expect(screen.getByText("Showing 32 of 40 images")).toBeInTheDocument();
+    expect(screen.getByText("Showing 30 of 40 images")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load More" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Load More" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show All" }));
 
     await waitFor(() => {
       expect(
@@ -12843,6 +12998,9 @@ describe("App", () => {
     expect(screen.getByText("Showing 40 of 40 images")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Load More" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Show All" }),
     ).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "gallery_folder_images_list",

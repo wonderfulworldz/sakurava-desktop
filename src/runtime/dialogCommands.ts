@@ -96,6 +96,19 @@ export async function selectLocalImageFile() {
   });
 }
 
+export async function selectLocalImageFiles() {
+  return selectLocalPaths({
+    title: "Select Image Files",
+    multiple: true,
+    filters: [
+      {
+        name: "Image",
+        extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+      },
+    ],
+  });
+}
+
 export async function selectLocalMediaFile() {
   return selectLocalPath({
     title: "Select Media File",
@@ -157,6 +170,31 @@ async function selectLocalPath(options: {
   });
 
   return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
+}
+
+async function selectLocalPaths(options: {
+  title: string;
+  multiple?: boolean;
+  directory?: boolean;
+  filters?: Array<{ name: string; extensions: string[] }>;
+}) {
+  if (!isTauriRuntimeAvailable()) {
+    return [];
+  }
+
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selectedPath = await open({
+    title: options.title,
+    multiple: options.multiple ?? false,
+    directory: options.directory ?? false,
+    filters: options.filters,
+  });
+
+  if (!selectedPath) {
+    return [];
+  }
+
+  return Array.isArray(selectedPath) ? selectedPath : [selectedPath];
 }
 
 export async function selectLanguageCsvExportDestination(languageCode: LanguageCode) {

@@ -2641,7 +2641,7 @@ function RelatedEmptyState({
   );
 }
 
-const GALLERY_BATCH_SIZE = 16;
+const GALLERY_BATCH_SIZE = 15;
 
 function GalleryGrid({ paths }: { paths: string[] }) {
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
@@ -2696,7 +2696,10 @@ function GalleryGrid({ paths }: { paths: string[] }) {
           </p>
         ) : (
           <>
-            <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+            <div
+              className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+              data-testid="image-detail-gallery-grid"
+            >
               {visiblePaths.map((path, index) => (
                 <GalleryImageTile
                   key={`${path}-${index}`}
@@ -2707,7 +2710,7 @@ function GalleryGrid({ paths }: { paths: string[] }) {
               ))}
             </div>
             {canLoadMore && (
-              <div className="mt-4 flex justify-center">
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -2716,6 +2719,13 @@ function GalleryGrid({ paths }: { paths: string[] }) {
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
                 >
                   Load More
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(paths.length)}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+                >
+                  Show All
                 </button>
               </div>
             )}
