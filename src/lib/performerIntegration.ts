@@ -71,6 +71,7 @@ export function buildPerformerDetailConfig(
     performerCategories,
     managedCategories,
   );
+  const genderValue = detailText(performer.gender);
   return {
     ...baseConfig,
     recordId: performer.id,
@@ -83,7 +84,7 @@ export function buildPerformerDetailConfig(
     aliases: parseTextLabelArray(performer.aliasesJson),
     thumbnailPaths,
     categories: performerCategories,
-    gender: { label: "Gender", value: taxonomy.gender ?? DETAIL_EMPTY_VALUE },
+    gender: { label: "Gender", value: genderValue },
     bodyType: {
       label: "Body Type",
       value: taxonomy.bodyType ?? DETAIL_EMPTY_VALUE,
@@ -97,11 +98,7 @@ export function buildPerformerDetailConfig(
       { label: "Filmography", value: String(filmographyCount) },
       { label: "Pictorials", value: String(pictorialsCount) },
     ],
-    metadata: [
-      { label: "Birth Date", value: detailText(performer.birthDate) },
-      { label: "Debut Date", value: detailText(performer.debutDate) },
-      { label: "Retired Date", value: detailText(performer.retiredDate) },
-    ],
+    metadata: [],
     mediaPaths: [{ label: "Profile image status", path: performer.coverPath }],
     techItems: Array.from({ length: 4 }, (_, index) => ({
       label: `Performer Thumbnail ${index + 1}`,
@@ -113,16 +110,20 @@ export function buildPerformerDetailConfig(
       { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },
     ],
     personal: [
+      { label: "Gender", value: genderValue },
+      { label: "Birth Date", value: detailText(performer.birthDate) },
       { label: "Birth Place", value: detailText(performer.birthplace) },
       { label: "Nationality", value: detailText(performer.nationality) },
       { label: "Zodiac", value: deriveAstrologicalSign(performer.birthDate) },
-      { label: "Blood Type", value: detailText(performer.bloodType) },
+      { label: "Debut Date", value: detailText(performer.debutDate) },
+      { label: "Retired Date", value: detailText(performer.retiredDate) },
     ],
     physical: [
       { label: "Height", value: formatUnit(performer.heightCm, "cm") },
       { label: "Weight", value: formatUnit(performer.weightKg, "kg") },
       { label: "Measurement", value: detailText(performer.measurements) },
       { label: "Cup Size", value: detailText(performer.cupSize) },
+      { label: "Blood Type", value: detailText(performer.bloodType) },
     ],
     rating: getDetailRatingDimensions(performer.ratingJson, performerRatingFields),
     notes: detailNotes(performer.notes),
@@ -148,7 +149,6 @@ function derivePerformerTaxonomyValues(
     performerCategories.map((category) => category.trim().toLowerCase()),
   );
   const values = {
-    gender: null as string | null,
     bodyType: null as string | null,
   };
 
@@ -159,9 +159,6 @@ function derivePerformerTaxonomyValues(
 
     const parent = categoryByKey.get(category.parentKey);
     const parentKey = normalizeTaxonomyParentName(parent?.name ?? "");
-    if (parentKey === "gender" && !values.gender) {
-      values.gender = category.name;
-    }
     if (parentKey === "bodyType" && !values.bodyType) {
       values.bodyType = category.name;
     }
@@ -172,9 +169,6 @@ function derivePerformerTaxonomyValues(
 
 function normalizeTaxonomyParentName(value: string) {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "gender") {
-    return "gender";
-  }
   if (
     normalized === "bodytype" ||
     normalized === "body type" ||
@@ -285,6 +279,7 @@ export function performerFormToCreateInput(
     debutDate: textValue(values.debutDate),
     retiredDate: textValue(values.retiredDate),
     birthDate: textValue(values.birthDate),
+    gender: textValue(values.gender),
     birthplace: textValue(values.birthplace),
     nationality: textValue(values.nationality),
     bloodType: textValue(values.bloodType),
@@ -377,6 +372,7 @@ function performerToFormValues(performer: Performer): FormValues {
     name: performer.name,
     originalName: performer.originalName,
     favorite: performer.favorite,
+    gender: performer.gender ?? "",
     debutDate: performer.debutDate,
     retiredDate: performer.retiredDate,
     coverPath: performer.coverPath,
@@ -483,14 +479,12 @@ function buildRelatedSections(
     section.title.includes("Video")
       ? {
           ...section,
-          description: "Read-only Related Video links saved on this performer.",
           controls: "performer-related" as const,
           relatedCatalogRecords: buildRelatedVideoItems(relatedVideosJson, videos),
         }
       : section.title.includes("Image")
         ? {
             ...section,
-            description: "Read-only Related Image links saved on this performer.",
             controls: "performer-related" as const,
             relatedCatalogRecords: buildRelatedImageItems(relatedImagesJson, images),
           }
@@ -517,6 +511,8 @@ function buildRelatedVideoItems(
             ? video.originalTitle
             : undefined,
         coverPath: video.coverPath,
+        availability: video.availability,
+        censorship: video.censorship,
         code: video.code || "No code",
         publisherLabel: video.publisherLabel,
         metadata: formatVideoDuration(video.durationMinutes),
@@ -554,6 +550,8 @@ function buildRelatedImageItems(
             ? image.originalTitle
             : undefined,
         coverPath: image.coverPath,
+        availability: image.availability,
+        censorship: image.censorship,
         code: image.code || "No code",
         publisherLabel: image.publisherLabel,
         metadata: formatImageCount(image.imageCount),

@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS performers (
   debutDate TEXT NOT NULL DEFAULT '',
   retiredDate TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT '',
   birthplace TEXT NOT NULL DEFAULT '',
   nationality TEXT NOT NULL DEFAULT '',
   bloodType TEXT NOT NULL DEFAULT '',
@@ -87,6 +88,9 @@ CREATE TABLE IF NOT EXISTS performers (
   updatedAt TEXT NOT NULL
 );
 `;
+
+export const ADD_PERFORMER_GENDER_COLUMN_SQL =
+  "ALTER TABLE performers ADD COLUMN gender TEXT NOT NULL DEFAULT ''";
 
 export const CREATE_MANAGED_CATEGORIES_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS managedCategories (

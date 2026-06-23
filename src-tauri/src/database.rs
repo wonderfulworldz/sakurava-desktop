@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS performers (
   debutDate TEXT NOT NULL DEFAULT '',
   retiredDate TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT '',
   birthplace TEXT NOT NULL DEFAULT '',
   nationality TEXT NOT NULL DEFAULT '',
   bloodType TEXT NOT NULL DEFAULT '',
@@ -232,6 +233,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     )?;
     ensure_text_column(connection, "performers", "debutDate", "")?;
     ensure_text_column(connection, "performers", "retiredDate", "")?;
+    ensure_text_column(connection, "performers", "gender", "")?;
     ensure_text_column(connection, "performers", "birthplace", "")?;
     ensure_text_column(connection, "performers", "nationality", "")?;
     ensure_text_column(connection, "performers", "bloodType", "")?;
@@ -735,6 +737,7 @@ mod tests {
         ));
         assert!(table_has_column(&connection, "performers", "debutDate"));
         assert!(table_has_column(&connection, "performers", "retiredDate"));
+        assert!(table_has_column(&connection, "performers", "gender"));
         assert!(table_has_column(&connection, "performers", "birthplace"));
         assert!(table_has_column(&connection, "performers", "nationality"));
         assert!(table_has_column(&connection, "performers", "bloodType"));

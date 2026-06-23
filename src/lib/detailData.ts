@@ -25,6 +25,8 @@ export type RelatedCatalogDetailItem = {
   originalTitle?: string;
   code?: string;
   coverPath?: string;
+  availability?: string;
+  censorship?: string;
   publisherLabel?: string;
   metadata?: string;
   releaseDate?: string;
@@ -344,12 +346,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedSections: [
       {
         title: "Related Videos",
-        description: "Read-only Related Video links saved on this performer.",
+        description: "",
         relatedCatalogRecords: [],
       },
       {
         title: "Related Images",
-        description: "Read-only Related Image links saved on this performer.",
+        description: "",
         relatedCatalogRecords: [],
       },
     ],

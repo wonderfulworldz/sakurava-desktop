@@ -27,7 +27,7 @@ export function getRuntimeSchemaStatements() {
 }
 
 export async function initializeRuntimeDatabaseSchema(
-  database: Pick<SqliteDatabase, "execute">,
+  database: Pick<SqliteDatabase, "execute" | "queryAll">,
 ) {
   await initializeSakuravaSchema(database);
 }

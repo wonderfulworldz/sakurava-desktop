@@ -1,4 +1,5 @@
 import {
+  ADD_PERFORMER_GENDER_COLUMN_SQL,
   APP_DATA_FOLDER_NAME,
   DATABASE_FILE_NAME,
   SCHEMA_SQL,
@@ -29,8 +30,16 @@ describe("runtime database boundary", () => {
       async execute(sql) {
         executed.push(sql);
       },
+      async queryAll() {
+        executed.push("PRAGMA table_info(performers)");
+        return [];
+      },
     });
 
-    expect(executed).toEqual(SCHEMA_SQL);
+    expect(executed).toEqual([
+      ...SCHEMA_SQL,
+      "PRAGMA table_info(performers)",
+      ADD_PERFORMER_GENDER_COLUMN_SQL,
+    ]);
   });
 });

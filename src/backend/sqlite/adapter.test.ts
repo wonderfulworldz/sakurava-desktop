@@ -2,7 +2,7 @@ import {
   RepositoryRecordNotFoundError,
   RepositoryValidationError,
 } from "../repositories";
-import { SCHEMA_SQL } from "../schema";
+import { ADD_PERFORMER_GENDER_COLUMN_SQL, SCHEMA_SQL } from "../schema";
 import type { SqliteDatabase, SqliteValue } from "./database";
 import { initializeSakuravaSchema } from "./database";
 import {
@@ -65,6 +65,11 @@ class FakeSqliteDatabase implements SqliteDatabase {
   async queryAll<TRecord>(sql: string, params: readonly SqliteValue[] = []) {
     this.executed.push({ sql, params });
     const trimmed = sql.trim();
+
+    if (trimmed.startsWith("PRAGMA table_info")) {
+      return [] as TRecord[];
+    }
+
     const tableName = this.matchTable(trimmed, /FROM ([A-Za-z_]+)/);
 
     if (trimmed.includes("WHERE parentKey = ?")) {
@@ -158,7 +163,11 @@ describe("SQLite schema initialization", () => {
 
     await initializeSakuravaSchema(database);
 
-    expect(database.executed.map((entry) => entry.sql)).toEqual(SCHEMA_SQL);
+    expect(database.executed.map((entry) => entry.sql)).toEqual([
+      ...SCHEMA_SQL,
+      "PRAGMA table_info(performers)",
+      ADD_PERFORMER_GENDER_COLUMN_SQL,
+    ]);
   });
 });
 
@@ -315,6 +324,7 @@ describe("SQLite repository adapter foundation", () => {
 
     const created = await repository.create({
       name: "Performer Name",
+      gender: "Woman",
       aliasesJson: '["Alias A","Alias B"]',
       performerThumbnailPathsJson:
         '[" D:/thumbs/one.jpg ","","D:/thumbs/two.jpg","D:/thumbs/one.jpg","D:/thumbs/three.jpg","D:/thumbs/four.jpg","D:/thumbs/five.jpg"]',
@@ -324,6 +334,7 @@ describe("SQLite repository adapter foundation", () => {
 
     expect(created).toMatchObject({
       id: "performer-id",
+      gender: "Woman",
       aliasesJson: '["Alias A","Alias B"]',
       performerThumbnailPathsJson:
         '["D:/thumbs/one.jpg","D:/thumbs/two.jpg","D:/thumbs/three.jpg","D:/thumbs/four.jpg"]',
@@ -334,6 +345,7 @@ describe("SQLite repository adapter foundation", () => {
 
     const updated = await repository.update("performer-id", {
       aliasesJson: "{bad json",
+      gender: "",
       performerThumbnailPathsJson: "{bad json",
       categoriesJson: '["Updated Performer"]',
       ratingJson: "{bad json",
@@ -342,6 +354,7 @@ describe("SQLite repository adapter foundation", () => {
 
     expect(updated).toMatchObject({
       aliasesJson: "[]",
+      gender: "",
       performerThumbnailPathsJson: "[]",
       categoriesJson: '["Updated Performer"]',
       ratingJson: "{}",

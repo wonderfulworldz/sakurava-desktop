@@ -1,5 +1,6 @@
 import {
   APP_DATA_FOLDER_NAME,
+  ADD_PERFORMER_GENDER_COLUMN_SQL,
   CREATE_IMAGES_TABLE_SQL,
   CREATE_GLOSSARY_ENTRIES_TABLE_SQL,
   CREATE_MANAGED_CATEGORIES_TABLE_SQL,
@@ -85,6 +86,10 @@ describe("SQLite schema foundation", () => {
     );
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("debutDate TEXT NOT NULL DEFAULT ''");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("retiredDate TEXT NOT NULL DEFAULT ''");
+    expect(CREATE_PERFORMERS_TABLE_SQL).toContain("gender TEXT NOT NULL DEFAULT ''");
+    expect(ADD_PERFORMER_GENDER_COLUMN_SQL).toBe(
+      "ALTER TABLE performers ADD COLUMN gender TEXT NOT NULL DEFAULT ''",
+    );
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("birthplace TEXT NOT NULL DEFAULT ''");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("nationality TEXT NOT NULL DEFAULT ''");
     expect(CREATE_PERFORMERS_TABLE_SQL).toContain("bloodType TEXT NOT NULL DEFAULT ''");

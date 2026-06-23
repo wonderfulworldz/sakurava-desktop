@@ -208,6 +208,7 @@ pub struct Performer {
     pub debut_date: String,
     pub retired_date: String,
     pub birth_date: String,
+    pub gender: String,
     pub birthplace: String,
     pub nationality: String,
     pub blood_type: String,
@@ -240,6 +241,7 @@ pub struct PerformerInput {
     pub debut_date: Option<String>,
     pub retired_date: Option<String>,
     pub birth_date: Option<String>,
+    pub gender: Option<String>,
     pub birthplace: Option<String>,
     pub nationality: Option<String>,
     pub blood_type: Option<String>,
@@ -270,6 +272,7 @@ pub struct PerformerPatch {
     pub debut_date: Option<String>,
     pub retired_date: Option<String>,
     pub birth_date: Option<String>,
+    pub gender: Option<String>,
     pub birthplace: Option<String>,
     pub nationality: Option<String>,
     pub blood_type: Option<String>,
@@ -1191,6 +1194,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         debut_date: default_text(input.debut_date),
         retired_date: default_text(input.retired_date),
         birth_date: default_text(input.birth_date),
+        gender: default_text(input.gender),
         birthplace: default_text(input.birthplace),
         nationality: default_text(input.nationality),
         blood_type: default_text(input.blood_type),
@@ -1223,12 +1227,12 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         .execute(
             "INSERT INTO performers (
                 id, name, originalName, aliasesJson, status, debutDate, retiredDate,
-                birthDate, birthplace, nationality, bloodType, heightCm, weightKg,
+                birthDate, gender, birthplace, nationality, bloodType, heightCm, weightKg,
                 measurements, cupSize, coverPath, performerThumbnailPathsJson,
                 filmographyCount, pictorialsCount, relatedVideosJson,
                 relatedImagesJson, source_links_json, categoriesJson, ratingJson,
                 notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
             params![
                 performer.id,
                 performer.name,
@@ -1238,6 +1242,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 performer.debut_date,
                 performer.retired_date,
                 performer.birth_date,
+                performer.gender,
                 performer.birthplace,
                 performer.nationality,
                 performer.blood_type,
@@ -1309,6 +1314,7 @@ fn update_performer(
     apply_text(&mut performer.debut_date, patch.debut_date);
     apply_text(&mut performer.retired_date, patch.retired_date);
     apply_text(&mut performer.birth_date, patch.birth_date);
+    apply_text(&mut performer.gender, patch.gender);
     apply_text(&mut performer.birthplace, patch.birthplace);
     apply_text(&mut performer.nationality, patch.nationality);
     apply_text(&mut performer.blood_type, patch.blood_type);
@@ -1359,13 +1365,13 @@ fn update_performer(
             "UPDATE performers SET
                 name = ?2, originalName = ?3, aliasesJson = ?4, status = ?5,
                 debutDate = ?6, retiredDate = ?7, birthDate = ?8,
-                birthplace = ?9, nationality = ?10, bloodType = ?11,
-                heightCm = ?12, weightKg = ?13, measurements = ?14, cupSize = ?15,
-                coverPath = ?16, performerThumbnailPathsJson = ?17,
-                filmographyCount = ?18, pictorialsCount = ?19,
-                relatedVideosJson = ?20, relatedImagesJson = ?21,
-                source_links_json = ?22, categoriesJson = ?23, ratingJson = ?24,
-                notes = ?25, favorite = ?26, updatedAt = ?27
+                gender = ?9, birthplace = ?10, nationality = ?11, bloodType = ?12,
+                heightCm = ?13, weightKg = ?14, measurements = ?15, cupSize = ?16,
+                coverPath = ?17, performerThumbnailPathsJson = ?18,
+                filmographyCount = ?19, pictorialsCount = ?20,
+                relatedVideosJson = ?21, relatedImagesJson = ?22,
+                source_links_json = ?23, categoriesJson = ?24, ratingJson = ?25,
+                notes = ?26, favorite = ?27, updatedAt = ?28
             WHERE id = ?1",
             params![
                 performer.id,
@@ -1376,6 +1382,7 @@ fn update_performer(
                 performer.debut_date,
                 performer.retired_date,
                 performer.birth_date,
+                performer.gender,
                 performer.birthplace,
                 performer.nationality,
                 performer.blood_type,
@@ -2523,6 +2530,7 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         debut_date: row.get("debutDate")?,
         retired_date: row.get("retiredDate")?,
         birth_date: row.get("birthDate")?,
+        gender: row.get("gender")?,
         birthplace: row.get("birthplace")?,
         nationality: row.get("nationality")?,
         blood_type: row.get("bloodType")?,
@@ -3670,6 +3678,7 @@ mod tests {
                 debut_date: Some("2020-01-02".to_string()),
                 retired_date: None,
                 birth_date: Some("1999-04-12".to_string()),
+                gender: Some("Woman".to_string()),
                 birthplace: Some("Tokyo".to_string()),
                 nationality: Some("Japanese".to_string()),
                 blood_type: Some("A".to_string()),
@@ -3720,6 +3729,7 @@ mod tests {
             r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#
         );
         assert_eq!(created.debut_date, "2020-01-02");
+        assert_eq!(created.gender, "Woman");
         assert_eq!(created.birthplace, "Tokyo");
         assert_eq!(created.height_cm, Some(160));
         assert!(!created.favorite);
@@ -3744,6 +3754,7 @@ mod tests {
                 debut_date: Some("2021-03-04".to_string()),
                 retired_date: Some("2024-05-06".to_string()),
                 birth_date: None,
+                gender: Some("Non-binary".to_string()),
                 birthplace: Some("Osaka".to_string()),
                 nationality: None,
                 blood_type: None,
@@ -3774,6 +3785,7 @@ mod tests {
         assert_eq!(updated.rating_json, "{}");
         assert_eq!(updated.debut_date, "2021-03-04");
         assert_eq!(updated.retired_date, "2024-05-06");
+        assert_eq!(updated.gender, "Non-binary");
         assert_eq!(updated.birthplace, "Osaka");
         assert_eq!(updated.height_cm, None);
         assert_eq!(updated.weight_kg, Some(49));
@@ -4308,6 +4320,7 @@ mod tests {
             debut_date: None,
             retired_date: None,
             birth_date: None,
+            gender: None,
             birthplace: None,
             nationality: None,
             blood_type: None,

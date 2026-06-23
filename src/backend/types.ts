@@ -63,6 +63,7 @@ export interface Performer extends BaseCatalogRecord {
   debutDate: IsoDateString;
   retiredDate: IsoDateString;
   birthDate: IsoDateString;
+  gender?: string;
   birthplace: string;
   nationality: string;
   bloodType: string;

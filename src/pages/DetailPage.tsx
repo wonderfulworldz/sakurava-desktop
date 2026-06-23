@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowUpDown,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -9,11 +10,14 @@ import {
   FileImage,
   Film,
   Globe2,
+  Grid2X2,
   Heart,
   Image as ImageIcon,
   Info,
+  List,
   Play,
   Ruler,
+  Search,
   Star,
   type LucideIcon,
   UserRound,
@@ -333,10 +337,6 @@ function PerformerDetailPage({
   config: PerformerDetailConfig;
   favoriteAction: DetailFavoriteAction;
 }) {
-  const profileMetadataItems = [
-    config.gender ?? { label: "Gender", value: "N/A" },
-    ...config.metadata,
-  ];
   const physicalItems = [
     config.bodyType ?? { label: "Body Type", value: "N/A" },
     ...config.physical,
@@ -354,7 +354,6 @@ function PerformerDetailPage({
 
         <div className="space-y-5">
           <PerformerSummaryCards config={config} />
-          <RowsCard title="Profile Metadata" icon={Calendar} items={profileMetadataItems} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
             <RowsCard title="Personal" icon={UserRound} items={config.personal} />
@@ -405,6 +404,8 @@ function PerformerProfileCard({
               key={label}
               label={label}
               path={config.thumbnailPaths[index]}
+              paths={config.thumbnailPaths}
+              index={index}
             />
           );
         })}
@@ -661,7 +662,17 @@ function coverPreviewTitle(kind: DetailConfig["kind"]) {
   return "Performer Cover";
 }
 
-function SmallThumbnail({ label, path }: { label: string; path?: string }) {
+function SmallThumbnail({
+  index,
+  label,
+  path,
+  paths = path ? [path] : [],
+}: {
+  index?: number;
+  label: string;
+  path?: string;
+  paths?: string[];
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [previewPayload, setPreviewPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
@@ -682,10 +693,22 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
     }
 
     previewOpeningRef.current = true;
+    const viewerImages = paths
+      .map((thumbnailPath, thumbnailIndex) => ({
+        path: thumbnailPath,
+        title: `Performer Thumbnail ${thumbnailIndex + 1}`,
+      }))
+      .filter((image) => image.path.trim());
+    const initialIndex = Math.max(
+      0,
+      viewerImages.findIndex((image) => image.path === path),
+    );
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: label,
-      images: [{ path: path ?? "", title: label }],
-      initialIndex: 0,
+      images: viewerImages.length > 0
+        ? viewerImages
+        : [{ path: path ?? "", title: label }],
+      initialIndex: typeof index === "number" ? initialIndex : 0,
     });
     try {
       const viewerResult = await openGlobalImageViewerWindow(payload);
@@ -1475,7 +1498,8 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const initialSessionState = readSessionFilterState(sessionKey, {
     viewMode: "card",
     sortMode: "new",
-    pageSize: 12,
+    pageSize: 20,
+    searchQuery: "",
   });
   const [viewMode, setViewMode] = useState<"card" | "table">(
     initialSessionState.viewMode === "table" ? "table" : "card",
@@ -1488,7 +1512,12 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   const [pageSize, setPageSize] = useState(
     isRelatedPageSize(initialSessionState.pageSize)
       ? initialSessionState.pageSize
-      : 12,
+      : 20,
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    typeof initialSessionState.searchQuery === "string"
+      ? initialSessionState.searchQuery
+      : "",
   );
   const [page, setPage] = useState(1);
 
@@ -1501,16 +1530,20 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
       viewMode,
       sortMode,
       pageSize,
+      searchQuery,
     });
-  }, [hasControls, pageSize, sessionKey, sortMode, viewMode]);
+  }, [hasControls, pageSize, searchQuery, sessionKey, sortMode, viewMode]);
 
   if (relatedCatalogRecords.length === 0) {
     return <RelatedEmptyState message={emptyText} title={section.title} />;
   }
 
-  const sortedRecords = hasControls
-    ? sortRelatedCatalogRecords(relatedCatalogRecords, sortMode)
+  const filteredRecords = hasControls
+    ? filterRelatedCatalogRecords(relatedCatalogRecords, searchQuery)
     : relatedCatalogRecords;
+  const sortedRecords = hasControls
+    ? sortRelatedCatalogRecords(filteredRecords, sortMode)
+    : filteredRecords;
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRecords = hasControls
@@ -1524,6 +1557,8 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
           itemCount={relatedCatalogRecords.length}
           page={safePage}
           pageSize={pageSize}
+          resultCount={sortedRecords.length}
+          searchQuery={searchQuery}
           sortMode={sortMode}
           totalPages={totalPages}
           viewMode={viewMode}
@@ -1536,6 +1571,10 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
             setSortMode(nextSortMode);
             setPage(1);
           }}
+          onSearchQueryChange={(nextSearchQuery) => {
+            setSearchQuery(nextSearchQuery);
+            setPage(1);
+          }}
           onViewModeChange={(nextViewMode) => {
             setViewMode(nextViewMode);
             setPage(1);
@@ -1543,7 +1582,15 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
         />
       )}
       {viewMode === "table" && hasControls ? (
-        <PerformerRelatedCatalogTable items={visibleRecords} kind={kind} />
+        <PerformerRelatedCatalogTable
+          items={visibleRecords}
+          kind={kind}
+          sortMode={sortMode}
+          onSortModeChange={(nextSortMode) => {
+            setSortMode(nextSortMode);
+            setPage(1);
+          }}
+        />
       ) : hasControls ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {visibleRecords.map((record, index) => {
@@ -1643,7 +1690,28 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
   );
 }
 
-type RelatedSortMode = "az" | "za" | "new" | "old";
+type RelatedSortMode =
+  | "az"
+  | "za"
+  | "new"
+  | "old"
+  | "availabilityAsc"
+  | "availabilityDesc"
+  | "codeAsc"
+  | "codeDesc"
+  | "metricAsc"
+  | "metricDesc"
+  | "censorshipAsc"
+  | "censorshipDesc"
+  | "ratingAsc"
+  | "ratingDesc";
+
+const RELATED_SORT_OPTIONS: Array<{ label: string; value: RelatedSortMode }> = [
+  { label: "A-Z", value: "az" },
+  { label: "Z-A", value: "za" },
+  { label: "New Release", value: "new" },
+  { label: "Old Release", value: "old" },
+];
 
 function performerRelatedSessionKey(kind: "videos" | "images") {
   return kind === "videos"
@@ -1652,14 +1720,29 @@ function performerRelatedSessionKey(kind: "videos" | "images") {
 }
 
 function isRelatedSortMode(value: unknown): value is RelatedSortMode {
-  return value === "az" || value === "za" || value === "new" || value === "old";
+  return (
+    value === "az" ||
+    value === "za" ||
+    value === "new" ||
+    value === "old" ||
+    value === "availabilityAsc" ||
+    value === "availabilityDesc" ||
+    value === "codeAsc" ||
+    value === "codeDesc" ||
+    value === "metricAsc" ||
+    value === "metricDesc" ||
+    value === "censorshipAsc" ||
+    value === "censorshipDesc" ||
+    value === "ratingAsc" ||
+    value === "ratingDesc"
+  );
 }
 
 function isRelatedPageSize(value: unknown): value is number {
   return (
     typeof value === "number" &&
     Number.isFinite(value) &&
-    [12, 24, 48, 96].includes(value)
+    [20, 40, 80, 120].includes(value)
   );
 }
 
@@ -2175,68 +2258,157 @@ function RelatedControls({
   itemCount,
   page,
   pageSize,
+  resultCount,
+  searchQuery,
   sortMode,
   totalPages,
   viewMode,
   onPageChange,
   onPageSizeChange,
+  onSearchQueryChange,
   onSortModeChange,
   onViewModeChange,
 }: {
   itemCount: number;
   page: number;
   pageSize: number;
+  resultCount: number;
+  searchQuery: string;
   sortMode: RelatedSortMode;
   totalPages: number;
   viewMode: "card" | "table";
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onSearchQueryChange: (query: string) => void;
   onSortModeChange: (sortMode: RelatedSortMode) => void;
   onViewModeChange: (viewMode: "card" | "table") => void;
 }) {
-  const rangeStart = itemCount === 0 ? 0 : (page - 1) * pageSize + 1;
-  const rangeEnd = Math.min(page * pageSize, itemCount);
+  const rangeStart = resultCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, resultCount);
+  const sortControlRef = useRef<HTMLDivElement | null>(null);
+  const [sortOpen, setSortOpen] = useState(false);
+  const selectedSort =
+    RELATED_SORT_OPTIONS.find((option) => option.value === sortMode) ??
+    RELATED_SORT_OPTIONS[0];
+  const viewAction = viewMode === "card" ? "table" : "card";
+  const viewLabel =
+    viewMode === "card" ? "Switch to table view" : "Switch to card view";
+  const ViewIcon = viewMode === "card" ? List : Grid2X2;
+
+  useEffect(() => {
+    if (!sortOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && sortControlRef.current?.contains(target)) {
+        return;
+      }
+      setSortOpen(false);
+    }
+
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSortOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sortOpen]);
+
+  function selectSortMode(nextSortMode: RelatedSortMode) {
+    onSortModeChange(nextSortMode);
+    setSortOpen(false);
+  }
 
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onViewModeChange("card")}
-          className={`h-9 rounded-lg px-3 text-xs font-semibold ${
-            viewMode === "card"
-              ? "bg-sakura-500 text-white"
-              : "border border-slate-200 bg-white text-slate-700"
-          }`}
+      <div className="grid items-center gap-3 md:grid-cols-[minmax(16rem,1fr)_auto_auto]">
+        <label
+          className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500"
+          data-testid="performer-related-search-control"
         >
-          Card
-        </button>
-        <button
-          type="button"
-          onClick={() => onViewModeChange("table")}
-          className={`h-9 rounded-lg px-3 text-xs font-semibold ${
-            viewMode === "table"
-              ? "bg-sakura-500 text-white"
-              : "border border-slate-200 bg-white text-slate-700"
-          }`}
-        >
-          Table
-        </button>
-        <label className="text-xs font-semibold text-slate-500">
-          Sort
-          <select
-            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
-            value={sortMode}
-            onChange={(event) =>
-              onSortModeChange(event.target.value as RelatedSortMode)
-            }
-          >
-            <option value="az">A-Z</option>
-            <option value="za">Z-A</option>
-            <option value="new">New Release</option>
-            <option value="old">Old Release</option>
-          </select>
+          <span className="shrink-0">Search</span>
+          <input
+            aria-label="Search related items"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+          />
         </label>
+        <div className="relative min-w-0 shrink-0" ref={sortControlRef}>
+          <button
+            type="button"
+            aria-label={`Sort ${selectedSort.label}`}
+            aria-haspopup="listbox"
+            aria-expanded={sortOpen}
+            className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100 sm:w-44"
+            data-testid="performer-related-sort-control"
+            onClick={() => setSortOpen((open) => !open)}
+          >
+            <ArrowUpDown size={16} className="shrink-0 text-slate-500" />
+            <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-950">
+              {selectedSort.label}
+            </span>
+            <ChevronDown
+              size={16}
+              className={sortOpen ? "rotate-180 transition" : "transition"}
+            />
+          </button>
+          {sortOpen && (
+            <div className="absolute right-0 z-50 mt-2 w-full min-w-44 rounded-lg border border-slate-200 bg-white shadow-lg">
+              <div
+                role="listbox"
+                aria-label="Related sort options"
+                className="max-h-64 overflow-y-auto p-1"
+              >
+                {RELATED_SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === selectedSort.value}
+                    className={[
+                      "flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition",
+                      option.value === selectedSort.value
+                        ? "bg-sakura-50 text-sakura-700"
+                        : "text-slate-700 hover:bg-sakura-50 hover:text-sakura-700",
+                    ].join(" ")}
+                    onClick={() => selectSortMode(option.value)}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label={viewLabel}
+          title={viewLabel}
+          onClick={() => {
+            setSortOpen(false);
+            onViewModeChange(viewAction);
+          }}
+          className={[
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition focus:outline-none focus:ring-4 focus:ring-sakura-100",
+            viewMode === "table"
+              ? "border-sakura-200 bg-sakura-50 text-sakura-700 hover:border-sakura-300"
+              : "border-slate-200 bg-white text-slate-700 hover:border-sakura-200 hover:text-sakura-600",
+          ].join(" ")}
+          data-testid="performer-related-view-button"
+        >
+          <ViewIcon size={16} aria-hidden="true" />
+          <span className="sr-only">View</span>
+        </button>
       </div>
       <nav
         className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
@@ -2244,7 +2416,8 @@ function RelatedControls({
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <p className="text-sm font-semibold text-slate-600">
-            Showing {rangeStart}-{rangeEnd} of {itemCount}
+            Showing {rangeStart}-{rangeEnd} of {resultCount}
+            {resultCount !== itemCount ? ` filtered from ${itemCount}` : ""}
           </p>
         <label className="text-xs font-semibold text-slate-500">
           Page size
@@ -2254,7 +2427,7 @@ function RelatedControls({
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
           >
-            {[12, 24, 48, 96].map((option) => (
+            {[20, 40, 80, 120].map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -2377,68 +2550,119 @@ function RelatedCatalogTable({
 function PerformerRelatedCatalogTable({
   items,
   kind,
+  sortMode,
+  onSortModeChange,
 }: {
   items: NonNullable<DetailSection["relatedCatalogRecords"]>;
   kind: "videos" | "images";
+  sortMode: RelatedSortMode;
+  onSortModeChange: (sortMode: RelatedSortMode) => void;
 }) {
+  const tableWidth = 1040;
+
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+    <div
+      className="mt-4 w-full overflow-x-auto rounded-lg border border-slate-200 bg-white"
+      data-testid={`performer-related-${kind}-table-scroll`}
+    >
+      <table
+        className="w-full min-w-[1040px] table-fixed divide-y divide-slate-200 text-left text-sm"
+        data-testid={`performer-related-${kind}-table`}
+        style={{ minWidth: `${tableWidth}px`, width: "100%" }}
+      >
+        <colgroup data-testid={`performer-related-${kind}-table-colgroup`}>
+          <col className="w-[11%]" data-column-id="availability" />
+          <col className="w-[6%]" data-column-id="favorite" />
+          <col className="w-[31%]" data-column-id="title" />
+          <col className="w-[15%]" data-column-id="code" />
+          <col className="w-[14%]" data-column-id="metric" />
+          <col className="w-[14%]" data-column-id="censorship" />
+          <col className="w-[9%]" data-column-id="rating" />
+        </colgroup>
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
           <tr>
-            <th className="px-4 py-3">Title</th>
-            <th className="px-4 py-3">Publisher / Label</th>
-            <th className="px-4 py-3">Release Year</th>
-            <th className="px-4 py-3">
-              {kind === "images" ? "Images Total" : "Duration"}
+            <RelatedSortableHeader
+              label="AVAIL"
+              sortMode={sortMode}
+              sortAsc="availabilityAsc"
+              sortDesc="availabilityDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <th className="min-w-0 overflow-hidden px-3 py-3">
+              <span className="block truncate">FAV</span>
             </th>
-            <th className="px-4 py-3">Rating</th>
-            <th className="px-4 py-3">Action</th>
+            <RelatedSortableHeader
+              label="TITLE"
+              sortLabel="Title"
+              sortMode={sortMode}
+              sortAsc="az"
+              sortDesc="za"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label="CODE"
+              sortMode={sortMode}
+              sortAsc="codeAsc"
+              sortDesc="codeDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label={kind === "images" ? "TOTAL" : "DURATION"}
+              sortMode={sortMode}
+              sortAsc="metricAsc"
+              sortDesc="metricDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label="CENSOR"
+              sortMode={sortMode}
+              sortAsc="censorshipAsc"
+              sortDesc="censorshipDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label="RATING"
+              sortMode={sortMode}
+              sortAsc="ratingAsc"
+              sortDesc="ratingDesc"
+              onSortModeChange={onSortModeChange}
+            />
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="divide-y divide-slate-100">
           {items.map((item, index) => (
-            <tr key={`${item.title}-${index}`}>
-              <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
-                <span className="block min-w-0 truncate" title={item.title}>
-                  {item.title}
-                </span>
+            <tr
+              key={`${item.title}-${index}`}
+              className="h-[4.25rem] transition hover:bg-slate-50/80"
+            >
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableStatusChip value={detailTableValue(item.availability)} tone="availability" />
               </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                <span
-                  className="block min-w-0 truncate"
-                  title={detailDisplayValue(item.publisherLabel)}
-                >
-                  {detailDisplayValue(item.publisherLabel)}
-                </span>
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableFavorite item={item} kind={kind} index={index} />
               </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                {releaseYearLabel(item.releaseDate)}
-              </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                <span
-                  className="block min-w-0 truncate"
-                  title={detailDisplayValue(item.metadata)}
-                >
-                  {detailDisplayValue(item.metadata)}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-slate-600">
-                {typeof item.rating === "number" && Number.isFinite(item.rating)
-                  ? item.rating.toFixed(1)
-                  : "Not rated"}
-              </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className="min-w-0 overflow-hidden px-3 py-3 font-semibold text-slate-900">
                 {item.routeTo && !item.unresolved ? (
-                  <Link
-                    to={item.routeTo}
-                    className="text-xs font-semibold text-sakura-600 hover:text-sakura-700"
-                  >
-                    View
+                  <Link to={item.routeTo} className="block min-w-0 max-w-full truncate whitespace-nowrap hover:text-sakura-600" title={item.title}>
+                    {detailTableValue(item.title)}
                   </Link>
                 ) : (
-                  "Unavailable"
+                  <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={detailTableValue(item.title)}>
+                    {detailTableValue(item.title)}
+                  </span>
                 )}
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3 text-slate-600">
+                <RelatedTablePlainValue value={detailTableValue(item.code)} />
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3 text-slate-600">
+                <RelatedTablePlainValue value={detailTableValue(item.metadata)} />
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableStatusChip value={detailTableValue(item.censorship)} tone="censorship" />
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableRatingChip rating={item.rating} />
               </td>
             </tr>
           ))}
@@ -2446,6 +2670,200 @@ function PerformerRelatedCatalogTable({
       </table>
     </div>
   );
+}
+
+function RelatedSortableHeader({
+  label,
+  sortLabel = label,
+  sortMode,
+  sortAsc,
+  sortDesc,
+  onSortModeChange,
+}: {
+  label: string;
+  sortLabel?: string;
+  sortMode: RelatedSortMode;
+  sortAsc: RelatedSortMode;
+  sortDesc: RelatedSortMode;
+  onSortModeChange: (sortMode: RelatedSortMode) => void;
+}) {
+  const activeAscending = sortMode === sortAsc;
+  const activeDescending = sortMode === sortDesc;
+  const active = activeAscending || activeDescending;
+  const nextSortMode = activeAscending ? sortDesc : sortAsc;
+
+  return (
+    <th
+      aria-sort={
+        activeAscending ? "ascending" : activeDescending ? "descending" : "none"
+      }
+      className="min-w-0 overflow-hidden px-3 py-3"
+    >
+      <button
+        type="button"
+        aria-label={`Sort by ${sortLabel}`}
+        title={`Sort by ${sortLabel}`}
+        className={[
+          "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-700 focus:outline-none",
+          active ? "text-sakura-800" : "",
+        ].join(" ")}
+        onClick={() => onSortModeChange(nextSortMode)}
+      >
+        <span className="truncate">{label}</span>
+        {active && (
+          <span aria-hidden="true" className="text-[10px] text-sakura-700">
+            {activeAscending ? "↑" : "↓"}
+          </span>
+        )}
+      </button>
+    </th>
+  );
+}
+
+function RelatedTablePlainValue({ value }: { value: string }) {
+  return (
+    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={value}>
+      {value}
+    </span>
+  );
+}
+
+function RelatedTableStatusChip({
+  value,
+  tone,
+}: {
+  value: string;
+  tone: "availability" | "censorship";
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border px-2.5 py-1 text-xs font-semibold",
+        relatedTableStatusToneClass(value, tone),
+      ].join(" ")}
+      title={value}
+      data-testid="performer-related-table-status-chip"
+    >
+      <span className="truncate">{value}</span>
+    </span>
+  );
+}
+
+function RelatedTableRatingChip({ rating }: { rating?: number | null }) {
+  const value =
+    typeof rating === "number" && Number.isFinite(rating)
+      ? rating.toFixed(1)
+      : "N/A";
+
+  return (
+    <span
+      className="inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border border-sakura-200 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-700"
+      title={value}
+      data-testid="performer-related-table-rating-chip"
+    >
+      {value}
+    </span>
+  );
+}
+
+function RelatedTableFavorite({
+  item,
+  kind,
+  index,
+}: {
+  item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
+  kind: "videos" | "images";
+  index: number;
+}) {
+  const [favorite, setFavorite] = useState(Boolean(item.favorite));
+
+  useEffect(() => {
+    setFavorite(Boolean(item.favorite));
+  }, [item.favorite, item.routeTo, item.title]);
+
+  function handleFavoriteClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!item.routeTo || item.unresolved) {
+      return;
+    }
+
+    const id = item.routeTo.split("/").pop();
+    if (!id) {
+      return;
+    }
+
+    const nextFavorite = !favorite;
+    setFavorite(nextFavorite);
+
+    if (!isTauriRuntimeAvailable()) {
+      return;
+    }
+
+    const updateFn = kind === "videos" ? updateVideo : updateImage;
+    updateFn(id, { favorite: nextFavorite })
+      .then((updatedRecord) => {
+        if (!updatedRecord) {
+          setFavorite(!nextFavorite);
+          return;
+        }
+        setFavorite(updatedRecord.favorite);
+      })
+      .catch(() => setFavorite(!nextFavorite));
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={favorite ? "Remove from Favorites" : "Add to Favorites"}
+      title={favorite ? "Favorite" : "Not favorite"}
+      disabled={!item.routeTo || item.unresolved}
+      className={[
+        "inline-flex size-9 items-center justify-center rounded-lg border transition focus:outline-none focus:ring-2 focus:ring-sakura-200 disabled:cursor-not-allowed disabled:opacity-50",
+        favorite
+          ? "border-sakura-200 bg-sakura-50 text-sakura-600"
+          : "border-slate-200 bg-white text-slate-400 hover:border-sakura-200 hover:text-sakura-500",
+      ].join(" ")}
+      data-testid="performer-related-table-favorite-button"
+      data-row-index={index}
+      onClick={handleFavoriteClick}
+    >
+      <Star size={16} fill={favorite ? "currentColor" : "none"} aria-hidden="true" />
+    </button>
+  );
+}
+
+function detailTableValue(value: string | number | null | undefined) {
+  const label = typeof value === "number" ? String(value) : value?.trim();
+  return label && !isEmptyDetailValue(label) ? label : "N/A";
+}
+
+function relatedTableStatusToneClass(
+  value: string,
+  tone: "availability" | "censorship",
+) {
+  if (value === "N/A") {
+    return "border-slate-200 bg-slate-50 text-slate-500";
+  }
+
+  if (tone === "availability") {
+    if (value === "Owned") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+    if (value === "Not Owned") {
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    }
+    if (value === "Missing") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+  }
+
+  if (value === "Unknown") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function sortRelatedCatalogRecords(
@@ -2456,7 +2874,12 @@ function sortRelatedCatalogRecords(
     .map((item, index) => ({
       item,
       index,
-      title: item.title.toLocaleLowerCase(),
+      availability: normalizedRelatedSortText(item.availability),
+      censorship: normalizedRelatedSortText(item.censorship),
+      code: normalizedRelatedSortText(item.code),
+      metric: relatedMetricSortValue(item.metadata),
+      rating: relatedRatingSortValue(item.rating),
+      title: normalizedRelatedSortText(item.title) ?? "",
       time: releaseDateTime(item.releaseDate),
     }))
     .sort((a, b) => {
@@ -2467,6 +2890,56 @@ function sortRelatedCatalogRecords(
         }
 
         return a.index - b.index;
+      }
+
+      if (sortMode === "availabilityAsc" || sortMode === "availabilityDesc") {
+        return compareRelatedTextSort(
+          a.availability,
+          b.availability,
+          a.index,
+          b.index,
+          sortMode === "availabilityAsc",
+        );
+      }
+
+      if (sortMode === "codeAsc" || sortMode === "codeDesc") {
+        return compareRelatedTextSort(
+          a.code,
+          b.code,
+          a.index,
+          b.index,
+          sortMode === "codeAsc",
+        );
+      }
+
+      if (sortMode === "metricAsc" || sortMode === "metricDesc") {
+        return compareRelatedNumberSort(
+          a.metric,
+          b.metric,
+          a.index,
+          b.index,
+          sortMode === "metricAsc",
+        );
+      }
+
+      if (sortMode === "censorshipAsc" || sortMode === "censorshipDesc") {
+        return compareRelatedTextSort(
+          a.censorship,
+          b.censorship,
+          a.index,
+          b.index,
+          sortMode === "censorshipAsc",
+        );
+      }
+
+      if (sortMode === "ratingAsc" || sortMode === "ratingDesc") {
+        return compareRelatedNumberSort(
+          a.rating,
+          b.rating,
+          a.index,
+          b.index,
+          sortMode === "ratingAsc",
+        );
       }
 
       const aMissing = a.time === null;
@@ -2484,6 +2957,95 @@ function sortRelatedCatalogRecords(
       return a.index - b.index;
     })
     .map(({ item }) => item);
+}
+
+function normalizedRelatedSortText(value: string | number | null | undefined) {
+  const text = typeof value === "number" ? String(value) : value?.trim();
+  return text && !isEmptyDetailValue(text) ? text.toLocaleLowerCase() : null;
+}
+
+function relatedMetricSortValue(value: string | number | null | undefined) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const text = value?.toString().trim();
+  if (!text || isEmptyDetailValue(text)) {
+    return null;
+  }
+
+  const numericMatch = text.match(/-?\d+(?:\.\d+)?/);
+  return numericMatch ? Number(numericMatch[0]) : null;
+}
+
+function relatedRatingSortValue(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function compareRelatedTextSort(
+  a: string | null,
+  b: string | null,
+  aIndex: number,
+  bIndex: number,
+  ascending: boolean,
+) {
+  if (a === null || b === null) {
+    if (a !== b) {
+      return a === null ? 1 : -1;
+    }
+    return aIndex - bIndex;
+  }
+
+  const comparison = a.localeCompare(b);
+  if (comparison !== 0) {
+    return ascending ? comparison : -comparison;
+  }
+  return aIndex - bIndex;
+}
+
+function compareRelatedNumberSort(
+  a: number | null,
+  b: number | null,
+  aIndex: number,
+  bIndex: number,
+  ascending: boolean,
+) {
+  if (a === null || b === null) {
+    if (a !== b) {
+      return a === null ? 1 : -1;
+    }
+    return aIndex - bIndex;
+  }
+
+  if (a !== b) {
+    return ascending ? a - b : b - a;
+  }
+  return aIndex - bIndex;
+}
+
+function filterRelatedCatalogRecords(
+  items: NonNullable<DetailSection["relatedCatalogRecords"]>,
+  query: string,
+) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    [
+      item.title,
+      item.originalTitle,
+      item.code,
+      item.publisherLabel,
+      item.metadata,
+      item.releaseDate,
+    ]
+      .filter(Boolean)
+      .some((value) =>
+        String(value).toLocaleLowerCase().includes(normalizedQuery),
+      ),
+  );
 }
 
 function releaseDateTime(value: string | undefined) {

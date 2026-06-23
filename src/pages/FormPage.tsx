@@ -127,7 +127,8 @@ const legacyPerformerSuggestionCacheResetKey =
   "sakurava.performerSuggestionCacheReset.v2";
 const performerSuggestionCacheVersionKey =
   "sakurava.performerSuggestionsCacheVersion";
-const performerSuggestionCacheVersion = "batch-33-3-suggestions-fresh-v1";
+const performerSuggestionCacheVersion = "batch-38-9-4-direct-field-history-v1";
+const performerSuggestionLimit = 30;
 const performerSuggestionCacheKeys = [
   hiddenPerformerSuggestionsKey,
   performerSuggestionCacheKey,
@@ -348,8 +349,13 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
   useEffect(() => {
     let cancelled = false;
 
-    if (config.kind !== "performers" || !isPerformerRuntimeAvailable()) {
+    if (config.kind !== "performers") {
       setPerformerSuggestionOptions({});
+      return;
+    }
+
+    if (!isPerformerRuntimeAvailable()) {
+      setPerformerSuggestionOptions(buildPerformerSuggestions([]));
       return;
     }
 
@@ -359,11 +365,16 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
           return;
         }
 
-        setPerformerSuggestionOptions(getStoredPerformerSuggestionCache());
+        setPerformerSuggestionOptions(
+          mergePerformerSuggestionCaches(
+            getStoredPerformerSuggestionCache(),
+            buildPerformerSuggestions(Array.isArray(performers) ? performers : []),
+          ),
+        );
       })
       .catch(() => {
         if (!cancelled) {
-          setPerformerSuggestionOptions({});
+          setPerformerSuggestionOptions(buildPerformerSuggestions([]));
         }
       });
 
@@ -508,10 +519,6 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
     sourceLinks,
   });
   const isDirty = currentSnapshot !== cleanSnapshot;
-  const performerTaxonomyOptions =
-    config.kind === "performers"
-      ? buildPerformerTaxonomyOptions(managedCategoryRecords)
-      : null;
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -598,6 +605,50 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
       void detectTechInfo(undefined, nextGalleryPaths);
     } catch {
       setGalleryFolderMessage("Unable to open image picker.");
+    }
+  }
+
+  const performerMiniThumbnailPaths = config.kind === "performers"
+    ? ["thumbnail1", "thumbnail2", "thumbnail3", "thumbnail4"]
+        .map((fieldName) => String(values[fieldName] ?? ""))
+        .filter((path) => path.trim())
+    : [];
+
+  function setPerformerMiniThumbnailPaths(paths: string[]) {
+    const compactPaths = paths
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .filter((path, index, allPaths) => allPaths.indexOf(path) === index)
+      .slice(0, 4);
+
+    setValues((current) => ({
+      ...current,
+      thumbnail1: compactPaths[0] ?? "",
+      thumbnail2: compactPaths[1] ?? "",
+      thumbnail3: compactPaths[2] ?? "",
+      thumbnail4: compactPaths[3] ?? "",
+    }));
+  }
+
+  async function addPerformerMiniThumbnailImages() {
+    if (!canBrowsePaths) {
+      return;
+    }
+
+    try {
+      const selectedPaths = await selectLocalImageFiles();
+      if (selectedPaths.length === 0) {
+        return;
+      }
+
+      setPerformerMiniThumbnailPaths([
+        ...performerMiniThumbnailPaths,
+        ...selectedPaths,
+      ]);
+      setSaveState("idle");
+    } catch {
+      setSaveState("error");
+      setSaveMessage("Unable to open image picker.");
     }
   }
 
@@ -967,7 +1018,7 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
         </>
       ) : (
         <>
-           <FormSection index={2} title="Media Assets">
+           <FormSection index={2} title="Files">
             <div className="space-y-6">
               <div className="border-b border-slate-100 pb-4">
                 {config.pathFields.map((field) => (
@@ -983,25 +1034,16 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
                 ))}
               </div>
 
-              <div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {config.performerSections?.media.map((field) => (
-                    <PathInputCompact
-                      key={field.name}
-                      field={field}
-                      value={String(values[field.name] ?? "")}
-                      browseLabel="Browse"
-                      browseDisabled={!canBrowsePaths}
-                      onChange={(value) => updateValue(field.name, value)}
-                      onBrowse={() => browsePath(field)}
-                    />
-                  ))}
-                </div>
-              </div>
+              <MiniThumbnailPathRows
+                paths={performerMiniThumbnailPaths}
+                onChange={setPerformerMiniThumbnailPaths}
+                addImagesDisabled={!canBrowsePaths || performerMiniThumbnailPaths.length >= 4}
+                onAddImages={addPerformerMiniThumbnailImages}
+              />
             </div>
           </FormSection>
 
-          <FormSection index={3} title="Status & Activity">
+          <FormSection index={3} title="Metadata">
             <FieldGrid>
               <PerformerStatusBadge
                 value={derivePerformerStatusDisplay(
@@ -1027,6 +1069,7 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
                 label="Pictorials"
                 value={String(performerRelatedImages.length)}
               />
+              <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
 
@@ -1048,21 +1091,13 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
                       field={field}
                       value={String(values[field.name] ?? "")}
                       onChange={(value) => updateValue(field.name, value)}
-                      suggestions={performerSuggestionOptions[field.name] ?? []}
+                      recentSuggestions={performerSuggestionOptions[field.name] ?? []}
                       onHideSuggestion={(suggestion) =>
                         removePerformerSuggestion(field.name, suggestion)
                       }
                     />
                   )
                 ))}
-              {performerTaxonomyOptions && (
-                <PerformerTaxonomyFields
-                  genderOptions={performerTaxonomyOptions.gender}
-                  bodyTypeOptions={performerTaxonomyOptions.bodyType}
-                  selectedCategories={categories}
-                  onChange={setCategories}
-                />
-              )}
               {config.performerSections?.physical
                 .map((field) => (
                   field.name === "measurements" ? (
@@ -1077,14 +1112,13 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
                       field={field}
                       value={String(values[field.name] ?? "")}
                       onChange={(value) => updateValue(field.name, value)}
-                      suggestions={performerSuggestionOptions[field.name] ?? []}
+                      recentSuggestions={performerSuggestionOptions[field.name] ?? []}
                       onHideSuggestion={(suggestion) =>
                         removePerformerSuggestion(field.name, suggestion)
                       }
                     />
                   )
                 ))}
-              <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
         </>
@@ -1446,18 +1480,19 @@ function TextInput({
   value,
   onChange,
   inactive = false,
-  suggestions = [],
+  recentSuggestions = [],
   onHideSuggestion,
 }: {
   field: TextField;
   value: string;
   onChange: (value: string) => void;
   inactive?: boolean;
-  suggestions?: string[];
+  recentSuggestions?: string[];
   onHideSuggestion?: (suggestion: string) => void;
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const hasSuggestions = suggestions.length > 0 && onHideSuggestion && !inactive;
+  const hasRecentSuggestions =
+    recentSuggestions.length > 0 && onHideSuggestion && !inactive;
 
   return (
     <label className={FORM_ROW_STYLES}>
@@ -1491,40 +1526,62 @@ function TextInput({
               {field.helper}
             </span>
           )}
-          {hasSuggestions && showSuggestions && (
+          {hasRecentSuggestions && showSuggestions && (
             <span
-              className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+              role="listbox"
+              className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
               aria-label={`${field.label} suggestions`}
             >
-              {suggestions.map((suggestion) => (
-                <span
+              {recentSuggestions.map((suggestion) => (
+                <SuggestionOption
                   key={suggestion}
-                  className="flex items-center justify-between gap-2 px-2 py-1"
-                >
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => onChange(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                    aria-label={`Remove ${field.label} suggestion ${suggestion}`}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => onHideSuggestion(suggestion)}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
+                  suggestion={suggestion}
+                  removeLabel={`Remove ${field.label} suggestion ${suggestion}`}
+                  onHide={onHideSuggestion}
+                  onSelect={onChange}
+                />
               ))}
             </span>
           )}
         </span>
       </span>
     </label>
+  );
+}
+
+function SuggestionOption({
+  suggestion,
+  removeLabel,
+  onHide,
+  onSelect,
+}: {
+  suggestion: string;
+  removeLabel?: string;
+  onHide?: (suggestion: string) => void;
+  onSelect: (suggestion: string) => void;
+}) {
+  return (
+    <span className="flex items-center justify-between gap-2 px-2 py-1">
+      <button
+        type="button"
+        className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => onSelect(suggestion)}
+      >
+        {suggestion}
+      </button>
+      {onHide && removeLabel && (
+        <button
+          type="button"
+          className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+          aria-label={removeLabel}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onHide(suggestion)}
+        >
+          <X size={12} />
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -1753,6 +1810,83 @@ function GalleryImagePathRows({
   );
 }
 
+function MiniThumbnailPathRows({
+  paths,
+  onChange,
+  addImagesDisabled,
+  onAddImages,
+}: {
+  paths: string[];
+  onChange: (paths: string[]) => void;
+  addImagesDisabled: boolean;
+  onAddImages: () => void;
+}) {
+  function updatePath(index: number, value: string) {
+    const nextPaths = paths.map((path, currentIndex) =>
+      currentIndex === index ? value : path,
+    );
+    onChange(nextPaths);
+  }
+
+  function removePath(index: number) {
+    onChange(paths.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  return (
+    <div className={FORM_ROW_START_STYLES}>
+      <span className="pt-2">Mini Thumbnail Paths</span>
+      <div className="grid gap-3">
+        <div
+          className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2"
+          data-testid="performer-mini-thumbnail-path-list"
+        >
+          {paths.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
+              No Mini Thumbnail Path rows added.
+            </p>
+          ) : (
+            paths.map((path, index) => (
+              <div
+                key={`${path}-${index}`}
+                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px]"
+              >
+                <input
+                  className={inputClass(false)}
+                  aria-label={`Mini Thumbnail Path ${index + 1}`}
+                  value={path}
+                  onChange={(event) => updatePath(index, event.target.value)}
+                />
+                <button
+                  type="button"
+                  className={BUTTON_STYLES.iconDanger}
+                  aria-label={`Remove Mini Thumbnail Path ${index + 1}`}
+                  title="Remove"
+                  onClick={() => removePath(index)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={addImagesDisabled}
+            className={BUTTON_STYLES.action}
+            onClick={onAddImages}
+          >
+            Add Images
+          </button>
+          <span className="text-xs font-semibold text-slate-500">
+            {paths.length}/4 selected
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SelectInput({
   label,
   value,
@@ -1884,7 +2018,7 @@ function PerformerStatusBadge({
 
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>Status</span>
+      <span>Availability</span>
       <div className="flex flex-wrap items-center gap-2.5">
         {options.map((option) => {
           const isSelected = value === option;
@@ -1917,7 +2051,7 @@ function PerformerStatusBadge({
           className="sr-only"
           readOnly
           value={value}
-          aria-label="Status"
+          aria-label="Availability"
         />
       </div>
     </div>
@@ -2031,90 +2165,6 @@ function ChipInput({
               <option key={option} value={option} />
             ))}
           </datalist>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PerformerTaxonomyFields({
-  genderOptions,
-  bodyTypeOptions,
-  selectedCategories,
-  onChange,
-}: {
-  genderOptions: TaxonomyCategoryOption[];
-  bodyTypeOptions: TaxonomyCategoryOption[];
-  selectedCategories: string[];
-  onChange: Dispatch<SetStateAction<string[]>>;
-}) {
-  return (
-    <>
-      <TaxonomySelect
-        label="Gender"
-        placeholder="Select gender"
-        emptyMessage="No Gender categories found"
-        options={genderOptions}
-        selectedCategories={selectedCategories}
-        onChange={onChange}
-      />
-      <TaxonomySelect
-        label="Body Type"
-        placeholder="Select body type"
-        emptyMessage="No Body Type categories found"
-        options={bodyTypeOptions}
-        selectedCategories={selectedCategories}
-        onChange={onChange}
-      />
-    </>
-  );
-}
-
-function TaxonomySelect({
-  label,
-  placeholder,
-  emptyMessage,
-  options,
-  selectedCategories,
-  onChange,
-}: {
-  label: string;
-  placeholder: string;
-  emptyMessage: string;
-  options: TaxonomyCategoryOption[];
-  selectedCategories: string[];
-  onChange: Dispatch<SetStateAction<string[]>>;
-}) {
-  const optionLabels = new Set(options.map((option) => option.name));
-  const selectedValue =
-    selectedCategories.find((category) => optionLabels.has(category)) ?? "";
-  const disabled = options.length === 0;
-
-  return (
-    <div className={FORM_ROW_START_STYLES}>
-      <label className="pt-2" htmlFor={`performer-taxonomy-${taxonomyFieldId(label)}`}>
-        {label}
-      </label>
-      <div className="grid gap-1.5">
-        <select
-          id={`performer-taxonomy-${taxonomyFieldId(label)}`}
-          aria-label={label}
-          value={selectedValue}
-          disabled={disabled}
-          className={inputClass(disabled)}
-          onChange={(event) => {
-            updateTaxonomyCategorySelection(onChange, options, event.target.value);
-          }}
-        >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option.key} value={option.name}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        {disabled && (
-          <p className="text-xs font-semibold text-slate-500">{emptyMessage}</p>
         )}
       </div>
     </div>
@@ -2424,96 +2474,6 @@ type CategoryOption = {
   pathParts: string[];
 };
 
-type TaxonomyCategoryOption = {
-  key: string;
-  name: string;
-};
-
-function buildPerformerTaxonomyOptions(categories: ManagedCategory[]) {
-  return {
-    gender: childTaxonomyOptions(categories, ["gender"]),
-    bodyType: childTaxonomyOptions(categories, [
-      "bodytype",
-      "body type",
-      "body-type",
-      "body_type",
-    ]),
-  };
-}
-
-function childTaxonomyOptions(
-  categories: ManagedCategory[],
-  parentAliases: string[],
-): TaxonomyCategoryOption[] {
-  const parent = findTaxonomyParent(categories, parentAliases);
-  if (!parent) {
-    return [];
-  }
-
-  return categories
-    .filter((category) =>
-      category.parentKey === parent.key &&
-      category.showInPerformers &&
-      category.name.trim(),
-    )
-    .map((category) => ({
-      key: category.key,
-      name: category.name.trim(),
-    }));
-}
-
-function findTaxonomyParent(
-  categories: ManagedCategory[],
-  aliases: string[],
-) {
-  const normalizedAliases = aliases.map(normalizeTaxonomyName);
-  const matchingParents = categories.filter((category) =>
-    !category.parentKey &&
-    normalizedAliases.includes(normalizeTaxonomyName(category.name)),
-  );
-
-  return matchingParents.sort((first, second) => {
-    const firstExactRank = exactTaxonomyAliasRank(first.name, aliases);
-    const secondExactRank = exactTaxonomyAliasRank(second.name, aliases);
-    if (firstExactRank !== secondExactRank) {
-      return firstExactRank - secondExactRank;
-    }
-    return categories.indexOf(first) - categories.indexOf(second);
-  })[0] ?? null;
-}
-
-function exactTaxonomyAliasRank(name: string, aliases: string[]) {
-  const normalizedName = name.trim().toLowerCase();
-  const exactIndex = aliases.findIndex(
-    (alias) => alias.trim().toLowerCase() === normalizedName,
-  );
-  return exactIndex === -1 ? Number.MAX_SAFE_INTEGER : exactIndex;
-}
-
-function normalizeTaxonomyName(value: string) {
-  return value.trim().toLowerCase().replace(/[\s_-]/g, "");
-}
-
-function taxonomyFieldId(label: string) {
-  return label.toLowerCase().replace(/\s+/g, "-");
-}
-
-function updateTaxonomyCategorySelection(
-  onChange: Dispatch<SetStateAction<string[]>>,
-  options: TaxonomyCategoryOption[],
-  value: string,
-) {
-  const optionNames = new Set(options.map((option) => option.name));
-  onChange((current) => {
-    const withoutPreviousTaxonomy = current.filter(
-      (category) => !optionNames.has(category),
-    );
-    return value
-      ? normalizeFormCategories([...withoutPreviousTaxonomy, value])
-      : normalizeFormCategories(withoutPreviousTaxonomy);
-  });
-}
-
 function buildCategoryOptions(
   managedCategories: string[],
   managedCategoryRecords: ManagedCategory[],
@@ -2745,31 +2705,8 @@ function derivePerformerStatusDisplay(debutDate: string, retiredDate: string) {
   return "Unknown";
 }
 
-function buildPerformerSuggestions(performers: Performer[]) {
-  const recentPerformers = [...performers].sort(
-    (left, right) => performerSuggestionTime(right) - performerSuggestionTime(left),
-  );
-
-  return {
-    birthplace: uniqueSuggestions(recentPerformers.map((performer) => performer.birthplace))
-      .slice(0, 10),
-    nationality: uniqueSuggestions(recentPerformers.map((performer) => performer.nationality))
-      .slice(0, 10),
-    bloodType: uniqueSuggestions(recentPerformers.map((performer) => performer.bloodType))
-      .slice(0, 10),
-    cupSize: uniqueSuggestions(recentPerformers.map((performer) => performer.cupSize))
-      .slice(0, 10),
-  };
-}
-
-function performerSuggestionTime(performer: Performer) {
-  const updatedAt = Date.parse(String(performer.updatedAt ?? ""));
-  if (Number.isFinite(updatedAt)) {
-    return updatedAt;
-  }
-
-  const createdAt = Date.parse(String(performer.createdAt ?? ""));
-  return Number.isFinite(createdAt) ? createdAt : 0;
+function buildPerformerSuggestions(_performers: Performer[]) {
+  return getStoredPerformerSuggestionCache();
 }
 
 function removeCachedPerformerSuggestion(
@@ -2826,7 +2763,10 @@ function addCachedPerformerSuggestion(
 
   return {
     ...current,
-    [fieldName]: [normalizedSuggestion, ...remainingSuggestions].slice(0, 10),
+    [fieldName]: [normalizedSuggestion, ...remainingSuggestions].slice(
+      0,
+      performerSuggestionLimit,
+    ),
   };
 }
 
@@ -2840,7 +2780,7 @@ function mergePerformerSuggestionCaches(
       uniqueSuggestions([
         ...(primary[fieldName] ?? []),
         ...(fallback[fieldName] ?? []),
-      ]).slice(0, 10),
+      ]).slice(0, performerSuggestionLimit),
     ]),
   );
 }
@@ -2859,7 +2799,7 @@ function getStoredPerformerSuggestionCache() {
         .filter(([, values]) => Array.isArray(values))
         .map(([fieldName, values]) => [
           fieldName,
-          uniqueSuggestions(values as string[]).slice(0, 10),
+          uniqueSuggestions(values as string[]).slice(0, performerSuggestionLimit),
         ]),
     );
   } catch {
@@ -2889,6 +2829,7 @@ function resetPerformerSuggestionCachesOnce() {
 }
 
 const performerSuggestionFieldNames = [
+  "gender",
   "birthplace",
   "nationality",
   "bloodType",
