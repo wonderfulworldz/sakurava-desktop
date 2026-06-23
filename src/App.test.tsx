@@ -9061,8 +9061,6 @@ describe("App", () => {
     const sourceSection = screen
       .getByRole("heading", { name: "Source Links" })
       .closest("section") as HTMLElement;
-    const link = within(sourceSection).getByRole("link", { name: /Open source/ });
-
     const sourceIcon = sourceSection
       .querySelector("[data-testid='detail-section-icon'] svg");
     expect(sourceIcon).not.toBeNull();
@@ -9072,12 +9070,63 @@ describe("App", () => {
     expect(within(sourceSection).queryByText("Source URL")).not.toBeInTheDocument();
     expect(within(sourceSection).getByText(/^(Studio|Image|Performer) source$/))
       .toBeInTheDocument();
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noreferrer");
-    expect(link).toHaveTextContent(/^https:\/\/example\.invalid\//);
-    expect(link).toHaveClass("truncate");
+    expect(within(sourceSection).getByText(/^https:\/\/example\.invalid\//))
+      .toHaveClass("truncate");
+    expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
     expect(within(sourceSection).queryByText(/sourceLinksJson/))
       .not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      expect.stringMatching(/create|update|delete/i),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    ["javascript:alert(1)", "Script source"],
+    ["data:text/plain,source", "Data source"],
+    ["file:///D:/source.txt", "File source"],
+    ["https://", "Malformed source"],
+  ])("blocks unsafe Detail Source Link URL %s", async (sourceUrl, sourceTitle) => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Unsafe Source Video",
+          sourceLinksJson: JSON.stringify([{ title: sourceTitle, url: sourceUrl }]),
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Unsafe Source Video")).toBeInTheDocument();
+    const sourceSection = screen
+      .getByRole("heading", { name: "Source Links" })
+      .closest("section") as HTMLElement;
+
+    expect(within(sourceSection).getByText(sourceTitle)).toBeInTheDocument();
+    expect(within(sourceSection).getByText(sourceUrl)).toBeInTheDocument();
+    expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      expect.stringMatching(/create|update|delete/i),
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it("renders Source Links URL as N/A when missing", async () => {
@@ -9162,6 +9211,76 @@ describe("App", () => {
     expect(metadataRow).toHaveClass("min-w-0");
   });
 
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      getCommand: "video_get",
+      listCommands: ["performer_list", "image_list"],
+      record: persistedVideo({
+        title: "Many Category Video",
+        categoriesJson: JSON.stringify([
+          "Category 1",
+          "Category 2",
+          "Category 3",
+          "Category 4",
+          "Category 5",
+          "Category 6",
+          "Category 7",
+        ]),
+      }),
+    },
+    {
+      path: "/images/image_test_001",
+      getCommand: "image_get",
+      listCommands: ["performer_list", "video_list"],
+      record: persistedImage({
+        title: "Many Category Image",
+        categoriesJson: JSON.stringify([
+          "Image Category 1",
+          "Image Category 2",
+          "Image Category 3",
+          "Image Category 4",
+          "Image Category 5",
+          "Image Category 6",
+          "Image Category 7",
+        ]),
+      }),
+    },
+  ])(
+    "renders one-row collapsed category chips with overflow on $path",
+    async ({ path, getCommand, listCommands, record }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (command: string) => {
+        if (command === getCommand) {
+          return record;
+        }
+        if (listCommands.includes(command)) {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText(record.title as string)).toBeInTheDocument();
+      const chipRow = screen.getByTestId("detail-category-chip-row");
+      expect(chipRow).toHaveClass("flex-nowrap", "overflow-hidden");
+      expect(chipRow).not.toHaveClass("flex-wrap");
+      expect(within(chipRow).getByRole("button", { name: "Show 2 more categories" }))
+        .toHaveTextContent("+2");
+      expect(within(chipRow).queryByText(/Category 7$/)).not.toBeInTheDocument();
+
+      fireEvent.click(within(chipRow).getByRole("button", { name: "Show 2 more categories" }));
+
+      expect(chipRow).toHaveClass("flex-wrap");
+      expect(within(chipRow).getByText(/Category 7$/)).toBeInTheDocument();
+      expect(within(chipRow).getByRole("button", { name: "Collapse categories" }))
+        .toHaveTextContent("Show less");
+    },
+  );
+
   it("keeps very long related LiteCard titles clamped and stats truncated", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const longRelatedTitle =
@@ -9205,6 +9324,539 @@ describe("App", () => {
     expect(imageCount).toHaveClass("truncate");
     expect(imageCount.closest(".grid")).toHaveClass("min-w-0");
   });
+
+  it("renders Video Detail related performers and images in redesigned carousel pages", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const scrollToMock = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollToMock,
+    });
+    let relatedPerformers = Array.from({ length: 20 }, (_, index) =>
+      persistedPerformer({
+        id: `performer_slider_${index + 1}`,
+        name: `Carousel Performer ${index + 1}`,
+      }),
+    );
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Carousel Related Video",
+          relatedPerformersJson: JSON.stringify(
+            Array.from({ length: 20 }, (_, index) => ({
+              performerId: `performer_slider_${index + 1}`,
+              nameSnapshot: `Snapshot Performer ${index + 1}`,
+            })),
+          ),
+          relatedImagesJson: JSON.stringify(
+            Array.from({ length: 20 }, (_, index) => ({
+              recordId: `image_slider_${index + 1}`,
+              titleSnapshot: `Snapshot Image ${index + 1}`,
+            })),
+          ),
+        });
+      }
+      if (command === "performer_list") {
+        return relatedPerformers;
+      }
+      if (command === "performer_get") {
+        return persistedPerformer({
+          id: args.id,
+          name: `Loaded ${args.id}`,
+        });
+      }
+      if (command === "performer_update") {
+        const performerIndex = relatedPerformers.findIndex(
+          (performer) => performer.id === args.id,
+        );
+        expect(performerIndex).toBeGreaterThanOrEqual(0);
+        relatedPerformers = relatedPerformers.map((performer, index) =>
+          index === performerIndex
+            ? { ...performer, favorite: args.patch.favorite }
+            : performer,
+        );
+        return relatedPerformers[performerIndex];
+      }
+      if (command === "image_list") {
+        return Array.from({ length: 20 }, (_, index) =>
+          persistedImage({
+            id: `image_slider_${index + 1}`,
+            title: `Carousel Image ${index + 1}`,
+          }),
+        );
+      }
+      if (command === "image_get") {
+        return persistedImage({
+          id: args.id,
+          title: `Loaded ${args.id}`,
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Carousel Related Video")).toBeInTheDocument();
+    for (const [heading, countLabel] of [
+      ["Related Performers", "20 Performers"],
+      ["Related Images", "20 Images"],
+    ] as const) {
+      const section = screen.getByRole("heading", { name: heading }).closest("section");
+      expect(section).not.toBeNull();
+      const count = within(section as HTMLElement).getByText(countLabel);
+      expect(count).toBeInTheDocument();
+      expect(count).toHaveClass("text-sm", "text-slate-500");
+      expect(count).not.toHaveClass("rounded-md", "bg-slate-100", "border");
+      expect(within(section as HTMLElement).queryByText(/Read-only Related/i))
+        .not.toBeInTheDocument();
+      const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+      expect(carousel).toHaveAttribute("aria-label", `${heading} carousel`);
+      expect(carousel).toHaveAttribute("tabindex", "0");
+      expect(carousel).toHaveClass("overflow-hidden");
+      expect(carousel).not.toHaveClass("overflow-x-auto");
+      expect(carousel).not.toHaveClass("focus-visible:ring-2");
+      expect(carousel).not.toHaveClass("focus-visible:ring-sakura-300");
+      expect(carousel).not.toHaveClass("group");
+      expect(carousel).toHaveClass("group/carousel");
+      expect(carousel).toHaveAttribute("data-visible-count", "5");
+      expect(carousel).toHaveAttribute("data-rendered-count", "20");
+      expect(carousel).toHaveAttribute("data-total-count", "20");
+      expect(carousel).toHaveAttribute("data-page-count", "4");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card"))
+        .toHaveLength(20);
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window"))
+        .toHaveLength(4);
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveClass("basis-full", "shrink-0", "gap-2");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
+      const track = within(carousel).getByTestId("detail-related-carousel-track");
+      expect(track)
+        .toHaveClass("w-full", "transition-transform", "duration-300", "ease-out");
+      expect(track).not.toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto", "scroll-smooth");
+      expect(track).toHaveStyle({ transform: "translateX(-0%)" });
+      expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
+        .toHaveClass("min-h-[18rem]");
+      expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
+        .toHaveClass("overflow-hidden");
+      expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
+        .not.toHaveClass("cursor-grab");
+      const firstCardShell = within(carousel).getAllByTestId("detail-related-carousel-card")[0];
+      expect(firstCardShell)
+        .toHaveClass("flex", "h-[17rem]", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0");
+      expect(firstCardShell).not.toHaveClass("shrink-0", "snap-start");
+      expect(firstCardShell.getAttribute("style") ?? "")
+        .not.toContain("flex-basis");
+      expect(within(carousel).getByTestId("detail-related-carousel-controls"))
+        .toHaveClass("min-h-9");
+      const previousButton = within(carousel).getByRole("button", { name: "Previous related items" });
+      const nextButton = within(carousel).getByRole("button", { name: "Next related items" });
+      expect(previousButton)
+        .toBeDisabled();
+      expect(previousButton).toHaveClass("focus-visible:ring-2");
+      expect(nextButton)
+        .not.toHaveClass("opacity-0");
+      expect(nextButton).toHaveClass("focus-visible:ring-2");
+      expect(nextButton).not.toHaveClass("absolute");
+      expect(within(carousel).getAllByRole("button", { name: /Go to .* page/ }))
+        .toHaveLength(4);
+      expect(within(carousel).getByRole("button", { name: `Go to ${heading} page 1` }))
+        .toHaveAttribute("aria-current", "page");
+      expect(within(carousel).getByRole("button", { name: `Go to ${heading} page 1` }))
+        .toHaveClass("focus-visible:ring-2");
+    }
+
+    const performersSection = screen.getByRole("heading", { name: "Related Performers" }).closest("section") as HTMLElement;
+    const performersCarousel = within(performersSection).getByTestId("detail-related-carousel");
+    expect(within(performersCarousel).getByText("Carousel Performer 1")).toBeInTheDocument();
+    expect(within(performersCarousel).getByText("Carousel Performer 16")).toBeInTheDocument();
+    const locationBeforeArrowClick = window.location.pathname;
+    fireEvent.click(within(performersCarousel).getByRole("button", { name: "Next related items" }));
+    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 2" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(performersCarousel).toHaveAttribute("data-active-page", "2");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-100%)" });
+
+    fireEvent.keyDown(performersCarousel, { key: "End" });
+    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 4" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-300%)" });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+
+    fireEvent.keyDown(performersCarousel, { key: "Home" });
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    fireEvent.keyDown(performersCarousel, { key: "ArrowLeft" });
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    fireEvent.keyDown(performersCarousel, { key: "ArrowRight" });
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 2" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-100%)" });
+    fireEvent.click(within(performersCarousel).getByRole("button", { name: "Previous related items" }));
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-0%)" });
+
+    fireEvent.click(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 3" }));
+    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 3" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-200%)" });
+    expect(within(performersCarousel).getByText("Carousel Performer 11")).toBeInTheDocument();
+    fireEvent.transitionEnd(within(performersCarousel).getByTestId("detail-related-carousel-track"));
+    expect(within(performersCarousel).getByText("Carousel Performer 1")).toBeInTheDocument();
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 3" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-200%)" });
+
+    fireEvent.keyDown(performersCarousel, { key: "Home" });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Carousel Performer 1").closest("a"))
+      .toHaveAttribute("href", "/performers/performer_slider_1");
+    expect(screen.getByText("Carousel Image 1").closest("a"))
+      .toHaveAttribute("href", "/images/image_slider_1");
+    fireEvent.pointerDown(within(performersCarousel).getByText("Carousel Performer 1").closest("a") as HTMLElement, {
+      clientX: 12,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(within(performersCarousel).getByText("Carousel Performer 1").closest("a") as HTMLElement, {
+      clientX: 96,
+      pointerId: 1,
+    });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    fireEvent.click(within(performersCarousel).getAllByRole("button", { name: "Favorite" })[0]);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "performer_update",
+        expect.objectContaining({
+          id: "performer_slider_1",
+          patch: expect.objectContaining({ favorite: false }),
+        }),
+        undefined,
+      );
+    });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section") as HTMLElement;
+    expect(within(imagesSection).getByText("Carousel Image 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Carousel Performer 1").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/performers/performer_slider_1");
+  });
+
+  it("clicking a Video Detail related image card navigates to Image Detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Related Image Navigation Video",
+          relatedImagesJson:
+            '[{"recordId":"image_nav","titleSnapshot":"Related Image Nav"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_nav",
+            title: "Related Image Nav",
+          }),
+        ];
+      }
+      if (command === "image_get") {
+        return persistedImage({
+          id: args.id,
+          title: "Loaded Related Image Nav",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Image Navigation Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Related Image Nav").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/images/image_nav");
+  });
+
+  it("renders Image Detail related performers and videos in carousel viewports", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Carousel Related Image",
+          relatedPerformersJson:
+            '[{"performerId":"performer_slider","nameSnapshot":"Snapshot Performer"}]',
+          relatedVideosJson:
+            '[{"recordId":"video_slider","titleSnapshot":"Snapshot Video"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_slider",
+            name: "Image Slider Performer",
+          }),
+        ];
+      }
+      if (command === "performer_get") {
+        return persistedPerformer({
+          id: args.id,
+          name: "Loaded Image Slider Performer",
+        });
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_slider",
+            title: "Image Slider Video",
+          }),
+        ];
+      }
+      if (command === "video_get") {
+        return persistedVideo({
+          id: args.id,
+          title: "Loaded Image Slider Video",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Carousel Related Image")).toBeInTheDocument();
+    for (const heading of ["Related Performers", "Related Videos"]) {
+      const section = screen.getByRole("heading", { name: heading }).closest("section");
+      expect(section).not.toBeNull();
+      expect(within(section as HTMLElement).getByText(heading === "Related Performers" ? "1 Performer" : "1 Video"))
+        .toBeInTheDocument();
+      const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+      expect(carousel).toHaveClass("overflow-hidden");
+      expect(carousel).toHaveAttribute("data-visible-count", "5");
+      expect(carousel).toHaveAttribute("data-rendered-count", "1");
+      expect(carousel).toHaveAttribute("data-total-count", "1");
+      expect(within(carousel).queryByRole("button", { name: "Next related items" }))
+        .not.toBeInTheDocument();
+      expect(within(carousel).getByTestId("detail-related-carousel-window"))
+        .toHaveClass("basis-full", "shrink-0", "gap-2");
+      expect(within(carousel).getByTestId("detail-related-carousel-window"))
+        .toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .toHaveClass("w-full", "transition-transform");
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .not.toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto");
+      expect(within(carousel).getByTestId("detail-related-carousel-card"))
+        .toHaveClass("h-[17rem]", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0");
+    }
+    expect(screen.getByText("Image Slider Performer").closest("a"))
+      .toHaveAttribute("href", "/performers/performer_slider");
+    expect(screen.getByText("Image Slider Video").closest("a"))
+      .toHaveAttribute("href", "/videos/video_slider");
+    fireEvent.click(screen.getByText("Image Slider Performer").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/performers/performer_slider");
+  });
+
+  it("clicking an Image Detail related video card navigates to Video Detail", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Related Video Navigation Image",
+          relatedVideosJson:
+            '[{"recordId":"video_nav","titleSnapshot":"Related Video Nav"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_nav",
+            title: "Related Video Nav",
+          }),
+        ];
+      }
+      if (command === "video_get") {
+        return persistedVideo({
+          id: args.id,
+          title: "Loaded Related Video Nav",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Video Navigation Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Related Video Nav").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/videos/video_nav");
+  });
+
+  it("reduces Detail related carousel visible count in narrow windows", async () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 520,
+    });
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Narrow Carousel Video",
+          relatedPerformersJson: JSON.stringify(
+            Array.from({ length: 9 }, (_, index) => ({
+              performerId: `narrow_performer_${index + 1}`,
+              nameSnapshot: `Narrow Performer ${index + 1}`,
+            })),
+          ),
+        });
+      }
+      if (command === "performer_list") {
+        return Array.from({ length: 9 }, (_, index) =>
+          persistedPerformer({
+            id: `narrow_performer_${index + 1}`,
+            name: `Narrow Performer ${index + 1}`,
+          }),
+        );
+      }
+      if (command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Narrow Carousel Video")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Performers" }).closest("section");
+    expect(section).not.toBeNull();
+    const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+
+    await waitFor(() => {
+      expect(carousel).toHaveAttribute("data-visible-count", "2");
+    });
+    expect(carousel).toHaveAttribute("data-page-count", "5");
+    expect(carousel).toHaveAttribute("data-rendered-count", "9");
+    expect(within(carousel).getAllByTestId("detail-related-carousel-card"))
+      .toHaveLength(9);
+    expect(within(carousel).getAllByTestId("detail-related-carousel-window"))
+      .toHaveLength(5);
+    expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+      .toHaveClass("gap-2");
+    expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+      .toHaveStyle({ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" });
+    expect(within(carousel).getByTestId("detail-related-carousel-track"))
+      .toHaveClass("w-full", "transition-transform");
+    expect(within(carousel).getByTestId("detail-related-carousel-track"))
+      .not.toHaveClass("overflow-x-auto", "snap-x");
+    expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+      .not.toHaveClass("shrink-0", "snap-start");
+
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1024,
+    });
+  });
+
+  it.each([
+    { width: 900, visibleCount: 4, pageCount: 2 },
+    { width: 700, visibleCount: 3, pageCount: 3 },
+    { width: 320, visibleCount: 1, pageCount: 7 },
+  ])(
+    "uses $visibleCount-card responsive basis for $width px related carousel",
+    async ({ width, visibleCount, pageCount }) => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: width,
+      });
+      window.history.pushState({}, "", "/videos/video_test_001");
+      const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+        if (command === "video_get") {
+          expect(args.id).toBe("video_test_001");
+          return persistedVideo({
+            title: `Responsive ${visibleCount} Carousel Video`,
+            relatedPerformersJson: JSON.stringify(
+              Array.from({ length: 7 }, (_, index) => ({
+                performerId: `responsive_performer_${index + 1}`,
+                nameSnapshot: `Responsive Performer ${index + 1}`,
+              })),
+            ),
+          });
+        }
+        if (command === "performer_list") {
+          return Array.from({ length: 7 }, (_, index) =>
+            persistedPerformer({
+              id: `responsive_performer_${index + 1}`,
+              name: `Responsive Performer ${index + 1}`,
+            }),
+          );
+        }
+        if (command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText(`Responsive ${visibleCount} Carousel Video`))
+        .toBeInTheDocument();
+      const section = screen.getByRole("heading", { name: "Related Performers" }).closest("section");
+      expect(section).not.toBeNull();
+      const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+
+      await waitFor(() => {
+        expect(carousel).toHaveAttribute("data-visible-count", String(visibleCount));
+      });
+      expect(carousel).toHaveAttribute("data-page-count", String(pageCount));
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .toHaveClass("w-full", "transition-transform");
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .not.toHaveClass("overflow-x-auto", "snap-x", "scroll-smooth");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveClass("gap-2");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveStyle({
+          gridTemplateColumns: `repeat(${visibleCount}, minmax(0, 1fr))`,
+        });
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+        .toHaveClass("h-[17rem]", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+        .not.toHaveClass("shrink-0", "snap-start");
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 1024,
+      });
+    },
+  );
 
   it("renders saved Performer mini thumbnails and opens thumbnail preview", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");

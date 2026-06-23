@@ -18,7 +18,17 @@ import {
   type LucideIcon,
   UserRound,
 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  Children,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
@@ -83,6 +93,9 @@ type DetailFavoriteAction = {
   isPending: boolean;
   onToggle: () => void;
 };
+
+const DETAIL_CHIP_VISIBLE_LIMIT = 5;
+const RELATED_CAROUSEL_VISIBLE_COUNT = 5;
 
 function DetailPage({ config }: DetailPageProps) {
   const [favorite, setFavorite] = useState(config.favorite);
@@ -303,11 +316,10 @@ function CatalogIdentity({
       {config.categories.length > 0 && (
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-semibold text-slate-800">Categories</p>
-          <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-            {config.categories.map((category) => (
-              <Chip key={category} label={category} tone="pinkSoft" />
-            ))}
-          </div>
+          <OverflowChipList
+            ariaLabel="Detail categories"
+            labels={config.categories}
+          />
         </div>
       )}
     </div>
@@ -427,7 +439,7 @@ function PerformerProfileCard({
       {config.categories.length > 0 && (
         <>
           <Divider />
-          <LabelBlock title="Categories" labels={config.categories} />
+          <LabelBlock title="Categories" labels={config.categories} oneRowOverflow />
         </>
       )}
     </section>
@@ -1265,22 +1277,15 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
               <span className="min-w-0 truncate font-semibold text-slate-700" title={link.title}>
                 {link.title}
               </span>
-              {link.safe ? (
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={link.url}
-                  className="min-w-0 truncate text-sakura-600 underline-offset-4 hover:underline"
-                  aria-label={`Open source URL ${link.url}`}
-                >
-                  {link.url}
-                </a>
-              ) : (
-                <span className="min-w-0 truncate text-slate-500" title={link.url}>
-                  {link.url || "N/A"}
-                </span>
-              )}
+              <span
+                className={[
+                  "min-w-0 truncate",
+                  link.safeUrl ? "text-sakura-600" : "text-slate-500",
+                ].join(" ")}
+                title={link.url}
+              >
+                {link.url || "N/A"}
+              </span>
             </div>
           ))
         )}
@@ -1289,8 +1294,15 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
   );
 }
 
-function isSafeSourceUrl(url: string) {
-  return /^https?:\/\//i.test(url);
+function safeSourceUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeSourceLinks(links: SourceLinkItem[] | undefined) {
@@ -1301,7 +1313,7 @@ function normalizeSourceLinks(links: SourceLinkItem[] | undefined) {
       return {
         title,
         url,
-        safe: isSafeSourceUrl(url),
+        safeUrl: safeSourceUrl(url),
       };
     })
     .filter((link) => link.title || link.url);
@@ -1333,8 +1345,10 @@ function RelatedRows({
         >
           <div className="flex items-start justify-between gap-4">
             <CardTitle title={section.title} icon={relatedSectionIcon(section.title)} />
+            <span className="shrink-0 text-sm font-semibold text-slate-500">
+              {relatedCountLabel(section)}
+            </span>
           </div>
-          <p className="mt-2 text-xs text-slate-500">{section.description}</p>
           {section.relatedPerformers ? (
             <RelatedPerformerSummary section={section} />
           ) : section.relatedCatalogRecords ? (
@@ -1358,6 +1372,21 @@ function relatedSectionIcon(title: string) {
   }
 
   return UserRound;
+}
+
+function relatedCountLabel(section: DetailSection) {
+  const count =
+    section.relatedPerformers?.length ??
+    section.relatedCatalogRecords?.length ??
+    0;
+  const singular = section.title.includes("Performer")
+    ? "Performer"
+    : section.title.includes("Video")
+      ? "Video"
+      : "Image";
+  const label = count === 1 ? singular : `${singular}s`;
+
+  return `${count} ${label}`;
 }
 
 function RelatedLiteCard({
@@ -1515,7 +1544,7 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
       )}
       {viewMode === "table" && hasControls ? (
         <PerformerRelatedCatalogTable items={visibleRecords} kind={kind} />
-      ) : (
+      ) : hasControls ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {visibleRecords.map((record, index) => {
             const liteItem: HomeRecentItem = {
@@ -1562,6 +1591,53 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
             );
           })}
         </div>
+      ) : (
+        <RelatedCarousel label={section.title}>
+          {visibleRecords.map((record, index) => {
+            const liteItem: HomeRecentItem = {
+              kind,
+              key: record.routeTo?.split("/").pop() ?? `catalog-${index}`,
+              title: record.title,
+              detail: record.code ?? "",
+              typeLabel: kind === "videos" ? "Video" : "Image",
+              coverPath: record.coverPath,
+              favorite: record.favorite ?? false,
+              code: record.code,
+              releaseYear: record.releaseDate?.slice(0, 4),
+              rating: record.rating,
+              duration: kind === "videos" ? record.metadata : undefined,
+              imageCount: kind === "images" ? record.metadata : undefined,
+            };
+
+            if (!record.routeTo || record.unresolved) {
+              return (
+                <div key={`${record.title}-${index}`} className="relative">
+                  {record.unresolved && (
+                    <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      Unavailable
+                    </span>
+                  )}
+                  <RelatedLiteCard
+                    kind={kind}
+                    item={liteItem}
+                    linkTo={record.routeTo ?? "#"}
+                    favoriteInteractive={false}
+                  />
+                </div>
+              );
+            }
+
+            return (
+              <RelatedLiteCard
+                key={`${record.title}-${index}`}
+                kind={kind}
+                item={liteItem}
+                linkTo={record.routeTo}
+                favoriteInteractive
+              />
+            );
+          })}
+        </RelatedCarousel>
       )}
     </>
   );
@@ -1600,7 +1676,7 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   }
 
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+    <RelatedCarousel label={section.title}>
       {relatedPerformers.map((performer, index) => {
         const liteItem: HomeRecentItem = {
           kind: "performers",
@@ -1644,8 +1720,233 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
           />
         );
       })}
+    </RelatedCarousel>
+  );
+}
+
+function RelatedCarousel({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
+  const items = Children.toArray(children);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] = useState(RELATED_CAROUSEL_VISIBLE_COUNT);
+  const pages = chunkRelatedCarouselItems(items, visibleCount);
+  const pageCount = Math.max(
+    1,
+    pages.length,
+  );
+  const [page, setPage] = useState(0);
+  const safePage = Math.min(page, pageCount - 1);
+  const canNavigate = pageCount > 1;
+  const trackStyle: CSSProperties = {
+    transform: `translateX(-${safePage * 100}%)`,
+  };
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount - 1));
+  }, [pageCount]);
+
+  useEffect(() => {
+    const target = carouselRef.current;
+
+    function updateVisibleCount(width?: number) {
+      const measuredWidth =
+        width && width > 0
+          ? width
+          : target?.getBoundingClientRect().width || window.innerWidth;
+      setVisibleCount(relatedCarouselVisibleCount(measuredWidth));
+    }
+
+    const handleResize = () => updateVisibleCount();
+
+    updateVisibleCount();
+    window.addEventListener("resize", handleResize);
+
+    if (!target || typeof ResizeObserver === "undefined") {
+      return () => window.removeEventListener("resize", handleResize);
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      updateVisibleCount(entries[0]?.contentRect.width);
+    });
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  function goToPage(nextPage: number) {
+    const targetPage = Math.max(0, Math.min(pageCount - 1, nextPage));
+    setPage(targetPage);
+  }
+
+  function handleControlClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!canNavigate) {
+      return;
+    }
+
+    if (
+      event.key !== "ArrowRight" &&
+      event.key !== "ArrowLeft" &&
+      event.key !== "Home" &&
+      event.key !== "End" &&
+      event.key !== "PageDown" &&
+      event.key !== "PageUp"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.key === "ArrowRight" || event.key === "PageDown") {
+      goToPage(safePage + 1);
+    } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      goToPage(safePage - 1);
+    } else if (event.key === "Home") {
+      goToPage(0);
+    } else if (event.key === "End") {
+      goToPage(pageCount - 1);
+    }
+  }
+
+  return (
+    <div
+      aria-label={`${label} carousel`}
+      data-testid="detail-related-carousel"
+      data-visible-count={visibleCount}
+      data-rendered-count={items.length}
+      data-total-count={items.length}
+      data-page-count={pageCount}
+      data-active-page={safePage + 1}
+      ref={carouselRef}
+      className="group/carousel mt-4 min-w-0 overflow-hidden focus:outline-none"
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
+      <div
+        className="min-h-[18rem] min-w-0 overflow-hidden"
+        data-testid="detail-related-carousel-viewport"
+      >
+        <div
+          className="flex w-full min-w-0 transition-transform duration-300 ease-out motion-reduce:transition-none"
+          data-testid="detail-related-carousel-track"
+          style={trackStyle}
+        >
+          {pages.map((pageItems, pageIndex) => (
+            <div
+              key={`related-page-${pageIndex}`}
+              className="grid min-w-0 shrink-0 basis-full items-stretch gap-2"
+              data-page={pageIndex + 1}
+              data-testid="detail-related-carousel-window"
+              style={{
+                gridTemplateColumns: `repeat(${visibleCount}, minmax(0, 1fr))`,
+              }}
+            >
+              {pageItems.map((child, itemIndex) => (
+                <div
+                  key={`related-slide-${pageIndex * visibleCount + itemIndex}`}
+                  className="flex h-[17rem] w-full min-w-0 [&>*]:h-full [&>*]:min-w-0 [&>*]:w-full"
+                  data-testid="detail-related-carousel-card"
+                >
+                  {child}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      {canNavigate && (
+        <div
+          className="mt-4 flex min-h-9 items-center justify-center gap-3"
+          data-testid="detail-related-carousel-controls"
+        >
+          <button
+            type="button"
+            aria-label="Previous related items"
+            disabled={safePage === 0}
+            onClick={(event) => {
+              handleControlClick(event);
+              goToPage(safePage - 1);
+            }}
+            className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div className="flex items-center gap-2" aria-label={`${label} pages`}>
+            {Array.from({ length: pageCount }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-current={index === safePage ? "page" : undefined}
+                aria-label={`Go to ${label} page ${index + 1}`}
+                onClick={(event) => {
+                  handleControlClick(event);
+                  goToPage(index);
+                }}
+                className={[
+                  "size-2.5 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2",
+                  index === safePage
+                    ? "border-sakura-500 bg-sakura-500"
+                    : "border-slate-300 bg-white hover:border-sakura-300",
+                ].join(" ")}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-label="Next related items"
+            disabled={safePage >= pageCount - 1}
+            onClick={(event) => {
+              handleControlClick(event);
+              goToPage(safePage + 1);
+            }}
+            className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ArrowLeft size={16} className="rotate-180" />
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+function chunkRelatedCarouselItems(items: ReactNode[], visibleCount: number) {
+  const pages: ReactNode[][] = [];
+
+  for (let index = 0; index < items.length; index += visibleCount) {
+    pages.push(items.slice(index, index + visibleCount));
+  }
+
+  return pages.length > 0 ? pages : [[]];
+}
+
+function relatedCarouselVisibleCount(width: number) {
+  if (width >= 980) {
+    return 5;
+  }
+  if (width >= 760) {
+    return 4;
+  }
+  if (width >= 560) {
+    return 3;
+  }
+  if (width >= 360) {
+    return 2;
+  }
+
+  return 1;
 }
 
 function RelatedCatalogCard({
@@ -2505,14 +2806,78 @@ function CardTitle({
   );
 }
 
-function LabelBlock({ title, labels }: { title: string; labels: string[] }) {
+function LabelBlock({
+  title,
+  labels,
+  oneRowOverflow = false,
+}: {
+  title: string;
+  labels: string[];
+  oneRowOverflow?: boolean;
+}) {
   return (
     <div className="min-w-0">
       <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-        {labels.map((label) => (
+      {oneRowOverflow ? (
+        <OverflowChipList ariaLabel={`Detail ${title.toLowerCase()}`} labels={labels} />
+      ) : (
+        <div className="mt-3 flex min-w-0 flex-wrap gap-2">
+          {labels.map((label) => (
+            <Chip key={label} label={label} tone="pinkSoft" />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OverflowChipList({
+  ariaLabel,
+  labels,
+}: {
+  ariaLabel: string;
+  labels: string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleLabels = expanded
+    ? labels
+    : labels.slice(0, DETAIL_CHIP_VISIBLE_LIMIT);
+  const hiddenCount = Math.max(0, labels.length - visibleLabels.length);
+
+  return (
+    <div className="mt-3 min-w-0">
+      <div
+        aria-label={ariaLabel}
+        data-testid="detail-category-chip-row"
+        className={[
+          "flex min-w-0 gap-2",
+          expanded ? "flex-wrap" : "flex-nowrap overflow-hidden",
+        ].join(" ")}
+      >
+        {visibleLabels.map((label) => (
           <Chip key={label} label={label} tone="pinkSoft" />
         ))}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            aria-label={`Show ${hiddenCount} more categories`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded(true)}
+            className="inline-flex shrink-0 items-center rounded-md border border-sakura-100 bg-sakura-50/70 px-2.5 py-1 text-xs font-semibold text-sakura-600 transition hover:border-sakura-200 hover:bg-sakura-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2"
+          >
+            +{hiddenCount}
+          </button>
+        )}
+        {expanded && labels.length > DETAIL_CHIP_VISIBLE_LIMIT && (
+          <button
+            type="button"
+            aria-label="Collapse categories"
+            onClick={() => setExpanded(false)}
+            className="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2"
+          >
+            Show less
+          </button>
+        )}
       </div>
     </div>
   );
