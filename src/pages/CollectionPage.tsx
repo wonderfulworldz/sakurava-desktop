@@ -53,7 +53,7 @@ type CatalogSessionFilters = {
   viewMode?: ViewMode;
   pageSize?: string;
 };
-type PerformerTaxonomyFilterOptions = {
+type PerformerFilterOptions = {
   gender: string[];
   bodyType: string[];
 };
@@ -105,9 +105,9 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     () => getCategoryOptions(config.items),
     [config.items],
   );
-  const performerTaxonomyFilterOptions = useMemo(
-    () => buildPerformerTaxonomyFilterOptions(managedCategoryRecords),
-    [managedCategoryRecords],
+  const performerFilterOptions = useMemo(
+    () => buildPerformerFilterOptions(config.items, managedCategoryRecords),
+    [config.items, managedCategoryRecords],
   );
 
   const sortedItems = sortItems(
@@ -263,7 +263,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
         config={config}
         searchQuery={searchQuery}
         categoryOptions={categoryOptions}
-        performerTaxonomyFilterOptions={performerTaxonomyFilterOptions}
+        performerFilterOptions={performerFilterOptions}
         activeCategoryFilters={activeCategoryFilters}
         dataFilters={dataFilters}
         sortValue={sortValue}
@@ -396,7 +396,7 @@ function CollectionToolbar({
   config,
   searchQuery,
   categoryOptions,
-  performerTaxonomyFilterOptions,
+  performerFilterOptions,
   activeCategoryFilters,
   dataFilters,
   sortValue,
@@ -415,7 +415,7 @@ function CollectionToolbar({
 }: CollectionPageProps & {
   searchQuery: string;
   categoryOptions: string[];
-  performerTaxonomyFilterOptions: PerformerTaxonomyFilterOptions;
+  performerFilterOptions: PerformerFilterOptions;
   activeCategoryFilters: string[];
   dataFilters: DataFilterValues;
   sortValue: string;
@@ -583,7 +583,7 @@ function CollectionToolbar({
         <CollectionFilterPanel
           config={config}
           categoryOptions={selectableCategories}
-          performerTaxonomyFilterOptions={performerTaxonomyFilterOptions}
+          performerFilterOptions={performerFilterOptions}
           categorySelectDisabled={categorySelectDisabled}
           dataFilters={dataFilters}
           onAddCategoryFilter={onAddCategoryFilter}
@@ -724,7 +724,7 @@ function SortPicker({
 function CollectionFilterPanel({
   config,
   categoryOptions,
-  performerTaxonomyFilterOptions,
+  performerFilterOptions,
   categorySelectDisabled,
   dataFilters,
   onAddCategoryFilter,
@@ -733,7 +733,7 @@ function CollectionFilterPanel({
 }: {
   config: CollectionConfig;
   categoryOptions: string[];
-  performerTaxonomyFilterOptions: PerformerTaxonomyFilterOptions;
+  performerFilterOptions: PerformerFilterOptions;
   categorySelectDisabled: boolean;
   dataFilters: DataFilterValues;
   onAddCategoryFilter: (value: string) => void;
@@ -750,7 +750,7 @@ function CollectionFilterPanel({
       className="mt-3 overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm"
     >
       <div className="grid md:grid-cols-2">
-        {filterPanelCells(config, categoryOptions, performerTaxonomyFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState)}
+        {filterPanelCells(config, categoryOptions, performerFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState)}
       </div>
     </div>
   );
@@ -759,7 +759,7 @@ function CollectionFilterPanel({
 function filterPanelCells(
   config: CollectionConfig,
   categoryOptions: string[],
-  performerTaxonomyFilterOptions: PerformerTaxonomyFilterOptions,
+  performerFilterOptions: PerformerFilterOptions,
   categorySelectDisabled: boolean,
   dataFilters: DataFilterValues,
   onAddCategoryFilter: (value: string) => void,
@@ -771,7 +771,7 @@ function filterPanelCells(
   }
 
   if (config.kind === "performers") {
-    return performerFilterPanelCells(config, categoryOptions, performerTaxonomyFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
+    return performerFilterPanelCells(config, categoryOptions, performerFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
   }
 
   return videoFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
@@ -992,7 +992,7 @@ function imageFilterPanelCells(
 function performerFilterPanelCells(
   config: CollectionConfig,
   categoryOptions: string[],
-  taxonomyOptions: PerformerTaxonomyFilterOptions,
+  filterOptions: PerformerFilterOptions,
   categorySelectDisabled: boolean,
   dataFilters: DataFilterValues,
   onAddCategoryFilter: (value: string) => void,
@@ -1046,13 +1046,13 @@ function performerFilterPanelCells(
       filterId="gender"
       label="Gender"
       allLabel="All genders"
-      options={taxonomyOptions.gender}
+      options={filterOptions.gender}
       value={dataFilters.gender}
       onChange={onDataFilterChange}
       dropdownKey={`${config.kind}.gender`}
       dropdownState={dropdownState}
-      disabled={taxonomyOptions.gender.length === 0}
-      emptyMessage="No Gender categories found"
+      disabled={filterOptions.gender.length === 0}
+      emptyMessage="No Gender values found"
     />,
     hasHeights ? (
       <SegmentedFilterCell
@@ -1084,12 +1084,12 @@ function performerFilterPanelCells(
       filterId="bodyType"
       label="Body Type"
       allLabel="All body types"
-      options={taxonomyOptions.bodyType}
+      options={filterOptions.bodyType}
       value={dataFilters.bodyType}
       onChange={onDataFilterChange}
       dropdownKey={`${config.kind}.bodyType`}
       dropdownState={dropdownState}
-      disabled={taxonomyOptions.bodyType.length === 0}
+      disabled={filterOptions.bodyType.length === 0}
       emptyMessage="No Body Type categories found"
     />,
     nationalityOptions.length > 0 ? (
@@ -2162,7 +2162,14 @@ function itemMatchesDataFilter(
     );
   }
 
-  if (filterId === "gender" || filterId === "bodyType") {
+  if (filterId === "gender") {
+    return (
+      item.kind === "performers" &&
+      normalizedFilterValue(item.gender) === normalizedFilterValue(value)
+    );
+  }
+
+  if (filterId === "bodyType") {
     return item.kind === "performers" && performerCategoryMatches(item, value);
   }
 
@@ -2490,9 +2497,14 @@ function getCategoryOptions(items: CollectionItem[]) {
   );
 }
 
-function buildPerformerTaxonomyFilterOptions(categories: ManagedCategory[]) {
+function buildPerformerFilterOptions(
+  items: CollectionItem[],
+  categories: ManagedCategory[],
+) {
   return {
-    gender: childTaxonomyFilterOptions(categories, ["gender"]),
+    gender: pickerOptions(items, (item) =>
+      item.kind === "performers" ? item.gender : undefined,
+    ),
     bodyType: childTaxonomyFilterOptions(categories, [
       "bodytype",
       "body type",

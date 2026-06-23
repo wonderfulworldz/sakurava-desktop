@@ -47,6 +47,7 @@ export type PerformerCollectionItem = {
   createdAt?: number | string | null;
   updatedAt?: number | string | null;
   status: string;
+  gender?: string;
   birthDate?: string;
   nationality?: string;
   heightCm?: number | null;
@@ -268,6 +269,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       yearsActive: "Unknown - Now",
       activeAges: "Age unknown",
       status,
+      gender: "",
       birthDate: `19${90 + (index % 10)}-01-01`,
       nationality: index % 2 === 0 ? "Japan" : "Korea",
       heightCm: 152 + (index % 18),

@@ -339,6 +339,7 @@ function toPerformerCollectionItem(
     createdAt: performer.createdAt,
     updatedAt: performer.updatedAt,
     status: derivePerformerStatus(performer),
+    gender: performer.gender ?? "",
     birthDate: performer.birthDate,
     nationality: performer.nationality,
     heightCm: performer.heightCm,

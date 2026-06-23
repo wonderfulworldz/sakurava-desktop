@@ -1939,7 +1939,7 @@ describe("App", () => {
     },
   );
 
-  it("filters Performer Catalog by Gender and Body Type taxonomy labels", async () => {
+  it("filters Performer Catalog by Gender direct field and Body Type taxonomy labels", async () => {
     window.history.pushState({}, "", "/performers");
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_list") {
@@ -1947,17 +1947,26 @@ describe("App", () => {
           persistedPerformer({
             id: "performer_alpha",
             name: "Alpha Performer",
-            categoriesJson: '["Woman","Athletic","Featured"]',
+            gender: "Woman",
+            categoriesJson: '["Athletic","Featured"]',
           }),
           persistedPerformer({
             id: "performer_beta",
             name: "Beta Performer",
-            categoriesJson: '["Man","Slim","Featured"]',
+            gender: "Man",
+            categoriesJson: '["Legacy Woman","Slim","Featured"]',
           }),
           persistedPerformer({
             id: "performer_gamma",
             name: "Gamma Performer",
-            categoriesJson: '["Woman","Slim"]',
+            gender: "woman",
+            categoriesJson: '["Slim"]',
+          }),
+          persistedPerformer({
+            id: "performer_delta",
+            name: "Delta Performer",
+            gender: "",
+            categoriesJson: '["Athletic"]',
           }),
         ];
       }
@@ -1967,6 +1976,14 @@ describe("App", () => {
           managedCategoryFixture({
             key: "cat_gender_man",
             name: "Man",
+            parentKey: "cat_gender",
+            showInVideos: false,
+            showInImages: false,
+            showInPerformers: true,
+          }),
+          managedCategoryFixture({
+            key: "cat_gender_non_binary",
+            name: "Non-binary",
             parentKey: "cat_gender",
             showInVideos: false,
             showInImages: false,
@@ -2000,11 +2017,17 @@ describe("App", () => {
     fireEvent.click(panel.getByRole("button", { name: "Open Gender options" }));
     const genderOptions = within(screen.getByRole("listbox", { name: "Gender options" }));
     expect(genderOptions.queryByText("Gender")).not.toBeInTheDocument();
+    expect(genderOptions.queryByText("Legacy Woman")).not.toBeInTheDocument();
+    expect(genderOptions.queryByText("Non-binary")).not.toBeInTheDocument();
+    expect(genderOptions.queryByText("All genders")).toBeInTheDocument();
+    expect(genderOptions.getAllByRole("option").map((option) => option.textContent))
+      .toEqual(["All genders+", "Man+", "Woman+"]);
     fireEvent.click(genderOptions.getByText("Woman"));
 
     expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
     expect(screen.getByText("Gamma Performer")).toBeInTheDocument();
     expect(screen.queryByText("Beta Performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delta Performer")).not.toBeInTheDocument();
     expect(screen.getByText("Gender: Woman")).toBeInTheDocument();
 
     fireEvent.click(panel.getByRole("button", { name: "Open Body Type options" }));
@@ -2018,6 +2041,7 @@ describe("App", () => {
     expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
     expect(screen.queryByText("Gamma Performer")).not.toBeInTheDocument();
     expect(screen.queryByText("Beta Performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delta Performer")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Performers search"), {
       target: { value: "alpha" },
@@ -2035,6 +2059,67 @@ describe("App", () => {
     expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
     expect(screen.getByText("Beta Performer")).toBeInTheDocument();
     expect(screen.getByText("Gamma Performer")).toBeInTheDocument();
+    expect(screen.getByText("Delta Performer")).toBeInTheDocument();
+  });
+
+  it("filters Performer Catalog table view by Gender direct field and keeps it in session memory", async () => {
+    window.history.pushState({}, "", "/performers");
+    window.localStorage.setItem("sakurava.catalog.performers.gender.v1", "Man");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_table_woman",
+            name: "Table Woman Performer",
+            gender: "Woman",
+          }),
+          persistedPerformer({
+            id: "performer_table_man",
+            name: "Table Man Performer",
+            gender: "Man",
+          }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    const firstRender = render(<App />);
+
+    expect(await screen.findByText("Table Woman Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    let panel = within(screen.getByRole("region", { name: "Performers filters" }));
+    await waitFor(() => expect(panel.getByLabelText("Gender")).toBeEnabled());
+    fireEvent.click(panel.getByRole("button", { name: "Open Gender options" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Gender options" })).getByText("Woman"));
+
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.getByTestId("performers-catalog-table")).toBeInTheDocument();
+    expect(screen.getByText("Table Woman Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Table Man Performer")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.catalog.performers.gender.v1")).toBe("Man");
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+
+    firstRender.unmount();
+    window.history.pushState({}, "", "/performers");
+    render(<App />);
+
+    expect(await screen.findByText("Table Woman Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Table Man Performer")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to grid view" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
+    panel = within(screen.getByRole("region", { name: "Performers filters" }));
+    expect(panel.getByLabelText("Gender")).toHaveValue("Woman");
   });
 
   it("shows clean empty taxonomy filter states when Performer Catalog parents are missing", async () => {
@@ -2057,7 +2142,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     const panel = within(screen.getByRole("region", { name: "Performers filters" }));
 
-    expect(panel.getByText("No Gender categories found")).toBeInTheDocument();
+    expect(panel.getByText("No Gender values found")).toBeInTheDocument();
     expect(panel.getByText("No Body Type categories found")).toBeInTheDocument();
     expect(panel.getByLabelText("Gender")).toBeDisabled();
     expect(panel.getByLabelText("Body Type")).toBeDisabled();
@@ -6221,7 +6306,7 @@ describe("App", () => {
       expect(panel.queryByRole("button", { name: "Reset all filters" })).not.toBeInTheDocument();
       if (path === "/performers") {
         expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
-        expect(panel.getByText("No Gender categories found")).toBeInTheDocument();
+        expect(panel.getByText("No Gender values found")).toBeInTheDocument();
         expect(panel.getByText("No Body Type categories found")).toBeInTheDocument();
         expect(panel.getByLabelText("Gender")).toBeDisabled();
         expect(panel.getByLabelText("Body Type")).toBeDisabled();
