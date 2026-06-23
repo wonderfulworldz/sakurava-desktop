@@ -57,11 +57,33 @@ const GALLERY_CONTROLS_IDLE_DELAY_MS = 2000;
 const VIEWER_POPOVER_CLOSE_DELAY_MS = 5000;
 const COPY_FEEDBACK_CLEAR_MS = 1600;
 const VIEWER_SETTINGS_STORAGE_KEY = "sakurava.globalImageViewer.settings.v1";
-const MIN_GALLERY_ZOOM = 0.25;
-export const MAX_GALLERY_ZOOM = 5;
+const MIN_GALLERY_ZOOM = 0.01;
+export const MAX_GALLERY_ZOOM = 10;
 const GALLERY_ZOOM_STEP = 0.25;
+const GALLERY_ZOOM_SLIDER_STEP = 0.01;
+const ZOOM_SNAP_THRESHOLD = 0.05;
+const ZOOM_SNAP_POINTS = [0.25, 0.5, 1, 1.5];
+const ROTATION_SNAP_THRESHOLD = 6;
+const ROTATION_SNAP_POINTS = [-180, -135, -90, -45, 0, 45, 90, 135, 180];
+const COMMON_RATIO_TOLERANCE = 0.01;
+const SQUARE_RATIO_TOLERANCE = 0.005;
+const COMMON_IMAGE_RATIOS = [
+  [1, 1],
+  [4, 5],
+  [5, 4],
+  [3, 4],
+  [4, 3],
+  [2, 3],
+  [3, 2],
+  [9, 16],
+  [16, 9],
+  [10, 16],
+  [16, 10],
+  [21, 9],
+  [9, 21],
+] as const;
 const VIEWPORT_FALLBACK = { width: 1000, height: 700 };
-const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5];
+const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 10];
 const FIT_MODES = [
   { label: "Fit Window", value: "window" },
   { label: "Fit Width", value: "width" },
@@ -73,6 +95,12 @@ type FitMode = (typeof FIT_MODES)[number]["value"];
 type Size = {
   height: number;
   width: number;
+};
+
+type ImageDimensionState = {
+  key: string;
+  size: Size | null;
+  status: "loading" | "loaded" | "error";
 };
 
 type Point = {
@@ -128,7 +156,11 @@ function GlobalImageViewer({
   const [rotation, setRotation] = useState(
     () => readStoredViewerSettings().rotation,
   );
-  const [naturalSize, setNaturalSize] = useState<Size | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<ImageDimensionState>({
+    key: "",
+    size: null,
+    status: "loading",
+  });
   const [viewportSize, setViewportSize] = useState<Size>(VIEWPORT_FALLBACK);
   const [dockWidth, setDockWidth] = useState(VIEWPORT_FALLBACK.width);
   const [controlPanelWidth, setControlPanelWidth] = useState(0);
@@ -168,6 +200,7 @@ function GlobalImageViewer({
   );
   const fileActionPendingRef = useRef<"save" | "folder" | null>(null);
   const panSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
   const minimapRef = useRef<HTMLDivElement | null>(null);
   const activeImageKeyRef = useRef("");
   const panPointerIdRef = useRef<number | null>(null);
@@ -180,16 +213,25 @@ function GlobalImageViewer({
   const activeImageKey = `${openRequestId ?? viewerEpoch}:${currentIndex}:${path}:${item?.filename ?? ""}:${item?.resolution ?? ""}:${item?.title ?? ""}`;
   activeImageKeyRef.current = activeImageKey;
   const parsedResolution = parseResolution(item?.resolution);
-  const activeNaturalSize = naturalSize ?? parsedResolution;
+  const loadedNaturalSize =
+    imageDimensions.key === activeImageKey &&
+    imageDimensions.status === "loaded"
+      ? imageDimensions.size
+      : null;
+  const currentImageDimensions = getCurrentImageDimensions({
+    imageFailed,
+    loadedNaturalSize,
+    metadataSize: parsedResolution,
+  });
+  const activeNaturalSize = currentImageDimensions;
   const canShowImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
   const canGoPrevious = currentIndex > 0;
   const canGoNext = currentIndex < normalizedImages.length - 1;
   const displayName = item?.filename || fileNameFromPath(path) || item?.title || "Gallery image";
   const resolution =
-    item?.resolution?.trim() ??
-    (activeNaturalSize
-      ? `${activeNaturalSize.width} x ${activeNaturalSize.height}`
-      : undefined);
+    currentImageDimensions
+      ? formatImageDimensions(currentImageDimensions)
+      : undefined;
   const fitScale = getFitScale(activeNaturalSize, viewportSize, fitMode);
   const effectiveScale = isFitMode ? fitScale : zoom;
   const zoomLabel = isFitMode ? "Fit" : `${Math.round(zoom * 100)}%`;
@@ -209,9 +251,7 @@ function GlobalImageViewer({
   const panBounds = getPanBounds(imageSize, viewportSize);
   const isPannable = panBounds.x > 0 || panBounds.y > 0;
   const showMinimap = Boolean(canShowImage && activeNaturalSize && isPannable);
-  const aspectRatioLabel = activeNaturalSize
-    ? roundedAspectRatio(activeNaturalSize.width, activeNaturalSize.height)
-    : "1:1";
+  const aspectRatioLabel = formatImageRatio(currentImageDimensions);
   const controlsVisibilityClass = controlsVisible
     ? "opacity-100"
     : "pointer-events-none opacity-0";
@@ -385,6 +425,14 @@ function GlobalImageViewer({
     resetPan();
   }
 
+  function resetTransformToActualSize() {
+    setIsFitMode(false);
+    setFitMode("window");
+    setZoom(1);
+    setRotation(0);
+    resetPan();
+  }
+
   function goToIndex(nextIndex: number) {
     if (nextIndex < 0 || nextIndex >= normalizedImages.length) {
       return;
@@ -394,7 +442,7 @@ function GlobalImageViewer({
     setImageFailed(false);
     releasePointerState();
     resetTransform();
-    setNaturalSize(null);
+    setImageDimensions({ key: "", size: null, status: "loading" });
     showControlsAndResetIdleTimer();
   }
 
@@ -431,7 +479,7 @@ function GlobalImageViewer({
     setImageFailed(false);
     releasePointerState();
     skipNextSettingsStoreRef.current = true;
-    resetTransform(defaultViewerSettings());
+    resetTransformToActualSize();
   }
 
   function syncViewportSizeNow() {
@@ -453,7 +501,8 @@ function GlobalImageViewer({
   }
 
   function applyZoom(nextZoom: number, anchor?: Point) {
-    const clampedZoom = clamp(nextZoom, MIN_GALLERY_ZOOM, MAX_GALLERY_ZOOM);
+    const safeZoom = Number.isFinite(nextZoom) ? nextZoom : 1;
+    const clampedZoom = clamp(safeZoom, MIN_GALLERY_ZOOM, MAX_GALLERY_ZOOM);
     const previousScale = effectiveScale;
     const nextScale = clampedZoom;
     const currentNaturalSize = activeNaturalSize;
@@ -489,6 +538,10 @@ function GlobalImageViewer({
     });
   }
 
+  function setZoomFromSlider(nextZoom: number) {
+    applyZoom(snapZoom(nextZoom));
+  }
+
   function rotateBy(delta: number) {
     showControlsAndResetIdleTimer();
     setRotation((current) => normalizeRotation(current + delta));
@@ -496,8 +549,9 @@ function GlobalImageViewer({
   }
 
   function snapRotation(value: number) {
-    const snapPoints = [-180, -90, 0, 90, 180];
-    const closeSnap = snapPoints.find((snapPoint) => Math.abs(value - snapPoint) <= 2);
+    const closeSnap = ROTATION_SNAP_POINTS.find(
+      (snapPoint) => Math.abs(value - snapPoint) <= ROTATION_SNAP_THRESHOLD,
+    );
     return closeSnap ?? value;
   }
 
@@ -518,18 +572,52 @@ function GlobalImageViewer({
   }
 
   function handleImageLoad(event: SyntheticEvent<HTMLImageElement>) {
-    if (event.currentTarget.dataset.viewerImageKey !== activeImageKeyRef.current) {
+    syncLoadedImageDimensions(event.currentTarget);
+  }
+
+  function syncLoadedImageDimensions(imageElement: HTMLImageElement | null) {
+    if (!imageElement) {
+      return;
+    }
+
+    const imageKey = imageElement.dataset.viewerImageKey ?? "";
+    if (imageKey !== activeImageKeyRef.current) {
       return;
     }
 
     const nextNaturalSize = {
-      width: event.currentTarget.naturalWidth,
-      height: event.currentTarget.naturalHeight,
+      width: imageElement.naturalWidth,
+      height: imageElement.naturalHeight,
     };
 
     if (nextNaturalSize.width > 0 && nextNaturalSize.height > 0) {
-      setNaturalSize(nextNaturalSize);
+      setImageFailed(false);
+      setImageDimensions((current) =>
+        current.key === imageKey &&
+        current.status === "loaded" &&
+        current.size?.width === nextNaturalSize.width &&
+        current.size.height === nextNaturalSize.height
+          ? current
+          : { key: imageKey, size: nextNaturalSize, status: "loaded" },
+      );
+      return;
     }
+
+    setImageDimensions((current) =>
+      current.key === imageKey && current.status === "loading"
+        ? current
+        : { key: imageKey, size: null, status: "loading" },
+    );
+  }
+
+  function handleImageError(event: SyntheticEvent<HTMLImageElement>) {
+    const imageKey = event.currentTarget.dataset.viewerImageKey ?? "";
+    if (imageKey !== activeImageKeyRef.current) {
+      return;
+    }
+
+    setImageFailed(true);
+    setImageDimensions({ key: imageKey, size: null, status: "error" });
   }
 
   function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -693,10 +781,8 @@ function GlobalImageViewer({
     setFileActionFeedback(null);
     try {
       const result = await saveDetailSourceFileAs(actionSourcePath);
-      setFileActionFeedback(
-        result.message ||
-          (result.success ? "Source file saved" : "Source file could not be saved"),
-      );
+      const nextFeedback = getFileActionFeedback(result);
+      setFileActionFeedback(nextFeedback);
     } finally {
       fileActionPendingRef.current = null;
       setPendingFileAction(null);
@@ -715,10 +801,8 @@ function GlobalImageViewer({
     setFileActionFeedback(null);
     try {
       const result = await openDetailSourceFolder(actionSourcePath);
-      setFileActionFeedback(
-        result.message ||
-          (result.success ? "Source folder opened" : "Source folder could not be opened"),
-      );
+      const nextFeedback = getFileActionFeedback(result);
+      setFileActionFeedback(nextFeedback);
     } finally {
       fileActionPendingRef.current = null;
       setPendingFileAction(null);
@@ -770,7 +854,7 @@ function GlobalImageViewer({
     setImageFailed(false);
     releasePointerState();
     resetTransform();
-    setNaturalSize(null);
+    setImageDimensions({ key: "", size: null, status: "loading" });
     setFileActionFeedback(null);
     fileActionPendingRef.current = null;
     setPendingFileAction(null);
@@ -779,6 +863,14 @@ function GlobalImageViewer({
     setControlsVisible(true);
     scheduleHideControls();
   }, [initialIndex, normalizedImagesKey, openRequestId, viewerEpoch]);
+
+  useEffect(() => {
+    setImageFailed(false);
+    setImageDimensions({ key: activeImageKey, size: null, status: "loading" });
+    window.requestAnimationFrame(() => {
+      syncLoadedImageDimensions(imageElementRef.current);
+    });
+  }, [activeImageKey]);
 
   useEffect(() => {
     setFileActionFeedback(null);
@@ -1253,6 +1345,10 @@ function GlobalImageViewer({
             >
               <img
                 key={activeImageKey}
+                ref={(element) => {
+                  imageElementRef.current = element;
+                  syncLoadedImageDimensions(element);
+                }}
                 data-viewer-image-key={activeImageKey}
                 src={assetSrc}
                 alt={`Gallery image ${currentIndex + 1} full size`}
@@ -1270,7 +1366,7 @@ function GlobalImageViewer({
                         width: isFitMode ? "auto" : `${zoom * 100}%`,
                       }
                 }
-                onError={() => setImageFailed(true)}
+                onError={handleImageError}
                 onLoad={handleImageLoad}
               />
             </div>
@@ -1408,9 +1504,9 @@ function GlobalImageViewer({
                     type="range"
                     min={MIN_GALLERY_ZOOM}
                     max={MAX_GALLERY_ZOOM}
-                    step={GALLERY_ZOOM_STEP}
+                    step={GALLERY_ZOOM_SLIDER_STEP}
                     value={zoomControlSliderValue}
-                    onChange={(event) => applyZoom(Number(event.currentTarget.value))}
+                    onChange={(event) => setZoomFromSlider(Number(event.currentTarget.value))}
                     onPointerDown={clearHideControlsTimer}
                     onPointerUp={scheduleHideControls}
                     className="viewer-range w-28 accent-sakura-400"
@@ -1453,9 +1549,9 @@ function GlobalImageViewer({
                         type="range"
                         min={MIN_GALLERY_ZOOM}
                         max={MAX_GALLERY_ZOOM}
-                        step={GALLERY_ZOOM_STEP}
+                        step={GALLERY_ZOOM_SLIDER_STEP}
                         value={zoomControlSliderValue}
-                        onChange={(event) => applyZoom(Number(event.currentTarget.value))}
+                        onChange={(event) => setZoomFromSlider(Number(event.currentTarget.value))}
                         onPointerDown={clearHideControlsTimer}
                         onPointerUp={scheduleHideControls}
                         className="viewer-range w-32 accent-sakura-400"
@@ -1773,12 +1869,27 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function snapZoom(value: number) {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  const closeSnap = ZOOM_SNAP_POINTS.find(
+    (snapPoint) => Math.abs(value - snapPoint) <= ZOOM_SNAP_THRESHOLD,
+  );
+  return closeSnap ?? value;
+}
+
 function normalizeRotation(value: number) {
   if (!Number.isFinite(value)) {
     return 0;
   }
 
-  const normalized = ((((Math.round(value) + 180) % 360) + 360) % 360) - 180;
+  const rounded = Math.round(value);
+  const normalized = ((((rounded + 180) % 360) + 360) % 360) - 180;
+  if (normalized === -180 && rounded > 0) {
+    return 180;
+  }
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
@@ -1907,6 +2018,18 @@ function parseStoredZoom(value: unknown) {
     : 1;
 }
 
+function getFileActionFeedback(result: { message?: string; success: boolean }) {
+  if (result.success) {
+    return result.message === "Source file saved" ? result.message : null;
+  }
+
+  if (result.message === "Save canceled") {
+    return null;
+  }
+
+  return result.message || "File action failed";
+}
+
 function getFileType(value: string) {
   const filename = fileNameFromPath(value);
   const extension = filename.includes(".")
@@ -1916,36 +2039,110 @@ function getFileType(value: string) {
   return extension ? `${extension} image` : "N/A";
 }
 
-function roundedAspectRatio(width: number, height: number) {
-  const commonRatios = [
-    [1, 1],
-    [4, 3],
-    [3, 2],
-    [16, 9],
-    [2, 3],
-    [3, 4],
-    [9, 16],
-  ];
-  const actual = width / height;
-  const closeRatio = commonRatios.find(
-    ([ratioWidth, ratioHeight]) =>
-      Math.abs(actual - ratioWidth / ratioHeight) / (ratioWidth / ratioHeight) <
-      0.04,
+function getCurrentImageDimensions({
+  imageFailed,
+  loadedNaturalSize,
+  metadataSize,
+}: {
+  imageFailed: boolean;
+  loadedNaturalSize: Size | null;
+  metadataSize: Size | null;
+}) {
+  if (imageFailed) {
+    return null;
+  }
+
+  const loadedSize = normalizeImageDimensions(loadedNaturalSize);
+  const normalizedMetadataSize = normalizeImageDimensions(metadataSize);
+
+  if (
+    loadedSize &&
+    !isPlaceholderDimensions(loadedSize, normalizedMetadataSize)
+  ) {
+    return loadedSize;
+  }
+
+  if (normalizedMetadataSize && !isOneByOneDimensions(normalizedMetadataSize)) {
+    return normalizedMetadataSize;
+  }
+
+  return loadedSize;
+}
+
+function normalizeImageDimensions(size: Size | null | undefined): Size | null {
+  if (!size) {
+    return null;
+  }
+
+  const width = Number(size.width);
+  const height = Number(size.height);
+
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    width: Math.round(width),
+    height: Math.round(height),
+  };
+}
+
+function isPlaceholderDimensions(size: Size, fallbackSize: Size | null = null) {
+  return (
+    isOneByOneDimensions(size) &&
+    Boolean(fallbackSize && (fallbackSize.width !== 1 || fallbackSize.height !== 1))
   );
+}
 
-  if (closeRatio) {
-    return `${closeRatio[0]}:${closeRatio[1]}`;
+function isOneByOneDimensions(size: Size) {
+  return size.width === 1 && size.height === 1;
+}
+
+function formatImageDimensions(size: Size) {
+  return `${size.width} x ${size.height}`;
+}
+
+function formatImageRatio(size: Size | null) {
+  const normalizedSize = normalizeImageDimensions(size);
+  if (!normalizedSize) {
+    return "-";
   }
 
-  const divisor = gcd(width, height);
-  const ratioWidth = Math.round(width / divisor);
-  const ratioHeight = Math.round(height / divisor);
-
-  if (ratioWidth <= 99 && ratioHeight <= 99) {
-    return `${ratioWidth}:${ratioHeight}`;
+  const commonRatio = getClosestCommonRatio(normalizedSize);
+  if (commonRatio) {
+    return `${commonRatio[0]}:${commonRatio[1]}`;
   }
 
-  return `${Math.round(actual)}:1`;
+  const divisor = gcd(normalizedSize.width, normalizedSize.height);
+  return `${normalizedSize.width / divisor}:${normalizedSize.height / divisor}`;
+}
+
+function getClosestCommonRatio(size: Size) {
+  const actualRatio = size.width / size.height;
+  let closestMatch: { difference: number; ratio: (typeof COMMON_IMAGE_RATIOS)[number] } | null = null;
+
+  for (const ratio of COMMON_IMAGE_RATIOS) {
+    const candidateRatio = ratio[0] / ratio[1];
+    const relativeDifference = Math.abs(actualRatio - candidateRatio) / candidateRatio;
+    const tolerance = ratio[0] === 1 && ratio[1] === 1
+      ? SQUARE_RATIO_TOLERANCE
+      : COMMON_RATIO_TOLERANCE;
+
+    if (relativeDifference > tolerance) {
+      continue;
+    }
+
+    if (!closestMatch || relativeDifference < closestMatch.difference) {
+      closestMatch = { difference: relativeDifference, ratio };
+    }
+  }
+
+  return closestMatch?.ratio ?? null;
 }
 
 function gcd(first: number, second: number): number {
@@ -2018,5 +2215,5 @@ function logViewerSessionDiagnostic(
   console.info(`[GlobalImageViewer] ${step}`, details);
 }
 
-export { roundedAspectRatio };
+export { formatImageRatio };
 export default GlobalImageViewer;

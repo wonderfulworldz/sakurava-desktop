@@ -13129,7 +13129,7 @@ describe("App", () => {
     expect(within(actionBar).queryByRole("button", { name: "Close gallery viewer" }))
       .not.toBeInTheDocument();
     expect(within(actionBar).getByLabelText("Image aspect ratio"))
-      .toHaveTextContent("1:1");
+      .toHaveTextContent("-");
     expect(within(controlBar).getByRole("button", { name: "Reset gallery image view" }))
       .toBeInTheDocument();
     const bottomDock = within(viewer).getByLabelText("Image viewer bottom dock");
@@ -14404,6 +14404,446 @@ describe("App", () => {
     expect(within(viewer).getByText("800 x 1200")).toBeInTheDocument();
   });
 
+  it("keeps image viewer zoom controls within 1% and 1000% with 1% slider movement and assistive snapping", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "zoom-wide.jpg",
+            path: "C:/Gallery/zoom-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const zoomSlider = within(viewer).getByLabelText(
+      "Set gallery image zoom percentage",
+    );
+    expect(zoomSlider).toHaveAttribute("min", "0.01");
+    expect(zoomSlider).toHaveAttribute("max", "10");
+    expect(zoomSlider).toHaveAttribute("step", "0.01");
+
+    fireEvent.change(zoomSlider, { target: { value: "10" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1000%");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1000%");
+
+    fireEvent.change(zoomSlider, { target: { value: "0.01" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1%");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom out gallery image" }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1%");
+
+    fireEvent.change(zoomSlider, { target: { value: "0.37" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("37%");
+    fireEvent.change(zoomSlider, { target: { value: "0.63" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("63%");
+    fireEvent.change(zoomSlider, { target: { value: "0.19" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("19%");
+    fireEvent.change(zoomSlider, { target: { value: "0.21" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("25%");
+    fireEvent.change(zoomSlider, { target: { value: "0.44" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("44%");
+    fireEvent.change(zoomSlider, { target: { value: "0.46" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("50%");
+    fireEvent.change(zoomSlider, { target: { value: "0.94" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("94%");
+    fireEvent.change(zoomSlider, { target: { value: "0.96" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+    fireEvent.change(zoomSlider, { target: { value: "1.44" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("144%");
+    fireEvent.change(zoomSlider, { target: { value: "1.46" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("150%");
+    fireEvent.change(zoomSlider, { target: { value: "2.12" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("212%");
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    );
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Width",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+  });
+
+  it("snaps the image viewer rotation slider near supported angles and keeps rotate buttons working", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "rotation-wide.jpg",
+            path: "C:/Gallery/rotation-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const rotationSlider = within(viewer).getByLabelText("Set image rotation degrees");
+    const rotationValue = within(viewer).getByLabelText("Image rotation value");
+
+    for (const [input, expected] of [
+      ["-174", "-180°"],
+      ["-129", "-135°"],
+      ["-84", "-90°"],
+      ["-39", "-45°"],
+      ["6", "0°"],
+      ["39", "45°"],
+      ["84", "90°"],
+      ["129", "135°"],
+      ["174", "180°"],
+    ]) {
+      fireEvent.change(rotationSlider, { target: { value: input } });
+      expect(rotationValue).toHaveTextContent(expected);
+    }
+
+    for (const value of ["12", "33", "77"]) {
+      fireEvent.change(rotationSlider, { target: { value } });
+      expect(rotationValue).toHaveTextContent(`${value}°`);
+    }
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(rotationValue).toHaveTextContent("0°");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Rotate gallery image right" }),
+    );
+    expect(rotationValue).toHaveTextContent("15°");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Rotate gallery image left" }),
+    );
+    expect(rotationValue).toHaveTextContent("0°");
+  });
+
+  it("resets image viewer transforms to 100 percent rotation zero and centered pan", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "reset-wide.jpg",
+            path: "C:/Gallery/reset-wide.jpg",
+            resolution: "1600 x 900",
+          },
+          {
+            filename: "reset-next.jpg",
+            path: "C:/Gallery/reset-next.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const zoomSlider = within(viewer).getByLabelText(
+      "Set gallery image zoom percentage",
+    );
+    const rotationSlider = within(viewer).getByLabelText("Set image rotation degrees");
+    const panSurface = within(viewer).getByLabelText("Image pan surface");
+
+    fireEvent.change(zoomSlider, { target: { value: "10" } });
+    fireEvent.change(rotationSlider, { target: { value: "84" } });
+    fireEvent.pointerDown(panSurface, {
+      clientX: 500,
+      clientY: 350,
+      pointerId: 30,
+    });
+    fireEvent.pointerMove(panSurface, {
+      clientX: 420,
+      clientY: 310,
+      pointerId: 30,
+    });
+    expect(panSurface).not.toHaveAttribute("data-pan-x", "0");
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1000%");
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("90°");
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+
+    expect(within(viewer).getByText("1 / 2")).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("0°");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-x", "0");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-y", "0");
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).not.toHaveClass("bg-sakura-500/85");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("2 / 2")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    );
+    fireEvent.change(rotationSlider, { target: { value: "-39" } });
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(within(viewer).getByText("2 / 2")).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("0°");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-x", "0");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-y", "0");
+  });
+
+  it("keeps image viewer header dimensions and ratio badge on the same source across formats", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "Alexandrina.jpg",
+            path: "C:/Gallery/Alexandrina.jpg",
+            resolution: "1200 x 1500",
+          },
+          {
+            filename: "sample.webp",
+            path: "C:/Gallery/sample.webp",
+            resolution: "1920 x 1080",
+          },
+          {
+            filename: "wide-16-10.jpg",
+            path: "C:/Gallery/wide-16-10.jpg",
+            resolution: "1600 x 1000",
+          },
+          {
+            filename: "tall-10-16.jpeg",
+            path: "C:/Gallery/tall-10-16.jpeg",
+            resolution: "1000 x 1600",
+          },
+          {
+            filename: "uncommon.jpg",
+            path: "C:/Gallery/uncommon.jpg",
+            resolution: "997 x 733",
+          },
+          {
+            filename: "near-square.jpg",
+            path: "C:/Gallery/near-square.jpg",
+            resolution: "1007 x 1000",
+          },
+          {
+            filename: "unknown.bin",
+            path: "C:/Gallery/unknown.bin",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const ratio = within(viewer).getByLabelText("Image aspect ratio");
+    expect(within(viewer).getByText("1200 x 1500")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("4:5");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1920 x 1080")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("16:9");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1600 x 1000")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("16:10");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1000 x 1600")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("10:16");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("997 x 733")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("997:733");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1007 x 1000")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("1007:1000");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+  });
+
+  it("updates image viewer png ratio after load without stale or misleading 1:1 fallbacks", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "Alexandrina.png",
+            path: "C:/Gallery/Alexandrina.png",
+            resolution: "1842 x 2304",
+          },
+          { filename: "tall.png", path: "C:/Gallery/tall.png" },
+          { filename: "wide.png", path: "C:/Gallery/wide.png", resolution: "1 x 1" },
+          { filename: "square.png", path: "C:/Gallery/square.png" },
+          { filename: "broken.png", path: "C:/Gallery/broken.png" },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const ratio = within(viewer).getByLabelText("Image aspect ratio");
+    expect(within(viewer).getByText("1842 x 2304")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("4:5");
+    expect(ratio).not.toHaveTextContent("307:384");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    const screenshotPngImage = within(viewer).getByAltText("Gallery image 1 full size");
+    Object.defineProperty(screenshotPngImage, "naturalWidth", {
+      configurable: true,
+      value: 1842,
+    });
+    Object.defineProperty(screenshotPngImage, "naturalHeight", {
+      configurable: true,
+      value: 2304,
+    });
+    fireEvent.load(screenshotPngImage);
+    expect(ratio).toHaveTextContent("4:5");
+    expect(ratio).not.toHaveTextContent("307:384");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    const tallImage = within(viewer).getByAltText("Gallery image 2 full size");
+    Object.defineProperty(tallImage, "naturalWidth", {
+      configurable: true,
+      value: 600,
+    });
+    Object.defineProperty(tallImage, "naturalHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    fireEvent.load(tallImage);
+    expect(ratio).toHaveTextContent("1:2");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    const wrongMetadataImage = within(viewer).getByAltText("Gallery image 3 full size");
+    Object.defineProperty(wrongMetadataImage, "naturalWidth", {
+      configurable: true,
+      value: 1842,
+    });
+    Object.defineProperty(wrongMetadataImage, "naturalHeight", {
+      configurable: true,
+      value: 2304,
+    });
+    fireEvent.load(wrongMetadataImage);
+    expect(ratio).toHaveTextContent("4:5");
+    expect(ratio).not.toHaveTextContent("307:384");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    const squareImage = within(viewer).getByAltText("Gallery image 4 full size");
+    Object.defineProperty(squareImage, "naturalWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(squareImage, "naturalHeight", {
+      configurable: true,
+      value: 900,
+    });
+    fireEvent.load(squareImage);
+    expect(ratio).toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    fireEvent.error(within(viewer).getByAltText("Gallery image 5 full size"));
+    expect(ratio).toHaveTextContent("-");
+    expect(
+      within(viewer).queryByAltText("Gallery image 5 full size"),
+    ).not.toBeInTheDocument();
+  });
+
   it("persists and clears remembered viewer fit, zoom, and rotation settings", () => {
     window.__TAURI_INTERNALS__ = {
       invoke: vi.fn() as unknown as TestTauriInvoke,
@@ -14603,7 +15043,69 @@ describe("App", () => {
       { sourcePath: "C:/Gallery/two.jpg" },
       undefined,
     );
-    expect(await within(moreMenu).findByText("Source folder open request sent"))
+    await waitFor(() => {
+      expect(within(moreMenu).queryByText("Source folder open request sent"))
+        .not.toBeInTheDocument();
+    });
+    expect(within(moreMenu).queryByText("Source folder opened"))
+      .not.toBeInTheDocument();
+  });
+
+  it("keeps Image Viewer More menu helper messages quiet while preserving essential errors", async () => {
+    dialogMocks.save.mockResolvedValueOnce(null).mockResolvedValueOnce("C:/Export/error.jpg");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "detail_source_file_copy_as") {
+        return {
+          sourcePath: "C:/Gallery/error.jpg",
+          destinationPath: "C:/Export/error.jpg",
+          success: false,
+          message: "Source file could not be saved",
+        };
+      }
+      if (command === "detail_source_folder_reveal") {
+        return {
+          sourcePath: "C:/Gallery/error.jpg",
+          success: false,
+          message: "Source folder could not be opened",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          { filename: "error.jpg", path: "C:/Gallery/error.jpg", resolution: "800 x 600" },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", { name: "Gallery full-size viewer" });
+    fireEvent.click(within(viewer).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+    const saveAs = within(moreMenu).getByRole("menuitem", { name: "Save As" });
+    const openFolder = within(moreMenu).getByRole("menuitem", { name: "Open Folder" });
+
+    fireEvent.click(saveAs);
+    await waitFor(() => {
+      expect(within(moreMenu).queryByText("Save canceled")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(saveAs);
+    expect(await within(moreMenu).findByText("Source file could not be saved"))
+      .toBeInTheDocument();
+
+    fireEvent.click(openFolder);
+    expect(await within(moreMenu).findByText("Source folder could not be opened"))
       .toBeInTheDocument();
   });
 
