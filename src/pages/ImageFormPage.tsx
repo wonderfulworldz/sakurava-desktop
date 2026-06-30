@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { FormConfig, FormMode } from "../lib/formData";
 import { formConfigs } from "../lib/formData";
@@ -16,6 +16,12 @@ import {
   isImageRuntimeAvailable,
   updateImage,
 } from "../runtime/imageCommands";
+import type { Credit } from "../backend/types";
+import { listCreditsByWork } from "../runtime/creditCommands";
+import {
+  creditToFormValue,
+  reconcileWorkCredits,
+} from "../lib/workCredits";
 
 type ImageFormPageProps = {
   mode: FormMode;
@@ -31,6 +37,11 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
   );
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [originalCredits, setOriginalCredits] = useState<Credit[]>([]);
+  const initialCreditValues = useMemo(
+    () => originalCredits.map(creditToFormValue),
+    [originalCredits],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -39,12 +50,16 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
       setConfig(formConfigs.images);
       setMissing(false);
       setLoading(false);
+      setOriginalCredits([]);
       return;
     }
 
     setLoading(true);
-    getImage(itemKey)
-      .then((image) => {
+    Promise.all([
+      getImage(itemKey),
+      listCreditsByWork("image", itemKey).catch(() => []),
+    ])
+      .then(([image, credits]) => {
         if (cancelled) {
           return;
         }
@@ -57,6 +72,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
 
         setMissing(false);
         setConfig(buildImageFormConfig(image, "edit"));
+        setOriginalCredits(credits);
         setLoading(false);
       })
       .catch(() => {
@@ -123,6 +139,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      initialCredits={initialCreditValues}
       deleteAction={
         mode === "edit" && itemKey && isImageRuntimeAvailable()
           ? {
@@ -141,6 +158,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
         relatedCatalogRecords,
         galleryImagePaths,
         sourceLinks,
+        credits,
       }) => {
         if (!isImageRuntimeAvailable()) {
           return {
@@ -162,6 +180,15 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
               sourceLinks,
             ),
           );
+          try {
+            await reconcileWorkCredits("image", created.id, [], credits);
+          } catch {
+            return {
+              state: "error",
+              message:
+                "Image saved, but Cast & Credits could not be fully saved. Reopen the image and retry.",
+            };
+          }
           navigate(`/images/${created.id}`);
           return { state: "saved", message: "Image saved." };
         }
@@ -185,6 +212,20 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
           return { state: "error", message: "Image could not be found." };
         }
 
+        try {
+          await reconcileWorkCredits(
+            "image",
+            updated.id,
+            originalCredits,
+            credits,
+          );
+        } catch {
+          return {
+            state: "error",
+            message:
+              "Image saved, but Cast & Credits could not be fully saved. Reopen the image and retry.",
+          };
+        }
         navigate(`/images/${updated.id}`);
         return { state: "saved", message: "Image saved." };
       }}

@@ -5177,7 +5177,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Cast & Credits" }).closest("section"),
       screen.getByRole("heading", { name: "Related Images" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
@@ -5218,7 +5218,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Cast & Credits" }).closest("section"),
       screen.getByRole("heading", { name: "Related Video" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
@@ -5281,7 +5281,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Related Performer" }))
+    expect(screen.getByRole("heading", { name: "Cast & Credits" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
     expect(screen.getByText("No related performers selected.")).toBeInTheDocument();
@@ -5412,6 +5412,16 @@ describe("App", () => {
         if (command === "video_get") {
           return created;
         }
+        if (command === "credit_create") {
+          expect(args.input).toEqual(
+            expect.objectContaining({
+              workType: "video",
+              workId: created.id,
+              performerId: "performer_aoi",
+            }),
+          );
+          return { id: "credit_aoi", ...args.input };
+        }
 
         throw new Error(`Unexpected command ${command}`);
       },
@@ -5468,7 +5478,10 @@ describe("App", () => {
       performerResult,
     );
     expect(screen.getByLabelText("Search related performers")).toHaveValue("cherry");
-    const selectedPerformerChipText = screen.getByText("Aoi Sakura");
+    const selectedPerformerChipText = screen.getAllByText("Aoi Sakura").find(
+      (element) => element.tagName.toLowerCase() === "span",
+    );
+    expect(selectedPerformerChipText).toBeDefined();
     expect(selectedPerformerChipText).toHaveClass(
       "min-w-0",
       "truncate",
@@ -5494,6 +5507,103 @@ describe("App", () => {
       expect.anything(),
     );
   });
+
+  it.each([
+    {
+      path: "/videos/video_credit/edit",
+      workType: "video",
+      getCommand: "video_get",
+      record: persistedVideo({ id: "video_credit", title: "Credit Video" }),
+    },
+    {
+      path: "/images/image_credit/edit",
+      workType: "image",
+      getCommand: "image_get",
+      record: persistedImage({ id: "image_credit", title: "Credit Image" }),
+    },
+  ])(
+    "loads existing $workType credits into Cast & Credits",
+    async ({ path, workType, getCommand, record }) => {
+      window.history.pushState({}, "", path);
+      const performer = persistedPerformer({
+        id: "performer_credit",
+        name: "Credit Performer",
+        aliasesJson: '["Identity Alias"]',
+      });
+      const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+        if (command === getCommand) {
+          return record;
+        }
+        if (command === "credit_list_by_work") {
+          expect(args).toEqual({ workType, workId: record.id });
+          return [
+            {
+              id: `credit_${workType}`,
+              workType,
+              workId: record.id,
+              performerId: performer.id,
+              characterName: "Loaded Role",
+              characterOriginalName: "Original Role",
+              creditedAs: "Custom Billing",
+              creditedAsMode: "custom",
+              creditTypeCategoryId: "cat_voice",
+              roleImportanceCategoryId: "cat_main",
+              characterMode: "text",
+              characterId: null,
+              billingOrder: 3,
+              note: "Loaded note",
+              legacySourceKey: null,
+              createdAt: "1",
+              updatedAt: "1",
+            },
+          ];
+        }
+        if (command === "performer_list") {
+          return [performer];
+        }
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({
+              key: "cat_voice",
+              name: "Voice",
+              showInCredits: true,
+            }),
+            managedCategoryFixture({
+              key: "cat_main",
+              name: "Main",
+              showInCredits: true,
+            }),
+          ];
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: "Cast & Credits" }))
+        .toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByLabelText("Credit 1 performer"))
+          .toHaveValue("performer_credit"),
+      );
+      expect(screen.getByLabelText("Credit 1 character or role"))
+        .toHaveValue("Loaded Role");
+      expect(screen.getByLabelText("Credit 1 credited as mode"))
+        .toHaveValue("custom");
+      expect(screen.getByLabelText("Credit 1 credited as"))
+        .toHaveValue("Custom Billing");
+      await waitFor(() =>
+        expect(screen.getByLabelText("Credit 1 credit type"))
+          .toHaveValue("cat_voice"),
+      );
+      expect(screen.getByLabelText("Credit 1 role importance"))
+        .toHaveValue("cat_main");
+      expect(screen.getByLabelText("Credit 1 billing order")).toHaveValue(3);
+      expect(screen.getByLabelText("Credit 1 note")).toHaveValue("Loaded note");
+      expect(screen.queryByText("Identity Alias")).not.toBeInTheDocument();
+    },
+  );
 
   it("does not persist form picker queries after navigating away and back", async () => {
     const invoke = vi.fn(async (command: string) => {
@@ -5687,7 +5797,6 @@ describe("App", () => {
         if (command === "image_get") {
           return created;
         }
-
         throw new Error(`Unexpected command ${command}`);
       },
     ) as unknown as TestTauriInvoke;
@@ -5846,6 +5955,16 @@ describe("App", () => {
         }
         if (command === "image_get") {
           return created;
+        }
+        if (command === "credit_create") {
+          expect(args.input).toEqual(
+            expect.objectContaining({
+              workType: "image",
+              workId: created.id,
+              performerId: "performer_yuki",
+            }),
+          );
+          return { id: "credit_yuki", ...args.input };
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -6067,7 +6186,7 @@ describe("App", () => {
     render(<App />);
 
     const performerSection = (await screen.findByRole("heading", {
-      name: "Related Performer",
+      name: "Cast & Credits",
     })).closest("section") as HTMLElement;
     const relatedPerformers = within(performerSection);
 
@@ -16192,10 +16311,10 @@ describe("App", () => {
   });
 
   it.each([
-    ["/videos/new", "Related Performer", "Related Images"],
-    ["/videos/sample-id/edit", "Related Performer", "Related Images"],
-    ["/images/new", "Related Performer", "Related Video"],
-    ["/images/sample-id/edit", "Related Performer", "Related Video"],
+    ["/videos/new", "Cast & Credits", "Related Images"],
+    ["/videos/sample-id/edit", "Cast & Credits", "Related Images"],
+    ["/images/new", "Cast & Credits", "Related Video"],
+    ["/images/sample-id/edit", "Cast & Credits", "Related Video"],
     ["/performers/new", "Related Videos", "Related Images"],
     ["/performers/sample-id/edit", "Related Videos", "Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {

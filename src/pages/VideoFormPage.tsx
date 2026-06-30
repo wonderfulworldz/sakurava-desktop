@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { FormConfig, FormMode } from "../lib/formData";
 import { formConfigs } from "../lib/formData";
@@ -16,6 +16,12 @@ import {
   isVideoRuntimeAvailable,
   updateVideo,
 } from "../runtime/videoCommands";
+import type { Credit } from "../backend/types";
+import { listCreditsByWork } from "../runtime/creditCommands";
+import {
+  creditToFormValue,
+  reconcileWorkCredits,
+} from "../lib/workCredits";
 
 type VideoFormPageProps = {
   mode: FormMode;
@@ -31,6 +37,11 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
   );
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [originalCredits, setOriginalCredits] = useState<Credit[]>([]);
+  const initialCreditValues = useMemo(
+    () => originalCredits.map(creditToFormValue),
+    [originalCredits],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -39,12 +50,16 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
       setConfig(formConfigs.videos);
       setMissing(false);
       setLoading(false);
+      setOriginalCredits([]);
       return;
     }
 
     setLoading(true);
-    getVideo(itemKey)
-      .then((video) => {
+    Promise.all([
+      getVideo(itemKey),
+      listCreditsByWork("video", itemKey).catch(() => []),
+    ])
+      .then(([video, credits]) => {
         if (cancelled) {
           return;
         }
@@ -57,6 +72,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
 
         setMissing(false);
         setConfig(buildVideoFormConfig(video, "edit"));
+        setOriginalCredits(credits);
         setLoading(false);
       })
       .catch(() => {
@@ -123,6 +139,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      initialCredits={initialCreditValues}
       deleteAction={
         mode === "edit" && itemKey && isVideoRuntimeAvailable()
           ? {
@@ -140,6 +157,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
         relatedPerformers,
         relatedCatalogRecords,
         sourceLinks,
+        credits,
       }) => {
         if (!isVideoRuntimeAvailable()) {
           return {
@@ -160,6 +178,15 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
               sourceLinks,
             ),
           );
+          try {
+            await reconcileWorkCredits("video", created.id, [], credits);
+          } catch {
+            return {
+              state: "error",
+              message:
+                "Video saved, but Cast & Credits could not be fully saved. Reopen the video and retry.",
+            };
+          }
           navigate(`/videos/${created.id}`);
           return { state: "saved", message: "Video saved." };
         }
@@ -182,6 +209,20 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
           return { state: "error", message: "Video could not be found." };
         }
 
+        try {
+          await reconcileWorkCredits(
+            "video",
+            updated.id,
+            originalCredits,
+            credits,
+          );
+        } catch {
+          return {
+            state: "error",
+            message:
+              "Video saved, but Cast & Credits could not be fully saved. Reopen the video and retry.",
+          };
+        }
         navigate(`/videos/${updated.id}`);
         return { state: "saved", message: "Video saved." };
       }}

@@ -31,7 +31,7 @@ import {
   splitPickerHighlight,
 } from "../lib/relatedPicker";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
-import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
+import CreditEditor from "../components/CreditEditor";
 import {
   selectGalleryFolder,
   selectLocalFolder,
@@ -54,6 +54,10 @@ import {
   detectVideoTechInfo,
 } from "../lib/mediaTechInfo";
 import ConfirmDialog from "../components/ConfirmDialog";
+import {
+  emptyCreditFormValue,
+  type CreditFormValue,
+} from "../lib/workCredits";
 
 const BUTTON_STYLES = {
   primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-xs font-bold text-white transition-colors duration-150 hover:bg-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:cursor-not-allowed disabled:opacity-50",
@@ -80,6 +84,7 @@ type FormPageProps = {
   mode: FormMode;
   onSubmit?: (data: FormSubmitData) => Promise<FormSubmitResult> | FormSubmitResult;
   deleteAction?: FormDeleteAction;
+  initialCredits?: CreditFormValue[];
 };
 
 type FormValues = Record<string, string | boolean>;
@@ -95,6 +100,7 @@ type FormSubmitData = {
   performerRelatedImages: RelatedCatalogRecordFormValue[];
   galleryImagePaths: string[];
   sourceLinks: SourceLinkFormValue[];
+  credits: CreditFormValue[];
 };
 
 type FormSubmitResult = {
@@ -120,6 +126,7 @@ type FormConfirmation =
 
 type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
 type RelatedCatalogLoadState = "idle" | "loading" | "loaded" | "error";
+const EMPTY_CREDITS: CreditFormValue[] = [];
 
 const performerSuggestionCacheKey = "sakurava.performerSuggestionCache.v1";
 const hiddenPerformerSuggestionsKey = "sakurava.hiddenPerformerSuggestions.v1";
@@ -135,7 +142,13 @@ const performerSuggestionCacheKeys = [
   legacyPerformerSuggestionCacheResetKey,
 ];
 
-function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
+function FormPage({
+  config,
+  mode,
+  onSubmit,
+  deleteAction,
+  initialCredits = EMPTY_CREDITS,
+}: FormPageProps) {
   const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
@@ -147,6 +160,11 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
   const [relatedPerformers, setRelatedPerformers] = useState<
     RelatedPerformerFormValue[]
   >(config.initialRelatedPerformers?.[mode] ?? []);
+  const [credits, setCredits] = useState<CreditFormValue[]>(() =>
+    initialCredits.length
+      ? initialCredits
+      : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
+  );
   const [relatedCatalogRecords, setRelatedCatalogRecords] = useState<
     RelatedCatalogRecordFormValue[]
   >(config.initialRelatedCatalogRecords?.[mode] ?? []);
@@ -195,6 +213,10 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
       performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
       galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
       sourceLinks: config.initialSourceLinks?.[mode] ?? [],
+      credits:
+        initialCredits.length
+          ? initialCredits
+          : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
     }),
   );
   const canBrowsePaths = isTauriRuntimeAvailable();
@@ -219,6 +241,11 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
     setCategories(normalizeFormCategories(config.initialCategories[mode]));
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
+    setCredits(
+      initialCredits.length
+        ? initialCredits
+        : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
+    );
     setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
     setPerformerRelatedVideos(config.initialPerformerRelatedVideos?.[mode] ?? []);
     setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
@@ -243,9 +270,13 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
         performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
         galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
         sourceLinks: config.initialSourceLinks?.[mode] ?? [],
+        credits:
+          initialCredits.length
+            ? initialCredits
+            : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
       }),
     );
-  }, [config, mode]);
+  }, [config, initialCredits, mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -517,6 +548,7 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
     performerRelatedImages,
     galleryImagePaths,
     sourceLinks,
+    credits,
   });
   const isDirty = currentSnapshot !== cleanSnapshot;
 
@@ -714,16 +746,22 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
     }
 
     try {
+      const compatibleRelatedPerformers = creditsToLegacyRelations(
+        credits,
+        availablePerformers,
+        relatedPerformers,
+      );
       const result = await onSubmit({
         values,
         categories: normalizeFormCategories(categories),
         aliases,
-        relatedPerformers,
+        relatedPerformers: compatibleRelatedPerformers,
         relatedCatalogRecords,
         performerRelatedVideos,
         performerRelatedImages,
         galleryImagePaths,
         sourceLinks,
+        credits,
       });
       setSaveState(result.state);
       setSaveMessage(
@@ -1171,15 +1209,19 @@ function FormPage({ config, mode, onSubmit, deleteAction }: FormPageProps) {
 
       {config.kind !== "performers" ? (
         <>
-          <FormSection index={7} title="Related Performer">
-            <LabeledControl label="Performers">
-              <RelatedPerformerPicker
-                performers={availablePerformers}
-                selected={relatedPerformers}
-                loadState={performerLoadState}
-                onChange={setRelatedPerformers}
-              />
-            </LabeledControl>
+          <FormSection index={7} title="Cast & Credits">
+            <CreditEditor
+              credits={credits}
+              performers={availablePerformers}
+              categories={managedCategoryRecords}
+              loadState={performerLoadState}
+              onChange={setCredits}
+            />
+            {performerLoadState === "error" && (
+              <p className="mt-2 text-xs text-amber-700">
+                Performer records could not be loaded. Existing unresolved rows remain removable.
+              </p>
+            )}
           </FormSection>
 
           <FormSection
@@ -2896,6 +2938,57 @@ function addChip(
 
 function formSnapshot(data: FormSubmitData) {
   return JSON.stringify(data);
+}
+
+function legacyCredits(
+  relations: RelatedPerformerFormValue[],
+): CreditFormValue[] {
+  return relations.map((relation, index) => ({
+    ...emptyCreditFormValue(relation.performerId, index),
+    performerNameSnapshot: relation.nameSnapshot,
+  }));
+}
+
+function creditsToLegacyRelations(
+  credits: CreditFormValue[],
+  performers: Performer[],
+  fallback: RelatedPerformerFormValue[],
+): RelatedPerformerFormValue[] {
+  const performerById = new Map(
+    performers.map((performer) => [performer.id, performer]),
+  );
+  const fallbackById = new Map(
+    fallback
+      .filter((relation) => relation.performerId)
+      .map((relation) => [relation.performerId, relation]),
+  );
+  const seen = new Set<string>();
+  const relations: RelatedPerformerFormValue[] = [];
+
+  for (const credit of credits) {
+    const performerId = credit.performerId.trim();
+    if (!performerId || seen.has(performerId)) {
+      continue;
+    }
+    seen.add(performerId);
+    const performer = performerById.get(performerId);
+    relations.push({
+      performerId,
+      nameSnapshot:
+        performer?.name ||
+        performer?.originalName ||
+        fallbackById.get(performerId)?.nameSnapshot ||
+        credit.performerNameSnapshot ||
+        "Unresolved Performer",
+    });
+  }
+
+  for (const relation of fallback) {
+    if (!relation.performerId && relation.nameSnapshot.trim()) {
+      relations.push(relation);
+    }
+  }
+  return relations;
 }
 
 function formConfirmationCopy(
