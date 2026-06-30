@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { parseRelatedCatalogRecordArray } from "../backend/json";
-import type { Image, ManagedCategory, Video } from "../backend/types";
+import type { Credit, Image, ManagedCategory, Video } from "../backend/types";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import { buildPerformerDetailConfig } from "../lib/performerIntegration";
@@ -22,6 +22,7 @@ import {
   isVideoRuntimeAvailable,
   listVideos,
 } from "../runtime/videoCommands";
+import { listCreditsByPerformer } from "../runtime/creditCommands";
 
 function PerformerDetailPage() {
   const { itemKey } = useParams();
@@ -58,8 +59,15 @@ function PerformerDetailPage() {
         let videos: Video[] = [];
         let images: Image[] = [];
         let managedCategories: ManagedCategory[] = [];
+        let credits: Credit[] = [];
+        try {
+          credits = await listCreditsByPerformer(performer.id);
+        } catch {
+          credits = [];
+        }
         if (
-          parseRelatedCatalogRecordArray(performer.relatedVideosJson).length > 0 &&
+          (credits.some((credit) => credit.workType === "video") ||
+            parseRelatedCatalogRecordArray(performer.relatedVideosJson).length > 0) &&
           isVideoRuntimeAvailable()
         ) {
           try {
@@ -69,7 +77,8 @@ function PerformerDetailPage() {
           }
         }
         if (
-          parseRelatedCatalogRecordArray(performer.relatedImagesJson).length > 0 &&
+          (credits.some((credit) => credit.workType === "image") ||
+            parseRelatedCatalogRecordArray(performer.relatedImagesJson).length > 0) &&
           isImageRuntimeAvailable()
         ) {
           try {
@@ -94,6 +103,7 @@ function PerformerDetailPage() {
             videos,
             images,
             managedCategories,
+            credits,
           ),
         );
         setLoading(false);

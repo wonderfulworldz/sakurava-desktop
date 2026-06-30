@@ -41,6 +41,7 @@ import type {
   DetailConfig,
   DetailSection,
   CreditDetailItem,
+  FilmographyDetailItem,
   MediaPathItem,
   PerformerDetailConfig,
   SourceLinkItem,
@@ -1373,7 +1374,9 @@ function RelatedRows({
               {relatedCountLabel(section)}
             </span>
           </div>
-          {section.credits?.length ? (
+          {section.filmography?.length ? (
+            <FilmographySummary items={section.filmography} />
+          ) : section.credits?.length ? (
             <CreditSummary credits={section.credits} />
           ) : section.relatedPerformers ? (
             <RelatedPerformerSummary section={section} />
@@ -1402,7 +1405,9 @@ function relatedSectionIcon(title: string) {
 
 function relatedCountLabel(section: DetailSection) {
   const count =
-    (section.credits?.length || section.relatedPerformers?.length) ??
+    (section.filmography?.length ||
+      section.credits?.length ||
+      section.relatedPerformers?.length) ??
     section.relatedCatalogRecords?.length ??
     0;
   const singular = section.title.includes("Credits")
@@ -1415,6 +1420,78 @@ function relatedCountLabel(section: DetailSection) {
   const label = count === 1 ? singular : `${singular}s`;
 
   return `${count} ${label}`;
+}
+
+function FilmographySummary({
+  items,
+}: {
+  items: FilmographyDetailItem[];
+}) {
+  return (
+    <div className="mt-4 grid gap-3">
+      {items.map((item) => (
+        <article
+          key={item.id}
+          className="rounded-lg border border-slate-200 bg-slate-50/40 p-4"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                {item.workRouteTo ? (
+                  <Link
+                    to={item.workRouteTo}
+                    className="font-semibold text-sakura-600 hover:text-sakura-700"
+                  >
+                    {item.workTitle}
+                  </Link>
+                ) : (
+                  <p className="font-semibold text-slate-800">
+                    {item.workTitle}
+                  </p>
+                )}
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                  {item.workType}
+                </span>
+              </div>
+              {item.workOriginalTitle && (
+                <p className="mt-1 text-sm text-slate-500">
+                  {item.workOriginalTitle}
+                </p>
+              )}
+              {(item.releaseDate || item.publisherLabel) && (
+                <p className="mt-1 text-xs text-slate-400">
+                  {[item.releaseDate, item.publisherLabel].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            {item.billingOrder !== undefined && (
+              <span className="text-xs font-semibold text-slate-500">
+                Billing #{item.billingOrder}
+              </span>
+            )}
+          </div>
+          <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
+            <CreditField
+              label="Character / Role"
+              value={item.characterName}
+              secondaryValue={item.characterOriginalName}
+            />
+            <CreditField label="Credited As" value={item.creditedAs} />
+            <CreditField label="Credit Type" value={item.creditType} />
+            <CreditField
+              label="Role Importance"
+              value={item.roleImportance}
+            />
+          </dl>
+          {item.note && (
+            <p className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-600">
+              {item.note}
+            </p>
+          )}
+        </article>
+      ))}
+    </div>
+  );
 }
 
 function CreditSummary({ credits }: { credits: CreditDetailItem[] }) {

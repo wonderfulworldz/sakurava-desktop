@@ -1,10 +1,15 @@
 import { parseRelatedPerformerArray } from "../backend/json";
 import type {
   Credit,
+  Image,
   ManagedCategory,
   Performer,
+  Video,
 } from "../backend/types";
-import type { CreditDetailItem } from "./detailData";
+import type {
+  CreditDetailItem,
+  FilmographyDetailItem,
+} from "./detailData";
 
 export function buildCreditDetailItems(
   credits: Credit[],
@@ -79,6 +84,104 @@ export function buildCreditDetailItems(
       return leftOrder - rightOrder || left.loadedIndex - right.loadedIndex;
     })
     .map(({ loadedIndex: _loadedIndex, ...item }) => item);
+}
+
+export function buildFilmographyDetailItems(
+  credits: Credit[],
+  videos: Video[],
+  images: Image[],
+  categories: ManagedCategory[],
+): FilmographyDetailItem[] {
+  const videoById = new Map(videos.map((video) => [video.id, video]));
+  const imageById = new Map(images.map((image) => [image.id, image]));
+  const categoryByKey = new Map(
+    categories.map((category) => [category.key, category.name]),
+  );
+
+  return credits
+    .map((credit, loadedIndex) => {
+      const work =
+        credit.workType === "video"
+          ? videoById.get(credit.workId)
+          : imageById.get(credit.workId);
+      const workType: FilmographyDetailItem["workType"] =
+        credit.workType === "video" ? "Video" : "Image";
+      const workTitle =
+        work?.title?.trim() ||
+        work?.originalTitle?.trim() ||
+        `Unknown ${credit.workType}`;
+      const characterName =
+        credit.characterMode === "self"
+          ? "Self"
+          : credit.characterName.trim() || undefined;
+
+      return {
+        id: credit.id,
+        workTitle,
+        workOriginalTitle:
+          work?.originalTitle?.trim() &&
+          work.originalTitle.trim() !== workTitle
+            ? work.originalTitle.trim()
+            : undefined,
+        workType,
+        workRouteTo: work
+          ? `/${credit.workType === "video" ? "videos" : "images"}/${work.id}`
+          : undefined,
+        releaseDate: work?.releaseDate?.trim() || undefined,
+        publisherLabel: work?.publisherLabel?.trim() || undefined,
+        characterName,
+        characterOriginalName:
+          characterName && credit.characterOriginalName?.trim()
+            ? credit.characterOriginalName.trim()
+            : undefined,
+        creditedAs:
+          credit.creditedAsMode === "custom"
+            ? credit.creditedAs?.trim() || undefined
+            : undefined,
+        creditType: resolveCategoryLabel(
+          credit.creditTypeCategoryId,
+          categoryByKey,
+        ),
+        roleImportance: resolveCategoryLabel(
+          credit.roleImportanceCategoryId,
+          categoryByKey,
+        ),
+        billingOrder:
+          typeof credit.billingOrder === "number"
+            ? credit.billingOrder
+            : undefined,
+        note: credit.note?.trim() || undefined,
+        createdAt: credit.createdAt,
+        loadedIndex,
+      };
+    })
+    .sort((left, right) => {
+      const typeOrder = left.workType.localeCompare(right.workType);
+      if (typeOrder !== 0) {
+        return left.workType === "Video" ? -1 : 1;
+      }
+
+      const dateOrder = (right.releaseDate ?? "").localeCompare(
+        left.releaseDate ?? "",
+      );
+      if (dateOrder !== 0) {
+        return dateOrder;
+      }
+
+      const billingOrder =
+        (left.billingOrder ?? Number.POSITIVE_INFINITY) -
+        (right.billingOrder ?? Number.POSITIVE_INFINITY);
+      if (billingOrder !== 0) {
+        return billingOrder;
+      }
+
+      return (
+        left.workTitle.localeCompare(right.workTitle) ||
+        left.createdAt.localeCompare(right.createdAt) ||
+        left.loadedIndex - right.loadedIndex
+      );
+    })
+    .map(({ createdAt: _createdAt, loadedIndex: _loadedIndex, ...item }) => item);
 }
 
 function resolveCategoryLabel(

@@ -10958,6 +10958,135 @@ describe("App", () => {
     );
   });
 
+  it("renders Performer Credits / Filmography from credits without legacy duplication", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({
+          name: "Filmography Performer",
+          aliasesJson: '["Identity Alias"]',
+          relatedVideosJson:
+            '[{"recordId":"legacy_video","titleSnapshot":"Legacy Video"}]',
+          relatedImagesJson:
+            '[{"recordId":"legacy_image","titleSnapshot":"Legacy Image"}]',
+        });
+      }
+      if (command === "credit_list_by_performer") {
+        expect(args).toEqual({ performerId: "performer_test_001" });
+        return [
+          persistedCredit({
+            id: "credit_image",
+            workType: "image",
+            workId: "image_credit",
+            performerId: "performer_test_001",
+            characterMode: "self",
+            creditTypeCategoryId: "credit_model",
+          }),
+          persistedCredit({
+            id: "credit_video_second_role",
+            workId: "video_credit",
+            performerId: "performer_test_001",
+            characterName: "",
+            billingOrder: 2,
+          }),
+          persistedCredit({
+            id: "credit_video_first_role",
+            workId: "video_credit",
+            performerId: "performer_test_001",
+            characterName: "Hana",
+            characterOriginalName: "花",
+            creditedAsMode: "custom",
+            creditedAs: "Stage Name",
+            creditTypeCategoryId: "credit_cast",
+            roleImportanceCategoryId: "role_lead",
+            billingOrder: 1,
+            note: "Lead performance",
+          }),
+          persistedCredit({
+            id: "credit_missing_video",
+            workId: "missing_video",
+            performerId: "performer_test_001",
+            creditTypeCategoryId: "missing_category",
+          }),
+        ];
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_credit",
+            title: "Credited Video",
+            originalTitle: "Credited Video Original",
+            releaseDate: "2025-05-01",
+            publisherLabel: "Video Studio",
+          }),
+          persistedVideo({ id: "legacy_video", title: "Legacy Video" }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_credit",
+            title: "Credited Image",
+            releaseDate: "2026-01-01",
+            publisherLabel: "Image Studio",
+          }),
+          persistedImage({ id: "legacy_image", title: "Legacy Image" }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({ key: "credit_cast", name: "Cast" }),
+          managedCategoryFixture({ key: "role_lead", name: "Lead" }),
+          managedCategoryFixture({ key: "credit_model", name: "Model" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Filmography Performer")).toBeInTheDocument();
+    const section = screen.getByRole("heading", {
+      name: "Credits / Filmography",
+    }).closest("section") as HTMLElement;
+    const filmography = within(section);
+    expect(filmography.getAllByText("Credited Video")).toHaveLength(2);
+    expect(filmography.getAllByRole("link", { name: "Credited Video" })[0])
+      .toHaveAttribute("href", "/videos/video_credit");
+    expect(filmography.getByRole("link", { name: "Credited Image" }))
+      .toHaveAttribute("href", "/images/image_credit");
+    expect(filmography.getByText("Hana").closest("a")).toBeNull();
+    expect(filmography.getByText("(花)")).toBeInTheDocument();
+    expect(filmography.getByText("Self").closest("a")).toBeNull();
+    expect(filmography.getByText("Stage Name")).toBeInTheDocument();
+    expect(filmography.getByText("Cast")).toBeInTheDocument();
+    expect(filmography.getByText("Lead")).toBeInTheDocument();
+    expect(filmography.getByText("Model")).toBeInTheDocument();
+    expect(filmography.getByText("Lead performance")).toBeInTheDocument();
+    expect(filmography.getByText("Unknown video")).toBeInTheDocument();
+    expect(filmography.getByText("missing_category")).toBeInTheDocument();
+    expect(filmography.queryByText("Identity Alias")).not.toBeInTheDocument();
+    expect(filmography.queryByText("Legacy Video")).not.toBeInTheDocument();
+    expect(filmography.queryByText("Legacy Image")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Related Videos" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Related Images" }))
+      .not.toBeInTheDocument();
+
+    const cards = section.querySelectorAll("article");
+    expect(cards).toHaveLength(4);
+    expect(within(cards[0] as HTMLElement).getByText("Hana")).toBeInTheDocument();
+    expect(within(cards[1] as HTMLElement).getByText("Billing #2"))
+      .toBeInTheDocument();
+    expect(within(cards[2] as HTMLElement).getByText("Unknown video"))
+      .toBeInTheDocument();
+    expect(within(cards[3] as HTMLElement).getByText("Self"))
+      .toBeInTheDocument();
+  });
+
   it("keeps unresolved Performer related catalog items visible as safe fallbacks", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {

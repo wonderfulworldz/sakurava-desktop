@@ -1,4 +1,5 @@
 import type {
+  Credit,
   Image,
   ManagedCategory,
   NewPerformer,
@@ -35,6 +36,7 @@ import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { MANAGED_CATEGORIES_STORAGE_KEY } from "./managedCategories";
+import { buildFilmographyDetailItems } from "./creditDisplay";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -58,14 +60,29 @@ export function buildPerformerDetailConfig(
   videos: Video[] = [],
   images: Image[] = [],
   managedCategories: ManagedCategory[] = readStoredManagedCategoryRecords(),
+  credits: Credit[] = [],
 ): PerformerDetailConfig {
   const baseConfig = detailConfigs.performers as PerformerDetailConfig;
   const thumbnailPaths = parsePerformerThumbnailPathArray(
     performer.performerThumbnailPathsJson,
   );
   const derivedStatus = derivePerformerStatus(performer);
-  const filmographyCount = derivedRelatedCount(performer.relatedVideosJson);
-  const pictorialsCount = derivedRelatedCount(performer.relatedImagesJson);
+  const filmographyCount =
+    credits.length > 0
+      ? new Set(
+          credits
+            .filter((credit) => credit.workType === "video")
+            .map((credit) => credit.workId),
+        ).size
+      : derivedRelatedCount(performer.relatedVideosJson);
+  const pictorialsCount =
+    credits.length > 0
+      ? new Set(
+          credits
+            .filter((credit) => credit.workType === "image")
+            .map((credit) => credit.workId),
+        ).size
+      : derivedRelatedCount(performer.relatedImagesJson);
   const performerCategories = parseTextLabelArray(performer.categoriesJson);
   const taxonomy = derivePerformerTaxonomyValues(
     performerCategories,
@@ -134,6 +151,8 @@ export function buildPerformerDetailConfig(
       videos,
       performer.relatedImagesJson,
       images,
+      credits,
+      managedCategories,
     ),
   };
 }
@@ -475,7 +494,24 @@ function buildRelatedSections(
   videos: Video[],
   relatedImagesJson: string | null | undefined,
   images: Image[],
+  credits: Credit[],
+  managedCategories: ManagedCategory[],
 ): DetailSection[] {
+  if (credits.length > 0) {
+    return [
+      {
+        title: "Credits / Filmography",
+        description: "Read-only work credits saved for this Performer.",
+        filmography: buildFilmographyDetailItems(
+          credits,
+          videos,
+          images,
+          managedCategories,
+        ),
+      },
+    ];
+  }
+
   return sections.map((section) =>
     section.title.includes("Video")
       ? {

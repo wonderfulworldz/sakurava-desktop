@@ -50,10 +50,28 @@ export type CreditDetailItem = {
   note?: string;
 };
 
+export type FilmographyDetailItem = {
+  id: string;
+  workTitle: string;
+  workOriginalTitle?: string;
+  workType: "Video" | "Image";
+  workRouteTo?: string;
+  releaseDate?: string;
+  publisherLabel?: string;
+  characterName?: string;
+  characterOriginalName?: string;
+  creditedAs?: string;
+  creditType?: string;
+  roleImportance?: string;
+  billingOrder?: number;
+  note?: string;
+};
+
 export type DetailSection = {
   title: string;
   description: string;
   credits?: CreditDetailItem[];
+  filmography?: FilmographyDetailItem[];
   relatedPerformers?: RelatedPerformerDetailItem[];
   relatedCatalogRecords?: RelatedCatalogDetailItem[];
   controls?: "performer-related";
