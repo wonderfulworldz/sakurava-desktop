@@ -10298,6 +10298,141 @@ describe("App", () => {
     );
   });
 
+  it("renders sorted Video Cast & Credits with resolved performers and category labels", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Credits Video",
+          relatedPerformersJson:
+            '[{"performerId":"performer_aoi","nameSnapshot":"Legacy Aoi"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_aoi",
+            name: "Aoi Sakura",
+            originalName: "Sakura Aoi",
+            aliasesJson: '["Must Not Be Character"]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({ key: "credit_cast", name: "Cast" }),
+          managedCategoryFixture({ key: "role_lead", name: "Lead" }),
+        ];
+      }
+      if (command === "credit_list_by_work") {
+        return [
+          persistedCredit({
+            id: "credit_second",
+            performerId: "performer_aoi",
+            characterName: "",
+            billingOrder: null,
+          }),
+          persistedCredit({
+            id: "credit_first",
+            performerId: "performer_aoi",
+            characterName: "Hana",
+            characterOriginalName: "花",
+            creditedAs: "A. Sakura",
+            creditedAsMode: "custom",
+            creditTypeCategoryId: "credit_cast",
+            roleImportanceCategoryId: "role_lead",
+            billingOrder: 1,
+            note: "Opening role",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Credits Video")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Cast & Credits" })
+      .closest("section") as HTMLElement;
+    const credits = within(section);
+    expect(credits.getAllByText("Aoi Sakura")).toHaveLength(2);
+    expect(credits.getAllByRole("link", { name: "Aoi Sakura" })[0])
+      .toHaveAttribute("href", "/performers/performer_aoi");
+    expect(credits.getByText("Hana").closest("a")).toBeNull();
+    expect(credits.getByText("(花)")).toBeInTheDocument();
+    expect(credits.getByText("A. Sakura")).toBeInTheDocument();
+    expect(credits.getByText("Cast")).toBeInTheDocument();
+    expect(credits.getByText("Lead")).toBeInTheDocument();
+    expect(credits.getByText("Opening role")).toBeInTheDocument();
+    expect(credits.queryByText("Must Not Be Character")).not.toBeInTheDocument();
+    const cards = section.querySelectorAll("article");
+    expect(cards).toHaveLength(2);
+    expect(within(cards[0] as HTMLElement).getByText("Hana")).toBeInTheDocument();
+    expect(within(cards[1] as HTMLElement).getAllByText("N/A")).toHaveLength(4);
+    expect(screen.queryByRole("heading", { name: "Related Performers" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("renders Image credits with Self and safe unresolved fallbacks", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Credits Image",
+          relatedPerformersJson:
+            '[{"performerId":"missing_performer","nameSnapshot":"Legacy Snapshot"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [];
+      }
+      if (command === "credit_list_by_work") {
+        expect(args).toEqual({ workType: "image", workId: "image_test_001" });
+        return [
+          persistedCredit({
+            id: "credit_self",
+            workType: "image",
+            performerId: "missing_performer",
+            characterMode: "self",
+            creditTypeCategoryId: "missing_credit_type",
+          }),
+          persistedCredit({
+            id: "credit_unknown",
+            workType: "image",
+            performerId: "unknown_performer",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Credits Image")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Cast & Credits" })
+      .closest("section") as HTMLElement;
+    const credits = within(section);
+    expect(credits.getByText("Legacy Snapshot")).toBeInTheDocument();
+    expect(credits.getByText("Unknown performer")).toBeInTheDocument();
+    expect(credits.getByText("Self")).toBeInTheDocument();
+    expect(credits.getByText("Self").closest("a")).toBeNull();
+    expect(credits.getByText("missing_credit_type")).toBeInTheDocument();
+    expect(credits.queryAllByRole("link")).toHaveLength(0);
+  });
+
   it("maps and persists Related Performer favorite state on video detail", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     let relatedPerformer = persistedPerformer({
@@ -17136,6 +17271,29 @@ function persistedPerformer(overrides: Record<string, unknown> = {}) {
     ratingJson: '{"attraction":4,"visual":3}',
     notes: "Persisted performer notes",
     favorite: true,
+    createdAt: "2026-05-11T00:00:00.000Z",
+    updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function persistedCredit(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "credit_test_001",
+    workType: "video",
+    workId: "video_test_001",
+    performerId: "performer_test_001",
+    characterName: "",
+    characterOriginalName: null,
+    creditedAs: null,
+    creditedAsMode: "auto",
+    creditTypeCategoryId: null,
+    roleImportanceCategoryId: null,
+    characterMode: "text",
+    characterId: null,
+    billingOrder: null,
+    note: null,
+    legacySourceKey: null,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,

@@ -36,9 +36,24 @@ export type RelatedCatalogDetailItem = {
   unresolved: boolean;
 };
 
+export type CreditDetailItem = {
+  id: string;
+  performerName: string;
+  performerOriginalName?: string;
+  performerRouteTo?: string;
+  characterName?: string;
+  characterOriginalName?: string;
+  creditedAs?: string;
+  creditType?: string;
+  roleImportance?: string;
+  billingOrder?: number;
+  note?: string;
+};
+
 export type DetailSection = {
   title: string;
   description: string;
+  credits?: CreditDetailItem[];
   relatedPerformers?: RelatedPerformerDetailItem[];
   relatedCatalogRecords?: RelatedCatalogDetailItem[];
   controls?: "performer-related";

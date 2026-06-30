@@ -40,6 +40,7 @@ import GlobalImageViewer from "../components/gallery/GlobalImageViewer";
 import type {
   DetailConfig,
   DetailSection,
+  CreditDetailItem,
   MediaPathItem,
   PerformerDetailConfig,
   SourceLinkItem,
@@ -1372,7 +1373,9 @@ function RelatedRows({
               {relatedCountLabel(section)}
             </span>
           </div>
-          {section.relatedPerformers ? (
+          {section.credits?.length ? (
+            <CreditSummary credits={section.credits} />
+          ) : section.relatedPerformers ? (
             <RelatedPerformerSummary section={section} />
           ) : section.relatedCatalogRecords ? (
             <RelatedCatalogSummary section={section} />
@@ -1399,10 +1402,12 @@ function relatedSectionIcon(title: string) {
 
 function relatedCountLabel(section: DetailSection) {
   const count =
-    section.relatedPerformers?.length ??
+    (section.credits?.length || section.relatedPerformers?.length) ??
     section.relatedCatalogRecords?.length ??
     0;
-  const singular = section.title.includes("Performer")
+  const singular = section.title.includes("Credits")
+    ? "Credit"
+    : section.title.includes("Performer")
     ? "Performer"
     : section.title.includes("Video")
       ? "Video"
@@ -1410,6 +1415,86 @@ function relatedCountLabel(section: DetailSection) {
   const label = count === 1 ? singular : `${singular}s`;
 
   return `${count} ${label}`;
+}
+
+function CreditSummary({ credits }: { credits: CreditDetailItem[] }) {
+  return (
+    <div className="mt-4 grid gap-3">
+      {credits.map((credit) => (
+        <article
+          key={credit.id}
+          className="rounded-lg border border-slate-200 bg-slate-50/40 p-4"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              {credit.performerRouteTo ? (
+                <Link
+                  to={credit.performerRouteTo}
+                  className="font-semibold text-sakura-600 hover:text-sakura-700"
+                >
+                  {credit.performerName}
+                </Link>
+              ) : (
+                <p className="font-semibold text-slate-800">
+                  {credit.performerName}
+                </p>
+              )}
+              {credit.performerOriginalName && (
+                <p className="mt-1 text-sm text-slate-500">
+                  {credit.performerOriginalName}
+                </p>
+              )}
+            </div>
+            {credit.billingOrder !== undefined && (
+              <span className="text-xs font-semibold text-slate-500">
+                Billing #{credit.billingOrder}
+              </span>
+            )}
+          </div>
+          <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
+            <CreditField
+              label="Character / Role"
+              value={credit.characterName}
+              secondaryValue={credit.characterOriginalName}
+            />
+            <CreditField label="Credited As" value={credit.creditedAs} />
+            <CreditField label="Credit Type" value={credit.creditType} />
+            <CreditField
+              label="Role Importance"
+              value={credit.roleImportance}
+            />
+          </dl>
+          {credit.note && (
+            <p className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-600">
+              {credit.note}
+            </p>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function CreditField({
+  label,
+  value,
+  secondaryValue,
+}: {
+  label: string;
+  value?: string;
+  secondaryValue?: string;
+}) {
+  return (
+    <div>
+      <dt className="font-semibold text-slate-700">{label}</dt>
+      <dd className="mt-0.5 text-slate-500">
+        {value || "N/A"}
+        {secondaryValue && (
+          <span className="ml-1 text-slate-400">({secondaryValue})</span>
+        )}
+      </dd>
+    </div>
+  );
 }
 
 function RelatedLiteCard({

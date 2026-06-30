@@ -1,4 +1,12 @@
-import type { Image, ImagePatch, NewImage, Performer, Video } from "../backend/types";
+import type {
+  Credit,
+  Image,
+  ImagePatch,
+  ManagedCategory,
+  NewImage,
+  Performer,
+  Video,
+} from "../backend/types";
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
@@ -32,6 +40,7 @@ import type {
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
+import { buildCreditDetailItems } from "./creditDisplay";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -49,6 +58,8 @@ export function buildImageDetailConfig(
   image: Image,
   performers: Performer[] = [],
   videos: Video[] = [],
+  credits: Credit[] = [],
+  managedCategories: ManagedCategory[] = [],
 ): ImageDetailConfig {
   const baseConfig = detailConfigs.images as ImageDetailConfig;
   const galleryImagePaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
@@ -91,6 +102,8 @@ export function buildImageDetailConfig(
       performers,
       image.relatedVideosJson,
       videos,
+      credits,
+      managedCategories,
     ),
   };
 }
@@ -316,12 +329,24 @@ function buildRelatedSections(
   performers: Performer[],
   relatedVideosJson: string | null | undefined,
   videos: Video[],
+  credits: Credit[],
+  managedCategories: ManagedCategory[],
 ): DetailSection[] {
   return sections.map((section) =>
     section.title.includes("Performer")
       ? {
           ...section,
-          description: "Read-only Related Performer links saved on this record.",
+          title: credits.length > 0 ? "Cast & Credits" : section.title,
+          description:
+            credits.length > 0
+              ? "Read-only Cast & Credits saved for this Image."
+              : "Read-only Related Performer links saved on this record.",
+          credits: buildCreditDetailItems(
+            credits,
+            performers,
+            managedCategories,
+            relatedPerformersJson,
+          ),
           relatedPerformers: buildRelatedPerformerItems(
             relatedPerformersJson,
             performers,

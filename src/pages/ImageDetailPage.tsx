@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
-import type { Performer, Video } from "../backend/types";
+import type { Credit, ManagedCategory, Performer, Video } from "../backend/types";
 import { buildImageDetailConfig } from "../lib/imageIntegration";
 import DetailPage from "./DetailPage";
 import { getImage, isImageRuntimeAvailable } from "../runtime/imageCommands";
@@ -14,6 +14,8 @@ import {
   isVideoRuntimeAvailable,
   listVideos,
 } from "../runtime/videoCommands";
+import { listCreditsByWork } from "../runtime/creditCommands";
+import { listManagedCategories } from "../runtime/managedCategoryCommands";
 
 function ImageDetailPage() {
   const { itemKey } = useParams();
@@ -49,6 +51,8 @@ function ImageDetailPage() {
         setMissing(false);
         let performers: Performer[] = [];
         let videos: Video[] = [];
+        let credits: Credit[] = [];
+        let managedCategories: ManagedCategory[] = [];
         if (isPerformerRuntimeAvailable()) {
           try {
             performers = await listPerformers();
@@ -63,10 +67,28 @@ function ImageDetailPage() {
             videos = [];
           }
         }
+        try {
+          credits = await listCreditsByWork("image", image.id);
+        } catch {
+          credits = [];
+        }
+        try {
+          managedCategories = await listManagedCategories();
+        } catch {
+          managedCategories = [];
+        }
         if (cancelled) {
           return;
         }
-        setConfig(buildImageDetailConfig(image, performers, videos));
+        setConfig(
+          buildImageDetailConfig(
+            image,
+            performers,
+            videos,
+            credits,
+            managedCategories,
+          ),
+        );
         setLoading(false);
       })
       .catch(() => {

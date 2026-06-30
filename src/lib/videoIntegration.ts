@@ -1,4 +1,12 @@
-import type { Image, NewVideo, Performer, Video, VideoPatch } from "../backend/types";
+import type {
+  Credit,
+  Image,
+  ManagedCategory,
+  NewVideo,
+  Performer,
+  Video,
+  VideoPatch,
+} from "../backend/types";
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
@@ -30,6 +38,7 @@ import type {
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
+import { buildCreditDetailItems } from "./creditDisplay";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -47,6 +56,8 @@ export function buildVideoDetailConfig(
   video: Video,
   performers: Performer[] = [],
   images: Image[] = [],
+  credits: Credit[] = [],
+  managedCategories: ManagedCategory[] = [],
 ): VideoDetailConfig {
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   return {
@@ -87,6 +98,8 @@ export function buildVideoDetailConfig(
       performers,
       video.relatedImagesJson,
       images,
+      credits,
+      managedCategories,
     ),
   };
 }
@@ -296,12 +309,24 @@ function buildRelatedSections(
   performers: Performer[],
   relatedImagesJson: string | null | undefined,
   images: Image[],
+  credits: Credit[],
+  managedCategories: ManagedCategory[],
 ): DetailSection[] {
   return sections.map((section) =>
     section.title.includes("Performer")
       ? {
           ...section,
-          description: "Read-only Related Performer links saved on this record.",
+          title: credits.length > 0 ? "Cast & Credits" : section.title,
+          description:
+            credits.length > 0
+              ? "Read-only Cast & Credits saved for this Video."
+              : "Read-only Related Performer links saved on this record.",
+          credits: buildCreditDetailItems(
+            credits,
+            performers,
+            managedCategories,
+            relatedPerformersJson,
+          ),
           relatedPerformers: buildRelatedPerformerItems(
             relatedPerformersJson,
             performers,
