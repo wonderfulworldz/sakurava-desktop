@@ -22,6 +22,23 @@ export async function initializeSakuravaSchema(
   }
 
   await ensurePerformerGenderColumn(database);
+  await ensureManagedCategoryCreditsColumn(database);
+}
+
+async function ensureManagedCategoryCreditsColumn(
+  database: Pick<SqliteDatabase, "execute" | "queryAll">,
+) {
+  const columns = await database.queryAll<{ name?: SqliteValue }>(
+    "PRAGMA table_info(managedCategories)",
+  );
+  const hasCredits = columns.some(
+    (column) => String(column.name ?? "").toLowerCase() === "showincredits",
+  );
+  if (!hasCredits) {
+    await database.execute(
+      "ALTER TABLE managedCategories ADD COLUMN showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1))",
+    );
+  }
 }
 
 async function ensurePerformerGenderColumn(

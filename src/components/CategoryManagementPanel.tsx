@@ -1,5 +1,6 @@
 import {
   ArrowUpDown,
+  BadgeCheck,
   Check,
   ChevronDown,
   ChevronRight,
@@ -44,6 +45,7 @@ import { listImages } from "../runtime/imageCommands";
 import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { listVideos } from "../runtime/videoCommands";
+import { listCredits } from "../runtime/creditCommands";
 import ConfirmDialog from "./ConfirmDialog";
 import StickyHorizontalScroll from "./StickyHorizontalScroll";
 import {
@@ -60,6 +62,7 @@ type FormState = {
   showInVideos: boolean;
   showInImages: boolean;
   showInPerformers: boolean;
+  showInCredits: boolean;
 };
 
 type StatusState =
@@ -78,6 +81,7 @@ type FilterValue =
   | "videos"
   | "images"
   | "performers"
+  | "credits"
   | "active"
   | "unused";
 type ActiveFilterValue = Exclude<FilterValue, "all">;
@@ -131,6 +135,7 @@ const filterOptions: CategoryFilterOption[] = [
   { value: "videos", label: "Videos Used", chipLabel: "Videos Used", chipPrefix: "Filter" },
   { value: "images", label: "Images Used", chipLabel: "Images Used", chipPrefix: "Filter" },
   { value: "performers", label: "Performer Used", chipLabel: "Performer Used", chipPrefix: "Filter" },
+  { value: "credits", label: "Credits Used", chipLabel: "Credits Used", chipPrefix: "Filter" },
 ];
 const selectableFilterOptions = filterOptions.filter(
   (option): option is ActiveCategoryFilterOption => option.value !== "all",
@@ -150,12 +155,18 @@ const emptyForm: FormState = {
   showInVideos: false,
   showInImages: false,
   showInPerformers: false,
+  showInCredits: false,
 };
 
 const emptyRecords = {
   videos: [] as Array<{ categoriesJson: string }>,
   images: [] as Array<{ categoriesJson: string }>,
   performers: [] as Array<{ categoriesJson: string }>,
+  credits: [] as Array<{
+    creditTypeCategoryId: string | null;
+    roleImportanceCategoryId: string | null;
+    characterName?: string;
+  }>,
 };
 
 type CategoryUsageRow = {
@@ -165,6 +176,7 @@ type CategoryUsageRow = {
     videos: number;
     images: number;
     performers: number;
+    credits: number;
     total: number;
   };
   childCount: number;
@@ -242,7 +254,7 @@ function CategoryManagementPanel() {
     const usageByKey = new Map(
       categories.map((category) => [
         category.key,
-        countManagedCategoryUsage(category.name, records),
+        countManagedCategoryUsage(category.name, records, category.key),
       ]),
     );
     const childKeysByParentKey = new Map<string, string[]>();
@@ -417,6 +429,7 @@ function CategoryManagementPanel() {
               showInVideos: true,
               showInImages: true,
               showInPerformers: true,
+              showInCredits: false,
               createdAt: "",
               updatedAt: "",
             }),
@@ -434,10 +447,11 @@ function CategoryManagementPanel() {
           return;
         }
 
-        const [videos, images, performers] = await Promise.all([
+        const [videos, images, performers, credits] = await Promise.all([
           listVideos(),
           listImages(),
           listPerformers(),
+          listCredits().catch(() => []),
         ]);
         const migrated = await migrateLegacyManagedCategories();
         const nextCategories = migrated.length ? migrated : await listManagedCategories();
@@ -447,7 +461,7 @@ function CategoryManagementPanel() {
           setExpandedParentKeys((current) =>
             initialFilters.expandedParentKeys ? current : defaultExpandedParentKeys(nextCategories),
           );
-          setRecords({ videos, images, performers });
+          setRecords({ videos, images, performers, credits });
           setCategories(nextCategories);
           setStatus({ state: "idle" });
         }
@@ -553,6 +567,7 @@ function CategoryManagementPanel() {
           showInVideos: form.showInVideos,
           showInImages: form.showInImages,
           showInPerformers: form.showInPerformers,
+          showInCredits: form.showInCredits,
         });
         await refreshCategories("Data updated successfully.");
         resetFormAfterSuccessfulSave();
@@ -565,6 +580,7 @@ function CategoryManagementPanel() {
           showInVideos: form.showInVideos,
           showInImages: form.showInImages,
           showInPerformers: form.showInPerformers,
+          showInCredits: form.showInCredits,
         });
         await refreshCategories("Data created successfully.");
         resetFormAfterSuccessfulSave();
@@ -879,7 +895,7 @@ function CategoryManagementPanel() {
               </legend>
               <div
                 aria-label="Used In controls"
-                className="grid w-full grid-cols-3 gap-2 text-sm font-semibold"
+                className="grid w-full grid-cols-2 gap-2 text-sm font-semibold lg:grid-cols-4"
               >
                 <UsedInToggle
                   label="Videos"
@@ -903,6 +919,14 @@ function CategoryManagementPanel() {
                   checked={form.showInPerformers}
                   onChange={(showInPerformers) =>
                     setForm((current) => ({ ...current, showInPerformers }))
+                  }
+                />
+                <UsedInToggle
+                  label="Credits"
+                  icon={BadgeCheck}
+                  checked={form.showInCredits}
+                  onChange={(showInCredits) =>
+                    setForm((current) => ({ ...current, showInCredits }))
                   }
                 />
               </div>
@@ -1325,6 +1349,7 @@ function CategoryManagementPanel() {
                           videos: usage.videos,
                           images: usage.images,
                           performers: usage.performers,
+                          credits: usage.credits,
                           total: usage.total,
                           status: usage.total > 0 ? "Managed" : "Unused Managed",
                         }}
@@ -1756,6 +1781,7 @@ function categoryToFormState(category: ManagedCategory): FormState {
     showInVideos: category.showInVideos,
     showInImages: category.showInImages,
     showInPerformers: category.showInPerformers,
+    showInCredits: category.showInCredits,
   };
 }
 
@@ -1913,6 +1939,7 @@ function createEmptyCategoryUsageCounts() {
     videos: 0,
     images: 0,
     performers: 0,
+    credits: 0,
     total: 0,
   };
 }
@@ -1924,12 +1951,14 @@ function addCategoryUsageCounts(
   const videos = first.videos + second.videos;
   const images = first.images + second.images;
   const performers = first.performers + second.performers;
+  const credits = first.credits + second.credits;
 
   return {
     videos,
     images,
     performers,
-    total: videos + images + performers,
+    credits,
+    total: videos + images + performers + credits,
   };
 }
 
@@ -1951,6 +1980,9 @@ function matchesCategoryFilter(
   }
   if (filter === "performers") {
     return row.usage.performers > 0;
+  }
+  if (filter === "credits") {
+    return row.usage.credits > 0;
   }
   if (filter === "active") {
     return row.usage.total > 0;
@@ -2112,6 +2144,11 @@ function CategoryTableRow({
             icon={UserRound}
             to={categoryUsageLink("performers", row.category.name)}
           />
+          <UsageShortcut
+            label="Credits"
+            value={row.usage.credits}
+            icon={BadgeCheck}
+          />
         </div>
       </td>
       <td className={`px-3 py-3 overflow-hidden font-semibold text-slate-900 ${childContentIndentClass}`}>
@@ -2130,7 +2167,7 @@ function UsageShortcut({
   label: string;
   value: number;
   icon: LucideIcon;
-  to: string;
+  to?: string;
 }) {
   const content = (
     <>
@@ -2139,7 +2176,7 @@ function UsageShortcut({
     </>
   );
 
-  return value > 0 ? (
+  return value > 0 && to ? (
     <Link
       className="inline-flex max-w-full items-center gap-1 overflow-hidden text-sakura-600"
       aria-label={`${label} ${value}`}

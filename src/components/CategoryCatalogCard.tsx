@@ -1,4 +1,4 @@
-import { Image, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Image, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
@@ -15,6 +15,7 @@ export type CategoryCatalogCardData = {
   videos: number;
   images: number;
   performers: number;
+  credits?: number;
   total: number;
   status: CategoryCatalogCardStatus;
 };
@@ -107,13 +108,19 @@ function CategoryCatalogCard({
           </div>
         </div>
 
-        <dl className="mt-3 grid grid-cols-3 gap-2 pt-1">
+        <dl className="mt-3 grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">
           <CountBlock
             label="Videos"
             value={category.videos}
             icon={Video}
             statBaseTone={statBaseTone}
             to={categoryUsageLink("videos", category.name)}
+          />
+          <CountBlock
+            label="Credits"
+            value={category.credits ?? 0}
+            icon={BadgeCheck}
+            statBaseTone={statBaseTone}
           />
           <CountBlock
             label="Images"
@@ -200,7 +207,7 @@ function CountBlock({
   value: number;
   icon: LucideIcon;
   statBaseTone: string;
-  to: string;
+  to?: string;
 }) {
   const stateTone = value > 0 ? "text-sakura-600" : "text-slate-500";
   const content = (
@@ -208,7 +215,7 @@ function CountBlock({
       <dt className="sr-only">{label}</dt>
       <dd
         className={`flex min-w-0 items-center justify-center gap-2 text-base font-semibold ${stateTone}`}
-        aria-label={value > 0 ? undefined : `${label} ${value}`}
+        aria-label={value > 0 && to ? undefined : `${label} ${value}`}
       >
         <Icon aria-hidden="true" size={16} />
         <span className="sr-only">{label}</span>
@@ -217,7 +224,7 @@ function CountBlock({
     </>
   );
 
-  return value > 0 ? (
+  return value > 0 && to ? (
     <Link
       className={`rounded-md px-2.5 py-2 ${statBaseTone} ${stateTone}`}
       title={label}

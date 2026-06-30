@@ -493,6 +493,7 @@ function legacyManagedCategories(): ManagedCategory[] {
     showInVideos: true,
     showInImages: true,
     showInPerformers: true,
+    showInCredits: false,
     createdAt: timestampValue,
     updatedAt: timestampValue,
   }));

@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS managedCategories (
   showInVideos INTEGER NOT NULL DEFAULT 1 CHECK (showInVideos IN (0, 1)),
   showInImages INTEGER NOT NULL DEFAULT 1 CHECK (showInImages IN (0, 1)),
   showInPerformers INTEGER NOT NULL DEFAULT 1 CHECK (showInPerformers IN (0, 1)),
+  showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(name COLLATE NOCASE),

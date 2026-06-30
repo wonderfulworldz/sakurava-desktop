@@ -356,6 +356,7 @@ pub struct ManagedCategory {
     pub show_in_videos: bool,
     pub show_in_images: bool,
     pub show_in_performers: bool,
+    pub show_in_credits: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -371,6 +372,7 @@ pub struct ManagedCategoryInput {
     pub show_in_videos: Option<bool>,
     pub show_in_images: Option<bool>,
     pub show_in_performers: Option<bool>,
+    pub show_in_credits: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -383,6 +385,7 @@ pub struct ManagedCategoryPatch {
     pub show_in_videos: Option<bool>,
     pub show_in_images: Option<bool>,
     pub show_in_performers: Option<bool>,
+    pub show_in_credits: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1552,6 +1555,7 @@ fn create_managed_category(
         show_in_videos: input.show_in_videos.unwrap_or(true),
         show_in_images: input.show_in_images.unwrap_or(true),
         show_in_performers: input.show_in_performers.unwrap_or(true),
+        show_in_credits: input.show_in_credits.unwrap_or(false),
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
@@ -1560,8 +1564,8 @@ fn create_managed_category(
         .execute(
             "INSERT INTO managedCategories (
                 key, name, parentKey, description, thumbnailPath,
-                showInVideos, showInImages, showInPerformers, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                showInVideos, showInImages, showInPerformers, showInCredits, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 category.key,
                 category.name,
@@ -1571,6 +1575,7 @@ fn create_managed_category(
                 category.show_in_videos,
                 category.show_in_images,
                 category.show_in_performers,
+                category.show_in_credits,
                 category.created_at,
                 category.updated_at
             ],
@@ -1641,14 +1646,18 @@ fn update_managed_category(
     if let Some(show_in_performers) = patch.show_in_performers {
         category.show_in_performers = show_in_performers;
     }
+    if let Some(show_in_credits) = patch.show_in_credits {
+        category.show_in_credits = show_in_credits;
+    }
     category.updated_at = current_timestamp();
 
     connection
         .execute(
             "UPDATE managedCategories SET
                 name = ?1, parentKey = ?2, description = ?3, thumbnailPath = ?4,
-                showInVideos = ?5, showInImages = ?6, showInPerformers = ?7, updatedAt = ?8
-             WHERE key = ?9",
+                showInVideos = ?5, showInImages = ?6, showInPerformers = ?7,
+                showInCredits = ?8, updatedAt = ?9
+             WHERE key = ?10",
             params![
                 category.name,
                 category.parent_key,
@@ -1657,6 +1666,7 @@ fn update_managed_category(
                 category.show_in_videos,
                 category.show_in_images,
                 category.show_in_performers,
+                category.show_in_credits,
                 category.updated_at,
                 key
             ],
@@ -1685,7 +1695,7 @@ fn delete_managed_category_if_unused(
         return Err("Category cannot be deleted while it has child categories.".to_string());
     }
 
-    if category_usage_count(connection, &category.name)? > 0 {
+    if category_usage_count(connection, &category.key, &category.name)? > 0 {
         return Err("Category cannot be deleted while records use it.".to_string());
     }
 
@@ -2899,6 +2909,7 @@ fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Manage
         show_in_videos: row.get("showInVideos")?,
         show_in_images: row.get("showInImages")?,
         show_in_performers: row.get("showInPerformers")?,
+        show_in_credits: row.get("showInCredits")?,
         created_at: row.get("createdAt")?,
         updated_at: row.get("updatedAt")?,
     })
@@ -3013,7 +3024,11 @@ fn managed_category_child_count(connection: &Connection, key: &str) -> Result<i6
         .map_err(database_error)
 }
 
-fn category_usage_count(connection: &Connection, category_name: &str) -> Result<i64, String> {
+fn category_usage_count(
+    connection: &Connection,
+    category_key: &str,
+    category_name: &str,
+) -> Result<i64, String> {
     let target = category_name.trim().to_lowercase();
     let mut total = 0;
 
@@ -3036,6 +3051,15 @@ fn category_usage_count(connection: &Connection, category_name: &str) -> Result<
             }
         }
     }
+
+    total += connection
+        .query_row(
+            "SELECT COUNT(*) FROM credits
+             WHERE creditTypeCategoryId = ?1 OR roleImportanceCategoryId = ?1",
+            [category_key],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(database_error)?;
 
     Ok(total)
 }
@@ -4522,6 +4546,140 @@ mod tests {
         assert_eq!(
             create_credit(&connection, invalid).expect_err("character mode"),
             "Credit characterMode is invalid"
+        );
+    }
+
+    #[test]
+    fn managed_category_credits_scope_round_trips_and_credit_keys_block_delete() {
+        let connection = test_connection();
+        let created = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                key: Some("cat-credit-type-voice".to_string()),
+                name: "Voice".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: Some(false),
+                show_in_images: Some(false),
+                show_in_performers: Some(false),
+                show_in_credits: Some(true),
+            },
+        )
+        .expect("create credit category");
+        assert!(created.show_in_credits);
+        assert_eq!(
+            list_managed_categories(&connection)
+                .expect("list categories")
+                .first()
+                .map(|category| category.show_in_credits),
+            Some(true)
+        );
+
+        let updated = update_managed_category(
+            &connection,
+            &created.key,
+            ManagedCategoryPatch {
+                name: None,
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: Some(false),
+            },
+        )
+        .expect("update category")
+        .expect("updated category");
+        assert!(!updated.show_in_credits);
+
+        let credit = create_credit(
+            &connection,
+            CreditInput {
+                work_type: "video".to_string(),
+                work_id: "video-credits".to_string(),
+                performer_id: "performer-credits".to_string(),
+                character_name: Some(created.key.clone()),
+                character_original_name: None,
+                credited_as: None,
+                credited_as_mode: None,
+                credit_type_category_id: Some(created.key.clone()),
+                role_importance_category_id: None,
+                character_mode: None,
+                character_id: None,
+                billing_order: None,
+                note: None,
+            },
+        )
+        .expect("credit using category");
+        let credit_before = get_credit(&connection, &credit.id)
+            .expect("get credit")
+            .expect("stored credit");
+
+        assert_eq!(
+            delete_managed_category_if_unused(&connection, created.key.clone())
+                .expect_err("used category blocks delete"),
+            "Category cannot be deleted while records use it."
+        );
+        assert_eq!(
+            get_credit(&connection, &credit.id).expect("credit after usage check"),
+            Some(credit_before)
+        );
+
+        let character_only = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                key: Some("cat-character-text".to_string()),
+                name: "Character Text".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: Some(true),
+            },
+        )
+        .expect("character-text category");
+        connection
+            .execute(
+                "UPDATE credits SET characterName = ?1 WHERE id = ?2",
+                params![character_only.key, credit.id],
+            )
+            .expect("set character text");
+        assert!(
+            delete_managed_category_if_unused(&connection, character_only.key)
+                .expect("characterName is not category usage")
+                .deleted
+        );
+
+        let role_category = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                key: Some("cat-role-main".to_string()),
+                name: "Main".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: Some(true),
+            },
+        )
+        .expect("role category");
+        connection
+            .execute(
+                "UPDATE credits SET creditTypeCategoryId = NULL,
+                 roleImportanceCategoryId = ?1 WHERE id = ?2",
+                params![role_category.key, credit.id],
+            )
+            .expect("set role category");
+        assert_eq!(
+            delete_managed_category_if_unused(&connection, role_category.key)
+                .expect_err("role usage blocks delete"),
+            "Category cannot be deleted while records use it."
         );
     }
 

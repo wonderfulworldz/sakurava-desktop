@@ -221,6 +221,7 @@ export function createInMemoryManagedCategoryRepository(
         showInVideos: normalized.showInVideos ?? true,
         showInImages: normalized.showInImages ?? true,
         showInPerformers: normalized.showInPerformers ?? true,
+        showInCredits: normalized.showInCredits ?? false,
         createdAt: timestamp,
         updatedAt: timestamp,
       };

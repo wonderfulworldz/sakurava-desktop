@@ -13,6 +13,7 @@ export type ManagedCategoryUsageCounts = {
   videos: number;
   images: number;
   performers: number;
+  credits: number;
   total: number;
 };
 
@@ -20,6 +21,7 @@ export const defaultManagedCategoryVisibility = {
   showInVideos: true,
   showInImages: true,
   showInPerformers: true,
+  showInCredits: false,
 } as const;
 
 export function normalizeManagedCategoryInput(
@@ -52,6 +54,10 @@ export function normalizeManagedCategoryInput(
       typeof input.showInPerformers === "boolean"
         ? input.showInPerformers
         : defaultManagedCategoryVisibility.showInPerformers,
+    showInCredits:
+      typeof input.showInCredits === "boolean"
+        ? input.showInCredits
+        : defaultManagedCategoryVisibility.showInCredits,
   };
 }
 
@@ -155,7 +161,13 @@ export function countManagedCategoryUsage(
     videos: readonly { categoriesJson: string }[];
     images: readonly { categoriesJson: string }[];
     performers: readonly { categoriesJson: string }[];
+    credits?: readonly {
+      creditTypeCategoryId: string | null;
+      roleImportanceCategoryId: string | null;
+      characterName?: string;
+    }[];
   },
+  categoryKey?: string,
 ): ManagedCategoryUsageCounts {
   const key = categoryName.trim().toLowerCase();
   const countRecords = (items: readonly { categoriesJson: string }[]) =>
@@ -168,12 +180,20 @@ export function countManagedCategoryUsage(
   const videos = countRecords(records.videos);
   const images = countRecords(records.images);
   const performers = countRecords(records.performers);
+  const credits = categoryKey
+    ? (records.credits ?? []).filter(
+        (credit) =>
+          credit.creditTypeCategoryId === categoryKey ||
+          credit.roleImportanceCategoryId === categoryKey,
+      ).length
+    : 0;
 
   return {
     videos,
     images,
     performers,
-    total: videos + images + performers,
+    credits,
+    total: videos + images + performers + credits,
   };
 }
 
@@ -214,6 +234,7 @@ export function applyManagedCategoryPatch(
     showInVideos: patch.showInVideos ?? current.showInVideos,
     showInImages: patch.showInImages ?? current.showInImages,
     showInPerformers: patch.showInPerformers ?? current.showInPerformers,
+    showInCredits: patch.showInCredits ?? current.showInCredits,
   };
 }
 

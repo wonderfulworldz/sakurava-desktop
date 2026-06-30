@@ -1447,6 +1447,15 @@ describe("App", () => {
           }),
         ];
       }
+      if (command === "credit_list") {
+        return [
+          {
+            creditTypeCategoryId: "cat_extra_0",
+            roleImportanceCategoryId: null,
+            characterName: "Not a category",
+          },
+        ];
+      }
       if (command === "managed_category_list") {
         return managedCategories;
       }
@@ -1571,6 +1580,14 @@ describe("App", () => {
       .toHaveClass("text-sakura-600");
     expect(within(videoCategoryCard).getByLabelText("Videos 1"))
       .toHaveAttribute("href", "/videos?category=Video%20Category");
+    selectCategoryFilter("Credits Used");
+    const creditCategoryCard = screen.getByRole("article", {
+      name: "Category Z Extra Category 01",
+    });
+    expect(within(creditCategoryCard).getByLabelText("Credits 1"))
+      .toHaveClass("text-sakura-600");
+    expect(within(creditCategoryCard).getByLabelText("Credits 1"))
+      .not.toHaveAttribute("href");
   });
 
   it.each([
@@ -3647,8 +3664,13 @@ describe("App", () => {
     expect(screen.getByText("Parent Category")).toBeInTheDocument();
     expect(screen.getByText("Used In")).toBeInTheDocument();
     const usedInControls = screen.getByLabelText("Used In controls");
-    expect(usedInControls).toHaveClass("grid", "w-full", "grid-cols-3");
-    for (const label of ["Videos", "Images", "Performers"]) {
+    expect(usedInControls).toHaveClass(
+      "grid",
+      "w-full",
+      "grid-cols-2",
+      "lg:grid-cols-4",
+    );
+    for (const label of ["Videos", "Images", "Performers", "Credits"]) {
       const toggle = within(usedInControls).getByRole("button", {
         name: `Show in ${label}`,
       });
@@ -3657,6 +3679,9 @@ describe("App", () => {
     }
     fireEvent.click(
       within(usedInControls).getByRole("button", { name: "Show in Images" }),
+    );
+    fireEvent.click(
+      within(usedInControls).getByRole("button", { name: "Show in Credits" }),
     );
     expect(
       within(usedInControls).getByRole("button", { name: "Show in Images" }),
@@ -3781,6 +3806,7 @@ describe("App", () => {
       target: { value: "  New Category  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Show in Images" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show in Credits" }));
     clickSaveEntryAndConfirm();
     expect(await screen.findByText("Data created successfully."))
       .toBeInTheDocument();
@@ -3799,6 +3825,7 @@ describe("App", () => {
           showInVideos: false,
           showInImages: true,
           showInPerformers: false,
+          showInCredits: true,
         }),
       },
       undefined,
@@ -3822,6 +3849,8 @@ describe("App", () => {
       .toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Show in Performers" }))
       .toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Show in Credits" }))
+      .toHaveAttribute("aria-pressed", "false");
 
     fireEvent.change(screen.getByPlaceholderText("Category name"), {
       target: { value: "Unsaved Child" },
@@ -3858,6 +3887,7 @@ describe("App", () => {
           showInVideos: true,
           showInImages: false,
           showInPerformers: false,
+          showInCredits: false,
         }),
       },
       undefined,
@@ -16813,6 +16843,7 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     showInVideos: true,
     showInImages: true,
     showInPerformers: true,
+    showInCredits: false,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,

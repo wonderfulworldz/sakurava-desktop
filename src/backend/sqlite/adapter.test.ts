@@ -167,6 +167,8 @@ describe("SQLite schema initialization", () => {
       ...SCHEMA_SQL,
       "PRAGMA table_info(performers)",
       ADD_PERFORMER_GENDER_COLUMN_SQL,
+      "PRAGMA table_info(managedCategories)",
+      "ALTER TABLE managedCategories ADD COLUMN showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1))",
     ]);
   });
 });

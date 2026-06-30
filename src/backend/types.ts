@@ -91,6 +91,7 @@ export interface ManagedCategory {
   showInVideos: boolean;
   showInImages: boolean;
   showInPerformers: boolean;
+  showInCredits: boolean;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 }

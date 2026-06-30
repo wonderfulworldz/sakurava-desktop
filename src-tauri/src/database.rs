@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS managedCategories (
   showInVideos INTEGER NOT NULL DEFAULT 1 CHECK (showInVideos IN (0, 1)),
   showInImages INTEGER NOT NULL DEFAULT 1 CHECK (showInImages IN (0, 1)),
   showInPerformers INTEGER NOT NULL DEFAULT 1 CHECK (showInPerformers IN (0, 1)),
+  showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(name COLLATE NOCASE),
@@ -270,6 +271,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_boolean_column(connection, "managedCategories", "showInVideos", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInImages", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
+    ensure_boolean_column(connection, "managedCategories", "showInCredits", false)?;
     ensure_text_column(connection, "glossary_entries", "parent_id", "")?;
     backfill_legacy_credits(connection)?;
 
@@ -958,6 +960,20 @@ mod tests {
             "managedCategories",
             "showInPerformers"
         ));
+        assert!(table_has_column(
+            &connection,
+            "managedCategories",
+            "showInCredits"
+        ));
+        let credits_default: String = connection
+            .query_row(
+                "SELECT dflt_value FROM pragma_table_info('managedCategories')
+                 WHERE name = 'showInCredits'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("showInCredits default");
+        assert_eq!(credits_default, "0");
     }
 
     #[test]

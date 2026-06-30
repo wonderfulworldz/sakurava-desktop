@@ -478,6 +478,7 @@ function category(overrides: Partial<ManagedCategory> = {}): ManagedCategory {
     thumbnailPath: "",
     showInVideos: true,
     showInImages: true,
+    showInCredits: false,
     showInPerformers: true,
     createdAt: "",
     updatedAt: "",

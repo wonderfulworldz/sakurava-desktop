@@ -135,6 +135,9 @@ describe("SQLite schema foundation", () => {
       "showInPerformers INTEGER NOT NULL DEFAULT 1",
     );
     expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
+      "showInCredits INTEGER NOT NULL DEFAULT 0",
+    );
+    expect(CREATE_MANAGED_CATEGORIES_TABLE_SQL).toContain(
       "FOREIGN KEY(parentKey) REFERENCES managedCategories(key)",
     );
     expect(schemaText).not.toContain("video_categories");
