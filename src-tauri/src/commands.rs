@@ -436,6 +436,64 @@ pub struct MediaOpenResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct Credit {
+    pub id: String,
+    pub work_type: String,
+    pub work_id: String,
+    pub performer_id: String,
+    pub character_name: String,
+    pub character_original_name: Option<String>,
+    pub credited_as: Option<String>,
+    pub credited_as_mode: String,
+    pub credit_type_category_id: Option<String>,
+    pub role_importance_category_id: Option<String>,
+    pub character_mode: String,
+    pub character_id: Option<String>,
+    pub billing_order: Option<i64>,
+    pub note: Option<String>,
+    pub legacy_source_key: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditInput {
+    pub work_type: String,
+    pub work_id: String,
+    pub performer_id: String,
+    pub character_name: Option<String>,
+    pub character_original_name: Option<String>,
+    pub credited_as: Option<String>,
+    pub credited_as_mode: Option<String>,
+    pub credit_type_category_id: Option<String>,
+    pub role_importance_category_id: Option<String>,
+    pub character_mode: Option<String>,
+    pub character_id: Option<String>,
+    pub billing_order: Option<i64>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditPatch {
+    pub work_type: Option<String>,
+    pub work_id: Option<String>,
+    pub performer_id: Option<String>,
+    pub character_name: Option<String>,
+    pub character_original_name: Option<Option<String>>,
+    pub credited_as: Option<Option<String>>,
+    pub credited_as_mode: Option<String>,
+    pub credit_type_category_id: Option<Option<String>>,
+    pub role_importance_category_id: Option<Option<String>>,
+    pub character_mode: Option<String>,
+    pub character_id: Option<Option<String>>,
+    pub billing_order: Option<Option<i64>>,
+    pub note: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct DetailFileActionResult {
     pub source_path: String,
     pub destination_path: Option<String>,
@@ -764,6 +822,67 @@ pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
         path: media_path.display().to_string(),
         opened: true,
         message: "Media file open request sent".to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn credit_create(
+    database: State<'_, RuntimeDatabase>,
+    input: CreditInput,
+) -> Result<Credit, String> {
+    with_connection(&database, |connection| create_credit(connection, input))
+}
+
+#[tauri::command]
+pub fn credit_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<Credit>, String> {
+    with_connection(&database, list_credits)
+}
+
+#[tauri::command]
+pub fn credit_get(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<Option<Credit>, String> {
+    with_connection(&database, |connection| get_credit(connection, &id))
+}
+
+#[tauri::command]
+pub fn credit_update(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+    patch: CreditPatch,
+) -> Result<Option<Credit>, String> {
+    with_connection(&database, |connection| {
+        update_credit(connection, &id, patch)
+    })
+}
+
+#[tauri::command]
+pub fn credit_delete(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<DeleteResult, String> {
+    with_connection(&database, |connection| delete_credit(connection, id))
+}
+
+#[tauri::command]
+pub fn credit_list_by_work(
+    database: State<'_, RuntimeDatabase>,
+    work_type: String,
+    work_id: String,
+) -> Result<Vec<Credit>, String> {
+    with_connection(&database, |connection| {
+        list_credits_by_work(connection, &work_type, &work_id)
+    })
+}
+
+#[tauri::command]
+pub fn credit_list_by_performer(
+    database: State<'_, RuntimeDatabase>,
+    performer_id: String,
+) -> Result<Vec<Credit>, String> {
+    with_connection(&database, |connection| {
+        list_credits_by_performer(connection, &performer_id)
     })
 }
 
@@ -1208,12 +1327,8 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         ),
         filmography_count: input.filmography_count,
         pictorials_count: input.pictorials_count,
-        related_videos_json: normalize_related_catalog_records_json(
-            input.related_videos_json,
-        ),
-        related_images_json: normalize_related_catalog_records_json(
-            input.related_images_json,
-        ),
+        related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
+        related_images_json: normalize_related_catalog_records_json(input.related_images_json),
         source_links_json: normalize_source_links_json(input.source_links_json),
         categories_json: normalize_string_array_json(input.categories_json),
         rating_json: normalize_object_json(input.rating_json),
@@ -1665,10 +1780,7 @@ fn list_glossary_entries(connection: &Connection) -> Result<Vec<GlossaryEntry>, 
     Ok(rows)
 }
 
-fn get_glossary_entry(
-    connection: &Connection,
-    id: &str,
-) -> Result<Option<GlossaryEntry>, String> {
+fn get_glossary_entry(connection: &Connection, id: &str) -> Result<Option<GlossaryEntry>, String> {
     connection
         .query_row(
             "SELECT * FROM glossary_entries WHERE id = ?1",
@@ -2195,6 +2307,230 @@ fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(trimmed))
 }
 
+fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, String> {
+    let work_type = validate_credit_choice(input.work_type, &["video", "image"], "workType")?;
+    let work_id = require_text(input.work_id, "Credit workId is required")?;
+    let performer_id = require_text(input.performer_id, "Credit performerId is required")?;
+    let credited_as_mode = validate_credit_choice(
+        input.credited_as_mode.unwrap_or_else(|| "auto".to_string()),
+        &["auto", "custom"],
+        "creditedAsMode",
+    )?;
+    let character_mode = validate_credit_choice(
+        input.character_mode.unwrap_or_else(|| "text".to_string()),
+        &["text", "self", "linked"],
+        "characterMode",
+    )?;
+    let timestamp = current_timestamp();
+    let credit = Credit {
+        id: new_id("credit"),
+        work_type,
+        work_id,
+        performer_id,
+        character_name: default_text(input.character_name),
+        character_original_name: normalize_optional_text(input.character_original_name),
+        credited_as: normalize_optional_text(input.credited_as),
+        credited_as_mode,
+        credit_type_category_id: normalize_optional_text(input.credit_type_category_id),
+        role_importance_category_id: normalize_optional_text(input.role_importance_category_id),
+        character_mode,
+        character_id: normalize_optional_text(input.character_id),
+        billing_order: input.billing_order,
+        note: normalize_optional_text(input.note),
+        legacy_source_key: None,
+        created_at: timestamp.clone(),
+        updated_at: timestamp,
+    };
+    connection
+        .execute(
+            "INSERT INTO credits (
+                id, workType, workId, performerId, characterName, characterOriginalName,
+                creditedAs, creditedAsMode, creditTypeCategoryId, roleImportanceCategoryId,
+                characterMode, characterId, billingOrder, note, legacySourceKey,
+                createdAt, updatedAt
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            params![
+                credit.id,
+                credit.work_type,
+                credit.work_id,
+                credit.performer_id,
+                credit.character_name,
+                credit.character_original_name,
+                credit.credited_as,
+                credit.credited_as_mode,
+                credit.credit_type_category_id,
+                credit.role_importance_category_id,
+                credit.character_mode,
+                credit.character_id,
+                credit.billing_order,
+                credit.note,
+                credit.legacy_source_key,
+                credit.created_at,
+                credit.updated_at
+            ],
+        )
+        .map_err(database_error)?;
+    get_credit(connection, &credit.id)?
+        .ok_or_else(|| "Created credit could not be read".to_string())
+}
+
+fn list_credits(connection: &Connection) -> Result<Vec<Credit>, String> {
+    query_credits(
+        connection,
+        "SELECT * FROM credits ORDER BY createdAt ASC, id ASC",
+        [],
+    )
+}
+
+fn get_credit(connection: &Connection, id: &str) -> Result<Option<Credit>, String> {
+    connection
+        .query_row("SELECT * FROM credits WHERE id = ?1", [id], credit_from_row)
+        .optional()
+        .map_err(database_error)
+}
+
+fn update_credit(
+    connection: &Connection,
+    id: &str,
+    patch: CreditPatch,
+) -> Result<Option<Credit>, String> {
+    let Some(mut credit) = get_credit(connection, id)? else {
+        return Ok(None);
+    };
+    if let Some(value) = patch.work_type {
+        credit.work_type = validate_credit_choice(value, &["video", "image"], "workType")?;
+    }
+    if let Some(value) = patch.work_id {
+        credit.work_id = require_text(value, "Credit workId is required")?;
+    }
+    if let Some(value) = patch.performer_id {
+        credit.performer_id = require_text(value, "Credit performerId is required")?;
+    }
+    if let Some(value) = patch.character_name {
+        credit.character_name = value.trim().to_string();
+    }
+    if let Some(value) = patch.character_original_name {
+        credit.character_original_name = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.credited_as {
+        credit.credited_as = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.credited_as_mode {
+        credit.credited_as_mode =
+            validate_credit_choice(value, &["auto", "custom"], "creditedAsMode")?;
+    }
+    if let Some(value) = patch.credit_type_category_id {
+        credit.credit_type_category_id = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.role_importance_category_id {
+        credit.role_importance_category_id = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.character_mode {
+        credit.character_mode =
+            validate_credit_choice(value, &["text", "self", "linked"], "characterMode")?;
+    }
+    if let Some(value) = patch.character_id {
+        credit.character_id = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.billing_order {
+        credit.billing_order = value;
+    }
+    if let Some(value) = patch.note {
+        credit.note = normalize_optional_text(value);
+    }
+    credit.updated_at = current_timestamp();
+    connection
+        .execute(
+            "UPDATE credits SET workType = ?1, workId = ?2, performerId = ?3,
+                characterName = ?4, characterOriginalName = ?5, creditedAs = ?6,
+                creditedAsMode = ?7, creditTypeCategoryId = ?8,
+                roleImportanceCategoryId = ?9, characterMode = ?10, characterId = ?11,
+                billingOrder = ?12, note = ?13, updatedAt = ?14 WHERE id = ?15",
+            params![
+                credit.work_type,
+                credit.work_id,
+                credit.performer_id,
+                credit.character_name,
+                credit.character_original_name,
+                credit.credited_as,
+                credit.credited_as_mode,
+                credit.credit_type_category_id,
+                credit.role_importance_category_id,
+                credit.character_mode,
+                credit.character_id,
+                credit.billing_order,
+                credit.note,
+                credit.updated_at,
+                id
+            ],
+        )
+        .map_err(database_error)?;
+    get_credit(connection, id)
+}
+
+fn delete_credit(connection: &Connection, id: String) -> Result<DeleteResult, String> {
+    let deleted = connection
+        .execute("DELETE FROM credits WHERE id = ?1", [&id])
+        .map_err(database_error)?
+        > 0;
+    Ok(DeleteResult { id, deleted })
+}
+
+fn list_credits_by_work(
+    connection: &Connection,
+    work_type: &str,
+    work_id: &str,
+) -> Result<Vec<Credit>, String> {
+    let work_type = validate_credit_choice(work_type.to_string(), &["video", "image"], "workType")?;
+    let work_id = require_text(work_id.to_string(), "Credit workId is required")?;
+    query_credits(
+        connection,
+        "SELECT * FROM credits WHERE workType = ?1 AND workId = ?2 ORDER BY billingOrder ASC, createdAt ASC, id ASC",
+        params![work_type, work_id],
+    )
+}
+
+fn list_credits_by_performer(
+    connection: &Connection,
+    performer_id: &str,
+) -> Result<Vec<Credit>, String> {
+    let performer_id = require_text(performer_id.to_string(), "Credit performerId is required")?;
+    query_credits(
+        connection,
+        "SELECT * FROM credits WHERE performerId = ?1 ORDER BY createdAt ASC, id ASC",
+        [performer_id],
+    )
+}
+
+fn query_credits<P: rusqlite::Params>(
+    connection: &Connection,
+    sql: &str,
+    params: P,
+) -> Result<Vec<Credit>, String> {
+    let mut statement = connection.prepare(sql).map_err(database_error)?;
+    let credits = statement
+        .query_map(params, credit_from_row)
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+    Ok(credits)
+}
+
+fn validate_credit_choice(value: String, allowed: &[&str], field: &str) -> Result<String, String> {
+    let value = value.trim().to_lowercase();
+    if allowed.contains(&value.as_str()) {
+        Ok(value)
+    } else {
+        Err(format!("Credit {field} is invalid"))
+    }
+}
+
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty())
+}
+
 fn copy_detail_source_file_as(
     source_path: &str,
     destination_path: &str,
@@ -2211,8 +2547,7 @@ fn copy_detail_source_file_as(
             .map_err(|_| "Destination folder could not be prepared".to_string())?;
     }
 
-    fs::copy(&source, &destination)
-        .map_err(|_| "Source file could not be saved".to_string())?;
+    fs::copy(&source, &destination).map_err(|_| "Source file could not be saved".to_string())?;
 
     Ok(DetailFileActionResult {
         source_path: source.display().to_string(),
@@ -3040,6 +3375,28 @@ fn normalize_related_catalog_records_json(value: Option<String>) -> String {
     serde_json::to_string(&references).unwrap_or_else(|_| "[]".to_string())
 }
 
+fn credit_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Credit> {
+    Ok(Credit {
+        id: row.get("id")?,
+        work_type: row.get("workType")?,
+        work_id: row.get("workId")?,
+        performer_id: row.get("performerId")?,
+        character_name: row.get("characterName")?,
+        character_original_name: row.get("characterOriginalName")?,
+        credited_as: row.get("creditedAs")?,
+        credited_as_mode: row.get("creditedAsMode")?,
+        credit_type_category_id: row.get("creditTypeCategoryId")?,
+        role_importance_category_id: row.get("roleImportanceCategoryId")?,
+        character_mode: row.get("characterMode")?,
+        character_id: row.get("characterId")?,
+        billing_order: row.get("billingOrder")?,
+        note: row.get("note")?,
+        legacy_source_key: row.get("legacySourceKey")?,
+        created_at: row.get("createdAt")?,
+        updated_at: row.get("updatedAt")?,
+    })
+}
+
 fn normalize_source_links_json(value: Option<String>) -> String {
     let Some(value) = value else {
         return "[]".to_string();
@@ -3162,7 +3519,10 @@ mod tests {
         assert!(created.id.starts_with("glossary_"));
         assert_eq!(created.term, "Source Citation");
         assert_eq!(created.definition, "Stores a source title and URL as text.");
-        assert_eq!(created.synonyms_json, r#"["Reference link","Reference link","Source note"]"#);
+        assert_eq!(
+            created.synonyms_json,
+            r#"["Reference link","Reference link","Source note"]"#
+        );
         assert_eq!(created.category, "Reference");
         assert_eq!(created.parent_id, "");
         assert_eq!(created.thumbnail_path, "D:/Glossary/thumb.png");
@@ -3206,8 +3566,8 @@ mod tests {
         assert_eq!(updated.source_title, "Updated Source");
         assert_eq!(updated.source_url, "http://example.invalid/updated");
 
-        let deleted = glossary_delete_for_test(&connection, updated.id.clone())
-            .expect("delete glossary");
+        let deleted =
+            glossary_delete_for_test(&connection, updated.id.clone()).expect("delete glossary");
         assert_eq!(
             deleted,
             DeleteResult {
@@ -3221,11 +3581,9 @@ mod tests {
 
         for table_name in ["videos", "images", "performers", "managedCategories"] {
             let count: i64 = connection
-                .query_row(
-                    &format!("SELECT COUNT(*) FROM {table_name}"),
-                    [],
-                    |row| row.get(0),
-                )
+                .query_row(&format!("SELECT COUNT(*) FROM {table_name}"), [], |row| {
+                    row.get(0)
+                })
                 .expect("catalog table count");
             assert_eq!(count, 0, "{table_name} should not be mutated");
         }
@@ -3518,7 +3876,8 @@ mod tests {
                     r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#.to_string(),
                 ),
                 source_links_json: Some(
-                    r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#.to_string(),
+                    r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#
+                        .to_string(),
                 ),
                 rating_json: Some(r#"{"score":5}"#.to_string()),
                 notes: None,
@@ -4052,6 +4411,120 @@ mod tests {
         let _ = std::fs::remove_dir_all(temp_root);
     }
 
+    fn credit_input(work_type: &str, work_id: &str, performer_id: &str) -> CreditInput {
+        CreditInput {
+            work_type: work_type.to_string(),
+            work_id: work_id.to_string(),
+            performer_id: performer_id.to_string(),
+            character_name: Some("  Lead  ".to_string()),
+            character_original_name: Some(" ".to_string()),
+            credited_as: Some(" Stage Name ".to_string()),
+            credited_as_mode: Some("custom".to_string()),
+            credit_type_category_id: None,
+            role_importance_category_id: None,
+            character_mode: Some("text".to_string()),
+            character_id: None,
+            billing_order: Some(2),
+            note: Some(" Note ".to_string()),
+        }
+    }
+
+    #[test]
+    fn credit_crud_and_filtered_lists_use_independent_credit_rows() {
+        let connection = test_connection();
+        let first = create_credit(&connection, credit_input("video", "video-1", "performer-1"))
+            .expect("create credit");
+        let second = create_credit(&connection, credit_input("image", "image-1", "performer-1"))
+            .expect("create second credit");
+        create_credit(&connection, credit_input("video", "video-1", "performer-2"))
+            .expect("create third credit");
+
+        assert_eq!(first.character_name, "Lead");
+        assert_eq!(first.character_original_name, None);
+        assert_eq!(first.credited_as.as_deref(), Some("Stage Name"));
+        assert_eq!(first.note.as_deref(), Some("Note"));
+        assert_eq!(list_credits(&connection).expect("list").len(), 3);
+        assert_eq!(
+            get_credit(&connection, &first.id).expect("get"),
+            Some(first.clone())
+        );
+        assert_eq!(
+            list_credits_by_work(&connection, "video", "video-1")
+                .expect("list by work")
+                .len(),
+            2
+        );
+        assert_eq!(
+            list_credits_by_performer(&connection, "performer-1")
+                .expect("list by performer")
+                .len(),
+            2
+        );
+
+        let updated = update_credit(
+            &connection,
+            &first.id,
+            CreditPatch {
+                work_type: None,
+                work_id: None,
+                performer_id: None,
+                character_name: Some("Updated Role".to_string()),
+                character_original_name: None,
+                credited_as: Some(None),
+                credited_as_mode: Some("auto".to_string()),
+                credit_type_category_id: None,
+                role_importance_category_id: None,
+                character_mode: Some("self".to_string()),
+                character_id: None,
+                billing_order: Some(None),
+                note: Some(None),
+            },
+        )
+        .expect("update")
+        .expect("updated credit");
+        assert_eq!(updated.character_name, "Updated Role");
+        assert_eq!(updated.credited_as, None);
+        assert_eq!(updated.credited_as_mode, "auto");
+        assert_eq!(updated.character_mode, "self");
+        assert_eq!(updated.billing_order, None);
+        assert_eq!(updated.note, None);
+
+        assert!(
+            delete_credit(&connection, second.id.clone())
+                .expect("delete")
+                .deleted
+        );
+        assert!(get_credit(&connection, &second.id)
+            .expect("get deleted")
+            .is_none());
+    }
+
+    #[test]
+    fn credit_validation_rejects_invalid_modes_and_required_ids() {
+        let connection = test_connection();
+        let mut invalid = credit_input("audio", "work", "performer");
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("work type"),
+            "Credit workType is invalid"
+        );
+        invalid = credit_input("video", " ", "performer");
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("work id"),
+            "Credit workId is required"
+        );
+        invalid = credit_input("image", "work", " ");
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("performer id"),
+            "Credit performerId is required"
+        );
+        invalid = credit_input("video", "work", "performer");
+        invalid.character_mode = Some("library".to_string());
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("character mode"),
+            "Credit characterMode is invalid"
+        );
+    }
+
     #[test]
     fn detail_source_copy_rejects_missing_source() {
         let missing_path = std::env::temp_dir().join(format!(
@@ -4078,10 +4551,8 @@ mod tests {
 
     #[test]
     fn detail_source_copy_writes_destination_without_deleting_original() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "sakurava-detail-copy-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-detail-copy-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp_root);
         std::fs::create_dir_all(&temp_root).expect("create temp root");
         let source_path = temp_root.join("source.mp4");
@@ -4170,10 +4641,8 @@ mod tests {
 
     #[test]
     fn export_csv_write_writes_csv_text_without_database_access() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "sakurava-export-write-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-export-write-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp_root);
         std::fs::create_dir_all(&temp_root).expect("create export folder");
         let destination = temp_root.join("export.csv");
@@ -4240,18 +4709,16 @@ mod tests {
 
     #[test]
     fn import_csv_read_reads_csv_text_without_database_access() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "sakurava-import-read-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-import-read-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp_root);
         std::fs::create_dir_all(&temp_root).expect("create import folder");
         let source = temp_root.join("import.csv");
         let content = "Action,Sakurava Ref,Title\r\nAuto,VID-ABC1234,\"A, B\"";
         std::fs::write(&source, content).expect("write import csv");
 
-        let result = read_import_csv_file(source.to_string_lossy().as_ref())
-            .expect("read csv import");
+        let result =
+            read_import_csv_file(source.to_string_lossy().as_ref()).expect("read csv import");
 
         assert!(result.success);
         assert_eq!(result.bytes_read, content.len());

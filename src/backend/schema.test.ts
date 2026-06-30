@@ -3,6 +3,7 @@ import {
   ADD_PERFORMER_GENDER_COLUMN_SQL,
   CREATE_IMAGES_TABLE_SQL,
   CREATE_GLOSSARY_ENTRIES_TABLE_SQL,
+  CREATE_CREDITS_TABLE_SQL,
   CREATE_MANAGED_CATEGORIES_TABLE_SQL,
   CREATE_PERFORMERS_TABLE_SQL,
   CREATE_VIDEOS_TABLE_SQL,
@@ -24,8 +25,9 @@ describe("SQLite schema foundation", () => {
       "performers",
       "managedCategories",
       "glossary_entries",
+      "credits",
     ]);
-    expect(SCHEMA_SQL).toHaveLength(5);
+    expect(SCHEMA_SQL).toHaveLength(6);
   });
 
   it("defines the videos table with JSON text fields and no relation tables", () => {
@@ -167,5 +169,25 @@ describe("SQLite schema foundation", () => {
     expect(CREATE_GLOSSARY_ENTRIES_TABLE_SQL).not.toContain("categoriesJson");
     expect(CREATE_GLOSSARY_ENTRIES_TABLE_SQL).not.toContain("managedCategories");
     expect(CREATE_GLOSSARY_ENTRIES_TABLE_SQL).not.toContain("FOREIGN KEY");
+  });
+
+  it("defines the independent credits table without restricting performer multiplicity", () => {
+    expect(CREATE_CREDITS_TABLE_SQL).toContain(
+      "CREATE TABLE IF NOT EXISTS credits",
+    );
+    for (const column of [
+      "workType TEXT NOT NULL",
+      "workId TEXT NOT NULL",
+      "performerId TEXT NOT NULL",
+      "characterName TEXT NOT NULL DEFAULT ''",
+      "creditedAsMode TEXT NOT NULL DEFAULT 'auto'",
+      "characterMode TEXT NOT NULL DEFAULT 'text'",
+      "legacySourceKey TEXT",
+    ]) {
+      expect(CREATE_CREDITS_TABLE_SQL).toContain(column);
+    }
+    expect(CREATE_CREDITS_TABLE_SQL).not.toContain(
+      "UNIQUE(workType, workId, performerId)",
+    );
   });
 });
