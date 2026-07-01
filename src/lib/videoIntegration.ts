@@ -39,16 +39,25 @@ import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 import { buildCreditDetailItems } from "./creditDisplay";
+import { countCreditsByWork } from "./catalogCreditSummary";
 
 type FormValues = Record<string, string | boolean>;
 
 const videoRatingFields = formConfigs.videos.ratingFields;
 
-export function buildVideoCollectionConfig(videos: Video[]): CollectionConfig {
+export function buildVideoCollectionConfig(
+  videos: Video[],
+  credits: Credit[] = [],
+): CollectionConfig {
+  const creditCountByWork = countCreditsByWork(credits, "video");
+
   return {
     ...collectionConfigs.videos,
     countLabel: `${videos.length} ${videos.length === 1 ? "video" : "videos"}`,
-    items: videos.map(toVideoCollectionItem),
+    items: videos.map((video) => ({
+      ...toVideoCollectionItem(video),
+      creditCount: creditCountByWork.get(video.id) ?? 0,
+    })),
   };
 }
 

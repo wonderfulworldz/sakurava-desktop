@@ -16,6 +16,7 @@ type BaseCollectionItem = {
   ratingBucket?: number | null;
   quality?: string | null;
   categories: string[];
+  creditCount?: number;
 };
 
 export type VideoCollectionItem = BaseCollectionItem & {

@@ -80,6 +80,10 @@ export function ImageFullCard({ item, linkTo, placeholderLabel, onFavoriteClick 
           </div>
         </div>
 
+        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+          Credits: {item.creditCount ?? 0}
+        </p>
+
         {/* Categories */}
         <CategoryChips categories={item.categories} maxVisible={4} size="lg" />
       </div>

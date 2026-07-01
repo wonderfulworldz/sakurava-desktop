@@ -7204,6 +7204,119 @@ describe("App", () => {
     expect(invoke).toHaveBeenCalledWith("video_list", {}, undefined);
   });
 
+  it("renders Video Catalog credit row counts without deduplicating roles", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({ id: "video_credits", title: "Credited Catalog Video" }),
+          persistedVideo({ id: "video_empty", title: "Empty Credits Video" }),
+        ];
+      }
+      if (command === "credit_list") {
+        return [
+          persistedCredit({
+            id: "credit_role_one",
+            workId: "video_credits",
+            performerId: "performer_same",
+            characterName: "",
+          }),
+          persistedCredit({
+            id: "credit_role_two",
+            workId: "video_credits",
+            performerId: "performer_same",
+            characterName: "Second Role",
+          }),
+          persistedCredit({
+            id: "credit_other_type",
+            workType: "image",
+            workId: "video_credits",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const creditedCard = (await screen.findByText("Credited Catalog Video"))
+      .closest("a") as HTMLElement;
+    const emptyCard = screen.getByText("Empty Credits Video").closest("a") as HTMLElement;
+    expect(within(creditedCard).getByText("Credits: 2")).toBeInTheDocument();
+    expect(within(emptyCard).getByText("Credits: 0")).toBeInTheDocument();
+    expect(within(creditedCard).queryByText("Second Role")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("credit_list", {}, undefined);
+  });
+
+  it("renders Image Catalog credit row counts by image work id", async () => {
+    window.history.pushState({}, "", "/images");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({ id: "image_credits", title: "Credited Catalog Image" }),
+        ];
+      }
+      if (command === "credit_list") {
+        return [
+          persistedCredit({
+            id: "credit_image_one",
+            workType: "image",
+            workId: "image_credits",
+          }),
+          persistedCredit({
+            id: "credit_video_other",
+            workType: "video",
+            workId: "image_credits",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const card = (await screen.findByText("Credited Catalog Image"))
+      .closest("a") as HTMLElement;
+    expect(within(card).getByText("Credits: 1")).toBeInTheDocument();
+  });
+
+  it("keeps Performer Catalog identity search isolated from character names", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_identity",
+            name: "Identity Performer",
+            originalName: "Original Identity",
+            aliasesJson: '["Approved Alias"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Identity Performer")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Performers search"), {
+      target: { value: "Unrelated Character Name" },
+    });
+    expect(screen.getByText("No matching items")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("credit_list", {}, undefined);
+    expect(invoke).not.toHaveBeenCalledWith(
+      "credit_list_by_performer",
+      expect.anything(),
+      undefined,
+    );
+  });
+
   it("filters collection cards with search", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {

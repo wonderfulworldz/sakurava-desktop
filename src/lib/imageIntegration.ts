@@ -41,16 +41,25 @@ import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 import { buildCreditDetailItems } from "./creditDisplay";
+import { countCreditsByWork } from "./catalogCreditSummary";
 
 type FormValues = Record<string, string | boolean>;
 
 const imageRatingFields = formConfigs.images.ratingFields;
 
-export function buildImageCollectionConfig(images: Image[]): CollectionConfig {
+export function buildImageCollectionConfig(
+  images: Image[],
+  credits: Credit[] = [],
+): CollectionConfig {
+  const creditCountByWork = countCreditsByWork(credits, "image");
+
   return {
     ...collectionConfigs.images,
     countLabel: `${images.length} ${images.length === 1 ? "image" : "images"}`,
-    items: images.map(toImageCollectionItem),
+    items: images.map((image) => ({
+      ...toImageCollectionItem(image),
+      creditCount: creditCountByWork.get(image.id) ?? 0,
+    })),
   };
 }
 

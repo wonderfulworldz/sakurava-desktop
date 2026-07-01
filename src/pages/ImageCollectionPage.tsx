@@ -4,6 +4,7 @@ import type { CollectionConfig } from "../lib/collectionData";
 import { buildImageCollectionConfig } from "../lib/imageIntegration";
 import CollectionPage from "./CollectionPage";
 import { isImageRuntimeAvailable, listImages, updateImage } from "../runtime/imageCommands";
+import { listCredits } from "../runtime/creditCommands";
 
 function ImageCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -20,10 +21,10 @@ function ImageCollectionPage() {
       return;
     }
 
-    listImages()
-      .then((images) => {
+    Promise.all([listImages(), listCredits().catch(() => [])])
+      .then(([images, credits]) => {
         if (!cancelled) {
-          setConfig(buildImageCollectionConfig(images));
+          setConfig(buildImageCollectionConfig(images, credits));
         }
       })
       .catch(() => {
