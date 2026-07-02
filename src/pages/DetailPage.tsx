@@ -1406,7 +1406,9 @@ function relatedSectionIcon(title: string) {
 function relatedCountLabel(section: DetailSection) {
   const count =
     (section.filmography?.length ||
-      section.credits?.length ||
+      (section.credits
+        ? new Set(section.credits.map((credit) => credit.performerId)).size
+        : 0) ||
       section.relatedPerformers?.length) ??
     section.relatedCatalogRecords?.length ??
     0;
@@ -1464,30 +1466,14 @@ function FilmographySummary({
                 </p>
               )}
             </div>
-            {item.billingOrder !== undefined && (
-              <span className="text-xs font-semibold text-slate-500">
-                Billing #{item.billingOrder}
-              </span>
-            )}
           </div>
           <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
             <CreditField
-              label="Character / Role"
+              label="Role"
               value={item.characterName}
-              secondaryValue={item.characterOriginalName}
             />
-            <CreditField label="Credited As" value={item.creditedAs} />
             <CreditField label="Credit Type" value={item.creditType} />
-            <CreditField
-              label="Role Importance"
-              value={item.roleImportance}
-            />
           </dl>
-          {item.note && (
-            <p className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-600">
-              {item.note}
-            </p>
-          )}
         </article>
       ))}
     </div>
@@ -1495,61 +1481,77 @@ function FilmographySummary({
 }
 
 function CreditSummary({ credits }: { credits: CreditDetailItem[] }) {
+  const groupedCredits = groupCreditsByPerformer(credits);
+
   return (
-    <div className="mt-4 grid gap-3">
-      {credits.map((credit) => (
-        <article
-          key={credit.id}
-          className="rounded-lg border border-slate-200 bg-slate-50/40 p-4"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              {credit.performerRouteTo ? (
-                <Link
-                  to={credit.performerRouteTo}
-                  className="font-semibold text-sakura-600 hover:text-sakura-700"
-                >
-                  {credit.performerName}
-                </Link>
-              ) : (
-                <p className="font-semibold text-slate-800">
-                  {credit.performerName}
-                </p>
-              )}
-              {credit.performerOriginalName && (
-                <p className="mt-1 text-sm text-slate-500">
-                  {credit.performerOriginalName}
-                </p>
-              )}
-            </div>
-            {credit.billingOrder !== undefined && (
-              <span className="text-xs font-semibold text-slate-500">
-                Billing #{credit.billingOrder}
+    <RelatedCarousel label="Related Performers">
+      {groupedCredits.map((group, index) => {
+        const credit = group[0];
+        const liteItem: HomeRecentItem = {
+          kind: "performers",
+          key: credit.performerRouteTo?.split("/").pop() ?? `credit-${index}`,
+          title: credit.performerName,
+          detail: credit.performerOriginalName ?? "",
+          typeLabel: "Performer",
+          coverPath: credit.performerCoverPath,
+          favorite: credit.performerFavorite ?? false,
+          aliases: credit.performerAliases,
+          rating: credit.performerRating,
+          filmographyCount: credit.performerFilmographyCount,
+          pictorialsCount: credit.performerPictorialsCount,
+        };
+        const creditMetadata = group
+          .filter((item) => item.characterName || item.creditType)
+          .map((item) => ({
+            id: item.id,
+            roleName: item.characterName,
+            creditType: item.creditType,
+          }));
+
+        return (
+          <div
+            key={credit.performerId || credit.id}
+            className="relative flex h-full min-w-0 flex-col"
+          >
+            {!credit.performerRouteTo && (
+              <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                Unavailable
               </span>
             )}
+            <div className="min-h-0 flex-1 [&>*]:h-full">
+              <RelatedLiteCard
+                kind="performers"
+                item={liteItem}
+                linkTo={credit.performerRouteTo ?? "#"}
+                favoriteInteractive={Boolean(credit.performerRouteTo)}
+                creditMetadata={creditMetadata}
+              />
+            </div>
           </div>
-          <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
-            <CreditField
-              label="Character / Role"
-              value={credit.characterName}
-              secondaryValue={credit.characterOriginalName}
-            />
-            <CreditField label="Credited As" value={credit.creditedAs} />
-            <CreditField label="Credit Type" value={credit.creditType} />
-            <CreditField
-              label="Role Importance"
-              value={credit.roleImportance}
-            />
-          </dl>
-          {credit.note && (
-            <p className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-600">
-              {credit.note}
-            </p>
-          )}
-        </article>
-      ))}
-    </div>
+        );
+      })}
+    </RelatedCarousel>
   );
+}
+
+function groupCreditsByPerformer(credits: CreditDetailItem[]) {
+  const groups: CreditDetailItem[][] = [];
+  const groupByPerformer = new Map<string, CreditDetailItem[]>();
+
+  credits.forEach((credit) => {
+    const key = credit.performerId || `credit:${credit.id}`;
+    const existing = groupByPerformer.get(key);
+    if (existing) {
+      existing.push(credit);
+      return;
+    }
+
+    const group = [credit];
+    groupByPerformer.set(key, group);
+    groups.push(group);
+  });
+
+  return groups;
 }
 
 function CreditField({
@@ -1579,11 +1581,17 @@ function RelatedLiteCard({
   item,
   linkTo,
   favoriteInteractive,
+  creditMetadata,
 }: {
   kind: "videos" | "images" | "performers";
   item: HomeRecentItem;
   linkTo: string;
   favoriteInteractive: boolean;
+  creditMetadata?: Array<{
+    id: string;
+    roleName?: string;
+    creditType?: string;
+  }>;
 }) {
   const [favorite, setFavorite] = useState(item.favorite);
   const currentItem = { ...item, favorite };
@@ -1626,6 +1634,7 @@ function RelatedLiteCard({
         linkTo={linkTo}
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+        creditMetadata={creditMetadata}
       />
     );
   }
@@ -1771,32 +1780,25 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
               imageCount: kind === "images" ? record.metadata : undefined,
             };
 
-            if (!record.routeTo || record.unresolved) {
-              return (
-                <div key={`${record.title}-${index}`} className="relative">
-                  {record.unresolved && (
-                    <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                      Unavailable
-                    </span>
-                  )}
+            return (
+              <div
+                key={`${record.title}-${index}`}
+                className="relative flex min-w-0 flex-col"
+              >
+                {record.unresolved && (
+                  <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                    Unavailable
+                  </span>
+                )}
+                <div className="min-h-0 flex-1 [&>*]:h-full">
                   <RelatedLiteCard
                     kind={kind}
                     item={liteItem}
                     linkTo={record.routeTo ?? "#"}
-                    favoriteInteractive={false}
+                    favoriteInteractive={Boolean(record.routeTo && !record.unresolved)}
                   />
                 </div>
-              );
-            }
-
-            return (
-              <RelatedLiteCard
-                key={`${record.title}-${index}`}
-                kind={kind}
-                item={liteItem}
-                linkTo={record.routeTo}
-                favoriteInteractive
-              />
+              </div>
             );
           })}
         </div>
@@ -2081,7 +2083,7 @@ function RelatedCarousel({
       tabIndex={0}
     >
       <div
-        className="min-h-[18rem] min-w-0 overflow-hidden"
+        className="min-w-0 overflow-hidden"
         data-testid="detail-related-carousel-viewport"
       >
         <div
@@ -2102,7 +2104,7 @@ function RelatedCarousel({
               {pageItems.map((child, itemIndex) => (
                 <div
                   key={`related-slide-${pageIndex * visibleCount + itemIndex}`}
-                  className="flex h-[17rem] w-full min-w-0 [&>*]:h-full [&>*]:min-w-0 [&>*]:w-full"
+                  className="flex w-full min-w-0 [&>*]:h-full [&>*]:min-w-0 [&>*]:w-full"
                   data-testid="detail-related-carousel-card"
                 >
                   {child}

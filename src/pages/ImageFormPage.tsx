@@ -186,7 +186,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
             return {
               state: "error",
               message:
-                "Image saved, but Cast & Credits could not be fully saved. Reopen the image and retry.",
+                "Image saved, but Related Performers could not be fully saved. Reopen the image and retry.",
             };
           }
           navigate(`/images/${created.id}`);
@@ -223,7 +223,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
           return {
             state: "error",
             message:
-              "Image saved, but Cast & Credits could not be fully saved. Reopen the image and retry.",
+              "Image saved, but Related Performers could not be fully saved. Reopen the image and retry.",
           };
         }
         navigate(`/images/${updated.id}`);

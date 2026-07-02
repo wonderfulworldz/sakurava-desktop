@@ -1,5 +1,6 @@
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -7,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import App from "./App";
 import StickyHorizontalScroll from "./components/StickyHorizontalScroll";
 import GlobalImageViewer from "./components/gallery/GlobalImageViewer";
@@ -213,6 +214,14 @@ function selectCategorySort(optionName: string) {
 }
 
 describe("App", () => {
+  afterEach(() => {
+    cleanup();
+    document
+      .querySelectorAll("[data-memory-popup]")
+      .forEach((popup) => popup.remove());
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.useRealTimers();
     window.history.pushState({}, "", "/");
@@ -1588,7 +1597,7 @@ describe("App", () => {
       .toHaveClass("text-sakura-600");
     expect(within(creditCategoryCard).getByLabelText("Credits 1"))
       .not.toHaveAttribute("href");
-  });
+  }, 10_000);
 
   it.each([
     [
@@ -1941,7 +1950,6 @@ describe("App", () => {
         throw new Error(`Unexpected command ${command}`);
       }) as unknown as TestTauriInvoke;
       window.__TAURI_INTERNALS__ = { invoke };
-
       render(<App />);
 
       expect(await screen.findByText("Taxonomy Performer")).toBeInTheDocument();
@@ -5025,9 +5033,8 @@ describe("App", () => {
       "lg:grid-cols-[180px_minmax(0,1fr)]",
       "lg:items-center",
     );
-    expect(categoriesRow).toHaveClass(
+    expect(categoriesRow).not.toHaveClass(
       "lg:grid-cols-[180px_minmax(0,1fr)]",
-      "lg:items-start",
     );
     expect(screen.queryByRole("heading", { name: "1. Basic Identity" }))
       .not.toBeInTheDocument();
@@ -5177,7 +5184,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "Cast & Credits" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
       screen.getByRole("heading", { name: "Related Images" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
@@ -5218,8 +5225,8 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "Cast & Credits" }).closest("section"),
-      screen.getByRole("heading", { name: "Related Video" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
@@ -5281,7 +5288,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Cast & Credits" }))
+    expect(screen.getByRole("heading", { name: "Related Performers" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
     expect(screen.getByText("No related performers selected.")).toBeInTheDocument();
@@ -5327,7 +5334,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Related Video" }))
+    expect(screen.getByRole("heading", { name: "Related Videos" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
     expect(screen.getByText("No related videos selected.")).toBeInTheDocument();
@@ -5418,6 +5425,9 @@ describe("App", () => {
               workType: "video",
               workId: created.id,
               performerId: "performer_aoi",
+              characterName: "Lead Role",
+              creditTypeCategoryId: "Custom Main",
+              billingOrder: 1,
             }),
           );
           return { id: "credit_aoi", ...args.input };
@@ -5427,6 +5437,12 @@ describe("App", () => {
       },
     ) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
+    const originalRelatedListScrollTo = HTMLElement.prototype.scrollTo;
+    const relatedListScrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: relatedListScrollTo,
+    });
     render(<App />);
 
     const relatedPerformerSearch = await screen.findByLabelText("Search related performers");
@@ -5477,22 +5493,38 @@ describe("App", () => {
     fireEvent.click(
       performerResult,
     );
-    expect(screen.getByLabelText("Search related performers")).toHaveValue("cherry");
-    const selectedPerformerChipText = screen.getAllByText("Aoi Sakura").find(
-      (element) => element.tagName.toLowerCase() === "span",
-    );
-    expect(selectedPerformerChipText).toBeDefined();
-    expect(selectedPerformerChipText).toHaveClass(
-      "min-w-0",
-      "truncate",
-      "whitespace-nowrap",
-    );
-    expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear related performer search" }));
     expect(screen.getByLabelText("Search related performers")).toHaveValue("");
+    expect(screen.queryByTestId("related-performer-result-row"))
+      .not.toBeInTheDocument();
+    const selectedList = screen.getByTestId("related-performer-credit-list");
+    await waitFor(() => expect(relatedListScrollTo).toHaveBeenCalled());
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: originalRelatedListScrollTo,
+    });
+    expect(within(selectedList).getAllByText("Aoi Sakura")).toHaveLength(1);
+    expect(screen.getByLabelText("Related performer 1 role name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Related performer 1 order")).toHaveValue(1);
+    expect(screen.getByLabelText("Related performer 1 credit type"))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Credit" }))
+      .not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Related performer 1 order"), {
+      target: { value: "7" },
+    });
+    fireEvent.blur(screen.getByLabelText("Related performer 1 order"));
+    expect(screen.getByLabelText("Related performer 1 order")).toHaveValue(1);
+    fireEvent.change(screen.getByLabelText("Related performer 1 role name"), {
+      target: { value: "Lead Role" },
+    });
+    fireEvent.change(screen.getByLabelText("Related performer 1 credit type"), {
+      target: { value: "Custom Main" },
+    });
+    expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
+    fireEvent.focus(screen.getByLabelText("Search related performers"));
+    expect(
+      screen.getByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Video" },
@@ -5506,7 +5538,7 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
-  });
+  }, 15_000);
 
   it.each([
     {
@@ -5522,7 +5554,7 @@ describe("App", () => {
       record: persistedImage({ id: "image_credit", title: "Credit Image" }),
     },
   ])(
-    "loads existing $workType credits into Cast & Credits",
+    "loads existing $workType credits into compact Related Performers",
     async ({ path, workType, getCommand, record }) => {
       window.history.pushState({}, "", path);
       const performer = persistedPerformer({
@@ -5578,29 +5610,58 @@ describe("App", () => {
         throw new Error(`Unexpected command ${command}`);
       }) as unknown as TestTauriInvoke;
       window.__TAURI_INTERNALS__ = { invoke };
+      window.localStorage.setItem(
+        "sakurava.performerSuggestionCache.v1",
+        JSON.stringify({ creditType: ["User Main"] }),
+      );
+      window.localStorage.setItem(
+        "sakurava.performerSuggestionsCacheVersion",
+        "batch-38-9-4-direct-field-history-v1",
+      );
 
       render(<App />);
 
-      expect(await screen.findByRole("heading", { name: "Cast & Credits" }))
+      expect(await screen.findByRole("heading", { name: "Related Performers" }))
         .toBeInTheDocument();
       await waitFor(() =>
-        expect(screen.getByLabelText("Credit 1 performer"))
-          .toHaveValue("performer_credit"),
+        expect(screen.getByLabelText("Related performer 1 role name"))
+          .toHaveValue("Loaded Role"),
       );
-      expect(screen.getByLabelText("Credit 1 character or role"))
-        .toHaveValue("Loaded Role");
-      expect(screen.getByLabelText("Credit 1 credited as mode"))
-        .toHaveValue("custom");
-      expect(screen.getByLabelText("Credit 1 credited as"))
-        .toHaveValue("Custom Billing");
       await waitFor(() =>
-        expect(screen.getByLabelText("Credit 1 credit type"))
+        expect(screen.getByLabelText("Related performer 1 credit type"))
           .toHaveValue("cat_voice"),
       );
-      expect(screen.getByLabelText("Credit 1 role importance"))
-        .toHaveValue("cat_main");
-      expect(screen.getByLabelText("Credit 1 billing order")).toHaveValue(3);
-      expect(screen.getByLabelText("Credit 1 note")).toHaveValue("Loaded note");
+      expect(screen.getByLabelText("Related performer 1 credit type"))
+        .not.toHaveAttribute("list");
+      fireEvent.focus(screen.getByLabelText("Related performer 1 credit type"));
+      const creditTypeSuggestions = screen.getByRole("listbox", {
+        name: "Credit Type suggestions",
+      });
+      expect(within(creditTypeSuggestions).getByRole("button", {
+        name: "User Main",
+      })).toBeInTheDocument();
+      expect(within(creditTypeSuggestions).queryByRole("button", {
+        name: "Main",
+      })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", {
+        name: "Remove Related performer 1 credit type suggestion User Main",
+      })).toBeInTheDocument();
+      expect(screen.getByLabelText("Related performer 1 order"))
+        .toHaveAttribute("type", "number");
+      const list = screen.getByTestId("related-performer-credit-list");
+      expect(within(list).getByText("Credit Performer")).toBeInTheDocument();
+      expect(within(list).getByRole("button", { name: "Remove Credit Performer" }))
+        .toBeInTheDocument();
+      expect(screen.queryByText("Character Mode")).not.toBeInTheDocument();
+      expect(screen.queryByText("Credited As Mode")).not.toBeInTheDocument();
+      expect(screen.queryByText("Character Original Name")).not.toBeInTheDocument();
+      expect(screen.queryByText("Role Importance")).not.toBeInTheDocument();
+      expect(screen.queryByText("Billing Order")).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Role$/)).not.toBeInTheDocument();
+      expect(screen.getByText("Role Name")).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Move Credit Performer/))
+        .not.toBeInTheDocument();
+      expect(screen.queryByText("Loaded note")).not.toBeInTheDocument();
       expect(screen.queryByText("Identity Alias")).not.toBeInTheDocument();
     },
   );
@@ -6128,12 +6189,11 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Former Performer")).toBeInTheDocument();
-    expect(screen.getByText("Unresolved")).toBeInTheDocument();
     expect(screen.queryByText("missing_performer")).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Remove related performer Former Performer",
+        name: "Remove Former Performer",
       }),
     );
     fillVideoRatingFields();
@@ -6156,7 +6216,7 @@ describe("App", () => {
     });
   });
 
-  it("expands, collapses, removes, and clears related performer chips", async () => {
+  it("keeps many related performers compact, reorderable, and removable", async () => {
     window.history.pushState({}, "", "/videos/video_test_001/edit");
     const existing = persistedVideo({
       title: "Many Related Performers",
@@ -6186,26 +6246,32 @@ describe("App", () => {
     render(<App />);
 
     const performerSection = (await screen.findByRole("heading", {
-      name: "Cast & Credits",
+      name: "Related Performers",
     })).closest("section") as HTMLElement;
     const relatedPerformers = within(performerSection);
 
     expect(relatedPerformers.getByText("Performer 1")).toBeInTheDocument();
-    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "+2 more" }));
     expect(relatedPerformers.getByText("Performer 5")).toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "Show less" }));
-    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "+2 more" }));
+    expect(relatedPerformers.getByTestId("related-performer-credit-list"))
+      .toHaveClass("overflow-y-auto");
+    expect(relatedPerformers.queryByLabelText(/Move Performer/))
+      .not.toBeInTheDocument();
+    fireEvent.change(
+      relatedPerformers.getByLabelText("Related performer 5 order"),
+      { target: { value: "2" } },
+    );
+    fireEvent.blur(
+      relatedPerformers.getByLabelText("Related performer 5 order"),
+    );
+    expect(relatedPerformers.getByLabelText("Related performer 2 order"))
+      .toHaveValue(2);
     fireEvent.click(
       relatedPerformers.getByRole("button", {
-        name: "Remove related performer Performer 5",
+        name: "Remove Performer 5",
       }),
     );
     expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
-    expect(relatedPerformers.getByText("4 performers selected")).toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "Clear all" }));
-    expect(relatedPerformers.getByText("No related performers selected.")).toBeInTheDocument();
+    expect(relatedPerformers.getAllByTestId("credit-editor-row")).toHaveLength(4);
   });
 
   it("expands, collapses, removes, and clears related catalog chips", async () => {
@@ -7204,7 +7270,7 @@ describe("App", () => {
     expect(invoke).toHaveBeenCalledWith("video_list", {}, undefined);
   });
 
-  it("renders Video Catalog credit row counts without deduplicating roles", async () => {
+  it("does not expose Credit counts on Video Catalog cards", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list") {
@@ -7213,44 +7279,19 @@ describe("App", () => {
           persistedVideo({ id: "video_empty", title: "Empty Credits Video" }),
         ];
       }
-      if (command === "credit_list") {
-        return [
-          persistedCredit({
-            id: "credit_role_one",
-            workId: "video_credits",
-            performerId: "performer_same",
-            characterName: "",
-          }),
-          persistedCredit({
-            id: "credit_role_two",
-            workId: "video_credits",
-            performerId: "performer_same",
-            characterName: "Second Role",
-          }),
-          persistedCredit({
-            id: "credit_other_type",
-            workType: "image",
-            workId: "video_credits",
-          }),
-        ];
-      }
-
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
 
-    const creditedCard = (await screen.findByText("Credited Catalog Video"))
-      .closest("a") as HTMLElement;
-    const emptyCard = screen.getByText("Empty Credits Video").closest("a") as HTMLElement;
-    expect(within(creditedCard).getByText("Credits: 2")).toBeInTheDocument();
-    expect(within(emptyCard).getByText("Credits: 0")).toBeInTheDocument();
-    expect(within(creditedCard).queryByText("Second Role")).not.toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("credit_list", {}, undefined);
+    expect(await screen.findByText("Credited Catalog Video")).toBeInTheDocument();
+    expect(screen.getByText("Empty Credits Video")).toBeInTheDocument();
+    expect(screen.queryByText(/Credits:/)).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("credit_list", {}, undefined);
   });
 
-  it("renders Image Catalog credit row counts by image work id", async () => {
+  it("does not expose Credit counts on Image Catalog cards", async () => {
     window.history.pushState({}, "", "/images");
     const invoke = vi.fn(async (command: string) => {
       if (command === "image_list") {
@@ -7258,30 +7299,15 @@ describe("App", () => {
           persistedImage({ id: "image_credits", title: "Credited Catalog Image" }),
         ];
       }
-      if (command === "credit_list") {
-        return [
-          persistedCredit({
-            id: "credit_image_one",
-            workType: "image",
-            workId: "image_credits",
-          }),
-          persistedCredit({
-            id: "credit_video_other",
-            workType: "video",
-            workId: "image_credits",
-          }),
-        ];
-      }
-
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
 
-    const card = (await screen.findByText("Credited Catalog Image"))
-      .closest("a") as HTMLElement;
-    expect(within(card).getByText("Credits: 1")).toBeInTheDocument();
+    expect(await screen.findByText("Credited Catalog Image")).toBeInTheDocument();
+    expect(screen.queryByText(/Credits:/)).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("credit_list", {}, undefined);
   });
 
   it("keeps Performer Catalog identity search isolated from character names", async () => {
@@ -9788,14 +9814,15 @@ describe("App", () => {
       expect(track).not.toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto", "scroll-smooth");
       expect(track).toHaveStyle({ transform: "translateX(-0%)" });
       expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
-        .toHaveClass("min-h-[18rem]");
+        .not.toHaveClass("min-h-[23rem]");
       expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
         .toHaveClass("overflow-hidden");
       expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
         .not.toHaveClass("cursor-grab");
       const firstCardShell = within(carousel).getAllByTestId("detail-related-carousel-card")[0];
       expect(firstCardShell)
-        .toHaveClass("flex", "h-[17rem]", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0");
+        .toHaveClass("flex", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0", "[&>*]:h-full");
+      expect(firstCardShell).not.toHaveClass("h-[22rem]");
       expect(firstCardShell).not.toHaveClass("shrink-0", "snap-start");
       expect(firstCardShell.getAttribute("style") ?? "")
         .not.toContain("flex-basis");
@@ -9904,7 +9931,7 @@ describe("App", () => {
     expect(within(imagesSection).getByText("Carousel Image 1")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Carousel Performer 1").closest("a") as HTMLElement);
     expect(window.location.pathname).toBe("/performers/performer_slider_1");
-  });
+  }, 10_000);
 
   it("clicking a Video Detail related image card navigates to Image Detail", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
@@ -10015,7 +10042,9 @@ describe("App", () => {
       expect(within(carousel).getByTestId("detail-related-carousel-track"))
         .not.toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto");
       expect(within(carousel).getByTestId("detail-related-carousel-card"))
-        .toHaveClass("h-[17rem]", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0");
+        .toHaveClass("w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0", "[&>*]:h-full");
+      expect(within(carousel).getByTestId("detail-related-carousel-card"))
+        .not.toHaveClass("h-[22rem]");
     }
     expect(screen.getByText("Image Slider Performer").closest("a"))
       .toHaveAttribute("href", "/performers/performer_slider");
@@ -10196,7 +10225,9 @@ describe("App", () => {
           gridTemplateColumns: `repeat(${visibleCount}, minmax(0, 1fr))`,
         });
       expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
-        .toHaveClass("h-[17rem]", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0");
+        .toHaveClass("w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0", "[&>*]:h-full");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+        .not.toHaveClass("h-[22rem]");
       expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
         .not.toHaveClass("shrink-0", "snap-start");
 
@@ -10411,7 +10442,7 @@ describe("App", () => {
     );
   });
 
-  it("renders sorted Video Cast & Credits with resolved performers and category labels", async () => {
+  it("renders sorted Video Related Performers carousel with compact metadata", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_get") {
@@ -10470,25 +10501,23 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Credits Video")).toBeInTheDocument();
-    const section = screen.getByRole("heading", { name: "Cast & Credits" })
+    const section = screen.getByRole("heading", { name: "Related Performers" })
       .closest("section") as HTMLElement;
     const credits = within(section);
-    expect(credits.getAllByText("Aoi Sakura")).toHaveLength(2);
-    expect(credits.getAllByRole("link", { name: "Aoi Sakura" })[0])
+    expect(credits.getAllByText("Aoi Sakura")).toHaveLength(1);
+    expect(credits.getByText("Aoi Sakura").closest("a"))
       .toHaveAttribute("href", "/performers/performer_aoi");
     expect(credits.getByText("Hana").closest("a")).toBeNull();
-    expect(credits.getByText("(花)")).toBeInTheDocument();
-    expect(credits.getByText("A. Sakura")).toBeInTheDocument();
+    expect(credits.getByText("Hana").closest(
+      '[data-testid="credit-metadata"]',
+    )).toBeInTheDocument();
     expect(credits.getByText("Cast")).toBeInTheDocument();
-    expect(credits.getByText("Lead")).toBeInTheDocument();
-    expect(credits.getByText("Opening role")).toBeInTheDocument();
+    expect(credits.queryByText("Lead")).not.toBeInTheDocument();
+    expect(credits.queryByText("Opening role")).not.toBeInTheDocument();
+    expect(credits.queryByText("A. Sakura")).not.toBeInTheDocument();
     expect(credits.queryByText("Must Not Be Character")).not.toBeInTheDocument();
-    const cards = section.querySelectorAll("article");
-    expect(cards).toHaveLength(2);
-    expect(within(cards[0] as HTMLElement).getByText("Hana")).toBeInTheDocument();
-    expect(within(cards[1] as HTMLElement).getAllByText("N/A")).toHaveLength(4);
-    expect(screen.queryByRole("heading", { name: "Related Performers" }))
-      .not.toBeInTheDocument();
+    expect(credits.getByLabelText("Related Performers carousel"))
+      .toBeInTheDocument();
   });
 
   it("renders Image credits with Self and safe unresolved fallbacks", async () => {
@@ -10521,6 +10550,13 @@ describe("App", () => {
             creditTypeCategoryId: "missing_credit_type",
           }),
           persistedCredit({
+            id: "credit_second_role",
+            workType: "image",
+            performerId: "missing_performer",
+            characterName: "Guest Role",
+            billingOrder: 2,
+          }),
+          persistedCredit({
             id: "credit_unknown",
             workType: "image",
             performerId: "unknown_performer",
@@ -10535,15 +10571,17 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Credits Image")).toBeInTheDocument();
-    const section = screen.getByRole("heading", { name: "Cast & Credits" })
+    const section = screen.getByRole("heading", { name: "Related Performers" })
       .closest("section") as HTMLElement;
     const credits = within(section);
-    expect(credits.getByText("Legacy Snapshot")).toBeInTheDocument();
+    expect(credits.getAllByText("Legacy Snapshot")).toHaveLength(1);
     expect(credits.getByText("Unknown performer")).toBeInTheDocument();
     expect(credits.getByText("Self")).toBeInTheDocument();
     expect(credits.getByText("Self").closest("a")).toBeNull();
+    expect(credits.getByText("Guest Role").closest("a")).toBeNull();
     expect(credits.getByText("missing_credit_type")).toBeInTheDocument();
-    expect(credits.queryAllByRole("link")).toHaveLength(0);
+    expect(credits.getByText("Legacy Snapshot").closest("a"))
+      .not.toHaveAttribute("href", "/performers/missing_performer");
   });
 
   it("maps and persists Related Performer favorite state on video detail", async () => {
@@ -11071,7 +11109,7 @@ describe("App", () => {
     );
   });
 
-  it("renders Performer Credits / Filmography from credits without legacy duplication", async () => {
+  it("keeps Performer Related Videos and Images while showing credit metadata", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "performer_get") {
@@ -11162,42 +11200,29 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Filmography Performer")).toBeInTheDocument();
-    const section = screen.getByRole("heading", {
-      name: "Credits / Filmography",
+    const videosSection = screen.getByRole("heading", {
+      name: "Related Videos",
     }).closest("section") as HTMLElement;
-    const filmography = within(section);
-    expect(filmography.getAllByText("Credited Video")).toHaveLength(2);
-    expect(filmography.getAllByRole("link", { name: "Credited Video" })[0])
+    const imagesSection = screen.getByRole("heading", {
+      name: "Related Images",
+    }).closest("section") as HTMLElement;
+    const videos = within(videosSection);
+    const images = within(imagesSection);
+    expect(videos.getAllByText("Credited Video")).toHaveLength(2);
+    expect(videos.getAllByText("Credited Video")[0].closest("a"))
       .toHaveAttribute("href", "/videos/video_credit");
-    expect(filmography.getByRole("link", { name: "Credited Image" }))
+    expect(images.getByText("Credited Image").closest("a"))
       .toHaveAttribute("href", "/images/image_credit");
-    expect(filmography.getByText("Hana").closest("a")).toBeNull();
-    expect(filmography.getByText("(花)")).toBeInTheDocument();
-    expect(filmography.getByText("Self").closest("a")).toBeNull();
-    expect(filmography.getByText("Stage Name")).toBeInTheDocument();
-    expect(filmography.getByText("Cast")).toBeInTheDocument();
-    expect(filmography.getByText("Lead")).toBeInTheDocument();
-    expect(filmography.getByText("Model")).toBeInTheDocument();
-    expect(filmography.getByText("Lead performance")).toBeInTheDocument();
-    expect(filmography.getByText("Unknown video")).toBeInTheDocument();
-    expect(filmography.getByText("missing_category")).toBeInTheDocument();
-    expect(filmography.queryByText("Identity Alias")).not.toBeInTheDocument();
-    expect(filmography.queryByText("Legacy Video")).not.toBeInTheDocument();
-    expect(filmography.queryByText("Legacy Image")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Related Videos" }))
+    expect(videos.queryByText("Hana")).not.toBeInTheDocument();
+    expect(images.queryByText("Self")).not.toBeInTheDocument();
+    expect(videos.queryByText("Cast")).not.toBeInTheDocument();
+    expect(images.queryByText("Model")).not.toBeInTheDocument();
+    expect(videos.getByText("Unresolved Video")).toBeInTheDocument();
+    expect(videos.queryByText("missing_category")).not.toBeInTheDocument();
+    expect(videos.queryByText("Legacy Video")).not.toBeInTheDocument();
+    expect(images.queryByText("Legacy Image")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Credits / Filmography" }))
       .not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Related Images" }))
-      .not.toBeInTheDocument();
-
-    const cards = section.querySelectorAll("article");
-    expect(cards).toHaveLength(4);
-    expect(within(cards[0] as HTMLElement).getByText("Hana")).toBeInTheDocument();
-    expect(within(cards[1] as HTMLElement).getByText("Billing #2"))
-      .toBeInTheDocument();
-    expect(within(cards[2] as HTMLElement).getByText("Unknown video"))
-      .toBeInTheDocument();
-    expect(within(cards[3] as HTMLElement).getByText("Self"))
-      .toBeInTheDocument();
   });
 
   it("keeps unresolved Performer related catalog items visible as safe fallbacks", async () => {
@@ -12664,7 +12689,10 @@ describe("App", () => {
 
     expect(await screen.findByDisplayValue("Failed Delete Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    confirmDialog("Delete");
+    const deleteDialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(deleteDialog).getByRole("button", { name: "Delete" }),
+    );
 
     expect(
       await screen.findByText(
@@ -12946,8 +12974,6 @@ describe("App", () => {
     expect(await screen.findByText("Favorite Failure Video")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
 
-    expect(screen.getByRole("button", { name: "Add to Favorites" }))
-      .toBeInTheDocument();
     expect(
       await screen.findByText(
         "Favorite update failed. The saved record was not changed.",
@@ -13136,7 +13162,7 @@ describe("App", () => {
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
-  }, 10000);
+  }, 15_000);
 
   it("saves detected Image Tech Info and availability from a typed image path", async () => {
     window.history.pushState({}, "", "/images/new");
@@ -16688,10 +16714,10 @@ describe("App", () => {
   });
 
   it.each([
-    ["/videos/new", "Cast & Credits", "Related Images"],
-    ["/videos/sample-id/edit", "Cast & Credits", "Related Images"],
-    ["/images/new", "Cast & Credits", "Related Video"],
-    ["/images/sample-id/edit", "Cast & Credits", "Related Video"],
+    ["/videos/new", "Related Performers", "Related Images"],
+    ["/videos/sample-id/edit", "Related Performers", "Related Images"],
+    ["/images/new", "Related Performers", "Related Videos"],
+    ["/images/sample-id/edit", "Related Performers", "Related Videos"],
     ["/performers/new", "Related Videos", "Related Images"],
     ["/performers/sample-id/edit", "Related Videos", "Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {

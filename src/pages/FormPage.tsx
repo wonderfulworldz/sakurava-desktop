@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Plus, Save, Search, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, ChevronDown, Save, Search, Star, Trash2, X } from "lucide-react";
 import {
   type ClipboardEvent,
   type Dispatch,
@@ -7,6 +7,7 @@ import {
   type SetStateAction,
   type UIEvent,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -31,7 +32,8 @@ import {
   splitPickerHighlight,
 } from "../lib/relatedPicker";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
-import CreditEditor from "../components/CreditEditor";
+import CompactRelatedPerformersEditor from "../components/CompactRelatedPerformersEditor";
+import MemorySuggestionInput from "../components/MemorySuggestionInput";
 import {
   selectGalleryFolder,
   selectLocalFolder,
@@ -193,6 +195,7 @@ function FormPage({
   const [performerSuggestionOptions, setPerformerSuggestionOptions] = useState<
     Record<string, string[]>
   >({});
+  const removedSuggestionKeys = useRef(new Set<string>());
   const [relatedCatalogLoadState, setRelatedCatalogLoadState] =
     useState<RelatedCatalogLoadState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -378,40 +381,7 @@ function FormPage({
   }, [supportsRelatedPerformerPicker]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (config.kind !== "performers") {
-      setPerformerSuggestionOptions({});
-      return;
-    }
-
-    if (!isPerformerRuntimeAvailable()) {
-      setPerformerSuggestionOptions(buildPerformerSuggestions([]));
-      return;
-    }
-
-    listPerformers()
-      .then((performers) => {
-        if (cancelled) {
-          return;
-        }
-
-        setPerformerSuggestionOptions(
-          mergePerformerSuggestionCaches(
-            getStoredPerformerSuggestionCache(),
-            buildPerformerSuggestions(Array.isArray(performers) ? performers : []),
-          ),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPerformerSuggestionOptions(buildPerformerSuggestions([]));
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setPerformerSuggestionOptions(getStoredPerformerSuggestionCache());
   }, [config.kind]);
 
   useEffect(() => {
@@ -557,7 +527,24 @@ function FormPage({
     setSaveState("idle");
   }
 
+  function updateMemoryValue(name: string, value: string) {
+    removedSuggestionKeys.current.delete(memorySuggestionKey(name, value));
+    updateValue(name, value);
+  }
+
+  function updateCredits(nextCredits: CreditFormValue[]) {
+    nextCredits.forEach((credit) => {
+      removedSuggestionKeys.current.delete(
+        memorySuggestionKey("creditType", credit.creditTypeCategoryId),
+      );
+    });
+    setCredits(nextCredits);
+  }
+
   function removePerformerSuggestion(fieldName: string, suggestion: string) {
+    removedSuggestionKeys.current.add(
+      memorySuggestionKey(fieldName, suggestion),
+    );
     setPerformerSuggestionOptions((current) => {
       const next = removeCachedPerformerSuggestion(current, fieldName, suggestion);
       storePerformerSuggestionCache(next);
@@ -772,9 +759,22 @@ function FormPage({
         setCleanSnapshot(currentSnapshot);
         setConfirmation(null);
       }
-      if (result.state === "saved" && config.kind === "performers") {
+      if (result.state === "saved") {
         setPerformerSuggestionOptions((current) => {
-          const next = addPerformerValuesToSuggestionCache(current, values);
+          const withFields = addPerformerValuesToSuggestionCache(current, values);
+          const withCredits = credits.reduce(
+            (cache, credit) =>
+              addCachedPerformerSuggestion(
+                cache,
+                "creditType",
+                credit.creditTypeCategoryId,
+              ),
+            withFields,
+          );
+          const next = removeSuppressedSuggestions(
+            withCredits,
+            removedSuggestionKeys.current,
+          );
           storePerformerSuggestionCache(next);
           return next;
         });
@@ -964,11 +964,15 @@ function FormPage({
               )}
               {config.metadataFields.map((field) => 
                 field.name === "publisherLabel" ? (
-                  <SearchTextInput
+                  <TextInput
                     key={field.name}
                     field={field}
                     value={String(values[field.name] ?? "")}
-                    onChange={(value) => updateValue(field.name, value)}
+                    onChange={(value) => updateMemoryValue(field.name, value)}
+                    recentSuggestions={performerSuggestionOptions.publisherLabel ?? []}
+                    onHideSuggestion={(suggestion) =>
+                      removePerformerSuggestion("publisherLabel", suggestion)
+                    }
                   />
                 ) : (
                   <TextInput
@@ -1128,7 +1132,7 @@ function FormPage({
                       key={field.name}
                       field={field}
                       value={String(values[field.name] ?? "")}
-                      onChange={(value) => updateValue(field.name, value)}
+                      onChange={(value) => updateMemoryValue(field.name, value)}
                       recentSuggestions={performerSuggestionOptions[field.name] ?? []}
                       onHideSuggestion={(suggestion) =>
                         removePerformerSuggestion(field.name, suggestion)
@@ -1149,7 +1153,7 @@ function FormPage({
                       key={field.name}
                       field={field}
                       value={String(values[field.name] ?? "")}
-                      onChange={(value) => updateValue(field.name, value)}
+                      onChange={(value) => updateMemoryValue(field.name, value)}
                       recentSuggestions={performerSuggestionOptions[field.name] ?? []}
                       onHideSuggestion={(suggestion) =>
                         removePerformerSuggestion(field.name, suggestion)
@@ -1163,15 +1167,13 @@ function FormPage({
       )}
 
       <FormSection index={5} title="Categories">
-        <LabeledControl label="Categories">
-          <CategoryPicker
-            kind={config.kind}
-            selected={categories}
-            managedCategories={managedCategories}
-            managedCategoryRecords={managedCategoryRecords}
-            onChange={setCategories}
-          />
-        </LabeledControl>
+        <CategoryPicker
+          kind={config.kind}
+          selected={categories}
+          managedCategories={managedCategories}
+          managedCategoryRecords={managedCategoryRecords}
+          onChange={setCategories}
+        />
       </FormSection>
 
       <FormSection index={6} title="Rating">
@@ -1209,13 +1211,16 @@ function FormPage({
 
       {config.kind !== "performers" ? (
         <>
-          <FormSection index={7} title="Cast & Credits">
-            <CreditEditor
+          <FormSection index={7} title="Related Performers">
+            <CompactRelatedPerformersEditor
               credits={credits}
               performers={availablePerformers}
-              categories={managedCategoryRecords}
               loadState={performerLoadState}
-              onChange={setCredits}
+              onChange={updateCredits}
+              creditTypeHistory={performerSuggestionOptions.creditType ?? []}
+              onRemoveCreditTypeHistory={(suggestion) =>
+                removePerformerSuggestion("creditType", suggestion)
+              }
             />
             {performerLoadState === "error" && (
               <p className="mt-2 text-xs text-amber-700">
@@ -1226,10 +1231,9 @@ function FormPage({
 
           <FormSection
             index={8}
-            title={config.kind === "videos" ? "Related Images" : "Related Video"}
+            title={config.kind === "videos" ? "Related Images" : "Related Videos"}
           >
-            <LabeledControl label={config.kind === "videos" ? "Images" : "Videos"}>
-              <RelatedCatalogPicker
+            <RelatedCatalogPicker
                 records={
                   config.kind === "videos"
                     ? availableRelatedImages
@@ -1240,33 +1244,28 @@ function FormPage({
                 targetKind={config.kind === "videos" ? "images" : "videos"}
                 onChange={setRelatedCatalogRecords}
               />
-            </LabeledControl>
           </FormSection>
         </>
       ) : (
         <>
           <FormSection index={7} title="Related Videos">
-            <LabeledControl label="Videos">
-              <RelatedCatalogPicker
+            <RelatedCatalogPicker
                 records={availableRelatedVideos}
                 selected={performerRelatedVideos}
                 loadState={relatedCatalogLoadState}
                 targetKind="videos"
                 onChange={setPerformerRelatedVideos}
               />
-            </LabeledControl>
           </FormSection>
 
           <FormSection index={8} title="Related Images">
-            <LabeledControl label="Images">
-              <RelatedCatalogPicker
+            <RelatedCatalogPicker
                 records={availableRelatedImages}
                 selected={performerRelatedImages}
                 loadState={relatedCatalogLoadState}
                 targetKind="images"
                 onChange={setPerformerRelatedImages}
               />
-            </LabeledControl>
           </FormSection>
         </>
       )}
@@ -1532,9 +1531,11 @@ function TextInput({
   recentSuggestions?: string[];
   onHideSuggestion?: (suggestion: string) => void;
 }) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const hasRecentSuggestions =
-    recentSuggestions.length > 0 && onHideSuggestion && !inactive;
+  const usesMemorySuggestions = Boolean(
+    performerSuggestionFieldNames.includes(field.name) &&
+      onHideSuggestion &&
+      !inactive,
+  );
 
   return (
     <label className={FORM_ROW_STYLES}>
@@ -1545,18 +1546,29 @@ function TextInput({
       <span className="flex items-center gap-2">
         <span className="relative grid flex-1 gap-1">
           <span className="flex items-center gap-2">
-            <input
-              className={inputClass(inactive)}
-              aria-label={field.label}
-              type={field.type ?? "text"}
-              value={value}
-              placeholder={field.placeholder}
-              disabled={inactive}
-              autoComplete="off"
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => window.setTimeout(() => setShowSuggestions(false), 100)}
-              onChange={(event) => onChange(event.target.value)}
-            />
+            {usesMemorySuggestions ? (
+              <MemorySuggestionInput
+                className={inputClass(inactive)}
+                ariaLabel={field.label}
+                value={value}
+                placeholder={field.placeholder}
+                disabled={inactive}
+                suggestions={recentSuggestions}
+                onChange={onChange}
+                onRemoveSuggestion={onHideSuggestion}
+              />
+            ) : (
+              <input
+                className={inputClass(inactive)}
+                aria-label={field.label}
+                type={field.type ?? "text"}
+                value={value}
+                placeholder={field.placeholder}
+                disabled={inactive}
+                autoComplete="off"
+                onChange={(event) => onChange(event.target.value)}
+              />
+            )}
             {field.suffix && (
               <span className="shrink-0 text-xs font-semibold text-slate-500">
                 {field.suffix}
@@ -1568,62 +1580,9 @@ function TextInput({
               {field.helper}
             </span>
           )}
-          {hasRecentSuggestions && showSuggestions && (
-            <span
-              role="listbox"
-              className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-              aria-label={`${field.label} suggestions`}
-            >
-              {recentSuggestions.map((suggestion) => (
-                <SuggestionOption
-                  key={suggestion}
-                  suggestion={suggestion}
-                  removeLabel={`Remove ${field.label} suggestion ${suggestion}`}
-                  onHide={onHideSuggestion}
-                  onSelect={onChange}
-                />
-              ))}
-            </span>
-          )}
         </span>
       </span>
     </label>
-  );
-}
-
-function SuggestionOption({
-  suggestion,
-  removeLabel,
-  onHide,
-  onSelect,
-}: {
-  suggestion: string;
-  removeLabel?: string;
-  onHide?: (suggestion: string) => void;
-  onSelect: (suggestion: string) => void;
-}) {
-  return (
-    <span className="flex items-center justify-between gap-2 px-2 py-1">
-      <button
-        type="button"
-        className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => onSelect(suggestion)}
-      >
-        {suggestion}
-      </button>
-      {onHide && removeLabel && (
-        <button
-          type="button"
-          className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-          aria-label={removeLabel}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => onHide(suggestion)}
-        >
-          <X size={12} />
-        </button>
-      )}
-    </span>
   );
 }
 
@@ -2195,11 +2154,11 @@ function ChipInput({
         />
         <button
           type="button"
-          className="inline-flex size-7 items-center justify-center rounded-full border border-sakura-100 bg-sakura-50 text-sakura-500 transition-colors hover:bg-sakura-100"
+          className="inline-flex h-7 items-center justify-center rounded-full border border-sakura-100 bg-sakura-50 px-2 text-[11px] font-bold text-sakura-500 transition-colors hover:bg-sakura-100"
           aria-label={`Add ${label}`}
           onClick={onAdd}
         >
-          <Plus size={15} />
+          Add
         </button>
         {options.length > 0 && (
           <datalist id={optionListId}>
@@ -2375,8 +2334,8 @@ function CategoryPicker({
                   >
                     {" "}
                   </span>
-                  <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
-                    <Plus size={14} />
+                  <span className="flex h-8 items-center justify-center justify-self-end rounded-full px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                    Add
                   </span>
                 </button>
               ))
@@ -2876,6 +2835,8 @@ const performerSuggestionFieldNames = [
   "nationality",
   "bloodType",
   "cupSize",
+  "publisherLabel",
+  "creditType",
 ];
 
 function uniqueSuggestions(values: Array<string | null | undefined>) {
@@ -2934,6 +2895,25 @@ function addChip(
 
   setChips((current) => [...current, nextChip]);
   setDraft("");
+}
+
+function memorySuggestionKey(fieldName: string, suggestion: string) {
+  return `${fieldName}\u0000${suggestion.trim().toLowerCase()}`;
+}
+
+function removeSuppressedSuggestions(
+  cache: Record<string, string[]>,
+  suppressed: Set<string>,
+) {
+  return Object.fromEntries(
+    Object.entries(cache).map(([fieldName, suggestions]) => [
+      fieldName,
+      suggestions.filter(
+        (suggestion) =>
+          !suppressed.has(memorySuggestionKey(fieldName, suggestion)),
+      ),
+    ]),
+  );
 }
 
 function formSnapshot(data: FormSubmitData) {
@@ -3163,6 +3143,36 @@ function CensorshipSelectInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const close = () => setOpen(false);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+      }
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !containerRef.current?.contains(event.target)
+      ) {
+        close();
+      }
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [open]);
   const displayToCensorship = (val: string) => {
     if (val === "Reduced / Reduced Mosaic") return "Reduced";
     if (val === "Unknown") return "";
@@ -3180,43 +3190,47 @@ function CensorshipSelectInput({
   return (
     <label className={FORM_ROW_STYLES}>
       {label}
-      <select
-        className={inputClass(false)}
-        value={uiValue}
-        onChange={(event) => onChange(displayToCensorship(event.target.value))}
+      <span
+        ref={containerRef}
+        className="relative"
       >
-        {options.map((option) => (
-          <option key={option}>{option}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function SearchTextInput({
-  field,
-  value,
-  onChange,
-}: {
-  field: TextField;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className={FORM_ROW_STYLES}>
-      <span>{field.label}</span>
-      <div className="relative flex-1">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-          <Search size={14} />
-        </span>
-        <input
-          className="h-9 w-full select-text rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-          aria-label={field.label}
-          value={value}
-          placeholder="Search or enter publisher..."
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </div>
+        <button
+          type="button"
+          aria-label={label}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className={`${inputClass(false)} flex items-center justify-between text-left`}
+          onClick={() => setOpen((current) => !current)}
+        >
+          <span>{uiValue}</span>
+          <ChevronDown size={15} className="text-sakura-500" />
+        </button>
+        {open && (
+          <span
+            role="listbox"
+            aria-label={`${label} options`}
+            className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          >
+            {options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={option === uiValue}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(displayToCensorship(option));
+                  setOpen(false);
+                }}
+              >
+                {option}
+                {option === uiValue && <Check size={14} className="text-sakura-500" />}
+              </button>
+            ))}
+          </span>
+        )}
+      </span>
     </label>
   );
 }
@@ -3306,7 +3320,6 @@ function SourceLinksInput({
             className={BUTTON_STYLES.action}
             onClick={addRow}
           >
-            <Plus size={14} />
             Add Source Link
           </button>
         </div>

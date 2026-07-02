@@ -4,7 +4,6 @@ import type { CollectionConfig } from "../lib/collectionData";
 import { buildVideoCollectionConfig } from "../lib/videoIntegration";
 import CollectionPage from "./CollectionPage";
 import { isVideoRuntimeAvailable, listVideos, updateVideo } from "../runtime/videoCommands";
-import { listCredits } from "../runtime/creditCommands";
 
 function VideoCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -21,10 +20,10 @@ function VideoCollectionPage() {
       return;
     }
 
-    Promise.all([listVideos(), listCredits().catch(() => [])])
-      .then(([videos, credits]) => {
+    listVideos()
+      .then((videos) => {
         if (!cancelled) {
-          setConfig(buildVideoCollectionConfig(videos, credits));
+          setConfig(buildVideoCollectionConfig(videos));
         }
       })
       .catch(() => {

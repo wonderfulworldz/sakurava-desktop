@@ -33,14 +33,23 @@ export type RelatedCatalogDetailItem = {
   rating?: number | null;
   favorite?: boolean;
   routeTo?: string;
+  roleName?: string;
+  creditType?: string;
   unresolved: boolean;
 };
 
 export type CreditDetailItem = {
   id: string;
+  performerId: string;
   performerName: string;
   performerOriginalName?: string;
   performerRouteTo?: string;
+  performerCoverPath?: string;
+  performerRating?: number | null;
+  performerFavorite?: boolean;
+  performerAliases?: string;
+  performerFilmographyCount?: string;
+  performerPictorialsCount?: string;
   characterName?: string;
   characterOriginalName?: string;
   creditedAs?: string;

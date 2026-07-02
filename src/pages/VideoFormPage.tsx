@@ -184,7 +184,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
             return {
               state: "error",
               message:
-                "Video saved, but Cast & Credits could not be fully saved. Reopen the video and retry.",
+                "Video saved, but Related Performers could not be fully saved. Reopen the video and retry.",
             };
           }
           navigate(`/videos/${created.id}`);
@@ -220,7 +220,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
           return {
             state: "error",
             message:
-              "Video saved, but Cast & Credits could not be fully saved. Reopen the video and retry.",
+              "Video saved, but Related Performers could not be fully saved. Reopen the video and retry.",
           };
         }
         navigate(`/videos/${updated.id}`);

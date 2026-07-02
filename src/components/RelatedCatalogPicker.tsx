@@ -1,4 +1,4 @@
-import { Plus, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { type UIEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { RelatedCatalogRecordReference } from "../backend/json";
@@ -216,8 +216,8 @@ function RelatedCatalogPicker({
                     <HighlightedPickerText text={title} query={query} />
                   </span>
                   <CatalogRecordMeta parts={meta} />
-                  <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
-                    <Plus size={14} />
+                  <span className="flex h-8 items-center justify-center justify-self-end rounded-full px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                    Add
                   </span>
                 </button>
               );

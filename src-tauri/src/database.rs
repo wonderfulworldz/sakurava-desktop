@@ -307,13 +307,14 @@ fn backfill_legacy_credits(connection: &Connection) -> rusqlite::Result<()> {
                 let legacy_source_key = format!(
                     "legacy:relatedPerformersJson:{work_type}:{work_id}:{performer_id}:{index}"
                 );
-                let credit_id = format!("credit_legacy:{work_type}:{work_id}:{index}");
+                let credit_id =
+                    format!("credit_legacy:{work_type}:{work_id}:{performer_id}:{index}");
                 let timestamp = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .map(|duration| duration.as_millis().to_string())
                     .unwrap_or_else(|_| "0".to_string());
                 connection.execute(
-                    "INSERT INTO credits (
+                    "INSERT OR IGNORE INTO credits (
                         id, workType, workId, performerId, characterName,
                         characterOriginalName, creditedAs, creditedAsMode,
                         creditTypeCategoryId, roleImportanceCategoryId,
@@ -841,6 +842,99 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))
             .expect("credit count");
         assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn backfill_survives_old_id_collisions_and_duplicate_legacy_relations() {
+        let connection = Connection::open_in_memory().expect("in-memory database");
+        initialize_schema(&connection).expect("initial schema");
+        let video_one_json = r#"[
+          {"performerId":"performer-1"},
+          {"performerId":"performer-1"},
+          {"performerId":"performer-2"}
+        ]"#;
+        let video_two_json = r#"[{"performerId":"performer-1"}]"#;
+        let image_json = r#"[{"performerId":"performer-3"}]"#;
+
+        connection
+            .execute(
+                "INSERT INTO videos (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('video-1', 'One', ?1, '1', '1')",
+                [video_one_json],
+            )
+            .expect("video one");
+        connection
+            .execute(
+                "INSERT INTO videos (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('video-2', 'Two', ?1, '1', '1')",
+                [video_two_json],
+            )
+            .expect("video two");
+        connection
+            .execute(
+                "INSERT INTO images (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('image-1', 'Image', ?1, '1', '1')",
+                [image_json],
+            )
+            .expect("image");
+
+        connection
+            .execute(
+                "INSERT INTO credits (
+                    id, workType, workId, performerId, characterName,
+                    creditedAsMode, characterMode, billingOrder,
+                    legacySourceKey, createdAt, updatedAt
+                 ) VALUES (
+                    'credit_legacy:video:video-1:0', 'video', 'video-1',
+                    'manual-performer', '', 'auto', 'text', NULL, NULL, '1', '1'
+                 )",
+                [],
+            )
+            .expect("existing manual-style collision");
+
+        initialize_schema(&connection).expect("collision-safe backfill");
+        initialize_schema(&connection).expect("repeat collision-safe backfill");
+
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))
+            .expect("credit count");
+        assert_eq!(count, 6);
+
+        let migrated_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM credits WHERE legacySourceKey IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .expect("migrated credit count");
+        assert_eq!(migrated_count, 5);
+
+        let distinct_id_count: i64 = connection
+            .query_row("SELECT COUNT(DISTINCT id) FROM credits", [], |row| {
+                row.get(0)
+            })
+            .expect("distinct ids");
+        assert_eq!(distinct_id_count, count);
+
+        let duplicate_performer_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM credits
+                 WHERE workType = 'video' AND workId = 'video-1'
+                   AND performerId = 'performer-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("duplicate performer credits");
+        assert_eq!(duplicate_performer_count, 2);
+
+        let stored_video_json: String = connection
+            .query_row(
+                "SELECT relatedPerformersJson FROM videos WHERE id = 'video-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("legacy json");
+        assert_eq!(stored_video_json, video_one_json);
     }
 
     #[test]

@@ -7,6 +7,11 @@ import {
 } from "../runtime/creditCommands";
 import {
   emptyCreditFormValue,
+  creditGroupOrderAtIndex,
+  insertCreditIntoPerformerGroup,
+  moveCreditGroupToOrder,
+  moveCreditToOrder,
+  normalizeCreditOrders,
   reconcileWorkCredits,
 } from "./workCredits";
 
@@ -86,6 +91,135 @@ describe("work Credit reconciliation", () => {
       expect.objectContaining({ note: "Updated" }),
     );
     expect(createCredit).not.toHaveBeenCalled();
+  });
+
+  it("persists normalized compact list position through billingOrder", async () => {
+    await reconcileWorkCredits(
+      "video",
+      "video-1",
+      [],
+      [
+        { ...emptyCreditFormValue("performer-2"), billingOrder: "0" },
+        { ...emptyCreditFormValue("performer-1"), billingOrder: "1" },
+      ],
+    );
+
+    expect(createCredit).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ performerId: "performer-2", billingOrder: 1 }),
+    );
+    expect(createCredit).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ performerId: "performer-1", billingOrder: 2 }),
+    );
+  });
+
+  it("moves order 11 to 2 and shifts every other row without duplicates", () => {
+    const rows = Array.from({ length: 11 }, (_, index) =>
+      emptyCreditFormValue(`performer-${index + 1}`, index + 1),
+    );
+
+    const moved = moveCreditToOrder(rows, 10, "2");
+
+    expect(moved.map((row) => row.performerId)).toEqual([
+      "performer-1",
+      "performer-11",
+      "performer-2",
+      "performer-3",
+      "performer-4",
+      "performer-5",
+      "performer-6",
+      "performer-7",
+      "performer-8",
+      "performer-9",
+      "performer-10",
+    ]);
+    expect(moved.map((row) => row.billingOrder)).toEqual(
+      Array.from({ length: 11 }, (_, index) => String(index + 1)),
+    );
+  });
+
+  it("clamps invalid order and renumbers remaining rows after removal", () => {
+    const rows = [
+      emptyCreditFormValue("performer-1", 4),
+      emptyCreditFormValue("performer-2", 4),
+      emptyCreditFormValue("performer-3"),
+    ];
+
+    expect(
+      moveCreditToOrder(rows, 2, "0").map((row) => row.performerId),
+    ).toEqual(["performer-3", "performer-1", "performer-2"]);
+    expect(
+      normalizeCreditOrders(rows.slice(1)).map((row) => row.billingOrder),
+    ).toEqual(["1", "2"]);
+  });
+
+  it("displays one order per performer and moves the whole performer group", () => {
+    const rows = normalizeCreditOrders([
+      emptyCreditFormValue("aether"),
+      { ...emptyCreditFormValue("aether"), characterName: "Second role" },
+      emptyCreditFormValue("alexandrina"),
+      { ...emptyCreditFormValue("alexandrina"), characterName: "Second role" },
+      emptyCreditFormValue("alhaitham"),
+    ]);
+
+    expect(rows.map((_, index) => creditGroupOrderAtIndex(rows, index)))
+      .toEqual([1, 1, 2, 2, 3]);
+
+    const moved = moveCreditGroupToOrder(rows, 2, "1");
+    expect(moved.map((row) => row.performerId)).toEqual([
+      "alexandrina",
+      "alexandrina",
+      "aether",
+      "aether",
+      "alhaitham",
+    ]);
+    expect(moved.map((row) => row.characterName)).toEqual([
+      "",
+      "Second role",
+      "",
+      "Second role",
+      "",
+    ]);
+    expect(moved.map((_, index) => creditGroupOrderAtIndex(moved, index)))
+      .toEqual([1, 1, 2, 2, 3]);
+    expect(moved.map((row) => row.billingOrder))
+      .toEqual(["1", "2", "3", "4", "5"]);
+  });
+
+  it("inserts another role directly after its existing performer group", () => {
+    const rows = normalizeCreditOrders([
+      emptyCreditFormValue("aether"),
+      emptyCreditFormValue("alexandrina"),
+    ]);
+    const added = insertCreditIntoPerformerGroup(
+      rows,
+      { ...emptyCreditFormValue("aether"), characterName: "Added role" },
+    );
+
+    expect(added.map((row) => row.performerId))
+      .toEqual(["aether", "aether", "alexandrina"]);
+    expect(added[1]?.characterName).toBe("Added role");
+  });
+
+  it("saves long lists with empty Role Name and Credit Type", async () => {
+    const rows = Array.from({ length: 31 }, (_, index) => ({
+      ...emptyCreditFormValue(`performer-${index + 1}`, index + 1),
+      characterName: "",
+      creditTypeCategoryId: "",
+    }));
+
+    await reconcileWorkCredits("image", "image-1", [], rows);
+
+    expect(createCredit).toHaveBeenCalledTimes(31);
+    expect(createCredit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        performerId: "performer-31",
+        characterName: "",
+        creditTypeCategoryId: null,
+        billingOrder: 31,
+      }),
+    );
   });
 });
 

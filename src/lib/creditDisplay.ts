@@ -1,4 +1,9 @@
-import { parseRelatedPerformerArray } from "../backend/json";
+import {
+  parseRelatedCatalogRecordArray,
+  parseRelatedPerformerArray,
+  parseTextLabelArray,
+} from "../backend/json";
+import { createRatingSummary } from "./ratingSummary";
 import type {
   Credit,
   Image,
@@ -44,6 +49,7 @@ export function buildCreditDetailItems(
 
       return {
         id: credit.id,
+        performerId: credit.performerId,
         performerName,
         performerOriginalName:
           performer?.originalName?.trim() &&
@@ -52,6 +58,20 @@ export function buildCreditDetailItems(
             : undefined,
         performerRouteTo: performer
           ? `/performers/${performer.id}`
+          : undefined,
+        performerCoverPath: performer?.coverPath,
+        performerRating: performer
+          ? createRatingSummary(performer.ratingJson).average
+          : undefined,
+        performerFavorite: performer?.favorite,
+        performerAliases: performer
+          ? parseTextLabelArray(performer.aliasesJson).join(", ")
+          : undefined,
+        performerFilmographyCount: performer
+          ? String(parseRelatedCatalogRecordArray(performer.relatedVideosJson).length)
+          : undefined,
+        performerPictorialsCount: performer
+          ? String(parseRelatedCatalogRecordArray(performer.relatedImagesJson).length)
           : undefined,
         characterName,
         characterOriginalName:
@@ -63,11 +83,7 @@ export function buildCreditDetailItems(
             ? credit.creditedAs?.trim() || undefined
             : undefined,
         creditType: resolveCategoryLabel(
-          credit.creditTypeCategoryId,
-          categoryByKey,
-        ),
-        roleImportance: resolveCategoryLabel(
-          credit.roleImportanceCategoryId,
+          credit.creditTypeCategoryId || credit.roleImportanceCategoryId,
           categoryByKey,
         ),
         billingOrder:
@@ -139,11 +155,7 @@ export function buildFilmographyDetailItems(
             ? credit.creditedAs?.trim() || undefined
             : undefined,
         creditType: resolveCategoryLabel(
-          credit.creditTypeCategoryId,
-          categoryByKey,
-        ),
-        roleImportance: resolveCategoryLabel(
-          credit.roleImportanceCategoryId,
+          credit.creditTypeCategoryId || credit.roleImportanceCategoryId,
           categoryByKey,
         ),
         billingOrder:

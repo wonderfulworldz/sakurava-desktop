@@ -41,25 +41,16 @@ import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 import { buildCreditDetailItems } from "./creditDisplay";
-import { countCreditsByWork } from "./catalogCreditSummary";
 
 type FormValues = Record<string, string | boolean>;
 
 const imageRatingFields = formConfigs.images.ratingFields;
 
-export function buildImageCollectionConfig(
-  images: Image[],
-  credits: Credit[] = [],
-): CollectionConfig {
-  const creditCountByWork = countCreditsByWork(credits, "image");
-
+export function buildImageCollectionConfig(images: Image[]): CollectionConfig {
   return {
     ...collectionConfigs.images,
     countLabel: `${images.length} ${images.length === 1 ? "image" : "images"}`,
-    items: images.map((image) => ({
-      ...toImageCollectionItem(image),
-      creditCount: creditCountByWork.get(image.id) ?? 0,
-    })),
+    items: images.map(toImageCollectionItem),
   };
 }
 
@@ -345,10 +336,10 @@ function buildRelatedSections(
     section.title.includes("Performer")
       ? {
           ...section,
-          title: credits.length > 0 ? "Cast & Credits" : section.title,
+          title: "Related Performers",
           description:
             credits.length > 0
-              ? "Read-only Cast & Credits saved for this Image."
+              ? "Related Performers saved for this Image."
               : "Read-only Related Performer links saved on this record.",
           credits: buildCreditDetailItems(
             credits,

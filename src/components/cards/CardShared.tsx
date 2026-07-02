@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, CircleHelp, Eye, Heart, ScanLine, Star } from "lucide-react";
+import { AlertTriangle, Ban, CircleHelp, Eye, Heart, ScanLine, Star, Tag, UserRound } from "lucide-react";
 import { type MouseEvent, type ReactNode, useEffect, useState } from "react";
 import ContentThumbnailPlaceholder from "../ContentThumbnailPlaceholder";
 import { localImagePathToAssetSrc } from "../../runtime/localAsset";
@@ -308,6 +308,51 @@ export function StatBox({
         <p className={`${valueSize} text-slate-900 dark:text-slate-100`}>{value}</p>
         <p className={`${labelSize} text-slate-500 dark:text-slate-400`}>{label}</p>
       </div>
+    </div>
+  );
+}
+
+export type CreditMetadata = {
+  id: string;
+  roleName?: string;
+  creditType?: string;
+};
+
+export function CreditMetadataRows({
+  rows,
+}: {
+  rows: CreditMetadata[];
+}) {
+  const normalizedRows = rows.length > 0
+    ? rows
+    : [{ id: "empty-credit-metadata" }];
+  const visibleRows = normalizedRows.slice(0, 3);
+  const overflow = Math.max(normalizedRows.length - visibleRows.length, 0);
+
+  return (
+    <div
+      className="space-y-1.5 text-xs"
+      data-testid="credit-metadata"
+    >
+      {visibleRows.map((row) => (
+        <div
+          key={row.id}
+          className="grid grid-cols-2 gap-3"
+          data-testid="credit-metadata-row"
+        >
+            <p className="flex min-w-0 items-center gap-2 font-medium text-slate-500">
+              <UserRound size={14} className="shrink-0 text-sakura-500" />
+              <span className="truncate">{row.roleName || "n/a"}</span>
+            </p>
+            <p className="flex min-w-0 items-center gap-2 font-medium text-slate-500">
+              <Tag size={14} className="shrink-0 text-sakura-500" />
+              <span className="truncate">{row.creditType || "n/a"}</span>
+            </p>
+        </div>
+      ))}
+      {overflow > 0 && (
+        <p className="text-xs font-medium text-slate-400">+{overflow} more</p>
+      )}
     </div>
   );
 }

@@ -36,7 +36,6 @@ import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { MANAGED_CATEGORIES_STORAGE_KEY } from "./managedCategories";
-import { buildFilmographyDetailItems } from "./creditDisplay";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -498,18 +497,46 @@ function buildRelatedSections(
   managedCategories: ManagedCategory[],
 ): DetailSection[] {
   if (credits.length > 0) {
-    return [
-      {
-        title: "Credits / Filmography",
-        description: "Read-only work credits saved for this Performer.",
-        filmography: buildFilmographyDetailItems(
-          credits,
-          videos,
-          images,
-          managedCategories,
-        ),
-      },
-    ];
+    const categoryByKey = new Map(
+      managedCategories.map((category) => [category.key, category.name]),
+    );
+    return sections.map((section) => {
+      const workType = section.title.includes("Video") ? "video" : "image";
+      const records = credits
+        .filter((credit) => credit.workType === workType)
+        .map((credit) => {
+          const baseItem =
+            workType === "video"
+              ? buildRelatedVideoItems(
+                  JSON.stringify([{ recordId: credit.workId, titleSnapshot: "" }]),
+                  videos,
+                )[0]
+              : buildRelatedImageItems(
+                  JSON.stringify([{ recordId: credit.workId, titleSnapshot: "" }]),
+                  images,
+                )[0];
+          const roleName =
+            credit.characterMode === "self"
+              ? "Self"
+              : credit.characterName.trim() || undefined;
+          const creditTypeKey =
+            credit.creditTypeCategoryId || credit.roleImportanceCategoryId;
+
+          return {
+            ...baseItem,
+            roleName,
+            creditType: creditTypeKey
+              ? categoryByKey.get(creditTypeKey)?.trim() || creditTypeKey
+              : undefined,
+          };
+        });
+
+      return {
+        ...section,
+        controls: "performer-related" as const,
+        relatedCatalogRecords: records,
+      };
+    });
   }
 
   return sections.map((section) =>

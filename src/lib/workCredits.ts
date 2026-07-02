@@ -60,17 +60,120 @@ export function emptyCreditFormValue(
   };
 }
 
+export function normalizeCreditOrders(
+  credits: readonly CreditFormValue[],
+): CreditFormValue[] {
+  return credits.map((credit, index) => ({
+    ...credit,
+    billingOrder: String(index + 1),
+  }));
+}
+
+export function moveCreditToOrder(
+  credits: readonly CreditFormValue[],
+  currentIndex: number,
+  requestedOrder: string | number,
+): CreditFormValue[] {
+  if (credits.length === 0) {
+    return [];
+  }
+
+  const parsedOrder = Number(requestedOrder);
+  const safeOrder = Number.isFinite(parsedOrder)
+    ? Math.min(Math.max(Math.trunc(parsedOrder), 1), credits.length)
+    : currentIndex + 1;
+  const next = [...credits];
+  const [moved] = next.splice(currentIndex, 1);
+
+  if (!moved) {
+    return normalizeCreditOrders(credits);
+  }
+
+  next.splice(safeOrder - 1, 0, moved);
+  return normalizeCreditOrders(next);
+}
+
+export function creditGroupOrderAtIndex(
+  credits: readonly CreditFormValue[],
+  index: number,
+) {
+  const target = credits[index];
+  if (!target) {
+    return 1;
+  }
+  const targetKey = creditGroupKey(target, index);
+  const seen = new Set<string>();
+
+  for (let creditIndex = 0; creditIndex < credits.length; creditIndex += 1) {
+    const key = creditGroupKey(credits[creditIndex], creditIndex);
+    if (!seen.has(key)) {
+      seen.add(key);
+    }
+    if (key === targetKey) {
+      return seen.size;
+    }
+  }
+
+  return 1;
+}
+
+export function moveCreditGroupToOrder(
+  credits: readonly CreditFormValue[],
+  currentIndex: number,
+  requestedOrder: string | number,
+): CreditFormValue[] {
+  const groups = groupCredits(credits);
+  const current = credits[currentIndex];
+  if (!current || groups.length === 0) {
+    return normalizeCreditOrders(credits);
+  }
+
+  const currentKey = creditGroupKey(current, currentIndex);
+  const currentGroupIndex = groups.findIndex((group) => group.key === currentKey);
+  if (currentGroupIndex < 0) {
+    return normalizeCreditOrders(credits);
+  }
+
+  const parsedOrder = Number(requestedOrder);
+  const safeOrder = Number.isFinite(parsedOrder)
+    ? Math.min(Math.max(Math.trunc(parsedOrder), 1), groups.length)
+    : currentGroupIndex + 1;
+  const nextGroups = [...groups];
+  const [moved] = nextGroups.splice(currentGroupIndex, 1);
+  nextGroups.splice(safeOrder - 1, 0, moved);
+
+  return normalizeCreditOrders(nextGroups.flatMap((group) => group.credits));
+}
+
+export function insertCreditIntoPerformerGroup(
+  credits: readonly CreditFormValue[],
+  credit: CreditFormValue,
+): CreditFormValue[] {
+  if (!credit.performerId) {
+    return normalizeCreditOrders([...credits, credit]);
+  }
+  const lastMatchingIndex = credits.reduce(
+    (lastIndex, item, index) =>
+      item.performerId === credit.performerId ? index : lastIndex,
+    -1,
+  );
+  const next = [...credits];
+  next.splice(lastMatchingIndex + 1, 0, credit);
+  return normalizeCreditOrders(next);
+}
+
 export async function reconcileWorkCredits(
   workType: CreditWorkType,
   workId: string,
   originalCredits: readonly Credit[],
   formCredits: readonly CreditFormValue[],
 ) {
+  const normalizedCredits = normalizeCreditOrders(formCredits);
   const retainedIds = new Set(
-    formCredits.flatMap((credit) => (credit.id ? [credit.id] : [])),
+    normalizedCredits.flatMap((credit) => (credit.id ? [credit.id] : [])),
   );
 
-  for (const credit of formCredits) {
+  for (const credit of normalizedCredits) {
     if (!credit.performerId.trim()) {
       continue;
     }
@@ -123,4 +226,27 @@ function nullableInteger(value: string) {
   }
   const parsed = Number(trimmed);
   return Number.isInteger(parsed) ? parsed : null;
+}
+
+function creditGroupKey(credit: CreditFormValue, index: number) {
+  return credit.performerId || `unresolved:${credit.id ?? index}`;
+}
+
+function groupCredits(credits: readonly CreditFormValue[]) {
+  const groups: Array<{ key: string; credits: CreditFormValue[] }> = [];
+  const byKey = new Map<string, { key: string; credits: CreditFormValue[] }>();
+
+  credits.forEach((credit, index) => {
+    const key = creditGroupKey(credit, index);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.credits.push(credit);
+      return;
+    }
+    const group = { key, credits: [credit] };
+    byKey.set(key, group);
+    groups.push(group);
+  });
+
+  return groups;
 }

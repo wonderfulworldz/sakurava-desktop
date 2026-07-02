@@ -312,6 +312,63 @@ describe("Lite cards - primary stat labels", () => {
     expect(screen.getByText("Pictorials")).toBeInTheDocument();
   });
 
+  it("PerformerLiteCard integrates credit metadata without an as prefix", () => {
+    const { container } = wrap(
+      <PerformerLiteCard
+        item={performerLiteItem}
+        linkTo="/performers/p1"
+        creditMetadata={[
+          { id: "one", roleName: "Alhaitham", creditType: "Support" },
+          { id: "two", roleName: "Narrator", creditType: "Voice" },
+        ]}
+      />,
+    );
+
+    expect(container.querySelector(".aspect-\\[4\\/3\\]")).not.toBeNull();
+    expect(screen.getByText("Alhaitham")).toBeInTheDocument();
+    expect(screen.getByText("Support")).toBeInTheDocument();
+    expect(screen.getByText("Narrator")).toBeInTheDocument();
+    expect(screen.queryByText("as Alhaitham")).not.toBeInTheDocument();
+    expect(screen.getByTestId("credit-metadata")).toBeInTheDocument();
+    expect(screen.getByText("Alhaitham").closest("a")).toBeNull();
+  });
+
+  it("PerformerLiteCard renders one n/a row when credit metadata is empty", () => {
+    wrap(
+      <PerformerLiteCard
+        item={performerLiteItem}
+        linkTo="/performers/p1"
+        creditMetadata={[]}
+      />,
+    );
+
+    expect(screen.getByTestId("credit-metadata")).toBeInTheDocument();
+    expect(screen.getAllByText("n/a")).toHaveLength(2);
+    expect(screen.getAllByTestId("credit-metadata-row")).toHaveLength(1);
+    expect(screen.getByTestId("credit-metadata")).not.toHaveClass("min-h-[5.5rem]");
+    expect(screen.getByText("Filmography")).toBeInTheDocument();
+    expect(screen.getByText("Pictorials")).toBeInTheDocument();
+  });
+
+  it("PerformerLiteCard caps metadata at three rows and shows overflow", () => {
+    wrap(
+      <PerformerLiteCard
+        item={performerLiteItem}
+        linkTo="/performers/p1"
+        creditMetadata={Array.from({ length: 5 }, (_, index) => ({
+          id: String(index),
+          roleName: `Role ${index + 1}`,
+          creditType: `Type ${index + 1}`,
+        }))}
+      />,
+    );
+
+    expect(screen.getAllByTestId("credit-metadata-row")).toHaveLength(3);
+    expect(screen.getByText("+2 more")).toBeInTheDocument();
+    expect(screen.queryByText("Role 4")).not.toBeInTheDocument();
+    expect(screen.getByText("Filmography")).toBeInTheDocument();
+  });
+
   it("Lite cards do not render category footer", () => {
     const { container: vc } = wrap(<VideoLiteCard item={videoLiteItem} linkTo="/videos/v1" />);
     const { container: ic } = wrap(<ImageLiteCard item={imageLiteItem} linkTo="/images/i1" />);

@@ -1,4 +1,4 @@
-import { Plus, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { type UIEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -25,6 +25,8 @@ type RelatedPerformerPickerProps = {
   selected: RelatedPerformerReference[];
   loadState: LoadState;
   onChange: (nextSelected: RelatedPerformerReference[]) => void;
+  showSelectedSummary?: boolean;
+  maxOccurrencesPerPerformer?: number;
 };
 
 function RelatedPerformerPicker({
@@ -32,6 +34,8 @@ function RelatedPerformerPicker({
   selected,
   loadState,
   onChange,
+  showSelectedSummary = true,
+  maxOccurrencesPerPerformer = 1,
 }: RelatedPerformerPickerProps) {
   const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -39,9 +43,16 @@ function RelatedPerformerPicker({
     PICKER_RENDER_BATCH_SIZE,
   );
   const [showAllSelected, setShowAllSelected] = useState(false);
-  const selectedIds = new Set(
-    selected.map((relation) => relation.performerId).filter(Boolean),
-  );
+  const [limitMessage, setLimitMessage] = useState("");
+  const selectedCountById = selected.reduce((counts, relation) => {
+    if (relation.performerId) {
+      counts.set(
+        relation.performerId,
+        (counts.get(relation.performerId) ?? 0) + 1,
+      );
+    }
+    return counts;
+  }, new Map<string, number>());
   const selectedNames = new Set(
     selected
       .filter((relation) => !relation.performerId)
@@ -54,7 +65,11 @@ function RelatedPerformerPicker({
   );
   const availablePerformers = rankPickerSearchResults(
     performers
-    .filter((performer) => !selectedIds.has(performer.id))
+    .filter(
+      (performer) =>
+        (selectedCountById.get(performer.id) ?? 0) <
+        maxOccurrencesPerPerformer,
+    )
     .filter(
       (performer) =>
         !selectedNames.has(performerBaseName(performer).trim().toLowerCase()),
@@ -85,7 +100,19 @@ function RelatedPerformerPicker({
   }, [query, isSearchOpen, performers.length]);
 
   function addPerformer(performer: Performer) {
+    if (
+      (selectedCountById.get(performer.id) ?? 0) >=
+      maxOccurrencesPerPerformer
+    ) {
+      setLimitMessage(
+        `${performerBaseName(performer)} can be added up to ${maxOccurrencesPerPerformer} times.`,
+      );
+      setIsSearchOpen(true);
+      return;
+    }
+
     const nameSnapshot = performerBaseName(performer);
+    setLimitMessage("");
     onChange([
       ...selected,
       {
@@ -93,7 +120,8 @@ function RelatedPerformerPicker({
         nameSnapshot,
       },
     ]);
-    setIsSearchOpen(true);
+    setQuery("");
+    setIsSearchOpen(false);
   }
 
   function removeRelation(relation: RelatedPerformerReference) {
@@ -213,8 +241,8 @@ function RelatedPerformerPicker({
                     <HighlightedPickerText text={name} query={query} />
                   </span>
                   <PerformerMeta parts={meta} />
-                  <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
-                    <Plus size={14} />
+                  <span className="flex h-8 items-center justify-center justify-self-end rounded-full px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                    Add
                   </span>
                 </button>
               );
@@ -223,7 +251,13 @@ function RelatedPerformerPicker({
         )}
       </div>
 
-      {selected.length === 0 ? (
+      {limitMessage && (
+        <p className="text-sm font-medium text-amber-700" role="status">
+          {limitMessage}
+        </p>
+      )}
+
+      {showSelectedSummary && (selected.length === 0 ? (
         <p className="text-sm font-medium text-slate-500">
           No related performers selected.
         </p>
@@ -288,7 +322,7 @@ function RelatedPerformerPicker({
             </button>
           )}
         </div>
-      )}
+      ))}
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="font-medium text-slate-500">
