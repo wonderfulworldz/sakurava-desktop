@@ -16598,6 +16598,94 @@ describe("App", () => {
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
   }, 10000);
 
+  it("shows credit Role Names as display-only performer aliases without saving them", async () => {
+    window.history.pushState({}, "", "/performers/performer_known_names/edit");
+    const performer = persistedPerformer({
+      id: "performer_known_names",
+      name: "Known Name Performer",
+      aliasesJson: '["Manual Alias","Traveler"]',
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        return performer;
+      }
+      if (command === "credit_list_by_performer") {
+        expect(args).toEqual({ performerId: performer.id });
+        return [
+          persistedCredit({
+            id: "credit_traveler",
+            performerId: performer.id,
+            characterName: " traveler ",
+          }),
+          persistedCredit({
+            id: "credit_narrator",
+            performerId: performer.id,
+            characterName: "Narrator",
+          }),
+          persistedCredit({
+            id: "credit_invalid",
+            performerId: performer.id,
+            characterName: "N/A",
+          }),
+        ];
+      }
+      if (
+        command === "managed_category_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+      if (command === "performer_update") {
+        expect(args.patch.aliasesJson).toBe('["Manual Alias","Narrator"]');
+        return {
+          ...performer,
+          ...args.patch,
+          aliasesJson: args.patch.aliasesJson,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Manual Alias")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Traveler" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Narrator").closest("[data-known-name-source]"))
+      .toHaveAttribute("title", "From role name");
+    expect(screen.queryByRole("button", { name: "Remove Narrator" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByText("N/A")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Traveler" }));
+    expect(screen.getByText("traveler").closest("[data-known-name-source]"))
+      .toHaveAttribute("title", "From role name");
+
+    fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
+      target: { value: "Narrator" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    expect(screen.getByRole("button", { name: "Remove Narrator" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("Narrator")).toHaveLength(1);
+
+    fillPerformerRatingFields();
+    clickSaveAndConfirm();
+    expect(await screen.findByText("Known Name Performer")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "credit_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "credit_delete",
+      expect.anything(),
+      expect.anything(),
+    );
+  }, 15_000);
+
   it("shows persisted timestamps on performer detail", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any>) => {

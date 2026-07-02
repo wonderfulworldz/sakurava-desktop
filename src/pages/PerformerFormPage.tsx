@@ -15,6 +15,8 @@ import {
   isPerformerRuntimeAvailable,
   updatePerformer,
 } from "../runtime/performerCommands";
+import { listCreditsByPerformer } from "../runtime/creditCommands";
+import { deriveAutoRoleNames } from "../lib/performerKnownNames";
 
 type PerformerFormPageProps = {
   mode: FormMode;
@@ -30,12 +32,14 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
   );
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [autoRoleNames, setAutoRoleNames] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     if (mode === "create" || !itemKey || !isPerformerRuntimeAvailable()) {
       setConfig(formConfigs.performers);
+      setAutoRoleNames([]);
       setMissing(false);
       setLoading(false);
       return;
@@ -43,7 +47,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
 
     setLoading(true);
     getPerformer(itemKey)
-      .then((performer) => {
+      .then(async (performer) => {
         if (cancelled) {
           return;
         }
@@ -54,8 +58,20 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
           return;
         }
 
+        let roleNames: string[] = [];
+        try {
+          roleNames = deriveAutoRoleNames(
+            await listCreditsByPerformer(performer.id),
+          );
+        } catch {
+          roleNames = [];
+        }
+        if (cancelled) {
+          return;
+        }
         setMissing(false);
         setConfig(buildPerformerFormConfig(performer, "edit"));
+        setAutoRoleNames(roleNames);
         setLoading(false);
       })
       .catch(() => {
@@ -126,6 +142,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      autoRoleNames={autoRoleNames}
       deleteAction={
         mode === "edit" && itemKey && isPerformerRuntimeAvailable()
           ? {

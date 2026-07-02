@@ -36,6 +36,7 @@ import type { FormConfig, FormMode } from "./formData";
 import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { MANAGED_CATEGORIES_STORAGE_KEY } from "./managedCategories";
+import { mergeKnownNames } from "./performerKnownNames";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -97,7 +98,10 @@ export function buildPerformerDetailConfig(
     originalTitle: performer.originalName,
     favorite: performer.favorite,
     chips: [derivedStatus],
-    aliases: parseTextLabelArray(performer.aliasesJson),
+    aliases: mergeKnownNames(
+      parseTextLabelArray(performer.aliasesJson),
+      credits,
+    ),
     thumbnailPaths,
     categories: performerCategories,
     gender: { label: "Gender", value: genderValue },

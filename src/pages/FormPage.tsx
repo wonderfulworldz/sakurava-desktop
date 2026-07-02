@@ -60,6 +60,7 @@ import {
   emptyCreditFormValue,
   type CreditFormValue,
 } from "../lib/workCredits";
+import { knownNameKey } from "../lib/performerKnownNames";
 
 const BUTTON_STYLES = {
   primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-xs font-bold text-white transition-colors duration-150 hover:bg-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:cursor-not-allowed disabled:opacity-50",
@@ -87,6 +88,7 @@ type FormPageProps = {
   onSubmit?: (data: FormSubmitData) => Promise<FormSubmitResult> | FormSubmitResult;
   deleteAction?: FormDeleteAction;
   initialCredits?: CreditFormValue[];
+  autoRoleNames?: string[];
 };
 
 type FormValues = Record<string, string | boolean>;
@@ -150,6 +152,7 @@ function FormPage({
   onSubmit,
   deleteAction,
   initialCredits = EMPTY_CREDITS,
+  autoRoleNames = [],
 }: FormPageProps) {
   const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
@@ -923,6 +926,12 @@ function FormPage({
               onRemove={(chip) =>
                 setAliases((current) => current.filter((item) => item !== chip))
               }
+              autoChips={autoRoleNames.filter(
+                (roleName) =>
+                  !aliases.some(
+                    (alias) => knownNameKey(alias) === knownNameKey(roleName),
+                  ),
+              )}
             />
           )}
           <CheckboxInput
@@ -2107,6 +2116,7 @@ function ChipInput({
   onDraftChange,
   onAdd,
   onRemove,
+  autoChips = [],
 }: {
   label: string;
   draft: string;
@@ -2116,6 +2126,7 @@ function ChipInput({
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (chip: string) => void;
+  autoChips?: string[];
 }) {
   const optionListId = `${label.toLowerCase().replace(/\s+/g, "-")}-options`;
 
@@ -2137,6 +2148,16 @@ function ChipInput({
             >
               <X size={13} />
             </button>
+          </span>
+        ))}
+        {autoChips.map((chip) => (
+          <span
+            key={`auto:${knownNameKey(chip)}`}
+            className={`${PILL_STYLES} border-slate-200 bg-slate-50 text-slate-600`}
+            title="From role name"
+            data-known-name-source="role"
+          >
+            <span className={CHIP_TEXT_STYLES}>{chip}</span>
           </span>
         ))}
         <input
