@@ -7,6 +7,7 @@ import {
   Clapperboard,
   Clock,
   Edit3,
+  ExternalLink,
   FileImage,
   Film,
   Globe2,
@@ -62,6 +63,10 @@ import {
   writeSessionFilterState,
 } from "../lib/sessionFilterState";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
+import {
+  normalizeHttpSourceUrl,
+  openSourceLink,
+} from "../runtime/sourceLinkCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import {
   checkPathStatus,
@@ -1281,6 +1286,15 @@ function NotesCard({ notes }: { notes: string }) {
 
 function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
   const visibleLinks = normalizeSourceLinks(links);
+  const [openError, setOpenError] = useState("");
+
+  async function handleOpen(url: string) {
+    setOpenError("");
+    const result = await openSourceLink(url);
+    if (!result.opened) {
+      setOpenError(result.message);
+    }
+  }
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -1297,7 +1311,7 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
           visibleLinks.map((link) => (
             <div
               key={`${link.title}-${link.url}`}
-              className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
+              className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_auto]"
             >
               <span className="min-w-0 truncate font-semibold text-slate-700" title={link.title}>
                 {link.title}
@@ -1311,23 +1325,32 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
               >
                 {link.url || "N/A"}
               </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 font-semibold text-sakura-600 disabled:cursor-not-allowed disabled:text-slate-400"
+                disabled={!link.safeUrl}
+                aria-label={`Open Source Link ${link.title}`}
+                title={link.safeUrl ? "Open in external browser" : "Invalid Source Link URL"}
+                onClick={() => void handleOpen(link.url)}
+              >
+                <ExternalLink size={14} />
+                Open
+              </button>
             </div>
           ))
         )}
       </div>
+      {openError && (
+        <p role="status" className="mt-3 text-xs font-semibold text-rose-600">
+          {openError}
+        </p>
+      )}
     </section>
   );
 }
 
 function safeSourceUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:"
-      ? parsed.href
-      : null;
-  } catch {
-    return null;
-  }
+  return normalizeHttpSourceUrl(url);
 }
 
 function normalizeSourceLinks(links: SourceLinkItem[] | undefined) {

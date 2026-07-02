@@ -20,6 +20,7 @@ import type {
   RelatedPerformerFormValue,
   TextField,
 } from "../lib/formData";
+import { normalizeHttpSourceUrl } from "../runtime/sourceLinkCommands";
 import {
   addFormCategory,
   hasFormCategory,
@@ -3379,7 +3380,7 @@ function sourceLinkValidationErrors(rows: SourceLinkFormValue[]) {
 }
 
 function isHttpSourceUrl(url: string) {
-  return /^https?:\/\//i.test(url.trim());
+  return normalizeHttpSourceUrl(url) !== null;
 }
 
 export default FormPage;

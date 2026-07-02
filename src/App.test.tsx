@@ -9447,7 +9447,16 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(within(sourceSection).getByText(/^https:\/\/example\.invalid\//))
       .toHaveClass("truncate");
-    expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
+    const openAction = within(sourceSection).getByRole("button", {
+      name: /Open Source Link/,
+    });
+    expect(openAction).toBeEnabled();
+    fireEvent.click(openAction);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("open_source_link", {
+        url: expect.stringMatching(/^https:\/\/example\.invalid\//),
+      }, undefined);
+    });
     expect(within(sourceSection).queryByText(/sourceLinksJson/))
       .not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -9497,6 +9506,9 @@ describe("App", () => {
     expect(within(sourceSection).getByText(sourceTitle)).toBeInTheDocument();
     expect(within(sourceSection).getByText(sourceUrl)).toBeInTheDocument();
     expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(sourceSection).getByRole("button", {
+      name: `Open Source Link ${sourceTitle}`,
+    })).toBeDisabled();
     expect(invoke).not.toHaveBeenCalledWith(
       expect.stringMatching(/create|update|delete/i),
       expect.anything(),

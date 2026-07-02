@@ -828,6 +828,26 @@ pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
     })
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceLinkOpenResult {
+    url: String,
+    opened: bool,
+    message: String,
+}
+
+#[tauri::command]
+pub fn open_source_link(url: String) -> Result<SourceLinkOpenResult, String> {
+    let safe_url = validate_source_link_url(&url)?;
+    open_url_with_default_browser(&safe_url)?;
+
+    Ok(SourceLinkOpenResult {
+        url: safe_url,
+        opened: true,
+        message: "Source Link open request sent".to_string(),
+    })
+}
+
 #[tauri::command]
 pub fn credit_create(
     database: State<'_, RuntimeDatabase>,
@@ -2770,6 +2790,58 @@ fn open_media_file_with_default_app(path: &Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn validate_source_link_url(url: &str) -> Result<String, String> {
+    let trimmed = url.trim();
+    let remainder = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+        .ok_or_else(|| "Source Link URL must use http or https".to_string())?;
+    let authority = remainder.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.is_empty() || authority.chars().any(char::is_whitespace) {
+        return Err("Source Link URL is invalid".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn open_url_with_default_browser(url: &str) -> Result<(), String> {
+    const SW_SHOWNORMAL: i32 = 1;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: isize,
+            lp_operation: *const u16,
+            lp_file: *const u16,
+            lp_parameters: *const u16,
+            lp_directory: *const u16,
+            n_show_cmd: i32,
+        ) -> isize;
+    }
+
+    let wide_url = wide_null(url);
+    let result = unsafe {
+        ShellExecuteW(
+            0,
+            std::ptr::null(),
+            wide_url.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    if result <= 32 {
+        return Err("Source Link could not be opened".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_url_with_default_browser(_url: &str) -> Result<(), String> {
+    Err("Source Link open is unavailable on this platform".to_string())
 }
 
 #[cfg(not(target_os = "windows"))]
