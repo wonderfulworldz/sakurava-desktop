@@ -42,10 +42,16 @@ a {
 }
 
 .sticky-horizontal-scroll-frame {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: visible;
 }
 
 .sticky-horizontal-scroll-body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
@@ -63,7 +69,7 @@ a {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  height: 14px;
+  height: 18px;
   background: #ffffff;
 }
 
@@ -72,14 +78,14 @@ a {
 }
 
 .sticky-horizontal-scrollbar {
-  height: 14px;
+  height: 18px;
   overscroll-behavior-x: contain;
   scrollbar-color: rgba(100, 116, 139, 0.55) rgba(226, 232, 240, 0.8);
-  scrollbar-width: thin;
+  scrollbar-width: auto;
 }
 
 .sticky-horizontal-scrollbar::-webkit-scrollbar {
-  height: 12px;
+  height: 16px;
 }
 
 .sticky-horizontal-scrollbar::-webkit-scrollbar-track {
@@ -88,12 +94,36 @@ a {
 
 .sticky-horizontal-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(100, 116, 139, 0.55);
-  border: 3px solid rgba(226, 232, 240, 0.8);
-  border-radius: 999px;
+  border: 2px solid rgba(226, 232, 240, 0.8);
+  border-radius: 6px;
 }
 
 .sticky-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(71, 85, 105, 0.7);
+}
+
+.sakurava-scrollbar {
+  scrollbar-color: rgba(100, 116, 139, 0.55) rgba(226, 232, 240, 0.55);
+  scrollbar-width: thin;
+}
+
+.sakurava-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.sakurava-scrollbar::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.55);
+}
+
+.sakurava-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(226, 232, 240, 0.55);
+  border-radius: 6px;
+  background: rgba(100, 116, 139, 0.55);
+}
+
+.sakurava-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.72);
 }
 
 button,

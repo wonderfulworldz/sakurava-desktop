@@ -372,11 +372,8 @@ describe("App", () => {
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Glossary entries are independent from Video, Image, Performer, and Category catalog metadata.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Glossary entries are independent/))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Navigate to Settings" }))
       .toHaveAttribute("href", "/settings");
   });
@@ -659,6 +656,13 @@ describe("App", () => {
         }),
       ).toBeInTheDocument();
     }
+    fireEvent.click(screen.getByLabelText("Terms per page control"));
+    expect(
+      screen.getByRole("listbox", {
+        name: "Terms per page options",
+      }).parentElement,
+    ).toHaveAttribute("data-placement", "down");
+    fireEvent.keyDown(document, { key: "Escape" });
   });
 
   it("expands and collapses Glossary parent rows without opening edit", () => {
@@ -1498,6 +1502,21 @@ describe("App", () => {
     expect(videoChildCard).toHaveAttribute("data-category-card-kind", "child");
     expect(within(videoChildCard).getByText("Child of Parent Category"))
       .toBeInTheDocument();
+    expect(within(videoChildCard).queryByRole("button", {
+      name: /category Video Category/,
+    })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Collapse category group Parent Category",
+    }));
+    expect(screen.queryByRole("article", {
+      name: "Category Video Category",
+    })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Expand category group Parent Category",
+    }));
+    expect(screen.getByRole("article", {
+      name: "Category Video Category",
+    })).toBeInTheDocument();
     expect(screen.getByText("Showing 1-32 of 37")).toBeInTheDocument();
     expect(screen.queryByText("Showing 1-32 of 37 categories")).not.toBeInTheDocument();
     expect(screen.getByText("Page size")).toBeInTheDocument();
@@ -1589,14 +1608,9 @@ describe("App", () => {
       .toHaveClass("text-sakura-600");
     expect(within(videoCategoryCard).getByLabelText("Videos 1"))
       .toHaveAttribute("href", "/videos?category=Video%20Category");
-    selectCategoryFilter("Credits Used");
-    const creditCategoryCard = screen.getByRole("article", {
-      name: "Category Z Extra Category 01",
-    });
-    expect(within(creditCategoryCard).getByLabelText("Credits 1"))
-      .toHaveClass("text-sakura-600");
-    expect(within(creditCategoryCard).getByLabelText("Credits 1"))
-      .not.toHaveAttribute("href");
+    fireEvent.click(screen.getByTestId("category-management-filter-control"));
+    expect(screen.queryByRole("option", { name: "Credits Used" }))
+      .not.toBeInTheDocument();
   }, 10_000);
 
   it.each([
@@ -3521,12 +3535,19 @@ describe("App", () => {
     expect(screen.queryByText("Rows per page")).not.toBeInTheDocument();
     expect(screen.getAllByLabelText("Categories per page")).toHaveLength(1);
     expect(screen.getByLabelText("Categories per page")).toHaveDisplayValue("32");
-    expect(screen.getByLabelText("Categories per page")).toHaveClass(
+    expect(screen.getByLabelText("Categories per page control")).toHaveClass(
       "h-9",
       "rounded-lg",
       "border-slate-200",
       "px-3",
     );
+    fireEvent.click(screen.getByLabelText("Categories per page control"));
+    expect(
+      screen.getByRole("listbox", {
+        name: "Categories per page options",
+      }).parentElement,
+    ).toHaveAttribute("data-placement", "down");
+    fireEvent.keyDown(document, { key: "Escape" });
     for (const option of ["32", "64", "128", "256"]) {
       expect(screen.getByRole("option", { name: option })).toBeInTheDocument();
     }
@@ -5810,6 +5831,7 @@ describe("App", () => {
       imageResult,
     );
     expect(screen.getByLabelText("Search related images")).toHaveValue("img-001");
+    expect(screen.queryByTestId("related-image-result-row")).not.toBeInTheDocument();
     expect(screen.getByText("IMG-001")).toBeInTheDocument();
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
 
@@ -5909,6 +5931,7 @@ describe("App", () => {
       videoResult,
     );
     expect(screen.getByLabelText("Search related videos")).toHaveValue("vid-001");
+    expect(screen.queryByTestId("related-video-result-row")).not.toBeInTheDocument();
     expect(screen.getByText("VID-001")).toBeInTheDocument();
     expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
 
@@ -6130,6 +6153,7 @@ describe("App", () => {
         name: "Remove related image IMG-123",
       }),
     );
+    fireEvent.focus(screen.getByLabelText("Search related images"));
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
@@ -6666,6 +6690,13 @@ describe("App", () => {
     expect(panel.getByRole("listbox", { name: "Cup Size options" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("listbox", { name: "Cup Size options" })).not.toBeInTheDocument();
+
+    fireEvent.click(catalogSortControl("performers"));
+    const catalogSortOptions = screen.getByRole("listbox", { name: "Sort options" });
+    fireEvent.scroll(catalogSortOptions);
+    expect(catalogSortOptions).toBeInTheDocument();
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("listbox", { name: "Sort options" })).not.toBeInTheDocument();
   });
 
   it("keeps manual path typing available when browse is enabled", () => {
@@ -9653,8 +9684,7 @@ describe("App", () => {
 
       expect(await screen.findByText(record.title as string)).toBeInTheDocument();
       const chipRow = screen.getByTestId("detail-category-chip-row");
-      expect(chipRow).toHaveClass("flex-nowrap", "overflow-hidden");
-      expect(chipRow).not.toHaveClass("flex-wrap");
+      expect(chipRow).toHaveClass("max-h-14", "flex-wrap", "overflow-hidden");
       expect(within(chipRow).getByRole("button", { name: "Show 2 more categories" }))
         .toHaveTextContent("+2");
       expect(within(chipRow).queryByText(/Category 7$/)).not.toBeInTheDocument();
@@ -11021,6 +11051,15 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(videos.getByLabelText("Search related items")).toBeInTheDocument();
     expect(videos.getByText("Hanami Feature")).toBeInTheDocument();
+    expect(videos.getByTestId("performer-related-videos-card-grid"))
+      .toHaveClass("[grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]");
+    fireEvent.click(videos.getByLabelText("Related items per page control"));
+    expect(
+      videos.getByRole("listbox", {
+        name: "Related items per page options",
+      }).parentElement,
+    ).toHaveAttribute("data-placement", "down");
+    fireEvent.keyDown(document, { key: "Escape" });
     const relatedVideoCard = videos.getByText("Hanami Feature").closest("a");
     expect(relatedVideoCard).not.toBeNull();
     expect(relatedVideoCard).toHaveAttribute("href", "/videos/video_hanami");
@@ -11044,7 +11083,11 @@ describe("App", () => {
     expect(videos.getByRole("columnheader", { name: "RATING" })).toBeInTheDocument();
     expect(videos.getByRole("button", { name: "Sort by RATING" })).toBeInTheDocument();
     expect(videos.getByTestId("performer-related-videos-table-scroll"))
-      .toHaveClass("w-full", "overflow-x-auto");
+      .toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
+    expect(
+      videos.getByTestId("performer-related-videos-table-scroll")
+        .closest("[data-sticky-horizontal-scroll='true']"),
+    ).toHaveClass("sticky-horizontal-scroll-frame");
     expect(videos.getByTestId("performer-related-videos-table"))
       .toHaveClass("w-full", "table-fixed", "min-w-[1040px]");
     expect(videos.getByTestId("performer-related-videos-table"))
@@ -11068,6 +11111,8 @@ describe("App", () => {
     expect(images.getByLabelText("Related items per page")).toHaveValue("20");
     expect(images.getByLabelText("Search related items")).toBeInTheDocument();
     expect(images.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(images.getByTestId("performer-related-images-card-grid"))
+      .toHaveClass("[grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]");
     const relatedImageCard = images.getByText("Hanami Gallery").closest("a");
     expect(relatedImageCard).not.toBeNull();
     expect(relatedImageCard).toHaveAttribute("href", "/images/image_hanami");
@@ -11091,7 +11136,7 @@ describe("App", () => {
     expect(images.getByRole("columnheader", { name: "RATING" })).toBeInTheDocument();
     expect(images.getByRole("button", { name: "Sort by RATING" })).toBeInTheDocument();
     expect(images.getByTestId("performer-related-images-table-scroll"))
-      .toHaveClass("w-full", "overflow-x-auto");
+      .toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
     expect(images.getByTestId("performer-related-images-table"))
       .toHaveClass("w-full", "table-fixed", "min-w-[1040px]");
     expect(images.getByTestId("performer-related-images-table"))
@@ -11220,8 +11265,8 @@ describe("App", () => {
     }).closest("section") as HTMLElement;
     const videos = within(videosSection);
     const images = within(imagesSection);
-    expect(videos.getAllByText("Credited Video")).toHaveLength(2);
-    expect(videos.getAllByText("Credited Video")[0].closest("a"))
+    expect(videos.getAllByText("Credited Video")).toHaveLength(1);
+    expect(videos.getByText("Credited Video").closest("a"))
       .toHaveAttribute("href", "/videos/video_credit");
     expect(images.getByText("Credited Image").closest("a"))
       .toHaveAttribute("href", "/images/image_credit");
@@ -16679,6 +16724,10 @@ describe("App", () => {
       target: { value: "Narrator" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    expect(screen.getByRole("button", { name: "Add Aliases" }))
+      .toHaveClass("rounded-lg", "h-8");
+    expect(screen.getByRole("button", { name: "Add Aliases" }))
+      .not.toHaveClass("rounded-full");
     expect(screen.getByRole("button", { name: "Remove Narrator" }))
       .toBeInTheDocument();
     expect(screen.getAllByText("Narrator")).toHaveLength(1);

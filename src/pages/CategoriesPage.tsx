@@ -10,6 +10,7 @@ import CategoryCatalogCard, {
   type CategoryCatalogCardData,
   type CategoryCatalogCardStatus,
 } from "../components/CategoryCatalogCard";
+import SakuravaSelect from "../components/SakuravaSelect";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
   normalizeCatalogPageSize,
@@ -328,18 +329,16 @@ function CategoryPaginationBar({
         </p>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
           Per page
-          <select
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          <SakuravaSelect
             value={pageSize}
-            onChange={(event) => onPageSizeChange(event.target.value)}
-            aria-label="Categories per page"
-          >
-            {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            placement="down"
+            onChange={onPageSizeChange}
+            ariaLabel="Categories per page"
+            options={CATALOG_PAGE_SIZE_OPTIONS.map((option) => ({
+              value: option,
+              label: option,
+            }))}
+          />
         </label>
       </div>
       <div className="flex items-center gap-2">

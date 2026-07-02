@@ -87,4 +87,35 @@ describe("RelatedPerformerPicker duplicate limit", () => {
       name: "Add related performer Aoi Sakura",
     })).not.toBeInTheDocument();
   });
+
+  it("closes results on scroll and outside pointer interaction", () => {
+    render(
+      <MemoryRouter>
+        <RelatedPerformerPicker
+          performers={[performer]}
+          selected={[]}
+          loadState="loaded"
+          onChange={() => undefined}
+        />
+        <button type="button">Outside</button>
+      </MemoryRouter>,
+    );
+
+    const search = screen.getByLabelText("Search related performers");
+    fireEvent.focus(search);
+    expect(screen.getByRole("button", {
+      name: "Add related performer Aoi Sakura",
+    })).toBeInTheDocument();
+
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("button", {
+      name: "Add related performer Aoi Sakura",
+    })).not.toBeInTheDocument();
+
+    fireEvent.focus(search);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
+    expect(screen.queryByRole("button", {
+      name: "Add related performer Aoi Sakura",
+    })).not.toBeInTheDocument();
+  });
 });

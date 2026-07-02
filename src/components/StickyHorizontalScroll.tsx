@@ -37,7 +37,7 @@ function StickyHorizontalScroll({ children, testId }: StickyHorizontalScrollProp
     }
 
     return () => observer.disconnect();
-  }, [children]);
+  }, []);
 
   function syncScroll(source: HTMLDivElement, target: HTMLDivElement | null) {
     if (!target || syncingRef.current) {

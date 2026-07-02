@@ -506,9 +506,13 @@ function buildRelatedSections(
     );
     return sections.map((section) => {
       const workType = section.title.includes("Video") ? "video" : "image";
-      const records = credits
+      const recordsByWorkId = new Map<
+        string,
+        NonNullable<DetailSection["relatedCatalogRecords"]>[number]
+      >();
+      credits
         .filter((credit) => credit.workType === workType)
-        .map((credit) => {
+        .forEach((credit) => {
           const baseItem =
             workType === "video"
               ? buildRelatedVideoItems(
@@ -526,14 +530,18 @@ function buildRelatedSections(
           const creditTypeKey =
             credit.creditTypeCategoryId || credit.roleImportanceCategoryId;
 
-          return {
+          if (!baseItem || recordsByWorkId.has(credit.workId)) {
+            return;
+          }
+          recordsByWorkId.set(credit.workId, {
             ...baseItem,
             roleName,
             creditType: creditTypeKey
               ? categoryByKey.get(creditTypeKey)?.trim() || creditTypeKey
               : undefined,
-          };
+          });
         });
+      const records = [...recordsByWorkId.values()];
 
       return {
         ...section,

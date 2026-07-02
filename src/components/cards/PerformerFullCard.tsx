@@ -79,7 +79,7 @@ export function PerformerFullCard({ item, linkTo, placeholderLabel, onFavoriteCl
         </div>
 
         {/* Categories */}
-        <CategoryChips categories={item.categories} maxVisible={5} size="lg" />
+        <CategoryChips categories={item.categories} maxVisible={2} size="lg" />
       </div>
     </Link>
   );

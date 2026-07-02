@@ -16,6 +16,7 @@ import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { VideoFullCard, ImageFullCard, PerformerFullCard } from "../components/cards";
 import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
+import SakuravaSelect from "../components/SakuravaSelect";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
   DEFAULT_CATALOG_PAGE_SIZE,
@@ -474,12 +475,20 @@ function CollectionToolbar({
       }
     }
 
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Node && toolbarRef.current?.contains(event.target)) {
+        return;
+      }
+      setOpenDropdownKey(null);
+    };
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", handleScroll, true);
 
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [openDropdownKey]);
 
@@ -699,7 +708,7 @@ function SortPicker({
       </button>
       {open && (
         <div className="absolute z-50 mt-2 w-full min-w-44 rounded-lg border border-slate-200 bg-white shadow-lg">
-          <div role="listbox" aria-label="Sort options" className="max-h-64 overflow-y-auto p-1">
+          <div role="listbox" aria-label="Sort options" className="sakurava-scrollbar max-h-64 overflow-y-auto p-1">
             {options.map((option) => (
               <PickerOption
                 key={option}
@@ -1986,18 +1995,16 @@ function PaginationBar({
         </p>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
           {t("collection.pageSize")}
-          <select
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          <SakuravaSelect
+            placement="up"
             value={pageSize}
-            onChange={(event) => onPageSizeChange(event.target.value)}
-            aria-label={t("collection.itemsPerPage")}
-          >
-            {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={onPageSizeChange}
+            ariaLabel={t("collection.itemsPerPage")}
+            options={CATALOG_PAGE_SIZE_OPTIONS.map((option) => ({
+              value: option,
+              label: option,
+            }))}
+          />
           <span>{t("collection.perPage")}</span>
         </label>
       </div>

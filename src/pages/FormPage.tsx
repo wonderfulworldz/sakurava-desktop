@@ -1375,7 +1375,7 @@ function FormHeader({
         <p className="mb-1 text-xs font-bold uppercase tracking-wider text-sakura-500">
           {formLabel}
         </p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
           {title}
         </h1>
         <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{subtitle}</p>
@@ -1847,10 +1847,7 @@ function MiniThumbnailPathRows({
     <div className={FORM_ROW_START_STYLES}>
       <span className="pt-2">Mini Thumbnail Paths</span>
       <div className="grid gap-3">
-        <div
-          className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2"
-          data-testid="performer-mini-thumbnail-path-list"
-        >
+        <div className="grid gap-2" data-testid="performer-mini-thumbnail-path-list">
           {paths.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
               No Mini Thumbnail Path rows added.
@@ -1859,7 +1856,7 @@ function MiniThumbnailPathRows({
             paths.map((path, index) => (
               <div
                 key={`${path}-${index}`}
-                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px]"
+                className="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2"
               >
                 <input
                   className={inputClass(false)}
@@ -1889,7 +1886,7 @@ function MiniThumbnailPathRows({
           >
             Add Images
           </button>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="ml-auto text-xs font-semibold text-slate-500">
             {paths.length}/4 selected
           </span>
         </div>
@@ -2147,7 +2144,7 @@ function ChipInput({
               aria-label={`Remove ${chip}`}
               onClick={() => onRemove(chip)}
             >
-              <X size={13} />
+              <Trash2 size={14} />
             </button>
           </span>
         ))}
@@ -2176,7 +2173,7 @@ function ChipInput({
         />
         <button
           type="button"
-          className="inline-flex h-7 items-center justify-center rounded-full border border-sakura-100 bg-sakura-50 px-2 text-[11px] font-bold text-sakura-500 transition-colors hover:bg-sakura-100"
+          className={BUTTON_STYLES.compactAction}
           aria-label={`Add ${label}`}
           onClick={onAdd}
         >

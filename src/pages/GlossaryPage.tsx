@@ -16,6 +16,7 @@ import {
 import { selectLocalImageFile } from "../runtime/dialogCommands";
 import ConfirmDialog from "../components/ConfirmDialog";
 import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
+import SakuravaSelect from "../components/SakuravaSelect";
 import {
   clearSessionFilterState,
   readSessionFilterState,
@@ -1194,22 +1195,16 @@ function GlossaryPage() {
             </p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
               Page size
-              <select
+              <SakuravaSelect
                 value={pageSize}
-                aria-label="Terms per page"
-                onChange={(event) =>
-                  updatePageSize(
-                    Number(event.target.value) as (typeof pageSizeOptions)[number],
-                  )
-                }
-                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-              >
-                {pageSizeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                ariaLabel="Terms per page"
+                placement="down"
+                onChange={updatePageSize}
+                options={pageSizeOptions.map((option) => ({
+                  value: option,
+                  label: String(option),
+                }))}
+              />
               <span>per page</span>
             </label>
           </div>
@@ -1320,10 +1315,6 @@ function GlossaryPage() {
         )}
       </section>
 
-      <footer className="rounded-lg border border-sakura-100 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
-        Glossary entries are independent from Video, Image, Performer, and
-        Category catalog metadata.
-      </footer>
       <ConfirmDialog
         open={confirmation !== null}
         title={glossaryConfirmationCopy(confirmation, formMode).title}

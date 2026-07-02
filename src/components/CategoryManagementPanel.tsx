@@ -10,7 +10,6 @@ import {
   List,
   Plus,
   Search,
-  ShieldCheck,
   Tags,
   Trash2,
   UserRound,
@@ -48,6 +47,7 @@ import { listVideos } from "../runtime/videoCommands";
 import { listCredits } from "../runtime/creditCommands";
 import ConfirmDialog from "./ConfirmDialog";
 import StickyHorizontalScroll from "./StickyHorizontalScroll";
+import SakuravaSelect from "./SakuravaSelect";
 import {
   clearSessionFilterState,
   readSessionFilterState,
@@ -135,7 +135,6 @@ const filterOptions: CategoryFilterOption[] = [
   { value: "videos", label: "Videos Used", chipLabel: "Videos Used", chipPrefix: "Filter" },
   { value: "images", label: "Images Used", chipLabel: "Images Used", chipPrefix: "Filter" },
   { value: "performers", label: "Performer Used", chipLabel: "Performer Used", chipPrefix: "Filter" },
-  { value: "credits", label: "Credits Used", chipLabel: "Credits Used", chipPrefix: "Filter" },
 ];
 const selectableFilterOptions = filterOptions.filter(
   (option): option is ActiveCategoryFilterOption => option.value !== "all",
@@ -201,7 +200,7 @@ function CategoryManagementPanel() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [search, setSearch] = useState(initialFilters.search);
   const [selectedFilters, setSelectedFilters] = useState<ActiveFilterValue[]>(
-    initialFilters.selectedFilters,
+    initialFilters.selectedFilters.filter((filter) => filter !== "credits"),
   );
   const [sort, setSort] = useState<SortValue>(initialFilters.sort ?? "name");
   const [tableSort, setTableSort] = useState<CategoryTableSortState>(
@@ -215,6 +214,9 @@ function CategoryManagementPanel() {
   const [expandedParentKeys, setExpandedParentKeys] = useState<Set<string>>(
     () => new Set(initialFilters.expandedParentKeys ?? []),
   );
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [currentPage, setCurrentPage] = useState(initialFilters.page ?? 1);
   const [rowsPerPage, setRowsPerPage] = useState<CatalogPageSize>(
     initialFilters.rowsPerPage ?? DEFAULT_CATALOG_PAGE_SIZE,
@@ -226,6 +228,40 @@ function CategoryManagementPanel() {
     categoryFormSnapshot(emptyForm),
   );
   const formSectionRef = useRef<HTMLElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!filterOpen && !sortOpen) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && !toolbarRef.current?.contains(event.target)) {
+        setFilterOpen(false);
+        setSortOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFilterOpen(false);
+        setSortOpen(false);
+      }
+    };
+    const closeOnOutsideScroll = (event: Event) => {
+      if (event.target instanceof Node && toolbarRef.current?.contains(event.target)) {
+        return;
+      }
+      setFilterOpen(false);
+      setSortOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("scroll", closeOnOutsideScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("scroll", closeOnOutsideScroll, true);
+    };
+  }, [filterOpen, sortOpen]);
 
   const editingCategory = useMemo(
     () => categories.find((category) => category.key === editingKey) ?? null,
@@ -1032,6 +1068,7 @@ function CategoryManagementPanel() {
 
       <section className="space-y-3">
         <div
+          ref={toolbarRef}
           className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
           aria-label="Category Management toolbar"
         >
@@ -1114,7 +1151,7 @@ function CategoryManagementPanel() {
                 <div
                   role="listbox"
                   aria-label="Category filter options"
-                  className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                  className="sakurava-scrollbar absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
                 >
                   {filteredFilterOptions.map((option) => {
                     const selected =
@@ -1262,21 +1299,19 @@ function CategoryManagementPanel() {
             <p className="text-sm font-semibold text-slate-600">{rangeText}</p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
               Page size
-              <select
-                aria-label="Categories per page"
+              <SakuravaSelect
+                ariaLabel="Categories per page"
+                placement="down"
                 value={rowsPerPage}
-                onChange={(event) => {
-                  setRowsPerPage(event.target.value as CatalogPageSize);
+                onChange={(value) => {
+                  setRowsPerPage(value);
                   setCurrentPage(1);
                 }}
-                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-              >
-                {CATALOG_PAGE_SIZE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                options={CATALOG_PAGE_SIZE_OPTIONS.map((option) => ({
+                  value: option,
+                  label: option,
+                }))}
+              />
               <span>per page</span>
             </label>
           </div>
@@ -1325,13 +1360,35 @@ function CategoryManagementPanel() {
           >
             {cardSections.map((section) => (
               <section key={section.key} aria-labelledby={`category-card-section-${section.key}`}>
-                <h2
-                  id={`category-card-section-${section.key}`}
-                  className="mb-3 text-base font-semibold tracking-normal text-slate-700"
-                >
-                  {section.label}
-                </h2>
-                {section.rows.length > 0 && (
+                <div className="mb-3 flex min-w-0 items-center gap-3">
+                  <h2
+                    id={`category-card-section-${section.key}`}
+                    className="min-w-0 truncate text-base font-semibold tracking-normal text-slate-700"
+                  >
+                    {section.label}
+                  </h2>
+                  <span className="h-px min-w-6 flex-1 bg-slate-200" aria-hidden="true" />
+                  <button
+                    type="button"
+                    aria-expanded={!collapsedGroupKeys.has(section.key)}
+                    aria-label={`${collapsedGroupKeys.has(section.key) ? "Expand" : "Collapse"} category group ${section.label}`}
+                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-sakura-50 hover:text-sakura-600"
+                    onClick={() =>
+                      setCollapsedGroupKeys((current) => {
+                        const next = new Set(current);
+                        if (next.has(section.key)) next.delete(section.key);
+                        else next.add(section.key);
+                        return next;
+                      })
+                    }
+                  >
+                    <ChevronDown
+                      size={17}
+                      className={`transition ${collapsedGroupKeys.has(section.key) ? "-rotate-90" : ""}`}
+                    />
+                  </button>
+                </div>
+                {section.rows.length > 0 && !collapsedGroupKeys.has(section.key) && (
                   <div
                     className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
                     data-testid="category-management-card-section-grid"
@@ -1447,12 +1504,6 @@ function CategoryManagementPanel() {
           )}
       </section>
 
-      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
-        <ShieldCheck className="mt-0.5 text-slate-400" size={14} />
-        <p>
-          Delete is blocked for categories with children or record usage.
-        </p>
-      </div>
       <ConfirmDialog
         open={confirmation !== null}
         title={categoryConfirmationCopy(confirmation, editingCategory).title}

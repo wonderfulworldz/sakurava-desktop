@@ -1,5 +1,5 @@
 import { Search, X } from "lucide-react";
-import { type UIEvent, useEffect, useMemo, useState } from "react";
+import { type UIEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { RelatedCatalogRecordReference } from "../backend/json";
 import type { Image, Video } from "../backend/types";
@@ -41,6 +41,7 @@ function RelatedCatalogPicker({
   const [visibleResultCount, setVisibleResultCount] = useState(
     PICKER_RENDER_BATCH_SIZE,
   );
+  const pickerRef = useRef<HTMLDivElement>(null);
   const selectedIds = new Set(
     selected.map((relation) => relation.recordId).filter(Boolean),
   );
@@ -88,6 +89,35 @@ function RelatedCatalogPicker({
     setVisibleResultCount(PICKER_RENDER_BATCH_SIZE);
   }, [query, isSearchOpen, records.length]);
 
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return;
+    }
+
+    const close = () => setIsSearchOpen(false);
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Node && pickerRef.current?.contains(event.target)) {
+        return;
+      }
+      close();
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !pickerRef.current?.contains(event.target)
+      ) {
+        close();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isSearchOpen]);
+
   function addRecord(record: RelatedCatalogRecord) {
     onChange([
       ...selected,
@@ -96,7 +126,7 @@ function RelatedCatalogPicker({
         titleSnapshot: record.title || record.originalTitle || "Untitled Record",
       },
     ]);
-    setIsSearchOpen(true);
+    setIsSearchOpen(false);
   }
 
   function removeRelation(relation: RelatedCatalogRecordReference) {
@@ -125,6 +155,7 @@ function RelatedCatalogPicker({
 
   return (
     <div
+      ref={pickerRef}
       className="grid gap-4 text-sm font-semibold text-slate-700"
       onBlur={() => {
         window.setTimeout(() => setIsSearchOpen(false), 120);
@@ -173,7 +204,7 @@ function RelatedCatalogPicker({
 
         {shouldShowResults && (
           <div
-            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+            className="sakurava-scrollbar absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
             onScroll={handleResultsScroll}
           >
             {loadState === "loading" && (
@@ -216,7 +247,7 @@ function RelatedCatalogPicker({
                     <HighlightedPickerText text={title} query={query} />
                   </span>
                   <CatalogRecordMeta parts={meta} />
-                  <span className="flex h-8 items-center justify-center justify-self-end rounded-full px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                  <span className="flex h-8 items-center justify-center justify-self-end rounded-md px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
                     Add
                   </span>
                 </button>

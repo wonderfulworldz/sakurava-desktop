@@ -262,7 +262,7 @@ export function CategoryChips({ categories, maxVisible, size = "sm" }: { categor
         ))}
       </div>
       {overflow > 0 && (
-        <span className={`inline-flex shrink-0 rounded-full border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${size === "lg" ? "px-3 py-1.5 text-xs" : "px-2.5 py-1 text-xs"}`}>
+        <span className={`inline-flex shrink-0 rounded-md border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${size === "lg" ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[11px]"}`}>
           +{overflow}
         </span>
       )}
@@ -272,11 +272,11 @@ export function CategoryChips({ categories, maxVisible, size = "sm" }: { categor
 
 function CategoryChip({ label, size = "sm" }: { label: string; size?: "sm" | "lg" }) {
   const sizeClasses = size === "lg"
-    ? "px-3 py-1.5 text-xs"
-    : "px-2.5 py-1 text-xs";
+    ? "px-2.5 py-1 text-xs"
+    : "px-2 py-0.5 text-[11px]";
 
   return (
-    <span className={`inline-flex shrink-0 max-w-[130px] rounded-full border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${sizeClasses}`}>
+    <span className={`inline-flex min-w-0 max-w-[14ch] shrink rounded-md border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${sizeClasses}`}>
       <span className="truncate">{label}</span>
     </span>
   );

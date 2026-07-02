@@ -81,7 +81,7 @@ export function VideoFullCard({ item, linkTo, placeholderLabel, onFavoriteClick 
         </div>
 
         {/* Categories */}
-        <CategoryChips categories={item.categories} maxVisible={4} size="lg" />
+        <CategoryChips categories={item.categories} maxVisible={2} size="lg" />
       </div>
     </Link>
   );

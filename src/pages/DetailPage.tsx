@@ -37,6 +37,8 @@ import {
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
+import SakuravaSelect from "../components/SakuravaSelect";
+import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import GlobalImageViewer from "../components/gallery/GlobalImageViewer";
 import type {
   DetailConfig,
@@ -258,7 +260,7 @@ function CatalogDetailPage({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 max-w-full space-y-5">
       <DetailHeader config={config} />
       {heroSection}
       {detailSummarySection}
@@ -350,7 +352,7 @@ function PerformerDetailPage({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 max-w-full space-y-5">
       <DetailHeader config={config} />
 
       <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
@@ -359,7 +361,7 @@ function PerformerDetailPage({
           favoriteAction={favoriteAction}
         />
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <PerformerSummaryCards config={config} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
@@ -1327,7 +1329,7 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
               </span>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 font-semibold text-sakura-600 disabled:cursor-not-allowed disabled:text-slate-400"
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
                 disabled={!link.safeUrl}
                 aria-label={`Open Source Link ${link.title}`}
                 title={link.safeUrl ? "Open in external browser" : "Invalid Source Link URL"}
@@ -1385,11 +1387,11 @@ function RelatedRows({
   sections: DetailSection[];
 }) {
   return (
-    <section className="grid gap-4">
+    <section className="grid min-w-0 max-w-full gap-4">
       {sections.map((section) => (
         <section
           key={section.title}
-          className="rounded-lg border border-slate-200 bg-white p-5"
+          className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5"
         >
           <div className="flex items-start justify-between gap-4">
             <CardTitle title={section.title} icon={relatedSectionIcon(section.title)} />
@@ -1786,7 +1788,10 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
           }}
         />
       ) : hasControls ? (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div
+          className="mt-4 grid min-w-0 max-w-full gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]"
+          data-testid={`performer-related-${kind}-card-grid`}
+        >
           {visibleRecords.map((record, index) => {
             const liteItem: HomeRecentItem = {
               kind,
@@ -2516,8 +2521,8 @@ function RelatedControls({
   }
 
   return (
-    <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
-      <div className="grid items-center gap-3 md:grid-cols-[minmax(16rem,1fr)_auto_auto]">
+    <div className="mt-4 min-w-0 max-w-full space-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <div className="grid min-w-0 items-center gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto_auto]">
         <label
           className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500"
           data-testid="performer-related-search-control"
@@ -2554,7 +2559,7 @@ function RelatedControls({
               <div
                 role="listbox"
                 aria-label="Related sort options"
-                className="max-h-64 overflow-y-auto p-1"
+                className="sakurava-scrollbar max-h-64 overflow-y-auto p-1"
               >
                 {RELATED_SORT_OPTIONS.map((option) => (
                   <button
@@ -2606,20 +2611,19 @@ function RelatedControls({
             Showing {rangeStart}-{rangeEnd} of {resultCount}
             {resultCount !== itemCount ? ` filtered from ${itemCount}` : ""}
           </p>
-        <label className="text-xs font-semibold text-slate-500">
+        <label className="flex items-center text-xs font-semibold text-slate-500">
           Page size
-          <select
-            aria-label="Related items per page"
-            className="ml-2 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          <SakuravaSelect
+            ariaLabel="Related items per page"
+            className="ml-2 w-24"
+            placement="down"
             value={pageSize}
-            onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          >
-            {[20, 40, 80, 120].map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={onPageSizeChange}
+            options={[20, 40, 80, 120].map((option) => ({
+              value: option,
+              label: String(option),
+            }))}
+          />
           <span className="ml-2">per page</span>
         </label>
         </div>
@@ -2748,10 +2752,8 @@ function PerformerRelatedCatalogTable({
   const tableWidth = 1040;
 
   return (
-    <div
-      className="mt-4 w-full overflow-x-auto rounded-lg border border-slate-200 bg-white"
-      data-testid={`performer-related-${kind}-table-scroll`}
-    >
+    <div className="mt-4 min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <StickyHorizontalScroll testId={`performer-related-${kind}-table-scroll`}>
       <table
         className="w-full min-w-[1040px] table-fixed divide-y divide-slate-200 text-left text-sm"
         data-testid={`performer-related-${kind}-table`}
@@ -2855,6 +2857,7 @@ function PerformerRelatedCatalogTable({
           ))}
         </tbody>
       </table>
+      </StickyHorizontalScroll>
     </div>
   );
 }
@@ -3598,10 +3601,14 @@ function OverflowChipList({
   labels: string[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const cleanLabels = labels
+    .map(cleanDetailChipLabel)
+    .filter(Boolean)
+    .filter((label, index, current) => current.indexOf(label) === index);
   const visibleLabels = expanded
-    ? labels
-    : labels.slice(0, DETAIL_CHIP_VISIBLE_LIMIT);
-  const hiddenCount = Math.max(0, labels.length - visibleLabels.length);
+    ? cleanLabels
+    : cleanLabels.slice(0, DETAIL_CHIP_VISIBLE_LIMIT);
+  const hiddenCount = Math.max(0, cleanLabels.length - visibleLabels.length);
 
   return (
     <div className="mt-3 min-w-0">
@@ -3610,7 +3617,7 @@ function OverflowChipList({
         data-testid="detail-category-chip-row"
         className={[
           "flex min-w-0 gap-2",
-          expanded ? "flex-wrap" : "flex-nowrap overflow-hidden",
+          expanded ? "flex-wrap" : "max-h-14 flex-wrap overflow-hidden",
         ].join(" ")}
       >
         {visibleLabels.map((label) => (
@@ -3627,7 +3634,7 @@ function OverflowChipList({
             +{hiddenCount}
           </button>
         )}
-        {expanded && labels.length > DETAIL_CHIP_VISIBLE_LIMIT && (
+        {expanded && cleanLabels.length > DETAIL_CHIP_VISIBLE_LIMIT && (
           <button
             type="button"
             aria-label="Collapse categories"
@@ -3640,6 +3647,15 @@ function OverflowChipList({
       </div>
     </div>
   );
+}
+
+function cleanDetailChipLabel(label: string) {
+  return label
+    .trim()
+    .replace(/^\[\s*["']?/, "")
+    .replace(/["']?\s*\]$/, "")
+    .replace(/^(["'])(.*)\1$/, "$2")
+    .trim();
 }
 
 function Chip({
