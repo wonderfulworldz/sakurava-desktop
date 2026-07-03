@@ -1272,7 +1272,7 @@ function CategoryManagementPanel() {
                     key={chip.key}
                     type="button"
                     onClick={chip.onRemove}
-                    className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-sakura-100 bg-sakura-50 px-2.5 text-xs font-semibold text-sakura-700 transition hover:border-sakura-200 hover:bg-white"
+                    className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-sakura-100 bg-sakura-50 px-2.5 text-xs font-semibold text-sakura-700 transition hover:border-sakura-200 hover:bg-sakura-100"
                     aria-label={`Remove ${chip.label} filter`}
                   >
                     <span className="truncate">{chip.label}</span>
@@ -2117,7 +2117,7 @@ function CategoryTableRow({
                 onToggleParent(row.category.key);
               }}
               aria-label={`${expanded ? "Collapse" : "Expand"} ${row.category.name}`}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-sakura-100"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 transition hover:bg-sakura-50 focus:outline-none focus:ring-2 focus:ring-sakura-100"
             >
               {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
@@ -2271,7 +2271,7 @@ function ThumbnailPreview({ category }: { category: ManagedCategory }) {
         className={`relative flex ${categoryTableThumbnailClassName} items-center justify-center overflow-hidden bg-sakura-50 text-sakura-500`}
       >
         <span
-          className="absolute inset-0 bg-gradient-to-br from-sakura-50 via-rose-50 to-pink-50"
+          className="category-accent-placeholder absolute inset-0"
           aria-hidden="true"
         />
         <Tags className="relative z-10 opacity-75" size={15} />

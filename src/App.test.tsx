@@ -14,12 +14,18 @@ import StickyHorizontalScroll from "./components/StickyHorizontalScroll";
 import GlobalImageViewer from "./components/gallery/GlobalImageViewer";
 import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
 import CategoriesPage from "./pages/CategoriesPage";
-import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
+import {
+  appearanceAccentStorageKey,
+  appearanceDensityStorageKey,
+  appearanceThemeStorageKey,
+  appearanceUiScaleStorageKey,
+} from "./lib/appearanceTheme";
 import { formatDateOnlyDisplay, formatLocalTimestampDisplay } from "./lib/dateDisplay";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
 import { rankPickerSearchResults } from "./lib/relatedPicker";
 import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
+import tailwindConfig from "../tailwind.config";
 
 const dialogMocks = vi.hoisted(() => ({
   open: vi.fn(),
@@ -214,6 +220,9 @@ function selectCategorySort(optionName: string) {
 }
 
 describe("App", () => {
+  let systemThemeDark = false;
+  let systemThemeListeners = new Set<(event: MediaQueryListEvent) => void>();
+
   afterEach(() => {
     cleanup();
     document
@@ -230,6 +239,36 @@ describe("App", () => {
     window.localStorage.clear();
     clearAllSessionFilterStateForTests();
     delete document.documentElement.dataset.theme;
+    delete document.documentElement.dataset.themePreference;
+    delete document.documentElement.dataset.accent;
+    delete document.documentElement.dataset.density;
+    delete document.documentElement.dataset.uiScale;
+    document.documentElement.style.removeProperty("--appearance-accent");
+    systemThemeDark = false;
+    systemThemeListeners = new Set();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        matches: systemThemeDark,
+        media: query,
+        onchange: null,
+        addEventListener: (
+          event: string,
+          listener: (event: MediaQueryListEvent) => void,
+        ) => {
+          if (event === "change") systemThemeListeners.add(listener);
+        },
+        removeEventListener: (
+          event: string,
+          listener: (event: MediaQueryListEvent) => void,
+        ) => {
+          if (event === "change") systemThemeListeners.delete(listener);
+        },
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
     Object.defineProperty(document, "fullscreenElement", {
       configurable: true,
       get: () => null,
@@ -287,6 +326,9 @@ describe("App", () => {
     expect(screen.getByText("Continue Cataloging")).toBeInTheDocument();
     expect(screen.getByText("No records yet.")).toBeInTheDocument();
     expect(screen.getByText(/No recent records yet/i)).toBeInTheDocument();
+    expect(document.querySelector(".home-accent-streak")).not.toBeNull();
+    expect(document.querySelector(".home-accent-streak-strong")).not.toBeNull();
+    expect(document.querySelector(".bg-rose-300\\/40")).toBeNull();
   });
 
   it("collapses and expands the sidebar without changing navigation", () => {
@@ -2374,6 +2416,13 @@ describe("App", () => {
     expect(ratingSection.getByTestId("spider-chart-path")).toHaveAttribute("fill");
     expect(ratingSection.getByTestId("spider-chart-path"))
       .toHaveAttribute("stroke-width", "1");
+    expect(ratingSection.getByTestId("spider-chart-path"))
+      .toHaveAttribute("stroke", "var(--appearance-accent)");
+    expect(chart.querySelectorAll('circle[fill="var(--appearance-accent)"]').length)
+      .toBe(6);
+    expect(
+      gradient?.querySelector('stop[stop-color="var(--appearance-accent)"]'),
+    ).not.toBeNull();
     expect(ratingSection.getByTestId("spider-chart-path").getAttribute("d"))
       .toContain("C");
     expect(chart.querySelectorAll("polygon").length).toBeGreaterThanOrEqual(5);
@@ -2786,8 +2835,23 @@ describe("App", () => {
     expect(screen.getAllByText("Theme").length).toBeGreaterThan(0);
     expect(screen.getByText("Accent Color")).toBeInTheDocument();
     expect(screen.getByText("Density")).toBeInTheDocument();
-    expect(screen.getByLabelText("UI Scale")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "System" })).toBeDisabled();
+    expect(screen.getByLabelText("UI Scale")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "System" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reset Appearance" }))
+      .toBeEnabled();
+    const appearanceCard = screen
+      .getAllByRole("heading", { name: "Appearance" })[0]
+      .closest("section");
+    expect(appearanceCard).not.toBeNull();
+    expect(
+      within(appearanceCard as HTMLElement).queryAllByRole("button", {
+        hidden: true,
+      }).filter((control) => control.hasAttribute("disabled")),
+    ).toHaveLength(0);
+    expect(
+      screen.getAllByRole("heading", { name: "Appearance" })[0]
+        .previousElementSibling,
+    ).toHaveClass("rounded-lg", "bg-sakura-50");
     expect(screen.getByLabelText("Default View")).toBeDisabled();
     expect(screen.getByLabelText("Default Sort")).toBeDisabled();
     expect(screen.getByRole("switch", { name: "Remember Preferences" }))
@@ -2857,6 +2921,33 @@ describe("App", () => {
     );
   });
 
+  it("persists System theme and follows OS preference changes", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "System" }));
+
+    expect(window.localStorage.getItem(appearanceThemeStorageKey)).toBe("system");
+    expect(document.documentElement).toHaveAttribute(
+      "data-theme-preference",
+      "system",
+    );
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+
+    act(() => {
+      systemThemeDark = true;
+      systemThemeListeners.forEach((listener) =>
+        listener({ matches: true } as MediaQueryListEvent),
+      );
+    });
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: "System" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   it("defaults App Language to English and falls back for invalid saved language", () => {
     window.history.pushState({}, "", "/settings");
     window.localStorage.setItem(languageStorageKey, "invalid");
@@ -2919,6 +3010,143 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
+  });
+
+  it("persists and applies Appearance accent presets", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Blue accent" }));
+
+    expect(window.localStorage.getItem(appearanceAccentStorageKey)).toBe(
+      '{"type":"blue"}',
+    );
+    expect(document.documentElement).toHaveAttribute("data-accent", "blue");
+    expect(document.documentElement.style.getPropertyValue("--appearance-accent"))
+      .toBe("#3b82f6");
+    expect(screen.getByRole("button", { name: "Blue accent" }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("routes the shared Sakura utility palette through Appearance tokens", () => {
+    const colors = tailwindConfig.theme?.extend?.colors?.sakura;
+
+    expect(colors).toMatchObject({
+      50: "var(--appearance-accent-50)",
+      100: "var(--appearance-accent-100)",
+      200: "var(--appearance-accent-200)",
+      300: "var(--appearance-accent-300)",
+      400: "var(--appearance-accent-400)",
+      500: "var(--appearance-accent-500)",
+      600: "var(--appearance-accent-600)",
+      700: "var(--appearance-accent-700)",
+      800: "var(--appearance-accent-800)",
+    });
+  });
+
+  it("validates, persists, and applies a custom Appearance accent", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Custom accent color picker"), {
+      target: { value: "#2f7f6f" },
+    });
+
+    expect(window.localStorage.getItem(appearanceAccentStorageKey)).toBe(
+      '{"type":"custom","color":"#2f7f6f"}',
+    );
+    expect(document.documentElement).toHaveAttribute("data-accent", "custom");
+    expect(document.documentElement.style.getPropertyValue("--appearance-accent"))
+      .toBe("#2f7f6f");
+  });
+
+  it("falls back safely when a stored custom Appearance accent is invalid", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      appearanceAccentStorageKey,
+      '{"type":"custom","color":"#ffffff"}',
+    );
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute("data-accent", "sakura");
+    expect(document.documentElement.style.getPropertyValue("--appearance-accent"))
+      .toBe("#f16f9b");
+    expect(screen.getByRole("button", { name: "Sakura Pink accent" }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("persists and applies Appearance density", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Compact" }));
+
+    expect(window.localStorage.getItem(appearanceDensityStorageKey)).toBe(
+      "compact",
+    );
+    expect(document.documentElement).toHaveAttribute("data-density", "compact");
+    expect(screen.getByRole("button", { name: "Compact" }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("loads safe density and UI Scale fallbacks and persists UI Scale", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(appearanceDensityStorageKey, "spacious");
+    window.localStorage.setItem(appearanceUiScaleStorageKey, "125");
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "100");
+    expect(screen.getByLabelText("UI Scale")).toHaveValue("100");
+
+    fireEvent.change(screen.getByLabelText("UI Scale"), {
+      target: { value: "110" },
+    });
+
+    expect(window.localStorage.getItem(appearanceUiScaleStorageKey)).toBe("110");
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "110");
+  });
+
+  it("resets only Appearance preferences", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem("unrelated.settings.value", "preserved");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    fireEvent.click(screen.getByRole("button", { name: "Purple accent" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compact" }));
+    fireEvent.change(screen.getByLabelText("UI Scale"), {
+      target: { value: "110" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reset Appearance" }));
+
+    expect(window.localStorage.getItem(appearanceThemeStorageKey)).toBe("light");
+    expect(window.localStorage.getItem(appearanceAccentStorageKey)).toBe(
+      '{"type":"sakura"}',
+    );
+    expect(window.localStorage.getItem(appearanceDensityStorageKey)).toBe(
+      "comfortable",
+    );
+    expect(window.localStorage.getItem(appearanceUiScaleStorageKey)).toBe("100");
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
+    expect(window.localStorage.getItem("unrelated.settings.value")).toBe(
+      "preserved",
+    );
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    expect(document.documentElement).toHaveAttribute("data-accent", "sakura");
+    expect(document.documentElement).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "100");
   });
 
   it("renders Data Safety actions and reveals Export CSV actions progressively", () => {
@@ -3652,7 +3880,9 @@ describe("App", () => {
     expect(categoryCard).toHaveAttribute("data-category-card-kind", "root");
     expect(categoryCard).toHaveClass("bg-slate-50");
     expect(cardPlaceholder.parentElement).toHaveClass("aspect-square");
-    expect(cardPlaceholder.parentElement?.className).toContain("bg-[radial-gradient");
+    expect(cardPlaceholder.parentElement).toHaveClass(
+      "category-accent-placeholder",
+    );
     expect(cardPlaceholder.parentElement?.className).not.toContain("ring-");
     expect(cardPlaceholder.parentElement?.className).not.toContain("border");
     expect(within(categoryCard).getByText("No Parent Selected")).toBeInTheDocument();

@@ -168,7 +168,7 @@ function CategoryThumbnail({
     <div
       className={`relative flex ${
         shape === "square" ? "aspect-square" : "aspect-[3/2]"
-      } w-full items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.96),transparent_34%),radial-gradient(circle_at_78%_82%,rgba(244,114,182,0.14),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(253,242,248,0.94)_50%,rgba(252,231,243,0.78))] text-sakura-500`}
+      } category-accent-placeholder w-full items-center justify-center overflow-hidden rounded-lg text-sakura-500`}
     >
       {showImage ? (
         <img
@@ -181,7 +181,7 @@ function CategoryThumbnail({
       ) : (
         <>
           <div
-            className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.95),transparent_32%),radial-gradient(circle_at_74%_78%,rgba(244,114,182,0.12),transparent_42%),radial-gradient(circle_at_45%_55%,rgba(251,207,232,0.18),transparent_48%)]"
+            className="category-accent-placeholder-overlay absolute inset-0"
             aria-hidden="true"
           />
           <div

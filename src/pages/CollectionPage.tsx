@@ -660,7 +660,7 @@ function FilterChip({
         type="button"
         aria-label={removeLabel}
         title={removeLabel}
-        className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-sakura-500 transition hover:bg-white hover:text-sakura-700 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+        className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-sakura-500 transition hover:bg-sakura-100 hover:text-sakura-700 focus:outline-none focus:ring-2 focus:ring-sakura-200"
         onClick={onRemove}
       >
         <X size={13} />

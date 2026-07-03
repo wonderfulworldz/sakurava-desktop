@@ -163,14 +163,14 @@ function FavoriteButton({
 
 export type BadgeProps = {
   label: string;
-  tone?: "pink" | "slate";
+  tone?: "accent" | "slate";
 };
 
-export function StatusBadge({ label, tone = "pink" }: BadgeProps) {
+export function StatusBadge({ label, tone = "accent" }: BadgeProps) {
   if (!label || label === "-" || label === "Unspecified" || label === "n/a") return null;
 
   const colors =
-    tone === "pink"
+    tone === "accent"
       ? "border-sakura-200 bg-white/95 text-sakura-600"
       : "border-slate-200 bg-white/95 text-slate-700";
 

@@ -2,8 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import AppShell from "./layouts/AppShell";
 import {
+  applyAppearanceAccent,
+  applyAppearanceDensity,
   applyAppearanceTheme,
+  applyAppearanceUiScale,
+  getStoredAppearanceAccent,
+  getStoredAppearanceDensity,
   getStoredAppearanceTheme,
+  getStoredAppearanceUiScale,
 } from "./lib/appearanceTheme";
 import { LanguageProvider } from "./lib/LanguageContext";
 import { collectionConfigs } from "./lib/collectionData";
@@ -39,13 +45,19 @@ function App() {
     new URLSearchParams(window.location.search).get("sakuravaWindow") ===
       "image-viewer";
   const [appearanceTheme] = useState(() => getStoredAppearanceTheme());
+  const [appearanceAccent] = useState(() => getStoredAppearanceAccent());
+  const [appearanceDensity] = useState(() => getStoredAppearanceDensity());
+  const [appearanceUiScale] = useState(() => getStoredAppearanceUiScale());
   const [mediaAssetScopeReady, setMediaAssetScopeReady] = useState(
     () => !isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0,
   );
 
   useEffect(() => {
     applyAppearanceTheme(appearanceTheme);
-  }, [appearanceTheme]);
+    applyAppearanceAccent(appearanceAccent);
+    applyAppearanceDensity(appearanceDensity);
+    applyAppearanceUiScale(appearanceUiScale);
+  }, [appearanceAccent, appearanceDensity, appearanceTheme, appearanceUiScale]);
 
   useEffect(() => {
     if (!isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0) {

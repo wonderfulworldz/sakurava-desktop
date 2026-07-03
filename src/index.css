@@ -3,6 +3,70 @@
 @tailwind utilities;
 
 :root {
+  --appearance-accent: #f16f9b;
+  --appearance-accent-hover: color-mix(
+    in srgb,
+    var(--appearance-accent) 86%,
+    #334155
+  );
+  --appearance-accent-soft: color-mix(
+    in srgb,
+    var(--appearance-accent) 8%,
+    white
+  );
+  --appearance-accent-muted: color-mix(
+    in srgb,
+    var(--appearance-accent) 16%,
+    white
+  );
+  --appearance-accent-border: color-mix(
+    in srgb,
+    var(--appearance-accent) 42%,
+    white
+  );
+  --appearance-accent-text: color-mix(
+    in srgb,
+    var(--appearance-accent) 82%,
+    #334155
+  );
+  --appearance-accent-ring: color-mix(
+    in srgb,
+    var(--appearance-accent) 28%,
+    transparent
+  );
+  --appearance-accent-gradient-from: color-mix(
+    in srgb,
+    var(--appearance-accent) 10%,
+    white
+  );
+  --appearance-accent-gradient-to: color-mix(
+    in srgb,
+    var(--appearance-accent) 28%,
+    white
+  );
+  --appearance-accent-50: var(--appearance-accent-soft);
+  --appearance-accent-100: var(--appearance-accent-muted);
+  --appearance-accent-200: color-mix(
+    in srgb,
+    var(--appearance-accent) 28%,
+    white
+  );
+  --appearance-accent-300: color-mix(
+    in srgb,
+    var(--appearance-accent) 52%,
+    white
+  );
+  --appearance-accent-400: color-mix(
+    in srgb,
+    var(--appearance-accent) 82%,
+    white
+  );
+  --appearance-accent-500: var(--appearance-accent);
+  --appearance-accent-600: var(--appearance-accent-hover);
+  --appearance-accent-700: var(--appearance-accent-text);
+  --appearance-accent-800: var(--appearance-accent-text);
+  --appearance-density-scale: 1;
+  --appearance-ui-scale: 1;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -11,6 +75,36 @@
 }
 
 :root[data-theme="dark"] {
+  --appearance-accent-soft: color-mix(
+    in srgb,
+    var(--appearance-accent) 14%,
+    transparent
+  );
+  --appearance-accent-muted: color-mix(
+    in srgb,
+    var(--appearance-accent) 20%,
+    transparent
+  );
+  --appearance-accent-border: color-mix(
+    in srgb,
+    var(--appearance-accent) 45%,
+    transparent
+  );
+  --appearance-accent-text: color-mix(
+    in srgb,
+    var(--appearance-accent) 58%,
+    white
+  );
+  --appearance-accent-gradient-from: color-mix(
+    in srgb,
+    var(--appearance-accent) 16%,
+    #1f2937
+  );
+  --appearance-accent-gradient-to: color-mix(
+    in srgb,
+    var(--appearance-accent) 28%,
+    #111827
+  );
   color: #e5e7eb;
   background: #111827;
   color-scheme: dark;
@@ -39,6 +133,174 @@ body,
 a {
   color: inherit;
   text-decoration: none;
+}
+
+:is(button, a.inline-flex)[class*="hover:border-sakura-"]:not(:disabled):hover {
+  background-color: var(--appearance-accent-soft);
+}
+
+:is(input, textarea, select)[class*="focus:border-sakura-"]:not(:disabled):hover,
+[class*="focus-within:border-sakura-"]:hover {
+  border-color: var(--appearance-accent-border);
+}
+
+select option:hover,
+select option:checked {
+  background: var(--appearance-accent-soft);
+  color: var(--appearance-accent-text);
+}
+
+.category-accent-placeholder {
+  background:
+    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.96), transparent 34%),
+    radial-gradient(circle at 78% 82%, var(--appearance-accent-muted), transparent 42%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), var(--appearance-accent-soft));
+}
+
+.category-accent-placeholder-overlay {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.95), transparent 32%),
+    radial-gradient(circle at 74% 78%, var(--appearance-accent-muted), transparent 42%),
+    radial-gradient(circle at 45% 55%, var(--appearance-accent-soft), transparent 48%);
+}
+
+.home-accent-streak {
+  background-color: color-mix(
+    in srgb,
+    var(--appearance-accent) 40%,
+    transparent
+  );
+}
+
+.home-accent-streak-strong {
+  background-color: color-mix(
+    in srgb,
+    var(--appearance-accent-hover) 25%,
+    transparent
+  );
+}
+
+:root {
+  font-size: calc(
+    16px * var(--appearance-density-scale) * var(--appearance-ui-scale)
+  );
+}
+
+:root[data-density="comfortable"] { --appearance-density-scale: 1; }
+:root[data-density="compact"] { --appearance-density-scale: 0.9375; }
+:root[data-ui-scale="90"] { --appearance-ui-scale: 0.9; }
+:root[data-ui-scale="100"] { --appearance-ui-scale: 1; }
+:root[data-ui-scale="110"] { --appearance-ui-scale: 1.1; }
+
+.bg-sakura-50 { background-color: var(--appearance-accent-soft); }
+.bg-sakura-100 { background-color: var(--appearance-accent-muted); }
+.bg-sakura-200 { background-color: color-mix(in srgb, var(--appearance-accent) 28%, white); }
+.bg-sakura-400 { background-color: color-mix(in srgb, var(--appearance-accent) 82%, white); }
+.bg-sakura-500 { background-color: var(--appearance-accent); }
+.bg-sakura-50\/30 { background-color: color-mix(in srgb, var(--appearance-accent) 2.4%, transparent); }
+.bg-sakura-50\/70 { background-color: color-mix(in srgb, var(--appearance-accent) 5.6%, transparent); }
+.bg-sakura-50\/80 { background-color: color-mix(in srgb, var(--appearance-accent) 6.4%, transparent); }
+.bg-sakura-100\/20 { background-color: color-mix(in srgb, var(--appearance-accent) 3.2%, transparent); }
+.bg-sakura-100\/50,
+.bg-sakura-100\/60 { background-color: color-mix(in srgb, var(--appearance-accent) 9%, transparent); }
+.bg-sakura-200\/45,
+.bg-sakura-200\/50 { background-color: color-mix(in srgb, var(--appearance-accent) 14%, transparent); }
+.bg-sakura-400\/70 { background-color: color-mix(in srgb, var(--appearance-accent) 58%, transparent); }
+.bg-sakura-500\/85 { background-color: color-mix(in srgb, var(--appearance-accent) 85%, transparent); }
+
+.border-sakura-100,
+.border-sakura-200,
+.border-sakura-300,
+.border-sakura-400,
+.border-sakura-500 { border-color: var(--appearance-accent-border); }
+.border-sakura-100\/50 { border-color: color-mix(in srgb, var(--appearance-accent) 20%, transparent); }
+
+.text-sakura-200 { color: color-mix(in srgb, var(--appearance-accent) 32%, white); }
+.text-sakura-300 { color: color-mix(in srgb, var(--appearance-accent) 52%, white); }
+.text-sakura-400,
+.text-sakura-500,
+.text-sakura-600,
+.text-sakura-700,
+.text-sakura-800 { color: var(--appearance-accent-text); }
+
+.ring-sakura-100,
+.ring-sakura-200,
+.ring-sakura-300,
+.ring-sakura-500\/10,
+.focus\:ring-sakura-100:focus,
+.focus\:ring-sakura-200:focus,
+.focus\:ring-sakura-300:focus,
+.focus\:ring-sakura-500\/20:focus,
+.focus-visible\:ring-sakura-300:focus-visible,
+.focus-visible\:ring-sakura-400:focus-visible {
+  --tw-ring-color: var(--appearance-accent-ring);
+}
+.focus\:border-sakura-300:focus,
+.focus-within\:border-sakura-300:focus-within,
+.hover\:border-sakura-200:hover,
+.hover\:border-sakura-300:hover { border-color: var(--appearance-accent-border); }
+.focus-within\:ring-sakura-100:focus-within {
+  --tw-ring-color: var(--appearance-accent-ring);
+}
+.focus\:bg-sakura-50:focus { background-color: var(--appearance-accent-soft); }
+.hover\:bg-sakura-50:hover,
+.hover\:bg-sakura-50\/40:hover,
+.hover\:bg-sakura-50\/50:hover,
+.hover\:bg-sakura-50\/60:hover { background-color: var(--appearance-accent-soft); }
+.hover\:bg-sakura-100:hover,
+.group:hover .group-hover\:bg-sakura-100 { background-color: var(--appearance-accent-muted); }
+.hover\:bg-sakura-600:hover { background-color: var(--appearance-accent-hover); }
+.hover\:text-sakura-500:hover,
+.hover\:text-sakura-600:hover,
+.hover\:text-sakura-700:hover { color: var(--appearance-accent-text); }
+
+.from-sakura-50,
+.from-sakura-100 {
+  --tw-gradient-from: var(--appearance-accent-gradient-from) var(--tw-gradient-from-position);
+  --tw-gradient-to: transparent var(--tw-gradient-to-position);
+}
+.to-sakura-50,
+.to-sakura-50\/80 { --tw-gradient-to: var(--appearance-accent-soft) var(--tw-gradient-to-position); }
+.to-sakura-300\/70 { --tw-gradient-to: var(--appearance-accent-gradient-to) var(--tw-gradient-to-position); }
+.fill-sakura-200 { fill: color-mix(in srgb, var(--appearance-accent) 32%, white); }
+.fill-sakura-400,
+.fill-sakura-500 { fill: var(--appearance-accent); }
+.accent-sakura-400,
+.accent-sakura-500 { accent-color: var(--appearance-accent); }
+.peer:checked ~ .peer-checked\:bg-sakura-500 {
+  background-color: var(--appearance-accent);
+}
+.selection\:bg-sakura-100::selection { background-color: var(--appearance-accent-muted); }
+.outline-sakura-500 { outline-color: var(--appearance-accent); }
+.shadow-sakura-100,
+.shadow-sakura-200,
+.hover\:shadow-sakura-100\/40:hover,
+.hover\:shadow-sakura-100\/60:hover { --tw-shadow-color: var(--appearance-accent-ring); }
+
+:is(
+  .bg-sakura-50,
+  .bg-sakura-50\/30,
+  .bg-sakura-50\/70,
+  .bg-sakura-50\/80,
+  .bg-sakura-100,
+  .bg-sakura-100\/20,
+  .bg-sakura-100\/50,
+  .bg-sakura-100\/60,
+  .bg-sakura-200,
+  .bg-sakura-200\/45,
+  .bg-sakura-200\/50
+):is(
+  .border-sakura-100,
+  .border-sakura-200,
+  .border-sakura-300,
+  .border-sakura-400,
+  .border-sakura-500
+) {
+  border-color: transparent;
+}
+
+:root[data-theme="dark"] .bg-sakura-50.dark\:bg-slate-700 {
+  background-color: var(--appearance-accent-soft);
 }
 
 .sticky-horizontal-scroll-frame {
@@ -152,7 +414,7 @@ select {
 
 :root[data-theme="dark"] .bg-sakura-50,
 :root[data-theme="dark"] .bg-sakura-100 {
-  background-color: rgba(241, 111, 155, 0.14);
+  background-color: color-mix(in srgb, var(--appearance-accent) 14%, transparent);
 }
 
 :root[data-theme="dark"] .bg-sky-50 {
@@ -173,11 +435,21 @@ select {
 }
 
 :root[data-theme="dark"] .bg-gradient-to-b {
-  background-image: linear-gradient(to bottom, #1f2937, #172033, #111827);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--appearance-accent) 10%, #1f2937),
+    #172033,
+    #111827
+  );
 }
 
 :root[data-theme="dark"] .bg-gradient-to-br {
-  background-image: linear-gradient(to bottom right, #1f2937, #172033, #111827);
+  background-image: linear-gradient(
+    to bottom right,
+    color-mix(in srgb, var(--appearance-accent) 10%, #1f2937),
+    #172033,
+    #111827
+  );
 }
 
 :root[data-theme="dark"] .border-slate-100,
@@ -189,7 +461,11 @@ select {
 
 :root[data-theme="dark"] .border-sakura-200,
 :root[data-theme="dark"] .border-sakura-300 {
-  border-color: rgba(241, 111, 155, 0.45);
+  border-color: color-mix(in srgb, var(--appearance-accent) 45%, transparent);
+}
+
+:root[data-theme="dark"] .border-sakura-100 {
+  border-color: var(--appearance-accent-border);
 }
 
 :root[data-theme="dark"] .border-amber-200 {
@@ -209,7 +485,7 @@ select {
 :root[data-theme="dark"] .ring-slate-200,
 :root[data-theme="dark"] .ring-sakura-100,
 :root[data-theme="dark"] .ring-sakura-200 {
-  --tw-ring-color: rgba(241, 111, 155, 0.25);
+  --tw-ring-color: color-mix(in srgb, var(--appearance-accent) 25%, transparent);
 }
 
 :root[data-theme="dark"] .text-slate-950,
@@ -230,11 +506,11 @@ select {
 
 :root[data-theme="dark"] .text-sakura-600,
 :root[data-theme="dark"] .text-sakura-500 {
-  color: #f9a8c5;
+  color: color-mix(in srgb, var(--appearance-accent) 58%, white);
 }
 
 :root[data-theme="dark"] .text-sakura-300 {
-  color: #f5b6ca;
+  color: var(--appearance-accent-text);
 }
 
 :root[data-theme="dark"] .text-sky-700 {
@@ -284,13 +560,13 @@ select {
 :root[data-theme="dark"] .hover\:bg-slate-50:hover,
 :root[data-theme="dark"] .hover\:bg-sakura-50:hover,
 :root[data-theme="dark"] .hover\:bg-sakura-100:hover {
-  background-color: rgba(241, 111, 155, 0.18);
+  background-color: color-mix(in srgb, var(--appearance-accent) 18%, transparent);
 }
 
 :root[data-theme="dark"] .hover\:text-slate-950:hover,
 :root[data-theme="dark"] .hover\:text-sakura-600:hover,
 :root[data-theme="dark"] .hover\:text-sakura-700:hover {
-  color: #f9a8c5;
+  color: color-mix(in srgb, var(--appearance-accent) 58%, white);
 }
 
 .global-image-viewer {
@@ -363,7 +639,7 @@ select {
 
 .viewer-button:hover {
   background: var(--viewer-button-hover);
-  border-color: rgba(241, 111, 155, 0.6);
+  border-color: var(--appearance-accent-border);
 }
 
 .viewer-bottom-dock {
@@ -425,7 +701,7 @@ select {
 }
 
 .viewer-range {
-  accent-color: #f16f9b;
+  accent-color: var(--appearance-accent);
 }
 
 .viewer-command-compact,

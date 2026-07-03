@@ -1107,8 +1107,16 @@ function SpiderChart({
         <defs>
           <radialGradient id={gradientId} cx="50%" cy="42%" r="74%">
             <stop offset="0%" stopColor="rgb(255 255 255)" stopOpacity="0.28" />
-            <stop offset="58%" stopColor="rgb(252 231 243)" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="rgb(244 114 182)" stopOpacity="0.06" />
+            <stop
+              offset="58%"
+              stopColor="var(--appearance-accent-muted)"
+              stopOpacity="0.22"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--appearance-accent)"
+              stopOpacity="0.06"
+            />
           </radialGradient>
         </defs>
         {levels.map((level) => (
@@ -1145,7 +1153,7 @@ function SpiderChart({
           d={radarPath}
           data-testid="spider-chart-path"
           fill={`url(#${gradientId})`}
-          stroke="rgb(244 114 182)"
+          stroke="var(--appearance-accent)"
           strokeLinejoin="round"
           strokeLinecap="round"
           strokeWidth="1"
@@ -1157,7 +1165,7 @@ function SpiderChart({
             cx={point.x}
             cy={point.y}
             r="3.2"
-            fill="rgb(244 114 182)"
+            fill="var(--appearance-accent)"
             stroke="white"
             strokeWidth="1.25"
           />
@@ -3585,7 +3593,7 @@ function LabelBlock({
       ) : (
         <div className="mt-3 flex min-w-0 flex-wrap gap-2">
           {labels.map((label) => (
-            <Chip key={label} label={label} tone="pinkSoft" />
+            <Chip key={label} label={label} tone="accentSoft" />
           ))}
         </div>
       )}
@@ -3621,7 +3629,7 @@ function OverflowChipList({
         ].join(" ")}
       >
         {visibleLabels.map((label) => (
-          <Chip key={label} label={label} tone="pinkSoft" />
+          <Chip key={label} label={label} tone="accentSoft" />
         ))}
         {hiddenCount > 0 && (
           <button
@@ -3664,14 +3672,14 @@ function Chip({
   icon: Icon,
 }: {
   label: string;
-  tone: "green" | "orange" | "pink" | "pinkSoft" | "neutral";
+  tone: "green" | "orange" | "accent" | "accentSoft" | "neutral";
   icon?: typeof Heart;
 }) {
   const toneClass = {
     green: "border-emerald-100 bg-emerald-50 text-emerald-700",
     orange: "border-orange-100 bg-orange-50 text-orange-600",
-    pink: "border-sakura-100 bg-sakura-50 text-sakura-600",
-    pinkSoft: "border-sakura-100 bg-sakura-50/70 text-sakura-600",
+    accent: "border-sakura-100 bg-sakura-50 text-sakura-600",
+    accentSoft: "border-sakura-100 bg-sakura-50/70 text-sakura-600",
     neutral: "border-slate-200 bg-slate-100 text-slate-600",
   }[tone];
 

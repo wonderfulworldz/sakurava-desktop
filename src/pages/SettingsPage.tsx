@@ -36,9 +36,19 @@ import {
   renameCategoryInCategoriesJson,
 } from "../lib/categoryRenameApply";
 import {
+  type AppearanceAccent,
+  type AppearanceDensity,
   type AppearanceTheme,
+  type AppearanceUiScale,
+  getStoredAppearanceAccent,
+  getStoredAppearanceDensity,
   getStoredAppearanceTheme,
+  getStoredAppearanceUiScale,
+  normalizeAppearanceAccent,
+  storeAppearanceAccent,
+  storeAppearanceDensity,
   storeAppearanceTheme,
+  storeAppearanceUiScale,
 } from "../lib/appearanceTheme";
 import { useLanguage } from "../lib/LanguageContext";
 import {
@@ -261,6 +271,13 @@ function SettingsPage() {
   const [appearanceTheme, setAppearanceTheme] = useState<AppearanceTheme>(
     () => getStoredAppearanceTheme(),
   );
+  const [appearanceAccent, setAppearanceAccent] = useState<AppearanceAccent>(
+    () => getStoredAppearanceAccent(),
+  );
+  const [appearanceDensity, setAppearanceDensity] =
+    useState<AppearanceDensity>(() => getStoredAppearanceDensity());
+  const [appearanceUiScale, setAppearanceUiScale] =
+    useState<AppearanceUiScale>(() => getStoredAppearanceUiScale());
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
     state: "idle",
   });
@@ -520,6 +537,29 @@ function SettingsPage() {
   function handleThemeChange(theme: AppearanceTheme) {
     setAppearanceTheme(theme);
     storeAppearanceTheme(theme);
+  }
+
+  function handleAccentChange(accent: AppearanceAccent) {
+    const normalized = normalizeAppearanceAccent(accent);
+    setAppearanceAccent(normalized);
+    storeAppearanceAccent(normalized);
+  }
+
+  function handleDensityChange(density: AppearanceDensity) {
+    setAppearanceDensity(density);
+    storeAppearanceDensity(density);
+  }
+
+  function handleUiScaleChange(scale: AppearanceUiScale) {
+    setAppearanceUiScale(scale);
+    storeAppearanceUiScale(scale);
+  }
+
+  function handleResetAppearance() {
+    handleThemeChange("light");
+    handleAccentChange({ type: "sakura" });
+    handleDensityChange("comfortable");
+    handleUiScaleChange("100");
   }
 
   function handleLanguageChange(value: string) {
@@ -1073,6 +1113,9 @@ function SettingsPage() {
         shell={{
           t,
           appearanceTheme,
+          appearanceAccent,
+          appearanceDensity,
+          appearanceUiScale,
           languageCode,
           languages,
           mediaRoots,
@@ -1100,6 +1143,10 @@ function SettingsPage() {
           canClearCache,
           isExportPanelOpen,
           handleThemeChange,
+          handleAccentChange,
+          handleDensityChange,
+          handleUiScaleChange,
+          handleResetAppearance,
           handleLanguageChange,
           handleRemoveCustomLanguage,
           handleAddLanguageFromCsv,
@@ -1583,25 +1630,30 @@ function SettingsPanelCard({
   title,
   icon,
   children,
+  onReset,
 }: {
   title: string;
   icon: LucideIcon;
   children: ReactNode;
+  onReset?: () => void;
 }) {
   const Icon = icon;
 
   return (
     <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex h-12 items-center gap-3 border-b border-slate-200 px-4">
-        <Icon className="text-sakura-500" size={20} />
+        <span className="inline-flex size-8 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+          <Icon size={18} />
+        </span>
         <h2 className="text-base font-semibold text-slate-950">{title}</h2>
       </div>
       <div className="px-4 pb-10 pt-3">{children}</div>
       <button
         type="button"
-        disabled
+        disabled={!onReset}
+        onClick={onReset}
         aria-label={`Reset ${title}`}
-        className="absolute bottom-3 right-3 inline-flex size-7 items-center justify-center rounded-lg text-sakura-400 disabled:opacity-70"
+        className="absolute bottom-3 right-3 inline-flex size-7 items-center justify-center rounded-lg text-sakura-500 transition hover:bg-sakura-50 disabled:opacity-70"
       >
         <RotateCcw size={18} />
       </button>
@@ -1669,7 +1721,7 @@ function CompactChoice({
       onClick={onClick}
       className={`h-8 border-r border-slate-200 px-3 text-sm font-medium last:border-r-0 ${
         selected
-          ? "bg-white text-sakura-600 shadow-sm"
+          ? "border-transparent bg-sakura-50 text-sakura-600"
           : disabled
             ? "bg-slate-50 text-slate-400"
             : "bg-white text-slate-600 hover:bg-sakura-50"
@@ -1833,6 +1885,9 @@ function SettingsSection({
   const {
     t,
     appearanceTheme,
+    appearanceAccent,
+    appearanceDensity,
+    appearanceUiScale,
     languageCode,
     languages,
     mediaRoots,
@@ -1860,6 +1915,10 @@ function SettingsSection({
     canClearCache,
     isExportPanelOpen,
     handleThemeChange,
+    handleAccentChange,
+    handleDensityChange,
+    handleUiScaleChange,
+    handleResetAppearance,
     handleLanguageChange,
     handleRemoveCustomLanguage,
     handleAddLanguageFromCsv,
@@ -1907,7 +1966,16 @@ function SettingsSection({
       <SettingsPanelCard title="Overview" icon={SlidersHorizontal}>
         <div className="grid gap-4 md:grid-cols-2 md:gap-0">
           <div className="space-y-2 md:pr-6">
-            <OverviewRow label="Theme" value={appearanceTheme === "dark" ? "Dark" : "Light"} />
+            <OverviewRow
+              label="Theme"
+              value={
+                appearanceTheme === "system"
+                  ? "System"
+                  : appearanceTheme === "dark"
+                    ? "Dark"
+                    : "Light"
+              }
+            />
             <OverviewRow
               label="Language"
               value={languages.find((language: { code: string; label: string }) => language.code === languageCode)?.label ?? languageCode}
@@ -1927,7 +1995,11 @@ function SettingsSection({
         </div>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Appearance" icon={Palette}>
+      <SettingsPanelCard
+        title="Appearance"
+        icon={Palette}
+        onReset={handleResetAppearance}
+      >
         <ControlRow label="Theme">
           <div className="grid max-w-md grid-cols-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
             <CompactChoice
@@ -1940,47 +2012,85 @@ function SettingsSection({
               selected={appearanceTheme === "dark"}
               onClick={() => handleThemeChange("dark")}
             />
-            <CompactChoice label="System" disabled />
+            <CompactChoice
+              label="System"
+              selected={appearanceTheme === "system"}
+              onClick={() => handleThemeChange("system")}
+            />
           </div>
         </ControlRow>
         <ControlRow label="Accent Color">
           <div className="flex max-w-md items-center gap-3">
-            {["bg-sakura-500", "bg-orange-400", "bg-amber-400", "bg-green-500", "bg-cyan-500", "bg-blue-500", "bg-violet-500"].map((color, index) => (
+            {([
+              ["sakura", "Sakura Pink", "#f16f9b"],
+              ["blue", "Blue", "#3b82f6"],
+              ["purple", "Purple", "#8b5cf6"],
+            ] as const).map(([type, label, color]) => (
               <button
-                key={color}
+                key={type}
                 type="button"
-                disabled
-                aria-label={index === 0 ? "Sakura Pink accent" : "Accent option unavailable"}
-                className={`size-6 rounded-full border-2 ${color} ${
-                  index === 0 ? "ring-2 ring-sakura-200 ring-offset-2" : "opacity-55"
+                aria-label={`${label} accent`}
+                aria-pressed={appearanceAccent.type === type}
+                onClick={() => handleAccentChange({ type })}
+                className={`size-6 rounded-full ${
+                  appearanceAccent.type === type
+                    ? "ring-2 ring-sakura-300 ring-offset-2"
+                    : ""
                 }`}
+                style={{ backgroundColor: color }}
               />
             ))}
-            <button
-              type="button"
-              disabled
+            <label
               aria-label="Custom accent color"
-              className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400"
+              className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border bg-slate-50 ${
+                appearanceAccent.type === "custom"
+                  ? "border-transparent bg-sakura-50 text-sakura-600 ring-2 ring-sakura-100"
+                  : "border-slate-200 text-slate-500"
+              }`}
             >
               <Palette size={15} />
-            </button>
+              <input
+                type="color"
+                aria-label="Custom accent color picker"
+                className="sr-only"
+                value={
+                  appearanceAccent.type === "custom"
+                    ? appearanceAccent.color
+                    : "#f16f9b"
+                }
+                onChange={(event) =>
+                  handleAccentChange({ type: "custom", color: event.target.value })
+                }
+              />
+            </label>
           </div>
         </ControlRow>
         <ControlRow label="Density">
           <div className="grid max-w-md grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-            <CompactChoice label="Comfortable" disabled />
-            <CompactChoice label="Compact" disabled selected />
+            <CompactChoice
+              label="Comfortable"
+              selected={appearanceDensity === "comfortable"}
+              onClick={() => handleDensityChange("comfortable")}
+            />
+            <CompactChoice
+              label="Compact"
+              selected={appearanceDensity === "compact"}
+              onClick={() => handleDensityChange("compact")}
+            />
           </div>
         </ControlRow>
         <ControlRow label="UI Scale">
           <select
             aria-label="UI Scale"
-            disabled
-            className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500"
-            value="100"
-            onChange={() => undefined}
+            className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            value={appearanceUiScale}
+            onChange={(event) =>
+              handleUiScaleChange(event.target.value as AppearanceUiScale)
+            }
           >
+            <option value="90">90%</option>
             <option value="100">100% (Default)</option>
+            <option value="110">110%</option>
           </select>
         </ControlRow>
       </SettingsPanelCard>
