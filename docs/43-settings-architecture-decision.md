@@ -10,14 +10,19 @@ Batch 41 normalizes and productizes that existing work. It must preserve safe
 working behavior while moving Settings to the approved Normal Settings
 structure.
 
-The governing UI rule is:
+The governing product rule remains:
 
 > Visible setting = functional setting.
 
 A control must not appear merely to describe a possible future feature. An
 informational row must report a real current value or clearly explain a real
-functional action. Inactive settings, roadmap labels, and non-functional
-controls do not belong in the user-facing Settings UI.
+functional action.
+
+Batch 41.2 adds one narrow presentation exception: a disabled or read-only
+visual shell may be visible when it is needed to preserve the approved Settings
+control-panel structure. A visual shell is not a setting: it must not accept
+input, persist data, trigger an operation, or be described as functional.
+Functionalization remains assigned to a later approved sub-batch.
 
 ## 2. Source of Truth
 
@@ -25,7 +30,7 @@ Settings decisions must follow these sources in this order:
 
 1. Sakurava AI Guardrail Batch39/40 to Batch41 Settings.
 2. Batch 41.0 Settings Architecture Audit findings.
-3. The nine-section Normal Settings information architecture locked by this
+3. The eight-section Normal Settings information architecture locked by this
    document.
 4. Existing safety documents for the relevant operation, including category,
    Backup/Restore, Settings persistence, language, and Import/Export safety.
@@ -44,7 +49,10 @@ The locked Normal Settings sections are:
 6. Backup & Recovery
 7. Import / Export
 8. Performance & Cache
-9. System Info
+
+System Info is not a visible Normal Settings section. Diagnostics must also
+remain absent. Runtime path, log, version, or support information may be
+reconsidered only through a later explicit product and privacy decision.
 
 ## 3. Current Baseline Summary
 
@@ -58,8 +66,9 @@ The Batch 41.0 audit established that Settings is already substantial:
 - CSV export, import preview, confirmation, and apply are functional for part
   of the required catalog scope.
 - Scoped app-cache cleanup is functional.
-- Inactive, dummy, planning, batch, and future-facing UI still appears beside
-  working controls.
+- Batch 41.2 replaced the legacy Settings presentation with the approved
+  compact eight-section shell and removed roadmap/status copy from the visible
+  UI.
 - `src/pages/SettingsPage.tsx` is too large and mixes Normal Settings concerns
   with legacy category/settings concerns.
 
@@ -73,8 +82,8 @@ safety steps or target entities are still missing.
 
 **Purpose**
 
-Provide a concise entry point to the eight functional Settings domains and
-surface only useful current status.
+Provide a concise summary of the eight visible Settings domains and surface
+only useful current status.
 
 **Allowed visible controls**
 
@@ -348,38 +357,13 @@ thousands or tens of thousands of items.
 - Canonical path containment cannot be proven.
 - A control requires new indexing, thumbnail, or lazy-loading architecture.
 
-### 4.9 System Info
+### 4.9 Excluded Support Information
 
-**Purpose**
-
-Show a small set of accurate, useful, read-only values for an end user.
-
-**Allowed visible controls**
-
-- Real app version.
-- Runtime/platform status.
-- Database availability.
-- Database path only after privacy and exposure behavior are approved.
-- Small useful log or diagnostic information only when scoped for end users.
-- Copy/open actions only when functional and safe.
-
-**Existing capability to reuse**
-
-- Current runtime detection.
-- Existing app and database runtime state where already available.
-
-**Not allowed in normal scope**
-
-- A large Diagnostics page.
-- Hardcoded version or health values presented as live data.
-- Developer-only logs or sensitive paths by default.
-- Telemetry or network reporting.
-
-**Stop conditions**
-
-- A new Tauri command is needed.
-- Path or log exposure could reveal sensitive information.
-- A reported health value cannot be derived accurately.
+System Info and Diagnostics are not visible Normal Settings sections. Logs were
+not added in Batch 41.2 and remain deferred. An end-user log action, version,
+runtime path, or similar support tool may be proposed later only when it has a
+clear functional use, safe privacy boundaries, and explicit approval for any
+new runtime or Tauri command.
 
 ## 5. Storage Decisions
 
@@ -394,7 +378,6 @@ The Normal Settings storage boundaries are locked as follows:
 | Backup & Recovery | User-selected filesystem database backup files. External media files are excluded. |
 | Import / Export | A local CSV folder or ZIP package containing the locked CSV files and `manifest.json`. |
 | Performance & Cache | Existing app-data cache folders operated on through the existing scoped runtime command. |
-| System Info | Read-only runtime/system values. No Settings persistence is required for the displayed information. |
 
 Normal Settings does not require a Settings database table or migration. A
 future proposal for a Settings table, app configuration file, or migration must
@@ -402,35 +385,44 @@ stop and obtain explicit approval, including its backup/restore implications.
 
 ## 6. UI Normalization Decisions
 
-Batch 41.2 Safe UI Shell Normalization may:
+Batch 41.2 Safe UI Shell Normalization is complete. Its final mockup is strong
+structural and UX direction for the Settings shell:
 
-- Reorganize Settings into the locked nine sections.
-- Remove `MVP`, `Planned`, `Soon`, `Batch`, deferred, dummy, and inactive
-  controls or labels from the visible Settings UI.
-- Show only functional controls and accurate informational values.
-- Keep a high-risk section as an informational entry point only when every
-  visible action in it is functional and follows the required safety flow.
-- Rename Diagnostics to System Info and keep it small and end-user focused.
-- Remove Viewer Preferences from Normal Settings.
-- Preserve existing functional behavior without expanding it.
+- a compact control panel rather than a documentation layout;
+- eight stacked section cards;
+- a Settings search box at the upper right;
+- a pink icon and title in every section header;
+- compact label/value/control rows;
+- a reset icon visual shell at the lower right of every card; and
+- Sakurava components, tokens, spacing, and interaction patterns rather than an
+  arbitrary native-looking clone.
 
-Batch 41.2 must not silently activate unfinished capabilities, change storage
-contracts, alter runtime commands, or use a disabled control as a substitute for
-removing an unfinished setting.
+The visible sections are Overview, Appearance, Language, Catalog Preferences,
+Library & Media, Backup & Recovery, Import / Export, and Performance & Cache.
+Viewer Preferences, System Info, and Diagnostics remain absent.
+
+A disabled or read-only visual shell is allowed only to preserve this approved
+structure. It must not store data, mutate runtime state, trigger an operation,
+or claim to be functional. It must not use `MVP`, `Planned`, `Soon`, `Batch`,
+`dummy`, or `placeholder` as visible status labels. Each shell becomes
+functional only in its assigned, separately approved sub-batch.
+
+Logs were intentionally not added in Batch 41.2. Logs may appear later only
+when an existing safe end-user action can be reused or a new runtime/Tauri
+command and its privacy boundary receive explicit approval.
 
 ## 7. Capability Decisions by Section
 
 | Section | Keep/reuse | Hide/remove until functional | Requires approval | Suggested implementation batch |
 | --- | --- | --- | --- | --- |
-| Overview | Real current status and navigation | Roadmap, release-state, deferred-feature rows | Any shortcut into a data-risk action | 41.2 |
-| Appearance | Light/Dark and current persistence | Non-functional density; incomplete accents | Broad token rewrite or new persistence layer | 41.3 |
+| Overview | Real current status and compact shell | Fake metrics, roadmap, and release-state rows | Any shortcut into a data-risk action | 41.2 complete |
+| Appearance | Light/Dark and approved read-only shells | Any shell presented as functional | Broad token rewrite or new persistence layer | 41.3 |
 | Language | Context, fallback, custom CSV, overrides | In-app editor and extra conceptual groups | CSV compatibility change or storage migration | 41.4 |
-| Catalog Preferences | Existing per-catalog session-state model | Static defaults and unrelated preferences | Remember/reset contract expansion | 41.5 |
+| Catalog Preferences | Existing per-catalog session-state model and read-only shell | Persistence claims before implementation | Remember/reset contract expansion | 41.5 |
 | Library & Media | Picker, root storage, scope validation | Scanner, watcher, mutation controls | New filesystem authority or command | 41.6 |
 | Backup & Recovery | Existing backup/restore runtime safety | Auto Backup until proven simple and safe | All implementation work in this data-risk section | 41.7 |
 | Import / Export | Existing CSV foundation and staged preview | Unsupported entities/package claims | All implementation work in this data-risk section | 41.8 |
 | Performance & Cache | Scoped cache clear | Unmeasured size and unavailable pipelines | Expanded recursive deletion or new performance architecture | 41.9 |
-| System Info | Accurate runtime detection | Hardcoded version, health, diagnostics | New command or sensitive path/log exposure | 41.10 |
 
 ## 8. Data-Operation Decisions
 
@@ -496,6 +488,11 @@ static application UI keys and must never translate or rewrite user data.
 Categories must remain category labels/metadata. Character names must not be
 stored or imported as Categories.
 
+Credits, Roles, and Known Names behavior remains protected by the closed Batch
+39 decisions. Source Links external-browser behavior remains protected by the
+closed Batch 40 decisions. No Settings sub-batch may change either behavior as
+an incidental side effect.
+
 ## 9. Date Parsing Decision
 
 Export uses canonical deterministic formats:
@@ -541,20 +538,25 @@ request explicit approval before adding it.
 The direct Batch 41 sequence is:
 
 ```text
-41.2  Safe UI Shell Normalization
-41.3  Appearance
+41.2  Safe UI Shell Normalization (complete)
+41.2.1 Settings Shell Decision Amendment (docs only)
+41.3  Appearance Functionalization
 41.4  Language
 41.5  Catalog Preferences
 41.6  Library & Media
 41.7  Backup & Recovery
 41.8  Import / Export
 41.9  Performance & Cache
-41.10 System Info
 ```
 
 Batch 41.7 and Batch 41.8 are data-risk sections. Each requires explicit user
 approval before implementation and must use the safety and stop conditions
 locked in this document.
+
+Logs, System Info-like values, and other support tools are future/optional.
+They are outside the visible Normal Settings architecture and require explicit
+approval, including approval for any new runtime/Tauri command and privacy
+contract.
 
 This sequence is not authorization to implement a later sub-batch. Each
 sub-batch must remain independently scoped and reviewed.
@@ -575,8 +577,13 @@ Acceptance criteria:
 - Only this architecture decision document is added or modified.
 - No Settings UI, component, hook, storage, runtime, Tauri, Rust, schema,
   database, dependency, or test file changes.
-- The nine-section Normal Settings structure is explicit.
-- Visible setting = functional setting is preserved.
+- The eight-section visible Normal Settings structure is explicit.
+- The visual-shell exception is non-functional, non-persistent, and clearly
+  separated from functional settings.
 - Storage boundaries and data-operation safety requirements are explicit.
 - Stop conditions require approval before risk or scope expands.
+- Backup/Restore and Import/Export behavior or semantics do not change without
+  approval.
+- No schema, database, migration, Tauri, or runtime change is implied.
+- Credits/Roles/Known Names and Source Links behavior remain unchanged.
 - No commit is created before user review.
