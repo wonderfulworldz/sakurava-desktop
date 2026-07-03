@@ -18,6 +18,8 @@ import {
   FilePenLine,
   ImageUp,
   Plus,
+  RotateCcw,
+  Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -1062,27 +1064,86 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-            {t("settings.title")}
-          </h1>
-          <p className="mt-2 text-base text-slate-500">
-            {t("settings.description")}
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sakura-200 bg-white px-6 text-base font-semibold text-sakura-300"
-        >
-          <Plus size={20} />
-          {t("settings.resetToDefaults")}
-        </button>
-      </header>
-
       <SettingsSection
         number="1"
+        sectionId="overview"
+        title="Overview"
+        description="Review and open the Settings areas available in Sakurava."
+        icon={SlidersHorizontal}
+        shell={{
+          t,
+          appearanceTheme,
+          languageCode,
+          languages,
+          mediaRoots,
+          isDesktopRuntime,
+          isLanguageCsvBusy,
+          languageCsvStatus,
+          mediaRootStatus,
+          backupStatus,
+          restoreStatus,
+          importStatus,
+          importApplyStatus,
+          exportStatus,
+          cacheStatus,
+          isMediaRootPending,
+          isBackupPending,
+          isRestorePending,
+          isImportPending,
+          isExportPending,
+          isCachePending,
+          canAddMediaRoot,
+          canBackUpDatabase,
+          canRestoreDatabase,
+          canImportCsv,
+          canExportCsv,
+          canClearCache,
+          isExportPanelOpen,
+          handleThemeChange,
+          handleLanguageChange,
+          handleRemoveCustomLanguage,
+          handleAddLanguageFromCsv,
+          handleExportLanguageTemplate,
+          handleApplyCustomLanguageCsv,
+          handleConfirmRemoveLanguage,
+          setLanguageCsvStatus,
+          handleAddMediaRoot,
+          handleRemoveMediaRoot,
+          handleBackupData,
+          handleRestoreData,
+          setRestoreStatus,
+          handleConfirmRestore,
+          handleImportCsvPreview,
+          setIsExportPanelOpen,
+          handleExportCsv,
+          handleRequestImportApply,
+          setImportApplyStatus,
+          handleConfirmImportApply,
+          setCacheStatus,
+          handleConfirmClearCache,
+        }}
+      >
+        <InfoPanel
+          title="Current settings"
+          rows={[
+            ["Theme", appearanceTheme === "dark" ? "Dark" : "Light"],
+            [
+              "Language",
+              languages.find((language) => language.code === languageCode)?.label ?? languageCode,
+            ],
+            [
+              "Media folders",
+              `${mediaRoots.length} configured`,
+            ],
+            ["Database", isDesktopRuntime ? "Available" : "Unavailable"],
+            ["Storage", "Local / Offline"],
+          ]}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        number="2"
+        sectionId="appearance"
         title={t("settings.appearance.title")}
         description={t("settings.appearance.description")}
         icon={Palette}
@@ -1107,37 +1168,23 @@ function SettingsPage() {
               />
             </div>
           </SettingsControlRow>
-          <SettingsControlRow
-            title={t("settings.appearance.accentStyle")}
-            helper={t("settings.appearance.accentStyleHelper")}
-          >
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold text-slate-600">
-                {t("settings.appearance.sakuraPinkSelected")}
-              </span>
-              <AccentDots />
-            </div>
-          </SettingsControlRow>
-          <SettingsControlRow
-            title={t("settings.appearance.uiDensity")}
-            helper={t("settings.appearance.uiDensityHelper")}
-          >
-            <div className="grid gap-2 sm:grid-cols-3">
-              <OptionButton label={t("settings.appearance.compact")} status="Selected" />
-              <OptionButton label={t("settings.appearance.comfortable")} status="Planned" disabled />
-              <OptionButton label={t("settings.appearance.spacious")} status="Soon" disabled />
-            </div>
-          </SettingsControlRow>
         </SettingsPanel>
       </SettingsSection>
 
       <SettingsSection
-        number="2"
+        number="3"
+        sectionId="language"
         title={t("settings.language.title")}
         description={t("settings.language.description")}
         icon={FileText}
       >
         <SettingsPanel>
+          <div className="py-3">
+            <h3 className="text-base font-semibold text-slate-900">Info</h3>
+            <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+              Choose the app UI language and review installed languages.
+            </p>
+          </div>
           <SettingsControlRow
             title={t("settings.language.appLanguage")}
             helper={t("settings.language.appLanguageHelper")}
@@ -1191,6 +1238,12 @@ function SettingsPage() {
               </div>
             </div>
           </SettingsControlRow>
+          <div className="py-3">
+            <h3 className="text-base font-semibold text-slate-900">Translation</h3>
+            <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+              Manage UI translations through Language CSV files. User catalog data is never translated.
+            </p>
+          </div>
           <SettingsControlRow
             title="Language CSV Tools"
             helper="Export, import, and manage custom language packs. English is the source — import never modifies English."
@@ -1213,11 +1266,6 @@ function SettingsPage() {
                 detail="Remove a non-primary language pack."
                 disabled={!isDesktopRuntime || isLanguageCsvBusy || languages.filter((l) => l.code !== "en").length === 0}
                 onClick={handleRemoveCustomLanguage}
-              />
-              <LanguageActionCard
-                label="Reset Custom Language"
-                detail="Clear all overrides for a custom language."
-                planned
               />
             </div>
             {languageCsvStatus.state === "exportSuccess" && (
@@ -1300,150 +1348,75 @@ function SettingsPage() {
       </SettingsSection>
 
       <SettingsSection
-        number="3"
-        title={t("settings.optimization.title")}
-        description={t("settings.optimization.description")}
+        number="4"
+        sectionId="catalog-preferences"
+        title="Catalog Preferences"
+        description="Review how catalog view, sort, and filters behave in the current app session."
         icon={SlidersHorizontal}
       >
-        <SettingsPanel>
-          <OptimizationBlock
-            icon={Video}
-            title={t("settings.optimization.mediaLibrary")}
-            helper={t("settings.optimization.mediaLibraryHelper")}
-          >
-            <MiniSettingRows
-              rows={[
-                ["Media Loading", "Balanced (Recommended)"],
-                ["Hardware Acceleration", "Auto (Recommended)"],
-                ["Parallel Processing", "Enabled"],
-              ]}
-            />
-            <InfoNote>These settings help optimize playback and media scanning performance.</InfoNote>
-            <div className="mt-3 border-t border-slate-100 pt-3">
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  disabled={!canAddMediaRoot}
-                  onClick={handleAddMediaRoot}
-                  className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
-                    canAddMediaRoot
-                      ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
-                      : "border-slate-200 bg-slate-100 text-slate-400"
-                  }`}
-                >
-                  {isMediaRootPending ? t("settings.optimization.addingMediaRoot") : t("settings.optimization.addMediaRoot")}
-                </button>
-              </div>
-              <p className="mt-2 text-xs font-semibold text-slate-500">
-                Manual thumbnail rendering is enabled. Asset access scope:{" "}
-                {mediaRoots.length > 0
-                  ? "Pictures, Videos, Documents, Downloads, and configured media roots"
-                  : "Pictures, Videos, Documents, and Downloads"}
-                .
-              </p>
-              <div className="mt-2 divide-y divide-slate-100">
-                <div className="grid gap-2 py-2 text-sm sm:grid-cols-[minmax(150px,0.8fr)_minmax(0,1.2fr)]">
-                  <span className="font-semibold text-slate-700">
-                    Manual thumbnail rendering
-                  </span>
-                  <span className="font-semibold text-slate-500">Enabled</span>
-                </div>
-                <div className="grid gap-2 py-2 text-sm sm:grid-cols-[minmax(150px,0.8fr)_minmax(0,1.2fr)]">
-                  <span className="font-semibold text-slate-700">
-                    Configured media roots
-                  </span>
-                  <span className="font-semibold text-slate-500">
-                    {mediaRoots.length > 0 ? `${mediaRoots.length} configured` : "None"}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-2 text-xs font-semibold text-slate-500">
-                Choose a folder, not a drive root. Example: D:\Sakurava Media.
-                Files inside that folder and its subfolders can be used for thumbnails.
-              </p>
-              <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
-              <MediaRootList roots={mediaRoots} onRemove={handleRemoveMediaRoot} />
-            </div>
-          </OptimizationBlock>
+        <InfoPanel
+          title="Current session behavior"
+          rows={[
+            ["View, sort, and filters", "Remembered while Sakurava remains open"],
+            ["After app restart", "Catalog defaults are used"],
+          ]}
+        />
+      </SettingsSection>
 
-          <OptimizationBlock
-            icon={HardDrive}
-            title={t("settings.optimization.cache")}
-            helper={t("settings.optimization.cacheHelper")}
+      <SettingsSection
+        number="5"
+        sectionId="library-media"
+        title="Library & Media"
+        description="Manage local folders that Sakurava can use for media thumbnails and previews."
+        icon={Folder}
+      >
+        <SettingsPanel>
+          <SettingsControlRow
+            title="Configured media folders"
+            helper="Choose a folder, not a drive root. Removing a folder does not delete its files."
           >
-            <MiniSettingRows
-              rows={[
-                ["Cache Size", "Planned"],
-                ["Thumbnail Cache", "Batch 35 planning"],
-                ["Preview Cache", "Planned"],
-              ]}
-            />
-            <div className="mt-3 flex justify-end">
+            <div>
               <button
                 type="button"
-                disabled={!canClearCache}
-                onClick={() => setCacheStatus({ state: "confirming" })}
+                disabled={!canAddMediaRoot}
+                onClick={handleAddMediaRoot}
                 className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
-                  canClearCache
-                    ? "border-sakura-200 bg-white text-sakura-600 hover:border-sakura-300 hover:bg-sakura-50"
+                  canAddMediaRoot
+                    ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
                     : "border-slate-200 bg-slate-100 text-slate-400"
                 }`}
               >
-                {isCachePending ? t("settings.optimization.clearingCache") : t("settings.optimization.clearCache")}
+                {isMediaRootPending ? t("settings.optimization.addingMediaRoot") : t("settings.optimization.addMediaRoot")}
               </button>
-            </div>
-            <InfoNote>Clearing cache does not delete your source media.</InfoNote>
-            {cacheStatus.state === "confirming" && (
-              <ClearCacheConfirmPanel
-                onCancelClearCache={() => setCacheStatus({ state: "idle" })}
-                onConfirmClearCache={handleConfirmClearCache}
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                Files inside configured folders and their subfolders can be used for thumbnails.
+              </p>
+              <MiniSettingRows
+                rows={[
+                  [
+                    "Configured folders",
+                    mediaRoots.length > 0 ? `${mediaRoots.length} configured` : "None",
+                  ],
+                ]}
               />
-            )}
-            <SettingsStatusMessage status={cacheStatus} kind="cache" />
-          </OptimizationBlock>
-
-          <OptimizationBlock
-            icon={FileText}
-            title={t("settings.optimization.catalogPreferences")}
-            helper={t("settings.optimization.catalogPreferencesHelper")}
-          >
-            <MiniSettingRows
-              rows={[
-                ["Default View", "Card View"],
-                ["Default Sort", "Date Added (Newest)"],
-                ["Items per Page", "50"],
-              ]}
-            />
-            <InfoNote>These preferences are visible now and remain safe/planned where persistence is not implemented.</InfoNote>
-          </OptimizationBlock>
-
-          <OptimizationBlock
-            icon={SlidersHorizontal}
-            title="Scanning & Updates"
-            helper="Configure how Sakurava scans and updates your library."
-          >
-            <MiniSettingRows
-              rows={[
-                ["Auto Scan New Folders", "Planned / disabled"],
-                ["Scan Interval", "Planned"],
-                ["Ignore Short Videos", "Planned"],
-              ]}
-            />
-            <InfoNote>Auto scan controls are planned only and do not scan folders in this batch.</InfoNote>
-          </OptimizationBlock>
+              <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
+              <MediaRootList roots={mediaRoots} onRemove={handleRemoveMediaRoot} />
+            </div>
+          </SettingsControlRow>
         </SettingsPanel>
       </SettingsSection>
 
       <SettingsSection
-        number="4"
-        title={t("settings.dataSafety.title")}
-        description={t("settings.dataSafety.description")}
+        number="6"
+        sectionId="backup-recovery"
+        title="Backup & Recovery"
+        description="Create or restore a local database backup. Media files are not included."
         icon={ShieldCheck}
       >
         <div className="grid gap-5">
           <DataOperationCard
-            title="Backup & Restore"
-            helper="Full app data safety for database/sql-like backups. Generated thumbnails/cache-like app data may be included later; original media files are not included."
+            title="Database backup and restore"
+            helper="Backups contain the Sakurava database only. Original media files are not included."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <ActionTile
@@ -1471,9 +1444,19 @@ function SettingsPage() {
             )}
             <SettingsStatusMessage status={restoreStatus} kind="restore" />
           </DataOperationCard>
+        </div>
+      </SettingsSection>
 
+      <SettingsSection
+        number="7"
+        sectionId="import-export"
+        title="Import / Export"
+        description="Exchange supported catalog records through CSV files. Media files are not included."
+        icon={FileArchive}
+      >
+        <div className="grid gap-5">
           <DataOperationCard
-            title="Import & Export"
+            title="Catalog CSV"
             helper="CSV data exchange for Videos, Images, Performers, and Categories. Export, Import Preview, and confirmed Apply are available now. No media files are included."
           >
             <div className="grid gap-3 md:grid-cols-2">
@@ -1555,58 +1538,684 @@ function SettingsPage() {
       </SettingsSection>
 
       <SettingsSection
-        number="5"
-        title={t("settings.appInformation.title")}
-        description={t("settings.appInformation.description")}
-        icon={Database}
+        number="8"
+        sectionId="performance-cache"
+        title="Performance & Cache"
+        description="Clear app-generated cache without deleting catalog records or source media."
+        icon={HardDrive}
       >
-        <div className="grid gap-4 xl:grid-cols-2">
-          <InfoPanel
-            title="System Information"
-            rows={[
-              ["App Name", "Sakurava"],
-              ["App Version", "1.0.0 MVP"],
-              ["Database Status", isDesktopRuntime ? "Available" : "Unavailable"],
-              ["Database Location", "Local SQLite database"],
-              ["Runtime Status", isDesktopRuntime ? "Desktop runtime" : "Browser preview"],
-            ]}
-          />
-          <InfoPanel
-            title="Safety / Diagnostics"
-            rows={[
-              ["Mode", "Local / Offline"],
-              ["Data Storage", "All data is stored locally on this device."],
-              ["Performance", "Good"],
-              ["Last Backup", "Not tracked yet"],
-              ["System", "Windows Desktop"],
-            ]}
-          />
-        </div>
-        <InfoNote>
-          Sakurava works completely offline. Back up your database regularly to prevent data loss. Clearing cache will not delete your source media or catalog data.
-        </InfoNote>
+        <SettingsPanel>
+          <SettingsControlRow
+            title={t("settings.optimization.cache")}
+            helper={t("settings.optimization.cacheHelper")}
+          >
+            <div>
+              <button
+                type="button"
+                disabled={!canClearCache}
+                onClick={() => setCacheStatus({ state: "confirming" })}
+                className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
+                  canClearCache
+                    ? "border-sakura-200 bg-white text-sakura-600 hover:border-sakura-300 hover:bg-sakura-50"
+                    : "border-slate-200 bg-slate-100 text-slate-400"
+                }`}
+              >
+                {isCachePending ? t("settings.optimization.clearingCache") : t("settings.optimization.clearCache")}
+              </button>
+              <InfoNote>Clearing cache does not delete source media or catalog records.</InfoNote>
+              {cacheStatus.state === "confirming" && (
+                <ClearCacheConfirmPanel
+                  onCancelClearCache={() => setCacheStatus({ state: "idle" })}
+                  onConfirmClearCache={handleConfirmClearCache}
+                />
+              )}
+              <SettingsStatusMessage status={cacheStatus} kind="cache" />
+            </div>
+          </SettingsControlRow>
+        </SettingsPanel>
       </SettingsSection>
+
     </div>
   );
 }
 
-function SettingsSection({
-  number,
+function SettingsPanelCard({
   title,
-  description,
   icon,
   children,
 }: {
-  number: string;
   title: string;
-  description: string;
   icon: LucideIcon;
   children: ReactNode;
 }) {
   const Icon = icon;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex h-12 items-center gap-3 border-b border-slate-200 px-4">
+        <Icon className="text-sakura-500" size={20} />
+        <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+      </div>
+      <div className="px-4 pb-10 pt-3">{children}</div>
+      <button
+        type="button"
+        disabled
+        aria-label={`Reset ${title}`}
+        className="absolute bottom-3 right-3 inline-flex size-7 items-center justify-center rounded-lg text-sakura-400 disabled:opacity-70"
+      >
+        <RotateCcw size={18} />
+      </button>
+    </section>
+  );
+}
+
+function ControlRow({
+  label,
+  children,
+  alignStart = false,
+}: {
+  label: string;
+  children: ReactNode;
+  alignStart?: boolean;
+}) {
+  return (
+    <div
+      className={`grid gap-2 py-1.5 sm:grid-cols-[160px_minmax(0,1fr)] ${
+        alignStart ? "sm:items-start" : "sm:items-center"
+      }`}
+    >
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function OverviewRow({
+  label,
+  value,
+  available = false,
+}: {
+  label: string;
+  value: string;
+  available?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 text-sm">
+      <span className="font-medium text-slate-700">{label}</span>
+      <span className="inline-flex items-center gap-2 font-medium text-slate-500">
+        {available && <span className="size-2 rounded-full bg-emerald-500" />}
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function CompactChoice({
+  label,
+  selected = false,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  selected?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`h-8 border-r border-slate-200 px-3 text-sm font-medium last:border-r-0 ${
+        selected
+          ? "bg-white text-sakura-600 shadow-sm"
+          : disabled
+            ? "bg-slate-50 text-slate-400"
+            : "bg-white text-slate-600 hover:bg-sakura-50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ShellButton({
+  label,
+  ariaLabel,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  ariaLabel?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-8 min-w-32 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600 disabled:bg-slate-50 disabled:text-slate-400"
+    >
+      {label}
+    </button>
+  );
+}
+
+function ShellSelect({ label, value }: { label: string; value: string }) {
+  return (
+    <select
+      aria-label={label}
+      disabled
+      value={value}
+      onChange={() => undefined}
+      className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500"
+    >
+      <option value={value}>{value}</option>
+    </select>
+  );
+}
+
+function ShellToggle({
+  label,
+  checked = false,
+}: {
+  label: string;
+  checked?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      disabled
+      className={`relative h-6 w-11 rounded-full ${
+        checked ? "bg-sakura-400" : "bg-slate-200"
+      } disabled:opacity-70`}
+    >
+      <span
+        className={`absolute top-1 size-4 rounded-full bg-white shadow-sm ${
+          checked ? "left-6" : "left-1"
+        }`}
+      />
+    </button>
+  );
+}
+
+function LanguageStatusContent({
+  status,
+  onApply,
+  onConfirmRemove,
+  onClose,
+}: {
+  status: LanguageCsvStatus;
+  onApply: (preview: CustomLanguageCsvPreviewType) => void;
+  onConfirmRemove: (code: string) => void;
+  onClose: () => void;
+}) {
+  if (status.state === "idle" || status.state === "pending") {
+    return null;
+  }
+
+  if (status.state === "exportSuccess" || status.state === "applySuccess" || status.state === "error") {
+    return (
+      <div
+        role="alert"
+        className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${
+          status.state === "error"
+            ? "border-rose-200 bg-rose-50 text-rose-700"
+            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+        }`}
+      >
+        {status.message}
+      </div>
+    );
+  }
+
+  if (status.state === "removeConfirm") {
+    return (
+      <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+        <p className="text-sm font-semibold text-rose-800">
+          Remove "{status.label}"?
+        </p>
+        <div className="mt-2 flex gap-2">
+          <ShellButton label="Remove Language" onClick={() => onConfirmRemove(status.code)} />
+          <ShellButton label="Cancel" onClick={onClose} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-sm font-semibold text-slate-800">
+        {status.preview.isNew ? "Add" : "Update"} {status.preview.languageName}
+      </p>
+      <p className="mt-1 text-xs font-medium text-slate-500">
+        {status.preview.validRows} valid row(s), {status.preview.errorRows} error(s)
+      </p>
+      <div className="mt-2 flex gap-2">
+        <ShellButton
+          label={status.preview.isNew ? "Add Language" : "Update Language"}
+          disabled={status.preview.validRows === 0}
+          onClick={() => onApply(status.preview)}
+        />
+        <ShellButton label="Cancel" onClick={onClose} />
+      </div>
+    </div>
+  );
+}
+
+function SettingsSection({
+  number,
+  sectionId,
+  title,
+  description,
+  icon,
+  children,
+  shell,
+}: {
+  number: string;
+  sectionId: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  shell?: Record<string, any>;
+}) {
+  const Icon = icon;
+  if (!shell) {
+    return null;
+  }
+  const {
+    t,
+    appearanceTheme,
+    languageCode,
+    languages,
+    mediaRoots,
+    isDesktopRuntime,
+    isLanguageCsvBusy,
+    languageCsvStatus,
+    mediaRootStatus,
+    backupStatus,
+    restoreStatus,
+    importStatus,
+    importApplyStatus,
+    exportStatus,
+    cacheStatus,
+    isMediaRootPending,
+    isBackupPending,
+    isRestorePending,
+    isImportPending,
+    isExportPending,
+    isCachePending,
+    canAddMediaRoot,
+    canBackUpDatabase,
+    canRestoreDatabase,
+    canImportCsv,
+    canExportCsv,
+    canClearCache,
+    isExportPanelOpen,
+    handleThemeChange,
+    handleLanguageChange,
+    handleRemoveCustomLanguage,
+    handleAddLanguageFromCsv,
+    handleExportLanguageTemplate,
+    handleApplyCustomLanguageCsv,
+    handleConfirmRemoveLanguage,
+    setLanguageCsvStatus,
+    handleAddMediaRoot,
+    handleRemoveMediaRoot,
+    handleBackupData,
+    handleRestoreData,
+    setRestoreStatus,
+    handleConfirmRestore,
+    handleImportCsvPreview,
+    setIsExportPanelOpen,
+    handleExportCsv,
+    handleRequestImportApply,
+    setImportApplyStatus,
+    handleConfirmImportApply,
+    setCacheStatus,
+    handleConfirmClearCache,
+  } = shell;
+
+  return (
+    <div className="space-y-3">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+          {t("settings.title")}
+        </h1>
+        <label className="relative block w-full sm:w-72">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            size={17}
+          />
+          <input
+            type="search"
+            aria-label="Search settings"
+            placeholder="Search settings"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+          />
+        </label>
+      </header>
+
+      <SettingsPanelCard title="Overview" icon={SlidersHorizontal}>
+        <div className="grid gap-4 md:grid-cols-2 md:gap-0">
+          <div className="space-y-2 md:pr-6">
+            <OverviewRow label="Theme" value={appearanceTheme === "dark" ? "Dark" : "Light"} />
+            <OverviewRow
+              label="Language"
+              value={languages.find((language: { code: string; label: string }) => language.code === languageCode)?.label ?? languageCode}
+            />
+            <OverviewRow label="Media Library" value={`${mediaRoots.length} folder${mediaRoots.length === 1 ? "" : "s"} configured`} />
+            <OverviewRow
+              label="Database"
+              value={isDesktopRuntime ? "Available" : "Not available"}
+              available={isDesktopRuntime}
+            />
+          </div>
+          <div className="space-y-2 border-slate-200 md:border-l md:pl-6">
+            <OverviewRow label="Last Backup" value="Not available" />
+            <OverviewRow label="Cache" value="Not available" />
+            <OverviewRow label="Storage" value="Local / Offline" />
+          </div>
+        </div>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Appearance" icon={Palette}>
+        <ControlRow label="Theme">
+          <div className="grid max-w-md grid-cols-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <CompactChoice
+              label="Light"
+              selected={appearanceTheme === "light"}
+              onClick={() => handleThemeChange("light")}
+            />
+            <CompactChoice
+              label="Dark"
+              selected={appearanceTheme === "dark"}
+              onClick={() => handleThemeChange("dark")}
+            />
+            <CompactChoice label="System" disabled />
+          </div>
+        </ControlRow>
+        <ControlRow label="Accent Color">
+          <div className="flex max-w-md items-center gap-3">
+            {["bg-sakura-500", "bg-orange-400", "bg-amber-400", "bg-green-500", "bg-cyan-500", "bg-blue-500", "bg-violet-500"].map((color, index) => (
+              <button
+                key={color}
+                type="button"
+                disabled
+                aria-label={index === 0 ? "Sakura Pink accent" : "Accent option unavailable"}
+                className={`size-6 rounded-full border-2 ${color} ${
+                  index === 0 ? "ring-2 ring-sakura-200 ring-offset-2" : "opacity-55"
+                }`}
+              />
+            ))}
+            <button
+              type="button"
+              disabled
+              aria-label="Custom accent color"
+              className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400"
+            >
+              <Palette size={15} />
+            </button>
+          </div>
+        </ControlRow>
+        <ControlRow label="Density">
+          <div className="grid max-w-md grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <CompactChoice label="Comfortable" disabled />
+            <CompactChoice label="Compact" disabled selected />
+          </div>
+        </ControlRow>
+        <ControlRow label="UI Scale">
+          <select
+            aria-label="UI Scale"
+            disabled
+            className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500"
+            value="100"
+            onChange={() => undefined}
+          >
+            <option value="100">100% (Default)</option>
+          </select>
+        </ControlRow>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Language" icon={FileText}>
+        <ControlRow label="App Language">
+          <select
+            aria-label={t("settings.language.appLanguage")}
+            className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            value={languageCode}
+            onChange={(event) => handleLanguageChange(event.target.value)}
+          >
+            {languages.map((language: { code: string; label: string }) => (
+              <option key={language.code} value={language.code}>
+                {language.label}
+              </option>
+            ))}
+          </select>
+        </ControlRow>
+        <ControlRow label="Installed Languages">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1 text-sm font-medium text-slate-600">
+              {languages.map((language: { label: string }) => language.label).join(", ")}
+            </span>
+            <ShellButton
+              label="Manage..."
+              disabled={!isDesktopRuntime || isLanguageCsvBusy || languages.filter((language: { code: string }) => language.code !== "en").length === 0}
+              onClick={handleRemoveCustomLanguage}
+            />
+          </div>
+        </ControlRow>
+        <ControlRow label="Custom Language">
+          <div className="flex flex-wrap gap-2">
+            <ShellButton
+              label="Import CSV..."
+              disabled={!isDesktopRuntime || isLanguageCsvBusy}
+              onClick={handleAddLanguageFromCsv}
+            />
+            <ShellButton
+              label={languageCode === "en" ? "Export Starter CSV" : "Export Language CSV"}
+              disabled={!isDesktopRuntime || isLanguageCsvBusy}
+              onClick={handleExportLanguageTemplate}
+            />
+          </div>
+        </ControlRow>
+        <LanguageStatusContent
+          status={languageCsvStatus}
+          onApply={handleApplyCustomLanguageCsv}
+          onConfirmRemove={handleConfirmRemoveLanguage}
+          onClose={() => setLanguageCsvStatus({ state: "idle" })}
+        />
+        <p className="mt-2 text-xs font-medium text-slate-500">
+          Changes apply to app UI only. Catalog data is not translated.
+        </p>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Catalog Preferences" icon={SlidersHorizontal}>
+        <ControlRow label="Default View">
+          <ShellSelect label="Default View" value="Grid" />
+        </ControlRow>
+        <ControlRow label="Default Sort">
+          <ShellSelect label="Default Sort" value="Date Added" />
+        </ControlRow>
+        <ControlRow label="Remember Preferences">
+          <ShellToggle label="Remember Preferences" />
+        </ControlRow>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Library & Media" icon={Folder}>
+        <ControlRow label="Media Root" alignStart>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div
+              role="listbox"
+              aria-label="Configured media roots"
+              className="min-h-24 rounded-lg border border-slate-200 bg-white p-2"
+            >
+              {mediaRoots.length === 0 ? (
+                <p className="px-2 py-1 text-sm font-medium text-slate-400">No folders configured</p>
+              ) : (
+                mediaRoots.map((root: string) => (
+                  <div
+                    key={root}
+                    role="option"
+                    aria-selected="true"
+                    className="rounded-md bg-sakura-50 px-2 py-1.5 text-sm font-medium text-slate-700"
+                  >
+                    {displayMediaRootPath(root)}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2 sm:flex-col">
+              <ShellButton
+                label={isMediaRootPending ? "Adding..." : "Add Folder..."}
+                ariaLabel="Add Media Root"
+                disabled={!canAddMediaRoot}
+                onClick={handleAddMediaRoot}
+              />
+              <ShellButton
+                label="Remove..."
+                ariaLabel="Remove"
+                disabled={mediaRoots.length === 0}
+                onClick={() => mediaRoots[0] && handleRemoveMediaRoot(mediaRoots[0])}
+              />
+            </div>
+          </div>
+          <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
+        </ControlRow>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Backup & Recovery" icon={ShieldCheck}>
+        <ControlRow label="Last Backup">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-slate-500">Not available</span>
+            <ShellButton
+              label={isBackupPending ? "Backing up..." : "Backup Now"}
+              ariaLabel={isBackupPending ? "Backing Up..." : "Backup Database"}
+              disabled={!canBackUpDatabase}
+              onClick={handleBackupData}
+            />
+          </div>
+        </ControlRow>
+        <ControlRow label="Backup Location">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-slate-500">Not configured</span>
+            <ShellButton
+              label={isRestorePending ? "Restoring..." : "Restore Backup..."}
+              ariaLabel={isRestorePending ? "Restoring..." : "Restore Database"}
+              disabled={!canRestoreDatabase}
+              onClick={handleRestoreData}
+            />
+          </div>
+        </ControlRow>
+        <p className="mt-2 text-xs font-medium text-slate-500">
+          Database backups do not include original media files.
+        </p>
+        <SettingsStatusMessage status={backupStatus} kind="backup" />
+        {restoreStatus.state === "confirming" && (
+          <RestoreConfirmPanel
+            restoreStatus={restoreStatus}
+            onCancelRestore={() => setRestoreStatus({ state: "idle" })}
+            onConfirmRestore={handleConfirmRestore}
+          />
+        )}
+        <SettingsStatusMessage status={restoreStatus} kind="restore" />
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Import / Export" icon={FileArchive}>
+        <ControlRow label="Import Catalog">
+          <div className="flex justify-end">
+            <ShellButton
+              label={isImportPending ? "Reading CSV..." : "Import CSV..."}
+              ariaLabel="Import Data"
+              disabled={!canImportCsv}
+              onClick={handleImportCsvPreview}
+            />
+          </div>
+        </ControlRow>
+        <ControlRow label="Export Catalog">
+          <div className="flex justify-end">
+            <ShellButton
+              label={isExportPending ? "Exporting CSV..." : "Export CSV..."}
+              ariaLabel="Export Data"
+              disabled={!canExportCsv}
+              onClick={() => setIsExportPanelOpen((open: boolean) => !open)}
+            />
+          </div>
+        </ControlRow>
+        <ControlRow label="Preview Before Apply">
+          <ShellToggle label="Preview Before Apply" checked />
+        </ControlRow>
+        {isExportPanelOpen && (
+          <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
+            {(["videos", "images", "performers", "categories"] as ExportCsvEntity[]).map((entity) => (
+              <button
+                key={entity}
+                type="button"
+                disabled={!canExportCsv}
+                onClick={() => handleExportCsv(entity)}
+                className={exportButtonClassName(canExportCsv)}
+              >
+                Export {exportEntityLabel(entity)} CSV
+              </button>
+            ))}
+          </div>
+        )}
+        <ImportPreviewPanel
+          importStatus={importStatus}
+          importApplyStatus={importApplyStatus}
+          onRequestApply={handleRequestImportApply}
+          onCancelApply={() => setImportApplyStatus({ state: "idle" })}
+          onConfirmApply={handleConfirmImportApply}
+        />
+        <SettingsStatusMessage status={exportStatus} kind="export" />
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title="Performance & Cache" icon={HardDrive}>
+        <ControlRow label="Cache Size">
+          <span className="text-sm font-medium text-slate-500">Not available</span>
+        </ControlRow>
+        <ControlRow label="Temporary Files">
+          <span className="text-sm font-medium text-slate-500">Not available</span>
+        </ControlRow>
+        <ControlRow label="Status">
+          <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+            <span className={`size-2 rounded-full ${isDesktopRuntime ? "bg-emerald-500" : "bg-slate-300"}`} />
+            {isDesktopRuntime ? "Available" : "Not available"}
+          </span>
+        </ControlRow>
+        <ControlRow label="Action">
+          <div className="flex justify-end">
+            <ShellButton
+              label={isCachePending ? "Clearing Cache..." : "Clear Cache..."}
+              ariaLabel="Clear Cache"
+              disabled={!canClearCache}
+              onClick={() => setCacheStatus({ state: "confirming" })}
+            />
+          </div>
+        </ControlRow>
+        {cacheStatus.state === "confirming" && (
+          <ClearCacheConfirmPanel
+            onCancelClearCache={() => setCacheStatus({ state: "idle" })}
+            onConfirmClearCache={handleConfirmClearCache}
+          />
+        )}
+        <SettingsStatusMessage status={cacheStatus} kind="cache" />
+      </SettingsPanelCard>
+    </div>
+  );
+
+  return (
+    <section
+      id={sectionId}
+      className="scroll-mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white"
+    >
       <div className="flex items-start gap-4 border-b border-slate-200 px-4 py-4">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
           <Icon size={18} />

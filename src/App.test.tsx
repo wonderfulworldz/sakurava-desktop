@@ -2767,133 +2767,47 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Manage application preferences, optimization, data safety, and app information.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Appearance" }))
+    expect(screen.getByRole("searchbox", { name: "Search settings" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Language" }))
+    for (const section of [
+      "Overview",
+      "Appearance",
+      "Language",
+      "Catalog Preferences",
+      "Library & Media",
+      "Backup & Recovery",
+      "Import / Export",
+      "Performance & Cache",
+    ]) {
+      expect(screen.getAllByRole("heading", { name: section }).length)
+        .toBeGreaterThan(0);
+    }
+    expect(screen.queryByText(/^1\. Overview$/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Theme").length).toBeGreaterThan(0);
+    expect(screen.getByText("Accent Color")).toBeInTheDocument();
+    expect(screen.getByText("Density")).toBeInTheDocument();
+    expect(screen.getByLabelText("UI Scale")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "System" })).toBeDisabled();
+    expect(screen.getByLabelText("Default View")).toBeDisabled();
+    expect(screen.getByLabelText("Default Sort")).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Remember Preferences" }))
+      .toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Preview Before Apply" }))
+      .toBeDisabled();
+    expect(screen.getByRole("listbox", { name: "Configured media roots" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Optimization" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data Safety & Migration" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "App Information" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Theme" })).toBeInTheDocument();
-    expect(screen.getByText("Accent Style")).toBeInTheDocument();
-    expect(screen.getByText("UI Density")).toBeInTheDocument();
-    expect(screen.getAllByText("App Language").length).toBeGreaterThan(0);
-    expect(screen.getByText("Installed Languages")).toBeInTheDocument();
-    expect(screen.getByText("Language CSV Tools")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Media & Library" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cache" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Catalog Preferences" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Scanning & Updates" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Backup & Restore" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Import & Export" })).toBeInTheDocument();
-    expect(screen.getByText("App Version")).toBeInTheDocument();
-    expect(screen.getByText("Database Status")).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Category Management" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Open Category Management" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByText("Catalog Settings")).not.toBeInTheDocument();
-    expect(screen.queryByText("Categories Audit")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
-    expect(screen.getByText("Local / Offline")).toBeInTheDocument();
-    expect(screen.getByText("Windows Desktop")).toBeInTheDocument();
-    expect(screen.getAllByText("Browser preview").length).toBeGreaterThan(0);
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getByText("Local SQLite database")).toBeInTheDocument();
-    expect(screen.getByText("All data is stored locally on this device.")).toBeInTheDocument();
-    expect(screen.getByText("Good")).toBeInTheDocument();
-    expect(screen.getByText("Not tracked yet")).toBeInTheDocument();
-    expect(screen.getByText("Manual thumbnail rendering")).toBeInTheDocument();
-    expect(screen.getAllByText("Enabled").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(/Pictures, Videos, Documents, and Downloads/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Media Loading")).toBeInTheDocument();
-    expect(screen.getByText("Hardware Acceleration")).toBeInTheDocument();
-    expect(screen.getByText("Parallel Processing")).toBeInTheDocument();
-    expect(screen.getByText("Default View")).toBeInTheDocument();
-    expect(screen.getByText("Default Sort")).toBeInTheDocument();
-    expect(screen.getByText("Items per Page")).toBeInTheDocument();
-    expect(screen.getByText("Auto Scan New Folders")).toBeInTheDocument();
-    expect(screen.getByText("Scan Interval")).toBeInTheDocument();
-    expect(screen.getByText("Ignore Short Videos")).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("Category name")).not.toBeInTheDocument();
-    expect(screen.queryByText("Apply Rename")).not.toBeInTheDocument();
-    expect(screen.queryByText("Apply Delete")).not.toBeInTheDocument();
-    expect(screen.queryByText("Runtime CRUD enabled")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Last Backup").length).toBeGreaterThan(0);
     expect(screen.getByText("Cache Size")).toBeInTheDocument();
-    expect(screen.getByText("Thumbnail Cache")).toBeInTheDocument();
-    expect(screen.getByText("Batch 35 planning")).toBeInTheDocument();
-    expect(screen.getByText("Preview Cache")).toBeInTheDocument();
-    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export, Import Preview, and confirmed Apply are available now. No media files are included.")).toBeInTheDocument();
-    expect(screen.getByText("Light")).toBeInTheDocument();
-    expect(screen.getByText("Dark")).toBeInTheDocument();
-    expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Sakura Pink/)).toBeInTheDocument();
-    expect(screen.getByText("Compact")).toBeInTheDocument();
-    expect(screen.getByText("Comfortable")).toBeInTheDocument();
-    expect(screen.getByText("Spacious")).toBeInTheDocument();
-    expect(screen.getAllByText("English").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Indonesian").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Changes apply to app UI only. Catalog data is not translated."),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Export Starter CSV")).toBeInTheDocument();
-    expect(screen.getByText("Import Custom Language")).toBeInTheDocument();
-    expect(screen.getByText("Remove Custom Language")).toBeInTheDocument();
-    expect(screen.getByText("Reset Custom Language")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Clearing cache does not delete your source media.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Full app data safety for database/sql-like backups. Generated thumbnails/cache-like app data may be included later; original media files are not included.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Sakurava works completely offline. Back up your database regularly to prevent data loss. Clearing cache will not delete your source media or catalog data.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Keep your data safe")).toBeInTheDocument();
-    expect(screen.queryByText("Welcome Slider")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reset to Defaults" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Backup Database" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Restore Database" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Clear Cache" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Export Videos CSV" }))
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Reset Overview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset Performance & Cache" }))
+      .toBeDisabled();
+    expect(screen.queryByRole("heading", { name: "System Info" }))
       .not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export Images CSV" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export Performers CSV" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export Categories CSV" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Import CSV preview" }))
-      .not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
-    // Language Editor UI is removed — no editor table, search, or region
-    expect(screen.queryByRole("region", { name: "Language Editor" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Search translation keys")).not.toBeInTheDocument();
-    // English shown as primary/not removable
-    expect(screen.getByText("Not removable")).toBeInTheDocument();
-    expect(screen.getByText("Primary")).toBeInTheDocument();
-    // Indonesian shown as custom/removable
-    expect(screen.getByText("Removable")).toBeInTheDocument();
+    expect(screen.queryByText(/Planned/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Soon/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/MVP/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Diagnostics")).not.toBeInTheDocument();
   });
 
   it("defaults Appearance theme to Light and persists Dark/Light selection", () => {
@@ -2966,8 +2880,8 @@ describe("App", () => {
     expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
     expect(screen.getByRole("heading", { name: "Pengaturan" }))
       .toBeInTheDocument();
-    expect(screen.getByText("Bahasa Aplikasi")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Keamanan Data & Migrasi" }))
+    expect(screen.getByLabelText("Bahasa Aplikasi")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Backup & Recovery" }))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Buka Beranda" }))
       .toHaveAttribute("href", "/");
@@ -3004,9 +2918,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
-    expect(screen.getByText("Available")).toBeInTheDocument();
-    expect(screen.getByText("Runtime Status")).toBeInTheDocument();
+    expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
   });
 
   it("renders Data Safety actions and reveals Export CSV actions progressively", () => {
@@ -3037,7 +2949,10 @@ describe("App", () => {
       .not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Import CSV preview" }))
       .not.toBeInTheDocument();
-    expect(screen.getByText(/confirmed Apply are available now/)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Preview Before Apply" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
 
@@ -4394,8 +4309,7 @@ describe("App", () => {
     expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
       JSON.stringify([canonicalRoot]),
     );
-    expect(screen.getByText("1 configured")).toBeInTheDocument();
-    expect(screen.getByText(/choose a folder, not a drive root/i)).toBeInTheDocument();
+    expect(screen.getByText("1 folder configured")).toBeInTheDocument();
   });
 
   it("does not duplicate and can remove a configured media root", async () => {
@@ -4437,7 +4351,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     expect(screen.queryByText(displayRoot)).not.toBeInTheDocument();
-    expect(screen.getByText("None")).toBeInTheDocument();
+    expect(screen.getByText("No folders configured")).toBeInTheDocument();
     expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
       JSON.stringify([]),
     );
