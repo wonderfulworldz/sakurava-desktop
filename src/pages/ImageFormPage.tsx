@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import type { FormConfig, FormMode } from "../lib/formData";
 import { formConfigs } from "../lib/formData";
 import {
@@ -28,6 +29,7 @@ type ImageFormPageProps = {
 };
 
 function ImageFormPage({ mode }: ImageFormPageProps) {
+  const t = useTranslation();
   const { itemKey } = useParams();
   const navigate = useNavigate();
   const [config, setConfig] = useState<FormConfig>(formConfigs.images);
@@ -117,7 +119,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
           Edit Image
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading image...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingImage")}</p>
       </section>
     );
   }

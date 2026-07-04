@@ -78,6 +78,12 @@ import {
 import { updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { updateVideo } from "../runtime/videoCommands";
+import { useTranslation } from "../lib/LanguageContext";
+import {
+  translateUiDisplayLabel,
+  translateUiDisplayValue,
+  type UiTranslator,
+} from "../lib/uiDisplayLabels";
 
 type DetailPageProps = {
   config: DetailConfig;
@@ -185,6 +191,7 @@ function DetailPage({ config }: DetailPageProps) {
 }
 
 function DetailHeader({ config }: DetailPageProps) {
+  const t = useTranslation();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -193,7 +200,7 @@ function DetailHeader({ config }: DetailPageProps) {
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
         >
           <ArrowLeft size={16} />
-          {config.backLabel}
+          {translateUiDisplayLabel(t, config.backLabel)}
         </Link>
         <div className="flex items-center gap-2">
           <Link
@@ -201,16 +208,16 @@ function DetailHeader({ config }: DetailPageProps) {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
           >
             <Edit3 size={16} />
-            Edit
+            {t("detail.edit")}
           </Link>
         </div>
       </div>
       <div>
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          {config.title}
+          {translateUiDisplayLabel(t, config.title)}
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          {config.subtitle}
+          {translateUiDisplayLabel(t, config.subtitle)}
         </p>
       </div>
     </div>
@@ -223,6 +230,7 @@ function CatalogDetailPage({
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   const heroSection = (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
@@ -233,7 +241,7 @@ function CatalogDetailPage({
   );
   const detailSummarySection = (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)]">
-      <RowsCard title="Metadata" icon={Calendar} items={config.metadata} />
+      <RowsCard title={t("detail.metadata")} icon={Calendar} items={config.metadata} />
       <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
       <RowsCard
         title={config.techTitle}
@@ -278,6 +286,7 @@ function CatalogIdentity({
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   const playableMedia =
     config.kind === "videos"
       ? config.mediaPaths.find((item) => item.playable)
@@ -328,9 +337,11 @@ function CatalogIdentity({
 
       {config.categories.length > 0 && (
         <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-semibold text-slate-800">Categories</p>
+          <p className="text-sm font-semibold text-slate-800">
+            {t("detail.categories")}
+          </p>
           <OverflowChipList
-            ariaLabel="Detail categories"
+            ariaLabel={t("detail.categoriesLabel")}
             labels={config.categories}
           />
         </div>
@@ -346,8 +357,12 @@ function PerformerDetailPage({
   config: PerformerDetailConfig;
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   const physicalItems = [
-    config.bodyType ?? { label: "Body Type", value: "N/A" },
+    config.bodyType ?? {
+      label: t("detail.bodyType"),
+      value: t("detail.notAvailable"),
+    },
     ...config.physical,
   ];
 
@@ -365,8 +380,8 @@ function PerformerDetailPage({
           <PerformerSummaryCards config={config} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
-            <RowsCard title="Personal" icon={UserRound} items={config.personal} />
-            <RowsCard title="Physical" icon={Ruler} items={physicalItems} />
+            <RowsCard title={t("detail.personal")} icon={UserRound} items={config.personal} />
+            <RowsCard title={t("detail.physical")} icon={Ruler} items={physicalItems} />
           </section>
           <NotesCard notes={config.notes} />
         </div>
@@ -386,6 +401,7 @@ function PerformerProfileCard({
   config: PerformerDetailConfig;
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="relative">
@@ -428,7 +444,7 @@ function PerformerProfileCard({
       />
 
       <div
-        aria-label="Performer hero chips"
+        aria-label={t("detail.performerHeroChips")}
         className="mt-4 flex flex-wrap gap-2"
       >
         {config.chips.map((chip) => (
@@ -443,13 +459,13 @@ function PerformerProfileCard({
       {config.aliases.length > 0 && (
         <>
           <Divider />
-          <LabelBlock title="Aliases" labels={config.aliases} />
+          <LabelBlock title={t("detail.aliases")} labels={config.aliases} />
         </>
       )}
       {config.categories.length > 0 && (
         <>
           <Divider />
-          <LabelBlock title="Categories" labels={config.categories} oneRowOverflow />
+          <LabelBlock title={t("detail.categories")} labels={config.categories} oneRowOverflow />
         </>
       )}
     </section>
@@ -463,7 +479,10 @@ function MainFavoriteButton({
   favorite: boolean;
   favoriteAction: DetailFavoriteAction;
 }) {
-  const label = favorite ? "Remove from Favorites" : "Add to Favorites";
+  const t = useTranslation();
+  const label = favorite
+    ? t("detail.removeFavorite")
+    : t("detail.addFavorite");
 
   return (
     <button
@@ -542,6 +561,7 @@ function ExpandableTitle({
 }
 
 function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
+  const t = useTranslation();
   const icons = [Calendar, Clapperboard, FileImage];
 
   return (
@@ -559,14 +579,14 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-600">
-                {item.label}
+                {translateUiDisplayLabel(t, item.label)}
               </p>
               <p className="mt-1 whitespace-pre-line text-2xl font-semibold leading-tight text-slate-950">
-                {item.value}
+                {translateUiDisplayValue(t, item.value)}
               </p>
               {item.secondaryValue && (
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {item.secondaryValue}
+                  {translateUiDisplayValue(t, item.secondaryValue)}
                 </p>
               )}
             </div>
@@ -780,6 +800,7 @@ function RowsCard({
   items: { label: string; value: string }[];
   message?: string;
 }) {
+  const t = useTranslation();
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title={title} icon={Icon} />
@@ -791,13 +812,13 @@ function RowsCard({
             className="grid min-w-0 grid-cols-[minmax(7rem,0.85fr)_minmax(0,1.15fr)] gap-4 py-3 text-sm"
           >
             <span className="min-w-0 truncate font-medium text-slate-700" title={item.label}>
-              {item.label}
+              {translateUiDisplayLabel(t, item.label ?? "")}
             </span>
             <span
               className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]"
               title={detailDisplayValue(item.value)}
             >
-              {detailDisplayValue(item.value)}
+              {translateUiDisplayValue(t, detailDisplayValue(item.value) ?? "N/A")}
             </span>
           </div>
         ))}
@@ -841,6 +862,7 @@ function isEmptyDetailValue(value: string | number | null | undefined) {
 }
 
 function HeroPlayButton({ item }: { item: MediaPathItem }) {
+  const t = useTranslation();
   const [status, setStatus] = useState<PathStatusState>(() => ({
     label: item.label,
     path: item.path.trim(),
@@ -912,7 +934,7 @@ function HeroPlayButton({ item }: { item: MediaPathItem }) {
         className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none"
       >
         <Play size={16} fill="currentColor" />
-        {opening ? "Opening..." : "Play"}
+        {opening ? t("viewer.opening") : t("detail.play")}
       </button>
       {feedback && (
         <span className="text-xs font-medium text-slate-500">{feedback}</span>
@@ -927,6 +949,7 @@ type PathStatusState = PathStatusResult & {
 };
 
 function MediaPathStatusRows({ items }: { items: MediaPathItem[] }) {
+  const t = useTranslation();
   const [statuses, setStatuses] = useState<PathStatusState[]>(() =>
     initialPathStatuses(items),
   );
@@ -959,8 +982,8 @@ function MediaPathStatusRows({ items }: { items: MediaPathItem[] }) {
 
         return (
           <div key={status.label} className="text-sm">
-            <p className="font-medium text-slate-600">{status.label}</p>
-            <p className="mt-1 text-slate-500">{display.label}</p>
+            <p className="font-medium text-slate-600">{translateUiDisplayLabel(t, status.label)}</p>
+            <p className="mt-1 text-slate-500">{translateUiDisplayLabel(t, display.label)}</p>
           </div>
         );
       })}
@@ -1016,15 +1039,16 @@ function SystemInfoCard({
   items: { label: string; value: string }[];
   mediaPaths?: MediaPathItem[];
 }) {
+  const t = useTranslation();
   return (
     <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-      <CardTitle title="System Info" icon={Info} />
+      <CardTitle title={t("detail.systemInfo")} icon={Info} />
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {items.map((item) => (
           <div key={item.label} className="text-sm">
-            <p className="font-medium text-slate-600">{item.label}</p>
+            <p className="font-medium text-slate-600">{translateUiDisplayLabel(t, item.label)}</p>
             <p className="mt-1 text-slate-500">
-              {detailDisplayValue(item.value)}
+              {translateUiDisplayValue(t, detailDisplayValue(item.value) ?? t("detail.notAvailable"))}
             </p>
           </div>
         ))}
@@ -1041,6 +1065,7 @@ function RatingSummaryCard({
   title: string;
   rating: { label: string; value: number }[];
 }) {
+  const t = useTranslation();
   const average = calculateAverageRating(rating);
   const canRenderChart = rating.length >= 3 && rating.length <= 8;
 
@@ -1051,9 +1076,9 @@ function RatingSummaryCard({
         <SpiderChart dimensions={rating} average={average} />
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center">
-          <p className="text-sm font-semibold text-slate-700">Not rated</p>
+          <p className="text-sm font-semibold text-slate-700">{t("detail.notRated")}</p>
           <p className="mt-1 text-xs text-slate-500">
-            Rating not available for a readable spider chart.
+            {t("detail.ratingUnavailable")}
           </p>
         </div>
       )}
@@ -1068,6 +1093,7 @@ function SpiderChart({
   dimensions: { label: string; value: number }[];
   average: number | null;
 }) {
+  const t = useTranslation();
   const gradientId = useId().replace(/:/g, "");
   const center = 210;
   const radius = 84;
@@ -1098,7 +1124,7 @@ function SpiderChart({
         data-dimension-count={dimensionCount}
         data-shape={shapeName}
       >
-        <title>Rating radar map</title>
+        <title>{t("detail.ratingRadar")}</title>
         <desc>
           {dimensions
             .map((dimension) => `${dimension.label}: ${formatRadarValue(dimension.value)}`)
@@ -1183,7 +1209,7 @@ function SpiderChart({
                 dominantBaseline="middle"
                 className="fill-slate-600 text-[11px] font-medium"
               >
-                {dimension.label}
+                {translateUiDisplayLabel(t, dimension.label)}
               </text>
               <text
                 x={labelX}
@@ -1282,12 +1308,13 @@ function spiderShapeName(dimensionCount: number) {
 }
 
 function NotesCard({ notes }: { notes: string }) {
+  const t = useTranslation();
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Notes" icon={FileImage} />
+      <CardTitle title={t("detail.notes")} icon={FileImage} />
       <div className="mt-4 min-w-0 rounded-lg border border-sakura-100 bg-sakura-50/30 px-4 py-3">
         <p className="min-w-0 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
-          {notes}
+          {translateUiDisplayValue(t, notes)}
         </p>
       </div>
     </section>
@@ -1295,6 +1322,7 @@ function NotesCard({ notes }: { notes: string }) {
 }
 
 function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
+  const t = useTranslation();
   const visibleLinks = normalizeSourceLinks(links);
   const [openError, setOpenError] = useState("");
 
@@ -1308,14 +1336,14 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Source Links" icon={Globe2} />
+      <CardTitle title={t("detail.sourceLinks")} icon={Globe2} />
       <div className="mt-4 divide-y divide-slate-100">
         {visibleLinks.length === 0 ? (
           <div
             className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
           >
-            <span className="font-semibold text-slate-700">Source Link</span>
-            <span className="text-slate-500">N/A</span>
+            <span className="font-semibold text-slate-700">{t("detail.sourceLink")}</span>
+            <span className="text-slate-500">{t("detail.notAvailable")}</span>
           </div>
         ) : (
           visibleLinks.map((link) => (
@@ -1344,7 +1372,7 @@ function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
                 onClick={() => void handleOpen(link.url)}
               >
                 <ExternalLink size={14} />
-                Open
+                {t("common.open")}
               </button>
             </div>
           ))
@@ -1394,6 +1422,7 @@ function RelatedRows({
 }: {
   sections: DetailSection[];
 }) {
+  const t = useTranslation();
   return (
     <section className="grid min-w-0 max-w-full gap-4">
       {sections.map((section) => (
@@ -1402,9 +1431,12 @@ function RelatedRows({
           className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5"
         >
           <div className="flex items-start justify-between gap-4">
-            <CardTitle title={section.title} icon={relatedSectionIcon(section.title)} />
+            <CardTitle
+              title={translateUiDisplayLabel(t, section.title)}
+              icon={relatedSectionIcon(section.title)}
+            />
             <span className="shrink-0 text-sm font-semibold text-slate-500">
-              {relatedCountLabel(section)}
+              {relatedCountLabel(t, section)}
             </span>
           </div>
           {section.filmography?.length ? (
@@ -1436,7 +1468,7 @@ function relatedSectionIcon(title: string) {
   return UserRound;
 }
 
-function relatedCountLabel(section: DetailSection) {
+function relatedCountLabel(t: UiTranslator, section: DetailSection) {
   const count =
     (section.filmography?.length ||
       (section.credits
@@ -1445,16 +1477,22 @@ function relatedCountLabel(section: DetailSection) {
       section.relatedPerformers?.length) ??
     section.relatedCatalogRecords?.length ??
     0;
-  const singular = section.title.includes("Credits")
-    ? "Credit"
-    : section.title.includes("Performer")
-    ? "Performer"
-    : section.title.includes("Video")
-      ? "Video"
-      : "Image";
-  const label = count === 1 ? singular : `${singular}s`;
-
-  return `${count} ${label}`;
+  if (section.title.includes("Performer")) {
+    return t(count === 1 ? "count.performer" : "count.performers", {
+      count: String(count),
+    });
+  }
+  if (section.title.includes("Video")) {
+    return t(count === 1 ? "count.video" : "count.videos", {
+      count: String(count),
+    });
+  }
+  if (section.title.includes("Image")) {
+    return t(count === 1 ? "count.image" : "count.images", {
+      count: String(count),
+    });
+  }
+  return `${count} ${count === 1 ? "Credit" : "Credits"}`;
 }
 
 function FilmographySummary({
@@ -1462,6 +1500,7 @@ function FilmographySummary({
 }: {
   items: FilmographyDetailItem[];
 }) {
+  const t = useTranslation();
   return (
     <div className="mt-4 grid gap-3">
       {items.map((item) => (
@@ -1502,10 +1541,10 @@ function FilmographySummary({
           </div>
           <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
             <CreditField
-              label="Role"
+              label={t("detail.role")}
               value={item.characterName}
             />
-            <CreditField label="Credit Type" value={item.creditType} />
+            <CreditField label={t("detail.creditType")} value={item.creditType} />
           </dl>
         </article>
       ))}
@@ -1514,10 +1553,11 @@ function FilmographySummary({
 }
 
 function CreditSummary({ credits }: { credits: CreditDetailItem[] }) {
+  const t = useTranslation();
   const groupedCredits = groupCreditsByPerformer(credits);
 
   return (
-    <RelatedCarousel label="Related Performers">
+    <RelatedCarousel label={t("detail.relatedPerformers")}>
       {groupedCredits.map((group, index) => {
         const credit = group[0];
         const liteItem: HomeRecentItem = {
@@ -1692,10 +1732,11 @@ function RelatedLiteCard({
 }
 
 function RelatedCatalogSummary({ section }: { section: DetailSection }) {
+  const t = useTranslation();
   const relatedCatalogRecords = section.relatedCatalogRecords ?? [];
   const emptyText = section.title.includes("Image")
-    ? "No related images saved."
-    : "No related videos saved.";
+    ? t("detail.related.empty.images")
+    : t("detail.related.empty.videos");
   const hasControls = section.controls === "performer-related";
   const kind = section.title.includes("Image") ? "images" : "videos";
   const sessionKey = hasControls ? performerRelatedSessionKey(kind) : "";
@@ -2014,6 +2055,7 @@ function RelatedCarousel({
   children: ReactNode;
   label: string;
 }) {
+  const t = useTranslation();
   const items = Children.toArray(children);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [visibleCount, setVisibleCount] = useState(RELATED_CAROUSEL_VISIBLE_COUNT);
@@ -2157,7 +2199,7 @@ function RelatedCarousel({
         >
           <button
             type="button"
-            aria-label="Previous related items"
+            aria-label={t("detail.previousRelated")}
             disabled={safePage === 0}
             onClick={(event) => {
               handleControlClick(event);
@@ -2189,7 +2231,7 @@ function RelatedCarousel({
           </div>
           <button
             type="button"
-            aria-label="Next related items"
+            aria-label={t("detail.nextRelated")}
             disabled={safePage >= pageCount - 1}
             onClick={(event) => {
               handleControlClick(event);
@@ -2239,6 +2281,7 @@ function RelatedCatalogCard({
   item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
   icon: typeof Info;
 }) {
+  const t = useTranslation();
   const isImage = icon === ImageIcon;
   const content = (
     <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
@@ -2249,7 +2292,7 @@ function RelatedCatalogCard({
         path={item.coverPath}
       />
       <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        {item.unresolved && <Chip label={t("detail.unavailable")} tone="orange" />}
         <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
           {dashDetailText(item.title)}
         </p>
@@ -2284,16 +2327,17 @@ function RelatedPerformerCard({
 }: {
   item: NonNullable<DetailSection["relatedPerformers"]>[number];
 }) {
+  const t = useTranslation();
   const content = (
     <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
       <RelatedWideThumbnail
         aspectClass="aspect-square"
         icon={UserRound}
-        label="Related performer"
+        label={t("detail.relatedPerformer")}
         path={item.coverPath}
       />
       <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        {item.unresolved && <Chip label={t("detail.unavailable")} tone="orange" />}
         <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
           {dashDetailText(item.name)}
         </p>
@@ -2328,6 +2372,7 @@ function PerformerRelatedCatalogCard({
   item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
   kind: "videos" | "images";
 }) {
+  const t = useTranslation();
   const content = (
     <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
       <RelatedWideThumbnail
@@ -2337,7 +2382,7 @@ function PerformerRelatedCatalogCard({
         path={item.coverPath}
       />
       <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        {item.unresolved && <Chip label={t("detail.unavailable")} tone="orange" />}
         <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
           {dashDetailText(item.title)}
         </p>
@@ -2483,6 +2528,7 @@ function RelatedControls({
   onSortModeChange: (sortMode: RelatedSortMode) => void;
   onViewModeChange: (viewMode: "card" | "table") => void;
 }) {
+  const t = useTranslation();
   const rangeStart = resultCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, resultCount);
   const sortControlRef = useRef<HTMLDivElement | null>(null);
@@ -2535,9 +2581,9 @@ function RelatedControls({
           className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500"
           data-testid="performer-related-search-control"
         >
-          <span className="shrink-0">Search</span>
+          <span className="shrink-0">{t("common.search")}</span>
           <input
-            aria-label="Search related items"
+            aria-label={t("detail.searchRelated")}
             className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
@@ -2546,7 +2592,7 @@ function RelatedControls({
         <div className="relative min-w-0 shrink-0" ref={sortControlRef}>
           <button
             type="button"
-            aria-label={`Sort ${selectedSort.label}`}
+            aria-label={`Sort ${translateUiDisplayLabel(t, selectedSort.label)}`}
             aria-haspopup="listbox"
             aria-expanded={sortOpen}
             className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100 sm:w-44"
@@ -2555,7 +2601,7 @@ function RelatedControls({
           >
             <ArrowUpDown size={16} className="shrink-0 text-slate-500" />
             <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-950">
-              {selectedSort.label}
+              {translateUiDisplayLabel(t, selectedSort.label)}
             </span>
             <ChevronDown
               size={16}
@@ -2566,7 +2612,7 @@ function RelatedControls({
             <div className="absolute right-0 z-50 mt-2 w-full min-w-44 rounded-lg border border-slate-200 bg-white shadow-lg">
               <div
                 role="listbox"
-                aria-label="Related sort options"
+                aria-label={t("detail.relatedSortOptions")}
                 className="sakurava-scrollbar max-h-64 overflow-y-auto p-1"
               >
                 {RELATED_SORT_OPTIONS.map((option) => (
@@ -2583,7 +2629,9 @@ function RelatedControls({
                     ].join(" ")}
                     onClick={() => selectSortMode(option.value)}
                   >
-                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {translateUiDisplayLabel(t, option.label)}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -2607,20 +2655,24 @@ function RelatedControls({
           data-testid="performer-related-view-button"
         >
           <ViewIcon size={16} aria-hidden="true" />
-          <span className="sr-only">View</span>
+          <span className="sr-only">{t("common.view")}</span>
         </button>
       </div>
       <nav
         className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
-        aria-label="Related section pagination"
+        aria-label={t("detail.relatedPagination")}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <p className="text-sm font-semibold text-slate-600">
-            Showing {rangeStart}-{rangeEnd} of {resultCount}
+            {t("pagination.showing", {
+              start: String(rangeStart),
+              end: String(rangeEnd),
+              total: String(resultCount),
+            })}
             {resultCount !== itemCount ? ` filtered from ${itemCount}` : ""}
           </p>
         <label className="flex items-center text-xs font-semibold text-slate-500">
-          Page size
+          {t("common.pageSize")}
           <SakuravaSelect
             ariaLabel="Related items per page"
             className="ml-2 w-24"
@@ -2632,7 +2684,7 @@ function RelatedControls({
               label: String(option),
             }))}
           />
-          <span className="ml-2">per page</span>
+          <span className="ml-2">{t("common.perPage")}</span>
         </label>
         </div>
         <div className="flex items-center gap-2">
@@ -2642,7 +2694,7 @@ function RelatedControls({
           onClick={() => onPageChange(page - 1)}
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
-          Previous
+          {t("common.previous")}
         </button>
         {buildDetailPaginationPages(page, totalPages).map((pageNumber) => (
           <button
@@ -2666,7 +2718,7 @@ function RelatedControls({
           onClick={() => onPageChange(page + 1)}
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
       </nav>
@@ -2700,6 +2752,7 @@ function RelatedCatalogTable({
   items: NonNullable<DetailSection["relatedCatalogRecords"]>;
   kind: "videos" | "images";
 }) {
+  const t = useTranslation();
   return (
     <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
       <table className="min-w-[760px] table-fixed divide-y divide-slate-200 text-left text-sm">
@@ -2713,10 +2766,12 @@ function RelatedCatalogTable({
         </colgroup>
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
           <tr>
-            <th className="px-4 py-3">Title</th>
-            <th className="px-4 py-3">Release Date</th>
+            <th className="px-4 py-3">{t("detail.related.table.header.title")}</th>
+            <th className="px-4 py-3">{t("detail.related.table.header.releaseDate")}</th>
             <th className="px-4 py-3">
-              {kind === "images" ? "Total" : "Duration"}
+              {kind === "images"
+                ? t("detail.related.table.header.total")
+                : t("detail.related.table.header.duration")}
             </th>
           </tr>
         </thead>
@@ -2757,6 +2812,7 @@ function PerformerRelatedCatalogTable({
   sortMode: RelatedSortMode;
   onSortModeChange: (sortMode: RelatedSortMode) => void;
 }) {
+  const t = useTranslation();
   const tableWidth = 1040;
 
   return (
@@ -2779,17 +2835,17 @@ function PerformerRelatedCatalogTable({
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
           <tr>
             <RelatedSortableHeader
-              label="AVAIL"
+              label={t("detail.table.availabilityShort")}
               sortMode={sortMode}
               sortAsc="availabilityAsc"
               sortDesc="availabilityDesc"
               onSortModeChange={onSortModeChange}
             />
             <th className="min-w-0 overflow-hidden px-3 py-3">
-              <span className="block truncate">FAV</span>
+              <span className="block truncate">{t("detail.table.favoriteShort")}</span>
             </th>
             <RelatedSortableHeader
-              label="TITLE"
+              label={t("detail.table.titleShort")}
               sortLabel="Title"
               sortMode={sortMode}
               sortAsc="az"
@@ -2797,28 +2853,30 @@ function PerformerRelatedCatalogTable({
               onSortModeChange={onSortModeChange}
             />
             <RelatedSortableHeader
-              label="CODE"
+              label={t("detail.table.codeShort")}
               sortMode={sortMode}
               sortAsc="codeAsc"
               sortDesc="codeDesc"
               onSortModeChange={onSortModeChange}
             />
             <RelatedSortableHeader
-              label={kind === "images" ? "TOTAL" : "DURATION"}
+              label={kind === "images"
+                ? t("detail.performer.relatedImages.table.header.total")
+                : t("detail.performer.relatedVideos.table.header.total")}
               sortMode={sortMode}
               sortAsc="metricAsc"
               sortDesc="metricDesc"
               onSortModeChange={onSortModeChange}
             />
             <RelatedSortableHeader
-              label="CENSOR"
+              label={t("detail.table.censorshipShort")}
               sortMode={sortMode}
               sortAsc="censorshipAsc"
               sortDesc="censorshipDesc"
               onSortModeChange={onSortModeChange}
             />
             <RelatedSortableHeader
-              label="RATING"
+              label={t("detail.table.ratingShort")}
               sortMode={sortMode}
               sortAsc="ratingAsc"
               sortDesc="ratingDesc"
@@ -2919,9 +2977,11 @@ function RelatedSortableHeader({
 }
 
 function RelatedTablePlainValue({ value }: { value: string }) {
+  const t = useTranslation();
+  const translatedValue = translateUiDisplayValue(t, value);
   return (
-    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={value}>
-      {value}
+    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={translatedValue}>
+      {translatedValue}
     </span>
   );
 }
@@ -2933,16 +2993,18 @@ function RelatedTableStatusChip({
   value: string;
   tone: "availability" | "censorship";
 }) {
+  const t = useTranslation();
+  const translatedValue = translateUiDisplayLabel(t, value);
   return (
     <span
       className={[
         "inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border px-2.5 py-1 text-xs font-semibold",
         relatedTableStatusToneClass(value, tone),
       ].join(" ")}
-      title={value}
+      title={translatedValue}
       data-testid="performer-related-table-status-chip"
     >
-      <span className="truncate">{value}</span>
+      <span className="truncate">{translatedValue}</span>
     </span>
   );
 }
@@ -3386,17 +3448,18 @@ function RelatedEmptyState({
   title: string;
   message?: string;
 }) {
+  const t = useTranslation();
   const fallbackMessage =
     message ??
     (title.includes("Image")
-      ? "No related images saved."
+      ? t("detail.related.empty.images")
       : title.includes("Video")
-        ? "No related videos saved."
-        : "No related performers saved.");
+        ? t("detail.related.empty.videos")
+        : t("detail.related.empty.performers"));
 
   return (
     <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4">
-      <p className="text-sm font-medium text-slate-500">{fallbackMessage}</p>
+      <p className="text-sm font-medium text-slate-500">{translateUiDisplayLabel(t, fallbackMessage)}</p>
     </div>
   );
 }
@@ -3404,6 +3467,7 @@ function RelatedEmptyState({
 const GALLERY_BATCH_SIZE = 15;
 
 function GalleryGrid({ paths }: { paths: string[] }) {
+  const t = useTranslation();
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
   const [viewerPayload, setViewerPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
@@ -3443,16 +3507,19 @@ function GalleryGrid({ paths }: { paths: string[] }) {
     <>
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle title="Gallery" icon={ImageIcon} />
+          <CardTitle title={t("detail.gallery")} icon={ImageIcon} />
           {paths.length > 0 && (
             <p className="text-xs font-medium text-slate-500">
-              Showing {visiblePaths.length} of {paths.length} images
+              {t("detail.galleryShowing", {
+                shown: String(visiblePaths.length),
+                total: String(paths.length),
+              })}
             </p>
           )}
         </div>
         {paths.length === 0 ? (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-            No Gallery Images saved.
+            {t("detail.galleryEmpty")}
           </p>
         ) : (
           <>
@@ -3478,14 +3545,14 @@ function GalleryGrid({ paths }: { paths: string[] }) {
                   }
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
                 >
-                  Load More
+                  {t("detail.loadMore")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setVisibleCount(paths.length)}
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
                 >
-                  Show All
+                  {t("detail.showAll")}
                 </button>
               </div>
             )}
@@ -3563,6 +3630,7 @@ function CardTitle({
   title: string;
   icon: LucideIcon;
 }) {
+  const t = useTranslation();
   return (
     <div className="flex items-center gap-2">
       <span
@@ -3571,7 +3639,7 @@ function CardTitle({
       >
         <Icon size={17} aria-hidden="true" />
       </span>
-      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+      <h2 className="text-base font-semibold text-slate-950">{translateUiDisplayLabel(t, title)}</h2>
     </div>
   );
 }
@@ -3585,9 +3653,10 @@ function LabelBlock({
   labels: string[];
   oneRowOverflow?: boolean;
 }) {
+  const t = useTranslation();
   return (
     <div className="min-w-0">
-      <p className="text-sm font-semibold text-slate-800">{title}</p>
+      <p className="text-sm font-semibold text-slate-800">{translateUiDisplayLabel(t, title)}</p>
       {oneRowOverflow ? (
         <OverflowChipList ariaLabel={`Detail ${title.toLowerCase()}`} labels={labels} />
       ) : (
@@ -3608,6 +3677,7 @@ function OverflowChipList({
   ariaLabel: string;
   labels: string[];
 }) {
+  const t = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const cleanLabels = labels
     .map(cleanDetailChipLabel)
@@ -3645,7 +3715,7 @@ function OverflowChipList({
         {expanded && cleanLabels.length > DETAIL_CHIP_VISIBLE_LIMIT && (
           <button
             type="button"
-            aria-label="Collapse categories"
+            aria-label={t("detail.collapseCategories")}
             onClick={() => setExpanded(false)}
             className="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2"
           >
@@ -3675,6 +3745,8 @@ function Chip({
   tone: "green" | "orange" | "accent" | "accentSoft" | "neutral";
   icon?: typeof Heart;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const toneClass = {
     green: "border-emerald-100 bg-emerald-50 text-emerald-700",
     orange: "border-orange-100 bg-orange-50 text-orange-600",
@@ -3686,10 +3758,10 @@ function Chip({
   return (
     <span
       className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${toneClass}`}
-      title={label}
+      title={displayLabel}
     >
       {Icon && <Icon size={14} fill="currentColor" />}
-      <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
+      <span className="min-w-0 truncate whitespace-nowrap">{displayLabel}</span>
     </span>
   );
 }

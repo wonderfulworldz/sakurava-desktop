@@ -24,7 +24,7 @@ import {
 } from "../lib/catalogPagination";
 import type { ManagedCategory } from "../backend/types";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
-import { useLanguage } from "../lib/LanguageContext";
+import { useLanguage, useTranslation } from "../lib/LanguageContext";
 import {
   clearSessionFilterState,
   readSessionFilterState,
@@ -33,6 +33,13 @@ import {
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import {
+  catalogFilterChipKey,
+  translateCatalogFilterValue,
+  translateUiDisplayLabel,
+  translateUiDisplayValue,
+  type UiTranslator,
+} from "../lib/uiDisplayLabels";
 
 type CollectionPageProps = {
   config: CollectionConfig;
@@ -62,6 +69,7 @@ type DropdownState = {
   openDropdownKey: string | null;
   onOpenDropdownChange: (key: string | null) => void;
 };
+type UiTranslate = ReturnType<typeof useLanguage>["t"];
 
 const emptyCatalogSessionFilters: CatalogSessionFilters = {
   searchQuery: "",
@@ -360,6 +368,13 @@ function CollectionHeader({ config }: CollectionPageProps) {
   const { t } = useLanguage();
   const title = t(`collection.title.${config.kind}`);
   const subtitle = t(`collection.subtitle.${config.kind}`);
+  const countKey =
+    config.items.length === 1
+      ? `count.${config.kind.slice(0, -1)}`
+      : `count.${config.kind}`;
+  const translatedCount = t(countKey, {
+    count: String(config.items.length),
+  });
   const actionLabel = t(
     config.kind === "videos"
       ? "collection.addVideo"
@@ -379,7 +394,7 @@ function CollectionHeader({ config }: CollectionPageProps) {
 
       <div className="flex items-center gap-8">
         <p className="text-base font-semibold text-slate-500">
-          {config.countLabel}
+          {translatedCount}
         </p>
         <Link
           to={config.actionTo}
@@ -546,7 +561,7 @@ function CollectionToolbar({
           data-testid={`${config.kind}-toolbar-filter-button`}
         >
           <Filter size={18} />
-          <span className="hidden min-w-0 text-left sm:inline">Filter</span>
+          <span className="hidden min-w-0 text-left sm:inline">{t("collection.filter")}</span>
           <span
             aria-label={`${activeFilterCount} active filters`}
             className={[
@@ -610,7 +625,7 @@ function CollectionToolbar({
             {activeCategoryFilters.map((category) => (
               <FilterChip
                 key={normalizeCategoryKey(category)}
-                label={`Category: ${category}`}
+                label={`${t("catalog.filterChip.category")}: ${category}`}
                 removeLabel={`Remove category filter ${category}`}
                 onRemove={() => onRemoveCategoryFilter(category)}
               />
@@ -618,7 +633,7 @@ function CollectionToolbar({
             {activeDataFilters.map((filter) => (
               <FilterChip
                 key={filter.id}
-                label={`${filter.label}: ${filter.value}`}
+                label={`${t(catalogFilterChipKey(filter.id))}: ${translateCatalogFilterValue(t, filter.id, filter.value)}`}
                 removeLabel={`Remove ${filter.label} filter`}
                 onRemove={() => onClearDataFilter(filter.id)}
               />
@@ -682,6 +697,7 @@ function SortPicker({
   onChange: (value: string) => void;
   dropdownState: DropdownState;
 }) {
+  const t = useTranslation();
   const open = dropdownState.openDropdownKey === dropdownKey;
 
   function selectOption(option: string) {
@@ -693,7 +709,7 @@ function SortPicker({
     <div className="relative min-w-0 shrink-0 sm:w-auto">
       <button
         type="button"
-        aria-label={`Sort ${value}`}
+        aria-label={`${t("common.sort")} ${translateUiDisplayLabel(t, value)}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         className="flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100 sm:w-44"
@@ -702,17 +718,17 @@ function SortPicker({
       >
         <ArrowUpDown size={18} className="shrink-0 text-slate-500" />
         <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-950">
-          {value}
+          {translateUiDisplayLabel(t, value)}
         </span>
         <ChevronDown size={16} className={open ? "rotate-180 transition" : "transition"} />
       </button>
       {open && (
         <div className="absolute z-50 mt-2 w-full min-w-44 rounded-lg border border-slate-200 bg-white shadow-lg">
-          <div role="listbox" aria-label="Sort options" className="sakurava-scrollbar max-h-64 overflow-y-auto p-1">
+          <div role="listbox" aria-label={t("collection.sortOptions")} className="sakurava-scrollbar max-h-64 overflow-y-auto p-1">
             {options.map((option) => (
               <PickerOption
                 key={option}
-                label={option}
+                label={translateUiDisplayLabel(t, option)}
                 selected={normalizedFilterValue(option) === normalizedFilterValue(value)}
                 showMarker={false}
                 onSelect={() => selectOption(option)}
@@ -749,7 +765,8 @@ function CollectionFilterPanel({
   onDataFilterChange: (filterId: string, value: string) => void;
   dropdownState: DropdownState;
 }) {
-  const title = useLanguage().t(`collection.title.${config.kind}`);
+  const { t } = useLanguage();
+  const title = t(`collection.title.${config.kind}`);
 
   return (
     <div
@@ -759,7 +776,7 @@ function CollectionFilterPanel({
       className="mt-3 overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm"
     >
       <div className="grid md:grid-cols-2">
-        {filterPanelCells(config, categoryOptions, performerFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState)}
+        {filterPanelCells(config, categoryOptions, performerFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState, t)}
       </div>
     </div>
   );
@@ -774,16 +791,17 @@ function filterPanelCells(
   onAddCategoryFilter: (value: string) => void,
   onDataFilterChange: (filterId: string, value: string) => void,
   dropdownState: DropdownState,
+  t: UiTranslate,
 ) {
   if (config.kind === "images") {
-    return imageFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
+    return imageFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState, t);
   }
 
   if (config.kind === "performers") {
-    return performerFilterPanelCells(config, categoryOptions, performerFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
+    return performerFilterPanelCells(config, categoryOptions, performerFilterOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState, t);
   }
 
-  return videoFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState);
+  return videoFilterPanelCells(config, categoryOptions, categorySelectDisabled, dataFilters, onAddCategoryFilter, onDataFilterChange, dropdownState, t);
 }
 
 function videoFilterPanelCells(
@@ -794,6 +812,7 @@ function videoFilterPanelCells(
   onAddCategoryFilter: (value: string) => void,
   onDataFilterChange: (filterId: string, value: string) => void,
   dropdownState: DropdownState,
+  t: UiTranslate,
 ) {
   const publisherOptions = pickerOptions(config.items, (item) =>
     item.kind === "videos" ? item.publisherLabel : undefined,
@@ -807,7 +826,7 @@ function videoFilterPanelCells(
       key="availability"
       kind={config.kind}
       filterId="availability"
-      label="Availability"
+      label={t("collection.availability")}
       options={["Owned", "Not Owned", "Missing"]}
         value={dataFilters.availability}
         onChange={onDataFilterChange}
@@ -817,7 +836,7 @@ function videoFilterPanelCells(
       key="censorship"
       kind={config.kind}
       filterId="censorship"
-      label="Censorship"
+      label={t("collection.censorship")}
       options={["Uncensored", "Censored", "Reduced", "Leaked"]}
         value={dataFilters.censorship}
         onChange={onDataFilterChange}
@@ -828,8 +847,8 @@ function videoFilterPanelCells(
         key="year"
         kind={config.kind}
         filterId="year"
-        label="Release Years"
-        allLabel="All release years"
+        label={t("collection.releaseYears")}
+        allLabel={t("collection.allReleaseYears")}
         options={yearOptions}
         value={dataFilters.year}
         onChange={onDataFilterChange}
@@ -842,8 +861,8 @@ function videoFilterPanelCells(
         key="publisherLabel"
         kind={config.kind}
         filterId="publisherLabel"
-        label="Publisher / Label"
-        allLabel="All publishers"
+        label={t("collection.publisherLabel")}
+        allLabel={t("collection.allPublishers")}
         options={publisherOptions}
         value={dataFilters.publisherLabel}
         onChange={onDataFilterChange}
@@ -864,8 +883,8 @@ function videoFilterPanelCells(
       key="quality"
       kind={config.kind}
       filterId="quality"
-      label="Quality"
-      allLabel="All quality"
+      label={t("collection.quality")}
+      allLabel={t("collection.allQuality")}
       options={["SD", "HD", "FHD", "4K", "8K"]}
       value={dataFilters.quality}
       onChange={onDataFilterChange}
@@ -883,7 +902,7 @@ function videoFilterPanelCells(
       key="duration"
       kind={config.kind}
       filterId="duration"
-      label="Duration"
+      label={t("collection.duration")}
       options={["Short", "Medium", "Long"]}
       value={dataFilters.duration}
       onChange={onDataFilterChange}
@@ -900,6 +919,7 @@ function imageFilterPanelCells(
   onAddCategoryFilter: (value: string) => void,
   onDataFilterChange: (filterId: string, value: string) => void,
   dropdownState: DropdownState,
+  t: UiTranslate,
 ) {
   const publisherOptions = pickerOptions(config.items, (item) =>
     item.kind === "images" ? item.publisherLabel : undefined,
@@ -913,7 +933,7 @@ function imageFilterPanelCells(
       key="availability"
       kind={config.kind}
       filterId="availability"
-      label="Availability"
+      label={t("collection.availability")}
       options={["Owned", "Not Owned", "Missing"]}
         value={dataFilters.availability}
         onChange={onDataFilterChange}
@@ -923,7 +943,7 @@ function imageFilterPanelCells(
       key="censorship"
       kind={config.kind}
       filterId="censorship"
-      label="Censorship"
+      label={t("collection.censorship")}
       options={["Uncensored", "Censored", "Reduced", "Leaked"]}
         value={dataFilters.censorship}
         onChange={onDataFilterChange}
@@ -934,8 +954,8 @@ function imageFilterPanelCells(
         key="year"
         kind={config.kind}
         filterId="year"
-        label="Release Years"
-        allLabel="All release years"
+        label={t("collection.releaseYears")}
+        allLabel={t("collection.allReleaseYears")}
         options={yearOptions}
         value={dataFilters.year}
         onChange={onDataFilterChange}
@@ -948,8 +968,8 @@ function imageFilterPanelCells(
         key="publisherLabel"
         kind={config.kind}
         filterId="publisherLabel"
-        label="Publisher / Label"
-        allLabel="All publishers"
+        label={t("collection.publisherLabel")}
+        allLabel={t("collection.allPublishers")}
         options={publisherOptions}
         value={dataFilters.publisherLabel}
         onChange={onDataFilterChange}
@@ -970,8 +990,8 @@ function imageFilterPanelCells(
       key="quality"
       kind={config.kind}
       filterId="quality"
-      label="Quality"
-      allLabel="All quality"
+      label={t("collection.quality")}
+      allLabel={t("collection.allQuality")}
       options={["SD", "HD", "FHD", "4K", "8K"]}
       value={dataFilters.quality}
       onChange={onDataFilterChange}
@@ -989,7 +1009,7 @@ function imageFilterPanelCells(
       key="imageCount"
       kind={config.kind}
       filterId="imageCount"
-      label="Image Count"
+      label={t("collection.imageCount")}
       options={["Few", "Some", "Many"]}
       value={dataFilters.imageCount}
       onChange={onDataFilterChange}
@@ -1007,6 +1027,7 @@ function performerFilterPanelCells(
   onAddCategoryFilter: (value: string) => void,
   onDataFilterChange: (filterId: string, value: string) => void,
   dropdownState: DropdownState,
+  t: UiTranslate,
 ) {
   const hasBirthDates = config.items.some(
     (item) => item.kind === "performers" && Boolean(item.birthDate?.trim()),
@@ -1029,7 +1050,7 @@ function performerFilterPanelCells(
       key="status"
       kind={config.kind}
       filterId="status"
-      label="Status"
+      label={t("field.availability")}
       options={["Active", "Retired", "Unknown"]}
       value={dataFilters.status}
       onChange={onDataFilterChange}
@@ -1040,8 +1061,8 @@ function performerFilterPanelCells(
         key="cupSize"
         kind={config.kind}
         filterId="cupSize"
-        label="Cup Size"
-        allLabel="All cup sizes"
+        label={t("collection.cupSize")}
+        allLabel={t("collection.allCupSizes")}
         options={cupSizeOptions}
         value={dataFilters.cupSize}
         onChange={onDataFilterChange}
@@ -1053,22 +1074,22 @@ function performerFilterPanelCells(
       key="gender"
       kind={config.kind}
       filterId="gender"
-      label="Gender"
-      allLabel="All genders"
+      label={t("collection.gender")}
+      allLabel={t("collection.allGenders")}
       options={filterOptions.gender}
       value={dataFilters.gender}
       onChange={onDataFilterChange}
       dropdownKey={`${config.kind}.gender`}
       dropdownState={dropdownState}
       disabled={filterOptions.gender.length === 0}
-      emptyMessage="No Gender values found"
+      emptyMessage={t("collection.noGender")}
     />,
     hasHeights ? (
       <SegmentedFilterCell
         key="height"
         kind={config.kind}
         filterId="height"
-        label="Body Height"
+        label={t("collection.bodyHeight")}
         options={["Short", "Medium", "Tall"]}
         value={dataFilters.height}
         onChange={onDataFilterChange}
@@ -1080,7 +1101,7 @@ function performerFilterPanelCells(
         key="age"
         kind={config.kind}
         filterId="age"
-        label="Age"
+        label={t("collection.age")}
         options={["Young", "Adult", "Mature", "Senior"]}
         value={dataFilters.age}
         onChange={onDataFilterChange}
@@ -1091,23 +1112,23 @@ function performerFilterPanelCells(
       key="bodyType"
       kind={config.kind}
       filterId="bodyType"
-      label="Body Type"
-      allLabel="All body types"
+      label={t("collection.bodyType")}
+      allLabel={t("collection.allBodyTypes")}
       options={filterOptions.bodyType}
       value={dataFilters.bodyType}
       onChange={onDataFilterChange}
       dropdownKey={`${config.kind}.bodyType`}
       dropdownState={dropdownState}
       disabled={filterOptions.bodyType.length === 0}
-      emptyMessage="No Body Type categories found"
+      emptyMessage={t("collection.noBodyTypes")}
     />,
     nationalityOptions.length > 0 ? (
       <PickerFilterCell
         key="nationality"
         kind={config.kind}
         filterId="nationality"
-        label="Nationality"
-        allLabel="All nationalities"
+        label={t("collection.nationality")}
+        allLabel={t("collection.allNationalities")}
         options={nationalityOptions}
         value={dataFilters.nationality}
         onChange={onDataFilterChange}
@@ -1120,8 +1141,8 @@ function performerFilterPanelCells(
         key="debutYear"
         kind={config.kind}
         filterId="debutYear"
-        label="Debut Years"
-        allLabel="All debut years"
+        label={t("collection.debutYears")}
+        allLabel={t("collection.allDebutYears")}
         options={debutYearOptions}
         value={dataFilters.debutYear}
         onChange={onDataFilterChange}
@@ -1140,7 +1161,7 @@ function performerFilterPanelCells(
       key="filmography"
       kind={config.kind}
       filterId="filmography"
-      label="Filmography Count"
+      label={t("collection.filmographyCount")}
       options={["Few", "Some", "Many", "All"]}
       value={dataFilters.filmography}
       onChange={onDataFilterChange}
@@ -1159,7 +1180,7 @@ function performerFilterPanelCells(
       key="pictorials"
       kind={config.kind}
       filterId="pictorials"
-      label="Pictorials Count"
+      label={t("collection.pictorialsCount")}
       options={["Few", "Some", "Many", "All"]}
       value={dataFilters.pictorials}
       onChange={onDataFilterChange}
@@ -1202,6 +1223,7 @@ function SegmentedFilterCell({
   onChange: (filterId: string, value: string) => void;
   onCloseDropdowns?: () => void;
 }) {
+  const t = useTranslation();
   if (options.length === 0) {
     return null;
   }
@@ -1216,13 +1238,14 @@ function SegmentedFilterCell({
         {options.map((option) => {
           const optionValue = option === "All" ? allValue : option;
           const selected = normalizedFilterValue(currentValue) === normalizedFilterValue(optionValue);
+          const displayOption = translateUiDisplayLabel(t, option);
 
           return (
             <button
               key={option}
               type="button"
               aria-pressed={selected}
-              aria-label={`${label}: ${option}`}
+              aria-label={`${label}: ${displayOption}`}
               className={[
                 "min-h-9 min-w-0 rounded-lg border px-2 text-sm font-semibold transition sm:px-3",
                 selected
@@ -1235,7 +1258,7 @@ function SegmentedFilterCell({
                 onChange(filterId, selected ? allValue : optionValue);
               }}
             >
-              <span className="block truncate" title={option}>{option}</span>
+              <span className="block truncate" title={displayOption}>{displayOption}</span>
             </button>
           );
         })}
@@ -1270,10 +1293,11 @@ function PickerFilterCell({
   disabled?: boolean;
   emptyMessage?: string;
 }) {
+  const t = useTranslation();
   const [query, setQuery] = useState("");
   const open = dropdownState.openDropdownKey === dropdownKey;
   const currentValue = value ?? allLabel;
-  const inputValue = open ? query : currentValue;
+  const inputValue = open ? query : translateUiDisplayLabel(t, currentValue);
   const visibleOptions = options.filter((option) =>
     normalizedFilterValue(option).includes(normalizedFilterValue(query)),
   );
@@ -1349,7 +1373,7 @@ function PickerFilterCell({
         >
           <div role="listbox" aria-label={`${label} options`} className="max-h-56 overflow-y-auto p-1">
             <PickerOption
-              label={allLabel}
+              label={translateUiDisplayLabel(t, allLabel)}
               highlightQuery={query}
               selected={isAllFilterValue(filterId, value)}
                 onSelect={() => {
@@ -1360,7 +1384,7 @@ function PickerFilterCell({
             {visibleOptions.map((option) => (
               <PickerOption
                 key={option}
-                label={option}
+                label={translateUiDisplayLabel(t, option)}
                 highlightQuery={query}
                 selected={normalizedFilterValue(currentValue) === normalizedFilterValue(option)}
                 onSelect={() => {
@@ -1399,6 +1423,7 @@ function CategoryFilterCell({
   dropdownKey: string;
   dropdownState: DropdownState;
 }) {
+  const t = useTranslation();
   const [query, setQuery] = useState("");
   const open = dropdownState.openDropdownKey === dropdownKey;
   const visibleOptions = categoryOptions.filter((category) =>
@@ -1417,15 +1442,15 @@ function CategoryFilterCell({
 
   return (
     <div className="relative">
-      <PanelLabel>Category</PanelLabel>
+      <PanelLabel>{t("collection.category")}</PanelLabel>
       <label className="mt-3 flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left text-sm font-semibold text-slate-700 transition focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
         <Search size={16} className="shrink-0 text-slate-400" />
         <input
           id={`${kind}-category-panel-filter`}
-          aria-label="Category"
+          aria-label={t("collection.category")}
           className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400 disabled:text-slate-400"
-          placeholder="Add category filter"
-          value={open ? query : "Add category filter"}
+          placeholder={t("collection.addCategoryFilter")}
+          value={open ? query : t("collection.addCategoryFilter")}
           disabled={categorySelectDisabled}
           onFocus={openPicker}
           onChange={(event) => {
@@ -1443,7 +1468,7 @@ function CategoryFilterCell({
         />
         <button
           type="button"
-          aria-label="Open Category options"
+          aria-label={t("collection.openCategoryOptions")}
           className="inline-flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-sakura-50 hover:text-sakura-600 disabled:cursor-not-allowed disabled:text-slate-300"
           disabled={categorySelectDisabled}
           onClick={() => {
@@ -1459,7 +1484,7 @@ function CategoryFilterCell({
           id={`${kind}-category-panel-popup`}
           className="absolute z-50 mt-2 w-full rounded-lg border border-slate-200 bg-white shadow-lg"
         >
-          <div role="listbox" aria-label="Category options" className="max-h-56 overflow-y-auto p-1">
+          <div role="listbox" aria-label={t("collection.categoryOptions")} className="max-h-56 overflow-y-auto p-1">
             {visibleOptions.map((category) => (
               <PickerOption
               key={category}
@@ -1474,7 +1499,7 @@ function CategoryFilterCell({
             ))}
             {visibleOptions.length === 0 && (
               <p className="px-3 py-2 text-xs font-semibold text-slate-500">
-                No matching categories
+                {t("collection.noMatchingCategories")}
               </p>
             )}
           </div>
@@ -1563,13 +1588,14 @@ function RatingFilterCell({
   onChange: (filterId: string, value: string) => void;
   onCloseDropdowns?: () => void;
 }) {
+  const t = useTranslation();
   const currentRating = numberFromDisplayText(value ?? "") ?? 1;
   const isActive = !isAllFilterValue("rating", value);
 
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <PanelLabel>Rating</PanelLabel>
+        <PanelLabel>{t("common.rating")}</PanelLabel>
         <button
           type="button"
           className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-sakura-50 hover:text-sakura-600"
@@ -1579,7 +1605,7 @@ function RatingFilterCell({
             onChange("rating", "All ratings");
           }}
         >
-          All
+          {t("categories.filter.all")}
         </button>
       </div>
       <div className="flex items-center gap-3">
@@ -1600,7 +1626,7 @@ function RatingFilterCell({
         />
         <span className="text-xs font-semibold text-slate-500">5</span>
         <span className="min-w-12 rounded-lg border border-sakura-100 bg-sakura-50 px-2 py-1 text-center text-xs font-bold text-sakura-700">
-          {isActive ? `${currentRating}+` : "Any"}
+          {isActive ? `${currentRating}+` : t("common.filter.rating.any")}
         </span>
       </div>
     </>
@@ -1711,7 +1737,7 @@ function yearRangeOptions(
 function catalogFilterGroups(kind: CollectionConfig["kind"]) {
   if (kind === "performers") {
     return [
-      { id: "status", label: "Status", options: ["All status", "Active", "Retired", "Unknown"] },
+      { id: "status", label: "Availability", options: ["All status", "Active", "Retired", "Unknown"] },
       { id: "gender", label: "Gender", options: ["All genders"] },
       { id: "age", label: "Age", options: ["All age", "Young", "Adult", "Mature", "Senior"] },
       { id: "height", label: "Body Height", options: ["All height", "Short", "Medium", "Tall"] },
@@ -1820,6 +1846,7 @@ function CollectionTable({
   onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
   onSortChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   const columns = tableColumns(config.kind);
   const tableWidth = tableWidthPx(columns);
 
@@ -1857,8 +1884,8 @@ function CollectionTable({
                   {column.sortValue ? (
                     <button
                       type="button"
-                      aria-label={`Sort by ${column.sortLabel ?? column.header}`}
-                      title={`Sort by ${column.sortLabel ?? column.header}`}
+                      aria-label={`Sort by ${translateUiDisplayLabel(t, column.sortLabel ?? column.header)}`}
+                      title={`Sort by ${translateUiDisplayLabel(t, column.sortLabel ?? column.header)}`}
                       className={[
                         "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-700 focus:outline-none",
                         tableSort?.value === column.sortValue ? "text-sakura-800" : "",
@@ -1866,7 +1893,7 @@ function CollectionTable({
                       onClick={() => onSortChange(column.sortValue!)}
                     >
                       <span className={column.hiddenHeader ? "sr-only" : "truncate"}>
-                        {column.header}
+                        {collectionColumnHeader(t, column)}
                       </span>
                       {tableSort?.value === column.sortValue && (
                         <span aria-hidden="true" className="text-[10px] text-sakura-700">
@@ -1876,7 +1903,7 @@ function CollectionTable({
                     </button>
                   ) : (
                     <span className={column.hiddenHeader ? "sr-only" : "block truncate"}>
-                      {column.header}
+                      {collectionColumnHeader(t, column)}
                     </span>
                   )}
                 </th>
@@ -1987,11 +2014,15 @@ function PaginationBar({
   return (
     <nav
       className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-      aria-label="Collection pagination"
+      aria-label={t("collection.pagination")}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
         <p className="text-sm font-semibold text-slate-600">
-          Showing {startItem}-{endItem} of {totalItems}
+          {t("pagination.showing", {
+            start: String(startItem),
+            end: String(endItem),
+            total: String(totalItems),
+          })}
         </p>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
           {t("collection.pageSize")}
@@ -2052,7 +2083,7 @@ function CollectionEmptyState({ hasItems }: { hasItems: boolean }) {
   return (
     <section className="rounded-lg border border-dashed border-slate-200 bg-white p-6 text-center">
       <p className="text-sm font-semibold text-slate-800">
-        {hasItems ? t("collection.noMatchingItems") : t("collection.noSavedRecords")}
+        {hasItems ? t("collection.noMatchingItems") : t("catalog.empty")}
       </p>
       <p className="mt-2 text-sm text-slate-500">
         {hasItems
@@ -3372,9 +3403,11 @@ function PrimaryTextCell({ value }: { value: string | null | undefined }) {
 }
 
 function PlainTableValue({ value }: { value: string }) {
+  const t = useTranslation();
+  const translatedValue = translateUiDisplayValue(t, value);
   return (
-    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={value}>
-      {value}
+    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={translatedValue}>
+      {translatedValue}
     </span>
   );
 }
@@ -3424,16 +3457,41 @@ function StatusChip({
   value: string;
   tone: "availability" | "censorship" | "performer-status";
 }) {
+  const t = useTranslation();
+  const translatedValue = translateUiDisplayLabel(t, value);
   const className = [
     "inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border px-2.5 py-1 text-xs font-semibold",
     tableChipToneClassName(value, tone),
   ].join(" ");
 
   return (
-    <span className={className} title={value} data-testid="catalog-table-status-chip">
-      <span className="truncate">{value}</span>
+    <span className={className} title={translatedValue} data-testid="catalog-table-status-chip">
+      <span className="truncate">{translatedValue}</span>
     </span>
   );
+}
+
+function collectionColumnHeader(t: UiTranslator, column: TableColumn) {
+  const keys: Record<string, string> = {
+    availability: "catalog.table.header.availability",
+    title: "catalog.table.header.title",
+    originalTitle: "catalog.table.header.originalTitle",
+    code: "catalog.table.header.code",
+    categories: "catalog.table.header.categories",
+    year: "catalog.table.header.release",
+    duration: "catalog.table.header.duration",
+    imageCount: "catalog.table.header.totalPics",
+    quality: "catalog.table.header.quality",
+    censorship: "catalog.table.header.censorship",
+    rating: "catalog.table.header.rating",
+    name: "catalog.table.header.name",
+    status: "catalog.table.header.availability",
+    originalName: "catalog.table.header.originalName",
+    debutYear: "catalog.table.header.debut",
+    filmography: "catalog.table.header.filmography",
+    pictorials: "catalog.table.header.pictorials",
+  };
+  return keys[column.id] ? t(keys[column.id]) : translateUiDisplayLabel(t, column.sortLabel ?? column.header);
 }
 
 function RatingChip({ value }: { value: string }) {

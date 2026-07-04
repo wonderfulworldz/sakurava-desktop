@@ -132,7 +132,7 @@ export function buildPerformerDetailConfig(
     personal: [
       { label: "Gender", value: genderValue },
       { label: "Birth Date", value: detailText(performer.birthDate) },
-      { label: "Birth Place", value: detailText(performer.birthplace) },
+      { label: "Birthplace", value: detailText(performer.birthplace) },
       { label: "Nationality", value: detailText(performer.nationality) },
       { label: "Zodiac", value: deriveAstrologicalSign(performer.birthDate) },
       { label: "Debut Date", value: detailText(performer.debutDate) },

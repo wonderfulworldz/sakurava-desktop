@@ -354,7 +354,7 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Last edited", value: DETAIL_EMPTY_VALUE },
     ],
     personal: [
-      { label: "Birth Place", value: DETAIL_EMPTY_VALUE },
+      { label: "Birthplace", value: DETAIL_EMPTY_VALUE },
       { label: "Nationality", value: DETAIL_EMPTY_VALUE },
       { label: "Zodiac", value: "Aries" },
       { label: "Blood Type", value: DETAIL_EMPTY_VALUE },

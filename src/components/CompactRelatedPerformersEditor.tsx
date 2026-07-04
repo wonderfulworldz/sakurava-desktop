@@ -12,6 +12,7 @@ import {
 } from "../lib/workCredits";
 import RelatedPerformerPicker from "./RelatedPerformerPicker";
 import MemorySuggestionInput from "./MemorySuggestionInput";
+import { useTranslation } from "../lib/LanguageContext";
 
 type Props = {
   credits: CreditFormValue[];
@@ -30,6 +31,7 @@ function CompactRelatedPerformersEditor({
   creditTypeHistory,
   onRemoveCreditTypeHistory,
 }: Props) {
+  const t = useTranslation();
   const [orderDrafts, setOrderDrafts] = useState<Record<string, string>>({});
   const listRef = useRef<HTMLDivElement>(null);
   const pendingScrollPerformerId = useRef<string | null>(null);
@@ -129,7 +131,7 @@ function CompactRelatedPerformersEditor({
       />
 
       {credits.length === 0 ? (
-        <p className="text-sm text-slate-500">No related performers selected.</p>
+        <p className="text-sm text-slate-500">{t("picker.noRelatedPerformers")}</p>
       ) : (
         <div
           className="max-h-80 space-y-2 overflow-y-auto pr-1"
@@ -169,12 +171,12 @@ function CompactRelatedPerformersEditor({
                   </p>
                   {isAdditionalRole && (
                     <p className="text-[11px] font-medium text-slate-400">
-                      Additional role
+                      {t("picker.additionalRole")}
                     </p>
                   )}
                 </div>
 
-                <CompactField label="Order">
+                <CompactField label={t("common.order")}>
                   <input
                     type="number"
                     step="1"
@@ -206,7 +208,7 @@ function CompactRelatedPerformersEditor({
                   />
                 </CompactField>
 
-                <CompactField label="Role Name">
+                <CompactField label={t("common.roleName")}>
                   <input
                     aria-label={`Related performer ${index + 1} role name`}
                     data-role-name-input
@@ -219,12 +221,12 @@ function CompactRelatedPerformersEditor({
                         characterName: isSelf ? "" : nextRole,
                       });
                     }}
-                    placeholder="Character or role name"
+                    placeholder={t("picker.rolePlaceholder")}
                     className={inputClassName}
                   />
                 </CompactField>
 
-                <CompactField label="Credit Type">
+                <CompactField label={t("common.creditType")}>
                   <CreditTypeSuggestionInput
                     aria-label={`Related performer ${index + 1} credit type`}
                     value={visibleCreditType}

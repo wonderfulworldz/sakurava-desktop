@@ -22,6 +22,8 @@ import {
   readSessionFilterState,
   writeSessionFilterState,
 } from "../lib/sessionFilterState";
+import { useTranslation } from "../lib/LanguageContext";
+import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 
 type GlossarySortKey = "az" | "za" | "created-desc" | "updated-desc";
 type GlossaryFormMode = "add" | "edit";
@@ -70,14 +72,14 @@ const emptyGlossarySessionFilters: GlossarySessionFilters = {
 };
 const glossaryFilterOptions: Array<{ value: GlossaryFilterValue; label: string }> = [
   { value: "all", label: "All" },
-  { value: "parent", label: "Parent Only" },
-  { value: "child", label: "Child Only" },
+  { value: "parent", label: "Parents Only" },
+  { value: "child", label: "Children Only" },
 ];
 const sortOptions: Array<{ value: GlossarySortKey; label: string }> = [
   { value: "az", label: "Term A-Z" },
   { value: "za", label: "Term Z-A" },
   { value: "created-desc", label: "Last Added" },
-  { value: "updated-desc", label: "Last Updated" },
+  { value: "updated-desc", label: "Last Modified" },
 ];
 
 const sampleGlossaryEntries: GlossaryEntry[] = [
@@ -264,6 +266,7 @@ function glossaryConfirmationCopy(
 }
 
 function GlossaryPage() {
+  const t = useTranslation();
   const initialFilters = readSessionFilterState(
     glossaryFilterSessionKey,
     emptyGlossarySessionFilters,
@@ -485,13 +488,13 @@ function GlossaryPage() {
           parentFilter;
         chips.push({
           key: `filter-${parentFilter}`,
-          label: `Filter: ${label}`,
-          fullLabel: `Filter: ${label}`,
+          label: `${t("common.filter")}: ${translateUiDisplayLabel(t, label)}`,
+          fullLabel: `${t("common.filter")}: ${translateUiDisplayLabel(t, label)}`,
         });
       }
       return chips;
     },
-    [parentFilter],
+    [parentFilter, t],
   );
 
   const updateSearchQuery = (value: string) => {
@@ -888,11 +891,10 @@ function GlossaryPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-            Glossary Library
+            {t("glossary.title")}
           </h1>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-500">
-            Store and manage definitions, references, and terms for your
-            personal use.
+            {t("glossary.subtitle")}
           </p>
         </div>
         <button
@@ -901,7 +903,7 @@ function GlossaryPage() {
           className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100"
         >
           <Plus size={20} />
-          Add Entry
+          {t("glossary.addEntry")}
         </button>
       </header>
 
@@ -924,7 +926,7 @@ function GlossaryPage() {
             id="glossary-form-title"
             className="text-lg font-semibold text-slate-950"
           >
-            {formMode === "add" ? "Add Glossary Entry" : "Edit Glossary Entry"}
+            {formMode === "add" ? t("glossary.addForm") : t("glossary.editForm")}
           </h2>
 
           {formMessage && (
@@ -938,14 +940,14 @@ function GlossaryPage() {
 
           <form className="mt-5 space-y-5" onSubmit={submitForm} noValidate>
             <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
-              <FieldErrorLabel label="Term" required error={formErrors.term}>
+              <FieldErrorLabel label={t("glossary.term")} required error={formErrors.term}>
                 <input
                   type="text"
-                  aria-label="Term"
+                  aria-label={t("glossary.term")}
                   value={formState.term}
                   onChange={(event) => updateFormField("term", event.target.value)}
                   className={inputClassName}
-                  placeholder="Enter term or title"
+                  placeholder={t("glossary.termPlaceholder")}
                 />
               </FieldErrorLabel>
 
@@ -956,7 +958,7 @@ function GlossaryPage() {
 
               <div>
                 <span className="block text-sm font-medium text-slate-700">
-                  Synonyms
+                  {t("glossary.synonyms")}
                 </span>
                 <div className="mt-1 flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 shadow-sm transition focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -978,15 +980,15 @@ function GlossaryPage() {
                       onChange={(event) => handleSynonymChange(event.target.value)}
                       onKeyDown={handleSynonymKeyDown}
                       className="min-w-36 flex-1 border-0 bg-transparent px-1 py-1 text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                      placeholder="Add synonym and press Enter..."
-                      aria-label="Synonyms"
+                      placeholder={t("glossary.synonymPlaceholder")}
+                      aria-label={t("glossary.synonyms")}
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => addSynonymParts(synonymDraft)}
                     className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-sakura-500 text-white shadow-sm transition hover:bg-sakura-600"
-                    aria-label="Add synonym"
+                    aria-label={t("glossary.addSynonym")}
                   >
                     <Plus size={16} />
                   </button>
@@ -994,7 +996,7 @@ function GlossaryPage() {
               </div>
 
               <label className="block text-sm font-medium text-slate-700">
-                Source Title
+                {t("glossary.sourceTitle")}
                 <input
                   type="text"
                   value={formState.sourceTitle}
@@ -1002,12 +1004,12 @@ function GlossaryPage() {
                     updateFormField("sourceTitle", event.target.value)
                   }
                   className={inputClassName}
-                  placeholder="e.g. Wikipedia, Official Website, Article"
+                  placeholder={t("glossary.sourceLabelPlaceholder")}
                 />
               </label>
 
               <label className="block text-sm font-medium text-slate-700">
-                Category
+                {t("glossary.form.field.category")}
                 <GlossaryParentPicker
                   value={formState.parentId}
                   options={parentOptions}
@@ -1018,11 +1020,11 @@ function GlossaryPage() {
                   onSearchChange={setParentSearch}
                   onChange={(parentId) => updateFormField("parentId", parentId)}
                   ariaLabel="Search glossary parent terms"
-                  placeholder="Select parent term..."
+                  placeholder={t("glossary.parentPlaceholder")}
                 />
               </label>
 
-              <FieldErrorLabel label="Source URL" error={formErrors.sourceUrl}>
+              <FieldErrorLabel label={t("glossary.sourceUrl")} error={formErrors.sourceUrl}>
                 <div className="relative mt-1">
                   <input
                     type="url"
@@ -1031,7 +1033,7 @@ function GlossaryPage() {
                       updateFormField("sourceUrl", event.target.value)
                     }
                     className={`${inputClassName} mt-0 pr-11`}
-                    placeholder="https://example.com/reference-page"
+                    placeholder={t("glossary.sourceUrlPlaceholder")}
                   />
                   <Link2
                     size={18}
@@ -1041,7 +1043,7 @@ function GlossaryPage() {
               </FieldErrorLabel>
 
               <label className="block text-sm font-medium text-slate-700">
-                Thumbnail
+                {t("glossary.form.field.thumbnail")}
                 <div className="mt-1 flex gap-3">
                   <input
                     type="text"
@@ -1050,27 +1052,27 @@ function GlossaryPage() {
                       updateFormField("thumbnailPath", event.target.value)
                     }
                     className={`${inputClassName} mt-0 min-w-0 flex-1`}
-                    placeholder="/path/to/image.jpg"
+                    placeholder={t("glossary.imagePathPlaceholder")}
                   />
                   <button
                     type="button"
                     onClick={browseThumbnailPath}
                     className="h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    Browse
+                    {t("common.browse")}
                   </button>
                 </div>
               </label>
 
-              <FieldErrorLabel label="Definition" required error={formErrors.definition}>
+              <FieldErrorLabel label={t("glossary.definition")} required error={formErrors.definition}>
                 <textarea
-                  aria-label="Definition"
+                  aria-label={t("glossary.definition")}
                   value={formState.definition}
                   onChange={(event) =>
                     updateFormField("definition", event.target.value)
                   }
                   className="mt-1 min-h-32 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  placeholder="Write the definition, explanation, or details about this term..."
+                  placeholder={t("glossary.definitionPlaceholder")}
                 />
               </FieldErrorLabel>
             </div>
@@ -1083,7 +1085,7 @@ function GlossaryPage() {
                   className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                 >
                   <Trash2 size={16} />
-                  Delete
+                  {t("common.delete")}
                 </button>
               )}
               <button
@@ -1091,14 +1093,14 @@ function GlossaryPage() {
                 onClick={requestCloseForm}
                 className={secondaryButtonClassName}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="h-11 rounded-lg border border-sakura-300 bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Saving..." : "Save Entry"}
+                {isSubmitting ? t("viewer.saving") : t("glossary.saveEntry")}
               </button>
             </div>
           </form>
@@ -1108,11 +1110,11 @@ function GlossaryPage() {
       <section className="space-y-3" aria-labelledby="glossary-table-title">
         <div
           className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
-          aria-label="Glossary toolbar"
+          aria-label={t("glossary.toolbar")}
         >
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
             <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Search terms</span>
+              <span className="sr-only">{t("glossary.search")}</span>
               <Search
                 size={18}
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
@@ -1121,15 +1123,15 @@ function GlossaryPage() {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => updateSearchQuery(event.target.value)}
-                placeholder="Search terms..."
-                aria-label="Search terms"
+                placeholder={t("glossary.searchPlaceholder")}
+                aria-label={t("glossary.search")}
                 className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-12 pr-10 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
               />
               {searchQuery.trim() && (
                 <button
                   type="button"
-                  aria-label="Clear glossary search"
-                  title="Clear glossary search"
+                  aria-label={t("glossary.clearSearch")}
+                  title={t("glossary.clearSearch")}
                   className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200"
                   onClick={() => updateSearchQuery("")}
                 >
@@ -1157,7 +1159,7 @@ function GlossaryPage() {
           {activeFilterChips.length > 0 && (
             <div
               className="mt-3 flex flex-col gap-3 rounded-lg border border-sakura-100 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-              aria-label="Glossary active filters"
+              aria-label={t("glossary.activeFilters")}
             >
               <div className="flex flex-wrap gap-2">
                 {activeFilterChips.map((chip) => (
@@ -1179,7 +1181,7 @@ function GlossaryPage() {
                 onClick={clearTableFilters}
                 className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
               >
-                Clear all filters
+                {t("glossary.toolbar.clearAllFilters")}
               </button>
             </div>
           )}
@@ -1187,14 +1189,18 @@ function GlossaryPage() {
 
         <nav
           className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-          aria-label="Glossary pagination"
+          aria-label={t("glossary.pagination")}
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <p className="text-sm font-semibold text-slate-600">
-              Showing {showingStart}-{showingEnd} of {tableRows.length}
+              {t("pagination.showing", {
+                start: String(showingStart),
+                end: String(showingEnd),
+                total: String(tableRows.length),
+              })}
             </p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              Page size
+              {t("common.pageSize")}
               <SakuravaSelect
                 value={pageSize}
                 ariaLabel="Terms per page"
@@ -1205,7 +1211,7 @@ function GlossaryPage() {
                   label: String(option),
                 }))}
               />
-              <span>per page</span>
+              <span>{t("collection.perPage")}</span>
             </label>
           </div>
           <div className="flex items-center gap-2">
@@ -1215,7 +1221,7 @@ function GlossaryPage() {
               onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
               className={paginationButtonClassName}
             >
-              Previous
+              {t("common.previous")}
             </button>
             {buildGlossaryPaginationPages(safePage, totalPages).map((pageNumber) => (
               <button
@@ -1241,7 +1247,7 @@ function GlossaryPage() {
               }
               className={paginationButtonClassName}
             >
-              Next
+              {t("common.next")}
             </button>
           </div>
         </nav>
@@ -1270,16 +1276,16 @@ function GlossaryPage() {
                       aria-sort={glossaryAriaSort(tableSort, "az")}
                     >
                       <GlossarySortHeader
-                        label="Term"
+                        label={t("glossary.table.header.term")}
                         sortValue="az"
                         tableSort={tableSort}
                         onSort={updateTableSort}
                       />
                     </th>
-                    <th className="px-3 py-3 font-semibold">Synonyms</th>
-                    <th className="px-3 py-3 font-semibold">Categories</th>
-                    <th className="px-3 py-3 font-semibold">Definition</th>
-                    <th className="px-3 py-3 font-semibold">Source</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.synonyms")}</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.categories")}</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.definition")}</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.source")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -1304,11 +1310,10 @@ function GlossaryPage() {
                 GL
               </div>
               <h3 className="text-base font-semibold text-slate-950">
-                No glossary entries found
+                {t("glossary.empty")}
               </h3>
               <p className="mt-2 text-sm text-slate-600">
-                Try a different search term or category filter, or add a new
-                Glossary entry.
+                {t("glossary.emptyHint")}
               </p>
             </div>
           </div>
@@ -1343,6 +1348,7 @@ function GlossaryTableRow({
   onFavorite: (entry: GlossaryEntry) => void;
   onToggleExpansion: (entryId: string) => void;
 }) {
+  const t = useTranslation();
   const { entry, depth, childCount, expanded } = row;
   const synonyms = parseTextLabelArray(entry.synonymsJson);
   const sourceLabel = entry.sourceTitle.trim() || shortSourceUrl(entry.sourceUrl);
@@ -1551,13 +1557,14 @@ function SwitchField({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const t = useTranslation();
   return (
     <label className="flex h-11 items-center gap-3 self-end text-sm font-medium text-slate-700">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label="Favorite"
+        aria-label={t("common.favorite")}
         onClick={() => onChange(!checked)}
         className={[
           "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition",
@@ -1573,7 +1580,7 @@ function SwitchField({
           ].join(" ")}
         />
       </button>
-      Mark this entry as favorite
+      {t("glossary.markFavorite")}
     </label>
   );
 }
@@ -1601,12 +1608,13 @@ function GlossaryParentPicker({
   ariaLabel: string;
   placeholder: string;
 }) {
+  const t = useTranslation();
   const selected = value ? entryById.get(value) ?? null : null;
   const displayValue = open
     ? search
     : selected
       ? parentPathLabel(selected, entryById)
-      : "No parent";
+      : t("glossary.noParent");
   const query = search.trim().toLowerCase();
   const filteredOptions = options.filter((entry) =>
     parentPathLabel(entry, entryById).toLowerCase().includes(query),
@@ -1623,7 +1631,7 @@ function GlossaryParentPicker({
       listboxLabel={`${ariaLabel} options`}
     >
       <PickerOption
-        label="No parent"
+        label={t("glossary.noParent")}
         ariaLabel="Select no parent"
         metaLabel="N/A"
         onSelect={() => {
@@ -1666,6 +1674,7 @@ function GlossaryParentFilter({
   onOpenChange: (open: boolean) => void;
   onChange: (value: GlossaryFilterValue) => void;
 }) {
+  const t = useTranslation();
   const activeFilterCount = value === "all" ? 0 : 1;
 
   return (
@@ -1692,7 +1701,7 @@ function GlossaryParentFilter({
       >
         <Filter size={18} className="shrink-0 text-slate-500" />
         <span className="hidden text-sm font-semibold text-slate-700 sm:inline">
-          Filter
+          {t("common.filter")}
         </span>
         <span
           aria-label={`${activeFilterCount} active filters`}
@@ -1715,7 +1724,7 @@ function GlossaryParentFilter({
       {open && (
         <div
           role="listbox"
-          aria-label="Category filter options"
+          aria-label={t("glossary.categoryOptions")}
           className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
         >
           {glossaryFilterOptions.map((option) => (
@@ -1735,7 +1744,7 @@ function GlossaryParentFilter({
                 onOpenChange(false);
               }}
             >
-              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              <span className="min-w-0 flex-1 truncate">{translateUiDisplayLabel(t, option.label)}</span>
               {value === option.value && <Check size={15} aria-hidden="true" />}
             </button>
           ))}
@@ -1760,6 +1769,7 @@ function SortPicker({
   onSearchChange: (search: string) => void;
   onChange: (value: GlossarySortKey) => void;
 }) {
+  const t = useTranslation();
   const selectedLabel =
     sortOptions.find((option) => option.value === value)?.label ?? "Term A-Z";
   void search;
@@ -1769,8 +1779,8 @@ function SortPicker({
       open={open}
       onOpenChange={onOpenChange}
       onSearchChange={onSearchChange}
-      displayValue={selectedLabel}
-      placeholder="Sort"
+      displayValue={translateUiDisplayLabel(t, selectedLabel)}
+      placeholder={t("common.sort")}
       ariaLabel="Sort"
       listboxLabel="Sort options"
       icon={<ArrowUpDown size={18} />}
@@ -1780,7 +1790,7 @@ function SortPicker({
       {sortOptions.map((option) => (
         <PickerOption
           key={option.value}
-          label={option.label}
+          label={translateUiDisplayLabel(t, option.label)}
           ariaLabel={`Select sort ${option.label}`}
           selected={option.value === value}
           onSelect={() => {

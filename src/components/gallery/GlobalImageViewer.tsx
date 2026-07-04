@@ -33,6 +33,7 @@ import {
   saveDetailSourceFileAs,
 } from "../../runtime/detailActions";
 import { isTauriRuntimeAvailable } from "../../runtime/tauriClient";
+import { useTranslation } from "../../lib/LanguageContext";
 
 export type GlobalImageViewerItem = {
   filename?: string;
@@ -117,7 +118,7 @@ type DragState =
   | null;
 
 function GlobalImageViewer({
-  ariaLabel = "Gallery full-size viewer",
+  ariaLabel,
   images,
   initialIndex,
   isSeparateWindow = false,
@@ -127,6 +128,8 @@ function GlobalImageViewer({
   paths,
   viewerEpoch = 0,
 }: GlobalImageViewerProps) {
+  const t = useTranslation();
+  const resolvedAriaLabel = ariaLabel ?? t("viewer.fullSize");
   const normalizedImages: GlobalImageViewerItem[] = useMemo(
     () => images ?? paths?.map((path) => ({ path })) ?? [],
     [images, paths],
@@ -1059,7 +1062,7 @@ function GlobalImageViewer({
     <div
       role="dialog"
       aria-modal={isSeparateWindow ? undefined : "true"}
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
       ref={viewerRef}
       tabIndex={-1}
       className="global-image-viewer fixed inset-0 z-50 m-0 h-screen w-screen overflow-hidden bg-slate-950 text-[var(--viewer-panel-text)]"
@@ -1074,7 +1077,7 @@ function GlobalImageViewer({
       <div className="viewer-scrim-bottom absolute inset-x-0 bottom-0 h-36" />
 
       <div
-        aria-label="Image metadata"
+        aria-label={t("viewer.metadata")}
         data-layout-zone="viewer-metadata"
         className={`pointer-events-none absolute left-3 top-3 z-20 flex max-w-[calc(100%-6rem)] min-w-0 items-center gap-2 rounded-xl px-3 py-2 transition-opacity duration-300 sm:left-5 sm:top-5 sm:max-w-[calc(100%-16rem)] sm:gap-3 sm:px-4 sm:py-3 ${glassPanelClass} ${controlsVisibilityClass}`}
       >
@@ -1094,13 +1097,13 @@ function GlobalImageViewer({
       </div>
 
       <div
-        aria-label="Image viewer actions"
+        aria-label={t("viewer.actions")}
         data-layout-zone="viewer-actions"
         className={`absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-xl p-1.5 transition-opacity duration-300 sm:right-5 sm:top-5 sm:gap-2 sm:p-2 ${glassPanelClass} ${controlsVisibilityClass}`}
       >
         <button
           type="button"
-          aria-label="Show image viewer shortcuts"
+          aria-label={t("viewer.showShortcuts")}
           aria-expanded={shortcutsOpen}
           onClick={() => shortcutsOpen ? closePopovers() : openPopover("shortcuts")}
           className={`${glassButtonClass} size-10 sm:size-11`}
@@ -1108,7 +1111,7 @@ function GlobalImageViewer({
           <HelpCircle size={19} />
         </button>
         <span
-          aria-label="Image aspect ratio"
+          aria-label={t("viewer.aspectRatio")}
           className="viewer-button inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-semibold sm:h-11 sm:px-4"
         >
           {aspectRatioLabel}
@@ -1116,7 +1119,7 @@ function GlobalImageViewer({
         {onOpenFolder && (
           <button
             type="button"
-            aria-label="Open image folder"
+            aria-label={t("viewer.openFolder")}
             onClick={() => onOpenFolder(path)}
             className={`${glassButtonClass} size-10 sm:size-11`}
           >
@@ -1125,7 +1128,7 @@ function GlobalImageViewer({
         )}
         <button
           type="button"
-          aria-label="More image actions"
+          aria-label={t("viewer.moreActions")}
           aria-expanded={moreMenuOpen}
           onClick={() => moreMenuOpen ? closePopovers() : openPopover("more")}
           className={`${glassButtonClass} size-10 sm:size-11`}
@@ -1136,7 +1139,7 @@ function GlobalImageViewer({
 
       {shortcutsOpen && (
         <div
-          aria-label="Image viewer shortcuts"
+          aria-label={t("viewer.shortcuts")}
           data-layout-zone="viewer-shortcuts"
           className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
@@ -1144,24 +1147,24 @@ function GlobalImageViewer({
           onFocus={clearPopoverCloseTimer}
           onBlur={schedulePopoverClose}
         >
-          <h2 className="text-sm font-semibold">Shortcuts</h2>
+          <h2 className="text-sm font-semibold">{t("viewer.shortcutsTitle")}</h2>
           <dl className="viewer-muted mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Esc</dt>
-            <dd>Close viewer</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Left / Right</dt>
-            <dd>Navigate images</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">+ / -</dt>
-            <dd>Zoom in or out</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">0 / F</dt>
-            <dd>Fit to window</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">1</dt>
-            <dd>Show at 100%</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">F11</dt>
-            <dd>Toggle full-window mode</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Wheel</dt>
-            <dd>Zoom around pointer</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Drag</dt>
-            <dd>Pan when zoomed</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.esc")}</dt>
+            <dd>{t("viewer.shortcuts.action.closeViewer")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.leftRight")}</dt>
+            <dd>{t("viewer.shortcuts.navigate")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.zoom")}</dt>
+            <dd>{t("viewer.shortcuts.zoom")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.fit")}</dt>
+            <dd>{t("viewer.shortcuts.fitWindow")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.actualSize")}</dt>
+            <dd>{t("viewer.shortcuts.actualSize")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.fullWindow")}</dt>
+            <dd>{t("viewer.shortcuts.fullWindow")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.wheel")}</dt>
+            <dd>{t("viewer.shortcuts.zoomPointer")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.drag")}</dt>
+            <dd>{t("viewer.shortcuts.panZoomed")}</dd>
           </dl>
         </div>
       )}
@@ -1169,7 +1172,7 @@ function GlobalImageViewer({
       {moreMenuOpen && (
         <div
           role="menu"
-          aria-label="More image actions menu"
+          aria-label={t("viewer.moreActionsMenu")}
           className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-xl p-2 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
@@ -1183,9 +1186,9 @@ function GlobalImageViewer({
             onClick={() => void saveCurrentImageAs()}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            <span>{pendingFileAction === "save" ? "Saving..." : "Save As"}</span>
+            <span>{pendingFileAction === "save" ? t("viewer.saving") : t("viewer.more.saveAs")}</span>
             {fileActionFeedback === "Source file saved" && (
-              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Saved</span>
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">{t("viewer.saved")}</span>
             )}
           </button>
           <button
@@ -1195,9 +1198,9 @@ function GlobalImageViewer({
             onClick={() => void copyText(path, "Path")}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            <span>Copy Image Path</span>
+            <span>{t("viewer.more.copyPath")}</span>
             {copyFeedback === "Path copied" && (
-              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Copied</span>
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">{t("viewer.copied")}</span>
             )}
           </button>
           <button
@@ -1207,9 +1210,9 @@ function GlobalImageViewer({
             onClick={() => void copyText(displayName, "File name")}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            <span>Copy File Name</span>
+            <span>{t("viewer.more.copyName")}</span>
             {copyFeedback === "File name copied" && (
-              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Copied</span>
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">{t("viewer.copied")}</span>
             )}
           </button>
           <button
@@ -1219,7 +1222,7 @@ function GlobalImageViewer({
             onClick={() => void openCurrentImageFolder()}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            <span>{pendingFileAction === "folder" ? "Opening..." : "Open Folder"}</span>
+            <span>{pendingFileAction === "folder" ? t("viewer.opening") : t("viewer.more.openFolder")}</span>
           </button>
           {fileActionFeedback && (
             <p className="px-3 py-1 text-xs font-semibold text-slate-500">
@@ -1232,7 +1235,7 @@ function GlobalImageViewer({
             onClick={() => openPopover("fileInfo")}
             className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
           >
-            File Info
+            {t("viewer.more.fileInfo")}
           </button>
           <div className="my-1 h-px bg-[var(--viewer-divider)]" />
           <button
@@ -1242,7 +1245,7 @@ function GlobalImageViewer({
             onClick={toggleAlwaysShowControls}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
           >
-            <span>Always Show Controls</span>
+            <span>{t("viewer.more.alwaysShowControls")}</span>
             <span className={`relative h-5 w-9 rounded-full transition ${alwaysShowControls ? "bg-sakura-500" : "bg-slate-300"}`} data-testid="always-show-controls-switch">
               <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition ${alwaysShowControls ? "left-4" : "left-0.5"}`} />
             </span>
@@ -1254,7 +1257,7 @@ function GlobalImageViewer({
             onClick={toggleRememberViewerSettings}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
           >
-            <span>Remember Viewer Settings</span>
+            <span>{t("viewer.more.rememberSettings")}</span>
             <span className={`relative h-5 w-9 rounded-full transition ${rememberViewerSettings ? "bg-sakura-500" : "bg-slate-300"}`} data-testid="remember-viewer-settings-switch">
               <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition ${rememberViewerSettings ? "left-4" : "left-0.5"}`} />
             </span>
@@ -1264,26 +1267,26 @@ function GlobalImageViewer({
 
       {fileInfoOpen && (
         <div
-          aria-label="Image file info"
+          aria-label={t("viewer.fileInfoLabel")}
           className={`absolute right-3 top-16 z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
           onFocus={clearPopoverCloseTimer}
           onBlur={schedulePopoverClose}
         >
-          <h2 className="text-sm font-semibold">File Info</h2>
+          <h2 className="text-sm font-semibold">{t("viewer.more.fileInfo")}</h2>
           <dl className="viewer-muted mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Name</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.name")}</dt>
             <dd className="min-w-0 break-all">{displayName}</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">File Type</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.fileType")}</dt>
             <dd>{fileType}</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Dimension</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.dimension")}</dt>
             <dd>{resolution ? `${resolution} (${aspectRatioLabel})` : `N/A (${aspectRatioLabel})`}</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Size</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.size")}</dt>
             <dd>N/A</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Date Taken</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.dateTaken")}</dt>
             <dd>N/A</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Path</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.path")}</dt>
             <dd className="min-w-0 truncate" title={path || "N/A"}>{path || "N/A"}</dd>
           </dl>
         </div>
@@ -1299,7 +1302,7 @@ function GlobalImageViewer({
       {canGoPrevious && (
         <button
           type="button"
-          aria-label="Previous gallery image"
+          aria-label={t("viewer.previous")}
           onClick={() => goToIndex(currentIndex - 1)}
           data-layout-zone="viewer-side-nav"
           className={`absolute left-3 top-1/2 z-20 size-11 -translate-y-1/2 transition-opacity duration-300 sm:left-5 sm:size-14 ${glassButtonClass} ${controlsVisibilityClass}`}
@@ -1311,7 +1314,7 @@ function GlobalImageViewer({
       {canGoNext && (
         <button
           type="button"
-          aria-label="Next gallery image"
+          aria-label={t("viewer.next")}
           onClick={() => goToIndex(currentIndex + 1)}
           data-layout-zone="viewer-side-nav"
           className={`absolute right-3 top-1/2 z-20 size-11 -translate-y-1/2 transition-opacity duration-300 sm:right-5 sm:size-14 ${glassButtonClass} ${controlsVisibilityClass}`}
@@ -1329,7 +1332,7 @@ function GlobalImageViewer({
           {canShowImage && assetSrc ? (
             <div
               ref={panSurfaceRef}
-              aria-label="Image pan surface"
+              aria-label={t("viewer.panSurface")}
               className={dragState ? "cursor-grabbing touch-none" : isPannable ? "cursor-grab touch-none" : "cursor-default"}
               data-pan-x={Math.round(pan.x)}
               data-pan-y={Math.round(pan.y)}
@@ -1377,7 +1380,7 @@ function GlobalImageViewer({
               className="flex min-h-52 min-w-64 flex-col items-center justify-center gap-3 rounded-lg border border-white/10 bg-white/5 px-8 py-10 text-center text-slate-300"
             >
               <ImageIcon size={42} />
-              <p className="text-sm font-semibold">Image unavailable</p>
+              <p className="text-sm font-semibold">{t("viewer.unavailable")}</p>
             </div>
           )}
         </div>
@@ -1385,7 +1388,7 @@ function GlobalImageViewer({
 
       <div
         ref={bottomDockRef}
-        aria-label="Image viewer bottom dock"
+        aria-label={t("viewer.bottomDock")}
         data-layout-zone="viewer-bottom-dock"
         data-dock-mode={bottomDockMode}
         className={`viewer-bottom-dock ${controlsVisibilityClass}`}
@@ -1395,14 +1398,14 @@ function GlobalImageViewer({
         <div className="viewer-bottom-dock-inner">
           {dockMinimapVisible && activeNaturalSize && assetSrc && viewportRect && (
             <div
-              aria-label="Image position overview"
+              aria-label={t("viewer.positionOverview")}
               data-layout-zone="viewer-minimap"
               className={`viewer-minimap-slot ${glassPanelClass}`}
             >
               <div
                 ref={minimapRef}
                 role="slider"
-                aria-label="Image minimap navigator"
+                aria-label={t("viewer.minimap")}
                 aria-valuetext={`Viewport ${Math.round(viewportRect.x)} ${Math.round(viewportRect.y)}`}
                 tabIndex={0}
                 className="relative overflow-hidden rounded-lg bg-slate-900/90"
@@ -1441,7 +1444,7 @@ function GlobalImageViewer({
           )}
         <div
           ref={controlPanelRef}
-          aria-label="Image viewer controls"
+          aria-label={t("viewer.controls")}
           data-layout-zone="viewer-controls"
           className={`viewer-control-panel ${glassPanelClass}`}
           data-control-panel="content-sized"
@@ -1478,29 +1481,29 @@ function GlobalImageViewer({
                 type="button"
                 onClick={() => zoomMenuOpen ? closePopovers() : openPopover("zoom")}
                 aria-expanded={zoomMenuOpen}
-                aria-label="Open gallery image zoom controls"
+                aria-label={t("viewer.openZoom")}
                 className={`viewer-command-compact ${pillButtonClass} ${inactivePillClass} gap-2`}
               >
                 <ZoomIn size={16} aria-hidden="true" />
                 <span className="viewer-command-zoom-value">{zoomControlLabel}</span>
               </button>
               <div
-                aria-label="Gallery image zoom control"
+                aria-label={t("viewer.zoomControl")}
                 className="viewer-command-wide viewer-inline-control"
               >
                 <button
                   type="button"
                   onClick={() => zoomOut()}
                   disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
-                  aria-label="Zoom out gallery image"
+                  aria-label={t("viewer.zoomOut")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <ZoomOut size={16} />
                 </button>
                 <label className="viewer-inline-slider">
-                  <span aria-label="Image zoom value" className="min-w-12 text-center text-xs font-semibold">{zoomControlLabel}</span>
+                  <span aria-label={t("viewer.zoomValue")} className="min-w-12 text-center text-xs font-semibold">{zoomControlLabel}</span>
                   <input
-                    aria-label="Set gallery image zoom percentage"
+                    aria-label={t("viewer.setZoom")}
                     type="range"
                     min={MIN_GALLERY_ZOOM}
                     max={MAX_GALLERY_ZOOM}
@@ -1516,7 +1519,7 @@ function GlobalImageViewer({
                   type="button"
                   onClick={() => zoomIn()}
                   disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
-                  aria-label="Zoom in gallery image"
+                  aria-label={t("viewer.zoomIn")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <ZoomIn size={16} />
@@ -1525,7 +1528,7 @@ function GlobalImageViewer({
               {zoomMenuOpen && (
                 <div
                   role="menu"
-                  aria-label="Gallery image zoom controls"
+                  aria-label={t("viewer.zoomControls")}
                   className={`viewer-command-popover bottom-12 left-1/2 -translate-x-1/2 ${glassPanelClass}`}
                   onPointerEnter={clearPopoverCloseTimer}
                   onPointerLeave={schedulePopoverClose}
@@ -1537,15 +1540,15 @@ function GlobalImageViewer({
                       type="button"
                       onClick={() => zoomOut()}
                       disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
-                      aria-label="Zoom out gallery image"
+                      aria-label={t("viewer.zoomOut")}
                       className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                     >
                       <ZoomOut size={16} />
                     </button>
                     <label className="flex items-center gap-2 text-xs font-semibold">
-                      <span aria-label="Image zoom value" className="min-w-12 text-center">{zoomControlLabel}</span>
+                      <span aria-label={t("viewer.zoomValue")} className="min-w-12 text-center">{zoomControlLabel}</span>
                       <input
-                        aria-label="Set gallery image zoom percentage"
+                        aria-label={t("viewer.setZoom")}
                         type="range"
                         min={MIN_GALLERY_ZOOM}
                         max={MAX_GALLERY_ZOOM}
@@ -1561,7 +1564,7 @@ function GlobalImageViewer({
                       type="button"
                       onClick={() => zoomIn()}
                       disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
-                      aria-label="Zoom in gallery image"
+                      aria-label={t("viewer.zoomIn")}
                       className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                     >
                       <ZoomIn size={16} />
@@ -1592,28 +1595,28 @@ function GlobalImageViewer({
                 type="button"
                 onClick={() => rotationMenuOpen ? closePopovers() : openPopover("rotation")}
                 aria-expanded={rotationMenuOpen}
-                aria-label="Open gallery image rotation controls"
+                aria-label={t("viewer.openRotation")}
                 className={`viewer-command-compact ${pillButtonClass} ${inactivePillClass} gap-2`}
               >
                 <RotateCwSquare size={16} aria-hidden="true" />
                 <span className="viewer-command-rotation-value">{rotation}°</span>
               </button>
               <div
-                aria-label="Gallery image rotation control"
+                aria-label={t("viewer.rotationControl")}
                 className="viewer-command-wide viewer-inline-control"
               >
                 <button
                   type="button"
                   onClick={() => rotateBy(-15)}
-                  aria-label="Rotate gallery image left"
+                  aria-label={t("viewer.rotateLeft")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <RotateCcwSquare size={16} />
                 </button>
                 <label className="viewer-inline-slider">
-                  <span aria-label="Image rotation value" className="min-w-10 text-center text-xs font-semibold">{rotation}°</span>
+                  <span aria-label={t("viewer.rotationValue")} className="min-w-10 text-center text-xs font-semibold">{rotation}°</span>
                   <input
-                    aria-label="Set image rotation degrees"
+                    aria-label={t("viewer.setRotation")}
                     type="range"
                     min="-180"
                     max="180"
@@ -1628,7 +1631,7 @@ function GlobalImageViewer({
                 <button
                   type="button"
                   onClick={() => rotateBy(15)}
-                  aria-label="Rotate gallery image right"
+                  aria-label={t("viewer.rotateRight")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <RotateCwSquare size={16} />
@@ -1637,7 +1640,7 @@ function GlobalImageViewer({
               {rotationMenuOpen && (
                 <div
                   role="menu"
-                  aria-label="Gallery image rotation controls"
+                  aria-label={t("viewer.rotationControls")}
                   className={`viewer-command-popover bottom-12 left-1/2 -translate-x-1/2 ${glassPanelClass}`}
                   onPointerEnter={clearPopoverCloseTimer}
                   onPointerLeave={schedulePopoverClose}
@@ -1648,15 +1651,15 @@ function GlobalImageViewer({
                   <button
                     type="button"
                     onClick={() => rotateBy(-15)}
-                    aria-label="Rotate gallery image left"
+                    aria-label={t("viewer.rotateLeft")}
                     className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                   >
                     <RotateCcwSquare size={16} />
                   </button>
                   <label className="flex items-center gap-2 text-xs font-semibold">
-                    <span aria-label="Image rotation value" className="min-w-10 text-center">{rotation}°</span>
+                    <span aria-label={t("viewer.rotationValue")} className="min-w-10 text-center">{rotation}°</span>
                     <input
-                      aria-label="Set image rotation degrees"
+                      aria-label={t("viewer.setRotation")}
                       type="range"
                       min="-180"
                       max="180"
@@ -1671,7 +1674,7 @@ function GlobalImageViewer({
                   <button
                     type="button"
                     onClick={() => rotateBy(15)}
-                    aria-label="Rotate gallery image right"
+                    aria-label={t("viewer.rotateRight")}
                     className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                   >
                     <RotateCwSquare size={16} />
@@ -1697,7 +1700,7 @@ function GlobalImageViewer({
             <button
               type="button"
               onClick={resetView}
-              aria-label="Reset gallery image view"
+              aria-label={t("viewer.reset")}
               data-control-group="view-reset"
               data-control-slot="reset"
               className={`viewer-command-medium ${glassButtonClass} size-10`}
@@ -1707,7 +1710,7 @@ function GlobalImageViewer({
             <div className="relative viewer-command-bottom-more">
               <button
                 type="button"
-                aria-label="More viewer controls"
+                aria-label={t("viewer.moreControls")}
                 aria-expanded={viewerControlsMenuOpen}
                 onClick={() => viewerControlsMenuOpen ? closePopovers() : openPopover("viewerControls")}
                 data-control-group="viewer-more"
@@ -1719,7 +1722,7 @@ function GlobalImageViewer({
               {viewerControlsMenuOpen && (
                 <div
                   role="menu"
-                  aria-label="More viewer controls menu"
+                  aria-label={t("viewer.moreControlsMenu")}
                   className={`viewer-command-popover bottom-12 right-0 ${glassPanelClass}`}
                   onPointerEnter={clearPopoverCloseTimer}
                   onPointerLeave={schedulePopoverClose}
@@ -1767,13 +1770,13 @@ function GlobalImageViewer({
                       <button
                         type="button"
                         onClick={() => rotateBy(-15)}
-                        aria-label="Rotate gallery image left"
+                        aria-label={t("viewer.rotateLeft")}
                         className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                       >
                         <RotateCcwSquare size={16} />
                       </button>
                       <span
-                        aria-label="Image rotation value"
+                        aria-label={t("viewer.rotationValue")}
                         className="min-w-10 text-center text-sm font-semibold"
                       >
                         {rotation}°
@@ -1781,7 +1784,7 @@ function GlobalImageViewer({
                       <button
                         type="button"
                         onClick={() => rotateBy(15)}
-                        aria-label="Rotate gallery image right"
+                        aria-label={t("viewer.rotateRight")}
                         className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                       >
                         <RotateCwSquare size={16} />

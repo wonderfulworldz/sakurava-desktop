@@ -23,6 +23,7 @@ import { listImages } from "../runtime/imageCommands";
 import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { listVideos } from "../runtime/videoCommands";
+import { useTranslation } from "../lib/LanguageContext";
 
 type CategoryStatus = CategoryCatalogCardStatus;
 type SortValue = "name" | "usage-desc" | "usage-asc" | "updated-desc" | "created-desc";
@@ -44,6 +45,7 @@ const emptyAudit = buildCategoryAudit({
 const categoryCatalogPageSizeStorageKey = "sakurava.catalog.categories.pageSize.v1";
 
 function CategoriesPage() {
+  const t = useTranslation();
   const [auditRows, setAuditRows] = useState<CategoryAuditRow[]>([]);
   const [managedCategories, setManagedCategories] = useState<ManagedCategory[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -128,10 +130,10 @@ function CategoriesPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-            Categories
+            {t("categories.title")}
           </h1>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-500">
-            Browse category usage across Videos, Images, and Performers.
+            {t("categories.description")}
           </p>
         </div>
         <Link
@@ -139,16 +141,16 @@ function CategoriesPage() {
           className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-sakura-500 px-6 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
         >
           <Tags size={20} />
-          Manage Category
+          {t("categories.manage")}
         </Link>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Total Category" value={categories.length} icon={Tags} />
-        <SummaryCard label="Videos Category" value={videoCategoryCount} icon={Video} />
-        <SummaryCard label="Images Category" value={imageCategoryCount} icon={Image} />
+        <SummaryCard label={t("categories.summary.total")} value={categories.length} icon={Tags} />
+        <SummaryCard label={t("categories.summary.videos")} value={videoCategoryCount} icon={Video} />
+        <SummaryCard label={t("categories.summary.images")} value={imageCategoryCount} icon={Image} />
         <SummaryCard
-          label="Performers Category"
+          label={t("categories.summary.performers")}
           value={performerCategoryCount}
           icon={UserRound}
         />
@@ -163,8 +165,8 @@ function CategoriesPage() {
             />
             <input
               className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-              placeholder="Search categories..."
-              aria-label="Categories search"
+              placeholder={t("categories.search")}
+              aria-label={t("categories.searchLabel")}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
@@ -175,7 +177,7 @@ function CategoriesPage() {
             htmlFor="categories-usage-filter"
           >
             <span className="shrink-0 text-xs font-semibold text-slate-500">
-              Filter
+              {t("common.filter")}
             </span>
             <select
               id="categories-usage-filter"
@@ -183,10 +185,10 @@ function CategoriesPage() {
               value={usageFilter}
               onChange={(event) => setUsageFilter(event.target.value as UsageFilter)}
             >
-              <option value="all">All</option>
-              <option value="videos">Video Only</option>
-              <option value="images">Image Only</option>
-              <option value="performers">Performer Only</option>
+              <option value="all">{t("categories.filter.all")}</option>
+              <option value="videos">{t("categories.filter.videoOnly")}</option>
+              <option value="images">{t("categories.filter.imageOnly")}</option>
+              <option value="performers">{t("categories.filter.performerOnly")}</option>
             </select>
           </label>
 
@@ -195,7 +197,7 @@ function CategoriesPage() {
             htmlFor="categories-sort"
           >
             <span className="shrink-0 text-xs font-semibold text-slate-500">
-              Sort
+              {t("common.sort")}
             </span>
             <select
               id="categories-sort"
@@ -203,11 +205,11 @@ function CategoriesPage() {
               value={sortValue}
               onChange={(event) => setSortValue(event.target.value as SortValue)}
             >
-              <option value="name">Name A-Z</option>
-              <option value="usage-desc">Usage high-low</option>
-              <option value="usage-asc">Usage low-high</option>
-              <option value="updated-desc">Last Updated</option>
-              <option value="created-desc">Last Added</option>
+              <option value="name">{t("categories.sort.name")}</option>
+              <option value="usage-desc">{t("categories.sort.usageHigh")}</option>
+              <option value="usage-asc">{t("categories.sort.usageLow")}</option>
+              <option value="updated-desc">{t("categories.sort.updated")}</option>
+              <option value="created-desc">{t("categories.sort.added")}</option>
             </select>
           </label>
         </div>
@@ -215,12 +217,12 @@ function CategoriesPage() {
 
       {loadState === "error" && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-          Category usage could not be loaded. No records were changed.
+          {t("categories.loadError")}
         </p>
       )}
 
       {loadState === "loading" ? (
-        <CategoryEmptyState message="Loading category usage..." />
+        <CategoryEmptyState message={t("categories.loading")} />
       ) : visibleCategories.length > 0 ? (
         <>
           <section className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))] xl:[grid-template-columns:repeat(4,minmax(0,1fr))]">
@@ -247,8 +249,8 @@ function CategoriesPage() {
         <CategoryEmptyState
           message={
             searchQuery.trim() || usageFilter !== "all"
-              ? "No categories match the current search and filter."
-              : "No categories to browse yet."
+              ? t("categories.noMatch")
+              : t("categories.empty")
           }
         />
       )}
@@ -285,12 +287,12 @@ function CategoryCard({ category }: { category: CategoryBrowseRow }) {
 }
 
 function CategoryEmptyState({ message }: { message: string }) {
+  const t = useTranslation();
   return (
     <section className="rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center">
       <p className="text-base font-semibold text-slate-700">{message}</p>
       <p className="mt-2 text-sm text-slate-500">
-        Record Categories come from saved catalog labels. Managed Categories can
-        be reviewed in Category Management.
+        {t("categories.emptyHelper")}
       </p>
     </section>
   );
@@ -315,25 +317,30 @@ function CategoryPaginationBar({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: string) => void;
 }) {
+  const t = useTranslation();
   const firstVisible = totalCount === 0 ? 0 : startIndex + 1;
   const lastVisible = startIndex + visibleCount;
 
   return (
     <nav
       className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-      aria-label="Categories pagination"
+      aria-label={t("categories.pagination")}
     >
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm font-semibold text-slate-500">
-          Showing {firstVisible}-{lastVisible} of {totalCount} categories
+          {t("categories.showing", {
+            first: String(firstVisible),
+            last: String(lastVisible),
+            total: String(totalCount),
+          })}
         </p>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-          Per page
+          {t("common.perPage")}
           <SakuravaSelect
             value={pageSize}
             placement="down"
             onChange={onPageSizeChange}
-            ariaLabel="Categories per page"
+            ariaLabel={t("categories.perPageLabel")}
             options={CATALOG_PAGE_SIZE_OPTIONS.map((option) => ({
               value: option,
               label: option,
@@ -348,10 +355,13 @@ function CategoryPaginationBar({
           disabled={page === 1}
           onClick={() => onPageChange(Math.max(1, page - 1))}
         >
-          Previous
+          {t("common.previous")}
         </button>
         <span className="text-sm font-semibold text-slate-500">
-          Page {page} of {pageCount}
+          {t("categories.page", {
+            page: String(page),
+            count: String(pageCount),
+          })}
         </span>
         <button
           type="button"
@@ -359,7 +369,7 @@ function CategoryPaginationBar({
           disabled={page === pageCount}
           onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
     </nav>

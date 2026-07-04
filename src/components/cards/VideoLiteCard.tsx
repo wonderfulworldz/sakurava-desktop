@@ -1,6 +1,7 @@
 import { Film } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { HomeRecentItem } from "../../lib/homeData";
+import { useTranslation } from "../../lib/LanguageContext";
 import {
   CardThumbnail,
   CensorshipIcon,
@@ -23,6 +24,7 @@ export function VideoLiteCard({
   onFavoriteClick,
   favoriteInteractive,
 }: VideoLiteCardProps) {
+  const t = useTranslation();
   const title = displayValue(item.title);
   const duration = numericStatValue(item.duration);
   const quality = displayValue(item.quality);
@@ -47,7 +49,7 @@ export function VideoLiteCard({
         <div className="grid min-w-0 grid-cols-4 gap-1.5">
           <div className="col-span-2 flex min-w-0 items-center gap-1.5 rounded-lg bg-sakura-50 px-2 py-1.5 dark:bg-slate-700">
             <Film size={14} className="shrink-0 text-sakura-500" />
-            <div className="min-w-0"><p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{duration}</p><p className="text-[10px] leading-tight text-slate-500">minutes</p></div>
+            <div className="min-w-0"><p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{duration}</p><p className="text-[10px] leading-tight text-slate-500">{t(duration === "1" ? "unit.minute" : "unit.minutes")}</p></div>
           </div>
           <div className="col-span-1 flex items-center justify-center rounded-lg bg-sakura-50 px-1.5 py-1.5 dark:bg-slate-700"><CensorshipIcon status={censorshipStatus} size={14} /></div>
           <div className="col-span-1 flex min-w-0 items-center justify-center rounded-lg bg-sakura-50 px-1.5 py-1.5 dark:bg-slate-700"><span className="min-w-0 truncate text-xs font-bold text-slate-900 dark:text-slate-100">{quality}</span></div>

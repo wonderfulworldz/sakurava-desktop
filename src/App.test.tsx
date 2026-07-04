@@ -23,6 +23,11 @@ import {
 import { formatDateOnlyDisplay, formatLocalTimestampDisplay } from "./lib/dateDisplay";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
+import {
+  customLanguagesStorageKey,
+  maxCustomLanguages,
+} from "./lib/customLanguages";
+import { languageOverridesStorageKey } from "./lib/languageOverrides";
 import { rankPickerSearchResults } from "./lib/relatedPicker";
 import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
 import tailwindConfig from "../tailwind.config";
@@ -607,7 +612,7 @@ describe("App", () => {
     expect(screen.getByTestId("glossary-category-filter-control").closest(".relative")?.querySelector("svg"))
       .not.toBeNull();
 
-    for (const column of ["Term", "Synonyms", "Categories", "Definition", "Source"]) {
+    for (const column of ["TERM", "SYNONYMS", "CATEGORIES", "DEFINITION", "SOURCE"]) {
       expect(screen.getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
     expect(screen.queryByRole("columnheader", { name: "Thumbnail" }))
@@ -810,13 +815,13 @@ describe("App", () => {
       within(screen.getByRole("listbox", { name: "Category filter options" }))
         .getAllByRole("option")
         .map((option) => option.textContent),
-    ).toEqual(["All", "Parent Only", "Child Only"]);
+    ).toEqual(["All", "Parents Only", "Children Only"]);
     expect(
       within(screen.getByRole("listbox", { name: "Category filter options" })).queryByRole(
         "searchbox",
       ),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("option", { name: "Parent Only" }));
+    fireEvent.click(screen.getByRole("option", { name: "Parents Only" }));
 
     expect(within(glossaryFilterControl).queryByText("Categories")).not.toBeInTheDocument();
     const oneSelectedBadge = screen.getByLabelText("1 active filters");
@@ -830,11 +835,11 @@ describe("App", () => {
         & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Remove filter Filter: Parent Only" }),
+      screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Remove filter Filter: Parent Only" }),
-    ).toHaveTextContent("Filter: Parent Only");
+      screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }),
+    ).toHaveTextContent("Filter: Parents Only");
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
     ).toBeInTheDocument();
@@ -842,16 +847,16 @@ describe("App", () => {
       screen.queryByRole("row", { name: "Edit glossary entry Source Citation" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove filter Filter: Parent Only" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }));
     fireEvent.click(glossaryFilterControl);
     fireEvent.click(
-      screen.getByRole("option", { name: "Child Only" }),
+      screen.getByRole("option", { name: "Children Only" }),
     );
 
     expect(within(glossaryFilterControl).queryByText("Categories")).not.toBeInTheDocument();
     expect(screen.getByLabelText("1 active filters")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove filter Filter: Child Only" }))
-      .toHaveTextContent("Filter: Child Only");
+    expect(screen.getByRole("button", { name: "Remove filter Filter: Children Only" }))
+      .toHaveTextContent("Filter: Children Only");
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
     ).toBeInTheDocument();
@@ -878,7 +883,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByTestId("glossary-category-filter-control"));
     fireEvent.click(
-      screen.getByRole("option", { name: "Parent Only" }),
+      screen.getByRole("option", { name: "Parents Only" }),
     );
     fireEvent.focus(screen.getByLabelText("Sort"));
     fireEvent.click(screen.getByRole("button", { name: "Select sort Term Z-A" }));
@@ -893,7 +898,7 @@ describe("App", () => {
     expect(screen.getByLabelText("Search terms")).toHaveValue("taxonomy");
     expect(screen.getByLabelText("Glossary active filters")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Remove filter Filter: Parent Only" }),
+      screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("glossary-sort-control")).toHaveTextContent("Term Z-A");
     expect(screen.getByLabelText("Terms per page")).toHaveDisplayValue("64");
@@ -942,13 +947,13 @@ describe("App", () => {
       expect.stringContaining("AAA Standalone"),
     ]);
 
-    for (const option of ["Term A-Z", "Term Z-A", "Last Added", "Last Updated"]) {
+    for (const option of ["Term A-Z", "Term Z-A", "Last Added", "Last Modified"]) {
       fireEvent.focus(screen.getByLabelText("Sort"));
       expect(screen.getByRole("button", { name: `Select sort ${option}` }))
         .toBeInTheDocument();
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Term" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by TERM" }));
     rows = within(tableBody as HTMLElement).getAllByRole("row");
     expect(rows.map((row) => row.textContent)).toEqual([
       expect.stringContaining("Alias Mapping"),
@@ -959,11 +964,11 @@ describe("App", () => {
       expect.stringContaining("AAA Standalone"),
     ]);
     expect(
-      screen.getByRole("button", { name: "Sort by Term" }).closest("th"),
+      screen.getByRole("button", { name: "Sort by TERM" }).closest("th"),
     ).toHaveAttribute("aria-sort", "ascending");
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Term" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by TERM" }));
     expect(
-      screen.getByRole("button", { name: "Sort by Term" }).closest("th"),
+      screen.getByRole("button", { name: "Sort by TERM" }).closest("th"),
     ).toHaveAttribute("aria-sort", "descending");
   });
 
@@ -1619,7 +1624,7 @@ describe("App", () => {
       .toBeInTheDocument();
     expect(screen.getByLabelText("2 active filters")).toHaveTextContent("2");
 
-    selectCategoryFilter("Performer Used");
+    selectCategoryFilter("Performers Used");
     expect(screen.getByRole("article", { name: "Category Performer Category" }))
       .toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Category Image Category" }))
@@ -1942,7 +1947,7 @@ describe("App", () => {
     {
       path: "/performers",
       panelName: "Performers filters",
-      filters: ["Status", "Age", "Body Height", "Nationality", "Body Type", "Debut Years", "Cup Size", "Rating", "Filmography Count", "Category", "Pictorials Count", "Gender"],
+      filters: ["Availability", "Age", "Body Height", "Nationality", "Body Type", "Debut Years", "Cup Size", "Rating", "Filmography Count", "Category", "Pictorials Count", "Gender"],
       absent: ["Quality", "Duration", "Image Count", "Release Years"],
     },
   ])(
@@ -2962,6 +2967,21 @@ describe("App", () => {
 
   it("persists Indonesian App Language and reloads it", () => {
     window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "settings.title": "Pengaturan",
+          "settings.language.appLanguage": "Bahasa Aplikasi",
+          "app.sidebar.navigateTo": "Buka {label}",
+          "nav.home": "Beranda",
+        },
+      }),
+    );
     const { unmount } = render(<App />);
 
     fireEvent.change(screen.getByLabelText("App Language"), {
@@ -2991,6 +3011,208 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
   });
 
+  it("applies the selected custom language inside the separate Image Viewer window", async () => {
+    const eventHarness = createTauriEventHarness();
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+        if (
+          command === "plugin:event|unlisten" ||
+          command === "plugin:event|emit_to"
+        ) {
+          return null;
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+    window.history.pushState({}, "", "/?sakuravaWindow=image-viewer");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "viewer.showShortcuts": "Tampilkan pintasan gambar",
+          "viewer.shortcuts.action.closeViewer": "Tutup penampil",
+          "viewer.moreActions": "Aksi gambar lainnya",
+          "viewer.more.saveAs": "Simpan Sebagai",
+          "viewer.more.fileInfo": "Info Berkas",
+          "viewer.fileInfo.name": "Nama Berkas",
+        },
+      }),
+    );
+    window.localStorage.setItem(
+      "sakurava.globalImageViewer.payload.v1",
+      JSON.stringify({
+        images: [{ path: "C:/Gallery/translated.jpg" }],
+        initialIndex: 0,
+        openRequestId: "image-open-translated",
+      }),
+    );
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Tampilkan pintasan gambar" }),
+    );
+    expect(screen.getByText("Tutup penampil")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Aksi gambar lainnya" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByText("Simpan Sebagai")).toBeInTheDocument();
+    fireEvent.click(within(menu).getByText("Info Berkas"));
+    expect(await screen.findByText("Nama Berkas")).toBeInTheDocument();
+  });
+
+  it("translates Performer Form availability labels and never renders malformed Unknown copy", () => {
+    window.history.pushState({}, "", "/performers/new");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "enum.status.active": "Aktif",
+          "enum.status.retired": "Pensiun",
+          "enum.common.unknown": "Tidak diketahui",
+        },
+      }),
+    );
+
+    render(<App />);
+
+    expect(screen.getByText("Aktif")).toBeInTheDocument();
+    expect(screen.getByText("Pensiun")).toBeInTheDocument();
+    expect(screen.getByText("Tidak diketahui")).toBeInTheDocument();
+    expect(screen.queryByText(/Unknow|Unkown/)).not.toBeInTheDocument();
+  });
+
+  it("translates Category Management and Glossary filter controls, chips, and empty helpers", () => {
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "common.filter": "Saring",
+          "filter.childrenOnly": "Anak Saja",
+          "filter.performersUsed": "Dipakai Performer",
+          "categories.toolbar.filter": "Saring",
+          "categories.toolbar.clearAllFilters": "Hapus semua filter",
+          "categories.empty": "Kategori kosong",
+          "categories.noMatches": "Tidak ada kategori cocok",
+          "glossary.toolbar.clearAllFilters": "Hapus semua filter",
+          "glossary.empty": "Glosarium kosong",
+          "glossary.emptyHint": "Ubah pencarian atau tambahkan entri.",
+        },
+      }),
+    );
+
+    window.history.pushState({}, "", "/settings/category-management");
+    const categoryView = render(<App />);
+    fireEvent.click(
+      screen.getByTestId("category-management-filter-control"),
+    );
+    expect(screen.getByRole("option", { name: "Anak Saja" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Dipakai Performer" }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Anak Saja" }));
+    expect(screen.getByText("Saring: Anak Saja")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hapus semua filter" }))
+      .toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search categories"), {
+      target: { value: "no-category-can-match-this" },
+    });
+    expect(screen.getByText(/Tidak ada kategori cocok|Kategori kosong/))
+      .toBeInTheDocument();
+
+    categoryView.unmount();
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+    fireEvent.click(screen.getByTestId("glossary-category-filter-control"));
+    fireEvent.click(screen.getByRole("option", { name: "Anak Saja" }));
+    expect(screen.getByText("Saring: Anak Saja")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hapus semua filter" }))
+      .toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search terms"), {
+      target: { value: "no-glossary-entry-can-match-this" },
+    });
+    expect(screen.getByText("Glosarium kosong")).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      path: "/videos",
+      region: "Videos filters",
+      option: "Availability: Dimiliki",
+      expected: "Ketersediaan: Dimiliki",
+    },
+    {
+      path: "/images",
+      region: "Images filters",
+      option: "Image Count: Banyak",
+      expected: "Jumlah Gambar: Banyak",
+    },
+    {
+      path: "/performers",
+      region: "Performers filters",
+      option: "Availability: Aktif",
+      expected: "Ketersediaan: Aktif",
+    },
+  ])("translates active catalog filter chips for $path", ({
+    path,
+    region,
+    option,
+    expected,
+  }) => {
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "catalog.filterChip.availability": "Ketersediaan",
+          "catalog.filterChip.imageCount": "Jumlah Gambar",
+          "enum.availability.owned": "Dimiliki",
+          "enum.count.many": "Banyak",
+          "enum.status.active": "Aktif",
+        },
+      }),
+    );
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: region }))
+        .getByRole("button", { name: option }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
+
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
   it("does not translate user catalog data", () => {
     window.localStorage.setItem(languageStorageKey, "id");
     setManagedCategories(["Settings"]);
@@ -2999,6 +3221,296 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByText("Settings")).toBeInTheDocument();
+  });
+
+  it("shows real installed languages and exposes only functional Language controls", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "ja", label: "Japanese", baseLanguage: "en" }]),
+    );
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    const languageCard = screen
+      .getAllByRole("heading", { name: "Language" })[0]
+      .closest("section") as HTMLElement;
+    expect(languageCard).toBeInTheDocument();
+    expect(within(languageCard).getByText("English, Japanese"))
+      .toBeInTheDocument();
+    expect(within(languageCard).getByRole("button", { name: "Manage..." }))
+      .toBeEnabled();
+    expect(within(languageCard).getByRole("button", { name: "Import Language CSV" }))
+      .toBeEnabled();
+    expect(
+      within(languageCard).getByRole("button", {
+        name: "Export Language CSV",
+      }),
+    ).toBeEnabled();
+    expect(within(languageCard).queryByRole("button", { name: "Reset Language" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(within(languageCard).getByRole("button", { name: "Manage..." }));
+
+    expect(within(languageCard).getByText("Default · Source · Protected"))
+      .toBeInTheDocument();
+    expect(
+      within(languageCard).getByRole("button", {
+        name: "Remove custom language Japanese",
+      }),
+    ).toBeEnabled();
+  });
+
+  it("removes an active custom language and falls back safely to English", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(languageStorageKey, "ja");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "ja", label: "Japanese", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({ ja: { "settings.title": "設定" } }),
+    );
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage..." }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove custom language Japanese",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove Language" }));
+
+    expect(screen.getByLabelText("App Language")).toHaveValue("en");
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("en");
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBeNull();
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBeNull();
+    expect(screen.getByText(/Removed language "ja"/)).toBeInTheDocument();
+  });
+
+  it("imports a valid custom Language CSV without touching catalog data", async () => {
+    window.history.pushState({}, "", "/settings");
+    setManagedCategories(["Private User Category"]);
+    const sourcePath = "D:/Languages/japanese.csv";
+    const csvContent = [
+      "language_code,key,text,context",
+      "ja,nav.home,ホーム,Sidebar",
+    ].join("\n");
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === "import_csv_read") {
+          return {
+            sourcePath,
+            csvContent,
+            bytesRead: csvContent.length,
+            success: true,
+          };
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+    expect(await screen.findByText("Add Japanese")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Language" }));
+
+    expect(screen.getByLabelText("App Language")).toHaveTextContent("Japanese");
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(languageOverridesStorageKey) ?? "{}",
+      ).ja["nav.home"],
+    ).toBe("ホーム");
+    expect(
+      JSON.parse(
+        window.localStorage.getItem("sakurava.managedCategories.v1") ?? "[]",
+      ),
+    ).toEqual(["Private User Category"]);
+  });
+
+  it("blocks a new Language CSV when 25 custom languages are installed", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify(
+        Array.from({ length: maxCustomLanguages }, (_, index) => ({
+          code: `x${index.toString(36).padStart(2, "0")}`,
+          label: `Custom ${index + 1}`,
+          baseLanguage: "en",
+        })),
+      ),
+    );
+    const sourcePath = "D:/Languages/overflow.csv";
+    const csvContent = [
+      "language_code,key,text,context",
+      "zz,nav.home,Overflow,Sidebar",
+    ].join("\n");
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === "import_csv_read") {
+          return {
+            sourcePath,
+            csvContent,
+            bytesRead: csvContent.length,
+            success: true,
+          };
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+
+    expect(
+      await screen.findByText(/Up to 25 custom languages can be installed/),
+    ).toBeInTheDocument();
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(customLanguagesStorageKey) ?? "[]",
+      ),
+    ).toHaveLength(maxCustomLanguages);
+  });
+
+  it("rejects an invalid Language CSV without corrupting installed languages", async () => {
+    window.history.pushState({}, "", "/settings");
+    const originalLanguages = JSON.stringify([
+      { code: "ja", label: "Japanese", baseLanguage: "en" },
+    ]);
+    window.localStorage.setItem(customLanguagesStorageKey, originalLanguages);
+    const sourcePath = "D:/Languages/invalid.csv";
+    const csvContent = "Wrong,Headers\nja,Japanese";
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === "import_csv_read") {
+          return {
+            sourcePath,
+            csvContent,
+            bytesRead: csvContent.length,
+            success: true,
+          };
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+
+    expect(await screen.findByText(/Invalid CSV headers/)).toBeInTheDocument();
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBe(
+      originalLanguages,
+    );
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBeNull();
+  });
+
+  it("exports a Language starter CSV containing UI keys but no user data", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Languages/starter.csv";
+    dialogMocks.save.mockResolvedValue(destinationPath);
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (
+        command === "video_list" ||
+        command === "image_list" ||
+        command === "performer_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      if (command === "export_csv_write") {
+        expect(args.destinationPath).toBe(destinationPath);
+        expect(args.csvContent).toContain(",nav.home,Home,Nav > Home");
+        for (const key of [
+          "home.savedVideos",
+          "enum.availability.owned",
+          "sort.titleAz",
+          "pagination.showing",
+          "detail.ratingSummary",
+          "rating.rewatch",
+          "form.addSourceLink",
+          "count.selected",
+          "categoryManagement.subtitle",
+          "glossary.saveEntry",
+          "viewer.more.saveAs",
+          "categories.table.header.name",
+          "categories.table.header.description",
+          "glossary.form.field.category",
+          "glossary.form.field.thumbnail",
+          "common.status.available",
+        ]) {
+          expect(args.csvContent).toContain(`,${key},`);
+        }
+        expect(args.csvContent).not.toContain("Private User Title");
+        return { destinationPath, bytesWritten: args.csvContent.length, success: true };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Export Language CSV" }),
+    );
+
+    expect(await screen.findByText(`Language CSV exported to ${destinationPath}`))
+      .toBeInTheDocument();
   });
 
   it("shows desktop runtime database status when Tauri is available", () => {
@@ -3245,7 +3757,7 @@ describe("App", () => {
     expect(screen.getByText("Apply changes database records only after confirmation.")).toBeInTheDocument();
     expect(screen.getByText("Delete affects catalog records only. Original media files are not deleted.")).toBeInTheDocument();
     const previewTable = screen.getByRole("table");
-    for (const column of ["Row", "Action", "Result", "Target", "Changes", "Status"]) {
+    for (const column of ["ROW", "ACTION", "RESULT", "TARGET", "CHANGES", "STATUS"]) {
       expect(within(previewTable).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
@@ -3639,7 +4151,7 @@ describe("App", () => {
         "searchbox",
       ),
     ).not.toBeInTheDocument();
-    for (const column of ["Name", "Parent", "Description", "Usage", "Total Usage"]) {
+    for (const column of ["NAME", "PARENT", "DESCRIPTION", "USAGE", "TOTAL USAGE"]) {
       expect(within(table).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
@@ -3794,7 +4306,7 @@ describe("App", () => {
       "Title A-Z",
       "Title Z-A",
       "Last Added",
-      "Last Updated",
+      "Last Modified",
     ]) {
       const option = within(sortListbox).getByRole("option", { name: optionName });
       expect(option).toBeInTheDocument();
@@ -4276,16 +4788,16 @@ describe("App", () => {
     expect(within(bodyRows[1]).getByLabelText("Images 1")).toBeInTheDocument();
     expect(within(bodyRows[1]).getByLabelText("Performers 1")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Name" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by NAME" }));
     bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows[0]).toHaveTextContent("Parent Category");
     expect(bodyRows[1]).toHaveTextContent("Child Category");
     expect(
-      screen.getByRole("button", { name: "Sort by Name" }).closest("th"),
+      screen.getByRole("button", { name: "Sort by NAME" }).closest("th"),
     ).toHaveAttribute("aria-sort", "ascending");
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Name" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by NAME" }));
     expect(
-      screen.getByRole("button", { name: "Sort by Name" }).closest("th"),
+      screen.getByRole("button", { name: "Sort by NAME" }).closest("th"),
     ).toHaveAttribute("aria-sort", "descending");
 
     fireEvent.click(
@@ -4432,7 +4944,7 @@ describe("App", () => {
     bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(3);
 
-    selectCategoryFilter("Childs Only");
+    selectCategoryFilter("Children Only");
 
     bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(1);
@@ -4446,7 +4958,7 @@ describe("App", () => {
         "searchbox",
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove Filter: Childs Only filter" }))
+    expect(screen.getByRole("button", { name: "Remove Filter: Children Only filter" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
     fireEvent.change(screen.getByLabelText("Search categories"), {
@@ -4462,7 +4974,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
       "Last Added",
     );
-    expect(screen.getByRole("button", { name: "Remove Filter: Childs Only filter" }))
+    expect(screen.getByRole("button", { name: "Remove Filter: Children Only filter" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
 
@@ -5345,7 +5857,7 @@ describe("App", () => {
     expectSectionOrder([
       screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
       screen.getByRole("heading", { name: "Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "File" }).closest("section"),
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
@@ -5365,12 +5877,12 @@ describe("App", () => {
     expect(techInfo.getByLabelText("Duration")).toBeInTheDocument();
     expect(techInfo.getByLabelText("Duration")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(techInfo.getByText("Resolution")).toBeInTheDocument();
     expect(techInfo.getByLabelText("Resolution")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(techInfo.getByText("File Size")).toBeInTheDocument();
     expect(techInfo.getByText("File Type")).toBeInTheDocument();
@@ -5386,7 +5898,7 @@ describe("App", () => {
     expectSectionOrder([
       screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
       screen.getByRole("heading", { name: "Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "File" }).closest("section"),
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
@@ -5404,7 +5916,7 @@ describe("App", () => {
 
     expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
     const filesSection = within(
-      screen.getByRole("heading", { name: "Files" }).closest("section") as HTMLElement,
+      screen.getByRole("heading", { name: "File" }).closest("section") as HTMLElement,
     );
     expect(filesSection.getByText("Gallery Path")).toBeInTheDocument();
     expect(filesSection.queryByText("Gallery Images")).not.toBeInTheDocument();
@@ -6620,9 +7132,9 @@ describe("App", () => {
       path: "/performers",
       searchLabel: "Performers search",
       searchValue: "sample",
-      dataFilterLabel: "Status",
+      dataFilterLabel: "Availability",
       dataFilterValue: "Active",
-      dataChip: "Status: Active",
+      dataChip: "Availability: Active",
     },
   ])(
     "renders active toolbar chips for $path",
@@ -6668,7 +7180,7 @@ describe("App", () => {
       path: "/performers",
       buttonName: "Filters 0",
       regionName: "Performers filters",
-      sectionLabels: ["Status", "Cup Size", "Gender", "Body Height", "Age", "Body Type", "Nationality", "Debut Years", "Rating", "Filmography Count", "Category", "Pictorials Count"],
+      sectionLabels: ["Availability", "Cup Size", "Gender", "Body Height", "Age", "Body Type", "Nationality", "Debut Years", "Rating", "Filmography Count", "Category", "Pictorials Count"],
       controls: ["Nationality", "Debut Years", "Cup Size", "Category"],
     },
   ])(
@@ -6827,7 +7339,7 @@ describe("App", () => {
     expect(screen.queryByRole("listbox", { name: "Debut Years options" })).not.toBeInTheDocument();
     expect(panel.getByRole("listbox", { name: "Category options" })).toBeInTheDocument();
 
-    fireEvent.click(panel.getByRole("button", { name: "Status: Active" }));
+    fireEvent.click(panel.getByRole("button", { name: "Availability: Active" }));
     expect(screen.queryByRole("listbox", { name: "Category options" })).not.toBeInTheDocument();
 
     fireEvent.focus(panel.getByLabelText("Cup Size"));
@@ -6891,7 +7403,7 @@ describe("App", () => {
     expect(screen.getByLabelText("Availability")).toHaveValue("Unknown");
     expect(screen.queryByRole("combobox", { name: "Status" })).not.toBeInTheDocument();
     expect(screen.getByText("Mini Thumbnail Paths")).toBeInTheDocument();
-    expect(screen.getByText("No Mini Thumbnail Path rows added.")).toBeInTheDocument();
+    expect(screen.getByText("No Mini Thumbnail Path row added.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Images" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Browse" })).toHaveLength(1);
     expect(screen.getByLabelText("Filmography")).toHaveAttribute("readonly");
@@ -7269,7 +7781,7 @@ describe("App", () => {
 
     expectSectionOrder([
       screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "File" }).closest("section"),
       screen.getByRole("heading", { name: "Metadata" }).closest("section"),
       screen.getByRole("heading", { name: "Profile Details" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
@@ -7957,7 +8469,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     const panel = within(screen.getByRole("region", { name: "Performers filters" }));
 
-    fireEvent.click(panel.getByRole("button", { name: "Status: Active" }));
+    fireEvent.click(panel.getByRole("button", { name: "Availability: Active" }));
     fireEvent.change(panel.getByLabelText("performers Rating"), {
       target: { value: "5" },
     });
@@ -8793,7 +9305,7 @@ describe("App", () => {
     expect(
       within(performerTable).getAllByRole("columnheader").map((header) => header.textContent),
     ).toEqual([
-      "STATUS",
+      "AVAILABILITY",
       "THUMBNAIL",
       "FAVORITE",
       "NAME",
@@ -9438,7 +9950,7 @@ describe("App", () => {
     expect(within(personal).queryByText("Woman")).not.toBeInTheDocument();
     expect(within(personal).queryByText("Body Type")).not.toBeInTheDocument();
     expectPrecedes(personal, "Gender", "Birth Date");
-    expectPrecedes(personal, "Birth Date", "Birth Place");
+    expectPrecedes(personal, "Birth Date", "Birthplace");
     expectPrecedes(personal, "Debut Date", "Retired Date");
     expect(within(physical).getByText("Body Type")).toBeInTheDocument();
     expect(within(physical).getByText("Athletic")).toBeInTheDocument();
@@ -9962,8 +10474,8 @@ describe("App", () => {
 
     expect(await screen.findByText("Carousel Related Video")).toBeInTheDocument();
     for (const [heading, countLabel] of [
-      ["Related Performers", "20 Performers"],
-      ["Related Images", "20 Images"],
+      ["Related Performers", "20 performers"],
+      ["Related Images", "20 images"],
     ] as const) {
       const section = screen.getByRole("heading", { name: heading }).closest("section");
       expect(section).not.toBeNull();
@@ -10210,7 +10722,7 @@ describe("App", () => {
     for (const heading of ["Related Performers", "Related Videos"]) {
       const section = screen.getByRole("heading", { name: heading }).closest("section");
       expect(section).not.toBeNull();
-      expect(within(section as HTMLElement).getByText(heading === "Related Performers" ? "1 Performer" : "1 Video"))
+      expect(within(section as HTMLElement).getByText(heading === "Related Performers" ? "1 performer" : "1 video"))
         .toBeInTheDocument();
       const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
       expect(carousel).toHaveClass("overflow-hidden");
@@ -11220,8 +11732,8 @@ describe("App", () => {
     expect(videos.getByRole("button", { name: "Sort by Title" })).toBeInTheDocument();
     expect(videos.getByRole("columnheader", { name: "CODE" })).toBeInTheDocument();
     expect(videos.getByRole("button", { name: "Sort by CODE" })).toBeInTheDocument();
-    expect(videos.getByRole("columnheader", { name: "DURATION" })).toBeInTheDocument();
-    expect(videos.getByRole("button", { name: "Sort by DURATION" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "TOTAL" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by TOTAL" })).toBeInTheDocument();
     expect(videos.getByRole("columnheader", { name: "CENSOR" })).toBeInTheDocument();
     expect(videos.getByRole("button", { name: "Sort by CENSOR" })).toBeInTheDocument();
     expect(videos.getByRole("columnheader", { name: "RATING" })).toBeInTheDocument();
@@ -11594,7 +12106,7 @@ describe("App", () => {
     fireEvent.click(videos.getByRole("button", { name: "Switch to table view" }));
     fireEvent.click(videos.getByRole("button", { name: "Sort by CODE" }));
     expectPrecedes(section as HTMLElement, "Alpha Video", "Middle Video");
-    fireEvent.click(videos.getByRole("button", { name: "Sort by DURATION" }));
+    fireEvent.click(videos.getByRole("button", { name: "Sort by TOTAL" }));
     expectPrecedes(section as HTMLElement, "Alpha Video", "Zulu Video");
     fireEvent.click(videos.getByRole("button", { name: "Sort by RATING" }));
     expect(videos.getByRole("columnheader", { name: /RATING/ }))
@@ -11867,12 +12379,12 @@ describe("App", () => {
     expect(screen.getByLabelText("Duration")).toHaveDisplayValue("");
     expect(screen.getByLabelText("Duration")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(screen.getByLabelText("Resolution")).toHaveDisplayValue("");
     expect(screen.getByLabelText("Resolution")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(screen.getByLabelText("File Size")).toHaveDisplayValue("4096");
     expect(screen.getByLabelText("File Type")).toHaveDisplayValue("MP4");
@@ -11985,7 +12497,7 @@ describe("App", () => {
     expect(screen.getByText("Clas").tagName.toLowerCase()).toBe("mark");
     fireEvent.click(screen.getByRole("button", { name: "Add Classic" }));
     expect(screen.getByText("Classic")).toBeInTheDocument();
-    expect(screen.getByText("1 category selected")).toBeInTheDocument();
+    expect(screen.getByText("1 category selected.")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "classic" },
     });
@@ -12295,7 +12807,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Cute" }));
     expect(screen.queryByText("Cute")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+1 more" })).not.toBeInTheDocument();
-    expect(screen.getByText("4 categories selected")).toBeInTheDocument();
+    expect(screen.getByText("4 categories selected.")).toBeInTheDocument();
     expect(screen.queryByText(/Record.only/)).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
@@ -12847,7 +13359,14 @@ describe("App", () => {
 
       expect(await screen.findByDisplayValue(title)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-      confirmDialog("Delete");
+      const deleteDialog = await screen.findByRole(
+        "dialog",
+        {},
+        { timeout: 5_000 },
+      );
+      fireEvent.click(
+        within(deleteDialog).getByRole("button", { name: "Delete" }),
+      );
 
       await waitFor(() => expect(window.location.pathname).toBe(collectionPath));
       expect(
@@ -16586,7 +17105,7 @@ describe("App", () => {
 
     render(<App />);
 
-    const filesSection = screen.getByRole("heading", { name: "Files" }).closest("section");
+    const filesSection = screen.getByRole("heading", { name: "File" }).closest("section");
     expect(filesSection).not.toBeNull();
     expect(within(filesSection as HTMLElement).getByText("Mini Thumbnail Paths"))
       .toBeInTheDocument();
@@ -16971,19 +17490,18 @@ describe("App", () => {
     expect(within(personalSection).queryByText("1998-01-20")).not.toBeInTheDocument();
     expect(within(personalSection).queryByText("2020-01-02")).not.toBeInTheDocument();
     expect(within(personalSection).queryByText("2024-03-04")).not.toBeInTheDocument();
-    expect(within(personalSection).getByText("Birth Place")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Birthplace")).toBeInTheDocument();
     expect(within(personalSection).getByText("Tokyo")).toBeInTheDocument();
     expect(within(personalSection).getByText("Nationality")).toBeInTheDocument();
     expect(within(personalSection).getByText("Japanese")).toBeInTheDocument();
-    expect(within(personalSection).getByText("Zodiac")).toBeInTheDocument();
-    expect(within(personalSection).queryByText("Astrological Sign")).not.toBeInTheDocument();
+    expect(within(personalSection).getByText("Astrological Sign / Zodiac")).toBeInTheDocument();
     expect(within(personalSection).getByText("Aquarius")).toBeInTheDocument();
     expect(within(personalSection).queryByText("Blood Type")).not.toBeInTheDocument();
     expectPrecedes(personalSection, "Gender", "Birth Date");
-    expectPrecedes(personalSection, "Birth Date", "Birth Place");
-    expectPrecedes(personalSection, "Birth Place", "Nationality");
-    expectPrecedes(personalSection, "Nationality", "Zodiac");
-    expectPrecedes(personalSection, "Zodiac", "Debut Date");
+    expectPrecedes(personalSection, "Birth Date", "Birthplace");
+    expectPrecedes(personalSection, "Birthplace", "Nationality");
+    expectPrecedes(personalSection, "Nationality", "Astrological Sign / Zodiac");
+    expectPrecedes(personalSection, "Astrological Sign / Zodiac", "Debut Date");
     expectPrecedes(personalSection, "Debut Date", "Retired Date");
     const physicalSection = screen
       .getByRole("heading", { name: "Physical" })

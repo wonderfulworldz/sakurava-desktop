@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import type { FormConfig, FormMode } from "../lib/formData";
 import { formConfigs } from "../lib/formData";
 import {
@@ -23,6 +24,7 @@ type PerformerFormPageProps = {
 };
 
 function PerformerFormPage({ mode }: PerformerFormPageProps) {
+  const t = useTranslation();
   const { itemKey } = useParams();
   const navigate = useNavigate();
   const [config, setConfig] = useState<FormConfig>(formConfigs.performers);
@@ -120,7 +122,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
           Edit Performer
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading performer...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingPerformer")}</p>
       </section>
     );
   }

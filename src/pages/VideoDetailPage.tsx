@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import type { Credit, Image, ManagedCategory, Performer } from "../backend/types";
@@ -18,6 +19,7 @@ import { listCreditsByWork } from "../runtime/creditCommands";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 
 function VideoDetailPage() {
+  const t = useTranslation();
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.videos);
   const [missing, setMissing] = useState(false);
@@ -107,9 +109,9 @@ function VideoDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Video Detail
+          {t("detail.videoTitle")}
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading video...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingVideo")}</p>
       </section>
     );
   }
@@ -118,10 +120,10 @@ function VideoDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Video Detail
+          {t("detail.videoTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          This video could not be found.
+          {t("detail.videoMissing")}
         </p>
       </section>
     );

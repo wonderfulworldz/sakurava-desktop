@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
+import { useTranslation } from "../lib/LanguageContext";
 
 export type CategoryCatalogCardStatus = "Managed" | "Unused Managed";
 
@@ -26,7 +27,7 @@ function CategoryCatalogCard({
   onClick,
   density = "comfortable",
   thumbnailShape = "wide",
-  emptyDescriptionText = "No description yet.",
+  emptyDescriptionText,
 }: {
   category: CategoryCatalogCardData;
   actions?: ReactNode;
@@ -35,6 +36,9 @@ function CategoryCatalogCard({
   thumbnailShape?: "wide" | "square";
   emptyDescriptionText?: string;
 }) {
+  const t = useTranslation();
+  const resolvedEmptyDescription =
+    emptyDescriptionText ?? t("categoryCard.noDescription");
   const cardKind = category.childCount && category.childCount > 0
     ? "parent"
     : category.parentName
@@ -56,16 +60,19 @@ function CategoryCatalogCard({
         : "bg-white";
   const relationshipText =
     cardKind === "parent"
-      ? `${category.childCount} ${
-          category.childCount === 1 ? "child category" : "child categories"
-        }`
+      ? t(
+          category.childCount === 1
+            ? "categoryCard.childCount"
+            : "categoryCard.childrenCount",
+          { count: String(category.childCount) },
+        )
       : category.parentName
-        ? `Child of ${category.parentName}`
-        : "No Parent Selected";
+        ? t("categoryCard.childOf", { name: category.parentName })
+        : t("categoryCard.noParent");
 
   return (
     <article
-      aria-label={`Category ${category.name}`}
+      aria-label={t("categoryCard.label", { name: category.name })}
       data-category-card-kind={cardKind}
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
@@ -97,7 +104,7 @@ function CategoryCatalogCard({
             </p>
           </div>
           <div className="min-w-12 text-right">
-            <p className="text-xs font-semibold text-slate-500">Records</p>
+            <p className="text-xs font-semibold text-slate-500">{t("common.records")}</p>
             <p
               className={`mt-1 font-semibold text-slate-950 ${
                 density === "compact" ? "text-xl" : "text-2xl"
@@ -110,27 +117,27 @@ function CategoryCatalogCard({
 
         <dl className="mt-3 grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">
           <CountBlock
-            label="Videos"
+            label={t("common.videos")}
             value={category.videos}
             icon={Video}
             statBaseTone={statBaseTone}
             to={categoryUsageLink("videos", category.name)}
           />
           <CountBlock
-            label="Credits"
+            label={t("common.credits")}
             value={category.credits ?? 0}
             icon={BadgeCheck}
             statBaseTone={statBaseTone}
           />
           <CountBlock
-            label="Images"
+            label={t("common.images")}
             value={category.images}
             icon={Image}
             statBaseTone={statBaseTone}
             to={categoryUsageLink("images", category.name)}
           />
           <CountBlock
-            label="Performers"
+            label={t("common.performers")}
             value={category.performers}
             icon={UserRound}
             statBaseTone={statBaseTone}
@@ -139,7 +146,7 @@ function CategoryCatalogCard({
         </dl>
 
         <p className="mt-4 line-clamp-2 text-sm font-medium leading-6 text-slate-500">
-          {formatDescription(category.description, emptyDescriptionText)}
+          {formatDescription(category.description, resolvedEmptyDescription)}
         </p>
 
         {actions && <div className="mt-4">{actions}</div>}
@@ -155,6 +162,7 @@ function CategoryThumbnail({
   category: CategoryCatalogCardData;
   shape: "wide" | "square";
 }) {
+  const t = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(category.thumbnailPath);
@@ -186,7 +194,7 @@ function CategoryThumbnail({
           />
           <div
             className="relative z-10 flex size-16 items-center justify-center rounded-full bg-white/70 text-sakura-500"
-            aria-label="Category thumbnail placeholder"
+            aria-label={t("category.thumbnailPlaceholder")}
           >
             <Tags className="opacity-75" size={28} />
           </div>

@@ -50,7 +50,7 @@ import {
   storeAppearanceTheme,
   storeAppearanceUiScale,
 } from "../lib/appearanceTheme";
-import { useLanguage } from "../lib/LanguageContext";
+import { useLanguage, useTranslation } from "../lib/LanguageContext";
 import {
   buildEntityCsv,
   exportEntityLabel,
@@ -97,7 +97,10 @@ import {
   buildCustomLanguageCsvPreview,
   type CustomLanguageCsvPreview as CustomLanguageCsvPreviewType,
 } from "../lib/languageCsv";
-import { removeCustomLanguage } from "../lib/customLanguages";
+import {
+  isCustomLanguageCode,
+  removeCustomLanguage,
+} from "../lib/customLanguages";
 import { resetAllOverridesForLanguage } from "../lib/languageOverrides";
 import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
 import {
@@ -298,6 +301,7 @@ function SettingsPage() {
   const [languageCsvStatus, setLanguageCsvStatus] = useState<LanguageCsvStatus>({
     state: "idle",
   });
+  const [isLanguageManagerOpen, setIsLanguageManagerOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<ImportStatus>({
     state: "idle",
   });
@@ -631,6 +635,13 @@ function SettingsPage() {
 
   function handleApplyCustomLanguageCsv(preview: CustomLanguageCsvPreviewType) {
     const report = applyCustomLanguageCsvPreview(preview);
+    if (report.applied === 0 && report.errors > 0) {
+      setLanguageCsvStatus({
+        state: "error",
+        message: "Language CSV was not applied. Existing languages were not changed.",
+      });
+      return;
+    }
     refreshLanguages();
     refreshOverrides();
     setLanguageCsvStatus({
@@ -639,23 +650,24 @@ function SettingsPage() {
     });
   }
 
-  function handleRemoveCustomLanguage() {
-    const removable = languages.filter((l) => l.code !== "en");
-    if (removable.length === 0) {
-      return;
-    }
-    // For simplicity, remove the last non-English language or show a confirm for the current non-English
-    // If current language is removable, offer to remove it; otherwise remove the last custom one
-    const target = removable.find((l) => l.code === languageCode) ?? removable[removable.length - 1];
+  function handleRemoveCustomLanguage(code: string, label: string) {
+    if (!isCustomLanguageCode(code)) return;
     setLanguageCsvStatus({
       state: "removeConfirm",
-      code: target.code,
-      label: target.label,
+      code,
+      label,
     });
   }
 
   function handleConfirmRemoveLanguage(code: string) {
-    removeCustomLanguage(code);
+    const result = removeCustomLanguage(code);
+    if (!result.ok) {
+      setLanguageCsvStatus({
+        state: "error",
+        message: result.error ?? "Language could not be removed.",
+      });
+      return;
+    }
     resetAllOverridesForLanguage(code);
     refreshLanguages();
     // If the removed language was active, switch to English
@@ -1107,7 +1119,7 @@ function SettingsPage() {
       <SettingsSection
         number="1"
         sectionId="overview"
-        title="Overview"
+        title={t("settings.overview")}
         description="Review and open the Settings areas available in Sakurava."
         icon={SlidersHorizontal}
         shell={{
@@ -1121,6 +1133,7 @@ function SettingsPage() {
           mediaRoots,
           isDesktopRuntime,
           isLanguageCsvBusy,
+          isLanguageManagerOpen,
           languageCsvStatus,
           mediaRootStatus,
           backupStatus,
@@ -1149,6 +1162,7 @@ function SettingsPage() {
           handleResetAppearance,
           handleLanguageChange,
           handleRemoveCustomLanguage,
+          setIsLanguageManagerOpen,
           handleAddLanguageFromCsv,
           handleExportLanguageTemplate,
           handleApplyCustomLanguageCsv,
@@ -1169,458 +1183,8 @@ function SettingsPage() {
           setCacheStatus,
           handleConfirmClearCache,
         }}
-      >
-        <InfoPanel
-          title="Current settings"
-          rows={[
-            ["Theme", appearanceTheme === "dark" ? "Dark" : "Light"],
-            [
-              "Language",
-              languages.find((language) => language.code === languageCode)?.label ?? languageCode,
-            ],
-            [
-              "Media folders",
-              `${mediaRoots.length} configured`,
-            ],
-            ["Database", isDesktopRuntime ? "Available" : "Unavailable"],
-            ["Storage", "Local / Offline"],
-          ]}
-        />
-      </SettingsSection>
+      />
 
-      <SettingsSection
-        number="2"
-        sectionId="appearance"
-        title={t("settings.appearance.title")}
-        description={t("settings.appearance.description")}
-        icon={Palette}
-      >
-        <SettingsPanel>
-          <SettingsControlRow
-            title={t("settings.appearance.theme")}
-            helper={t("settings.appearance.themeHelper")}
-          >
-            <div className="grid gap-2 sm:grid-cols-2">
-              <OptionButton
-                label={t("settings.appearance.light")}
-                status={appearanceTheme === "light" ? "Selected" : ""}
-                selected={appearanceTheme === "light"}
-                onClick={() => handleThemeChange("light")}
-              />
-              <OptionButton
-                label={t("settings.appearance.dark")}
-                status={appearanceTheme === "dark" ? "Selected" : ""}
-                selected={appearanceTheme === "dark"}
-                onClick={() => handleThemeChange("dark")}
-              />
-            </div>
-          </SettingsControlRow>
-        </SettingsPanel>
-      </SettingsSection>
-
-      <SettingsSection
-        number="3"
-        sectionId="language"
-        title={t("settings.language.title")}
-        description={t("settings.language.description")}
-        icon={FileText}
-      >
-        <SettingsPanel>
-          <div className="py-3">
-            <h3 className="text-base font-semibold text-slate-900">Info</h3>
-            <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
-              Choose the app UI language and review installed languages.
-            </p>
-          </div>
-          <SettingsControlRow
-            title={t("settings.language.appLanguage")}
-            helper={t("settings.language.appLanguageHelper")}
-          >
-            <div className="grid gap-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <select
-                  aria-label={t("settings.language.appLanguage")}
-                  className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  value={languageCode}
-                  onChange={(event) => handleLanguageChange(event.target.value)}
-                >
-                  {languages.map((language) => (
-                    <option key={language.code} value={language.code}>
-                      {language.label}
-                    </option>
-                  ))}
-                </select>
-                <StatusPill tone="success">
-                  {t("settings.language.upToDate")}
-                </StatusPill>
-              </div>
-              <p className="text-xs font-semibold text-slate-500">
-                {t("settings.language.catalogDataHelper")}
-              </p>
-            </div>
-          </SettingsControlRow>
-          <SettingsControlRow
-            title={t("settings.language.installedLanguages")}
-            helper={t("settings.language.installedLanguagesHelper")}
-          >
-            <div className="space-y-2">
-              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-700">English</span>
-                    <StatusPill tone="info">Primary</StatusPill>
-                    <StatusPill tone="neutral">Built-in</StatusPill>
-                  </div>
-                  <span className="text-xs font-semibold text-slate-400">Not removable</span>
-                </div>
-                {languages.filter((l) => l.code !== "en").map((lang) => (
-                  <div key={lang.code} className="flex items-center justify-between px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-700">{lang.label}</span>
-                      <StatusPill tone="neutral">{lang.code === "id" ? "Bundled" : "Custom"}</StatusPill>
-                    </div>
-                    <span className="text-xs font-semibold text-slate-400">Removable</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SettingsControlRow>
-          <div className="py-3">
-            <h3 className="text-base font-semibold text-slate-900">Translation</h3>
-            <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
-              Manage UI translations through Language CSV files. User catalog data is never translated.
-            </p>
-          </div>
-          <SettingsControlRow
-            title="Language CSV Tools"
-            helper="Export, import, and manage custom language packs. English is the source — import never modifies English."
-          >
-            <div className="grid gap-2 sm:grid-cols-2">
-              <LanguageActionCard
-                label={languageCode === "en" ? "Export Starter CSV" : "Export Language CSV"}
-                detail={languageCode === "en" ? "Export a starter CSV prefilled from English." : `Export editable CSV for ${languages.find((l) => l.code === languageCode)?.label ?? languageCode}.`}
-                disabled={!isDesktopRuntime || isLanguageCsvBusy}
-                onClick={handleExportLanguageTemplate}
-              />
-              <LanguageActionCard
-                label="Import Custom Language"
-                detail="Add or update a custom language from CSV."
-                disabled={!isDesktopRuntime || isLanguageCsvBusy}
-                onClick={handleAddLanguageFromCsv}
-              />
-              <LanguageActionCard
-                label="Remove Custom Language"
-                detail="Remove a non-primary language pack."
-                disabled={!isDesktopRuntime || isLanguageCsvBusy || languages.filter((l) => l.code !== "en").length === 0}
-                onClick={handleRemoveCustomLanguage}
-              />
-            </div>
-            {languageCsvStatus.state === "exportSuccess" && (
-              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2" role="alert">
-                <p className="text-xs font-semibold text-emerald-700">{languageCsvStatus.message}</p>
-              </div>
-            )}
-            {languageCsvStatus.state === "error" && (
-              <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2" role="alert">
-                <p className="text-xs font-semibold text-rose-700">{languageCsvStatus.message}</p>
-              </div>
-            )}
-            {languageCsvStatus.state === "customPreview" && (
-              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-sm font-semibold text-slate-800">
-                  {languageCsvStatus.preview.isNew ? "Add" : "Update"} Custom Language
-                </p>
-                <div className="mt-2 grid gap-1 text-xs font-semibold text-slate-600">
-                  <p>Language: {languageCsvStatus.preview.languageName} ({languageCsvStatus.preview.languageCode})</p>
-                  <p>Valid: {languageCsvStatus.preview.validRows} ({languageCsvStatus.preview.overrideRows} translations, {languageCsvStatus.preview.resetRows} resets)</p>
-                  {languageCsvStatus.preview.warningRows > 0 && (
-                    <p className="text-amber-700">{languageCsvStatus.preview.warningRows} warning(s)</p>
-                  )}
-                  {languageCsvStatus.preview.errorRows > 0 && (
-                    <p className="text-rose-700">{languageCsvStatus.preview.errorRows} error(s)</p>
-                  )}
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={languageCsvStatus.preview.validRows === 0}
-                    onClick={() => handleApplyCustomLanguageCsv(languageCsvStatus.preview)}
-                    className="h-8 rounded-lg border border-sakura-200 bg-sakura-50 px-3 text-xs font-semibold text-sakura-600 hover:bg-sakura-100 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    {languageCsvStatus.preview.isNew ? "Add" : "Update"} Language
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLanguageCsvStatus({ state: "idle" })}
-                    className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-            {languageCsvStatus.state === "removeConfirm" && (
-              <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-3">
-                <p className="text-sm font-semibold text-rose-800">
-                  Remove "{languageCsvStatus.label}" ({languageCsvStatus.code})?
-                </p>
-                <p className="mt-1 text-xs font-semibold text-rose-700">
-                  All translations and overrides for this language will be deleted. This cannot be undone.
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmRemoveLanguage(languageCsvStatus.code)}
-                    className="h-8 rounded-lg border border-rose-300 bg-rose-100 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-200"
-                  >
-                    Remove Language
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLanguageCsvStatus({ state: "idle" })}
-                    className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-            {languageCsvStatus.state === "applySuccess" && (
-              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2" role="alert">
-                <p className="text-xs font-semibold text-emerald-700">{languageCsvStatus.message}</p>
-              </div>
-            )}
-          </SettingsControlRow>
-        </SettingsPanel>
-      </SettingsSection>
-
-      <SettingsSection
-        number="4"
-        sectionId="catalog-preferences"
-        title="Catalog Preferences"
-        description="Review how catalog view, sort, and filters behave in the current app session."
-        icon={SlidersHorizontal}
-      >
-        <InfoPanel
-          title="Current session behavior"
-          rows={[
-            ["View, sort, and filters", "Remembered while Sakurava remains open"],
-            ["After app restart", "Catalog defaults are used"],
-          ]}
-        />
-      </SettingsSection>
-
-      <SettingsSection
-        number="5"
-        sectionId="library-media"
-        title="Library & Media"
-        description="Manage local folders that Sakurava can use for media thumbnails and previews."
-        icon={Folder}
-      >
-        <SettingsPanel>
-          <SettingsControlRow
-            title="Configured media folders"
-            helper="Choose a folder, not a drive root. Removing a folder does not delete its files."
-          >
-            <div>
-              <button
-                type="button"
-                disabled={!canAddMediaRoot}
-                onClick={handleAddMediaRoot}
-                className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
-                  canAddMediaRoot
-                    ? "border-sakura-200 bg-sakura-50 text-sakura-600 hover:border-sakura-300 hover:bg-sakura-100"
-                    : "border-slate-200 bg-slate-100 text-slate-400"
-                }`}
-              >
-                {isMediaRootPending ? t("settings.optimization.addingMediaRoot") : t("settings.optimization.addMediaRoot")}
-              </button>
-              <p className="mt-2 text-xs font-semibold text-slate-500">
-                Files inside configured folders and their subfolders can be used for thumbnails.
-              </p>
-              <MiniSettingRows
-                rows={[
-                  [
-                    "Configured folders",
-                    mediaRoots.length > 0 ? `${mediaRoots.length} configured` : "None",
-                  ],
-                ]}
-              />
-              <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
-              <MediaRootList roots={mediaRoots} onRemove={handleRemoveMediaRoot} />
-            </div>
-          </SettingsControlRow>
-        </SettingsPanel>
-      </SettingsSection>
-
-      <SettingsSection
-        number="6"
-        sectionId="backup-recovery"
-        title="Backup & Recovery"
-        description="Create or restore a local database backup. Media files are not included."
-        icon={ShieldCheck}
-      >
-        <div className="grid gap-5">
-          <DataOperationCard
-            title="Database backup and restore"
-            helper="Backups contain the Sakurava database only. Original media files are not included."
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              <ActionTile
-                icon={FileArchive}
-                title={isBackupPending ? t("settings.dataSafety.backingUp") : t("settings.dataSafety.backupDatabase")}
-                helper="Create a full backup of your local database."
-                disabled={!canBackUpDatabase}
-                onClick={handleBackupData}
-              />
-              <ActionTile
-                icon={ShieldCheck}
-                title={isRestorePending ? t("settings.dataSafety.restoring") : t("settings.dataSafety.restoreDatabase")}
-                helper="Restore database from a backup file."
-                disabled={!canRestoreDatabase}
-                onClick={handleRestoreData}
-              />
-            </div>
-            <SettingsStatusMessage status={backupStatus} kind="backup" />
-            {restoreStatus?.state === "confirming" && (
-              <RestoreConfirmPanel
-                restoreStatus={restoreStatus}
-                onCancelRestore={() => setRestoreStatus({ state: "idle" })}
-                onConfirmRestore={handleConfirmRestore}
-              />
-            )}
-            <SettingsStatusMessage status={restoreStatus} kind="restore" />
-          </DataOperationCard>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        number="7"
-        sectionId="import-export"
-        title="Import / Export"
-        description="Exchange supported catalog records through CSV files. Media files are not included."
-        icon={FileArchive}
-      >
-        <div className="grid gap-5">
-          <DataOperationCard
-            title="Catalog CSV"
-            helper="CSV data exchange for Videos, Images, Performers, and Categories. Export, Import Preview, and confirmed Apply are available now. No media files are included."
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              <ActionTile
-                icon={FileInput}
-                title={isImportPending ? "Reading CSV..." : t("settings.dataSafety.importData")}
-                helper="Preview, validate, confirm, and apply valid Sakurava CSV rows."
-                disabled={!canImportCsv}
-                onClick={handleImportCsvPreview}
-              />
-              <ActionTile
-                icon={FileArchive}
-                title={isExportPending ? "Exporting CSV..." : t("settings.dataSafety.exportData")}
-                helper="Choose Videos, Images, Performers, or Categories CSV."
-                disabled={!canExportCsv}
-                onClick={() => setIsExportPanelOpen((isOpen) => !isOpen)}
-              />
-            </div>
-            {isExportPanelOpen && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-                <p className="text-xs font-semibold uppercase text-slate-500">
-                  Export CSV
-                </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <button
-                    type="button"
-                    disabled={!canExportCsv}
-                    onClick={() => handleExportCsv("videos")}
-                    className={exportButtonClassName(canExportCsv)}
-                  >
-                    Export Videos CSV
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canExportCsv}
-                    onClick={() => handleExportCsv("images")}
-                    className={exportButtonClassName(canExportCsv)}
-                  >
-                    Export Images CSV
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canExportCsv}
-                    onClick={() => handleExportCsv("performers")}
-                    className={exportButtonClassName(canExportCsv)}
-                  >
-                    Export Performers CSV
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canExportCsv}
-                    onClick={() => handleExportCsv("categories")}
-                    className={exportButtonClassName(canExportCsv)}
-                  >
-                    Export Categories CSV
-                  </button>
-                </div>
-              </div>
-            )}
-            {isExportPanelOpen && !isDesktopRuntime && (
-              <InfoNote>
-                CSV export uses the desktop save dialog and is unavailable in browser preview.
-              </InfoNote>
-            )}
-            <ImportPreviewPanel
-              importStatus={importStatus}
-              importApplyStatus={importApplyStatus}
-              onRequestApply={handleRequestImportApply}
-              onCancelApply={() => setImportApplyStatus({ state: "idle" })}
-              onConfirmApply={handleConfirmImportApply}
-            />
-            <SettingsStatusMessage status={exportStatus} kind="export" />
-          </DataOperationCard>
-        </div>
-        <WarningBox
-          title="Keep your data safe"
-          text="We recommend creating a backup before performing major operations or importing external data."
-        />
-      </SettingsSection>
-
-      <SettingsSection
-        number="8"
-        sectionId="performance-cache"
-        title="Performance & Cache"
-        description="Clear app-generated cache without deleting catalog records or source media."
-        icon={HardDrive}
-      >
-        <SettingsPanel>
-          <SettingsControlRow
-            title={t("settings.optimization.cache")}
-            helper={t("settings.optimization.cacheHelper")}
-          >
-            <div>
-              <button
-                type="button"
-                disabled={!canClearCache}
-                onClick={() => setCacheStatus({ state: "confirming" })}
-                className={`h-9 rounded-lg border px-4 text-sm font-semibold ${
-                  canClearCache
-                    ? "border-sakura-200 bg-white text-sakura-600 hover:border-sakura-300 hover:bg-sakura-50"
-                    : "border-slate-200 bg-slate-100 text-slate-400"
-                }`}
-              >
-                {isCachePending ? t("settings.optimization.clearingCache") : t("settings.optimization.clearCache")}
-              </button>
-              <InfoNote>Clearing cache does not delete source media or catalog records.</InfoNote>
-              {cacheStatus.state === "confirming" && (
-                <ClearCacheConfirmPanel
-                  onCancelClearCache={() => setCacheStatus({ state: "idle" })}
-                  onConfirmClearCache={handleConfirmClearCache}
-                />
-              )}
-              <SettingsStatusMessage status={cacheStatus} kind="cache" />
-            </div>
-          </SettingsControlRow>
-        </SettingsPanel>
-      </SettingsSection>
 
     </div>
   );
@@ -1631,11 +1195,13 @@ function SettingsPanelCard({
   icon,
   children,
   onReset,
+  showReset = true,
 }: {
   title: string;
   icon: LucideIcon;
   children: ReactNode;
   onReset?: () => void;
+  showReset?: boolean;
 }) {
   const Icon = icon;
 
@@ -1648,15 +1214,17 @@ function SettingsPanelCard({
         <h2 className="text-base font-semibold text-slate-950">{title}</h2>
       </div>
       <div className="px-4 pb-10 pt-3">{children}</div>
-      <button
-        type="button"
-        disabled={!onReset}
-        onClick={onReset}
-        aria-label={`Reset ${title}`}
-        className="absolute bottom-3 right-3 inline-flex size-7 items-center justify-center rounded-lg text-sakura-500 transition hover:bg-sakura-50 disabled:opacity-70"
-      >
-        <RotateCcw size={18} />
-      </button>
+      {showReset ? (
+        <button
+          type="button"
+          disabled={!onReset}
+          onClick={onReset}
+          aria-label={`Reset ${title}`}
+          className="absolute bottom-3 right-3 inline-flex size-7 items-center justify-center rounded-lg text-sakura-500 transition hover:bg-sakura-50 disabled:opacity-70"
+        >
+          <RotateCcw size={18} />
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -1808,6 +1376,7 @@ function LanguageStatusContent({
   onConfirmRemove: (code: string) => void;
   onClose: () => void;
 }) {
+  const t = useTranslation();
   if (status.state === "idle" || status.state === "pending") {
     return null;
   }
@@ -1834,8 +1403,8 @@ function LanguageStatusContent({
           Remove "{status.label}"?
         </p>
         <div className="mt-2 flex gap-2">
-          <ShellButton label="Remove Language" onClick={() => onConfirmRemove(status.code)} />
-          <ShellButton label="Cancel" onClick={onClose} />
+          <ShellButton label={t("settings.language.removeLanguage")} onClick={() => onConfirmRemove(status.code)} />
+          <ShellButton label={t("common.cancel")} onClick={onClose} />
         </div>
       </div>
     );
@@ -1855,7 +1424,7 @@ function LanguageStatusContent({
           disabled={status.preview.validRows === 0}
           onClick={() => onApply(status.preview)}
         />
-        <ShellButton label="Cancel" onClick={onClose} />
+        <ShellButton label={t("common.cancel")} onClick={onClose} />
       </div>
     </div>
   );
@@ -1867,7 +1436,6 @@ function SettingsSection({
   title,
   description,
   icon,
-  children,
   shell,
 }: {
   number: string;
@@ -1875,10 +1443,9 @@ function SettingsSection({
   title: string;
   description: string;
   icon: LucideIcon;
-  children: ReactNode;
+  children?: ReactNode;
   shell?: Record<string, any>;
 }) {
-  const Icon = icon;
   if (!shell) {
     return null;
   }
@@ -1893,6 +1460,7 @@ function SettingsSection({
     mediaRoots,
     isDesktopRuntime,
     isLanguageCsvBusy,
+    isLanguageManagerOpen,
     languageCsvStatus,
     mediaRootStatus,
     backupStatus,
@@ -1921,6 +1489,7 @@ function SettingsSection({
     handleResetAppearance,
     handleLanguageChange,
     handleRemoveCustomLanguage,
+    setIsLanguageManagerOpen,
     handleAddLanguageFromCsv,
     handleExportLanguageTemplate,
     handleApplyCustomLanguageCsv,
@@ -1956,18 +1525,18 @@ function SettingsSection({
           />
           <input
             type="search"
-            aria-label="Search settings"
-            placeholder="Search settings"
+            aria-label={t("settings.search")}
+            placeholder={t("settings.search")}
             className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           />
         </label>
       </header>
 
-      <SettingsPanelCard title="Overview" icon={SlidersHorizontal}>
+      <SettingsPanelCard title={t("settings.overview")} icon={SlidersHorizontal}>
         <div className="grid gap-4 md:grid-cols-2 md:gap-0">
           <div className="space-y-2 md:pr-6">
             <OverviewRow
-              label="Theme"
+              label={t("settings.overview.theme")}
               value={
                 appearanceTheme === "system"
                   ? "System"
@@ -1977,49 +1546,49 @@ function SettingsSection({
               }
             />
             <OverviewRow
-              label="Language"
+              label={t("settings.overview.language")}
               value={languages.find((language: { code: string; label: string }) => language.code === languageCode)?.label ?? languageCode}
             />
-            <OverviewRow label="Media Library" value={`${mediaRoots.length} folder${mediaRoots.length === 1 ? "" : "s"} configured`} />
+            <OverviewRow label={t("settings.overview.mediaLibrary")} value={`${mediaRoots.length} folder${mediaRoots.length === 1 ? "" : "s"} configured`} />
             <OverviewRow
-              label="Database"
+              label={t("settings.overview.database")}
               value={isDesktopRuntime ? "Available" : "Not available"}
               available={isDesktopRuntime}
             />
           </div>
           <div className="space-y-2 border-slate-200 md:border-l md:pl-6">
-            <OverviewRow label="Last Backup" value="Not available" />
-            <OverviewRow label="Cache" value="Not available" />
-            <OverviewRow label="Storage" value="Local / Offline" />
+            <OverviewRow label={t("settings.overview.lastBackup")} value={t("common.notAvailable")} />
+            <OverviewRow label={t("settings.overview.cache")} value={t("common.notAvailable")} />
+            <OverviewRow label={t("settings.overview.storage")} value={t("settings.overview.localOffline")} />
           </div>
         </div>
       </SettingsPanelCard>
 
       <SettingsPanelCard
-        title="Appearance"
+        title={t("settings.appearance.title")}
         icon={Palette}
         onReset={handleResetAppearance}
       >
-        <ControlRow label="Theme">
+        <ControlRow label={t("settings.appearance.theme")}>
           <div className="grid max-w-md grid-cols-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
             <CompactChoice
-              label="Light"
+              label={t("settings.appearance.light")}
               selected={appearanceTheme === "light"}
               onClick={() => handleThemeChange("light")}
             />
             <CompactChoice
-              label="Dark"
+              label={t("settings.appearance.dark")}
               selected={appearanceTheme === "dark"}
               onClick={() => handleThemeChange("dark")}
             />
             <CompactChoice
-              label="System"
+              label={t("settings.appearance.system")}
               selected={appearanceTheme === "system"}
               onClick={() => handleThemeChange("system")}
             />
           </div>
         </ControlRow>
-        <ControlRow label="Accent Color">
+        <ControlRow label={t("settings.appearance.accentColor")}>
           <div className="flex max-w-md items-center gap-3">
             {([
               ["sakura", "Sakura Pink", "#f16f9b"],
@@ -2041,7 +1610,7 @@ function SettingsSection({
               />
             ))}
             <label
-              aria-label="Custom accent color"
+              aria-label={t("settings.appearance.customAccent")}
               className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border bg-slate-50 ${
                 appearanceAccent.type === "custom"
                   ? "border-transparent bg-sakura-50 text-sakura-600 ring-2 ring-sakura-100"
@@ -2051,7 +1620,7 @@ function SettingsSection({
               <Palette size={15} />
               <input
                 type="color"
-                aria-label="Custom accent color picker"
+                aria-label={t("settings.appearance.customAccentPicker")}
                 className="sr-only"
                 value={
                   appearanceAccent.type === "custom"
@@ -2065,23 +1634,23 @@ function SettingsSection({
             </label>
           </div>
         </ControlRow>
-        <ControlRow label="Density">
+        <ControlRow label={t("settings.appearance.density")}>
           <div className="grid max-w-md grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
             <CompactChoice
-              label="Comfortable"
+              label={t("settings.appearance.comfortable")}
               selected={appearanceDensity === "comfortable"}
               onClick={() => handleDensityChange("comfortable")}
             />
             <CompactChoice
-              label="Compact"
+              label={t("settings.appearance.compact")}
               selected={appearanceDensity === "compact"}
               onClick={() => handleDensityChange("compact")}
             />
           </div>
         </ControlRow>
-        <ControlRow label="UI Scale">
+        <ControlRow label={t("settings.appearance.uiScale")}>
           <select
-            aria-label="UI Scale"
+            aria-label={t("settings.appearance.uiScale")}
             className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
             value={appearanceUiScale}
             onChange={(event) =>
@@ -2095,8 +1664,8 @@ function SettingsSection({
         </ControlRow>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Language" icon={FileText}>
-        <ControlRow label="App Language">
+      <SettingsPanelCard title={t("settings.language.title")} icon={FileText} showReset={false}>
+        <ControlRow label={t("settings.language.appLanguage")}>
           <select
             aria-label={t("settings.language.appLanguage")}
             className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
@@ -2110,30 +1679,91 @@ function SettingsSection({
             ))}
           </select>
         </ControlRow>
-        <ControlRow label="Installed Languages">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="min-w-0 flex-1 text-sm font-medium text-slate-600">
-              {languages.map((language: { label: string }) => language.label).join(", ")}
-            </span>
-            <ShellButton
-              label="Manage..."
-              disabled={!isDesktopRuntime || isLanguageCsvBusy || languages.filter((language: { code: string }) => language.code !== "en").length === 0}
-              onClick={handleRemoveCustomLanguage}
-            />
+        <ControlRow label={t("settings.language.installedLanguages")}>
+          <div className="grid gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1 text-sm font-medium text-slate-600">
+                {languages
+                  .map((language: { label: string }) => language.label)
+                  .join(", ")}
+              </span>
+              <ShellButton
+                label={isLanguageManagerOpen
+                  ? t("settings.language.closeManage")
+                  : t("settings.language.manage")}
+                disabled={isLanguageCsvBusy}
+                onClick={() =>
+                  setIsLanguageManagerOpen(!isLanguageManagerOpen)
+                }
+              />
+            </div>
+            {isLanguageManagerOpen ? (
+              <div
+                aria-label={t("settings.language.management")}
+                className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white"
+              >
+                {languages.map(
+                  (language: { code: string; label: string }) => {
+                    const isCustom = isCustomLanguageCode(language.code);
+                    return (
+                      <div
+                        key={language.code}
+                        className="flex items-center justify-between gap-3 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-700">
+                            {language.label}
+                          </p>
+                          <p className="text-xs font-medium text-slate-400">
+                            {language.code === "en"
+                              ? t("settings.language.defaultProtected")
+                              : t("settings.language.installedCustom", {
+                                  code: language.code,
+                                })}
+                          </p>
+                        </div>
+                        {isCustom ? (
+                          <button
+                            type="button"
+                            aria-label={t("settings.language.removeLabel", {
+                              name: language.label,
+                            })}
+                            disabled={isLanguageCsvBusy}
+                            onClick={() =>
+                              handleRemoveCustomLanguage(
+                                language.code,
+                                language.label,
+                              )
+                            }
+                            className="h-8 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+                          >
+                            {t("settings.language.remove")}
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-slate-400">
+                            {t("settings.language.protected")}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            ) : null}
           </div>
         </ControlRow>
-        <ControlRow label="Custom Language">
+        <ControlRow label={t("settings.language.custom")}>
           <div className="flex flex-wrap gap-2">
-            <ShellButton
-              label="Import CSV..."
-              disabled={!isDesktopRuntime || isLanguageCsvBusy}
-              onClick={handleAddLanguageFromCsv}
-            />
-            <ShellButton
-              label={languageCode === "en" ? "Export Starter CSV" : "Export Language CSV"}
-              disabled={!isDesktopRuntime || isLanguageCsvBusy}
-              onClick={handleExportLanguageTemplate}
-            />
+              <ShellButton
+                label={t("settings.language.importCsv")}
+                disabled={!isDesktopRuntime || isLanguageCsvBusy}
+                onClick={handleAddLanguageFromCsv}
+              />
+              <ShellButton
+                label={t("settings.language.exportCsv")}
+                disabled={!isDesktopRuntime || isLanguageCsvBusy}
+                onClick={handleExportLanguageTemplate}
+              />
           </div>
         </ControlRow>
         <LanguageStatusContent
@@ -2143,32 +1773,32 @@ function SettingsSection({
           onClose={() => setLanguageCsvStatus({ state: "idle" })}
         />
         <p className="mt-2 text-xs font-medium text-slate-500">
-          Changes apply to app UI only. Catalog data is not translated.
+          {t("settings.language.catalogDataHelper")}
         </p>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Catalog Preferences" icon={SlidersHorizontal}>
-        <ControlRow label="Default View">
-          <ShellSelect label="Default View" value="Grid" />
+      <SettingsPanelCard title={t("settings.catalogPreferences.title")} icon={SlidersHorizontal}>
+        <ControlRow label={t("settings.catalogPreferences.defaultView")}>
+          <ShellSelect label={t("settings.catalogPreferences.defaultView")} value={t("settings.catalogPreferences.grid")} />
         </ControlRow>
-        <ControlRow label="Default Sort">
-          <ShellSelect label="Default Sort" value="Date Added" />
+        <ControlRow label={t("settings.catalogPreferences.defaultSort")}>
+          <ShellSelect label={t("settings.catalogPreferences.defaultSort")} value={t("settings.catalogPreferences.dateAdded")} />
         </ControlRow>
-        <ControlRow label="Remember Preferences">
-          <ShellToggle label="Remember Preferences" />
+        <ControlRow label={t("settings.catalogPreferences.remember")}>
+          <ShellToggle label={t("settings.catalogPreferences.remember")} />
         </ControlRow>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Library & Media" icon={Folder}>
-        <ControlRow label="Media Root" alignStart>
+      <SettingsPanelCard title={t("settings.library.title")} icon={Folder}>
+        <ControlRow label={t("settings.library.mediaRoot")} alignStart>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div
               role="listbox"
-              aria-label="Configured media roots"
+              aria-label={t("settings.library.configuredRoots")}
               className="min-h-24 rounded-lg border border-slate-200 bg-white p-2"
             >
               {mediaRoots.length === 0 ? (
-                <p className="px-2 py-1 text-sm font-medium text-slate-400">No folders configured</p>
+                <p className="px-2 py-1 text-sm font-medium text-slate-400">{t("settings.library.noFolders")}</p>
               ) : (
                 mediaRoots.map((root: string) => (
                   <div
@@ -2190,7 +1820,7 @@ function SettingsSection({
                 onClick={handleAddMediaRoot}
               />
               <ShellButton
-                label="Remove..."
+                label={t("settings.library.remove")}
                 ariaLabel="Remove"
                 disabled={mediaRoots.length === 0}
                 onClick={() => mediaRoots[0] && handleRemoveMediaRoot(mediaRoots[0])}
@@ -2201,10 +1831,10 @@ function SettingsSection({
         </ControlRow>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Backup & Recovery" icon={ShieldCheck}>
-        <ControlRow label="Last Backup">
+      <SettingsPanelCard title={t("settings.backup.title")} icon={ShieldCheck}>
+        <ControlRow label={t("settings.backup.lastBackup")}>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-slate-500">Not available</span>
+            <span className="text-sm font-medium text-slate-500">{t("common.notAvailable")}</span>
             <ShellButton
               label={isBackupPending ? "Backing up..." : "Backup Now"}
               ariaLabel={isBackupPending ? "Backing Up..." : "Backup Database"}
@@ -2213,9 +1843,9 @@ function SettingsSection({
             />
           </div>
         </ControlRow>
-        <ControlRow label="Backup Location">
+        <ControlRow label={t("settings.backup.location")}>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-slate-500">Not configured</span>
+            <span className="text-sm font-medium text-slate-500">{t("settings.overview.notConfigured")}</span>
             <ShellButton
               label={isRestorePending ? "Restoring..." : "Restore Backup..."}
               ariaLabel={isRestorePending ? "Restoring..." : "Restore Database"}
@@ -2238,8 +1868,8 @@ function SettingsSection({
         <SettingsStatusMessage status={restoreStatus} kind="restore" />
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Import / Export" icon={FileArchive}>
-        <ControlRow label="Import Catalog">
+      <SettingsPanelCard title={t("settings.importExport.title")} icon={FileArchive}>
+        <ControlRow label={t("settings.importExport.importCatalog")}>
           <div className="flex justify-end">
             <ShellButton
               label={isImportPending ? "Reading CSV..." : "Import CSV..."}
@@ -2249,7 +1879,7 @@ function SettingsSection({
             />
           </div>
         </ControlRow>
-        <ControlRow label="Export Catalog">
+        <ControlRow label={t("settings.importExport.exportCatalog")}>
           <div className="flex justify-end">
             <ShellButton
               label={isExportPending ? "Exporting CSV..." : "Export CSV..."}
@@ -2259,8 +1889,8 @@ function SettingsSection({
             />
           </div>
         </ControlRow>
-        <ControlRow label="Preview Before Apply">
-          <ShellToggle label="Preview Before Apply" checked />
+        <ControlRow label={t("settings.importExport.preview")}>
+          <ShellToggle label={t("settings.importExport.preview")} checked />
         </ControlRow>
         {isExportPanelOpen && (
           <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -2287,20 +1917,20 @@ function SettingsSection({
         <SettingsStatusMessage status={exportStatus} kind="export" />
       </SettingsPanelCard>
 
-      <SettingsPanelCard title="Performance & Cache" icon={HardDrive}>
-        <ControlRow label="Cache Size">
-          <span className="text-sm font-medium text-slate-500">Not available</span>
+      <SettingsPanelCard title={t("settings.performance.title")} icon={HardDrive}>
+        <ControlRow label={t("settings.performance.cacheSize")}>
+          <span className="text-sm font-medium text-slate-500">{t("common.notAvailable")}</span>
         </ControlRow>
-        <ControlRow label="Temporary Files">
-          <span className="text-sm font-medium text-slate-500">Not available</span>
+        <ControlRow label={t("settings.performance.temporaryFiles")}>
+          <span className="text-sm font-medium text-slate-500">{t("common.notAvailable")}</span>
         </ControlRow>
-        <ControlRow label="Status">
+        <ControlRow label={t("common.status")}>
           <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
             <span className={`size-2 rounded-full ${isDesktopRuntime ? "bg-emerald-500" : "bg-slate-300"}`} />
             {isDesktopRuntime ? "Available" : "Not available"}
           </span>
         </ControlRow>
-        <ControlRow label="Action">
+        <ControlRow label={t("common.action")}>
           <div className="flex justify-end">
             <ShellButton
               label={isCachePending ? "Clearing Cache..." : "Clear Cache..."}
@@ -2321,30 +1951,6 @@ function SettingsSection({
     </div>
   );
 
-  return (
-    <section
-      id={sectionId}
-      className="scroll-mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white"
-    >
-      <div className="flex items-start gap-4 border-b border-slate-200 px-4 py-4">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
-          <Icon size={18} />
-        </span>
-        <div>
-          <h2
-            aria-label={title}
-            className="text-lg font-semibold tracking-normal text-slate-950"
-          >
-            {number}. {title}
-          </h2>
-          <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
-            {description}
-          </p>
-        </div>
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
-  );
 }
 
 function SettingsPanel({ children }: { children: ReactNode }) {
@@ -2408,30 +2014,6 @@ function OptionButton({
         </span>
       ) : null}
     </button>
-  );
-}
-
-function AccentDots() {
-  const colors = [
-    "bg-sakura-500 ring-sakura-200",
-    "bg-violet-500 ring-violet-100",
-    "bg-blue-500 ring-blue-100",
-    "bg-cyan-500 ring-cyan-100",
-    "bg-green-500 ring-green-100",
-    "bg-orange-500 ring-orange-100",
-  ];
-
-  return (
-    <div className="flex flex-wrap gap-3" aria-label="Accent color options">
-      {colors.map((color, index) => (
-        <span
-          key={color}
-          className={`size-5 rounded-full ring-4 ${color} ${
-            index === 0 ? "outline outline-2 outline-sakura-500" : "opacity-60"
-          }`}
-        />
-      ))}
-    </div>
   );
 }
 
@@ -2653,6 +2235,7 @@ function ImportPreviewPanel({
   onCancelApply: () => void;
   onConfirmApply: (preview: ImportCsvPreview) => void;
 }) {
+  const t = useTranslation();
   if (importStatus.state === "idle") {
     return null;
   }
@@ -2688,7 +2271,7 @@ function ImportPreviewPanel({
   return (
     <div
       role="region"
-      aria-label="Import CSV preview"
+      aria-label={t("settings.import.preview")}
       className="overflow-hidden rounded-lg border border-slate-200 bg-white"
     >
       <div className="border-b border-slate-200 px-3 py-3">
@@ -2745,13 +2328,13 @@ function ImportPreviewPanel({
       )}
 
       <div className="grid grid-cols-2 gap-2 border-b border-slate-200 px-3 py-3 sm:grid-cols-4 lg:grid-cols-7">
-        <ImportMetric label="Added" value={preview.summary.added} />
-        <ImportMetric label="Modified" value={preview.summary.modified} />
-        <ImportMetric label="Deleted" value={preview.summary.deleted} />
-        <ImportMetric label="Unchanged" value={preview.summary.unchanged} />
-        <ImportMetric label="Skipped" value={preview.summary.skipped} />
-        <ImportMetric label="Warnings" value={preview.summary.warnings} />
-        <ImportMetric label="Errors" value={preview.summary.errors} />
+        <ImportMetric label={t("import.added")} value={preview.summary.added} />
+        <ImportMetric label={t("import.modified")} value={preview.summary.modified} />
+        <ImportMetric label={t("import.deleted")} value={preview.summary.deleted} />
+        <ImportMetric label={t("import.unchanged")} value={preview.summary.unchanged} />
+        <ImportMetric label={t("import.skipped")} value={preview.summary.skipped} />
+        <ImportMetric label={t("import.warnings")} value={preview.summary.warnings} />
+        <ImportMetric label={t("import.errors")} value={preview.summary.errors} />
       </div>
 
       <div className="px-3 py-3">
@@ -2759,10 +2342,17 @@ function ImportPreviewPanel({
           <table className="min-w-[760px] table-fixed text-left text-xs">
           <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
             <tr className="border-b border-slate-200">
-              {["Row", "Action", "Result", "Target", "Changes", "Status"].map(
+              {[
+                "settings.import.preview.table.header.row",
+                "settings.import.preview.table.header.action",
+                "settings.import.preview.table.header.result",
+                "settings.import.preview.table.header.target",
+                "settings.import.preview.table.header.changes",
+                "settings.import.preview.table.header.status",
+              ].map(
                 (header) => (
                   <th key={header} className="whitespace-nowrap px-2 py-2 font-semibold">
-                    {header}
+                    {t(header)}
                   </th>
                 ),
               )}
@@ -2854,9 +2444,10 @@ function ImportApplyConfirmPanel({
   onCancelApply: () => void;
   onConfirmApply: () => void;
 }) {
+  const t = useTranslation();
   return (
     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
-      <p className="text-sm font-semibold text-slate-900">Confirm CSV import apply</p>
+      <p className="text-sm font-semibold text-slate-900">{t("settings.import.confirmApply")}</p>
       <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
         Database records will be changed. Create a Backup Database before applying imports.
       </p>
@@ -2864,11 +2455,11 @@ function ImportApplyConfirmPanel({
         Delete removes catalog records only. Original media files are not deleted.
       </p>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <ImportMetric label="Added" value={preview.summary.added} />
-        <ImportMetric label="Modified" value={preview.summary.modified} />
-        <ImportMetric label="Deleted" value={preview.summary.deleted} />
-        <ImportMetric label="Skipped" value={preview.summary.skipped} />
-        <ImportMetric label="Errors" value={preview.summary.errors} />
+        <ImportMetric label={t("import.added")} value={preview.summary.added} />
+        <ImportMetric label={t("import.modified")} value={preview.summary.modified} />
+        <ImportMetric label={t("import.deleted")} value={preview.summary.deleted} />
+        <ImportMetric label={t("import.skipped")} value={preview.summary.skipped} />
+        <ImportMetric label={t("import.errors")} value={preview.summary.errors} />
       </div>
       <p className="mt-3 text-xs font-semibold text-slate-600">
         Valid rows will be applied. Error, blocked, ambiguous, unknown category, and unresolved related rows will be skipped and reported.
@@ -2894,6 +2485,7 @@ function ImportApplyConfirmPanel({
 }
 
 function ImportApplyReportPanel({ report }: { report: ImportCsvApplyReport }) {
+  const t = useTranslation();
   const completedMessage =
     report.failed > 0 || report.errors > 0
       ? "Import apply completed with warnings/errors."
@@ -2902,7 +2494,7 @@ function ImportApplyReportPanel({ report }: { report: ImportCsvApplyReport }) {
   return (
     <div
       role="region"
-      aria-label="Import apply report"
+      aria-label={t("settings.import.applyReport")}
       className="mt-3 rounded-lg border border-slate-200 bg-white"
     >
       <div className="border-b border-slate-200 px-3 py-3">
@@ -2912,22 +2504,28 @@ function ImportApplyReportPanel({ report }: { report: ImportCsvApplyReport }) {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2 border-b border-slate-200 px-3 py-3 sm:grid-cols-4 lg:grid-cols-8">
-        <ImportMetric label="Added" value={report.appliedAdded} />
-        <ImportMetric label="Modified" value={report.appliedModified} />
-        <ImportMetric label="Deleted" value={report.appliedDeleted} />
-        <ImportMetric label="Unchanged" value={report.unchanged} />
-        <ImportMetric label="Skipped" value={report.skipped} />
-        <ImportMetric label="Failed" value={report.failed} />
-        <ImportMetric label="Warnings" value={report.warnings} />
-        <ImportMetric label="Errors" value={report.errors} />
+        <ImportMetric label={t("import.added")} value={report.appliedAdded} />
+        <ImportMetric label={t("import.modified")} value={report.appliedModified} />
+        <ImportMetric label={t("import.deleted")} value={report.appliedDeleted} />
+        <ImportMetric label={t("import.unchanged")} value={report.unchanged} />
+        <ImportMetric label={t("import.skipped")} value={report.skipped} />
+        <ImportMetric label={t("import.failed")} value={report.failed} />
+        <ImportMetric label={t("import.warnings")} value={report.warnings} />
+        <ImportMetric label={t("import.errors")} value={report.errors} />
       </div>
       <div className="max-h-72 overflow-auto px-3 py-3">
         <table className="min-w-[720px] table-fixed text-left text-xs">
           <thead className="text-slate-500">
             <tr className="border-b border-slate-200">
-              {["Row", "Status", "Result", "Target", "Message"].map((header) => (
+              {[
+                "settings.import.preview.table.header.row",
+                "settings.import.preview.table.header.status",
+                "settings.import.preview.table.header.result",
+                "settings.import.preview.table.header.target",
+                "settings.import.report.table.header.message",
+              ].map((header) => (
                 <th key={header} className="px-2 py-2 font-semibold">
-                  {header}
+                  {t(header)}
                 </th>
               ))}
             </tr>
@@ -3071,13 +2669,14 @@ function RestoreConfirmPanel({
   onCancelRestore: () => void;
   onConfirmRestore: () => void;
 }) {
+  const t = useTranslation();
   return (
     <div className="rounded-lg bg-rose-50 px-3 py-3">
       <div className="space-y-2 text-sm leading-6 text-slate-600">
-        <p className="font-semibold text-slate-800">Confirm database restore</p>
-        <p>Current Sakurava database will be replaced.</p>
-        <p>Only records are restored.</p>
-        <p>Local media files are not restored or deleted.</p>
+        <p className="font-semibold text-slate-800">{t("settings.restore.confirm")}</p>
+        <p>{t("settings.restore.replaceDatabase")}</p>
+        <p>{t("settings.restore.recordsOnly")}</p>
+        <p>{t("settings.restore.mediaUnaffected")}</p>
         <p>A safety backup will be created first.</p>
         <p className="break-all font-medium text-slate-500">
           Source: {restoreStatus.sourcePath}
@@ -3110,13 +2709,14 @@ function ClearCacheConfirmPanel({
   onCancelClearCache: () => void;
   onConfirmClearCache: () => void;
 }) {
+  const t = useTranslation();
   return (
     <div className="mt-3 rounded-lg bg-amber-50 px-3 py-3">
       <div className="space-y-2 text-sm leading-6 text-slate-600">
-        <p className="font-semibold text-slate-800">Confirm cache cleanup</p>
-        <p>Only scoped app-generated cache folders will be cleared.</p>
-        <p>Source media files will not be deleted.</p>
-        <p>SQLite records, categories, ratings, related links, and catalog data will not be changed.</p>
+        <p className="font-semibold text-slate-800">{t("settings.cache.confirm")}</p>
+        <p>{t("settings.cache.scopedOnly")}</p>
+        <p>{t("settings.cache.mediaUnaffected")}</p>
+        <p>{t("settings.cache.catalogUnaffected")}</p>
       </div>
       <div className="mt-3 flex flex-wrap gap-3">
         <button
@@ -3233,10 +2833,6 @@ function SettingsCard({
       {restoreStatus?.state === "confirming" && (
         <div className="space-y-4 border-t border-slate-200 px-4 py-4">
           <div className="space-y-2 text-sm leading-6 text-slate-600">
-            <p className="font-semibold text-slate-800">Confirm database restore</p>
-            <p>Current Sakurava database will be replaced.</p>
-            <p>Only records are restored.</p>
-            <p>Local media files are not restored or deleted.</p>
             <p>A safety backup will be created first.</p>
             <p className="break-all font-medium text-slate-500">
               Source: {restoreStatus.sourcePath}
@@ -3343,6 +2939,7 @@ function CatalogSettingsCard({
   onDeleteManagedCategory: (category: string) => boolean;
   onApplyRecordCategoryRemove: (category: string) => Promise<boolean>;
 }) {
+  const t = useTranslation();
   const hasCategories = audit.rows.length > 0;
   const [renameSourceCategory, setRenameSourceCategory] = useState("");
   const [renameTargetCategory, setRenameTargetCategory] = useState("");
@@ -3425,11 +3022,11 @@ function CatalogSettingsCard({
           </div>
 
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <CategoryAuditMetric label="Total unique categories" value={audit.totalUnique} />
-            <CategoryAuditMetric label="Categories used by Videos" value={audit.videoCategories} />
-            <CategoryAuditMetric label="Categories used by Images" value={audit.imageCategories} />
+            <CategoryAuditMetric label={t("settings.categories.totalUnique")} value={audit.totalUnique} />
+            <CategoryAuditMetric label={t("settings.categories.usedVideos")} value={audit.videoCategories} />
+            <CategoryAuditMetric label={t("settings.categories.usedImages")} value={audit.imageCategories} />
             <CategoryAuditMetric
-              label="Categories used by Performers"
+              label={t("settings.categories.usedPerformers")}
               value={audit.performerCategories}
             />
           </div>
@@ -3438,11 +3035,11 @@ function CatalogSettingsCard({
             <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
               <div className="min-w-[560px]">
                 <div className="grid grid-cols-[minmax(160px,1.5fr)_repeat(4,minmax(80px,0.7fr))] gap-2 bg-white px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-                  <span>Category</span>
-                  <span>Videos</span>
-                  <span>Images</span>
-                  <span>Performers</span>
-                  <span>Total</span>
+                  <span>{t("common.categories")}</span>
+                  <span>{t("common.videos")}</span>
+                  <span>{t("common.images")}</span>
+                  <span>{t("common.performers")}</span>
+                  <span>{t("settings.categories.total")}</span>
                 </div>
                 <div className="divide-y divide-slate-200">
                   {audit.rows.map((row) => (
@@ -3484,10 +3081,10 @@ function CatalogSettingsCard({
             </p>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row">
               <label className="min-w-0 flex-1">
-                <span className="sr-only">Category name</span>
+                <span className="sr-only">{t("settings.categories.name")}</span>
                 <input
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  placeholder="Category name"
+                  placeholder={t("settings.categories.name")}
                   value={managedCategoryInput}
                   onChange={(event) =>
                     onManagedCategoryInputChange(event.target.value)
@@ -3561,7 +3158,7 @@ function CatalogSettingsCard({
                   Proposed name
                   <input
                     className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                    placeholder="New category name"
+                    placeholder={t("settings.categories.newName")}
                     value={renameTargetCategory}
                     onChange={(event) => {
                       setRenameTargetCategory(event.target.value);
@@ -3764,10 +3361,11 @@ function CategoryRecordRenamePreview({
   onCancelApply: () => void;
   onConfirmApply: () => void;
 }) {
+  const t = useTranslation();
   return (
     <div
       role="region"
-      aria-label="Record rename preview"
+      aria-label={t("settings.categories.renamePreview")}
       className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -3794,13 +3392,13 @@ function CategoryRecordRenamePreview({
         </button>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-4">
-        <CategoryAuditMetric label="Affected Videos" value={preview.videos} />
-        <CategoryAuditMetric label="Affected Images" value={preview.images} />
+        <CategoryAuditMetric label={t("settings.categories.affectedVideos")} value={preview.videos} />
+        <CategoryAuditMetric label={t("settings.categories.affectedImages")} value={preview.images} />
         <CategoryAuditMetric
-          label="Affected Performers"
+          label={t("settings.categories.affectedPerformers")}
           value={preview.performers}
         />
-        <CategoryAuditMetric label="Total affected records" value={preview.total} />
+        <CategoryAuditMetric label={t("settings.categories.totalAffected")} value={preview.total} />
       </div>
       {preview.total === 0 ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">
@@ -3870,10 +3468,11 @@ function CategoryRecordDeletePreview({
   onCancelApply: () => void;
   onConfirmApply: () => void;
 }) {
+  const t = useTranslation();
   return (
     <div
       role="region"
-      aria-label="Record delete preview"
+      aria-label={t("settings.categories.deletePreview")}
       className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -3900,13 +3499,13 @@ function CategoryRecordDeletePreview({
         </button>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-4">
-        <CategoryAuditMetric label="Affected Videos" value={preview.videos} />
-        <CategoryAuditMetric label="Affected Images" value={preview.images} />
+        <CategoryAuditMetric label={t("settings.categories.affectedVideos")} value={preview.videos} />
+        <CategoryAuditMetric label={t("settings.categories.affectedImages")} value={preview.images} />
         <CategoryAuditMetric
-          label="Affected Performers"
+          label={t("settings.categories.affectedPerformers")}
           value={preview.performers}
         />
-        <CategoryAuditMetric label="Total affected records" value={preview.total} />
+        <CategoryAuditMetric label={t("settings.categories.totalAffected")} value={preview.total} />
       </div>
       {preview.total === 0 ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">

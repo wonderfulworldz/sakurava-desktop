@@ -72,7 +72,11 @@ function App() {
   }, []);
 
   if (isImageViewerWindow) {
-    return <GlobalImageViewerWindow />;
+    return (
+      <LanguageProvider>
+        <GlobalImageViewerWindow />
+      </LanguageProvider>
+    );
   }
 
   return (

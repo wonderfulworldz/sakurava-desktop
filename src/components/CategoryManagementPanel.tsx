@@ -43,6 +43,8 @@ import {
 import { listImages } from "../runtime/imageCommands";
 import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
+import { useTranslation } from "../lib/LanguageContext";
+import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 import { listVideos } from "../runtime/videoCommands";
 import { listCredits } from "../runtime/creditCommands";
 import ConfirmDialog from "./ConfirmDialog";
@@ -131,10 +133,10 @@ const categoryTableThumbnailClassName =
 const filterOptions: CategoryFilterOption[] = [
   { value: "all", label: "All", chipLabel: "All", chipPrefix: "Filter" },
   { value: "parent-only", label: "Parents Only", chipLabel: "Parents Only", chipPrefix: "Filter" },
-  { value: "child-only", label: "Childs Only", chipLabel: "Childs Only", chipPrefix: "Filter" },
+  { value: "child-only", label: "Children Only", chipLabel: "Children Only", chipPrefix: "Filter" },
   { value: "videos", label: "Videos Used", chipLabel: "Videos Used", chipPrefix: "Filter" },
   { value: "images", label: "Images Used", chipLabel: "Images Used", chipPrefix: "Filter" },
-  { value: "performers", label: "Performer Used", chipLabel: "Performer Used", chipPrefix: "Filter" },
+  { value: "performers", label: "Performers Used", chipLabel: "Performers Used", chipPrefix: "Filter" },
 ];
 const selectableFilterOptions = filterOptions.filter(
   (option): option is ActiveCategoryFilterOption => option.value !== "all",
@@ -143,7 +145,7 @@ const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: "name", label: "Title A-Z" },
   { value: "name-desc", label: "Title Z-A" },
   { value: "created-desc", label: "Last Added" },
-  { value: "updated-desc", label: "Last Updated" },
+  { value: "updated-desc", label: "Last Modified" },
 ];
 
 const emptyForm: FormState = {
@@ -187,6 +189,7 @@ type CategoryTableDisplayRow = CategoryUsageRow & {
 };
 
 function CategoryManagementPanel() {
+  const t = useTranslation();
   const isDesktopRuntime = isTauriRuntimeAvailable();
   const initialFilters = readSessionFilterState(
     categoryManagementFilterSessionKey,
@@ -416,10 +419,11 @@ function CategoryManagementPanel() {
   );
   const rangeStart = rows.length === 0 ? 0 : pageStartIndex + 1;
   const rangeEnd = Math.min(pageStartIndex + numericRowsPerPage, rows.length);
-  const rangeText =
-    rows.length === 0
-      ? "Showing 0 of 0"
-      : `Showing ${rangeStart}-${rangeEnd} of ${rows.length}`;
+  const rangeText = t("pagination.showing", {
+    start: String(rangeStart),
+    end: String(rangeEnd),
+    total: String(rows.length),
+  });
 
   useEffect(() => {
     writeSessionFilterState(categoryManagementFilterSessionKey, {
@@ -750,8 +754,8 @@ function CategoryManagementPanel() {
   const activeFilterChips = selectedFilters.map((filter) => {
       const option = selectableFilterOptions.find((item) => item.value === filter);
       const label = option
-        ? `${option.chipPrefix}: ${option.chipLabel}`
-        : `Filter: ${filter}`;
+        ? `${t("categories.toolbar.filter")}: ${translateUiDisplayLabel(t, option.chipLabel)}`
+        : `${t("categories.toolbar.filter")}: ${filter}`;
 
       return {
         key: `filter-${filter}`,
@@ -853,14 +857,13 @@ function CategoryManagementPanel() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1
-            aria-label="Category Management"
+            aria-label={t("categoryManagement.title")}
             className="text-4xl font-semibold tracking-normal text-slate-950"
           >
-            Category Management
+            {t("categoryManagement.title")}
           </h1>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-500">
-            Create, organize, and maintain categories used by Videos, Images,
-            and Performers.
+            {t("categoryManagement.subtitle")}
           </p>
         </div>
         <button
@@ -869,7 +872,7 @@ function CategoryManagementPanel() {
           className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100"
         >
           <Plus size={20} />
-          Add Category
+          {t("categoryManagement.add")}
         </button>
       </header>
 
@@ -880,14 +883,14 @@ function CategoryManagementPanel() {
         >
           <div className="mb-4 flex flex-col gap-1">
             <h2 className="text-lg font-semibold text-slate-950">
-              {editingCategory ? "Edit Category" : "Add Category"}
+              {editingCategory ? t("categoryManagement.edit") : t("categoryManagement.add")}
             </h2>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <label className="space-y-1 text-sm font-medium text-slate-700">
               <span>
-                Category <span className="text-red-600">*</span>
+                {t("categoryManagement.category")} <span className="text-red-600">*</span>
               </span>
               <input
                 value={form.name}
@@ -896,7 +899,7 @@ function CategoryManagementPanel() {
                   setFormErrors((current) => ({ ...current, name: undefined }));
                 }}
                 className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                placeholder="Category name"
+                placeholder={t("categoryManagement.name")}
               />
               {formErrors.name && (
                 <p className="text-xs font-medium text-red-600">{formErrors.name}</p>
@@ -904,7 +907,7 @@ function CategoryManagementPanel() {
             </label>
 
             <div className="space-y-1 text-sm font-medium text-slate-700">
-              <span>Parent Category</span>
+              <span>{t("categoryManagement.parent")}</span>
               <ParentCategoryPicker
                 value={form.parentKey}
                 options={parentOptions}
@@ -927,14 +930,14 @@ function CategoryManagementPanel() {
 
             <fieldset className="w-full space-y-2 text-sm font-medium text-slate-700">
               <legend>
-                Used In <span className="text-red-600">*</span>
+                {t("categoryManagement.usedIn")} <span className="text-red-600">*</span>
               </legend>
               <div
-                aria-label="Used In controls"
+                aria-label={t("categoryManagement.usedInControls")}
                 className="grid w-full grid-cols-2 gap-2 text-sm font-semibold lg:grid-cols-4"
               >
                 <UsedInToggle
-                  label="Videos"
+                  label={t("common.videos")}
                   icon={Video}
                   checked={form.showInVideos}
                   onChange={(showInVideos) =>
@@ -942,7 +945,7 @@ function CategoryManagementPanel() {
                   }
                 />
                 <UsedInToggle
-                  label="Images"
+                  label={t("common.images")}
                   icon={Image}
                   checked={form.showInImages}
                   onChange={(showInImages) =>
@@ -950,7 +953,7 @@ function CategoryManagementPanel() {
                   }
                 />
                 <UsedInToggle
-                  label="Performers"
+                  label={t("common.performers")}
                   icon={UserRound}
                   checked={form.showInPerformers}
                   onChange={(showInPerformers) =>
@@ -958,7 +961,7 @@ function CategoryManagementPanel() {
                   }
                 />
                 <UsedInToggle
-                  label="Credits"
+                  label={t("common.credits")}
                   icon={BadgeCheck}
                   checked={form.showInCredits}
                   onChange={(showInCredits) =>
@@ -969,7 +972,7 @@ function CategoryManagementPanel() {
             </fieldset>
 
             <label className="space-y-1 text-sm font-medium text-slate-700">
-              <span>Thumbnail</span>
+              <span>{t("categoryManagement.thumbnail")}</span>
               <div className="flex gap-2">
                 <input
                   value={form.thumbnailPath}
@@ -984,7 +987,7 @@ function CategoryManagementPanel() {
                     }));
                   }}
                   className="h-11 min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  placeholder="Local path or reference"
+                  placeholder={t("categoryManagement.thumbnailPlaceholder")}
                 />
                 <button
                   type="button"
@@ -992,13 +995,13 @@ function CategoryManagementPanel() {
                   disabled={!isDesktopRuntime}
                   className="h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                 >
-                  Browse
+                  {t("common.browse")}
                 </button>
               </div>
             </label>
 
             <label className="space-y-1 text-sm font-medium text-slate-700 lg:col-span-2">
-              <span>Definition</span>
+              <span>{t("categoryManagement.definition")}</span>
               <textarea
                 value={form.description}
                 onChange={(event) => {
@@ -1013,7 +1016,7 @@ function CategoryManagementPanel() {
                 }}
                 className="min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
                 maxLength={500}
-                placeholder="Plain text definition"
+                placeholder={t("categoryManagement.definitionPlaceholder")}
               />
               {formErrors.description && (
                 <p className="text-xs font-medium text-red-600">
@@ -1033,7 +1036,7 @@ function CategoryManagementPanel() {
                 className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
               >
                 <Trash2 size={16} />
-                Delete
+                {t("common.delete")}
               </button>
             )}
             <button
@@ -1041,7 +1044,7 @@ function CategoryManagementPanel() {
               onClick={requestCancelForm}
               className="h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -1049,7 +1052,7 @@ function CategoryManagementPanel() {
               disabled={!canSave}
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              Save Category
+              {t("categoryManagement.save")}
             </button>
           </div>
           {editingCategory && deleteBlockReason && (
@@ -1070,14 +1073,14 @@ function CategoryManagementPanel() {
         <div
           ref={toolbarRef}
           className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
-          aria-label="Category Management toolbar"
+          aria-label={t("categoryManagement.toolbar")}
         >
           <div
             className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-2"
             data-testid="category-management-toolbar-row"
           >
             <label className="relative block min-w-0 flex-1">
-              <span className="sr-only">Search categories</span>
+              <span className="sr-only">{t("categoryManagement.search")}</span>
               <Search
                 aria-hidden="true"
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1090,14 +1093,14 @@ function CategoryManagementPanel() {
                   setCurrentPage(1);
                 }}
                 className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                placeholder="Search categories..."
-                aria-label="Search categories"
+                placeholder={t("categoryManagement.searchPlaceholder")}
+                aria-label={t("categoryManagement.search")}
               />
               {search.trim() && (
                 <button
                   type="button"
-                  aria-label="Clear category search"
-                  title="Clear category search"
+                  aria-label={t("categoryManagement.clearSearch")}
+                  title={t("categoryManagement.clearSearch")}
                   className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200"
                   onClick={() => {
                     setSearch("");
@@ -1132,7 +1135,7 @@ function CategoryManagementPanel() {
               >
                 <Filter size={18} className="shrink-0 text-slate-500" />
                 <span className="hidden text-sm font-semibold text-slate-700 sm:inline">
-                  Filter
+                  {t("categories.toolbar.filter")}
                 </span>
                 <span
                   aria-label={`${activeFilterCount} active filters`}
@@ -1150,7 +1153,7 @@ function CategoryManagementPanel() {
               {filterOpen && (
                 <div
                   role="listbox"
-                  aria-label="Category filter options"
+                  aria-label={t("categoryManagement.filterOptions")}
                   className="sakurava-scrollbar absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
                 >
                   {filteredFilterOptions.map((option) => {
@@ -1174,14 +1177,14 @@ function CategoryManagementPanel() {
                           toggleCategoryFilter(option.value);
                         }}
                       >
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        <span className="min-w-0 flex-1 truncate">{translateUiDisplayLabel(t, option.label)}</span>
                         {selected && <Check size={15} aria-hidden="true" />}
                       </button>
                     );
                   })}
                   {filteredFilterOptions.length === 0 && (
                     <p className="px-3 py-2 text-xs font-semibold text-slate-500">
-                      No matching filters
+                      {t("categories.noMatchingFilters")}
                     </p>
                   )}
                 </div>
@@ -1196,7 +1199,7 @@ function CategoryManagementPanel() {
             >
               <button
                 type="button"
-                aria-label="Sort"
+                aria-label={t("common.sort")}
                 aria-haspopup="listbox"
                 aria-expanded={sortOpen}
                 onClick={() => {
@@ -1213,14 +1216,14 @@ function CategoryManagementPanel() {
               >
                 <ArrowUpDown size={18} className="shrink-0 text-slate-500" />
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950">
-                  {selectedSortLabel}
+                  {translateUiDisplayLabel(t, selectedSortLabel)}
                 </span>
                 <ChevronDown size={16} className="shrink-0 text-slate-400" />
               </button>
               {sortOpen && (
                 <div
                   role="listbox"
-                  aria-label="Sort options"
+                  aria-label={t("categoryManagement.sortOptions")}
                   className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
                 >
                   {sortOptions.map((option) => {
@@ -1239,7 +1242,7 @@ function CategoryManagementPanel() {
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => updateSort(option.value)}
                       >
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        <span className="min-w-0 flex-1 truncate">{translateUiDisplayLabel(t, option.label)}</span>
                       </button>
                     );
                   })}
@@ -1257,13 +1260,13 @@ function CategoryManagementPanel() {
               }}
             >
               {view === "table" ? <Grid2X2 size={18} /> : <List size={18} />}
-              View
+              {t("common.view")}
             </button>
           </div>
 
           {activeFilterChips.length > 0 && (
             <div
-              aria-label="Active category filters"
+              aria-label={t("categoryManagement.activeFilters")}
               className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-wrap gap-2">
@@ -1285,7 +1288,7 @@ function CategoryManagementPanel() {
                 onClick={clearActiveFilters}
                 className="h-8 self-start rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-700 sm:self-auto"
               >
-                Clear all filters
+                {t("categories.toolbar.clearAllFilters")}
               </button>
             </div>
           )}
@@ -1293,12 +1296,12 @@ function CategoryManagementPanel() {
 
         <nav
           className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-          aria-label="Category Management pagination"
+          aria-label={t("categoryManagement.pagination")}
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <p className="text-sm font-semibold text-slate-600">{rangeText}</p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              Page size
+              {t("common.pageSize")}
               <SakuravaSelect
                 ariaLabel="Categories per page"
                 placement="down"
@@ -1312,7 +1315,7 @@ function CategoryManagementPanel() {
                   label: option,
                 }))}
               />
-              <span>per page</span>
+              <span>{t("collection.perPage")}</span>
             </label>
           </div>
           <div className="flex items-center gap-2">
@@ -1322,7 +1325,7 @@ function CategoryManagementPanel() {
               disabled={safeCurrentPage === 1}
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
             >
-              Previous
+              {t("common.previous")}
             </button>
             {buildPaginationPages(safeCurrentPage, totalPages).map((page) => (
               <button
@@ -1348,7 +1351,7 @@ function CategoryManagementPanel() {
               disabled={safeCurrentPage === totalPages}
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
             >
-              Next
+              {t("common.next")}
             </button>
           </div>
         </nav>
@@ -1436,17 +1439,17 @@ function CategoryManagementPanel() {
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="w-12 px-3 py-3 font-semibold">
-                      <span className="sr-only">Hierarchy</span>
+                      <span className="sr-only">{t("categoryManagement.hierarchy")}</span>
                     </th>
                     <th className="w-20 px-3 py-3 font-semibold">
-                      <span className="sr-only">Thumbnail</span>
+                      <span className="sr-only">{t("categoryManagement.thumbnail")}</span>
                     </th>
                     <th
                       className="w-[22%] px-3 py-3 font-semibold"
                       aria-sort={categoryAriaSort(tableSort, "name")}
                     >
                       <CategorySortHeader
-                        label="Name"
+                        label={t("categories.table.header.name")}
                         sortValue="name"
                         tableSort={tableSort}
                         onSort={updateTableSort}
@@ -1457,22 +1460,22 @@ function CategoryManagementPanel() {
                       aria-sort={categoryAriaSort(tableSort, "parent")}
                     >
                       <CategorySortHeader
-                        label="Parent"
+                        label={t("categories.table.header.parent")}
                         sortValue="parent"
                         tableSort={tableSort}
                         onSort={updateTableSort}
                       />
                     </th>
                     <th className="w-[28%] px-3 py-3 font-semibold">
-                      Description
+                      {t("categories.table.header.description")}
                     </th>
-                    <th className="w-40 px-3 py-3 font-semibold">Usage</th>
+                    <th className="w-40 px-3 py-3 font-semibold">{t("categories.table.header.usage")}</th>
                     <th
                       className="w-24 px-3 py-3 font-semibold"
                       aria-sort={categoryAriaSort(tableSort, "usage-desc")}
                     >
                       <CategorySortHeader
-                        label="Total Usage"
+                        label={t("categories.table.header.totalUsage")}
                         sortValue="usage-desc"
                         tableSort={tableSort}
                         onSort={updateTableSort}
@@ -1498,8 +1501,8 @@ function CategoryManagementPanel() {
           {rows.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-slate-500">
               {categories.length === 0
-                ? "No categories yet. Add a category to start managing the catalog vocabulary."
-                : "No categories match the current search, filter, and sort view."}
+                ? t("categories.empty")
+                : t("categories.noMatches")}
             </div>
           )}
       </section>
@@ -1625,11 +1628,16 @@ function ParentCategoryPicker({
   disabled: boolean;
   onChange: (parentKey: string) => void;
 }) {
+  const t = useTranslation();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const selectedCategory =
     value ? categories.find((category) => category.key === value) ?? null : null;
-  const displayValue = open ? search : formatParentCategoryOption(selectedCategory);
+  const displayValue = open
+    ? search
+    : selectedCategory
+      ? formatParentCategoryOption(selectedCategory)
+      : t("categoryManagement.noParent");
   const searchKey = search.trim().toLowerCase();
   const filteredOptions = options.filter((category) =>
     [category.name, category.description, formatParentCategoryOption(category)]
@@ -1661,10 +1669,10 @@ function ParentCategoryPicker({
         className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
       />
       <input
-        aria-label="Search parent categories"
+        aria-label={t("categoryManagement.searchParent")}
         value={displayValue}
         disabled={disabled}
-        placeholder="Search parent categories..."
+        placeholder={t("categoryManagement.searchParentPlaceholder")}
         className={[
           "h-11 w-full select-text rounded-lg border bg-white pl-12 pr-11 text-sm font-medium text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400",
           showResults
@@ -1691,7 +1699,7 @@ function ParentCategoryPicker({
         <button
           type="button"
           className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sakura-300"
-          aria-label="Clear parent category search"
+          aria-label={t("categoryManagement.clearParent")}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             if (search.length > 0) {
@@ -2078,6 +2086,7 @@ function CategoryTableRow({
   onToggleParent: (key: string) => void;
   onEdit: (category: ManagedCategory) => void;
 }) {
+  const t = useTranslation();
   const hasChildren = row.childCount > 0;
   const isChild = row.kind === "child";
   const isParent = row.kind === "parent";
@@ -2164,7 +2173,7 @@ function CategoryTableRow({
             <span className="min-w-0 truncate">{row.parent.name}</span>
           </span>
         ) : (
-          <span className="text-slate-400">N/A</span>
+          <span className="text-slate-400">{t("common.notAvailable")}</span>
         )}
       </td>
       <td className={`px-3 py-3 overflow-hidden text-slate-600 ${childContentIndentClass}`}>
@@ -2178,25 +2187,25 @@ function CategoryTableRow({
       <td className={`px-3 py-3 overflow-hidden text-slate-600 ${childContentIndentClass}`}>
         <div className="flex min-w-0 items-center gap-3 overflow-hidden text-xs font-semibold">
           <UsageShortcut
-            label="Videos"
+            label={t("common.videos")}
             value={row.usage.videos}
             icon={Video}
             to={categoryUsageLink("videos", row.category.name)}
           />
           <UsageShortcut
-            label="Images"
+            label={t("common.images")}
             value={row.usage.images}
             icon={Image}
             to={categoryUsageLink("images", row.category.name)}
           />
           <UsageShortcut
-            label="Performers"
+            label={t("common.performers")}
             value={row.usage.performers}
             icon={UserRound}
             to={categoryUsageLink("performers", row.category.name)}
           />
           <UsageShortcut
-            label="Credits"
+            label={t("common.credits")}
             value={row.usage.credits}
             icon={BadgeCheck}
           />
@@ -2256,6 +2265,7 @@ function categoryUsageLink(
 }
 
 function ThumbnailPreview({ category }: { category: ManagedCategory }) {
+  const t = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
   const assetSrc = localImagePathToAssetSrc(category.thumbnailPath);
 
@@ -2266,7 +2276,7 @@ function ThumbnailPreview({ category }: { category: ManagedCategory }) {
   if (!category.thumbnailPath.trim()) {
     return (
       <div
-        aria-label="Category thumbnail placeholder"
+        aria-label={t("category.thumbnailPlaceholder")}
         data-testid="category-table-thumbnail-placeholder"
         className={`relative flex ${categoryTableThumbnailClassName} items-center justify-center overflow-hidden bg-sakura-50 text-sakura-500`}
       >
@@ -2282,7 +2292,7 @@ function ThumbnailPreview({ category }: { category: ManagedCategory }) {
   if (!assetSrc || imageFailed) {
     return (
       <div
-        aria-label="Thumbnail path saved"
+        aria-label={t("category.thumbnailPathSaved")}
         data-testid="category-table-thumbnail-placeholder"
         className={`flex ${categoryTableThumbnailClassName} items-center justify-center border border-slate-200 bg-slate-50 text-slate-400`}
       >

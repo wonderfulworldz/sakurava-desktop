@@ -8,6 +8,8 @@ import {
   rankPickerSearchResults,
   splitPickerHighlight,
 } from "../lib/relatedPicker";
+import { useTranslation } from "../lib/LanguageContext";
+import { formatMoreCount, translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 type TargetKind = "videos" | "images";
@@ -35,6 +37,7 @@ function RelatedCatalogPicker({
   targetKind,
   onChange,
 }: RelatedCatalogPickerProps) {
+  const t = useTranslation();
   const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
@@ -174,8 +177,12 @@ function RelatedCatalogPicker({
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
-          aria-label={copy.searchAriaLabel}
-          placeholder={copy.searchPlaceholder}
+          aria-label={translateUiDisplayLabel(t, copy.searchAriaLabel)}
+          placeholder={t(
+            targetKind === "images"
+              ? "picker.relatedImages.searchPlaceholder"
+              : "picker.relatedVideos.searchPlaceholder",
+          )}
           value={query}
           onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
@@ -259,7 +266,11 @@ function RelatedCatalogPicker({
 
       {selected.length === 0 ? (
         <p className="text-sm font-medium text-slate-500">
-          {copy.emptySelected}
+          {t(
+            targetKind === "images"
+              ? "picker.relatedImages.empty"
+              : "picker.relatedVideos.empty",
+          )}
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -298,7 +309,7 @@ function RelatedCatalogPicker({
                     onClick={() => removeRelation(relation)}
                   >
                     <X size={13} />
-                    <span className="sr-only">Remove</span>
+                    <span className="sr-only">{t("common.remove")}</span>
                   </button>
                 </span>
               );
@@ -309,7 +320,7 @@ function RelatedCatalogPicker({
               className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
               onClick={() => setShowAllSelected(true)}
             >
-              +{hiddenSelectedCount} more
+              {formatMoreCount(t, hiddenSelectedCount)}
             </button>
           )}
           {showAllSelected && selected.length > 3 && (
@@ -327,7 +338,12 @@ function RelatedCatalogPicker({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="font-medium text-slate-500">
           {selected.length > 0
-            ? `${selected.length} ${selected.length === 1 ? copy.countSingular : copy.countPlural} selected`
+            ? t(
+                targetKind === "videos"
+                  ? "count.selectedVideos"
+                  : "count.selectedImages",
+                { count: String(selected.length) },
+              )
             : ""}
         </span>
         <div className="flex items-center gap-4">
@@ -337,7 +353,7 @@ function RelatedCatalogPicker({
               className="font-semibold text-slate-500 transition-colors hover:text-slate-700"
               onClick={() => onChange([])}
             >
-              Clear all
+              {t("common.clearAll")}
             </button>
           )}
           {selected.length > 0 && (
@@ -347,7 +363,7 @@ function RelatedCatalogPicker({
             to={copy.collectionPath}
             className="font-semibold text-sakura-600 transition-colors hover:text-sakura-700"
           >
-            {copy.openLabel}
+            {t(targetKind === "images" ? "picker.openImages" : "picker.openVideos")}
           </Link>
         </div>
       </div>

@@ -137,6 +137,14 @@ function HomePage() {
         {homeData.summaryCards.map((card) => {
           const Icon = card.icon;
           const translatedLabel = t(card.labelKey);
+          const detailKey =
+            card.labelKey === "home.summaryVideos"
+              ? Number(card.value) === 1 ? "home.savedVideo" : "home.savedVideos"
+              : card.labelKey === "home.summaryImages"
+                ? Number(card.value) === 1 ? "home.savedImage" : "home.savedImages"
+                : card.labelKey === "home.summaryPerformers"
+                  ? Number(card.value) === 1 ? "home.savedPerformer" : "home.savedPerformers"
+                  : "home.favoriteItems";
 
           return (
             <article
@@ -156,7 +164,9 @@ function HomePage() {
                   <Icon size={20} />
                 </div>
               </div>
-              <p className="mt-4 text-sm text-slate-500">{card.detail}</p>
+              <p className="mt-4 text-sm text-slate-500">
+                {t(detailKey, { count: String(card.value) })}
+              </p>
             </article>
           );
         })}

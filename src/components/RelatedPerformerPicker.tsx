@@ -10,6 +10,8 @@ import {
   rankPickerSearchResults,
   splitPickerHighlight,
 } from "../lib/relatedPicker";
+import { useTranslation } from "../lib/LanguageContext";
+import { formatMoreCount } from "../lib/uiDisplayLabels";
 
 const RELATED_CHIP_STYLES =
   "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
@@ -37,6 +39,7 @@ function RelatedPerformerPicker({
   showSelectedSummary = true,
   maxOccurrencesPerPerformer = 1,
 }: RelatedPerformerPickerProps) {
+  const t = useTranslation();
   const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [visibleResultCount, setVisibleResultCount] = useState(
@@ -199,8 +202,8 @@ function RelatedPerformerPicker({
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
-          aria-label="Search related performers"
-          placeholder="Search performer name, alias, tag..."
+          aria-label={t("picker.relatedPerformers.search")}
+          placeholder={t("picker.relatedPerformers.placeholder")}
           value={query}
           onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
@@ -217,7 +220,7 @@ function RelatedPerformerPicker({
           <button
             type="button"
             className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sakura-300"
-            aria-label="Clear related performer search"
+            aria-label={t("picker.relatedPerformers.clear")}
             onClick={() => {
               setQuery("");
               setIsSearchOpen(false);
@@ -329,7 +332,7 @@ function RelatedPerformerPicker({
                     onClick={() => removeRelation(relation)}
                   >
                     <X size={13} />
-                    <span className="sr-only">Remove</span>
+                    <span className="sr-only">{t("common.remove")}</span>
                   </button>
                 </span>
               );
@@ -340,7 +343,7 @@ function RelatedPerformerPicker({
               className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
               onClick={() => setShowAllSelected(true)}
             >
-              +{hiddenSelectedCount} more
+              {formatMoreCount(t, hiddenSelectedCount)}
             </button>
           )}
           {showAllSelected && selected.length > 3 && (
@@ -358,9 +361,7 @@ function RelatedPerformerPicker({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="font-medium text-slate-500">
           {selected.length > 0
-            ? `${selected.length} ${
-                selected.length === 1 ? "performer" : "performers"
-              } selected`
+            ? t("count.selected", { count: String(selected.length) })
             : ""}
         </span>
         <div className="flex items-center gap-4">
@@ -370,7 +371,7 @@ function RelatedPerformerPicker({
               className="font-semibold text-slate-500 transition-colors hover:text-slate-700"
               onClick={() => onChange([])}
             >
-              Clear all
+              {t("common.clearAll")}
             </button>
           )}
           {selected.length > 0 && (
@@ -380,7 +381,7 @@ function RelatedPerformerPicker({
             to="/performers"
             className="font-semibold text-sakura-600 transition-colors hover:text-sakura-700"
           >
-            Open Performers
+            {t("picker.openPerformers")}
           </Link>
         </div>
       </div>

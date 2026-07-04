@@ -1,6 +1,7 @@
 import { Film, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { HomeRecentItem } from "../../lib/homeData";
+import { useTranslation } from "../../lib/LanguageContext";
 import {
   CardThumbnail,
   CreditMetadataRows,
@@ -24,6 +25,7 @@ export function PerformerLiteCard({
   favoriteInteractive,
   creditMetadata,
 }: PerformerLiteCardProps) {
+  const t = useTranslation();
   const name = displayValue(item.title);
   const filmography = displayValue(item.filmographyCount);
   const pictorials = displayValue(item.pictorialsCount);
@@ -59,14 +61,14 @@ export function PerformerLiteCard({
             <Film size={14} className="shrink-0 text-sakura-500" />
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{filmography}</p>
-              <p className="text-[10px] leading-tight text-slate-500">Filmography</p>
+              <p className="text-[10px] leading-tight text-slate-500">{t("form.filmography")}</p>
             </div>
           </div>
           <div className="flex min-w-0 items-center gap-1.5 rounded-lg bg-sakura-50 px-2 py-1.5 dark:bg-slate-700">
             <ImageIcon size={14} className="shrink-0 text-sakura-500" />
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{pictorials}</p>
-              <p className="text-[10px] leading-tight text-slate-500">Pictorials</p>
+              <p className="text-[10px] leading-tight text-slate-500">{t("form.pictorials")}</p>
             </div>
           </div>
         </div>

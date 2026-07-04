@@ -3,6 +3,8 @@ import { type MouseEvent, type ReactNode, useEffect, useState } from "react";
 import ContentThumbnailPlaceholder from "../ContentThumbnailPlaceholder";
 import { localImagePathToAssetSrc } from "../../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../../runtime/MediaAssetScopeContext";
+import { useTranslation } from "../../lib/LanguageContext";
+import { formatMoreCount, translateUiDisplayLabel } from "../../lib/uiDisplayLabels";
 
 /* ─── Display Value Helper ─── */
 
@@ -167,6 +169,7 @@ export type BadgeProps = {
 };
 
 export function StatusBadge({ label, tone = "accent" }: BadgeProps) {
+  const t = useTranslation();
   if (!label || label === "-" || label === "Unspecified" || label === "n/a") return null;
 
   const colors =
@@ -179,7 +182,7 @@ export function StatusBadge({ label, tone = "accent" }: BadgeProps) {
       className={`absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-md ${colors}`}
     >
       <span className="size-2 rounded-full bg-sakura-500" />
-      {label}
+      {translateUiDisplayLabel(t, label)}
     </span>
   );
 }
@@ -226,24 +229,26 @@ export function censorshipLabel(status: CensorshipStatus): string {
 }
 
 export function CensorshipIcon({ status, size = 16 }: { status: CensorshipStatus; size?: number }) {
+  const t = useTranslation();
   if (status === "Censored") {
-    return <Ban size={size} className="text-sakura-500" aria-label="Censored" />;
+    return <Ban size={size} className="text-sakura-500" aria-label={t("shared.censorship.censored")} />;
   }
   if (status === "Uncensored") {
-    return <Eye size={size} className="text-sakura-500" aria-label="Uncensored" />;
+    return <Eye size={size} className="text-sakura-500" aria-label={t("shared.censorship.uncensored")} />;
   }
   if (status === "Reduced") {
-    return <ScanLine size={size} className="text-sakura-500" aria-label="Reduced" />;
+    return <ScanLine size={size} className="text-sakura-500" aria-label={t("shared.censorship.reduced")} />;
   }
   if (status === "Leaked") {
-    return <AlertTriangle size={size} className="text-sakura-500" aria-label="Leaked" />;
+    return <AlertTriangle size={size} className="text-sakura-500" aria-label={t("shared.censorship.leaked")} />;
   }
-  return <CircleHelp size={size} className="text-sakura-500" aria-label="Unknown censorship" />;
+  return <CircleHelp size={size} className="text-sakura-500" aria-label={t("shared.censorship.unknown")} />;
 }
 
 /* ─── Category Chips ─── */
 
 export function CategoryChips({ categories, maxVisible, size = "sm" }: { categories: string[]; maxVisible?: number; size?: "sm" | "lg" }) {
+  const t = useTranslation();
   const valid = categories.filter((c) => c && c !== "-" && c !== "No category");
 
   if (valid.length === 0) {
@@ -263,7 +268,7 @@ export function CategoryChips({ categories, maxVisible, size = "sm" }: { categor
       </div>
       {overflow > 0 && (
         <span className={`inline-flex shrink-0 rounded-md border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${size === "lg" ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[11px]"}`}>
-          +{overflow}
+          {formatMoreCount(t, overflow)}
         </span>
       )}
     </div>
@@ -323,6 +328,7 @@ export function CreditMetadataRows({
 }: {
   rows: CreditMetadata[];
 }) {
+  const t = useTranslation();
   const normalizedRows = rows.length > 0
     ? rows
     : [{ id: "empty-credit-metadata" }];
@@ -351,7 +357,7 @@ export function CreditMetadataRows({
         </div>
       ))}
       {overflow > 0 && (
-        <p className="text-xs font-medium text-slate-400">+{overflow} more</p>
+        <p className="text-xs font-medium text-slate-400">{formatMoreCount(t, overflow)}</p>
       )}
     </div>
   );

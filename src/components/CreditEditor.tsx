@@ -6,6 +6,7 @@ import {
   type CreditFormValue,
 } from "../lib/workCredits";
 import RelatedPerformerPicker from "./RelatedPerformerPicker";
+import { useTranslation } from "../lib/LanguageContext";
 
 type CreditEditorProps = {
   credits: CreditFormValue[];
@@ -22,6 +23,7 @@ function CreditEditor({
   loadState,
   onChange,
 }: CreditEditorProps) {
+  const t = useTranslation();
   const creditCategories = categories.filter((category) => category.showInCredits);
   const pickerSelection = credits.reduce<RelatedPerformerFormValue[]>(
     (selected, credit) => {
@@ -90,11 +92,11 @@ function CreditEditor({
         }
       >
         <Plus size={15} />
-        Add Credit
+        {t("credit.add")}
       </button>
 
       {credits.length === 0 ? (
-        <p className="text-sm text-slate-500">No credits added.</p>
+        <p className="text-sm text-slate-500">{t("credit.empty")}</p>
       ) : (
         credits.map((credit, index) => (
           <div
@@ -103,7 +105,7 @@ function CreditEditor({
             data-testid="credit-editor-row"
           >
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <CreditField label="Performer">
+              <CreditField label={t("credit.performer")}>
                 <select
                   aria-label={`Credit ${index + 1} performer`}
                   value={credit.performerId}
@@ -112,7 +114,7 @@ function CreditEditor({
                   }
                   className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
                 >
-                  <option value="">Select performer</option>
+                  <option value="">{t("credit.selectPerformer")}</option>
                   {!credit.performerId && credit.performerNameSnapshot && (
                     <option value="">
                       Unresolved: {credit.performerNameSnapshot}
@@ -126,7 +128,7 @@ function CreditEditor({
                 </select>
               </CreditField>
 
-              <CreditField label="Character Mode">
+              <CreditField label={t("credit.characterMode")}>
                 <select
                   aria-label={`Credit ${index + 1} character mode`}
                   value={credit.characterMode}
@@ -137,12 +139,12 @@ function CreditEditor({
                   }
                   className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
                 >
-                  <option value="text">Text</option>
-                  <option value="self">Self</option>
+                  <option value="text">{t("credit.text")}</option>
+                  <option value="self">{t("credit.self")}</option>
                 </select>
               </CreditField>
 
-              <CreditField label="Character / Role">
+              <CreditField label={t("credit.characterRole")}>
                 <input
                   aria-label={`Credit ${index + 1} character or role`}
                   value={credit.characterName}
@@ -155,7 +157,7 @@ function CreditEditor({
                 />
               </CreditField>
 
-              <CreditField label="Character Original Name">
+              <CreditField label={t("credit.characterOriginal")}>
                 <input
                   aria-label={`Credit ${index + 1} character original name`}
                   value={credit.characterOriginalName}
@@ -167,7 +169,7 @@ function CreditEditor({
                 />
               </CreditField>
 
-              <CreditField label="Credited As Mode">
+              <CreditField label={t("credit.creditedAsMode")}>
                 <select
                   aria-label={`Credit ${index + 1} credited as mode`}
                   value={credit.creditedAsMode}
@@ -178,12 +180,12 @@ function CreditEditor({
                   }
                   className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
                 >
-                  <option value="auto">Auto</option>
-                  <option value="custom">Custom</option>
+                  <option value="auto">{t("credit.auto")}</option>
+                  <option value="custom">{t("credit.custom")}</option>
                 </select>
               </CreditField>
 
-              <CreditField label="Credited As">
+              <CreditField label={t("credit.creditedAs")}>
                 <input
                   aria-label={`Credit ${index + 1} credited as`}
                   value={credit.creditedAs}
@@ -196,7 +198,7 @@ function CreditEditor({
               </CreditField>
 
               <CategorySelect
-                label="Credit Type"
+                label={t("common.creditType")}
                 ariaLabel={`Credit ${index + 1} credit type`}
                 value={credit.creditTypeCategoryId}
                 categories={creditCategories}
@@ -205,7 +207,7 @@ function CreditEditor({
                 }
               />
               <CategorySelect
-                label="Role Importance"
+                label={t("credit.roleImportance")}
                 ariaLabel={`Credit ${index + 1} role importance`}
                 value={credit.roleImportanceCategoryId}
                 categories={creditCategories}
@@ -214,7 +216,7 @@ function CreditEditor({
                 }
               />
 
-              <CreditField label="Billing Order">
+              <CreditField label={t("credit.billingOrder")}>
                 <input
                   type="number"
                   step="1"
@@ -227,7 +229,7 @@ function CreditEditor({
                 />
               </CreditField>
 
-              <CreditField label="Note">
+              <CreditField label={t("credit.note")}>
                 <input
                   aria-label={`Credit ${index + 1} note`}
                   value={credit.note}
@@ -285,6 +287,7 @@ function CategorySelect({
   categories: ManagedCategory[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
     <CreditField label={label}>
       <select
@@ -293,7 +296,7 @@ function CategorySelect({
         onChange={(event) => onChange(event.target.value)}
         className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
       >
-        <option value="">Not set</option>
+        <option value="">{t("common.notSet")}</option>
         {categories.map((category) => (
           <option key={category.key} value={category.key}>
             {category.name}

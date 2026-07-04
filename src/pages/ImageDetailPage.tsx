@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
 import type { Credit, ManagedCategory, Performer, Video } from "../backend/types";
@@ -18,6 +19,7 @@ import { listCreditsByWork } from "../runtime/creditCommands";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 
 function ImageDetailPage() {
+  const t = useTranslation();
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.images);
   const [missing, setMissing] = useState(false);
@@ -107,9 +109,9 @@ function ImageDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Image Detail
+          {t("detail.imageTitle")}
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading image...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingImage")}</p>
       </section>
     );
   }
@@ -118,10 +120,10 @@ function ImageDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Image Detail
+          {t("detail.imageTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          This image could not be found.
+          {t("detail.imageMissing")}
         </p>
       </section>
     );

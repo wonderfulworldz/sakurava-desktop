@@ -57,6 +57,8 @@ import {
   detectVideoTechInfo,
 } from "../lib/mediaTechInfo";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { useTranslation } from "../lib/LanguageContext";
+import { formatMoreCount, translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 import {
   emptyCreditFormValue,
   type CreditFormValue,
@@ -155,6 +157,7 @@ function FormPage({
   initialCredits = EMPTY_CREDITS,
   autoRoleNames = [],
 }: FormPageProps) {
+  const t = useTranslation();
   const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
@@ -887,7 +890,7 @@ function FormPage({
 
   return (
     <form
-      aria-label={formLabel}
+      aria-label={translateUiDisplayLabel(t, formLabel)}
       className="max-w-4xl mx-auto px-4 pt-8 pb-24 space-y-6"
       onSubmit={handleSubmit}
     >
@@ -904,7 +907,7 @@ function FormPage({
       />
 
       <div className="rounded-xl border border-slate-200 bg-white px-6 shadow-sm divide-y divide-slate-100">
-      <FormSection index={1} title="Basic Identity">
+      <FormSection index={1} title={t("form.basicIdentity")}>
         <FieldGrid>
           {config.basicFields.map((field) => (
             <TextInput
@@ -916,10 +919,10 @@ function FormPage({
           ))}
           {config.kind === "performers" && config.showAliases && (
             <ChipInput
-              label="Aliases"
+              label={t("form.aliases")}
               draft={aliasDraft}
               chips={aliases}
-              placeholder="Add alias..."
+              placeholder={t("form.addAlias")}
               onDraftChange={setAliasDraft}
               onAdd={() =>
                 addChip(aliasDraft, aliases, setAliases, setAliasDraft)
@@ -937,7 +940,7 @@ function FormPage({
           )}
           <CheckboxInput
             checked={Boolean(values.favorite)}
-            label="Favorite"
+            label={t("form.favorite")}
             onChange={(checked) => updateValue("favorite", checked)}
           />
         </FieldGrid>
@@ -945,7 +948,7 @@ function FormPage({
 
       {config.kind !== "performers" ? (
         <>
-          <FormSection index={2} title="Metadata">
+          <FormSection index={2} title={t("form.metadata")}>
             <FieldGrid>
               {config.selectFields.map((field) => 
                 field.name === "availability" ? (
@@ -997,13 +1000,13 @@ function FormPage({
             </FieldGrid>
           </FormSection>
 
-          <FormSection index={3} title="Files">
+          <FormSection index={3} title={t("form.files")}>
             <FieldGrid>
               {config.pathFields.find((f) => f.name === "coverPath") && (
                 <PathInput
                   field={config.pathFields.find((f) => f.name === "coverPath")!}
                   value={String(values.coverPath ?? "")}
-                  browseLabel="Browse"
+                  browseLabel={t("common.browse")}
                   browseDisabled={!canBrowsePaths}
                   onChange={(value) => updateValue("coverPath", value)}
                   onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "coverPath")!)}
@@ -1013,7 +1016,7 @@ function FormPage({
                 <PathInput
                   field={config.pathFields.find((f) => f.name === "mediaPath")!}
                   value={String(values.mediaPath ?? "")}
-                  browseLabel="Browse"
+                  browseLabel={t("common.browse")}
                   browseDisabled={!canBrowsePaths}
                   onChange={(value) => updateValue("mediaPath", value)}
                   onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "mediaPath")!)}
@@ -1036,14 +1039,14 @@ function FormPage({
 
           <FormSection
             index={4}
-            title={config.techTitle ?? "Tech Info"}
+            title={translateUiDisplayLabel(t, config.techTitle ?? "Tech Info")}
             action={
               <button
                 type="button"
                 className={BUTTON_STYLES.action}
                 onClick={() => void detectTechInfo()}
               >
-                Detect
+                {t("common.detect")}
               </button>
             }
           >
@@ -1070,7 +1073,7 @@ function FormPage({
         </>
       ) : (
         <>
-           <FormSection index={2} title="Files">
+           <FormSection index={2} title={t("form.files")}>
             <div className="space-y-6">
               <div className="border-b border-slate-100 pb-4">
                 {config.pathFields.map((field) => (
@@ -1078,7 +1081,7 @@ function FormPage({
                     key={field.name}
                     field={field}
                     value={String(values[field.name] ?? "")}
-                    browseLabel="Browse"
+                    browseLabel={t("common.browse")}
                     browseDisabled={!canBrowsePaths}
                     onChange={(value) => updateValue(field.name, value)}
                     onBrowse={() => browsePath(field)}
@@ -1095,7 +1098,7 @@ function FormPage({
             </div>
           </FormSection>
 
-          <FormSection index={3} title="Metadata">
+          <FormSection index={3} title={t("form.metadata")}>
             <FieldGrid>
               <PerformerStatusBadge
                 value={derivePerformerStatusDisplay(
@@ -1114,18 +1117,18 @@ function FormPage({
                   />
                 ))}
               <ReadOnlyTextInput
-                label="Filmography"
-                value={String(performerRelatedVideos.length)}
+                label={t("form.filmography")}
+                value={performerRelatedVideos.length > 0 ? String(performerRelatedVideos.length) : "N/A"}
               />
               <ReadOnlyTextInput
-                label="Pictorials"
-                value={String(performerRelatedImages.length)}
+                label={t("form.pictorials")}
+                value={performerRelatedImages.length > 0 ? String(performerRelatedImages.length) : "N/A"}
               />
               <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
 
-          <FormSection index={4} title="Profile Details">
+          <FormSection index={4} title={t("form.profileDetails")}>
             <FieldGrid>
               {config.performerSections?.personal
                 .filter((field) => field.name !== "debutDate" && field.name !== "retiredDate")
@@ -1176,7 +1179,7 @@ function FormPage({
         </>
       )}
 
-      <FormSection index={5} title="Categories">
+      <FormSection index={5} title={t("form.categories")}>
         <CategoryPicker
           kind={config.kind}
           selected={categories}
@@ -1186,7 +1189,7 @@ function FormPage({
         />
       </FormSection>
 
-      <FormSection index={6} title="Rating">
+      <FormSection index={6} title={t("form.rating")}>
         {showRatingError && (
           <div
             className="mb-4 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
@@ -1209,7 +1212,7 @@ function FormPage({
           ))}
         </div>
         <div className="mt-4 flex h-11 items-center justify-between border-t border-slate-100 pt-3 text-sm font-semibold text-slate-700">
-          <span className="text-slate-700">Average: Auto</span>
+          <span className="text-slate-700">{t("form.averageAuto")}</span>
           <span
             className="inline-flex h-8 min-w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800"
             data-testid="average-rating-display"
@@ -1221,7 +1224,7 @@ function FormPage({
 
       {config.kind !== "performers" ? (
         <>
-          <FormSection index={7} title="Related Performers">
+          <FormSection index={7} title={t("form.relatedPerformers")}>
             <CompactRelatedPerformersEditor
               credits={credits}
               performers={availablePerformers}
@@ -1241,7 +1244,7 @@ function FormPage({
 
           <FormSection
             index={8}
-            title={config.kind === "videos" ? "Related Images" : "Related Videos"}
+            title={t(config.kind === "videos" ? "form.relatedImages" : "form.relatedVideos")}
           >
             <RelatedCatalogPicker
                 records={
@@ -1258,7 +1261,7 @@ function FormPage({
         </>
       ) : (
         <>
-          <FormSection index={7} title="Related Videos">
+          <FormSection index={7} title={t("form.relatedVideos")}>
             <RelatedCatalogPicker
                 records={availableRelatedVideos}
                 selected={performerRelatedVideos}
@@ -1268,7 +1271,7 @@ function FormPage({
               />
           </FormSection>
 
-          <FormSection index={8} title="Related Images">
+          <FormSection index={8} title={t("form.relatedImages")}>
             <RelatedCatalogPicker
                 records={availableRelatedImages}
                 selected={performerRelatedImages}
@@ -1311,7 +1314,7 @@ function FormPage({
                 className={BUTTON_STYLES.danger}
               >
                 <Trash2 size={14} />
-                Delete
+                {t("common.delete")}
               </button>
             )}
             <button
@@ -1319,25 +1322,26 @@ function FormPage({
               onClick={requestCancel}
               className={BUTTON_STYLES.secondary}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               className={BUTTON_STYLES.primary}
             >
               <Save size={14} />
-              Save
+              {t("common.save")}
             </button>
           </div>
         </div>
       </div>
       <ConfirmDialog
         open={confirmation !== null}
-        title={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).title}
-        description={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).description}
-        confirmLabel={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).confirmLabel}
+        title={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).title}
+        description={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).description}
+        confirmLabel={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).confirmLabel}
+        cancelLabel={t("common.cancel")}
         pending={confirmation === "delete" ? deleteAction?.isPending : confirmationPending}
-        pendingLabel={formConfirmationCopy(confirmation, config.kind, mode, deleteAction).pendingLabel}
+        pendingLabel={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).pendingLabel}
         variant={confirmation === "delete" ? "destructive" : "default"}
         onCancel={closeConfirmation}
         onConfirm={() => void confirmCurrentAction()}
@@ -1359,6 +1363,7 @@ function FormHeader({
   subtitle: string;
   formLabel: string;
 }) {
+  const t = useTranslation();
   return (
     <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 mb-2">
       <div>
@@ -1368,17 +1373,19 @@ function FormHeader({
           className={BUTTON_STYLES.secondary}
         >
           <ArrowLeft size={14} />
-          {backLabel}
+          {translateUiDisplayLabel(t, backLabel)}
         </button>
       </div>
       <div>
         <p className="mb-1 text-xs font-bold uppercase tracking-wider text-sakura-500">
-          {formLabel}
+          {translateUiDisplayLabel(t, formLabel)}
         </p>
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          {title}
+          {translateUiDisplayLabel(t, title)}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{subtitle}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+          {translateUiDisplayLabel(t, subtitle)}
+        </p>
       </div>
     </div>
   );
@@ -1393,15 +1400,16 @@ function NotesSection({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
-    <FormSection index={index} title="Notes">
+    <FormSection index={index} title={t("form.notes")}>
       <label className={FORM_ROW_START_STYLES}>
-        <span className="pt-2">Notes</span>
+        <span className="pt-2">{t("form.notes")}</span>
         <textarea
           className="min-h-24 select-text rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Write local notes..."
+          placeholder={t("form.notesPlaceholder")}
         />
       </label>
     </FormSection>
@@ -1446,12 +1454,14 @@ function TechReadOnlyTextInput({
   placeholder?: string;
   suffix?: string;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const isPlaceholder = !value.trim() || value === "n/a";
 
   return (
     <label className={FORM_ROW_STYLES}>
       <span className="flex items-center gap-1.5">
-        {label}
+        {displayLabel}
         {!isPlaceholder && (
           <span className="inline-flex items-center rounded-md bg-sakura-50 px-1.5 py-0.5 text-[10px] font-bold text-sakura-600 border border-sakura-100/50 uppercase tracking-wider">
             Auto
@@ -1470,12 +1480,12 @@ function TechReadOnlyTextInput({
             readOnly
             value={isPlaceholder ? "" : value}
             placeholder={placeholder}
-            aria-label={label}
+            aria-label={displayLabel}
           />
         </div>
         {suffix && (
           <span className="shrink-0 text-xs font-semibold text-slate-500">
-            {suffix}
+            {translateUiDisplayLabel(t, suffix)}
           </span>
         )}
       </div>
@@ -1541,6 +1551,11 @@ function TextInput({
   recentSuggestions?: string[];
   onHideSuggestion?: (suggestion: string) => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, field.label);
+  const displayPlaceholder = field.placeholder
+    ? translateUiDisplayLabel(t, field.placeholder)
+    : undefined;
   const usesMemorySuggestions = Boolean(
     performerSuggestionFieldNames.includes(field.name) &&
       onHideSuggestion &&
@@ -1550,7 +1565,7 @@ function TextInput({
   return (
     <label className={FORM_ROW_STYLES}>
       <span>
-        {field.label}
+        {displayLabel}
         {field.required && <span className="text-sakura-500"> *</span>}
       </span>
       <span className="flex items-center gap-2">
@@ -1559,9 +1574,9 @@ function TextInput({
             {usesMemorySuggestions ? (
               <MemorySuggestionInput
                 className={inputClass(inactive)}
-                ariaLabel={field.label}
+                ariaLabel={displayLabel}
                 value={value}
-                placeholder={field.placeholder}
+                placeholder={displayPlaceholder}
                 disabled={inactive}
                 suggestions={recentSuggestions}
                 onChange={onChange}
@@ -1570,10 +1585,10 @@ function TextInput({
             ) : (
               <input
                 className={inputClass(inactive)}
-                aria-label={field.label}
+                aria-label={displayLabel}
                 type={field.type ?? "text"}
                 value={value}
-                placeholder={field.placeholder}
+                placeholder={displayPlaceholder}
                 disabled={inactive}
                 autoComplete="off"
                 onChange={(event) => onChange(event.target.value)}
@@ -1581,7 +1596,7 @@ function TextInput({
             )}
             {field.suffix && (
               <span className="shrink-0 text-xs font-semibold text-slate-500">
-                {field.suffix}
+                {translateUiDisplayLabel(t, field.suffix)}
               </span>
             )}
           </span>
@@ -1603,6 +1618,7 @@ function MeasurementsInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   const displayValue = formatMeasurementDigits(measurementDigitsFromValue(value));
 
   function normalizeInputValue(nextValue: string) {
@@ -1616,11 +1632,11 @@ function MeasurementsInput({
 
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>Measurements</span>
+      <span>{t("form.measurements")}</span>
       <div className="flex items-center gap-2">
         <input
           className="h-9 min-w-0 flex-1 select-text rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-          aria-label="Measurements"
+          aria-label={t("form.measurements")}
           inputMode="numeric"
           value={displayValue}
           autoComplete="off"
@@ -1629,7 +1645,7 @@ function MeasurementsInput({
         />
         <span
           className="shrink-0 text-xs font-semibold text-slate-500"
-          aria-label="Measurements unit"
+          aria-label={t("form.measurementsUnit")}
         >
           cm
         </span>
@@ -1653,14 +1669,16 @@ function PathInput({
   onChange: (value: string) => void;
   onBrowse: () => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, field.label);
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>{field.label}</span>
+      <span>{displayLabel}</span>
       <div className="grid gap-1">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
           <input
             className={inputClass(false)}
-            aria-label={field.label}
+            aria-label={displayLabel}
             value={value}
             placeholder={field.placeholder}
             onChange={(event) => onChange(event.target.value)}
@@ -1703,6 +1721,7 @@ function GalleryImagePathRows({
   onAddImages: () => void;
   onClearPaths: () => void;
 }) {
+  const t = useTranslation();
   const [showAllPaths, setShowAllPaths] = useState(false);
 
   function updatePath(index: number, value: string) {
@@ -1723,7 +1742,7 @@ function GalleryImagePathRows({
 
   return (
     <div className={FORM_ROW_START_STYLES}>
-      <span className="pt-2">Gallery Path</span>
+      <span className="pt-2">{t("form.galleryPath")}</span>
       <div className="grid gap-3">
         {folderMessage && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
@@ -1736,7 +1755,7 @@ function GalleryImagePathRows({
         >
           {paths.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
-              No Gallery Path rows added.
+              {t("form.galleryEmpty")}
             </p>
           ) : (
             visiblePaths.map((path, index) => (
@@ -1754,7 +1773,7 @@ function GalleryImagePathRows({
                   type="button"
                   className={BUTTON_STYLES.iconDanger}
                   aria-label={`Remove Gallery Image Path ${index + 1}`}
-                  title="Remove"
+                  title={t("common.remove")}
                   onClick={() => removePath(index)}
                 >
                   <X size={13} />
@@ -1767,14 +1786,14 @@ function GalleryImagePathRows({
       {paths.length > 5 && !showAllPaths && (
         <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3.5 py-2">
           <span className="text-xs font-bold text-slate-400">
-            + {paths.length - 5} more files are loaded
+            {t("form.gallery.moreFiles", { count: String(paths.length - 5) })}
           </span>
           <button
             type="button"
             className={`${BUTTON_STYLES.link} text-xs`}
             onClick={() => setShowAllPaths(true)}
           >
-            Show All
+            {t("form.gallery.showAll")}
           </button>
         </div>
       )}
@@ -1785,7 +1804,7 @@ function GalleryImagePathRows({
             className={`${BUTTON_STYLES.link} text-xs`}
             onClick={() => setShowAllPaths(false)}
           >
-            Show Less
+            {t("form.gallery.showLess")}
           </button>
         </div>
       )}
@@ -1797,7 +1816,7 @@ function GalleryImagePathRows({
             className={BUTTON_STYLES.action}
             onClick={onBrowseFolder}
           >
-            Add Folder
+            {t("form.addFolder")}
           </button>
           <button
             type="button"
@@ -1805,7 +1824,7 @@ function GalleryImagePathRows({
             className={BUTTON_STYLES.action}
             onClick={onAddImages}
           >
-            Add Images
+            {t("form.addImages")}
           </button>
           <button
             type="button"
@@ -1813,7 +1832,7 @@ function GalleryImagePathRows({
             className={BUTTON_STYLES.secondary}
             onClick={onClearPaths}
           >
-            Clear All
+            {t("form.clearAll")}
           </button>
         </div>
       </div>
@@ -1832,6 +1851,7 @@ function MiniThumbnailPathRows({
   addImagesDisabled: boolean;
   onAddImages: () => void;
 }) {
+  const t = useTranslation();
   function updatePath(index: number, value: string) {
     const nextPaths = paths.map((path, currentIndex) =>
       currentIndex === index ? value : path,
@@ -1845,12 +1865,12 @@ function MiniThumbnailPathRows({
 
   return (
     <div className={FORM_ROW_START_STYLES}>
-      <span className="pt-2">Mini Thumbnail Paths</span>
+      <span className="pt-2">{t("form.miniThumbnailPaths")}</span>
       <div className="grid gap-3">
         <div className="grid gap-2" data-testid="performer-mini-thumbnail-path-list">
           {paths.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
-              No Mini Thumbnail Path rows added.
+              {t("form.miniThumbnailEmpty")}
             </p>
           ) : (
             paths.map((path, index) => (
@@ -1868,7 +1888,7 @@ function MiniThumbnailPathRows({
                   type="button"
                   className={BUTTON_STYLES.iconDanger}
                   aria-label={`Remove Mini Thumbnail Path ${index + 1}`}
-                  title="Remove"
+                  title={t("common.remove")}
                   onClick={() => removePath(index)}
                 >
                   <X size={13} />
@@ -1884,10 +1904,10 @@ function MiniThumbnailPathRows({
             className={BUTTON_STYLES.action}
             onClick={onAddImages}
           >
-            Add Images
+            {t("form.addImages")}
           </button>
           <span className="ml-auto text-xs font-semibold text-slate-500">
-            {paths.length}/4 selected
+            {t("form.thumbnailSelected", { count: String(paths.length) })}
           </span>
         </div>
       </div>
@@ -1906,16 +1926,17 @@ function SelectInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
     <label className={FORM_ROW_STYLES}>
-      {label}
+      {translateUiDisplayLabel(t, label)}
       <select
         className={inputClass(false)}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option key={option} value={option}>{translateUiDisplayLabel(t, option)}</option>
         ))}
       </select>
     </label>
@@ -1963,9 +1984,10 @@ function AvailabilityBadgeInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>{label}</span>
+      <span>{translateUiDisplayLabel(t, label)}</span>
       <div className="flex gap-2.5">
         {options.map((option) => {
           const isSelected = value === option;
@@ -1995,7 +2017,7 @@ function AvailabilityBadgeInput({
               onClick={() => onChange(option)}
               className={`${PILL_STYLES} transition-colors duration-150 ${badgeColorClass}`}
             >
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </button>
           );
         })}
@@ -2008,7 +2030,7 @@ function AvailabilityBadgeInput({
         >
           {options.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </option>
           ))}
         </select>
@@ -2022,14 +2044,18 @@ function PerformerStatusBadge({
 }: {
   value: string;
 }) {
+  const t = useTranslation();
   const options = ["Active", "Retired", "Unknown"];
+  const normalizedValue = /^(unknow|unkown)$/i.test(value.trim())
+    ? "Unknown"
+    : value;
 
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>Availability</span>
+      <span>{t("form.availability")}</span>
       <div className="flex flex-wrap items-center gap-2.5">
         {options.map((option) => {
-          const isSelected = value === option;
+          const isSelected = normalizedValue === option;
           let badgeColorClass = "";
           if (option === "Active") {
             badgeColorClass = isSelected
@@ -2051,15 +2077,15 @@ function PerformerStatusBadge({
               className={`${PILL_STYLES} ${badgeColorClass}`}
               aria-current={isSelected ? "true" : undefined}
             >
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </span>
           );
         })}
         <input
           className="sr-only"
           readOnly
-          value={value}
-          aria-label="Availability"
+          value={normalizedValue}
+          aria-label={t("form.availability")}
         />
       </div>
     </div>
@@ -2126,6 +2152,7 @@ function ChipInput({
   onRemove: (chip: string) => void;
   autoChips?: string[];
 }) {
+  const t = useTranslation();
   const optionListId = `${label.toLowerCase().replace(/\s+/g, "-")}-options`;
 
   return (
@@ -2152,7 +2179,7 @@ function ChipInput({
           <span
             key={`auto:${knownNameKey(chip)}`}
             className={`${PILL_STYLES} border-slate-200 bg-slate-50 text-slate-600`}
-            title="From role name"
+            title={t("form.fromRoleName")}
             data-known-name-source="role"
           >
             <span className={CHIP_TEXT_STYLES}>{chip}</span>
@@ -2177,7 +2204,7 @@ function ChipInput({
           aria-label={`Add ${label}`}
           onClick={onAdd}
         >
-          Add
+          {t("common.add")}
         </button>
         {options.length > 0 && (
           <datalist id={optionListId}>
@@ -2204,6 +2231,7 @@ function CategoryPicker({
   managedCategoryRecords: ManagedCategory[];
   onChange: Dispatch<SetStateAction<string[]>>;
 }) {
+  const t = useTranslation();
   const [categorySearch, setCategorySearch] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
@@ -2293,9 +2321,9 @@ function CategoryPicker({
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
-          aria-label="Search categories"
+          aria-label={t("form.searchCategories")}
           value={categorySearch}
-          placeholder={categorySearchPlaceholder(kind)}
+          placeholder={categorySearchPlaceholder(kind, t)}
           onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
             setCategorySearch(event.target.value);
@@ -2311,7 +2339,7 @@ function CategoryPicker({
           <button
             type="button"
             className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sakura-300"
-            aria-label="Clear category search"
+            aria-label={t("form.clearCategorySearch")}
             onClick={() => {
               setCategorySearch("");
               setIsSearchOpen(false);
@@ -2360,7 +2388,7 @@ function CategoryPicker({
               ))
             ) : (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
-                No matching Managed Categories. Use Manage Category to add it first.
+                {t("form.category.noMatches")}
               </p>
             )}
           </div>
@@ -2369,7 +2397,7 @@ function CategoryPicker({
 
       {normalizedSelected.length === 0 ? (
         <p className="text-sm font-medium text-slate-500">
-          No categories selected.
+          {t("form.noCategories")}
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -2409,7 +2437,7 @@ function CategoryPicker({
               className={`${PILL_STYLES} border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600`}
               onClick={() => setShowAllSelected(true)}
             >
-              +{hiddenSelectedCount} more
+              {formatMoreCount(t, hiddenSelectedCount)}
             </button>
           )}
           {showAllSelected && normalizedSelected.length > 4 && (
@@ -2427,9 +2455,12 @@ function CategoryPicker({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="font-medium text-slate-500">
           {normalizedSelected.length > 0
-            ? `${normalizedSelected.length} ${
-                normalizedSelected.length === 1 ? "category" : "categories"
-              } selected`
+            ? t(
+                normalizedSelected.length === 1
+                  ? "form.category.selectedOne"
+                  : "form.category.selectedMany",
+                { count: String(normalizedSelected.length) },
+              )
             : ""}
         </span>
         <div className="flex items-center gap-4">
@@ -2439,7 +2470,7 @@ function CategoryPicker({
               className="font-semibold text-slate-500 transition-colors hover:text-slate-700"
               onClick={() => onChange([])}
             >
-              Clear all
+              {t("common.clearAll")}
             </button>
           )}
           {normalizedSelected.length > 0 && (
@@ -2449,7 +2480,7 @@ function CategoryPicker({
             to="/settings/category-management"
             className="font-semibold text-sakura-600 transition-colors hover:text-sakura-700"
           >
-            Manage Category
+            {t("form.manageCategory")}
           </Link>
         </div>
       </div>
@@ -2457,16 +2488,16 @@ function CategoryPicker({
   );
 }
 
-function categorySearchPlaceholder(kind: FormConfig["kind"]) {
+function categorySearchPlaceholder(kind: FormConfig["kind"], t: ReturnType<typeof useTranslation>) {
   if (kind === "images") {
-    return "Search categories, face, body, pose, setting...";
+    return t("form.categorySearchImage");
   }
 
   if (kind === "performers") {
-    return "Search categories, face, body, specialty, attribute...";
+    return t("form.categorySearchPerformer");
   }
 
-  return "Search categories, genre, setting, attribute...";
+  return t("form.categorySearchVideo");
 }
 
 function HighlightedPickerText({ text, query }: { text: string; query: string }) {
@@ -2599,13 +2630,15 @@ function RatingInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const [hoverValue, setHoverValue] = useState<number | null>(null);
   const ratingVal = getRatingControlValue(value);
   const previewValue = hoverValue ?? ratingVal;
 
   return (
     <div className="grid min-h-9 grid-cols-[minmax(7rem,9rem)_auto] items-center justify-start gap-3 text-sm font-semibold text-slate-700">
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{displayLabel}</span>
       <div
         className="flex shrink-0 items-center gap-1"
         onMouseLeave={() => setHoverValue(null)}
@@ -2620,7 +2653,7 @@ function RatingInput({
               onClick={() => onChange(String(star))}
               onMouseEnter={() => setHoverValue(star)}
               className="flex size-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-sakura-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400"
-              aria-label={`Rate ${label} ${star} out of 5`}
+              aria-label={`Rate ${displayLabel} ${star} out of 5`}
             >
               <Star
                 size={17}
@@ -2663,6 +2696,7 @@ function formatRatingControlValue(value: FormValues[string] | unknown) {
 }
 
 function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
+  const t = useTranslation();
   return (
     <div className="grid gap-3">
       {fields.map((field) => (
@@ -2670,12 +2704,12 @@ function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
           key={field.label}
           className={FORM_ROW_STYLES}
         >
-          {field.label}
+          {translateUiDisplayLabel(t, field.label)}
           <input
             className={inputClass(true)}
             readOnly
             value={field.value}
-            aria-label={`${field.label} read-only placeholder`}
+            aria-label={`${translateUiDisplayLabel(t, field.label)} read-only placeholder`}
           />
         </label>
       ))}
@@ -2991,6 +3025,7 @@ function creditsToLegacyRelations(
 }
 
 function formConfirmationCopy(
+  t: ReturnType<typeof useTranslation>,
   confirmation: FormConfirmation,
   kind: FormConfig["kind"],
   mode: FormMode,
@@ -3001,13 +3036,10 @@ function formConfirmationCopy(
   if (confirmation === "delete") {
     const itemLabel = deleteAction?.itemLabel ?? `this ${noun}`;
     return {
-      title: `Delete ${itemLabel}?`,
+      title: t("form.confirm.delete.title", { title: itemLabel }),
       description: (
         <>
-          <p>
-            This removes the saved Sakurava record for {itemLabel}. It does not
-            delete local media files from this device.
-          </p>
+          <p>{t("form.confirm.delete.description", { title: itemLabel })}</p>
           {deleteAction?.errorMessage && (
             <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
               {deleteAction.errorMessage}
@@ -3015,16 +3047,16 @@ function formConfirmationCopy(
           )}
         </>
       ),
-      confirmLabel: "Delete",
+      confirmLabel: t("common.delete"),
       pendingLabel: "Deleting...",
     };
   }
 
   if (confirmation === "discard") {
     return {
-      title: "Discard changes?",
-      description: "Unsaved changes will be lost.",
-      confirmLabel: "Discard",
+      title: t("form.confirm.discard.title"),
+      description: t("form.confirm.discard.description"),
+      confirmLabel: t("form.confirm.discard.action"),
       pendingLabel: "Discarding...",
     };
   }
@@ -3055,9 +3087,9 @@ function formConfirmationCopy(
         pendingLabel: "Saving...",
       }
     : {
-        title: "Save changes?",
-        description: "The saved record will be updated with these changes.",
-        confirmLabel: "Save changes",
+        title: t("form.confirm.saveChanges.title"),
+        description: t("form.confirm.saveChanges.description"),
+        confirmLabel: t("form.confirm.saveChanges.action"),
         pendingLabel: "Saving...",
       };
 }
@@ -3102,10 +3134,11 @@ function AvailabilityBadgeRow({
   label: string;
   value: string;
 }) {
+  const t = useTranslation();
   const options = ["Owned", "Not Owned", "Missing"];
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>{label}</span>
+      <span>{translateUiDisplayLabel(t, label)}</span>
       <div className="flex gap-2.5">
         {options.map((option) => {
           const isSelected = value === option;
@@ -3129,7 +3162,7 @@ function AvailabilityBadgeRow({
               key={option}
               className={`${PILL_STYLES} ${badgeColorClass}`}
             >
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </span>
           );
         })}
@@ -3162,6 +3195,8 @@ function CensorshipSelectInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -3208,26 +3243,26 @@ function CensorshipSelectInput({
 
   return (
     <label className={FORM_ROW_STYLES}>
-      {label}
+      {displayLabel}
       <span
         ref={containerRef}
         className="relative"
       >
         <button
           type="button"
-          aria-label={label}
+          aria-label={displayLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
           className={`${inputClass(false)} flex items-center justify-between text-left`}
           onClick={() => setOpen((current) => !current)}
         >
-          <span>{uiValue}</span>
+          <span>{translateUiDisplayLabel(t, uiValue)}</span>
           <ChevronDown size={15} className="text-sakura-500" />
         </button>
         {open && (
           <span
             role="listbox"
-            aria-label={`${label} options`}
+            aria-label={`${displayLabel} options`}
             className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           >
             {options.map((option) => (
@@ -3243,7 +3278,7 @@ function CensorshipSelectInput({
                   setOpen(false);
                 }}
               >
-                {option}
+                {translateUiDisplayLabel(t, option)}
                 {option === uiValue && <Check size={14} className="text-sakura-500" />}
               </button>
             ))}
@@ -3261,6 +3296,7 @@ function SourceLinksInput({
   rows: SourceLinkFormValue[];
   onChange: Dispatch<SetStateAction<SourceLinkFormValue[]>>;
 }) {
+  const t = useTranslation();
   const visibleRows = rows.length > 0 ? rows : [];
   const errors = sourceLinkValidationErrors(rows);
 
@@ -3282,11 +3318,11 @@ function SourceLinksInput({
 
   return (
     <div className={FORM_ROW_START_STYLES}>
-      <span className="pt-2">Source Links</span>
+      <span className="pt-2">{t("form.sourceLinks")}</span>
       <div className="grid gap-2">
         {visibleRows.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
-            No source links added.
+            {t("form.noSourceLinks")}
           </p>
         ) : (
           visibleRows.map((row, index) => {
@@ -3305,7 +3341,7 @@ function SourceLinksInput({
                   <input
                     className={inputClass(Boolean(error))}
                     aria-label={`Source Link URL ${index + 1}`}
-                    placeholder="https://example.com/source"
+                    placeholder={t("form.sourceUrlPlaceholder")}
                     value={row.url}
                     onChange={(event) => updateRow(index, "url", event.target.value)}
                     aria-invalid={Boolean(error)}
@@ -3315,7 +3351,7 @@ function SourceLinksInput({
                     type="button"
                     className={BUTTON_STYLES.iconDanger}
                     aria-label={`Remove Source Link ${index + 1}`}
-                    title="Remove"
+                    title={t("common.remove")}
                     onClick={() => removeRow(index)}
                   >
                     <Trash2 size={14} />
@@ -3339,7 +3375,7 @@ function SourceLinksInput({
             className={BUTTON_STYLES.action}
             onClick={addRow}
           >
-            Add Source Link
+            {t("form.addSourceLink")}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import { parseRelatedCatalogRecordArray } from "../backend/json";
 import type { Credit, Image, ManagedCategory, Video } from "../backend/types";
 import { detailConfigs } from "../lib/detailData";
@@ -25,6 +26,7 @@ import {
 import { listCreditsByPerformer } from "../runtime/creditCommands";
 
 function PerformerDetailPage() {
+  const t = useTranslation();
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.performers);
   const [missing, setMissing] = useState(false);
@@ -124,9 +126,9 @@ function PerformerDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Performer Detail
+          {t("detail.performerTitle")}
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading performer...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingPerformer")}</p>
       </section>
     );
   }
@@ -135,10 +137,10 @@ function PerformerDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Performer Detail
+          {t("detail.performerTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          This performer could not be found.
+          {t("detail.performerMissing")}
         </p>
       </section>
     );

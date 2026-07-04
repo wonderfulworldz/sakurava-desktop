@@ -1,6 +1,8 @@
 import { Calendar, Film } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { VideoCollectionItem } from "../../lib/collectionData";
+import { useTranslation } from "../../lib/LanguageContext";
+import { translateUiDisplayLabel } from "../../lib/uiDisplayLabels";
 import {
   CardThumbnail,
   CategoryChips,
@@ -20,6 +22,7 @@ type VideoFullCardProps = {
 };
 
 export function VideoFullCard({ item, linkTo, placeholderLabel, onFavoriteClick }: VideoFullCardProps) {
+  const t = useTranslation();
   const title = dashText(item.title);
   const code = dashText(item.code);
   const year = item.releaseYear && Number.isFinite(item.releaseYear) ? String(item.releaseYear) : "n/a";
@@ -68,12 +71,14 @@ export function VideoFullCard({ item, linkTo, placeholderLabel, onFavoriteClick 
             <Film size={20} className="shrink-0 text-sakura-500" />
             <div className="min-w-0">
               <p className="text-base font-bold text-slate-900 dark:text-slate-100">{durationValue}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Minutes</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t(item.durationMinutes === 1 ? "unit.minute" : "unit.minutes")}
+              </p>
             </div>
           </div>
           <div className="col-span-1 flex flex-col items-center justify-center gap-1 rounded-xl bg-sakura-50 px-2 py-3 dark:bg-slate-700">
             <CensorshipIcon status={censorshipStatus} size={20} />
-            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{censorshipStatus}</span>
+            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{translateUiDisplayLabel(t, censorshipStatus)}</span>
           </div>
           <div className="col-span-1 flex items-center justify-center rounded-xl bg-sakura-50 px-2 py-3 dark:bg-slate-700">
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">{quality}</span>
