@@ -33,8 +33,36 @@ export type BackupPackageManifest = {
 };
 
 export type BackupPackageInfo = {
+  packageName: string;
   packagePath: string;
   manifest: BackupPackageManifest;
+};
+
+export type BackupPackagePreviewCounts = {
+  videos: number;
+  images: number;
+  performers: number;
+  categories: number;
+  glossary: number;
+  credits: number;
+};
+
+export type BackupPackagePreview = {
+  packageName: string;
+  manifest: BackupPackageManifest;
+  database: {
+    file: string;
+    quickCheck: "ok";
+    requiredSchemaPresent: true;
+    counts: BackupPackagePreviewCounts;
+  };
+  content: {
+    databaseIncluded: true;
+    originalMediaIncluded: false;
+    appManagedAssetsIncluded: false;
+  };
+  warnings: string[];
+  errors: string[];
 };
 
 export type BackupPackageRotationResult = {
@@ -72,6 +100,12 @@ export function createBackupPackage(
 
 export function listBackupPackages() {
   return invokeTauriCommand<BackupPackageInfo[]>("backup_package_list");
+}
+
+export function previewBackupPackage(packageName: string) {
+  return invokeTauriCommand<BackupPackagePreview>("backup_package_preview", {
+    packageName,
+  });
 }
 
 export function rotateAutomaticBackupPackages(keepCount: number) {
