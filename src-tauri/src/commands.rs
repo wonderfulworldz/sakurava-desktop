@@ -32,8 +32,11 @@ use windows::{
 };
 
 use crate::database::{
-    backup_runtime_database, clear_app_generated_cache, restore_runtime_database, ClearCacheResult,
-    DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase,
+    backup_runtime_database, clear_app_generated_cache, create_backup_package,
+    list_backup_packages, open_default_backup_folder, restore_runtime_database,
+    rotate_automatic_backup_packages, BackupFolderOpenResult, BackupPackageInfo,
+    BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
+    DatabaseRestoreResult, RuntimeDatabase,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -558,6 +561,37 @@ pub fn database_restore(
     source_path: String,
 ) -> Result<DatabaseRestoreResult, String> {
     restore_runtime_database(&database, source_path)
+}
+
+#[tauri::command]
+pub fn backup_package_create(
+    database: State<'_, RuntimeDatabase>,
+    backup_type: BackupPackageType,
+    note: Option<String>,
+) -> Result<BackupPackageInfo, String> {
+    create_backup_package(&database, backup_type, note)
+}
+
+#[tauri::command]
+pub fn backup_package_list(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<Vec<BackupPackageInfo>, String> {
+    list_backup_packages(&database)
+}
+
+#[tauri::command]
+pub fn backup_package_rotate_automatic(
+    database: State<'_, RuntimeDatabase>,
+    keep_count: usize,
+) -> Result<BackupPackageRotationResult, String> {
+    rotate_automatic_backup_packages(&database, keep_count)
+}
+
+#[tauri::command]
+pub fn backup_folder_open(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<BackupFolderOpenResult, String> {
+    open_default_backup_folder(&database)
 }
 
 #[tauri::command]
