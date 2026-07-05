@@ -51,10 +51,15 @@ import ConfirmDialog from "./ConfirmDialog";
 import StickyHorizontalScroll from "./StickyHorizontalScroll";
 import SakuravaSelect from "./SakuravaSelect";
 import {
+  hasSessionFilterState,
   clearSessionFilterState,
   readSessionFilterState,
   writeSessionFilterState,
 } from "../lib/sessionFilterState";
+import {
+  readCatalogPreferencePage,
+  storeCatalogPreferencePage,
+} from "../lib/catalogPreferences";
 
 type FormState = {
   name: string;
@@ -147,6 +152,32 @@ const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: "created-desc", label: "Last Added" },
   { value: "updated-desc", label: "Last Modified" },
 ];
+const categorySortValues = new Set<SortValue>(sortOptions.map((option) => option.value));
+
+function initialCategoryManagementFilters(): CategoryManagementSessionFilters {
+  if (hasSessionFilterState(categoryManagementFilterSessionKey)) {
+    return readSessionFilterState(
+      categoryManagementFilterSessionKey,
+      emptyCategoryManagementSessionFilters,
+    );
+  }
+  const durable = readCatalogPreferencePage("categoryManagement");
+  const rawFilters = Array.isArray(durable.filters) ? durable.filters : [];
+  const selectedFilters = rawFilters.filter(
+    (value): value is ActiveFilterValue =>
+      typeof value === "string" &&
+      selectableFilterOptions.some((option) => option.value === value),
+  );
+  const sort = categorySortValues.has(durable.sort as SortValue)
+    ? (durable.sort as SortValue)
+    : undefined;
+  const tableSort =
+    durable.tableSort && categorySortValues.has(durable.tableSort.value as SortValue)
+      ? { ...durable.tableSort, value: durable.tableSort.value as SortValue }
+      : null;
+  const view = durable.view === "card" || durable.view === "table" ? durable.view : undefined;
+  return { ...emptyCategoryManagementSessionFilters, selectedFilters, sort, tableSort, view };
+}
 
 const emptyForm: FormState = {
   name: "",
@@ -191,10 +222,7 @@ type CategoryTableDisplayRow = CategoryUsageRow & {
 function CategoryManagementPanel() {
   const t = useTranslation();
   const isDesktopRuntime = isTauriRuntimeAvailable();
-  const initialFilters = readSessionFilterState(
-    categoryManagementFilterSessionKey,
-    emptyCategoryManagementSessionFilters,
-  );
+  const initialFilters = initialCategoryManagementFilters();
   const [categories, setCategories] = useState<ManagedCategory[]>([]);
   const [records, setRecords] = useState(emptyRecords);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -435,6 +463,12 @@ function CategoryManagementPanel() {
       rowsPerPage,
       page: currentPage,
       expandedParentKeys: [...expandedParentKeys],
+    });
+    storeCatalogPreferencePage("categoryManagement", {
+      view,
+      sort,
+      tableSort,
+      filters: selectedFilters,
     });
   }, [
     currentPage,

@@ -31,6 +31,10 @@ export function readSessionFilterState<TValue>(
   return cloneSessionValue(sessionFilterState.get(key) as TValue);
 }
 
+export function hasSessionFilterState(key: string) {
+  return sessionFilterState.has(key);
+}
+
 export function writeSessionFilterState<TValue>(key: string, value: TValue) {
   if (!isSessionUiMemoryEnabled()) {
     return;

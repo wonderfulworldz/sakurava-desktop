@@ -102,6 +102,13 @@ import {
   removeCustomLanguage,
 } from "../lib/customLanguages";
 import { resetAllOverridesForLanguage } from "../lib/languageOverrides";
+import {
+  getCatalogPreferenceToggles,
+  resetRememberedCatalogPreferences,
+  setCatalogPreferenceToggle,
+  type CatalogPreferenceToggles,
+} from "../lib/catalogPreferences";
+import { clearSessionFilterState } from "../lib/sessionFilterState";
 import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
 import {
   createManagedCategory,
@@ -281,6 +288,8 @@ function SettingsPage() {
     useState<AppearanceDensity>(() => getStoredAppearanceDensity());
   const [appearanceUiScale, setAppearanceUiScale] =
     useState<AppearanceUiScale>(() => getStoredAppearanceUiScale());
+  const [catalogPreferenceToggles, setCatalogPreferenceToggles] =
+    useState<CatalogPreferenceToggles>(() => getCatalogPreferenceToggles());
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
     state: "idle",
   });
@@ -338,6 +347,27 @@ function SettingsPage() {
     !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const isLanguageCsvBusy = languageCsvStatus.state === "pending";
+
+  function handleCatalogPreferenceToggle(
+    key: keyof CatalogPreferenceToggles,
+    enabled: boolean,
+  ) {
+    setCatalogPreferenceToggle(key, enabled);
+    setCatalogPreferenceToggles(getCatalogPreferenceToggles());
+  }
+
+  function handleResetCatalogPreferences() {
+    resetRememberedCatalogPreferences();
+    for (const key of [
+      "catalog:videos",
+      "catalog:images",
+      "catalog:performers",
+      "category-management",
+      "glossary-library",
+    ]) {
+      clearSessionFilterState(key);
+    }
+  }
   const thumbnailRows: SettingsRow[] = [
     {
       label: "Manual thumbnail rendering",
@@ -1128,6 +1158,7 @@ function SettingsPage() {
           appearanceAccent,
           appearanceDensity,
           appearanceUiScale,
+          catalogPreferenceToggles,
           languageCode,
           languages,
           mediaRoots,
@@ -1160,6 +1191,8 @@ function SettingsPage() {
           handleDensityChange,
           handleUiScaleChange,
           handleResetAppearance,
+          handleCatalogPreferenceToggle,
+          handleResetCatalogPreferences,
           handleLanguageChange,
           handleRemoveCustomLanguage,
           setIsLanguageManagerOpen,
@@ -1365,6 +1398,35 @@ function ShellToggle({
   );
 }
 
+function CatalogPreferenceToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative h-6 w-11 rounded-full transition ${
+        checked ? "bg-sakura-400" : "bg-slate-200"
+      }`}
+    >
+      <span
+        className={`absolute top-1 size-4 rounded-full bg-white shadow-sm transition ${
+          checked ? "left-6" : "left-1"
+        }`}
+      />
+    </button>
+  );
+}
+
 function LanguageStatusContent({
   status,
   onApply,
@@ -1455,6 +1517,7 @@ function SettingsSection({
     appearanceAccent,
     appearanceDensity,
     appearanceUiScale,
+    catalogPreferenceToggles,
     languageCode,
     languages,
     mediaRoots,
@@ -1487,6 +1550,8 @@ function SettingsSection({
     handleDensityChange,
     handleUiScaleChange,
     handleResetAppearance,
+    handleCatalogPreferenceToggle,
+    handleResetCatalogPreferences,
     handleLanguageChange,
     handleRemoveCustomLanguage,
     setIsLanguageManagerOpen,
@@ -1777,16 +1842,35 @@ function SettingsSection({
         </p>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title={t("settings.catalogPreferences.title")} icon={SlidersHorizontal}>
-        <ControlRow label={t("settings.catalogPreferences.defaultView")}>
-          <ShellSelect label={t("settings.catalogPreferences.defaultView")} value={t("settings.catalogPreferences.grid")} />
+      <SettingsPanelCard
+        title={t("settings.catalogPreferences.title")}
+        icon={SlidersHorizontal}
+        onReset={handleResetCatalogPreferences}
+      >
+        <ControlRow label={t("settings.catalogPreferences.rememberView")}>
+          <CatalogPreferenceToggle
+            label={t("settings.catalogPreferences.rememberView")}
+            checked={catalogPreferenceToggles.rememberView}
+            onChange={(checked) => handleCatalogPreferenceToggle("rememberView", checked)}
+          />
         </ControlRow>
-        <ControlRow label={t("settings.catalogPreferences.defaultSort")}>
-          <ShellSelect label={t("settings.catalogPreferences.defaultSort")} value={t("settings.catalogPreferences.dateAdded")} />
+        <ControlRow label={t("settings.catalogPreferences.rememberSort")}>
+          <CatalogPreferenceToggle
+            label={t("settings.catalogPreferences.rememberSort")}
+            checked={catalogPreferenceToggles.rememberSort}
+            onChange={(checked) => handleCatalogPreferenceToggle("rememberSort", checked)}
+          />
         </ControlRow>
-        <ControlRow label={t("settings.catalogPreferences.remember")}>
-          <ShellToggle label={t("settings.catalogPreferences.remember")} />
+        <ControlRow label={t("settings.catalogPreferences.rememberFilters")}>
+          <CatalogPreferenceToggle
+            label={t("settings.catalogPreferences.rememberFilters")}
+            checked={catalogPreferenceToggles.rememberFilters}
+            onChange={(checked) => handleCatalogPreferenceToggle("rememberFilters", checked)}
+          />
         </ControlRow>
+        <p className="mt-2 text-xs font-medium text-slate-500">
+          {t("settings.catalogPreferences.helper")}
+        </p>
       </SettingsPanelCard>
 
       <SettingsPanelCard title={t("settings.library.title")} icon={Folder}>

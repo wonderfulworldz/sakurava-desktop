@@ -27,9 +27,14 @@ import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
 import { useLanguage, useTranslation } from "../lib/LanguageContext";
 import {
   clearSessionFilterState,
+  hasSessionFilterState,
   readSessionFilterState,
   writeSessionFilterState,
 } from "../lib/sessionFilterState";
+import {
+  readCatalogPreferencePage,
+  storeCatalogPreferencePage,
+} from "../lib/catalogPreferences";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
@@ -77,13 +82,69 @@ const emptyCatalogSessionFilters: CatalogSessionFilters = {
   dataFilters: {},
 };
 
+const catalogDataFilterKeys: Record<CollectionConfig["kind"], Set<string>> = {
+  videos: new Set(["availability", "censorship", "year", "publisherLabel", "quality", "rating", "duration"]),
+  images: new Set(["availability", "censorship", "year", "publisherLabel", "quality", "rating", "imageCount"]),
+  performers: new Set(["status", "cupSize", "gender", "height", "age", "bodyType", "nationality", "debutYear", "rating", "filmography", "pictorials"]),
+};
+
+function durableCatalogFilters(value: unknown, kind: CollectionConfig["kind"]) {
+  if (typeof value !== "object" || value === null) {
+    return { activeCategoryFilters: [] as string[], dataFilters: {} as DataFilterValues };
+  }
+  const rawCategories = (value as { activeCategoryFilters?: unknown }).activeCategoryFilters;
+  const rawDataFilters = (value as { dataFilters?: unknown }).dataFilters;
+  const activeCategoryFilters = Array.isArray(rawCategories)
+    ? rawCategories.filter((item): item is string => typeof item === "string").slice(0, 5)
+    : [];
+  const dataFilters: DataFilterValues = {};
+  if (typeof rawDataFilters === "object" && rawDataFilters !== null) {
+    for (const [key, filterValue] of Object.entries(rawDataFilters)) {
+      if (catalogDataFilterKeys[kind].has(key) && typeof filterValue === "string") {
+        dataFilters[key] = filterValue;
+      }
+    }
+  }
+  return { activeCategoryFilters, dataFilters };
+}
+
+function initialCatalogFilters(
+  sessionKey: string,
+  kind: CollectionConfig["kind"],
+  sortOptions: string[],
+): CatalogSessionFilters {
+  if (hasSessionFilterState(sessionKey)) {
+    return readSessionFilterState(sessionKey, emptyCatalogSessionFilters);
+  }
+  const durable = readCatalogPreferencePage(kind);
+  const filters = durableCatalogFilters(durable.filters, kind);
+  const allowedTableSorts = new Set([
+    ...sortOptions,
+    ...(kind === "performers"
+      ? ["Status", "Original Name", "Categories", "Debut Year", "Filmography", "Pictorials", "Rating"]
+      : kind === "images"
+        ? ["Availability", "Original Title", "Code", "Categories", "Release Year", "Image Count", "Quality", "Censorship", "Rating"]
+        : ["Availability", "Original Title", "Code", "Categories", "Release Year", "Duration", "Quality", "Censorship", "Rating"]),
+  ]);
+  const tableSort =
+    durable.tableSort &&
+    allowedTableSorts.has(durable.tableSort.value)
+      ? durable.tableSort
+      : null;
+  return {
+    ...emptyCatalogSessionFilters,
+    ...filters,
+    sortValue:
+      durable.sort && sortOptions.includes(durable.sort) ? durable.sort : undefined,
+    tableSort,
+    viewMode: durable.view === "table" ? "table" : durable.view === "card" ? "card" : undefined,
+  };
+}
+
 function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   const [searchParams] = useSearchParams();
   const filterSessionKey = catalogFilterSessionKey(config.kind);
-  const initialFilters = readSessionFilterState(
-    filterSessionKey,
-    emptyCatalogSessionFilters,
-  );
+  const initialFilters = initialCatalogFilters(filterSessionKey, config.kind, config.sortOptions);
   const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery);
   const [activeCategoryFilters, setActiveCategoryFilters] = useState<string[]>(
     initialFilters.activeCategoryFilters,
@@ -195,9 +256,10 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
   }, [categoryOptions, searchParams]);
 
   useEffect(() => {
-    const savedFilters = readSessionFilterState(
+    const savedFilters = initialCatalogFilters(
       filterSessionKey,
-      emptyCatalogSessionFilters,
+      config.kind,
+      config.sortOptions,
     );
     setSearchQuery(savedFilters.searchQuery);
     setActiveCategoryFilters(savedFilters.activeCategoryFilters);
@@ -227,6 +289,12 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
       viewMode,
       pageSize,
     });
+    storeCatalogPreferencePage(config.kind, {
+      view: viewMode,
+      sort: sortValue,
+      tableSort,
+      filters: { activeCategoryFilters, dataFilters },
+    });
   }, [
     activeCategoryFilters,
     dataFilters,
@@ -236,6 +304,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
     sortValue,
     tableSort,
     viewMode,
+    config.kind,
   ]);
 
   useEffect(() => {

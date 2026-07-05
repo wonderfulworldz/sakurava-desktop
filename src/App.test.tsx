@@ -2857,10 +2857,18 @@ describe("App", () => {
       screen.getAllByRole("heading", { name: "Appearance" })[0]
         .previousElementSibling,
     ).toHaveClass("rounded-lg", "bg-sakura-50");
-    expect(screen.getByLabelText("Default View")).toBeDisabled();
-    expect(screen.getByLabelText("Default Sort")).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "Remember Preferences" }))
-      .toBeDisabled();
+    expect(screen.queryByLabelText("Default View")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Default Sort")).not.toBeInTheDocument();
+    for (const label of [
+      "Remember catalog view",
+      "Remember catalog sort",
+      "Remember catalog filters",
+    ]) {
+      expect(screen.getByRole("switch", { name: label })).toBeEnabled();
+    }
+    expect(
+      screen.getByRole("button", { name: "Reset Catalog Preferences" }),
+    ).toBeEnabled();
     expect(screen.getByRole("switch", { name: "Preview Before Apply" }))
       .toBeDisabled();
     expect(screen.getByRole("listbox", { name: "Configured media roots" }))
@@ -2877,6 +2885,90 @@ describe("App", () => {
     expect(screen.queryByText(/Soon/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/MVP/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Diagnostics")).not.toBeInTheDocument();
+  });
+
+  it("restores durable view for each primary catalog without restoring search or page size", () => {
+    window.localStorage.setItem(
+      "sakurava.catalogPreferences.v1",
+      JSON.stringify({
+        version: 1,
+        toggles: {
+          rememberView: true,
+          rememberSort: false,
+          rememberFilters: false,
+        },
+        pages: {
+          videos: { view: "table", searchQuery: "ignored", pageSize: "256" },
+          images: { view: "table", searchQuery: "ignored", pageSize: "256" },
+          performers: { view: "table", searchQuery: "ignored", pageSize: "256" },
+        },
+      }),
+    );
+
+    for (const kind of ["videos", "images", "performers"]) {
+      window.history.pushState({}, "", `/${kind}`);
+      const rendered = render(<App />);
+      expect(
+        screen.getByRole("button", { name: "Switch to grid view" }),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+      expect(
+        screen.getByLabelText(
+          `${kind[0].toUpperCase()}${kind.slice(1)} search`,
+        ),
+      ).toHaveValue("");
+      rendered.unmount();
+      clearAllSessionFilterStateForTests();
+    }
+  });
+
+  it("persists Catalog Preference toggles and resets remembered state only", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem("unrelated.catalog.data", "preserve-me");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("switch", { name: "Remember catalog view" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Remember catalog sort" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Remember catalog filters" }));
+
+    let stored = JSON.parse(
+      window.localStorage.getItem("sakurava.catalogPreferences.v1") ?? "{}",
+    );
+    expect(stored.toggles).toEqual({
+      rememberView: true,
+      rememberSort: true,
+      rememberFilters: true,
+    });
+
+    stored.pages = {
+      videos: {
+        view: "table",
+        sort: "Last Added",
+        filters: { activeCategoryFilters: ["Example"] },
+      },
+    };
+    window.localStorage.setItem(
+      "sakurava.catalogPreferences.v1",
+      JSON.stringify(stored),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset Catalog Preferences" }),
+    );
+
+    expect(
+      JSON.parse(
+        window.localStorage.getItem("sakurava.catalogPreferences.v1") ?? "{}",
+      ),
+    ).toEqual({
+      version: 1,
+      toggles: {
+        rememberView: true,
+        rememberSort: true,
+        rememberFilters: true,
+      },
+      pages: {},
+    });
+    expect(window.localStorage.getItem("unrelated.catalog.data")).toBe("preserve-me");
   });
 
   it("defaults Appearance theme to Light and persists Dark/Light selection", () => {
