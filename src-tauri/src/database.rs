@@ -6,13 +6,18 @@ use std::{
 };
 
 use rusqlite::{Connection, DatabaseName};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
 pub const APP_DATA_FOLDER_NAME: &str = "app.sakurava.desktop";
 pub const DATABASE_FILE_NAME: &str = "sakurava.sqlite";
 const APP_GENERATED_CACHE_DIR_NAMES: [&str; 3] =
     ["generated-cache", "thumbnail-cache", "preview-cache"];
+pub const BACKUP_FOLDER_NAME: &str = "backups";
+pub const BACKUP_FORMAT: &str = "sakurava-backup-directory";
+pub const BACKUP_FORMAT_VERSION: u32 = 1;
+pub const BACKUP_DATABASE_FILE_NAME: &str = "sakurava.sqlite";
+pub const BACKUP_MANIFEST_FILE_NAME: &str = "manifest.json";
 
 const CREATE_VIDEOS_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS videos (
@@ -199,6 +204,69 @@ pub struct DatabaseRestoreResult {
     pub restart_required: bool,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum BackupPackageType {
+    Manual,
+    Automatic,
+}
+
+impl BackupPackageType {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::Automatic => "automatic",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackageIncludes {
+    pub database: bool,
+    pub original_media: bool,
+    pub app_managed_assets: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackupPackageDatabase {
+    pub file: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackageManifest {
+    pub format: String,
+    pub version: u32,
+    pub created_at: String,
+    pub backup_type: BackupPackageType,
+    pub note: String,
+    pub includes: BackupPackageIncludes,
+    pub database: BackupPackageDatabase,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackageInfo {
+    pub package_path: String,
+    pub manifest: BackupPackageManifest,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackageRotationResult {
+    pub kept_automatic: usize,
+    pub removed_automatic: usize,
+    pub removed_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupFolderOpenResult {
+    pub folder_path: String,
+    pub opened: bool,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ClearCacheResult {
@@ -223,6 +291,251 @@ pub fn runtime_database_paths(app_data_dir: impl AsRef<Path>) -> RuntimeDatabase
         app_data_dir,
         database_file,
     }
+}
+
+pub fn default_backup_folder(database: &RuntimeDatabase) -> PathBuf {
+    database.paths.app_data_dir.join(BACKUP_FOLDER_NAME)
+}
+
+pub fn ensure_default_backup_folder(database: &RuntimeDatabase) -> Result<PathBuf, String> {
+    let backup_folder = default_backup_folder(database);
+    fs::create_dir_all(&backup_folder)
+        .map_err(|error| format!("Unable to create Sakurava backup folder: {error}"))?;
+    if !backup_folder.is_dir() || !is_path_inside(&backup_folder, &database.paths.app_data_dir) {
+        return Err("Sakurava backup folder is outside app data".to_string());
+    }
+    Ok(backup_folder)
+}
+
+pub fn create_backup_package(
+    database: &RuntimeDatabase,
+    backup_type: BackupPackageType,
+    note: Option<String>,
+) -> Result<BackupPackageInfo, String> {
+    create_backup_package_at(database, backup_type, note, SystemTime::now())
+}
+
+fn create_backup_package_at(
+    database: &RuntimeDatabase,
+    backup_type: BackupPackageType,
+    note: Option<String>,
+    created_at: SystemTime,
+) -> Result<BackupPackageInfo, String> {
+    let backup_folder = ensure_default_backup_folder(database)?;
+    let timestamp = backup_timestamp(created_at)?;
+    let package_name = format!("sakurava-backup-{timestamp}-{}", backup_type.as_str());
+    let package_path = backup_folder.join(&package_name);
+    if package_path.exists() {
+        return Err("A backup package already exists for this second and type".to_string());
+    }
+
+    let staging_path =
+        backup_folder.join(format!(".{package_name}.staging-{}", timestamp_millis()));
+    if staging_path.exists() {
+        return Err("Backup package staging path already exists".to_string());
+    }
+
+    let result = (|| {
+        fs::create_dir(&staging_path)
+            .map_err(|error| format!("Unable to create backup staging folder: {error}"))?;
+        backup_runtime_database(database, staging_path.join(BACKUP_DATABASE_FILE_NAME))?;
+
+        let manifest = BackupPackageManifest {
+            format: BACKUP_FORMAT.to_string(),
+            version: BACKUP_FORMAT_VERSION,
+            created_at: backup_created_at(created_at)?,
+            backup_type,
+            note: normalize_backup_note(note),
+            includes: BackupPackageIncludes {
+                database: true,
+                original_media: false,
+                app_managed_assets: false,
+            },
+            database: BackupPackageDatabase {
+                file: BACKUP_DATABASE_FILE_NAME.to_string(),
+            },
+        };
+        let manifest_json = serde_json::to_string_pretty(&manifest)
+            .map_err(|error| format!("Unable to serialize backup manifest: {error}"))?;
+        fs::write(staging_path.join(BACKUP_MANIFEST_FILE_NAME), manifest_json)
+            .map_err(|error| format!("Unable to write backup manifest: {error}"))?;
+
+        fs::rename(&staging_path, &package_path)
+            .map_err(|error| format!("Unable to finalize backup package: {error}"))?;
+        Ok(BackupPackageInfo {
+            package_path: package_path.display().to_string(),
+            manifest,
+        })
+    })();
+
+    if result.is_err() && staging_path.exists() {
+        let _ = fs::remove_dir_all(&staging_path);
+    }
+    result
+}
+
+pub fn list_backup_packages(database: &RuntimeDatabase) -> Result<Vec<BackupPackageInfo>, String> {
+    let backup_folder = ensure_default_backup_folder(database)?;
+    let canonical_backup_folder = backup_folder
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve Sakurava backup folder: {error}"))?;
+    let mut packages = Vec::new();
+    let entries = fs::read_dir(&backup_folder)
+        .map_err(|error| format!("Unable to list Sakurava backup folder: {error}"))?;
+
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() || file_type.is_symlink() {
+            continue;
+        }
+        let package_path = entry.path();
+        let Ok(canonical_package_path) = package_path.canonicalize() else {
+            continue;
+        };
+        if canonical_package_path.parent() != Some(canonical_backup_folder.as_path()) {
+            continue;
+        }
+        let Some(manifest) = read_valid_backup_manifest(&canonical_package_path) else {
+            continue;
+        };
+        packages.push(BackupPackageInfo {
+            package_path: canonical_package_path.display().to_string(),
+            manifest,
+        });
+    }
+    packages.sort_by(|left, right| right.manifest.created_at.cmp(&left.manifest.created_at));
+    Ok(packages)
+}
+
+pub fn rotate_automatic_backup_packages(
+    database: &RuntimeDatabase,
+    keep_count: usize,
+) -> Result<BackupPackageRotationResult, String> {
+    if keep_count == 0 || keep_count > 100 {
+        return Err("Automatic backup rotation count must be between 1 and 100".to_string());
+    }
+    let backup_folder = ensure_default_backup_folder(database)?;
+    let canonical_backup_folder = backup_folder
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve Sakurava backup folder: {error}"))?;
+    let automatic = list_backup_packages(database)?
+        .into_iter()
+        .filter(|package| package.manifest.backup_type == BackupPackageType::Automatic)
+        .collect::<Vec<_>>();
+    let mut removed_paths = Vec::new();
+
+    for package in automatic.iter().skip(keep_count) {
+        let path = PathBuf::from(&package.package_path);
+        let canonical_path = path
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve automatic backup package: {error}"))?;
+        if canonical_path.parent() != Some(canonical_backup_folder.as_path()) {
+            return Err("Automatic backup rotation path is outside the backup folder".to_string());
+        }
+        fs::remove_dir_all(&canonical_path)
+            .map_err(|error| format!("Unable to remove automatic backup package: {error}"))?;
+        removed_paths.push(canonical_path.display().to_string());
+    }
+
+    Ok(BackupPackageRotationResult {
+        kept_automatic: automatic.len().min(keep_count),
+        removed_automatic: removed_paths.len(),
+        removed_paths,
+    })
+}
+
+pub fn open_default_backup_folder(
+    database: &RuntimeDatabase,
+) -> Result<BackupFolderOpenResult, String> {
+    let backup_folder = ensure_default_backup_folder(database)?;
+    open_backup_folder_platform(&backup_folder)?;
+    Ok(BackupFolderOpenResult {
+        folder_path: backup_folder.display().to_string(),
+        opened: true,
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn open_backup_folder_platform(path: &Path) -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg(path)
+        .spawn()
+        .map_err(|error| format!("Unable to open Sakurava backup folder: {error}"))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_backup_folder_platform(_path: &Path) -> Result<(), String> {
+    Err("Open Backup Folder is available on Windows".to_string())
+}
+
+fn read_valid_backup_manifest(package_path: &Path) -> Option<BackupPackageManifest> {
+    let manifest_text = fs::read_to_string(package_path.join(BACKUP_MANIFEST_FILE_NAME)).ok()?;
+    let manifest: BackupPackageManifest = serde_json::from_str(&manifest_text).ok()?;
+    if manifest.format != BACKUP_FORMAT
+        || manifest.version != BACKUP_FORMAT_VERSION
+        || !manifest.includes.database
+        || manifest.includes.original_media
+        || manifest.includes.app_managed_assets
+        || manifest.database.file != BACKUP_DATABASE_FILE_NAME
+        || !package_path.join(BACKUP_DATABASE_FILE_NAME).is_file()
+    {
+        return None;
+    }
+    Some(manifest)
+}
+
+fn normalize_backup_note(note: Option<String>) -> String {
+    note.unwrap_or_default().trim().chars().take(2000).collect()
+}
+
+fn backup_timestamp(time: SystemTime) -> Result<String, String> {
+    let (year, month, day, hour, minute, second) = utc_time_parts(time)?;
+    Ok(format!(
+        "{year:04}{month:02}{day:02}-{hour:02}{minute:02}{second:02}"
+    ))
+}
+
+fn backup_created_at(time: SystemTime) -> Result<String, String> {
+    let (year, month, day, hour, minute, second) = utc_time_parts(time)?;
+    Ok(format!(
+        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z"
+    ))
+}
+
+fn utc_time_parts(time: SystemTime) -> Result<(i64, u32, u32, u32, u32, u32), String> {
+    let seconds = time
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "Backup timestamp is before the Unix epoch".to_string())?
+        .as_secs();
+    let days = (seconds / 86_400) as i64;
+    let seconds_of_day = seconds % 86_400;
+    let (year, month, day) = civil_date_from_days(days);
+    Ok((
+        year,
+        month,
+        day,
+        (seconds_of_day / 3_600) as u32,
+        ((seconds_of_day % 3_600) / 60) as u32,
+        (seconds_of_day % 60) as u32,
+    ))
+}
+
+fn civil_date_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += if month <= 2 { 1 } else { 0 };
+    (year, month as u32, day as u32)
 }
 
 pub fn prepare_database_paths(app_data_dir: impl AsRef<Path>) -> io::Result<RuntimeDatabasePaths> {
@@ -1099,6 +1412,212 @@ mod tests {
         }
 
         let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn creates_default_backup_folder_inside_app_data() {
+        let app_data_dir = unique_test_dir("backup-folder").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+
+        let backup_folder = ensure_default_backup_folder(&database).expect("backup folder");
+
+        assert_eq!(backup_folder, app_data_dir.join(BACKUP_FOLDER_NAME));
+        assert!(backup_folder.is_dir());
+        assert!(is_path_inside(&backup_folder, &app_data_dir));
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn creates_directory_backup_package_with_manifest_and_database_only() {
+        let app_data_dir = unique_test_dir("backup-package").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "package_video", "Package Video");
+        for cache_name in APP_GENERATED_CACHE_DIR_NAMES {
+            let cache_dir = app_data_dir.join(cache_name);
+            fs::create_dir_all(&cache_dir).expect("cache dir");
+            fs::write(cache_dir.join("excluded.cache"), "excluded").expect("cache file");
+        }
+
+        let created = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            Some("  Manual note  ".to_string()),
+            UNIX_EPOCH,
+        )
+        .expect("package");
+        let package_path = PathBuf::from(&created.package_path);
+
+        assert_eq!(
+            package_path.file_name().and_then(|name| name.to_str()),
+            Some("sakurava-backup-19700101-000000-manual")
+        );
+        assert!(package_path.join(BACKUP_DATABASE_FILE_NAME).is_file());
+        assert!(package_path.join(BACKUP_MANIFEST_FILE_NAME).is_file());
+        assert_eq!(created.manifest.note, "Manual note");
+        assert_eq!(
+            created.manifest.includes,
+            BackupPackageIncludes {
+                database: true,
+                original_media: false,
+                app_managed_assets: false,
+            }
+        );
+        let entries = fs::read_dir(&package_path)
+            .expect("package entries")
+            .filter_map(Result::ok)
+            .count();
+        assert_eq!(entries, 2);
+        let backup = Connection::open(package_path.join(BACKUP_DATABASE_FILE_NAME))
+            .expect("open package database");
+        let title: String = backup
+            .query_row(
+                "SELECT title FROM videos WHERE id = 'package_video'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("backup row");
+        assert_eq!(title, "Package Video");
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn failed_package_collision_leaves_no_staging_or_broken_final_package() {
+        let app_data_dir = unique_test_dir("backup-package-failure").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let created_at = UNIX_EPOCH + std::time::Duration::from_secs(1);
+        create_backup_package_at(&database, BackupPackageType::Manual, None, created_at)
+            .expect("first package");
+
+        let error =
+            create_backup_package_at(&database, BackupPackageType::Manual, None, created_at)
+                .expect_err("collision");
+        assert_eq!(
+            error,
+            "A backup package already exists for this second and type"
+        );
+        let backup_folder = default_backup_folder(&database);
+        let entries = fs::read_dir(&backup_folder)
+            .expect("backup entries")
+            .filter_map(Result::ok)
+            .collect::<Vec<_>>();
+        assert_eq!(entries.len(), 1);
+        assert!(entries
+            .iter()
+            .all(|entry| !entry.file_name().to_string_lossy().contains(".staging-")));
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn database_backup_failure_cleans_staging_without_finalizing_package() {
+        let app_data_dir =
+            unique_test_dir("backup-package-staging-failure").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let connection = database.connection();
+        let _ = std::thread::spawn(move || {
+            let _guard = connection.lock().expect("database lock");
+            panic!("poison database lock for staging cleanup test");
+        })
+        .join();
+
+        let error = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(3),
+        )
+        .expect_err("package backup should fail");
+
+        assert_eq!(error, "Database connection is unavailable");
+        let backup_folder = default_backup_folder(&database);
+        let entries = fs::read_dir(&backup_folder)
+            .expect("backup entries")
+            .filter_map(Result::ok)
+            .collect::<Vec<_>>();
+        assert!(entries.is_empty());
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn lists_valid_packages_and_ignores_files_and_invalid_folders() {
+        let app_data_dir = unique_test_dir("backup-package-list").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let valid = create_backup_package_at(
+            &database,
+            BackupPackageType::Automatic,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(2),
+        )
+        .expect("valid package");
+        let backup_folder = default_backup_folder(&database);
+        fs::write(backup_folder.join("not-a-package.txt"), "ignored").expect("invalid file");
+        let invalid_folder = backup_folder.join("invalid-package");
+        fs::create_dir(&invalid_folder).expect("invalid folder");
+        fs::write(invalid_folder.join("manifest.json"), "{}").expect("invalid manifest");
+
+        let packages = list_backup_packages(&database).expect("packages");
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].manifest, valid.manifest);
+        assert_eq!(
+            PathBuf::from(&packages[0].package_path),
+            PathBuf::from(valid.package_path)
+                .canonicalize()
+                .expect("canonical valid package")
+        );
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn rotation_deletes_only_old_automatic_packages_inside_backup_folder() {
+        let app_data_dir = unique_test_dir("backup-package-rotation").join(APP_DATA_FOLDER_NAME);
+        let outside_dir = unique_test_dir("backup-package-outside");
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let _ = fs::remove_dir_all(&outside_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        fs::create_dir_all(&outside_dir).expect("outside dir");
+        let outside_file = outside_dir.join("keep.txt");
+        fs::write(&outside_file, "keep").expect("outside file");
+        let manual = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(10),
+        )
+        .expect("manual");
+        let automatic_old = create_backup_package_at(
+            &database,
+            BackupPackageType::Automatic,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(20),
+        )
+        .expect("old automatic");
+        let automatic_new = create_backup_package_at(
+            &database,
+            BackupPackageType::Automatic,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(30),
+        )
+        .expect("new automatic");
+
+        let result = rotate_automatic_backup_packages(&database, 1).expect("rotation");
+
+        assert_eq!(result.kept_automatic, 1);
+        assert_eq!(result.removed_automatic, 1);
+        assert!(PathBuf::from(manual.package_path).is_dir());
+        assert!(!PathBuf::from(automatic_old.package_path).exists());
+        assert!(PathBuf::from(automatic_new.package_path).is_dir());
+        assert!(outside_file.is_file());
+        assert_eq!(
+            rotate_automatic_backup_packages(&database, 0).expect_err("zero rotation must fail"),
+            "Automatic backup rotation count must be between 1 and 100"
+        );
+        let _ = fs::remove_dir_all(app_data_dir);
+        let _ = fs::remove_dir_all(outside_dir);
     }
 
     #[test]

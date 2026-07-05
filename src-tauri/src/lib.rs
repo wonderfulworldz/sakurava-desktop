@@ -20,6 +20,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::database_backup,
             commands::database_restore,
+            commands::backup_package_create,
+            commands::backup_package_list,
+            commands::backup_package_rotate_automatic,
+            commands::backup_folder_open,
             commands::clear_app_cache,
             commands::export_csv_write,
             commands::import_csv_read,
