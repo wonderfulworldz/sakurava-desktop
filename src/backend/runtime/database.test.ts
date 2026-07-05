@@ -1,4 +1,5 @@
 import {
+  ADD_PERFORMER_GENDER_COLUMN_SQL,
   APP_DATA_FOLDER_NAME,
   DATABASE_FILE_NAME,
   SCHEMA_SQL,
@@ -29,8 +30,22 @@ describe("runtime database boundary", () => {
       async execute(sql) {
         executed.push(sql);
       },
+      async queryAll() {
+        executed.push(
+          executed.includes("PRAGMA table_info(performers)")
+            ? "PRAGMA table_info(managedCategories)"
+            : "PRAGMA table_info(performers)",
+        );
+        return [];
+      },
     });
 
-    expect(executed).toEqual(SCHEMA_SQL);
+    expect(executed).toEqual([
+      ...SCHEMA_SQL,
+      "PRAGMA table_info(performers)",
+      ADD_PERFORMER_GENDER_COLUMN_SQL,
+      "PRAGMA table_info(managedCategories)",
+      "ALTER TABLE managedCategories ADD COLUMN showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1))",
+    ]);
   });
 });

@@ -1,5 +1,5 @@
-import { type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { BookOpenText, Check, ChevronDown, ChevronRight, Filter, Link2, Plus, Search, Star, Trash2, X } from "lucide-react";
+import { type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, BookOpenText, Check, ChevronDown, ChevronRight, Filter, Link2, Plus, Search, Star, Trash2, X } from "lucide-react";
 import type {
   GlossaryEntry,
   GlossaryEntryPatch,
@@ -14,15 +14,40 @@ import {
   updateGlossaryEntry,
 } from "../runtime/glossaryCommands";
 import { selectLocalImageFile } from "../runtime/dialogCommands";
+import ConfirmDialog from "../components/ConfirmDialog";
+import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
+import SakuravaSelect from "../components/SakuravaSelect";
+import {
+  clearSessionFilterState,
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
+import { useTranslation } from "../lib/LanguageContext";
+import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 
 type GlossarySortKey = "az" | "za" | "created-desc" | "updated-desc";
 type GlossaryFormMode = "add" | "edit";
+type GlossaryConfirmation = "save" | "delete" | "discard" | null;
 type GlossaryTableDisplayRow = {
   entry: GlossaryEntry;
   depth: number;
   childCount: number;
   expanded: boolean;
 };
+type GlossarySessionFilters = {
+  searchQuery: string;
+  parentFilter: GlossaryFilterValue | string[] | string;
+  sortKey?: GlossarySortKey;
+  tableSort?: GlossaryTableSortState;
+  pageSize?: (typeof pageSizeOptions)[number];
+  page?: number;
+  expandedEntryIds?: string[];
+};
+type GlossaryFilterValue = "all" | "parent" | "child";
+type GlossaryTableSortState = {
+  value: GlossarySortKey;
+  direction: "ascending" | "descending";
+} | null;
 
 type GlossaryFormState = {
   term: string;
@@ -40,11 +65,21 @@ type GlossaryFormErrors = Partial<
 >;
 
 const pageSizeOptions = [32, 64, 128, 256] as const;
+const glossaryFilterSessionKey = "glossary-library";
+const emptyGlossarySessionFilters: GlossarySessionFilters = {
+  searchQuery: "",
+  parentFilter: "all",
+};
+const glossaryFilterOptions: Array<{ value: GlossaryFilterValue; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "parent", label: "Parents Only" },
+  { value: "child", label: "Children Only" },
+];
 const sortOptions: Array<{ value: GlossarySortKey; label: string }> = [
-  { value: "az", label: "A-Z" },
-  { value: "za", label: "Z-A" },
+  { value: "az", label: "Term A-Z" },
+  { value: "za", label: "Term Z-A" },
   { value: "created-desc", label: "Last Added" },
-  { value: "updated-desc", label: "Last Updated" },
+  { value: "updated-desc", label: "Last Modified" },
 ];
 
 const sampleGlossaryEntries: GlossaryEntry[] = [
@@ -186,7 +221,56 @@ function formStateToInput(formState: GlossaryFormState): NewGlossaryEntry {
   };
 }
 
+function glossaryFormSnapshot(formState: GlossaryFormState, synonymDraft: string) {
+  return JSON.stringify({
+    formState,
+    synonymDraft: synonymDraft.trim(),
+  });
+}
+
+function glossaryConfirmationCopy(
+  confirmation: GlossaryConfirmation,
+  formMode: GlossaryFormMode,
+) {
+  if (confirmation === "delete") {
+    return {
+      title: "Delete glossary entry?",
+      description: "This action cannot be undone.",
+      confirmLabel: "Delete",
+      pendingLabel: "Deleting...",
+    };
+  }
+
+  if (confirmation === "discard") {
+    return {
+      title: "Discard changes?",
+      description: "Unsaved Glossary entry changes will be lost.",
+      confirmLabel: "Discard",
+      pendingLabel: "Discarding...",
+    };
+  }
+
+  return formMode === "add"
+    ? {
+        title: "Save glossary entry?",
+        description: "Review the entry before saving it.",
+        confirmLabel: "Save",
+        pendingLabel: "Saving...",
+      }
+    : {
+        title: "Save changes?",
+        description: "The Glossary entry will be updated with these changes.",
+        confirmLabel: "Save changes",
+        pendingLabel: "Saving...",
+      };
+}
+
 function GlossaryPage() {
+  const t = useTranslation();
+  const initialFilters = readSessionFilterState(
+    glossaryFilterSessionKey,
+    emptyGlossarySessionFilters,
+  );
   const [entries, setEntries] = useState<GlossaryEntry[]>(() =>
     isGlossaryRuntimeAvailable() ? [] : sampleGlossaryEntries,
   );
@@ -195,11 +279,20 @@ function GlossaryPage() {
   );
   const [isLoading, setIsLoading] = useState(() => isGlossaryRuntimeAvailable());
   const [dataStatus, setDataStatus] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [parentFilter, setParentFilter] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<GlossarySortKey>("updated-desc");
-  const [pageSize, setPageSize] = useState<(typeof pageSizeOptions)[number]>(32);
-  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery);
+  const [parentFilter, setParentFilter] = useState<GlossaryFilterValue>(
+    normalizeGlossaryFilterValue(initialFilters.parentFilter),
+  );
+  const [sortKey, setSortKey] = useState<GlossarySortKey>(
+    initialFilters.sortKey ?? "az",
+  );
+  const [tableSort, setTableSort] = useState<GlossaryTableSortState>(
+    initialFilters.tableSort ?? null,
+  );
+  const [pageSize, setPageSize] = useState<(typeof pageSizeOptions)[number]>(
+    initialFilters.pageSize ?? 32,
+  );
+  const [page, setPage] = useState(initialFilters.page ?? 1);
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<GlossaryFormMode>("add");
   const [editingEntryId, setEditingEntryId] = useState("");
@@ -208,15 +301,19 @@ function GlossaryPage() {
   const [formErrors, setFormErrors] = useState<GlossaryFormErrors>({});
   const [formMessage, setFormMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState<GlossaryConfirmation>(null);
+  const [cleanFormSnapshot, setCleanFormSnapshot] = useState(() =>
+    glossaryFormSnapshot(emptyFormState, ""),
+  );
   const [parentPickerOpen, setParentPickerOpen] = useState(false);
   const [parentSearch, setParentSearch] = useState("");
   const [filterPickerOpen, setFilterPickerOpen] = useState(false);
-  const [filterSearch, setFilterSearch] = useState("");
   const [sortPickerOpen, setSortPickerOpen] = useState(false);
   const [sortSearch, setSortSearch] = useState("");
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set(initialFilters.expandedEntryIds ?? []),
   );
+  const formSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isGlossaryRuntimeAvailable()) {
@@ -269,6 +366,9 @@ function GlossaryPage() {
   );
 
   useEffect(() => {
+    if (initialFilters.expandedEntryIds) {
+      return;
+    }
     setExpandedEntryIds((current) => {
       const next = new Set(current);
       for (const parentId of parentIdsWithChildren) {
@@ -277,6 +377,26 @@ function GlossaryPage() {
       return next;
     });
   }, [parentIdsWithChildren]);
+
+  useEffect(() => {
+    writeSessionFilterState(glossaryFilterSessionKey, {
+      searchQuery,
+      parentFilter,
+      sortKey,
+      tableSort,
+      pageSize,
+      page,
+      expandedEntryIds: [...expandedEntryIds],
+    });
+  }, [
+    expandedEntryIds,
+    page,
+    pageSize,
+    parentFilter,
+    searchQuery,
+    sortKey,
+    tableSort,
+  ]);
   const parentOptions = useMemo(
     () =>
       entries
@@ -285,11 +405,6 @@ function GlossaryPage() {
         .sort((left, right) => left.term.localeCompare(right.term)),
     [editingEntryId, entries, entryById],
   );
-  const filterOptions = useMemo(
-    () => [...entries].sort((left, right) => left.term.localeCompare(right.term)),
-    [entries],
-  );
-
   const filteredEntries = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const matchesSearch = (entry: GlossaryEntry) => {
@@ -308,17 +423,32 @@ function GlossaryPage() {
 
     return entries
       .filter((entry) => {
-        if (parentFilter.length === 0) {
+        if (parentFilter === "all") {
           return true;
         }
-        if (parentFilter.includes("root") && !entry.parentId) {
-          return !entry.parentId;
+        if (parentFilter === "parent") {
+          return parentIdsWithChildren.has(entry.id);
         }
-        return parentFilter.includes(entry.parentId);
+        return Boolean(entry.parentId);
       })
       .filter(matchesSearch)
-      .sort((left, right) => sortGlossaryEntries(left, right, sortKey));
-  }, [entries, entryById, parentFilter, searchQuery, sortKey]);
+        .sort((left, right) =>
+          sortGlossaryEntries(
+            left,
+            right,
+            tableSort?.value ?? sortKey,
+            tableSort?.direction,
+          ),
+        );
+  }, [
+    entries,
+    entryById,
+    parentFilter,
+    parentIdsWithChildren,
+    searchQuery,
+    sortKey,
+    tableSort,
+  ]);
 
   const tableRows = useMemo(
     () =>
@@ -326,9 +456,10 @@ function GlossaryPage() {
         entries,
         filteredEntries,
         expandedEntryIds,
-        sortKey,
+        sortKey: tableSort?.value ?? sortKey,
+        sortDirection: tableSort?.direction,
         hierarchical:
-          parentFilter.length === 0 && searchQuery.trim().length === 0,
+          parentFilter === "all" && searchQuery.trim().length === 0,
       }),
     [
       entries,
@@ -337,6 +468,7 @@ function GlossaryPage() {
       parentFilter,
       searchQuery,
       sortKey,
+      tableSort,
     ],
   );
 
@@ -349,30 +481,20 @@ function GlossaryPage() {
   const editingEntry = editingEntryId ? entryById.get(editingEntryId) ?? null : null;
   const activeFilterChips = useMemo(
     () => {
-      const chips = searchQuery.trim()
-        ? [{
-            key: "search",
-            label: `Search: ${searchQuery.trim()}`,
-            fullLabel: `Search: ${searchQuery.trim()}`,
-          }]
-        : [];
-      for (const filterValue of parentFilter) {
-        const entry = entryById.get(filterValue);
-        const fullCategoryPath =
-          filterValue === "root"
-            ? "No Parent"
-            : entry
-              ? parentPathLabel(entry, entryById)
-              : "Unknown";
+      const chips: Array<{ key: string; label: string; fullLabel: string }> = [];
+      if (parentFilter !== "all") {
+        const label =
+          glossaryFilterOptions.find((option) => option.value === parentFilter)?.label ??
+          parentFilter;
         chips.push({
-          key: `category-${filterValue}`,
-          label: `Cat: ${compactCategoryPathLabel(fullCategoryPath)}`,
-          fullLabel: `Category: ${fullCategoryPath}`,
+          key: `filter-${parentFilter}`,
+          label: `${t("common.filter")}: ${translateUiDisplayLabel(t, label)}`,
+          fullLabel: `${t("common.filter")}: ${translateUiDisplayLabel(t, label)}`,
         });
       }
       return chips;
     },
-    [entryById, parentFilter, searchQuery],
+    [parentFilter, t],
   );
 
   const updateSearchQuery = (value: string) => {
@@ -380,32 +502,45 @@ function GlossaryPage() {
     setPage(1);
   };
 
-  const updateParentFilter = (value: string[]) => {
+  const updateParentFilter = (value: GlossaryFilterValue) => {
     setParentFilter(value);
     setPage(1);
   };
 
   const removeFilterChip = (key: string) => {
-    if (key === "search") {
-      updateSearchQuery("");
-      return;
-    }
-    if (key.startsWith("category-")) {
-      updateParentFilter(parentFilter.filter((value) => `category-${value}` !== key));
+    if (key.startsWith("filter-")) {
+      updateParentFilter("all");
     }
   };
 
   const clearTableFilters = () => {
     setSearchQuery("");
-    setParentFilter([]);
+    setParentFilter("all");
+    setSortKey("az");
+    setTableSort(null);
+    setPageSize(32);
+    setExpandedEntryIds(defaultGlossaryExpandedEntryIds(entries));
+    clearSessionFilterState(glossaryFilterSessionKey);
     setPage(1);
   };
 
   const updateSortKey = (value: GlossarySortKey) => {
     setSortKey(value);
+    setTableSort(null);
     setPage(1);
     setSortPickerOpen(false);
     setSortSearch("");
+  };
+
+  const updateTableSort = (value: GlossarySortKey) => {
+    setTableSort((current) => ({
+      value,
+      direction:
+        current?.value === value && current.direction === "ascending"
+          ? "descending"
+          : "ascending",
+    }));
+    setPage(1);
   };
 
   const toggleEntryExpansion = (entryId: string) => {
@@ -430,19 +565,30 @@ function GlossaryPage() {
     setFormMode("add");
     setEditingEntryId("");
     setFormState(emptyFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(emptyFormState, ""));
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
+    setConfirmation(null);
+    window.requestAnimationFrame(() => {
+      scrollFormIntoView(formSectionRef.current);
+    });
   };
 
   const openEditForm = (entry: GlossaryEntry) => {
+    const nextFormState = entryToFormState(entry);
     setFormVisible(true);
     setFormMode("edit");
     setEditingEntryId(entry.id);
-    setFormState(entryToFormState(entry));
+    setFormState(nextFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(nextFormState, ""));
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
+    setConfirmation(null);
+    window.requestAnimationFrame(() => {
+      scrollFormIntoView(formSectionRef.current);
+    });
   };
 
   const closeForm = () => {
@@ -450,10 +596,22 @@ function GlossaryPage() {
     setFormMode("add");
     setEditingEntryId("");
     setFormState(emptyFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(emptyFormState, ""));
     setSynonymDraft("");
     setFormErrors({});
     setFormMessage("");
     setIsSubmitting(false);
+    setConfirmation(null);
+  };
+
+  const resetFormAfterSuccessfulSave = () => {
+    setFormVisible(true);
+    setFormMode("add");
+    setEditingEntryId("");
+    setFormState(emptyFormState);
+    setCleanFormSnapshot(glossaryFormSnapshot(emptyFormState, ""));
+    setSynonymDraft("");
+    setFormErrors({});
   };
 
   const updateFormField = <TKey extends keyof GlossaryFormState>(
@@ -572,6 +730,14 @@ function GlossaryPage() {
       return;
     }
 
+    setConfirmation("save");
+  };
+
+  const executeSubmitForm = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const input = formStateToInput({
@@ -584,10 +750,8 @@ function GlossaryPage() {
         if (created.parentId) {
           setExpandedEntryIds((current) => new Set(current).add(created.parentId));
         }
-        setFormMessage("Glossary entry saved.");
-        setFormState(entryToFormState(created));
-        setEditingEntryId(created.id);
-        setFormMode("edit");
+        setFormMessage("Data created successfully.");
+        resetFormAfterSuccessfulSave();
       } else if (editingEntryId) {
         const patch: GlossaryEntryPatch = input;
         const updated = await updateGlossaryEntry(editingEntryId, patch);
@@ -603,15 +767,16 @@ function GlossaryPage() {
         if (updated.parentId) {
           setExpandedEntryIds((current) => new Set(current).add(updated.parentId));
         }
-        setFormState(entryToFormState(updated));
-        setFormMessage("Glossary entry updated.");
+        setFormMessage("Data updated successfully.");
+        resetFormAfterSuccessfulSave();
       }
       setSynonymDraft("");
+      setConfirmation(null);
     } catch (error) {
       setFormMessage(
         error instanceof Error
           ? error.message
-          : "Unable to save Glossary entry.",
+          : "Something went wrong. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -645,7 +810,7 @@ function GlossaryPage() {
       setDataStatus(
         error instanceof Error
           ? error.message
-          : "Unable to update Glossary favorite.",
+          : "Something went wrong. Please try again.",
       );
     }
   };
@@ -658,10 +823,15 @@ function GlossaryPage() {
       setDataStatus("Open the desktop app to delete Glossary entries.");
       return;
     }
-    if (!window.confirm(`Delete glossary entry "${editingEntry.term}"?`)) {
+    setConfirmation("delete");
+  };
+
+  const executeDeleteEditingEntry = async () => {
+    if (!editingEntry || isSubmitting) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const result = await deleteGlossaryEntry(editingEntry.id);
       if (!result.deleted) {
@@ -672,26 +842,59 @@ function GlossaryPage() {
         currentEntries.filter((entry) => entry.id !== editingEntry.id),
       );
       closeForm();
-      setDataStatus("Glossary entry deleted.");
+      setDataStatus("Data deleted successfully.");
     } catch (error) {
       setDataStatus(
         error instanceof Error
           ? error.message
-          : "Unable to delete Glossary entry.",
+          : "Something went wrong. Please try again.",
       );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isFormDirty =
+    formVisible &&
+    glossaryFormSnapshot(formState, synonymDraft) !== cleanFormSnapshot;
+
+  const requestCloseForm = () => {
+    if (!isFormDirty) {
+      closeForm();
+      return;
+    }
+    setConfirmation("discard");
+  };
+
+  const closeConfirmation = () => {
+    if (!isSubmitting) {
+      setConfirmation(null);
+    }
+  };
+
+  const confirmCurrentAction = async () => {
+    if (confirmation === "save") {
+      await executeSubmitForm();
+      return;
+    }
+    if (confirmation === "delete") {
+      await executeDeleteEditingEntry();
+      return;
+    }
+    if (confirmation === "discard") {
+      closeForm();
     }
   };
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 px-1 py-2 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-4xl font-semibold tracking-normal text-slate-950">
-            Glossary Library
+            {t("glossary.title")}
           </h1>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-500">
-            Store and manage definitions, references, and terms for your
-            personal use.
+            {t("glossary.subtitle")}
           </p>
         </div>
         <button
@@ -700,7 +903,7 @@ function GlossaryPage() {
           className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-base font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100"
         >
           <Plus size={20} />
-          Add Entry
+          {t("glossary.addEntry")}
         </button>
       </header>
 
@@ -715,14 +918,15 @@ function GlossaryPage() {
 
       {formVisible && (
         <section
-          className="rounded-lg border border-slate-200 bg-white px-5 py-5 shadow-sm"
+          ref={formSectionRef}
+          className="scroll-mt-4 rounded-lg border border-slate-200 bg-white px-5 py-5 shadow-sm"
           aria-labelledby="glossary-form-title"
         >
           <h2
             id="glossary-form-title"
             className="text-lg font-semibold text-slate-950"
           >
-            {formMode === "add" ? "Add Glossary Entry" : "Edit Glossary Entry"}
+            {formMode === "add" ? t("glossary.addForm") : t("glossary.editForm")}
           </h2>
 
           {formMessage && (
@@ -736,14 +940,14 @@ function GlossaryPage() {
 
           <form className="mt-5 space-y-5" onSubmit={submitForm} noValidate>
             <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
-              <FieldErrorLabel label="Term" required error={formErrors.term}>
+              <FieldErrorLabel label={t("glossary.term")} required error={formErrors.term}>
                 <input
                   type="text"
-                  aria-label="Term"
+                  aria-label={t("glossary.term")}
                   value={formState.term}
                   onChange={(event) => updateFormField("term", event.target.value)}
                   className={inputClassName}
-                  placeholder="Enter term or title"
+                  placeholder={t("glossary.termPlaceholder")}
                 />
               </FieldErrorLabel>
 
@@ -754,7 +958,7 @@ function GlossaryPage() {
 
               <div>
                 <span className="block text-sm font-medium text-slate-700">
-                  Synonyms
+                  {t("glossary.synonyms")}
                 </span>
                 <div className="mt-1 flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 shadow-sm transition focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -776,15 +980,15 @@ function GlossaryPage() {
                       onChange={(event) => handleSynonymChange(event.target.value)}
                       onKeyDown={handleSynonymKeyDown}
                       className="min-w-36 flex-1 border-0 bg-transparent px-1 py-1 text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                      placeholder="Add synonym and press Enter..."
-                      aria-label="Synonyms"
+                      placeholder={t("glossary.synonymPlaceholder")}
+                      aria-label={t("glossary.synonyms")}
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => addSynonymParts(synonymDraft)}
                     className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-sakura-500 text-white shadow-sm transition hover:bg-sakura-600"
-                    aria-label="Add synonym"
+                    aria-label={t("glossary.addSynonym")}
                   >
                     <Plus size={16} />
                   </button>
@@ -792,7 +996,7 @@ function GlossaryPage() {
               </div>
 
               <label className="block text-sm font-medium text-slate-700">
-                Source Title
+                {t("glossary.sourceTitle")}
                 <input
                   type="text"
                   value={formState.sourceTitle}
@@ -800,12 +1004,12 @@ function GlossaryPage() {
                     updateFormField("sourceTitle", event.target.value)
                   }
                   className={inputClassName}
-                  placeholder="e.g. Wikipedia, Official Website, Article"
+                  placeholder={t("glossary.sourceLabelPlaceholder")}
                 />
               </label>
 
               <label className="block text-sm font-medium text-slate-700">
-                Category
+                {t("glossary.form.field.category")}
                 <GlossaryParentPicker
                   value={formState.parentId}
                   options={parentOptions}
@@ -816,11 +1020,11 @@ function GlossaryPage() {
                   onSearchChange={setParentSearch}
                   onChange={(parentId) => updateFormField("parentId", parentId)}
                   ariaLabel="Search glossary parent terms"
-                  placeholder="Select parent term..."
+                  placeholder={t("glossary.parentPlaceholder")}
                 />
               </label>
 
-              <FieldErrorLabel label="Source URL" error={formErrors.sourceUrl}>
+              <FieldErrorLabel label={t("glossary.sourceUrl")} error={formErrors.sourceUrl}>
                 <div className="relative mt-1">
                   <input
                     type="url"
@@ -829,7 +1033,7 @@ function GlossaryPage() {
                       updateFormField("sourceUrl", event.target.value)
                     }
                     className={`${inputClassName} mt-0 pr-11`}
-                    placeholder="https://example.com/reference-page"
+                    placeholder={t("glossary.sourceUrlPlaceholder")}
                   />
                   <Link2
                     size={18}
@@ -839,7 +1043,7 @@ function GlossaryPage() {
               </FieldErrorLabel>
 
               <label className="block text-sm font-medium text-slate-700">
-                Thumbnail
+                {t("glossary.form.field.thumbnail")}
                 <div className="mt-1 flex gap-3">
                   <input
                     type="text"
@@ -848,46 +1052,32 @@ function GlossaryPage() {
                       updateFormField("thumbnailPath", event.target.value)
                     }
                     className={`${inputClassName} mt-0 min-w-0 flex-1`}
-                    placeholder="/path/to/image.jpg"
+                    placeholder={t("glossary.imagePathPlaceholder")}
                   />
                   <button
                     type="button"
                     onClick={browseThumbnailPath}
                     className="h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
-                    Browse
+                    {t("common.browse")}
                   </button>
                 </div>
               </label>
 
-              <FieldErrorLabel label="Definition" required error={formErrors.definition}>
+              <FieldErrorLabel label={t("glossary.definition")} required error={formErrors.definition}>
                 <textarea
-                  aria-label="Definition"
+                  aria-label={t("glossary.definition")}
                   value={formState.definition}
                   onChange={(event) =>
                     updateFormField("definition", event.target.value)
                   }
                   className="mt-1 min-h-32 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-                  placeholder="Write the definition, explanation, or details about this term..."
+                  placeholder={t("glossary.definitionPlaceholder")}
                 />
               </FieldErrorLabel>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-11 rounded-lg border border-sakura-300 bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? "Saving..." : "Save Entry"}
-              </button>
-              <button
-                type="button"
-                onClick={closeForm}
-                className={secondaryButtonClassName}
-              >
-                Cancel
-              </button>
               {formMode === "edit" && (
                 <button
                   type="button"
@@ -895,9 +1085,23 @@ function GlossaryPage() {
                   className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                 >
                   <Trash2 size={16} />
-                  Delete
+                  {t("common.delete")}
                 </button>
               )}
+              <button
+                type="button"
+                onClick={requestCloseForm}
+                className={secondaryButtonClassName}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="h-11 rounded-lg border border-sakura-300 bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? t("viewer.saving") : t("glossary.saveEntry")}
+              </button>
             </div>
           </form>
         </section>
@@ -906,11 +1110,11 @@ function GlossaryPage() {
       <section className="space-y-3" aria-labelledby="glossary-table-title">
         <div
           className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
-          aria-label="Glossary toolbar"
+          aria-label={t("glossary.toolbar")}
         >
-          <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_minmax(210px,260px)_210px] lg:items-center">
-            <label className="relative flex-1">
-              <span className="sr-only">Search terms</span>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">{t("glossary.search")}</span>
               <Search
                 size={18}
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
@@ -919,20 +1123,27 @@ function GlossaryPage() {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => updateSearchQuery(event.target.value)}
-                placeholder="Search terms..."
-                aria-label="Search terms"
-                className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-12 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+                placeholder={t("glossary.searchPlaceholder")}
+                aria-label={t("glossary.search")}
+                className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-12 pr-10 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
               />
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  aria-label={t("glossary.clearSearch")}
+                  title={t("glossary.clearSearch")}
+                  className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sakura-50 hover:text-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-200"
+                  onClick={() => updateSearchQuery("")}
+                >
+                  <X size={15} />
+                </button>
+              )}
             </label>
 
             <GlossaryParentFilter
               value={parentFilter}
-              options={filterOptions}
-              entryById={entryById}
               open={filterPickerOpen}
-              search={filterSearch}
               onOpenChange={setFilterPickerOpen}
-              onSearchChange={setFilterSearch}
               onChange={updateParentFilter}
             />
 
@@ -948,7 +1159,7 @@ function GlossaryPage() {
           {activeFilterChips.length > 0 && (
             <div
               className="mt-3 flex flex-col gap-3 rounded-lg border border-sakura-100 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-              aria-label="Glossary active filters"
+              aria-label={t("glossary.activeFilters")}
             >
               <div className="flex flex-wrap gap-2">
                 {activeFilterChips.map((chip) => (
@@ -970,49 +1181,64 @@ function GlossaryPage() {
                 onClick={clearTableFilters}
                 className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600"
               >
-                Clear all filters
+                {t("glossary.toolbar.clearAllFilters")}
               </button>
             </div>
           )}
         </div>
 
         <nav
-          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm lg:flex-row lg:items-center lg:justify-between"
-          aria-label="Glossary pagination"
+          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+          aria-label={t("glossary.pagination")}
         >
-          <div>
-            Showing {showingStart}-{showingEnd} of {tableRows.length} entries
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <p className="text-sm font-semibold text-slate-600">
+              {t("pagination.showing", {
+                start: String(showingStart),
+                end: String(showingEnd),
+                total: String(tableRows.length),
+              })}
+            </p>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              Rows per page
-              <select
+              {t("common.pageSize")}
+              <SakuravaSelect
                 value={pageSize}
-                onChange={(event) =>
-                  updatePageSize(
-                    Number(event.target.value) as (typeof pageSizeOptions)[number],
-                  )
-                }
-                className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-              >
-                {pageSizeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                ariaLabel="Terms per page"
+                placement="down"
+                onChange={updatePageSize}
+                options={pageSizeOptions.map((option) => ({
+                  value: option,
+                  label: String(option),
+                }))}
+              />
+              <span>{t("collection.perPage")}</span>
             </label>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={safePage === 1}
               onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
               className={paginationButtonClassName}
             >
-              Previous
+              {t("common.previous")}
             </button>
-            <span className="rounded-lg bg-sakura-50 px-3 py-2 text-sm font-semibold text-sakura-600">
-              {safePage} / {totalPages}
-            </span>
+            {buildGlossaryPaginationPages(safePage, totalPages).map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                onClick={() => setPage(pageNumber)}
+                aria-current={pageNumber === safePage ? "page" : undefined}
+                aria-label={`Page ${pageNumber}`}
+                className={`flex size-9 items-center justify-center rounded-lg text-sm font-semibold ${
+                  pageNumber === safePage
+                    ? "bg-sakura-500 text-white"
+                    : "border border-slate-200 bg-white text-slate-500"
+                }`}
+              >
+                {pageNumber}
+              </button>
+            ))}
             <button
               type="button"
               disabled={safePage === totalPages}
@@ -1021,14 +1247,14 @@ function GlossaryPage() {
               }
               className={paginationButtonClassName}
             >
-              Next
+              {t("common.next")}
             </button>
           </div>
         </nav>
 
         {pageRows.length > 0 ? (
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
+          <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <StickyHorizontalScroll testId="glossary-table-scroll">
               <table className="w-full min-w-[1040px] table-fixed divide-y divide-slate-200 text-left text-sm">
                 <colgroup>
                   <col className="w-[44px]" />
@@ -1045,11 +1271,21 @@ function GlossaryPage() {
                     <th className="px-3 py-3" />
                     <th className="px-3 py-3" />
                     <th className="px-3 py-3" />
-                    <th className="px-3 py-3 font-semibold">Term</th>
-                    <th className="px-3 py-3 font-semibold">Synonyms</th>
-                    <th className="px-3 py-3 font-semibold">Categories</th>
-                    <th className="px-3 py-3 font-semibold">Definition</th>
-                    <th className="px-3 py-3 font-semibold">Source</th>
+                    <th
+                      className="px-3 py-3 font-semibold"
+                      aria-sort={glossaryAriaSort(tableSort, "az")}
+                    >
+                      <GlossarySortHeader
+                        label={t("glossary.table.header.term")}
+                        sortValue="az"
+                        tableSort={tableSort}
+                        onSort={updateTableSort}
+                      />
+                    </th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.synonyms")}</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.categories")}</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.definition")}</th>
+                    <th className="px-3 py-3 font-semibold">{t("glossary.table.header.source")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -1065,7 +1301,7 @@ function GlossaryPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </StickyHorizontalScroll>
           </div>
         ) : (
           <div className="flex min-h-56 items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-12 shadow-sm">
@@ -1074,21 +1310,27 @@ function GlossaryPage() {
                 GL
               </div>
               <h3 className="text-base font-semibold text-slate-950">
-                No glossary entries found
+                {t("glossary.empty")}
               </h3>
               <p className="mt-2 text-sm text-slate-600">
-                Try a different search term or category filter, or add a new
-                Glossary entry.
+                {t("glossary.emptyHint")}
               </p>
             </div>
           </div>
         )}
       </section>
 
-      <footer className="rounded-lg border border-sakura-100 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
-        Glossary entries are independent from Video, Image, Performer, and
-        Category catalog metadata.
-      </footer>
+      <ConfirmDialog
+        open={confirmation !== null}
+        title={glossaryConfirmationCopy(confirmation, formMode).title}
+        description={glossaryConfirmationCopy(confirmation, formMode).description}
+        confirmLabel={glossaryConfirmationCopy(confirmation, formMode).confirmLabel}
+        variant={confirmation === "delete" ? "destructive" : "default"}
+        pending={isSubmitting}
+        pendingLabel={glossaryConfirmationCopy(confirmation, formMode).pendingLabel}
+        onCancel={closeConfirmation}
+        onConfirm={() => void confirmCurrentAction()}
+      />
     </div>
   );
 }
@@ -1106,6 +1348,7 @@ function GlossaryTableRow({
   onFavorite: (entry: GlossaryEntry) => void;
   onToggleExpansion: (entryId: string) => void;
 }) {
+  const t = useTranslation();
   const { entry, depth, childCount, expanded } = row;
   const synonyms = parseTextLabelArray(entry.synonymsJson);
   const sourceLabel = entry.sourceTitle.trim() || shortSourceUrl(entry.sourceUrl);
@@ -1187,8 +1430,8 @@ function GlossaryTableRow({
           />
         </button>
       </td>
-      <td className="px-3 py-2.5">
-        <div className={`flex min-w-0 items-center gap-2 ${childIndentClass}`}>
+      <td className="px-3 py-2.5 overflow-hidden">
+        <div className={`flex min-w-0 items-center gap-2 overflow-hidden ${childIndentClass}`}>
           <span
             className="block min-w-0 truncate font-medium text-slate-950"
             title={entry.term || "N/A"}
@@ -1197,10 +1440,10 @@ function GlossaryTableRow({
           </span>
         </div>
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-2.5 overflow-hidden">
         {synonyms.length > 0 ? (
           <span
-            className={`inline-flex rounded-md bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-600 ${childIndentClass}`}
+            className={`inline-flex max-w-full overflow-hidden rounded-md bg-sakura-50 px-2 py-1 text-xs font-semibold text-sakura-600 ${childIndentClass}`}
             title={synonyms.join(", ")}
             aria-label={`Synonyms: ${synonyms.join(", ")}`}
           >
@@ -1210,26 +1453,26 @@ function GlossaryTableRow({
           <span className={`text-slate-400 ${childIndentClass}`}>N/A</span>
         )}
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-2.5 overflow-hidden">
         <span
-          className={`inline-flex max-w-full min-w-0 shrink rounded-md bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-600 ${childIndentClass}`}
+          className={`inline-flex max-w-full min-w-0 shrink overflow-hidden rounded-md bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-600 ${childIndentClass}`}
           title={categoryLabel}
         >
           <span className="truncate">{categoryLabel}</span>
         </span>
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-2.5 overflow-hidden">
         <p className={`truncate text-sm leading-6 text-slate-600 ${childIndentClass}`} title={entry.definition || "N/A"}>
           {entry.definition || "N/A"}
         </p>
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-2.5 overflow-hidden">
         {entry.sourceUrl.trim() ? (
           <a
             href={entry.sourceUrl}
             target="_blank"
             rel="noreferrer"
-            className={`block truncate text-sm font-medium text-sakura-600 hover:text-sakura-700 ${childIndentClass}`}
+            className={`block truncate overflow-hidden text-sm font-medium text-sakura-600 hover:text-sakura-700 ${childIndentClass}`}
             title={sourceLabel || "N/A"}
             aria-label={`Open source ${sourceLabel || "N/A"}`}
             onClick={stopRowAction}
@@ -1242,6 +1485,45 @@ function GlossaryTableRow({
       </td>
     </tr>
   );
+}
+
+function GlossarySortHeader({
+  label,
+  sortValue,
+  tableSort,
+  onSort,
+}: {
+  label: string;
+  sortValue: GlossarySortKey;
+  tableSort: GlossaryTableSortState;
+  onSort: (value: GlossarySortKey) => void;
+}) {
+  const active = tableSort?.value === sortValue;
+  return (
+    <button
+      type="button"
+      aria-label={`Sort by ${label}`}
+      className={[
+        "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-600 focus:outline-none",
+        active ? "text-sakura-700" : "",
+      ].join(" ")}
+      onClick={() => onSort(sortValue)}
+    >
+      <span className="truncate">{label}</span>
+      {active && (
+        <span aria-hidden="true" className="text-[10px] text-slate-500">
+          {tableSort.direction === "ascending" ? "↑" : "↓"}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function glossaryAriaSort(
+  tableSort: GlossaryTableSortState,
+  sortValue: GlossarySortKey,
+) {
+  return tableSort?.value === sortValue ? tableSort.direction : undefined;
 }
 
 function ThumbnailPreview({ entry }: { entry: GlossaryEntry }) {
@@ -1275,13 +1557,14 @@ function SwitchField({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const t = useTranslation();
   return (
     <label className="flex h-11 items-center gap-3 self-end text-sm font-medium text-slate-700">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label="Favorite"
+        aria-label={t("common.favorite")}
         onClick={() => onChange(!checked)}
         className={[
           "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition",
@@ -1297,7 +1580,7 @@ function SwitchField({
           ].join(" ")}
         />
       </button>
-      Mark this entry as favorite
+      {t("glossary.markFavorite")}
     </label>
   );
 }
@@ -1325,19 +1608,20 @@ function GlossaryParentPicker({
   ariaLabel: string;
   placeholder: string;
 }) {
+  const t = useTranslation();
   const selected = value ? entryById.get(value) ?? null : null;
   const displayValue = open
     ? search
     : selected
       ? parentPathLabel(selected, entryById)
-      : "No parent";
+      : t("glossary.noParent");
   const query = search.trim().toLowerCase();
   const filteredOptions = options.filter((entry) =>
     parentPathLabel(entry, entryById).toLowerCase().includes(query),
   );
 
   return (
-    <PickerShell
+      <PickerShell
       open={open}
       onOpenChange={onOpenChange}
       onSearchChange={onSearchChange}
@@ -1347,7 +1631,7 @@ function GlossaryParentPicker({
       listboxLabel={`${ariaLabel} options`}
     >
       <PickerOption
-        label="No parent"
+        label={t("glossary.noParent")}
         ariaLabel="Select no parent"
         metaLabel="N/A"
         onSelect={() => {
@@ -1360,6 +1644,7 @@ function GlossaryParentPicker({
         <PickerOption
           key={entry.id}
           label={parentPathLabel(entry, entryById)}
+          query={search}
           ariaLabel={`Select glossary parent ${parentPathLabel(entry, entryById)}`}
           metaLabel={glossaryRoleLabel(entry, options)}
           onSelect={() => {
@@ -1380,85 +1665,92 @@ function GlossaryParentPicker({
 
 function GlossaryParentFilter({
   value,
-  options,
-  entryById,
   open,
-  search,
   onOpenChange,
-  onSearchChange,
   onChange,
 }: {
-  value: string[];
-  options: GlossaryEntry[];
-  entryById: Map<string, GlossaryEntry>;
+  value: GlossaryFilterValue;
   open: boolean;
-  search: string;
   onOpenChange: (open: boolean) => void;
-  onSearchChange: (search: string) => void;
-  onChange: (value: string[]) => void;
+  onChange: (value: GlossaryFilterValue) => void;
 }) {
-  const selectedDisplayValue = "Categories";
-  const displayValue = open && search ? search : selectedDisplayValue;
-  const query = search.trim().toLowerCase();
-  const filteredOptions = options.filter((entry) =>
-    parentPathLabel(entry, entryById).toLowerCase().includes(query),
-  );
-  const toggleValue = (selectedValue: string) => {
-    if (value.includes(selectedValue)) {
-      onChange(value.filter((currentValue) => currentValue !== selectedValue));
-      return;
-    }
-    onChange([...value, selectedValue]);
-  };
+  const t = useTranslation();
+  const activeFilterCount = value === "all" ? 0 : 1;
 
   return (
-    <PickerShell
-      open={open}
-      onOpenChange={onOpenChange}
-      onSearchChange={onSearchChange}
-      displayValue={displayValue}
-      placeholder="Category Filter"
-      ariaLabel="Category Filter"
-      listboxLabel="Category Filter options"
-      icon={<Filter size={18} />}
-      badgeLabel={value.length > 0 ? String(value.length) : undefined}
-      buttonTrigger
+    <div
+      className="relative min-w-0 shrink-0 sm:w-auto"
+      onBlur={() => {
+        window.setTimeout(() => onOpenChange(false), 120);
+      }}
     >
-      <PickerOption
-        label="Categories"
-        ariaLabel="Clear glossary category filters"
-        selected={value.length === 0}
-        showSelectedCheck
-        onSelect={() => {
-          onChange([]);
-          onSearchChange("");
+      <div
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        data-testid="glossary-category-filter-control"
+        className={[
+          "flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border bg-white px-3 text-left text-sm font-semibold transition focus-within:ring-4 sm:w-auto",
+          open
+            ? "border-sakura-400 ring-sakura-100"
+            : "border-slate-200 hover:border-sakura-200 focus-within:border-sakura-300 focus-within:ring-sakura-100",
+        ].join(" ")}
+        onClick={() => {
+          onOpenChange(true);
         }}
-      />
-      <ToolbarCategoryOption
-        label="No parent"
-        ariaLabel="Select glossary category filter No parent"
-        statusLabel="N/A"
-        selected={value.includes("root")}
-        onSelect={() => {
-          toggleValue("root");
-          onSearchChange("");
-        }}
-      />
-      {filteredOptions.map((entry) => (
-        <ToolbarCategoryOption
-          key={entry.id}
-          label={entry.term}
-          ariaLabel={`Select glossary category filter ${parentPathLabel(entry, entryById)}`}
-          title={parentPathLabel(entry, entryById)}
-          statusLabel={glossaryRoleLabel(entry, options)}
-          selected={value.includes(entry.id)}
-          onSelect={() => {
-            toggleValue(entry.id);
-            onSearchChange("");
-          }}
+      >
+        <Filter size={18} className="shrink-0 text-slate-500" />
+        <span className="hidden text-sm font-semibold text-slate-700 sm:inline">
+          {t("common.filter")}
+        </span>
+        <span
+          aria-label={`${activeFilterCount} active filters`}
+          data-testid="glossary-category-filter-badge"
+          className={[
+            "shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold",
+            activeFilterCount > 0
+              ? "bg-sakura-50 text-sakura-700"
+              : "bg-slate-50 text-slate-500",
+          ].join(" ")}
+        >
+          {activeFilterCount}
+        </span>
+        <ChevronDown
+          size={16}
+          className="shrink-0 text-slate-400"
+          data-testid="glossary-category-filter-chevron"
         />
-      ))}
-    </PickerShell>
+      </div>
+      {open && (
+        <div
+          role="listbox"
+          aria-label={t("glossary.categoryOptions")}
+          className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+        >
+          {glossaryFilterOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={value === option.value}
+              className={`flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-semibold transition ${
+                value === option.value
+                  ? "bg-sakura-50 text-sakura-700"
+                  : "bg-white text-slate-700 hover:bg-sakura-50 hover:text-sakura-700"
+              }`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(option.value);
+                onOpenChange(false);
+              }}
+            >
+              <span className="min-w-0 flex-1 truncate">{translateUiDisplayLabel(t, option.label)}</span>
+              {value === option.value && <Check size={15} aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1477,26 +1769,28 @@ function SortPicker({
   onSearchChange: (search: string) => void;
   onChange: (value: GlossarySortKey) => void;
 }) {
+  const t = useTranslation();
   const selectedLabel =
-    sortOptions.find((option) => option.value === value)?.label ?? "Last Updated";
-  const filteredOptions = sortOptions.filter((option) =>
-    option.label.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+    sortOptions.find((option) => option.value === value)?.label ?? "Term A-Z";
+  void search;
 
   return (
     <PickerShell
       open={open}
       onOpenChange={onOpenChange}
       onSearchChange={onSearchChange}
-      displayValue={selectedLabel}
-      placeholder="Sort"
+      displayValue={translateUiDisplayLabel(t, selectedLabel)}
+      placeholder={t("common.sort")}
       ariaLabel="Sort"
       listboxLabel="Sort options"
+      icon={<ArrowUpDown size={18} />}
+      testId="glossary-sort-control"
+      buttonTrigger
     >
-      {filteredOptions.map((option) => (
+      {sortOptions.map((option) => (
         <PickerOption
           key={option.value}
-          label={option.label}
+          label={translateUiDisplayLabel(t, option.label)}
           ariaLabel={`Select sort ${option.label}`}
           selected={option.value === value}
           onSelect={() => {
@@ -1520,6 +1814,9 @@ function PickerShell({
   listboxLabel,
   icon,
   badgeLabel,
+  testId,
+  dropdownSearchValue,
+  dropdownSearchPlaceholder,
   buttonTrigger = false,
   children,
 }: {
@@ -1532,12 +1829,16 @@ function PickerShell({
   listboxLabel: string;
   icon?: ReactNode;
   badgeLabel?: string;
+  testId?: string;
+  dropdownSearchValue?: string;
+  dropdownSearchPlaceholder?: string;
   buttonTrigger?: boolean;
   children: ReactNode;
 }) {
+  const badgeActive = Boolean(badgeLabel && badgeLabel !== "0");
   return (
     <div
-      className="relative mt-1"
+      className={buttonTrigger ? "relative min-w-0 shrink-0 sm:w-auto" : "relative mt-1"}
       onBlur={() => {
         window.setTimeout(() => {
           onOpenChange(false);
@@ -1553,11 +1854,12 @@ function PickerShell({
           type="button"
           aria-label={ariaLabel}
           aria-expanded={open}
+          data-testid={testId}
           className={[
-            "flex h-11 w-full items-center justify-between gap-3 rounded-lg border bg-white pl-12 pr-4 text-sm font-medium text-slate-700 outline-none transition",
+            "flex h-11 w-full max-w-full items-center justify-between gap-3 rounded-lg border bg-white pl-12 pr-3 text-sm font-medium text-slate-700 outline-none transition sm:w-44",
             open
               ? "border-sakura-400 ring-4 ring-sakura-100"
-              : "border-slate-300 hover:border-sakura-200 hover:text-sakura-600 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
+              : "border-slate-200 hover:border-sakura-200 hover:text-sakura-600 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
           onFocus={() => {
             onOpenChange(true);
@@ -1568,16 +1870,32 @@ function PickerShell({
             onSearchChange("");
           }}
         >
-          <span className="flex min-w-0 items-center gap-2">
+          <span
+            className="flex min-w-0 flex-1 items-center gap-2"
+            data-testid={badgeLabel ? "glossary-category-filter-label" : undefined}
+          >
             <span className="truncate">{displayValue}</span>
+          </span>
+          <span className="ml-auto flex shrink-0 items-center gap-2">
             {badgeLabel && (
               <span
                 aria-label={`Selected category filters: ${badgeLabel}`}
-                className="inline-flex min-w-6 items-center justify-center rounded-md border border-sakura-200 bg-sakura-50 px-1.5 py-0.5 text-xs font-bold text-sakura-700"
+                data-testid="glossary-category-filter-badge"
+                className={[
+                  "inline-flex min-w-6 items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-bold",
+                  badgeActive
+                    ? "bg-sakura-50 text-sakura-700"
+                    : "bg-slate-50 text-slate-500",
+                ].join(" ")}
               >
                 {badgeLabel}
               </span>
             )}
+            <ChevronDown
+              size={18}
+              className="text-slate-500"
+              data-testid={badgeLabel ? "glossary-category-filter-chevron" : undefined}
+            />
           </span>
         </button>
       ) : (
@@ -1585,11 +1903,12 @@ function PickerShell({
           aria-label={ariaLabel}
           value={displayValue}
           placeholder={placeholder}
+          data-testid={testId}
           className={[
             "h-11 w-full select-text rounded-lg border bg-white pl-12 pr-11 text-sm font-medium text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400",
             open
               ? "border-sakura-400 ring-4 ring-sakura-100"
-              : "border-slate-300 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
+              : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
           onFocus={() => {
             onOpenChange(true);
@@ -1601,18 +1920,40 @@ function PickerShell({
           }}
         />
       )}
-      <ChevronDown
-        size={18}
-        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
-      />
+      {!buttonTrigger && (
+        <ChevronDown
+          size={18}
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+        />
+      )}
 
       {open && (
         <div
-          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
-          role="listbox"
-          aria-label={listboxLabel}
+          className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
         >
-          {children}
+          {buttonTrigger && dropdownSearchValue !== undefined && (
+            <label className="relative mb-1 block">
+              <span className="sr-only">{dropdownSearchPlaceholder ?? "Search options"}</span>
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="search"
+                value={dropdownSearchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
+                className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
+                placeholder={dropdownSearchPlaceholder ?? "Search options..."}
+              />
+            </label>
+          )}
+          <div
+            className="max-h-64 overflow-y-auto"
+            role="listbox"
+            aria-label={listboxLabel}
+          >
+            {children}
+          </div>
         </div>
       )}
     </div>
@@ -1621,6 +1962,7 @@ function PickerShell({
 
 function ToolbarCategoryOption({
   label,
+  query = "",
   ariaLabel,
   title,
   statusLabel,
@@ -1628,6 +1970,7 @@ function ToolbarCategoryOption({
   onSelect,
 }: {
   label: string;
+  query?: string;
   ariaLabel: string;
   title?: string;
   statusLabel: string;
@@ -1638,7 +1981,7 @@ function ToolbarCategoryOption({
     <button
       type="button"
       className={[
-        "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 overflow-hidden border-b border-slate-100 px-4 py-3 text-left text-sm font-medium transition-colors last:border-b-0 hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none",
+        "grid h-10 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 overflow-hidden rounded-md px-3 text-left text-sm font-medium transition-colors hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none",
         selected ? "bg-sakura-50 text-sakura-700" : "bg-white text-slate-700",
       ].join(" ")}
       aria-label={ariaLabel}
@@ -1648,7 +1991,7 @@ function ToolbarCategoryOption({
       onClick={onSelect}
     >
       <span className="min-w-0 truncate whitespace-nowrap font-semibold">
-        {label}
+        <HighlightedText text={label} query={query} />
       </span>
       <span className="shrink-0 rounded-md border border-sakura-100 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600">
         {statusLabel}
@@ -1664,6 +2007,7 @@ function ToolbarCategoryOption({
 
 function PickerOption({
   label,
+  query = "",
   ariaLabel,
   metaLabel,
   selected = false,
@@ -1671,6 +2015,7 @@ function PickerOption({
   onSelect,
 }: {
   label: string;
+  query?: string;
   ariaLabel: string;
   metaLabel?: string;
   selected?: boolean;
@@ -1681,7 +2026,7 @@ function PickerOption({
     <button
       type="button"
       className={[
-        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden border-b border-slate-100 px-4 py-3 text-left text-sm font-medium transition-colors last:border-b-0 hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none",
+        "grid h-10 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-md px-3 text-left text-sm font-medium transition-colors hover:bg-sakura-50 hover:text-sakura-700 focus:bg-sakura-50 focus:outline-none",
         selected ? "bg-sakura-50 text-sakura-700" : "text-slate-700",
       ].join(" ")}
       aria-label={ariaLabel}
@@ -1690,7 +2035,7 @@ function PickerOption({
       onClick={onSelect}
     >
       <span className="min-w-0 truncate whitespace-nowrap font-semibold" title={label}>
-        {label}
+        <HighlightedText text={label} query={query} />
       </span>
       {metaLabel && (
         <span className="shrink-0 rounded-md border border-sakura-100 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600">
@@ -1737,17 +2082,28 @@ function sortGlossaryEntries(
   left: GlossaryEntry,
   right: GlossaryEntry,
   sortKey: GlossarySortKey,
+  directionOverride?: "ascending" | "descending",
 ) {
   if (sortKey === "az") {
-    return left.term.localeCompare(right.term);
+    const compared = left.term.localeCompare(right.term);
+    return directionOverride === "descending" ? -compared : compared;
   }
   if (sortKey === "za") {
-    return right.term.localeCompare(left.term);
+    const compared = left.term.localeCompare(right.term);
+    return directionOverride === "ascending" ? compared : -compared;
   }
   if (sortKey === "created-desc") {
-    return right.createdAt - left.createdAt || left.term.localeCompare(right.term);
+    const compared =
+      directionOverride === "ascending"
+        ? left.createdAt - right.createdAt
+        : right.createdAt - left.createdAt;
+    return compared || left.term.localeCompare(right.term);
   }
-  return right.updatedAt - left.updatedAt || left.term.localeCompare(right.term);
+  const compared =
+    directionOverride === "ascending"
+      ? left.updatedAt - right.updatedAt
+      : right.updatedAt - left.updatedAt;
+  return compared || left.term.localeCompare(right.term);
 }
 
 function buildGlossaryTableRows({
@@ -1755,19 +2111,51 @@ function buildGlossaryTableRows({
   filteredEntries,
   expandedEntryIds,
   sortKey,
+  sortDirection,
   hierarchical,
 }: {
   entries: GlossaryEntry[];
   filteredEntries: GlossaryEntry[];
   expandedEntryIds: Set<string>;
   sortKey: GlossarySortKey;
+  sortDirection?: "ascending" | "descending";
   hierarchical: boolean;
 }): GlossaryTableDisplayRow[] {
   if (!hierarchical) {
-    return filteredEntries.map((entry) => ({
+    const filteredIds = new Set(filteredEntries.map((entry) => entry.id));
+    const childCountFor = (entry: GlossaryEntry) =>
+      entries.filter((candidate) => candidate.parentId === entry.id).length;
+    const parents = filteredEntries.filter((entry) => childCountFor(entry) > 0);
+    const children = filteredEntries.filter(
+      (entry) => entry.parentId && filteredIds.has(entry.parentId),
+    );
+    const standalone = filteredEntries.filter(
+      (entry) => !entry.parentId && childCountFor(entry) === 0,
+    );
+    const orphans = filteredEntries.filter(
+      (entry) => entry.parentId && !filteredIds.has(entry.parentId),
+    );
+    const orderedEntries: GlossaryEntry[] = [];
+    const emittedIds = new Set<string>();
+    const appendUnique = (items: GlossaryEntry[]) => {
+      for (const entry of items) {
+        if (emittedIds.has(entry.id)) {
+          continue;
+        }
+        orderedEntries.push(entry);
+        emittedIds.add(entry.id);
+      }
+    };
+
+    appendUnique(parents);
+    appendUnique(children);
+    appendUnique(standalone);
+    appendUnique(orphans);
+
+    return orderedEntries.map((entry) => ({
       entry,
       depth: entry.parentId ? 1 : 0,
-      childCount: entries.filter((candidate) => candidate.parentId === entry.id).length,
+      childCount: childCountFor(entry),
       expanded: expandedEntryIds.has(entry.id),
     }));
   }
@@ -1780,7 +2168,9 @@ function buildGlossaryTableRows({
   for (const [parentId, children] of childrenByParent) {
     childrenByParent.set(
       parentId,
-      [...children].sort((left, right) => sortGlossaryEntries(left, right, sortKey)),
+      [...children].sort((left, right) =>
+        sortGlossaryEntries(left, right, sortKey, sortDirection),
+      ),
     );
   }
 
@@ -1817,6 +2207,47 @@ function buildGlossaryTableRows({
   }
 
   return rows;
+}
+
+function defaultGlossaryExpandedEntryIds(entries: GlossaryEntry[]) {
+  return new Set(
+    entries
+      .filter((entry) => entries.some((candidate) => candidate.parentId === entry.id))
+      .map((entry) => entry.id),
+  );
+}
+
+function normalizeGlossaryFilterValue(value: GlossarySessionFilters["parentFilter"]): GlossaryFilterValue {
+  if (value === "parent" || value === "child") {
+    return value;
+  }
+  return "all";
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return <>{text}</>;
+  }
+
+  const matchIndex = text.toLowerCase().indexOf(trimmedQuery.toLowerCase());
+  if (matchIndex < 0) {
+    return <>{text}</>;
+  }
+
+  const before = text.slice(0, matchIndex);
+  const match = text.slice(matchIndex, matchIndex + trimmedQuery.length);
+  const after = text.slice(matchIndex + trimmedQuery.length);
+
+  return (
+    <>
+      {before}
+      <mark className="rounded-sm bg-sakura-100 px-0 text-slate-900">
+        {match}
+      </mark>
+      {after}
+    </>
+  );
 }
 
 function parentPathLabel(entry: GlossaryEntry, entryById: Map<string, GlossaryEntry>) {
@@ -1856,6 +2287,17 @@ function abbreviateCategorySegment(segment: string) {
     return segment;
   }
   return segment.slice(0, 3);
+}
+
+function scrollFormIntoView(element: HTMLElement | null) {
+  if (typeof element?.scrollIntoView !== "function") {
+    return;
+  }
+
+  element.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 }
 
 function categoryDisplayLabel(entry: GlossaryEntry, entryById: Map<string, GlossaryEntry>) {
@@ -1955,6 +2397,15 @@ const secondaryButtonClassName =
   "h-11 rounded-lg border border-slate-300 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50";
 
 const paginationButtonClassName =
-  "h-9 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50";
+
+function buildGlossaryPaginationPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: 5 }, (_, index) => start + index);
+}
 
 export default GlossaryPage;

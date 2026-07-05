@@ -1,28 +1,44 @@
-import type { Image, NewVideo, Performer, Video, VideoPatch } from "../backend/types";
+import type {
+  Credit,
+  Image,
+  ManagedCategory,
+  NewVideo,
+  Performer,
+  Video,
+  VideoPatch,
+} from "../backend/types";
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
+  parseSourceLinkArray,
   parseRatingObject,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
+  stringifySourceLinkArray,
   stringifyTextLabelArray,
 } from "../backend/json";
 import type { CollectionConfig, VideoCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, VideoDetailConfig } from "./detailData";
-import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
+import {
+  DETAIL_EMPTY_VALUE,
+  formatSystemTimestamp,
+  sourceLinksFromRecord,
+} from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
   FormMode,
   RelatedCatalogRecordFormValue,
   RelatedPerformerFormValue,
+  SourceLinkFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
-import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
+import { buildCreditDetailItems } from "./creditDisplay";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -40,6 +56,8 @@ export function buildVideoDetailConfig(
   video: Video,
   performers: Performer[] = [],
   images: Image[] = [],
+  credits: Credit[] = [],
+  managedCategories: ManagedCategory[] = [],
 ): VideoDetailConfig {
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   return {
@@ -65,7 +83,7 @@ export function buildVideoDetailConfig(
       { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(video.updatedAt) },
     ],
-    rating: getRatingDimensions(video.ratingJson, videoRatingFields),
+    rating: getDetailRatingDimensions(video.ratingJson, videoRatingFields),
     techItems: [
       { label: "Duration", value: formatDuration(video.durationMinutes) },
       { label: "Resolution", value: formatDetectedText(video.resolution) },
@@ -73,12 +91,15 @@ export function buildVideoDetailConfig(
       { label: "File Type", value: formatOptionalText(video.fileType) },
     ],
     notes: detailNotes(video.notes),
+    sourceLinks: sourceLinksFromRecord(video),
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
       video.relatedPerformersJson,
       performers,
       video.relatedImagesJson,
       images,
+      credits,
+      managedCategories,
     ),
   };
 }
@@ -110,6 +131,11 @@ export function buildVideoFormConfig(video: Video | null, mode: FormMode): FormC
       edit: formConfigs.videos.initialRelatedCatalogRecords?.edit ?? [],
       [mode]: parseRelatedCatalogRecordArray(video.relatedImagesJson),
     },
+    initialSourceLinks: {
+      create: formConfigs.videos.initialSourceLinks?.create ?? [],
+      edit: formConfigs.videos.initialSourceLinks?.edit ?? [],
+      [mode]: parseSourceLinkArray(video.sourceLinksJson),
+    },
   };
 }
 
@@ -118,6 +144,7 @@ export function videoFormToCreateInput(
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): NewVideo {
   return {
     title: textValue(values.title),
@@ -141,6 +168,7 @@ export function videoFormToCreateInput(
     relatedImagesJson: normalizeRelatedCatalogRecordsJson(
       JSON.stringify(relatedImages),
     ),
+    sourceLinksJson: stringifySourceLinkArray(sourceLinks),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -151,12 +179,14 @@ export function videoFormToPatch(
   categories: string[],
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): VideoPatch {
   return videoFormToCreateInput(
     values,
     categories,
     relatedPerformers,
     relatedImages,
+    sourceLinks,
   );
 }
 
@@ -227,12 +257,12 @@ function formRating(values: FormValues): Record<string, number> {
 
 function normalizeFormRatingValue(value: FormValues[string] | unknown): number {
   const number = Number(value);
-  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 1;
 }
 
 function formatFormRatingValue(value: FormValues[string] | unknown): string {
   const rating = normalizeFormRatingValue(value);
-  return rating > 0 ? String(rating) : "";
+  return String(rating);
 }
 
 function textValue(value: FormValues[string]) {
@@ -279,12 +309,24 @@ function buildRelatedSections(
   performers: Performer[],
   relatedImagesJson: string | null | undefined,
   images: Image[],
+  credits: Credit[],
+  managedCategories: ManagedCategory[],
 ): DetailSection[] {
   return sections.map((section) =>
     section.title.includes("Performer")
       ? {
           ...section,
-          description: "Read-only Related Performer links saved on this record.",
+          title: "Related Performers",
+          description:
+            credits.length > 0
+              ? "Related Performers saved for this Video."
+              : "Read-only Related Performer links saved on this record.",
+          credits: buildCreditDetailItems(
+            credits,
+            performers,
+            managedCategories,
+            relatedPerformersJson,
+          ),
           relatedPerformers: buildRelatedPerformerItems(
             relatedPerformersJson,
             performers,

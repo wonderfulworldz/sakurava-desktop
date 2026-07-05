@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS performers (
   debutDate TEXT NOT NULL DEFAULT '',
   retiredDate TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT '',
   birthplace TEXT NOT NULL DEFAULT '',
   nationality TEXT NOT NULL DEFAULT '',
   bloodType TEXT NOT NULL DEFAULT '',
@@ -88,6 +89,9 @@ CREATE TABLE IF NOT EXISTS performers (
 );
 `;
 
+export const ADD_PERFORMER_GENDER_COLUMN_SQL =
+  "ALTER TABLE performers ADD COLUMN gender TEXT NOT NULL DEFAULT ''";
+
 export const CREATE_MANAGED_CATEGORIES_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS managedCategories (
   key TEXT PRIMARY KEY NOT NULL,
@@ -98,6 +102,7 @@ CREATE TABLE IF NOT EXISTS managedCategories (
   showInVideos INTEGER NOT NULL DEFAULT 1 CHECK (showInVideos IN (0, 1)),
   showInImages INTEGER NOT NULL DEFAULT 1 CHECK (showInImages IN (0, 1)),
   showInPerformers INTEGER NOT NULL DEFAULT 1 CHECK (showInPerformers IN (0, 1)),
+  showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(name COLLATE NOCASE),
@@ -122,12 +127,35 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
 );
 `;
 
+export const CREATE_CREDITS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS credits (
+  id TEXT PRIMARY KEY NOT NULL,
+  workType TEXT NOT NULL,
+  workId TEXT NOT NULL,
+  performerId TEXT NOT NULL,
+  characterName TEXT NOT NULL DEFAULT '',
+  characterOriginalName TEXT,
+  creditedAs TEXT,
+  creditedAsMode TEXT NOT NULL DEFAULT 'auto',
+  creditTypeCategoryId TEXT,
+  roleImportanceCategoryId TEXT,
+  characterMode TEXT NOT NULL DEFAULT 'text',
+  characterId TEXT,
+  billingOrder INTEGER,
+  note TEXT,
+  legacySourceKey TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+`;
+
 export const SCHEMA_SQL = [
   CREATE_VIDEOS_TABLE_SQL,
   CREATE_IMAGES_TABLE_SQL,
   CREATE_PERFORMERS_TABLE_SQL,
   CREATE_MANAGED_CATEGORIES_TABLE_SQL,
   CREATE_GLOSSARY_ENTRIES_TABLE_SQL,
+  CREATE_CREDITS_TABLE_SQL,
 ] as const;
 
 export const TABLE_NAMES = [
@@ -136,4 +164,5 @@ export const TABLE_NAMES = [
   "performers",
   "managedCategories",
   "glossary_entries",
+  "credits",
 ] as const;

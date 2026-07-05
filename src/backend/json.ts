@@ -11,6 +11,11 @@ export type RelatedCatalogRecordReference = {
   titleSnapshot: string;
 };
 
+export type SourceLinkReference = {
+  title: string;
+  url: string;
+};
+
 const MAX_PERFORMER_THUMBNAIL_PATHS = 4;
 
 export function safeParseJson(value: string | null | undefined): unknown {
@@ -234,6 +239,51 @@ export function normalizeRelatedCatalogRecordsJson(
   value: string | null | undefined,
 ): string {
   return JSON.stringify(parseRelatedCatalogRecordArray(value));
+}
+
+export function parseSourceLinkArray(
+  value: string | null | undefined,
+): SourceLinkReference[] {
+  const parsed = safeParseJson(value);
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const links: SourceLinkReference[] = [];
+
+  for (const item of parsed) {
+    if (!item || Array.isArray(item) || typeof item !== "object") {
+      continue;
+    }
+
+    const record = item as Record<string, unknown>;
+    const title = typeof record.title === "string" ? record.title.trim() : "";
+    const url = typeof record.url === "string" ? record.url.trim() : "";
+
+    if (!title && !url) {
+      continue;
+    }
+
+    links.push({ title, url });
+  }
+
+  return links;
+}
+
+export function stringifySourceLinkArray(links: readonly SourceLinkReference[]): string {
+  return JSON.stringify(
+    links
+      .map((link) => ({
+        title: link.title.trim(),
+        url: link.url.trim(),
+      }))
+      .filter((link) => link.title || link.url),
+  );
+}
+
+export function normalizeSourceLinksJson(value: string | null | undefined): string {
+  return JSON.stringify(parseSourceLinkArray(value));
 }
 
 export function parseRatingObject(

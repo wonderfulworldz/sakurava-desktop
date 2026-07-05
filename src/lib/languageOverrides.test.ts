@@ -90,6 +90,20 @@ describe("language overrides", () => {
     expect(getStoredLanguageOverrides()).toEqual({});
   });
 
+  it("drops malformed stored override values", () => {
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        ja: { "nav.home": "ホーム", "nav.videos": 42, empty: "  " },
+        invalid: "not an object",
+      }),
+    );
+
+    expect(getStoredLanguageOverrides()).toEqual({
+      ja: { "nav.home": "ホーム" },
+    });
+  });
+
   it("override persists across reads", () => {
     setOverrideForLanguage("id", "settings.title", "Setelan Kustom");
 
@@ -104,8 +118,8 @@ describe("language overrides", () => {
     const overrides = { "nav.home": "Custom" };
     expect(translate("id", "nav.home", {}, overrides)).toBe("Custom");
 
-    // Without override, falls back to built-in Indonesian
-    expect(translate("id", "nav.home", {}, {})).toBe("Beranda");
+    // Without override, every custom language falls back to English.
+    expect(translate("id", "nav.home", {}, {})).toBe("Home");
 
     // Missing key in both, falls back to key itself
     expect(translate("id", "totally.missing.key", {}, {})).toBe("totally.missing.key");

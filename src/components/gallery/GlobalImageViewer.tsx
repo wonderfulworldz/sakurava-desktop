@@ -28,7 +28,12 @@ import {
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { localImagePathToAssetSrc } from "../../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../../runtime/MediaAssetScopeContext";
+import {
+  openDetailSourceFolder,
+  saveDetailSourceFileAs,
+} from "../../runtime/detailActions";
 import { isTauriRuntimeAvailable } from "../../runtime/tauriClient";
+import { useTranslation } from "../../lib/LanguageContext";
 
 export type GlobalImageViewerItem = {
   filename?: string;
@@ -53,11 +58,33 @@ const GALLERY_CONTROLS_IDLE_DELAY_MS = 2000;
 const VIEWER_POPOVER_CLOSE_DELAY_MS = 5000;
 const COPY_FEEDBACK_CLEAR_MS = 1600;
 const VIEWER_SETTINGS_STORAGE_KEY = "sakurava.globalImageViewer.settings.v1";
-const MIN_GALLERY_ZOOM = 0.25;
-export const MAX_GALLERY_ZOOM = 5;
+const MIN_GALLERY_ZOOM = 0.01;
+export const MAX_GALLERY_ZOOM = 10;
 const GALLERY_ZOOM_STEP = 0.25;
+const GALLERY_ZOOM_SLIDER_STEP = 0.01;
+const ZOOM_SNAP_THRESHOLD = 0.05;
+const ZOOM_SNAP_POINTS = [0.25, 0.5, 1, 1.5];
+const ROTATION_SNAP_THRESHOLD = 6;
+const ROTATION_SNAP_POINTS = [-180, -135, -90, -45, 0, 45, 90, 135, 180];
+const COMMON_RATIO_TOLERANCE = 0.01;
+const SQUARE_RATIO_TOLERANCE = 0.005;
+const COMMON_IMAGE_RATIOS = [
+  [1, 1],
+  [4, 5],
+  [5, 4],
+  [3, 4],
+  [4, 3],
+  [2, 3],
+  [3, 2],
+  [9, 16],
+  [16, 9],
+  [10, 16],
+  [16, 10],
+  [21, 9],
+  [9, 21],
+] as const;
 const VIEWPORT_FALLBACK = { width: 1000, height: 700 };
-const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5];
+const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 10];
 const FIT_MODES = [
   { label: "Fit Window", value: "window" },
   { label: "Fit Width", value: "width" },
@@ -69,6 +96,12 @@ type FitMode = (typeof FIT_MODES)[number]["value"];
 type Size = {
   height: number;
   width: number;
+};
+
+type ImageDimensionState = {
+  key: string;
+  size: Size | null;
+  status: "loading" | "loaded" | "error";
 };
 
 type Point = {
@@ -85,7 +118,7 @@ type DragState =
   | null;
 
 function GlobalImageViewer({
-  ariaLabel = "Gallery full-size viewer",
+  ariaLabel,
   images,
   initialIndex,
   isSeparateWindow = false,
@@ -95,6 +128,8 @@ function GlobalImageViewer({
   paths,
   viewerEpoch = 0,
 }: GlobalImageViewerProps) {
+  const t = useTranslation();
+  const resolvedAriaLabel = ariaLabel ?? t("viewer.fullSize");
   const normalizedImages: GlobalImageViewerItem[] = useMemo(
     () => images ?? paths?.map((path) => ({ path })) ?? [],
     [images, paths],
@@ -124,7 +159,11 @@ function GlobalImageViewer({
   const [rotation, setRotation] = useState(
     () => readStoredViewerSettings().rotation,
   );
-  const [naturalSize, setNaturalSize] = useState<Size | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<ImageDimensionState>({
+    key: "",
+    size: null,
+    status: "loading",
+  });
   const [viewportSize, setViewportSize] = useState<Size>(VIEWPORT_FALLBACK);
   const [dockWidth, setDockWidth] = useState(VIEWPORT_FALLBACK.width);
   const [controlPanelWidth, setControlPanelWidth] = useState(0);
@@ -143,6 +182,10 @@ function GlobalImageViewer({
     () => readStoredViewerSettings().rememberViewerSettings,
   );
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [fileActionFeedback, setFileActionFeedback] = useState<string | null>(null);
+  const [pendingFileAction, setPendingFileAction] = useState<"save" | "folder" | null>(
+    null,
+  );
   const [minimapDragging, setMinimapDragging] = useState(false);
   const [isFullWindow, setIsFullWindow] = useState(false);
   const viewerRef = useRef<HTMLDivElement | null>(null);
@@ -158,7 +201,9 @@ function GlobalImageViewer({
   const copyFeedbackTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
   );
+  const fileActionPendingRef = useRef<"save" | "folder" | null>(null);
   const panSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
   const minimapRef = useRef<HTMLDivElement | null>(null);
   const activeImageKeyRef = useRef("");
   const panPointerIdRef = useRef<number | null>(null);
@@ -171,16 +216,25 @@ function GlobalImageViewer({
   const activeImageKey = `${openRequestId ?? viewerEpoch}:${currentIndex}:${path}:${item?.filename ?? ""}:${item?.resolution ?? ""}:${item?.title ?? ""}`;
   activeImageKeyRef.current = activeImageKey;
   const parsedResolution = parseResolution(item?.resolution);
-  const activeNaturalSize = naturalSize ?? parsedResolution;
+  const loadedNaturalSize =
+    imageDimensions.key === activeImageKey &&
+    imageDimensions.status === "loaded"
+      ? imageDimensions.size
+      : null;
+  const currentImageDimensions = getCurrentImageDimensions({
+    imageFailed,
+    loadedNaturalSize,
+    metadataSize: parsedResolution,
+  });
+  const activeNaturalSize = currentImageDimensions;
   const canShowImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
   const canGoPrevious = currentIndex > 0;
   const canGoNext = currentIndex < normalizedImages.length - 1;
   const displayName = item?.filename || fileNameFromPath(path) || item?.title || "Gallery image";
   const resolution =
-    item?.resolution?.trim() ??
-    (activeNaturalSize
-      ? `${activeNaturalSize.width} x ${activeNaturalSize.height}`
-      : undefined);
+    currentImageDimensions
+      ? formatImageDimensions(currentImageDimensions)
+      : undefined;
   const fitScale = getFitScale(activeNaturalSize, viewportSize, fitMode);
   const effectiveScale = isFitMode ? fitScale : zoom;
   const zoomLabel = isFitMode ? "Fit" : `${Math.round(zoom * 100)}%`;
@@ -200,9 +254,7 @@ function GlobalImageViewer({
   const panBounds = getPanBounds(imageSize, viewportSize);
   const isPannable = panBounds.x > 0 || panBounds.y > 0;
   const showMinimap = Boolean(canShowImage && activeNaturalSize && isPannable);
-  const aspectRatioLabel = activeNaturalSize
-    ? roundedAspectRatio(activeNaturalSize.width, activeNaturalSize.height)
-    : "1:1";
+  const aspectRatioLabel = formatImageRatio(currentImageDimensions);
   const controlsVisibilityClass = controlsVisible
     ? "opacity-100"
     : "pointer-events-none opacity-0";
@@ -238,6 +290,8 @@ function GlobalImageViewer({
   const fitModeLabel =
     FIT_MODES.find((mode) => mode.value === fitMode)?.label ?? "Fit Window";
   const fileType = getFileType(displayName || path);
+  const actionSourcePath = path.trim();
+  const hasActionSourcePath = actionSourcePath.length > 0;
 
   function clearHideControlsTimer() {
     if (hideControlsTimerRef.current) {
@@ -374,6 +428,14 @@ function GlobalImageViewer({
     resetPan();
   }
 
+  function resetTransformToActualSize() {
+    setIsFitMode(false);
+    setFitMode("window");
+    setZoom(1);
+    setRotation(0);
+    resetPan();
+  }
+
   function goToIndex(nextIndex: number) {
     if (nextIndex < 0 || nextIndex >= normalizedImages.length) {
       return;
@@ -383,7 +445,7 @@ function GlobalImageViewer({
     setImageFailed(false);
     releasePointerState();
     resetTransform();
-    setNaturalSize(null);
+    setImageDimensions({ key: "", size: null, status: "loading" });
     showControlsAndResetIdleTimer();
   }
 
@@ -420,7 +482,7 @@ function GlobalImageViewer({
     setImageFailed(false);
     releasePointerState();
     skipNextSettingsStoreRef.current = true;
-    resetTransform(defaultViewerSettings());
+    resetTransformToActualSize();
   }
 
   function syncViewportSizeNow() {
@@ -442,7 +504,8 @@ function GlobalImageViewer({
   }
 
   function applyZoom(nextZoom: number, anchor?: Point) {
-    const clampedZoom = clamp(nextZoom, MIN_GALLERY_ZOOM, MAX_GALLERY_ZOOM);
+    const safeZoom = Number.isFinite(nextZoom) ? nextZoom : 1;
+    const clampedZoom = clamp(safeZoom, MIN_GALLERY_ZOOM, MAX_GALLERY_ZOOM);
     const previousScale = effectiveScale;
     const nextScale = clampedZoom;
     const currentNaturalSize = activeNaturalSize;
@@ -478,6 +541,10 @@ function GlobalImageViewer({
     });
   }
 
+  function setZoomFromSlider(nextZoom: number) {
+    applyZoom(snapZoom(nextZoom));
+  }
+
   function rotateBy(delta: number) {
     showControlsAndResetIdleTimer();
     setRotation((current) => normalizeRotation(current + delta));
@@ -485,8 +552,9 @@ function GlobalImageViewer({
   }
 
   function snapRotation(value: number) {
-    const snapPoints = [-180, -90, 0, 90, 180];
-    const closeSnap = snapPoints.find((snapPoint) => Math.abs(value - snapPoint) <= 2);
+    const closeSnap = ROTATION_SNAP_POINTS.find(
+      (snapPoint) => Math.abs(value - snapPoint) <= ROTATION_SNAP_THRESHOLD,
+    );
     return closeSnap ?? value;
   }
 
@@ -507,18 +575,52 @@ function GlobalImageViewer({
   }
 
   function handleImageLoad(event: SyntheticEvent<HTMLImageElement>) {
-    if (event.currentTarget.dataset.viewerImageKey !== activeImageKeyRef.current) {
+    syncLoadedImageDimensions(event.currentTarget);
+  }
+
+  function syncLoadedImageDimensions(imageElement: HTMLImageElement | null) {
+    if (!imageElement) {
+      return;
+    }
+
+    const imageKey = imageElement.dataset.viewerImageKey ?? "";
+    if (imageKey !== activeImageKeyRef.current) {
       return;
     }
 
     const nextNaturalSize = {
-      width: event.currentTarget.naturalWidth,
-      height: event.currentTarget.naturalHeight,
+      width: imageElement.naturalWidth,
+      height: imageElement.naturalHeight,
     };
 
     if (nextNaturalSize.width > 0 && nextNaturalSize.height > 0) {
-      setNaturalSize(nextNaturalSize);
+      setImageFailed(false);
+      setImageDimensions((current) =>
+        current.key === imageKey &&
+        current.status === "loaded" &&
+        current.size?.width === nextNaturalSize.width &&
+        current.size.height === nextNaturalSize.height
+          ? current
+          : { key: imageKey, size: nextNaturalSize, status: "loaded" },
+      );
+      return;
     }
+
+    setImageDimensions((current) =>
+      current.key === imageKey && current.status === "loading"
+        ? current
+        : { key: imageKey, size: null, status: "loading" },
+    );
+  }
+
+  function handleImageError(event: SyntheticEvent<HTMLImageElement>) {
+    const imageKey = event.currentTarget.dataset.viewerImageKey ?? "";
+    if (imageKey !== activeImageKeyRef.current) {
+      return;
+    }
+
+    setImageFailed(true);
+    setImageDimensions({ key: imageKey, size: null, status: "error" });
   }
 
   function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -671,6 +773,46 @@ function GlobalImageViewer({
     showControlsAndResetIdleTimer();
   }
 
+  async function saveCurrentImageAs() {
+    if (!hasActionSourcePath || fileActionPendingRef.current) {
+      setFileActionFeedback("No source file available");
+      return;
+    }
+
+    fileActionPendingRef.current = "save";
+    setPendingFileAction("save");
+    setFileActionFeedback(null);
+    try {
+      const result = await saveDetailSourceFileAs(actionSourcePath);
+      const nextFeedback = getFileActionFeedback(result);
+      setFileActionFeedback(nextFeedback);
+    } finally {
+      fileActionPendingRef.current = null;
+      setPendingFileAction(null);
+      showControlsAndResetIdleTimer();
+    }
+  }
+
+  async function openCurrentImageFolder() {
+    if (!hasActionSourcePath || fileActionPendingRef.current) {
+      setFileActionFeedback("No source folder available");
+      return;
+    }
+
+    fileActionPendingRef.current = "folder";
+    setPendingFileAction("folder");
+    setFileActionFeedback(null);
+    try {
+      const result = await openDetailSourceFolder(actionSourcePath);
+      const nextFeedback = getFileActionFeedback(result);
+      setFileActionFeedback(nextFeedback);
+    } finally {
+      fileActionPendingRef.current = null;
+      setPendingFileAction(null);
+      showControlsAndResetIdleTimer();
+    }
+  }
+
   function toggleAlwaysShowControls() {
     setAlwaysShowControls((current) => {
       const next = !current;
@@ -715,12 +857,29 @@ function GlobalImageViewer({
     setImageFailed(false);
     releasePointerState();
     resetTransform();
-    setNaturalSize(null);
+    setImageDimensions({ key: "", size: null, status: "loading" });
+    setFileActionFeedback(null);
+    fileActionPendingRef.current = null;
+    setPendingFileAction(null);
     syncViewportSizeNow();
     closePopovers();
     setControlsVisible(true);
     scheduleHideControls();
   }, [initialIndex, normalizedImagesKey, openRequestId, viewerEpoch]);
+
+  useEffect(() => {
+    setImageFailed(false);
+    setImageDimensions({ key: activeImageKey, size: null, status: "loading" });
+    window.requestAnimationFrame(() => {
+      syncLoadedImageDimensions(imageElementRef.current);
+    });
+  }, [activeImageKey]);
+
+  useEffect(() => {
+    setFileActionFeedback(null);
+    fileActionPendingRef.current = null;
+    setPendingFileAction(null);
+  }, [actionSourcePath]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -903,7 +1062,7 @@ function GlobalImageViewer({
     <div
       role="dialog"
       aria-modal={isSeparateWindow ? undefined : "true"}
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
       ref={viewerRef}
       tabIndex={-1}
       className="global-image-viewer fixed inset-0 z-50 m-0 h-screen w-screen overflow-hidden bg-slate-950 text-[var(--viewer-panel-text)]"
@@ -918,7 +1077,7 @@ function GlobalImageViewer({
       <div className="viewer-scrim-bottom absolute inset-x-0 bottom-0 h-36" />
 
       <div
-        aria-label="Image metadata"
+        aria-label={t("viewer.metadata")}
         data-layout-zone="viewer-metadata"
         className={`pointer-events-none absolute left-3 top-3 z-20 flex max-w-[calc(100%-6rem)] min-w-0 items-center gap-2 rounded-xl px-3 py-2 transition-opacity duration-300 sm:left-5 sm:top-5 sm:max-w-[calc(100%-16rem)] sm:gap-3 sm:px-4 sm:py-3 ${glassPanelClass} ${controlsVisibilityClass}`}
       >
@@ -938,13 +1097,13 @@ function GlobalImageViewer({
       </div>
 
       <div
-        aria-label="Image viewer actions"
+        aria-label={t("viewer.actions")}
         data-layout-zone="viewer-actions"
         className={`absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-xl p-1.5 transition-opacity duration-300 sm:right-5 sm:top-5 sm:gap-2 sm:p-2 ${glassPanelClass} ${controlsVisibilityClass}`}
       >
         <button
           type="button"
-          aria-label="Show image viewer shortcuts"
+          aria-label={t("viewer.showShortcuts")}
           aria-expanded={shortcutsOpen}
           onClick={() => shortcutsOpen ? closePopovers() : openPopover("shortcuts")}
           className={`${glassButtonClass} size-10 sm:size-11`}
@@ -952,7 +1111,7 @@ function GlobalImageViewer({
           <HelpCircle size={19} />
         </button>
         <span
-          aria-label="Image aspect ratio"
+          aria-label={t("viewer.aspectRatio")}
           className="viewer-button inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-semibold sm:h-11 sm:px-4"
         >
           {aspectRatioLabel}
@@ -960,7 +1119,7 @@ function GlobalImageViewer({
         {onOpenFolder && (
           <button
             type="button"
-            aria-label="Open image folder"
+            aria-label={t("viewer.openFolder")}
             onClick={() => onOpenFolder(path)}
             className={`${glassButtonClass} size-10 sm:size-11`}
           >
@@ -969,7 +1128,7 @@ function GlobalImageViewer({
         )}
         <button
           type="button"
-          aria-label="More image actions"
+          aria-label={t("viewer.moreActions")}
           aria-expanded={moreMenuOpen}
           onClick={() => moreMenuOpen ? closePopovers() : openPopover("more")}
           className={`${glassButtonClass} size-10 sm:size-11`}
@@ -980,7 +1139,7 @@ function GlobalImageViewer({
 
       {shortcutsOpen && (
         <div
-          aria-label="Image viewer shortcuts"
+          aria-label={t("viewer.shortcuts")}
           data-layout-zone="viewer-shortcuts"
           className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
@@ -988,24 +1147,24 @@ function GlobalImageViewer({
           onFocus={clearPopoverCloseTimer}
           onBlur={schedulePopoverClose}
         >
-          <h2 className="text-sm font-semibold">Shortcuts</h2>
+          <h2 className="text-sm font-semibold">{t("viewer.shortcutsTitle")}</h2>
           <dl className="viewer-muted mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Esc</dt>
-            <dd>Close viewer</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Left / Right</dt>
-            <dd>Navigate images</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">+ / -</dt>
-            <dd>Zoom in or out</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">0 / F</dt>
-            <dd>Fit to window</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">1</dt>
-            <dd>Show at 100%</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">F11</dt>
-            <dd>Toggle full-window mode</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Wheel</dt>
-            <dd>Zoom around pointer</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Drag</dt>
-            <dd>Pan when zoomed</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.esc")}</dt>
+            <dd>{t("viewer.shortcuts.action.closeViewer")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.leftRight")}</dt>
+            <dd>{t("viewer.shortcuts.navigate")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.zoom")}</dt>
+            <dd>{t("viewer.shortcuts.zoom")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.fit")}</dt>
+            <dd>{t("viewer.shortcuts.fitWindow")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.actualSize")}</dt>
+            <dd>{t("viewer.shortcuts.actualSize")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.fullWindow")}</dt>
+            <dd>{t("viewer.shortcuts.fullWindow")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.wheel")}</dt>
+            <dd>{t("viewer.shortcuts.zoomPointer")}</dd>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.shortcuts.key.drag")}</dt>
+            <dd>{t("viewer.shortcuts.panZoomed")}</dd>
           </dl>
         </div>
       )}
@@ -1013,20 +1172,24 @@ function GlobalImageViewer({
       {moreMenuOpen && (
         <div
           role="menu"
-          aria-label="More image actions menu"
+          aria-label={t("viewer.moreActionsMenu")}
           className={`absolute right-3 top-16 z-40 w-[min(18rem,calc(100%-1.5rem))] rounded-xl p-2 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
           onFocus={clearPopoverCloseTimer}
           onBlur={schedulePopoverClose}
         >
-          {/* Disabled until a safe save/export command is wired for viewer images. */}
-          <button role="menuitem" type="button" disabled className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold opacity-45">
-            Save As
-          </button>
-          {/* Disabled because the current runtime only exposes safe text clipboard here. */}
-          <button role="menuitem" type="button" disabled className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold opacity-45">
-            Copy Image
+          <button
+            role="menuitem"
+            type="button"
+            disabled={!hasActionSourcePath || pendingFileAction !== null}
+            onClick={() => void saveCurrentImageAs()}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
+          >
+            <span>{pendingFileAction === "save" ? t("viewer.saving") : t("viewer.more.saveAs")}</span>
+            {fileActionFeedback === "Source file saved" && (
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">{t("viewer.saved")}</span>
+            )}
           </button>
           <button
             role="menuitem"
@@ -1035,9 +1198,9 @@ function GlobalImageViewer({
             onClick={() => void copyText(path, "Path")}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            <span>Copy Image Path</span>
+            <span>{t("viewer.more.copyPath")}</span>
             {copyFeedback === "Path copied" && (
-              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Copied</span>
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">{t("viewer.copied")}</span>
             )}
           </button>
           <button
@@ -1047,31 +1210,32 @@ function GlobalImageViewer({
             onClick={() => void copyText(displayName, "File name")}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            <span>Copy File Name</span>
+            <span>{t("viewer.more.copyName")}</span>
             {copyFeedback === "File name copied" && (
-              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">Copied</span>
+              <span className="text-xs font-semibold text-sakura-600 transition-opacity duration-200">{t("viewer.copied")}</span>
             )}
           </button>
           <button
             role="menuitem"
             type="button"
-            disabled={!onOpenFolder || !path}
-            onClick={() => {
-              if (onOpenFolder) {
-                onOpenFolder(path);
-              }
-            }}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
+            disabled={!hasActionSourcePath || pendingFileAction !== null}
+            onClick={() => void openCurrentImageFolder()}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50 disabled:opacity-45"
           >
-            Open Folder
+            <span>{pendingFileAction === "folder" ? t("viewer.opening") : t("viewer.more.openFolder")}</span>
           </button>
+          {fileActionFeedback && (
+            <p className="px-3 py-1 text-xs font-semibold text-slate-500">
+              {fileActionFeedback}
+            </p>
+          )}
           <button
             role="menuitem"
             type="button"
             onClick={() => openPopover("fileInfo")}
             className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
           >
-            File Info
+            {t("viewer.more.fileInfo")}
           </button>
           <div className="my-1 h-px bg-[var(--viewer-divider)]" />
           <button
@@ -1081,7 +1245,7 @@ function GlobalImageViewer({
             onClick={toggleAlwaysShowControls}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
           >
-            <span>Always Show Controls</span>
+            <span>{t("viewer.more.alwaysShowControls")}</span>
             <span className={`relative h-5 w-9 rounded-full transition ${alwaysShowControls ? "bg-sakura-500" : "bg-slate-300"}`} data-testid="always-show-controls-switch">
               <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition ${alwaysShowControls ? "left-4" : "left-0.5"}`} />
             </span>
@@ -1093,7 +1257,7 @@ function GlobalImageViewer({
             onClick={toggleRememberViewerSettings}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-sakura-50"
           >
-            <span>Remember Viewer Settings</span>
+            <span>{t("viewer.more.rememberSettings")}</span>
             <span className={`relative h-5 w-9 rounded-full transition ${rememberViewerSettings ? "bg-sakura-500" : "bg-slate-300"}`} data-testid="remember-viewer-settings-switch">
               <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition ${rememberViewerSettings ? "left-4" : "left-0.5"}`} />
             </span>
@@ -1103,26 +1267,26 @@ function GlobalImageViewer({
 
       {fileInfoOpen && (
         <div
-          aria-label="Image file info"
+          aria-label={t("viewer.fileInfoLabel")}
           className={`absolute right-3 top-16 z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-xl p-4 transition-opacity duration-300 sm:right-5 sm:top-20 ${glassPanelClass}`}
           onPointerEnter={clearPopoverCloseTimer}
           onPointerLeave={schedulePopoverClose}
           onFocus={clearPopoverCloseTimer}
           onBlur={schedulePopoverClose}
         >
-          <h2 className="text-sm font-semibold">File Info</h2>
+          <h2 className="text-sm font-semibold">{t("viewer.more.fileInfo")}</h2>
           <dl className="viewer-muted mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Name</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.name")}</dt>
             <dd className="min-w-0 break-all">{displayName}</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">File Type</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.fileType")}</dt>
             <dd>{fileType}</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Dimension</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.dimension")}</dt>
             <dd>{resolution ? `${resolution} (${aspectRatioLabel})` : `N/A (${aspectRatioLabel})`}</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Size</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.size")}</dt>
             <dd>N/A</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Date Taken</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.dateTaken")}</dt>
             <dd>N/A</dd>
-            <dt className="font-semibold text-[var(--viewer-panel-text)]">Path</dt>
+            <dt className="font-semibold text-[var(--viewer-panel-text)]">{t("viewer.fileInfo.path")}</dt>
             <dd className="min-w-0 truncate" title={path || "N/A"}>{path || "N/A"}</dd>
           </dl>
         </div>
@@ -1138,7 +1302,7 @@ function GlobalImageViewer({
       {canGoPrevious && (
         <button
           type="button"
-          aria-label="Previous gallery image"
+          aria-label={t("viewer.previous")}
           onClick={() => goToIndex(currentIndex - 1)}
           data-layout-zone="viewer-side-nav"
           className={`absolute left-3 top-1/2 z-20 size-11 -translate-y-1/2 transition-opacity duration-300 sm:left-5 sm:size-14 ${glassButtonClass} ${controlsVisibilityClass}`}
@@ -1150,7 +1314,7 @@ function GlobalImageViewer({
       {canGoNext && (
         <button
           type="button"
-          aria-label="Next gallery image"
+          aria-label={t("viewer.next")}
           onClick={() => goToIndex(currentIndex + 1)}
           data-layout-zone="viewer-side-nav"
           className={`absolute right-3 top-1/2 z-20 size-11 -translate-y-1/2 transition-opacity duration-300 sm:right-5 sm:size-14 ${glassButtonClass} ${controlsVisibilityClass}`}
@@ -1168,7 +1332,7 @@ function GlobalImageViewer({
           {canShowImage && assetSrc ? (
             <div
               ref={panSurfaceRef}
-              aria-label="Image pan surface"
+              aria-label={t("viewer.panSurface")}
               className={dragState ? "cursor-grabbing touch-none" : isPannable ? "cursor-grab touch-none" : "cursor-default"}
               data-pan-x={Math.round(pan.x)}
               data-pan-y={Math.round(pan.y)}
@@ -1184,6 +1348,10 @@ function GlobalImageViewer({
             >
               <img
                 key={activeImageKey}
+                ref={(element) => {
+                  imageElementRef.current = element;
+                  syncLoadedImageDimensions(element);
+                }}
                 data-viewer-image-key={activeImageKey}
                 src={assetSrc}
                 alt={`Gallery image ${currentIndex + 1} full size`}
@@ -1201,7 +1369,7 @@ function GlobalImageViewer({
                         width: isFitMode ? "auto" : `${zoom * 100}%`,
                       }
                 }
-                onError={() => setImageFailed(true)}
+                onError={handleImageError}
                 onLoad={handleImageLoad}
               />
             </div>
@@ -1212,7 +1380,7 @@ function GlobalImageViewer({
               className="flex min-h-52 min-w-64 flex-col items-center justify-center gap-3 rounded-lg border border-white/10 bg-white/5 px-8 py-10 text-center text-slate-300"
             >
               <ImageIcon size={42} />
-              <p className="text-sm font-semibold">Image unavailable</p>
+              <p className="text-sm font-semibold">{t("viewer.unavailable")}</p>
             </div>
           )}
         </div>
@@ -1220,7 +1388,7 @@ function GlobalImageViewer({
 
       <div
         ref={bottomDockRef}
-        aria-label="Image viewer bottom dock"
+        aria-label={t("viewer.bottomDock")}
         data-layout-zone="viewer-bottom-dock"
         data-dock-mode={bottomDockMode}
         className={`viewer-bottom-dock ${controlsVisibilityClass}`}
@@ -1230,14 +1398,14 @@ function GlobalImageViewer({
         <div className="viewer-bottom-dock-inner">
           {dockMinimapVisible && activeNaturalSize && assetSrc && viewportRect && (
             <div
-              aria-label="Image position overview"
+              aria-label={t("viewer.positionOverview")}
               data-layout-zone="viewer-minimap"
               className={`viewer-minimap-slot ${glassPanelClass}`}
             >
               <div
                 ref={minimapRef}
                 role="slider"
-                aria-label="Image minimap navigator"
+                aria-label={t("viewer.minimap")}
                 aria-valuetext={`Viewport ${Math.round(viewportRect.x)} ${Math.round(viewportRect.y)}`}
                 tabIndex={0}
                 className="relative overflow-hidden rounded-lg bg-slate-900/90"
@@ -1276,7 +1444,7 @@ function GlobalImageViewer({
           )}
         <div
           ref={controlPanelRef}
-          aria-label="Image viewer controls"
+          aria-label={t("viewer.controls")}
           data-layout-zone="viewer-controls"
           className={`viewer-control-panel ${glassPanelClass}`}
           data-control-panel="content-sized"
@@ -1313,35 +1481,35 @@ function GlobalImageViewer({
                 type="button"
                 onClick={() => zoomMenuOpen ? closePopovers() : openPopover("zoom")}
                 aria-expanded={zoomMenuOpen}
-                aria-label="Open gallery image zoom controls"
+                aria-label={t("viewer.openZoom")}
                 className={`viewer-command-compact ${pillButtonClass} ${inactivePillClass} gap-2`}
               >
                 <ZoomIn size={16} aria-hidden="true" />
                 <span className="viewer-command-zoom-value">{zoomControlLabel}</span>
               </button>
               <div
-                aria-label="Gallery image zoom control"
+                aria-label={t("viewer.zoomControl")}
                 className="viewer-command-wide viewer-inline-control"
               >
                 <button
                   type="button"
                   onClick={() => zoomOut()}
                   disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
-                  aria-label="Zoom out gallery image"
+                  aria-label={t("viewer.zoomOut")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <ZoomOut size={16} />
                 </button>
                 <label className="viewer-inline-slider">
-                  <span aria-label="Image zoom value" className="min-w-12 text-center text-xs font-semibold">{zoomControlLabel}</span>
+                  <span aria-label={t("viewer.zoomValue")} className="min-w-12 text-center text-xs font-semibold">{zoomControlLabel}</span>
                   <input
-                    aria-label="Set gallery image zoom percentage"
+                    aria-label={t("viewer.setZoom")}
                     type="range"
                     min={MIN_GALLERY_ZOOM}
                     max={MAX_GALLERY_ZOOM}
-                    step={GALLERY_ZOOM_STEP}
+                    step={GALLERY_ZOOM_SLIDER_STEP}
                     value={zoomControlSliderValue}
-                    onChange={(event) => applyZoom(Number(event.currentTarget.value))}
+                    onChange={(event) => setZoomFromSlider(Number(event.currentTarget.value))}
                     onPointerDown={clearHideControlsTimer}
                     onPointerUp={scheduleHideControls}
                     className="viewer-range w-28 accent-sakura-400"
@@ -1351,7 +1519,7 @@ function GlobalImageViewer({
                   type="button"
                   onClick={() => zoomIn()}
                   disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
-                  aria-label="Zoom in gallery image"
+                  aria-label={t("viewer.zoomIn")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <ZoomIn size={16} />
@@ -1360,7 +1528,7 @@ function GlobalImageViewer({
               {zoomMenuOpen && (
                 <div
                   role="menu"
-                  aria-label="Gallery image zoom controls"
+                  aria-label={t("viewer.zoomControls")}
                   className={`viewer-command-popover bottom-12 left-1/2 -translate-x-1/2 ${glassPanelClass}`}
                   onPointerEnter={clearPopoverCloseTimer}
                   onPointerLeave={schedulePopoverClose}
@@ -1372,21 +1540,21 @@ function GlobalImageViewer({
                       type="button"
                       onClick={() => zoomOut()}
                       disabled={!isFitMode && zoom <= MIN_GALLERY_ZOOM}
-                      aria-label="Zoom out gallery image"
+                      aria-label={t("viewer.zoomOut")}
                       className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                     >
                       <ZoomOut size={16} />
                     </button>
                     <label className="flex items-center gap-2 text-xs font-semibold">
-                      <span aria-label="Image zoom value" className="min-w-12 text-center">{zoomControlLabel}</span>
+                      <span aria-label={t("viewer.zoomValue")} className="min-w-12 text-center">{zoomControlLabel}</span>
                       <input
-                        aria-label="Set gallery image zoom percentage"
+                        aria-label={t("viewer.setZoom")}
                         type="range"
                         min={MIN_GALLERY_ZOOM}
                         max={MAX_GALLERY_ZOOM}
-                        step={GALLERY_ZOOM_STEP}
+                        step={GALLERY_ZOOM_SLIDER_STEP}
                         value={zoomControlSliderValue}
-                        onChange={(event) => applyZoom(Number(event.currentTarget.value))}
+                        onChange={(event) => setZoomFromSlider(Number(event.currentTarget.value))}
                         onPointerDown={clearHideControlsTimer}
                         onPointerUp={scheduleHideControls}
                         className="viewer-range w-32 accent-sakura-400"
@@ -1396,7 +1564,7 @@ function GlobalImageViewer({
                       type="button"
                       onClick={() => zoomIn()}
                       disabled={!isFitMode && zoom >= MAX_GALLERY_ZOOM}
-                      aria-label="Zoom in gallery image"
+                      aria-label={t("viewer.zoomIn")}
                       className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                     >
                       <ZoomIn size={16} />
@@ -1427,28 +1595,28 @@ function GlobalImageViewer({
                 type="button"
                 onClick={() => rotationMenuOpen ? closePopovers() : openPopover("rotation")}
                 aria-expanded={rotationMenuOpen}
-                aria-label="Open gallery image rotation controls"
+                aria-label={t("viewer.openRotation")}
                 className={`viewer-command-compact ${pillButtonClass} ${inactivePillClass} gap-2`}
               >
                 <RotateCwSquare size={16} aria-hidden="true" />
                 <span className="viewer-command-rotation-value">{rotation}°</span>
               </button>
               <div
-                aria-label="Gallery image rotation control"
+                aria-label={t("viewer.rotationControl")}
                 className="viewer-command-wide viewer-inline-control"
               >
                 <button
                   type="button"
                   onClick={() => rotateBy(-15)}
-                  aria-label="Rotate gallery image left"
+                  aria-label={t("viewer.rotateLeft")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <RotateCcwSquare size={16} />
                 </button>
                 <label className="viewer-inline-slider">
-                  <span aria-label="Image rotation value" className="min-w-10 text-center text-xs font-semibold">{rotation}°</span>
+                  <span aria-label={t("viewer.rotationValue")} className="min-w-10 text-center text-xs font-semibold">{rotation}°</span>
                   <input
-                    aria-label="Set image rotation degrees"
+                    aria-label={t("viewer.setRotation")}
                     type="range"
                     min="-180"
                     max="180"
@@ -1463,7 +1631,7 @@ function GlobalImageViewer({
                 <button
                   type="button"
                   onClick={() => rotateBy(15)}
-                  aria-label="Rotate gallery image right"
+                  aria-label={t("viewer.rotateRight")}
                   className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                 >
                   <RotateCwSquare size={16} />
@@ -1472,7 +1640,7 @@ function GlobalImageViewer({
               {rotationMenuOpen && (
                 <div
                   role="menu"
-                  aria-label="Gallery image rotation controls"
+                  aria-label={t("viewer.rotationControls")}
                   className={`viewer-command-popover bottom-12 left-1/2 -translate-x-1/2 ${glassPanelClass}`}
                   onPointerEnter={clearPopoverCloseTimer}
                   onPointerLeave={schedulePopoverClose}
@@ -1483,15 +1651,15 @@ function GlobalImageViewer({
                   <button
                     type="button"
                     onClick={() => rotateBy(-15)}
-                    aria-label="Rotate gallery image left"
+                    aria-label={t("viewer.rotateLeft")}
                     className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                   >
                     <RotateCcwSquare size={16} />
                   </button>
                   <label className="flex items-center gap-2 text-xs font-semibold">
-                    <span aria-label="Image rotation value" className="min-w-10 text-center">{rotation}°</span>
+                    <span aria-label={t("viewer.rotationValue")} className="min-w-10 text-center">{rotation}°</span>
                     <input
-                      aria-label="Set image rotation degrees"
+                      aria-label={t("viewer.setRotation")}
                       type="range"
                       min="-180"
                       max="180"
@@ -1506,7 +1674,7 @@ function GlobalImageViewer({
                   <button
                     type="button"
                     onClick={() => rotateBy(15)}
-                    aria-label="Rotate gallery image right"
+                    aria-label={t("viewer.rotateRight")}
                     className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                   >
                     <RotateCwSquare size={16} />
@@ -1532,7 +1700,7 @@ function GlobalImageViewer({
             <button
               type="button"
               onClick={resetView}
-              aria-label="Reset gallery image view"
+              aria-label={t("viewer.reset")}
               data-control-group="view-reset"
               data-control-slot="reset"
               className={`viewer-command-medium ${glassButtonClass} size-10`}
@@ -1542,7 +1710,7 @@ function GlobalImageViewer({
             <div className="relative viewer-command-bottom-more">
               <button
                 type="button"
-                aria-label="More viewer controls"
+                aria-label={t("viewer.moreControls")}
                 aria-expanded={viewerControlsMenuOpen}
                 onClick={() => viewerControlsMenuOpen ? closePopovers() : openPopover("viewerControls")}
                 data-control-group="viewer-more"
@@ -1554,7 +1722,7 @@ function GlobalImageViewer({
               {viewerControlsMenuOpen && (
                 <div
                   role="menu"
-                  aria-label="More viewer controls menu"
+                  aria-label={t("viewer.moreControlsMenu")}
                   className={`viewer-command-popover bottom-12 right-0 ${glassPanelClass}`}
                   onPointerEnter={clearPopoverCloseTimer}
                   onPointerLeave={schedulePopoverClose}
@@ -1602,13 +1770,13 @@ function GlobalImageViewer({
                       <button
                         type="button"
                         onClick={() => rotateBy(-15)}
-                        aria-label="Rotate gallery image left"
+                        aria-label={t("viewer.rotateLeft")}
                         className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                       >
                         <RotateCcwSquare size={16} />
                       </button>
                       <span
-                        aria-label="Image rotation value"
+                        aria-label={t("viewer.rotationValue")}
                         className="min-w-10 text-center text-sm font-semibold"
                       >
                         {rotation}°
@@ -1616,7 +1784,7 @@ function GlobalImageViewer({
                       <button
                         type="button"
                         onClick={() => rotateBy(15)}
-                        aria-label="Rotate gallery image right"
+                        aria-label={t("viewer.rotateRight")}
                         className="viewer-button inline-flex size-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300"
                       >
                         <RotateCwSquare size={16} />
@@ -1704,12 +1872,27 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function snapZoom(value: number) {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  const closeSnap = ZOOM_SNAP_POINTS.find(
+    (snapPoint) => Math.abs(value - snapPoint) <= ZOOM_SNAP_THRESHOLD,
+  );
+  return closeSnap ?? value;
+}
+
 function normalizeRotation(value: number) {
   if (!Number.isFinite(value)) {
     return 0;
   }
 
-  const normalized = ((((Math.round(value) + 180) % 360) + 360) % 360) - 180;
+  const rounded = Math.round(value);
+  const normalized = ((((rounded + 180) % 360) + 360) % 360) - 180;
+  if (normalized === -180 && rounded > 0) {
+    return 180;
+  }
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
@@ -1838,6 +2021,18 @@ function parseStoredZoom(value: unknown) {
     : 1;
 }
 
+function getFileActionFeedback(result: { message?: string; success: boolean }) {
+  if (result.success) {
+    return result.message === "Source file saved" ? result.message : null;
+  }
+
+  if (result.message === "Save canceled") {
+    return null;
+  }
+
+  return result.message || "File action failed";
+}
+
 function getFileType(value: string) {
   const filename = fileNameFromPath(value);
   const extension = filename.includes(".")
@@ -1847,36 +2042,110 @@ function getFileType(value: string) {
   return extension ? `${extension} image` : "N/A";
 }
 
-function roundedAspectRatio(width: number, height: number) {
-  const commonRatios = [
-    [1, 1],
-    [4, 3],
-    [3, 2],
-    [16, 9],
-    [2, 3],
-    [3, 4],
-    [9, 16],
-  ];
-  const actual = width / height;
-  const closeRatio = commonRatios.find(
-    ([ratioWidth, ratioHeight]) =>
-      Math.abs(actual - ratioWidth / ratioHeight) / (ratioWidth / ratioHeight) <
-      0.04,
+function getCurrentImageDimensions({
+  imageFailed,
+  loadedNaturalSize,
+  metadataSize,
+}: {
+  imageFailed: boolean;
+  loadedNaturalSize: Size | null;
+  metadataSize: Size | null;
+}) {
+  if (imageFailed) {
+    return null;
+  }
+
+  const loadedSize = normalizeImageDimensions(loadedNaturalSize);
+  const normalizedMetadataSize = normalizeImageDimensions(metadataSize);
+
+  if (
+    loadedSize &&
+    !isPlaceholderDimensions(loadedSize, normalizedMetadataSize)
+  ) {
+    return loadedSize;
+  }
+
+  if (normalizedMetadataSize && !isOneByOneDimensions(normalizedMetadataSize)) {
+    return normalizedMetadataSize;
+  }
+
+  return loadedSize;
+}
+
+function normalizeImageDimensions(size: Size | null | undefined): Size | null {
+  if (!size) {
+    return null;
+  }
+
+  const width = Number(size.width);
+  const height = Number(size.height);
+
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    width: Math.round(width),
+    height: Math.round(height),
+  };
+}
+
+function isPlaceholderDimensions(size: Size, fallbackSize: Size | null = null) {
+  return (
+    isOneByOneDimensions(size) &&
+    Boolean(fallbackSize && (fallbackSize.width !== 1 || fallbackSize.height !== 1))
   );
+}
 
-  if (closeRatio) {
-    return `${closeRatio[0]}:${closeRatio[1]}`;
+function isOneByOneDimensions(size: Size) {
+  return size.width === 1 && size.height === 1;
+}
+
+function formatImageDimensions(size: Size) {
+  return `${size.width} x ${size.height}`;
+}
+
+function formatImageRatio(size: Size | null) {
+  const normalizedSize = normalizeImageDimensions(size);
+  if (!normalizedSize) {
+    return "-";
   }
 
-  const divisor = gcd(width, height);
-  const ratioWidth = Math.round(width / divisor);
-  const ratioHeight = Math.round(height / divisor);
-
-  if (ratioWidth <= 99 && ratioHeight <= 99) {
-    return `${ratioWidth}:${ratioHeight}`;
+  const commonRatio = getClosestCommonRatio(normalizedSize);
+  if (commonRatio) {
+    return `${commonRatio[0]}:${commonRatio[1]}`;
   }
 
-  return `${Math.round(actual)}:1`;
+  const divisor = gcd(normalizedSize.width, normalizedSize.height);
+  return `${normalizedSize.width / divisor}:${normalizedSize.height / divisor}`;
+}
+
+function getClosestCommonRatio(size: Size) {
+  const actualRatio = size.width / size.height;
+  let closestMatch: { difference: number; ratio: (typeof COMMON_IMAGE_RATIOS)[number] } | null = null;
+
+  for (const ratio of COMMON_IMAGE_RATIOS) {
+    const candidateRatio = ratio[0] / ratio[1];
+    const relativeDifference = Math.abs(actualRatio - candidateRatio) / candidateRatio;
+    const tolerance = ratio[0] === 1 && ratio[1] === 1
+      ? SQUARE_RATIO_TOLERANCE
+      : COMMON_RATIO_TOLERANCE;
+
+    if (relativeDifference > tolerance) {
+      continue;
+    }
+
+    if (!closestMatch || relativeDifference < closestMatch.difference) {
+      closestMatch = { difference: relativeDifference, ratio };
+    }
+  }
+
+  return closestMatch?.ratio ?? null;
 }
 
 function gcd(first: number, second: number): number {
@@ -1949,5 +2218,5 @@ function logViewerSessionDiagnostic(
   console.info(`[GlobalImageViewer] ${step}`, details);
 }
 
-export { roundedAspectRatio };
+export { formatImageRatio };
 export default GlobalImageViewer;

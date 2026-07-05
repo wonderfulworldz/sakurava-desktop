@@ -121,8 +121,8 @@ function HomePage() {
           </div>
           <div className="relative min-h-52 overflow-hidden">
             <div className="absolute -right-8 top-2 h-56 w-80 rotate-[-12deg] rounded-full bg-sakura-100/50 blur-3xl" />
-            <div className="absolute right-0 top-1/2 h-2 w-[420px] -translate-y-1/2 rotate-[-24deg] rounded-full bg-rose-300/40" />
-            <div className="absolute right-8 top-6 h-2 w-[300px] rotate-[-24deg] rounded-full bg-rose-900/25" />
+            <div className="home-accent-streak absolute right-0 top-1/2 h-2 w-[420px] -translate-y-1/2 rotate-[-24deg] rounded-full" />
+            <div className="home-accent-streak-strong absolute right-8 top-6 h-2 w-[300px] rotate-[-24deg] rounded-full" />
             <SakuraCluster className="absolute right-10 top-10 scale-110" />
             <SakuraCluster className="absolute right-40 top-24 scale-75 opacity-75" />
             <SakuraCluster className="absolute right-56 top-7 scale-50 opacity-50" />
@@ -137,6 +137,14 @@ function HomePage() {
         {homeData.summaryCards.map((card) => {
           const Icon = card.icon;
           const translatedLabel = t(card.labelKey);
+          const detailKey =
+            card.labelKey === "home.summaryVideos"
+              ? Number(card.value) === 1 ? "home.savedVideo" : "home.savedVideos"
+              : card.labelKey === "home.summaryImages"
+                ? Number(card.value) === 1 ? "home.savedImage" : "home.savedImages"
+                : card.labelKey === "home.summaryPerformers"
+                  ? Number(card.value) === 1 ? "home.savedPerformer" : "home.savedPerformers"
+                  : "home.favoriteItems";
 
           return (
             <article
@@ -156,7 +164,9 @@ function HomePage() {
                   <Icon size={20} />
                 </div>
               </div>
-              <p className="mt-4 text-sm text-slate-500">{card.detail}</p>
+              <p className="mt-4 text-sm text-slate-500">
+                {t(detailKey, { count: String(card.value) })}
+              </p>
             </article>
           );
         })}

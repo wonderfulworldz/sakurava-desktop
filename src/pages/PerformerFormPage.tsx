@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import type { FormConfig, FormMode } from "../lib/formData";
 import { formConfigs } from "../lib/formData";
 import {
@@ -10,16 +11,20 @@ import {
 import FormPage from "./FormPage";
 import {
   createPerformer,
+  deletePerformer,
   getPerformer,
   isPerformerRuntimeAvailable,
   updatePerformer,
 } from "../runtime/performerCommands";
+import { listCreditsByPerformer } from "../runtime/creditCommands";
+import { deriveAutoRoleNames } from "../lib/performerKnownNames";
 
 type PerformerFormPageProps = {
   mode: FormMode;
 };
 
 function PerformerFormPage({ mode }: PerformerFormPageProps) {
+  const t = useTranslation();
   const { itemKey } = useParams();
   const navigate = useNavigate();
   const [config, setConfig] = useState<FormConfig>(formConfigs.performers);
@@ -27,12 +32,16 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
   const [loading, setLoading] = useState(() =>
     Boolean(mode === "edit" && itemKey && isPerformerRuntimeAvailable()),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [autoRoleNames, setAutoRoleNames] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     if (mode === "create" || !itemKey || !isPerformerRuntimeAvailable()) {
       setConfig(formConfigs.performers);
+      setAutoRoleNames([]);
       setMissing(false);
       setLoading(false);
       return;
@@ -40,7 +49,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
 
     setLoading(true);
     getPerformer(itemKey)
-      .then((performer) => {
+      .then(async (performer) => {
         if (cancelled) {
           return;
         }
@@ -51,8 +60,20 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
           return;
         }
 
+        let roleNames: string[] = [];
+        try {
+          roleNames = deriveAutoRoleNames(
+            await listCreditsByPerformer(performer.id),
+          );
+        } catch {
+          roleNames = [];
+        }
+        if (cancelled) {
+          return;
+        }
         setMissing(false);
         setConfig(buildPerformerFormConfig(performer, "edit"));
+        setAutoRoleNames(roleNames);
         setLoading(false);
       })
       .catch(() => {
@@ -67,13 +88,41 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     };
   }, [itemKey, mode]);
 
+  async function handleDelete() {
+    if (!itemKey || deletePending) {
+      return;
+    }
+
+    setDeletePending(true);
+    setDeleteError(null);
+
+    try {
+      const result = await deletePerformer(itemKey);
+
+      if (!result.deleted) {
+        setDeleteError(
+          "Performer delete failed. The saved Sakurava record was not removed.",
+        );
+        return;
+      }
+
+      navigate("/performers", { replace: true });
+    } catch {
+      setDeleteError(
+        "Performer delete failed. The saved Sakurava record was not removed.",
+      );
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
           Edit Performer
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading performer...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingPerformer")}</p>
       </section>
     );
   }
@@ -95,12 +144,25 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
     <FormPage
       config={config}
       mode={mode}
+      autoRoleNames={autoRoleNames}
+      deleteAction={
+        mode === "edit" && itemKey && isPerformerRuntimeAvailable()
+          ? {
+              itemLabel: String(config.initialValues.edit.name || "this performer"),
+              isPending: deletePending,
+              errorMessage: deleteError,
+              onOpen: () => setDeleteError(null),
+              onConfirm: handleDelete,
+            }
+          : undefined
+      }
       onSubmit={async ({
         values,
         categories,
         aliases,
         performerRelatedVideos,
         performerRelatedImages,
+        sourceLinks,
       }) => {
         if (!isPerformerRuntimeAvailable()) {
           return {
@@ -118,6 +180,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
               aliases,
               performerRelatedVideos,
               performerRelatedImages,
+              sourceLinks,
             ),
           );
           navigate(`/performers/${created.id}`);
@@ -136,6 +199,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
             aliases,
             performerRelatedVideos,
             performerRelatedImages,
+            sourceLinks,
           ),
         );
         if (!updated) {

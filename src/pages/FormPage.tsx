@@ -1,22 +1,26 @@
-import { ArrowLeft, CheckCircle2, Plus, Save, Search, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, ChevronDown, Save, Search, Star, Trash2, X } from "lucide-react";
 import {
   type ClipboardEvent,
   type Dispatch,
   type FormEvent,
   type ReactNode,
   type SetStateAction,
+  type UIEvent,
   useEffect,
+  useRef,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type {
   FormConfig,
   FormMode,
   RelatedCatalogRecordFormValue,
   ReadOnlyField,
+  SourceLinkFormValue,
   RelatedPerformerFormValue,
   TextField,
 } from "../lib/formData";
+import { normalizeHttpSourceUrl } from "../runtime/sourceLinkCommands";
 import {
   addFormCategory,
   hasFormCategory,
@@ -24,12 +28,18 @@ import {
   removeFormCategory,
 } from "../lib/formCategories";
 import { getStoredManagedCategories } from "../lib/managedCategories";
+import {
+  rankPickerSearchResults,
+  splitPickerHighlight,
+} from "../lib/relatedPicker";
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
-import RelatedPerformerPicker from "../components/RelatedPerformerPicker";
+import CompactRelatedPerformersEditor from "../components/CompactRelatedPerformersEditor";
+import MemorySuggestionInput from "../components/MemorySuggestionInput";
 import {
   selectGalleryFolder,
   selectLocalFolder,
   selectLocalImageFile,
+  selectLocalImageFiles,
   selectLocalMediaFile,
 } from "../runtime/dialogCommands";
 import { listGalleryFolderImages } from "../runtime/galleryFolderCommands";
@@ -46,10 +56,18 @@ import {
   detectImageTechInfo,
   detectVideoTechInfo,
 } from "../lib/mediaTechInfo";
+import ConfirmDialog from "../components/ConfirmDialog";
+import { useTranslation } from "../lib/LanguageContext";
+import { formatMoreCount, translateUiDisplayLabel } from "../lib/uiDisplayLabels";
+import {
+  emptyCreditFormValue,
+  type CreditFormValue,
+} from "../lib/workCredits";
+import { knownNameKey } from "../lib/performerKnownNames";
 
 const BUTTON_STYLES = {
   primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-xs font-bold text-white transition-colors duration-150 hover:bg-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:cursor-not-allowed disabled:opacity-50",
-  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/10 disabled:cursor-not-allowed disabled:opacity-50",
+  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 transition-colors duration-150 hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-700 focus:outline-none focus:ring-2 focus:ring-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
   action: "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-sakura-200 bg-sakura-50 px-3.5 text-xs font-bold text-sakura-600 transition-colors duration-150 hover:border-sakura-300 hover:bg-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
   compactAction: "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-sakura-200 bg-sakura-50 px-2.5 text-xs font-bold text-sakura-600 transition-colors duration-150 hover:border-sakura-300 hover:bg-sakura-100 disabled:cursor-not-allowed disabled:opacity-50",
   iconDanger: "inline-flex size-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition-colors duration-150 hover:border-rose-300 hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500/15 disabled:cursor-not-allowed disabled:opacity-50",
@@ -61,6 +79,7 @@ const PILL_STYLES = "inline-flex h-7 max-w-full min-w-0 items-center justify-cen
 const CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const PICKER_ROW_GRID_STYLES =
   "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
+const PICKER_RENDER_BATCH_SIZE = 30;
 const FORM_ROW_STYLES =
   "grid gap-2 text-sm font-semibold text-slate-700 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-center";
 const FORM_ROW_START_STYLES =
@@ -70,6 +89,9 @@ type FormPageProps = {
   config: FormConfig;
   mode: FormMode;
   onSubmit?: (data: FormSubmitData) => Promise<FormSubmitResult> | FormSubmitResult;
+  deleteAction?: FormDeleteAction;
+  initialCredits?: CreditFormValue[];
+  autoRoleNames?: string[];
 };
 
 type FormValues = Record<string, string | boolean>;
@@ -84,6 +106,8 @@ type FormSubmitData = {
   performerRelatedVideos: RelatedCatalogRecordFormValue[];
   performerRelatedImages: RelatedCatalogRecordFormValue[];
   galleryImagePaths: string[];
+  sourceLinks: SourceLinkFormValue[];
+  credits: CreditFormValue[];
 };
 
 type FormSubmitResult = {
@@ -91,8 +115,25 @@ type FormSubmitResult = {
   message?: string;
 };
 
+export type FormDeleteAction = {
+  itemLabel: string;
+  isPending: boolean;
+  errorMessage: string | null;
+  onOpen: () => void;
+  onConfirm: () => void;
+};
+
+type FormConfirmation =
+  | "save"
+  | "discard"
+  | "replaceGallery"
+  | "clearGallery"
+  | "delete"
+  | null;
+
 type RelatedPerformerLoadState = "idle" | "loading" | "loaded" | "error";
 type RelatedCatalogLoadState = "idle" | "loading" | "loaded" | "error";
+const EMPTY_CREDITS: CreditFormValue[] = [];
 
 const performerSuggestionCacheKey = "sakurava.performerSuggestionCache.v1";
 const hiddenPerformerSuggestionsKey = "sakurava.hiddenPerformerSuggestions.v1";
@@ -100,14 +141,24 @@ const legacyPerformerSuggestionCacheResetKey =
   "sakurava.performerSuggestionCacheReset.v2";
 const performerSuggestionCacheVersionKey =
   "sakurava.performerSuggestionsCacheVersion";
-const performerSuggestionCacheVersion = "batch-33-3-suggestions-fresh-v1";
+const performerSuggestionCacheVersion = "batch-38-9-4-direct-field-history-v1";
+const performerSuggestionLimit = 30;
 const performerSuggestionCacheKeys = [
   hiddenPerformerSuggestionsKey,
   performerSuggestionCacheKey,
   legacyPerformerSuggestionCacheResetKey,
 ];
 
-function FormPage({ config, mode, onSubmit }: FormPageProps) {
+function FormPage({
+  config,
+  mode,
+  onSubmit,
+  deleteAction,
+  initialCredits = EMPTY_CREDITS,
+  autoRoleNames = [],
+}: FormPageProps) {
+  const t = useTranslation();
+  const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
     normalizeFormCategories(config.initialCategories[mode]),
@@ -118,6 +169,11 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [relatedPerformers, setRelatedPerformers] = useState<
     RelatedPerformerFormValue[]
   >(config.initialRelatedPerformers?.[mode] ?? []);
+  const [credits, setCredits] = useState<CreditFormValue[]>(() =>
+    initialCredits.length
+      ? initialCredits
+      : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
+  );
   const [relatedCatalogRecords, setRelatedCatalogRecords] = useState<
     RelatedCatalogRecordFormValue[]
   >(config.initialRelatedCatalogRecords?.[mode] ?? []);
@@ -129,6 +185,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   >(config.initialPerformerRelatedImages?.[mode] ?? []);
   const [galleryImagePaths, setGalleryImagePaths] = useState<string[]>(
     config.initialGalleryImagePaths?.[mode] ?? [],
+  );
+  const [sourceLinks, setSourceLinks] = useState<SourceLinkFormValue[]>(
+    config.initialSourceLinks?.[mode] ?? [],
   );
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
@@ -143,6 +202,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [performerSuggestionOptions, setPerformerSuggestionOptions] = useState<
     Record<string, string[]>
   >({});
+  const removedSuggestionKeys = useRef(new Set<string>());
   const [relatedCatalogLoadState, setRelatedCatalogLoadState] =
     useState<RelatedCatalogLoadState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -150,6 +210,25 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const [galleryFolderMessage, setGalleryFolderMessage] = useState("");
   const [techInfoMessage, setTechInfoMessage] = useState("");
   const [showRatingError, setShowRatingError] = useState(false);
+  const [confirmation, setConfirmation] = useState<FormConfirmation>(null);
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  const [cleanSnapshot, setCleanSnapshot] = useState(() =>
+    formSnapshot({
+      values: config.initialValues[mode],
+      categories: normalizeFormCategories(config.initialCategories[mode]),
+      aliases: config.initialAliases?.[mode] ?? [],
+      relatedPerformers: config.initialRelatedPerformers?.[mode] ?? [],
+      relatedCatalogRecords: config.initialRelatedCatalogRecords?.[mode] ?? [],
+      performerRelatedVideos: config.initialPerformerRelatedVideos?.[mode] ?? [],
+      performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
+      galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
+      sourceLinks: config.initialSourceLinks?.[mode] ?? [],
+      credits:
+        initialCredits.length
+          ? initialCredits
+          : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
+    }),
+  );
   const canBrowsePaths = isTauriRuntimeAvailable();
   const supportsRelatedPerformerPicker =
     config.kind === "videos" || config.kind === "images";
@@ -172,17 +251,42 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     setCategories(normalizeFormCategories(config.initialCategories[mode]));
     setAliases(config.initialAliases?.[mode] ?? []);
     setRelatedPerformers(config.initialRelatedPerformers?.[mode] ?? []);
+    setCredits(
+      initialCredits.length
+        ? initialCredits
+        : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
+    );
     setRelatedCatalogRecords(config.initialRelatedCatalogRecords?.[mode] ?? []);
     setPerformerRelatedVideos(config.initialPerformerRelatedVideos?.[mode] ?? []);
     setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
+    setSourceLinks(config.initialSourceLinks?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
     setGalleryFolderMessage("");
     setTechInfoMessage("");
     setShowRatingError(false);
-  }, [config, mode]);
+    setConfirmation(null);
+    setConfirmationPending(false);
+    setCleanSnapshot(
+      formSnapshot({
+        values: config.initialValues[mode],
+        categories: normalizeFormCategories(config.initialCategories[mode]),
+        aliases: config.initialAliases?.[mode] ?? [],
+        relatedPerformers: config.initialRelatedPerformers?.[mode] ?? [],
+        relatedCatalogRecords: config.initialRelatedCatalogRecords?.[mode] ?? [],
+        performerRelatedVideos: config.initialPerformerRelatedVideos?.[mode] ?? [],
+        performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
+        galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
+        sourceLinks: config.initialSourceLinks?.[mode] ?? [],
+        credits:
+          initialCredits.length
+            ? initialCredits
+            : legacyCredits(config.initialRelatedPerformers?.[mode] ?? []),
+      }),
+    );
+  }, [config, initialCredits, mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,30 +388,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }, [supportsRelatedPerformerPicker]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (config.kind !== "performers" || !isPerformerRuntimeAvailable()) {
-      setPerformerSuggestionOptions({});
-      return;
-    }
-
-    listPerformers()
-      .then((performers) => {
-        if (cancelled) {
-          return;
-        }
-
-        setPerformerSuggestionOptions(getStoredPerformerSuggestionCache());
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPerformerSuggestionOptions({});
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setPerformerSuggestionOptions(getStoredPerformerSuggestionCache());
   }, [config.kind]);
 
   useEffect(() => {
@@ -434,13 +515,43 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   const formLabel = mode === "create" ? config.createLabel : config.editLabel;
   const cancelTo =
     mode === "create" ? config.createCancelTo : config.editCancelTo;
+  const currentSnapshot = formSnapshot({
+    values,
+    categories: normalizeFormCategories(categories),
+    aliases,
+    relatedPerformers,
+    relatedCatalogRecords,
+    performerRelatedVideos,
+    performerRelatedImages,
+    galleryImagePaths,
+    sourceLinks,
+    credits,
+  });
+  const isDirty = currentSnapshot !== cleanSnapshot;
 
   function updateValue(name: string, value: string | boolean) {
     setValues((current) => ({ ...current, [name]: value }));
     setSaveState("idle");
   }
 
+  function updateMemoryValue(name: string, value: string) {
+    removedSuggestionKeys.current.delete(memorySuggestionKey(name, value));
+    updateValue(name, value);
+  }
+
+  function updateCredits(nextCredits: CreditFormValue[]) {
+    nextCredits.forEach((credit) => {
+      removedSuggestionKeys.current.delete(
+        memorySuggestionKey("creditType", credit.creditTypeCategoryId),
+      );
+    });
+    setCredits(nextCredits);
+  }
+
   function removePerformerSuggestion(fieldName: string, suggestion: string) {
+    removedSuggestionKeys.current.add(
+      memorySuggestionKey(fieldName, suggestion),
+    );
     setPerformerSuggestionOptions((current) => {
       const next = removeCachedPerformerSuggestion(current, fieldName, suggestion);
       storePerformerSuggestionCache(next);
@@ -473,14 +584,102 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       return;
     }
 
+    if (galleryImagePaths.length > 0) {
+      setConfirmation("replaceGallery");
+      return;
+    }
+
+    await replaceGalleryFolder();
+  }
+
+  async function addGalleryImages() {
+    if (!canBrowsePaths) {
+      return;
+    }
+
     try {
-      if (
-        galleryImagePaths.length > 0 &&
-        !window.confirm("Replace current Gallery Images path rows?")
-      ) {
+      const selectedPaths = await selectLocalImageFiles();
+      if (selectedPaths.length === 0) {
         return;
       }
 
+      const existingPaths = new Set(
+        galleryImagePaths.map((path) => path.trim()).filter(Boolean),
+      );
+      const nextSelectedPaths: string[] = [];
+      for (const path of selectedPaths.map((selectedPath) => selectedPath.trim())) {
+        if (!path || existingPaths.has(path)) {
+          continue;
+        }
+
+        existingPaths.add(path);
+        nextSelectedPaths.push(path);
+      }
+
+      if (nextSelectedPaths.length === 0) {
+        return;
+      }
+
+      const nextGalleryPaths = [...galleryImagePaths, ...nextSelectedPaths];
+      setGalleryImagePaths(nextGalleryPaths);
+      setSaveState("idle");
+      setGalleryFolderMessage(
+        `Added ${nextSelectedPaths.length} Gallery Path row${
+          nextSelectedPaths.length === 1 ? "" : "s"
+        }.`,
+      );
+      void detectTechInfo(undefined, nextGalleryPaths);
+    } catch {
+      setGalleryFolderMessage("Unable to open image picker.");
+    }
+  }
+
+  const performerMiniThumbnailPaths = config.kind === "performers"
+    ? ["thumbnail1", "thumbnail2", "thumbnail3", "thumbnail4"]
+        .map((fieldName) => String(values[fieldName] ?? ""))
+        .filter((path) => path.trim())
+    : [];
+
+  function setPerformerMiniThumbnailPaths(paths: string[]) {
+    const compactPaths = paths
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .filter((path, index, allPaths) => allPaths.indexOf(path) === index)
+      .slice(0, 4);
+
+    setValues((current) => ({
+      ...current,
+      thumbnail1: compactPaths[0] ?? "",
+      thumbnail2: compactPaths[1] ?? "",
+      thumbnail3: compactPaths[2] ?? "",
+      thumbnail4: compactPaths[3] ?? "",
+    }));
+  }
+
+  async function addPerformerMiniThumbnailImages() {
+    if (!canBrowsePaths) {
+      return;
+    }
+
+    try {
+      const selectedPaths = await selectLocalImageFiles();
+      if (selectedPaths.length === 0) {
+        return;
+      }
+
+      setPerformerMiniThumbnailPaths([
+        ...performerMiniThumbnailPaths,
+        ...selectedPaths,
+      ]);
+      setSaveState("idle");
+    } catch {
+      setSaveState("error");
+      setSaveMessage("Unable to open image picker.");
+    }
+  }
+
+  async function replaceGalleryFolder() {
+    try {
       const selectedFolder = await selectGalleryFolder();
       if (!selectedFolder) {
         return;
@@ -492,7 +691,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       setGalleryFolderMessage(
         result.imagePaths.length === 0
           ? "No supported image files found in the selected folder."
-          : `Loaded ${result.imagePaths.length} Gallery Images path row${
+          : `Loaded ${result.imagePaths.length} Gallery Path row${
               result.imagePaths.length === 1 ? "" : "s"
             }.`,
       );
@@ -504,6 +703,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    validateAndRequestSave();
+  }
+
+  function validateAndRequestSave() {
     const requiredValue = values[config.requiredField];
 
     if (typeof requiredValue !== "string" || requiredValue.trim() === "") {
@@ -512,42 +715,73 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       return;
     }
 
-    const missingRatings = config.ratingFields.filter(
-      (field) => getRatingControlValue(values[field.name]) === null,
-    );
-
-    if (missingRatings.length > 0) {
+    if (sourceLinkValidationErrors(sourceLinks).length > 0) {
       setSaveState("error");
-      setSaveMessage("Please complete all rating criteria.");
-      setShowRatingError(true);
+      setSaveMessage("Please fix Source Links before saving.");
       return;
     }
 
+    setConfirmation("save");
+  }
+
+  async function executeSave() {
+    if (confirmationPending) {
+      return;
+    }
+
+    setConfirmationPending(true);
     if (!onSubmit) {
       setSaveState("saved");
       setSaveMessage("Local visual save state only");
+      setCleanSnapshot(currentSnapshot);
+      setConfirmation(null);
+      setConfirmationPending(false);
       return;
     }
 
     try {
+      const compatibleRelatedPerformers = creditsToLegacyRelations(
+        credits,
+        availablePerformers,
+        relatedPerformers,
+      );
       const result = await onSubmit({
         values,
         categories: normalizeFormCategories(categories),
         aliases,
-        relatedPerformers,
+        relatedPerformers: compatibleRelatedPerformers,
         relatedCatalogRecords,
         performerRelatedVideos,
         performerRelatedImages,
         galleryImagePaths,
+        sourceLinks,
+        credits,
       });
       setSaveState(result.state);
       setSaveMessage(
         result.message ??
           (result.state === "saved" ? "Saved." : "Unable to save."),
       );
-      if (result.state === "saved" && config.kind === "performers") {
+      if (result.state === "saved") {
+        setCleanSnapshot(currentSnapshot);
+        setConfirmation(null);
+      }
+      if (result.state === "saved") {
         setPerformerSuggestionOptions((current) => {
-          const next = addPerformerValuesToSuggestionCache(current, values);
+          const withFields = addPerformerValuesToSuggestionCache(current, values);
+          const withCredits = credits.reduce(
+            (cache, credit) =>
+              addCachedPerformerSuggestion(
+                cache,
+                "creditType",
+                credit.creditTypeCategoryId,
+              ),
+            withFields,
+          );
+          const next = removeSuppressedSuggestions(
+            withCredits,
+            removedSuggestionKeys.current,
+          );
           storePerformerSuggestionCache(next);
           return next;
         });
@@ -555,6 +789,75 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
     } catch {
       setSaveState("error");
       setSaveMessage("Unable to save.");
+    } finally {
+      setConfirmationPending(false);
+    }
+  }
+
+  function requestCancel() {
+    if (!isDirty) {
+      navigate(cancelTo);
+      return;
+    }
+    setConfirmation("discard");
+  }
+
+  function requestDelete() {
+    if (!deleteAction || mode !== "edit") {
+      return;
+    }
+
+    deleteAction.onOpen();
+    setConfirmation("delete");
+  }
+
+  function clearGalleryPaths() {
+    if (galleryImagePaths.length === 0) {
+      setGalleryImagePaths([]);
+      return;
+    }
+    setConfirmation("clearGallery");
+  }
+
+  function closeConfirmation() {
+    if (confirmation === "delete") {
+      if (!deleteAction?.isPending) {
+        setConfirmation(null);
+      }
+      return;
+    }
+
+    if (!confirmationPending) {
+      setConfirmation(null);
+    }
+  }
+
+  async function confirmCurrentAction() {
+    if (confirmation === "save") {
+      await executeSave();
+      return;
+    }
+    if (confirmation === "discard") {
+      navigate(cancelTo);
+      return;
+    }
+    if (confirmation === "replaceGallery") {
+      if (confirmationPending) {
+        return;
+      }
+      setConfirmationPending(true);
+      await replaceGalleryFolder();
+      setConfirmationPending(false);
+      setConfirmation(null);
+      return;
+    }
+    if (confirmation === "clearGallery") {
+      setGalleryImagePaths([]);
+      setConfirmation(null);
+      return;
+    }
+    if (confirmation === "delete") {
+      deleteAction?.onConfirm();
     }
   }
 
@@ -578,7 +881,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
       setTechInfoMessage(
         config.kind === "videos"
           ? "Tech Info checked from the Media Path. Save to persist these values."
-          : "Tech Info checked from Gallery Images. Save to persist these values.",
+          : "Tech Info checked from Gallery Path. Save to persist these values.",
       );
     } catch {
       setTechInfoMessage("Tech Info could not be checked.");
@@ -586,21 +889,25 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
   }
 
   return (
-    <form className="max-w-4xl mx-auto px-4 pt-8 pb-24 space-y-6" onSubmit={handleSubmit}>
+    <form
+      aria-label={translateUiDisplayLabel(t, formLabel)}
+      className="max-w-4xl mx-auto px-4 pt-8 pb-24 space-y-6"
+      onSubmit={handleSubmit}
+    >
       <FormHeader
         backLabel={
           mode === "create"
             ? `Back to ${collectionLabel(config.kind)}`
             : config.editBackLabel
         }
-        backTo={cancelTo}
+        onBack={requestCancel}
         title={title}
         subtitle={subtitle}
         formLabel={formLabel}
       />
 
       <div className="rounded-xl border border-slate-200 bg-white px-6 shadow-sm divide-y divide-slate-100">
-      <FormSection index={1} title="Basic Identity">
+      <FormSection index={1} title={t("form.basicIdentity")}>
         <FieldGrid>
           {config.basicFields.map((field) => (
             <TextInput
@@ -612,10 +919,10 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           ))}
           {config.kind === "performers" && config.showAliases && (
             <ChipInput
-              label="Aliases"
+              label={t("form.aliases")}
               draft={aliasDraft}
               chips={aliases}
-              placeholder="Add alias..."
+              placeholder={t("form.addAlias")}
               onDraftChange={setAliasDraft}
               onAdd={() =>
                 addChip(aliasDraft, aliases, setAliases, setAliasDraft)
@@ -623,11 +930,17 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               onRemove={(chip) =>
                 setAliases((current) => current.filter((item) => item !== chip))
               }
+              autoChips={autoRoleNames.filter(
+                (roleName) =>
+                  !aliases.some(
+                    (alias) => knownNameKey(alias) === knownNameKey(roleName),
+                  ),
+              )}
             />
           )}
           <CheckboxInput
             checked={Boolean(values.favorite)}
-            label="Favorite"
+            label={t("form.favorite")}
             onChange={(checked) => updateValue("favorite", checked)}
           />
         </FieldGrid>
@@ -635,7 +948,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
       {config.kind !== "performers" ? (
         <>
-          <FormSection index={2} title="Metadata">
+          <FormSection index={2} title={t("form.metadata")}>
             <FieldGrid>
               {config.selectFields.map((field) => 
                 field.name === "availability" ? (
@@ -664,11 +977,15 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
               )}
               {config.metadataFields.map((field) => 
                 field.name === "publisherLabel" ? (
-                  <SearchTextInput
+                  <TextInput
                     key={field.name}
                     field={field}
                     value={String(values[field.name] ?? "")}
-                    onChange={(value) => updateValue(field.name, value)}
+                    onChange={(value) => updateMemoryValue(field.name, value)}
+                    recentSuggestions={performerSuggestionOptions.publisherLabel ?? []}
+                    onHideSuggestion={(suggestion) =>
+                      removePerformerSuggestion("publisherLabel", suggestion)
+                    }
                   />
                 ) : (
                   <TextInput
@@ -679,17 +996,17 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   />
                 )
               )}
-              <SourceLinksInput />
+              <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
 
-          <FormSection index={3} title="Files">
+          <FormSection index={3} title={t("form.files")}>
             <FieldGrid>
               {config.pathFields.find((f) => f.name === "coverPath") && (
                 <PathInput
                   field={config.pathFields.find((f) => f.name === "coverPath")!}
                   value={String(values.coverPath ?? "")}
-                  browseLabel="Browse"
+                  browseLabel={t("common.browse")}
                   browseDisabled={!canBrowsePaths}
                   onChange={(value) => updateValue("coverPath", value)}
                   onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "coverPath")!)}
@@ -699,7 +1016,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 <PathInput
                   field={config.pathFields.find((f) => f.name === "mediaPath")!}
                   value={String(values.mediaPath ?? "")}
-                  browseLabel="Browse"
+                  browseLabel={t("common.browse")}
                   browseDisabled={!canBrowsePaths}
                   onChange={(value) => updateValue("mediaPath", value)}
                   onBrowse={() => browsePath(config.pathFields.find((f) => f.name === "mediaPath")!)}
@@ -712,6 +1029,9 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   folderMessage={galleryFolderMessage}
                   browseFolderDisabled={!canBrowsePaths}
                   onBrowseFolder={browseGalleryFolder}
+                  addImagesDisabled={!canBrowsePaths}
+                  onAddImages={addGalleryImages}
+                  onClearPaths={clearGalleryPaths}
                 />
               )}
             </FieldGrid>
@@ -719,14 +1039,14 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
           <FormSection
             index={4}
-            title={config.techTitle ?? "Tech Info"}
+            title={translateUiDisplayLabel(t, config.techTitle ?? "Tech Info")}
             action={
               <button
                 type="button"
                 className={BUTTON_STYLES.action}
                 onClick={() => void detectTechInfo()}
               >
-                Detect
+                {t("common.detect")}
               </button>
             }
           >
@@ -753,7 +1073,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
         </>
       ) : (
         <>
-           <FormSection index={2} title="Media Assets">
+           <FormSection index={2} title={t("form.files")}>
             <div className="space-y-6">
               <div className="border-b border-slate-100 pb-4">
                 {config.pathFields.map((field) => (
@@ -761,7 +1081,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                     key={field.name}
                     field={field}
                     value={String(values[field.name] ?? "")}
-                    browseLabel="Browse"
+                    browseLabel={t("common.browse")}
                     browseDisabled={!canBrowsePaths}
                     onChange={(value) => updateValue(field.name, value)}
                     onBrowse={() => browsePath(field)}
@@ -769,25 +1089,16 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 ))}
               </div>
 
-              <div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {config.performerSections?.media.map((field) => (
-                    <PathInputCompact
-                      key={field.name}
-                      field={field}
-                      value={String(values[field.name] ?? "")}
-                      browseLabel="Browse"
-                      browseDisabled={!canBrowsePaths}
-                      onChange={(value) => updateValue(field.name, value)}
-                      onBrowse={() => browsePath(field)}
-                    />
-                  ))}
-                </div>
-              </div>
+              <MiniThumbnailPathRows
+                paths={performerMiniThumbnailPaths}
+                onChange={setPerformerMiniThumbnailPaths}
+                addImagesDisabled={!canBrowsePaths || performerMiniThumbnailPaths.length >= 4}
+                onAddImages={addPerformerMiniThumbnailImages}
+              />
             </div>
           </FormSection>
 
-          <FormSection index={3} title="Status & Activity">
+          <FormSection index={3} title={t("form.metadata")}>
             <FieldGrid>
               <PerformerStatusBadge
                 value={derivePerformerStatusDisplay(
@@ -806,17 +1117,18 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                   />
                 ))}
               <ReadOnlyTextInput
-                label="Filmography"
-                value={String(performerRelatedVideos.length)}
+                label={t("form.filmography")}
+                value={performerRelatedVideos.length > 0 ? String(performerRelatedVideos.length) : "N/A"}
               />
               <ReadOnlyTextInput
-                label="Pictorials"
-                value={String(performerRelatedImages.length)}
+                label={t("form.pictorials")}
+                value={performerRelatedImages.length > 0 ? String(performerRelatedImages.length) : "N/A"}
               />
+              <SourceLinksInput rows={sourceLinks} onChange={setSourceLinks} />
             </FieldGrid>
           </FormSection>
 
-          <FormSection index={4} title="Profile Details">
+          <FormSection index={4} title={t("form.profileDetails")}>
             <FieldGrid>
               {config.performerSections?.personal
                 .filter((field) => field.name !== "debutDate" && field.name !== "retiredDate")
@@ -833,8 +1145,8 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                       key={field.name}
                       field={field}
                       value={String(values[field.name] ?? "")}
-                      onChange={(value) => updateValue(field.name, value)}
-                      suggestions={performerSuggestionOptions[field.name] ?? []}
+                      onChange={(value) => updateMemoryValue(field.name, value)}
+                      recentSuggestions={performerSuggestionOptions[field.name] ?? []}
                       onHideSuggestion={(suggestion) =>
                         removePerformerSuggestion(field.name, suggestion)
                       }
@@ -854,33 +1166,30 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                       key={field.name}
                       field={field}
                       value={String(values[field.name] ?? "")}
-                      onChange={(value) => updateValue(field.name, value)}
-                      suggestions={performerSuggestionOptions[field.name] ?? []}
+                      onChange={(value) => updateMemoryValue(field.name, value)}
+                      recentSuggestions={performerSuggestionOptions[field.name] ?? []}
                       onHideSuggestion={(suggestion) =>
                         removePerformerSuggestion(field.name, suggestion)
                       }
                     />
                   )
                 ))}
-              <SourceLinksInput />
             </FieldGrid>
           </FormSection>
         </>
       )}
 
-      <FormSection index={5} title="Categories">
-        <LabeledControl label="Categories">
-          <CategoryPicker
-            kind={config.kind}
-            selected={categories}
-            managedCategories={managedCategories}
-            managedCategoryRecords={managedCategoryRecords}
-            onChange={setCategories}
-          />
-        </LabeledControl>
+      <FormSection index={5} title={t("form.categories")}>
+        <CategoryPicker
+          kind={config.kind}
+          selected={categories}
+          managedCategories={managedCategories}
+          managedCategoryRecords={managedCategoryRecords}
+          onChange={setCategories}
+        />
       </FormSection>
 
-      <FormSection index={6} title="Rating">
+      <FormSection index={6} title={t("form.rating")}>
         {showRatingError && (
           <div
             className="mb-4 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
@@ -903,7 +1212,7 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
           ))}
         </div>
         <div className="mt-4 flex h-11 items-center justify-between border-t border-slate-100 pt-3 text-sm font-semibold text-slate-700">
-          <span className="text-slate-700">Average: Auto</span>
+          <span className="text-slate-700">{t("form.averageAuto")}</span>
           <span
             className="inline-flex h-8 min-w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800"
             data-testid="average-rating-display"
@@ -915,23 +1224,29 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
 
       {config.kind !== "performers" ? (
         <>
-          <FormSection index={7} title="Related Performer">
-            <LabeledControl label="Performers">
-              <RelatedPerformerPicker
-                performers={availablePerformers}
-                selected={relatedPerformers}
-                loadState={performerLoadState}
-                onChange={setRelatedPerformers}
-              />
-            </LabeledControl>
+          <FormSection index={7} title={t("form.relatedPerformers")}>
+            <CompactRelatedPerformersEditor
+              credits={credits}
+              performers={availablePerformers}
+              loadState={performerLoadState}
+              onChange={updateCredits}
+              creditTypeHistory={performerSuggestionOptions.creditType ?? []}
+              onRemoveCreditTypeHistory={(suggestion) =>
+                removePerformerSuggestion("creditType", suggestion)
+              }
+            />
+            {performerLoadState === "error" && (
+              <p className="mt-2 text-xs text-amber-700">
+                Performer records could not be loaded. Existing unresolved rows remain removable.
+              </p>
+            )}
           </FormSection>
 
           <FormSection
             index={8}
-            title={config.kind === "videos" ? "Related Images" : "Related Video"}
+            title={t(config.kind === "videos" ? "form.relatedImages" : "form.relatedVideos")}
           >
-            <LabeledControl label={config.kind === "videos" ? "Images" : "Videos"}>
-              <RelatedCatalogPicker
+            <RelatedCatalogPicker
                 records={
                   config.kind === "videos"
                     ? availableRelatedImages
@@ -942,33 +1257,28 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
                 targetKind={config.kind === "videos" ? "images" : "videos"}
                 onChange={setRelatedCatalogRecords}
               />
-            </LabeledControl>
           </FormSection>
         </>
       ) : (
         <>
-          <FormSection index={7} title="Related Videos">
-            <LabeledControl label="Videos">
-              <RelatedCatalogPicker
+          <FormSection index={7} title={t("form.relatedVideos")}>
+            <RelatedCatalogPicker
                 records={availableRelatedVideos}
                 selected={performerRelatedVideos}
                 loadState={relatedCatalogLoadState}
                 targetKind="videos"
                 onChange={setPerformerRelatedVideos}
               />
-            </LabeledControl>
           </FormSection>
 
-          <FormSection index={8} title="Related Images">
-            <LabeledControl label="Images">
-              <RelatedCatalogPicker
+          <FormSection index={8} title={t("form.relatedImages")}>
+            <RelatedCatalogPicker
                 records={availableRelatedImages}
                 selected={performerRelatedImages}
                 loadState={relatedCatalogLoadState}
                 targetKind="images"
                 onChange={setPerformerRelatedImages}
               />
-            </LabeledControl>
           </FormSection>
         </>
       )}
@@ -996,58 +1306,86 @@ function FormPage({ config, mode, onSubmit }: FormPageProps) {
             )}
           </div>
           <div className="flex justify-end gap-2.5">
-            <Link
-              to={cancelTo}
+            {mode === "edit" && deleteAction && (
+              <button
+                type="button"
+                onClick={requestDelete}
+                disabled={deleteAction.isPending}
+                className={BUTTON_STYLES.danger}
+              >
+                <Trash2 size={14} />
+                {t("common.delete")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={requestCancel}
               className={BUTTON_STYLES.secondary}
             >
-              Cancel
-            </Link>
+              {t("common.cancel")}
+            </button>
             <button
               type="submit"
               className={BUTTON_STYLES.primary}
             >
               <Save size={14} />
-              Save
+              {t("common.save")}
             </button>
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmation !== null}
+        title={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).title}
+        description={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).description}
+        confirmLabel={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).confirmLabel}
+        cancelLabel={t("common.cancel")}
+        pending={confirmation === "delete" ? deleteAction?.isPending : confirmationPending}
+        pendingLabel={formConfirmationCopy(t, confirmation, config.kind, mode, deleteAction).pendingLabel}
+        variant={confirmation === "delete" ? "destructive" : "default"}
+        onCancel={closeConfirmation}
+        onConfirm={() => void confirmCurrentAction()}
+      />
     </form>
   );
 }
 
 function FormHeader({
   backLabel,
-  backTo,
+  onBack,
   title,
   subtitle,
   formLabel,
 }: {
   backLabel: string;
-  backTo: string;
+  onBack: () => void;
   title: string;
   subtitle: string;
   formLabel: string;
 }) {
+  const t = useTranslation();
   return (
     <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 mb-2">
       <div>
-        <Link
-          to={backTo}
+        <button
+          type="button"
+          onClick={onBack}
           className={BUTTON_STYLES.secondary}
         >
           <ArrowLeft size={14} />
-          {backLabel}
-        </Link>
+          {translateUiDisplayLabel(t, backLabel)}
+        </button>
       </div>
       <div>
         <p className="mb-1 text-xs font-bold uppercase tracking-wider text-sakura-500">
-          {formLabel}
+          {translateUiDisplayLabel(t, formLabel)}
         </p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          {title}
+        <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
+          {translateUiDisplayLabel(t, title)}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{subtitle}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+          {translateUiDisplayLabel(t, subtitle)}
+        </p>
       </div>
     </div>
   );
@@ -1062,15 +1400,16 @@ function NotesSection({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
-    <FormSection index={index} title="Notes">
+    <FormSection index={index} title={t("form.notes")}>
       <label className={FORM_ROW_START_STYLES}>
-        <span className="pt-2">Notes</span>
+        <span className="pt-2">{t("form.notes")}</span>
         <textarea
           className="min-h-24 select-text rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Write local notes..."
+          placeholder={t("form.notesPlaceholder")}
         />
       </label>
     </FormSection>
@@ -1115,12 +1454,14 @@ function TechReadOnlyTextInput({
   placeholder?: string;
   suffix?: string;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const isPlaceholder = !value.trim() || value === "n/a";
 
   return (
     <label className={FORM_ROW_STYLES}>
       <span className="flex items-center gap-1.5">
-        {label}
+        {displayLabel}
         {!isPlaceholder && (
           <span className="inline-flex items-center rounded-md bg-sakura-50 px-1.5 py-0.5 text-[10px] font-bold text-sakura-600 border border-sakura-100/50 uppercase tracking-wider">
             Auto
@@ -1139,12 +1480,12 @@ function TechReadOnlyTextInput({
             readOnly
             value={isPlaceholder ? "" : value}
             placeholder={placeholder}
-            aria-label={label}
+            aria-label={displayLabel}
           />
         </div>
         {suffix && (
           <span className="shrink-0 text-xs font-semibold text-slate-500">
-            {suffix}
+            {translateUiDisplayLabel(t, suffix)}
           </span>
         )}
       </div>
@@ -1200,80 +1541,68 @@ function TextInput({
   value,
   onChange,
   inactive = false,
-  suggestions = [],
+  recentSuggestions = [],
   onHideSuggestion,
 }: {
   field: TextField;
   value: string;
   onChange: (value: string) => void;
   inactive?: boolean;
-  suggestions?: string[];
+  recentSuggestions?: string[];
   onHideSuggestion?: (suggestion: string) => void;
 }) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const hasSuggestions = suggestions.length > 0 && onHideSuggestion && !inactive;
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, field.label);
+  const displayPlaceholder = field.placeholder
+    ? translateUiDisplayLabel(t, field.placeholder)
+    : undefined;
+  const usesMemorySuggestions = Boolean(
+    performerSuggestionFieldNames.includes(field.name) &&
+      onHideSuggestion &&
+      !inactive,
+  );
 
   return (
     <label className={FORM_ROW_STYLES}>
       <span>
-        {field.label}
+        {displayLabel}
         {field.required && <span className="text-sakura-500"> *</span>}
       </span>
       <span className="flex items-center gap-2">
         <span className="relative grid flex-1 gap-1">
           <span className="flex items-center gap-2">
-            <input
-              className={inputClass(inactive)}
-              aria-label={field.label}
-              type={field.type ?? "text"}
-              value={value}
-              placeholder={field.placeholder}
-              disabled={inactive}
-              autoComplete="off"
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => window.setTimeout(() => setShowSuggestions(false), 100)}
-              onChange={(event) => onChange(event.target.value)}
-            />
+            {usesMemorySuggestions ? (
+              <MemorySuggestionInput
+                className={inputClass(inactive)}
+                ariaLabel={displayLabel}
+                value={value}
+                placeholder={displayPlaceholder}
+                disabled={inactive}
+                suggestions={recentSuggestions}
+                onChange={onChange}
+                onRemoveSuggestion={onHideSuggestion}
+              />
+            ) : (
+              <input
+                className={inputClass(inactive)}
+                aria-label={displayLabel}
+                type={field.type ?? "text"}
+                value={value}
+                placeholder={displayPlaceholder}
+                disabled={inactive}
+                autoComplete="off"
+                onChange={(event) => onChange(event.target.value)}
+              />
+            )}
             {field.suffix && (
               <span className="shrink-0 text-xs font-semibold text-slate-500">
-                {field.suffix}
+                {translateUiDisplayLabel(t, field.suffix)}
               </span>
             )}
           </span>
           {field.helper && (
             <span className="text-xs font-medium text-slate-500">
               {field.helper}
-            </span>
-          )}
-          {hasSuggestions && showSuggestions && (
-            <span
-              className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-              aria-label={`${field.label} suggestions`}
-            >
-              {suggestions.map((suggestion) => (
-                <span
-                  key={suggestion}
-                  className="flex items-center justify-between gap-2 px-2 py-1"
-                >
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => onChange(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                    aria-label={`Remove ${field.label} suggestion ${suggestion}`}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => onHideSuggestion(suggestion)}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
             </span>
           )}
         </span>
@@ -1289,6 +1618,7 @@ function MeasurementsInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   const displayValue = formatMeasurementDigits(measurementDigitsFromValue(value));
 
   function normalizeInputValue(nextValue: string) {
@@ -1302,11 +1632,11 @@ function MeasurementsInput({
 
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>Measurements</span>
+      <span>{t("form.measurements")}</span>
       <div className="flex items-center gap-2">
         <input
           className="h-9 min-w-0 flex-1 select-text rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-          aria-label="Measurements"
+          aria-label={t("form.measurements")}
           inputMode="numeric"
           value={displayValue}
           autoComplete="off"
@@ -1315,7 +1645,7 @@ function MeasurementsInput({
         />
         <span
           className="shrink-0 text-xs font-semibold text-slate-500"
-          aria-label="Measurements unit"
+          aria-label={t("form.measurementsUnit")}
         >
           cm
         </span>
@@ -1339,15 +1669,18 @@ function PathInput({
   onChange: (value: string) => void;
   onBrowse: () => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, field.label);
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>{field.label}</span>
+      <span>{displayLabel}</span>
       <div className="grid gap-1">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
           <input
             className={inputClass(false)}
-            aria-label={field.label}
+            aria-label={displayLabel}
             value={value}
+            placeholder={field.placeholder}
             onChange={(event) => onChange(event.target.value)}
           />
           <button
@@ -1375,13 +1708,20 @@ function GalleryImagePathRows({
   folderMessage,
   browseFolderDisabled,
   onBrowseFolder,
+  addImagesDisabled,
+  onAddImages,
+  onClearPaths,
 }: {
   paths: string[];
   onChange: Dispatch<SetStateAction<string[]>>;
   folderMessage: string;
   browseFolderDisabled: boolean;
   onBrowseFolder: () => void;
+  addImagesDisabled: boolean;
+  onAddImages: () => void;
+  onClearPaths: () => void;
 }) {
+  const t = useTranslation();
   const [showAllPaths, setShowAllPaths] = useState(false);
 
   function updatePath(index: number, value: string) {
@@ -1398,20 +1738,11 @@ function GalleryImagePathRows({
     );
   }
 
-  function clearPaths() {
-    if (
-      paths.length === 0 ||
-      window.confirm("Clear all Gallery Images path rows?")
-    ) {
-      onChange([]);
-    }
-  }
-
   const visiblePaths = showAllPaths ? paths : paths.slice(0, 5);
 
   return (
     <div className={FORM_ROW_START_STYLES}>
-      <span className="pt-2">Gallery Images</span>
+      <span className="pt-2">{t("form.galleryPath")}</span>
       <div className="grid gap-3">
         {folderMessage && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
@@ -1424,7 +1755,7 @@ function GalleryImagePathRows({
         >
           {paths.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
-              No Gallery Images paths added.
+              {t("form.galleryEmpty")}
             </p>
           ) : (
             visiblePaths.map((path, index) => (
@@ -1442,7 +1773,7 @@ function GalleryImagePathRows({
                   type="button"
                   className={BUTTON_STYLES.iconDanger}
                   aria-label={`Remove Gallery Image Path ${index + 1}`}
-                  title="Remove"
+                  title={t("common.remove")}
                   onClick={() => removePath(index)}
                 >
                   <X size={13} />
@@ -1455,14 +1786,14 @@ function GalleryImagePathRows({
       {paths.length > 5 && !showAllPaths && (
         <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3.5 py-2">
           <span className="text-xs font-bold text-slate-400">
-            + {paths.length - 5} more files are loaded
+            {t("form.gallery.moreFiles", { count: String(paths.length - 5) })}
           </span>
           <button
             type="button"
             className={`${BUTTON_STYLES.link} text-xs`}
             onClick={() => setShowAllPaths(true)}
           >
-            Show All
+            {t("form.gallery.showAll")}
           </button>
         </div>
       )}
@@ -1473,7 +1804,7 @@ function GalleryImagePathRows({
             className={`${BUTTON_STYLES.link} text-xs`}
             onClick={() => setShowAllPaths(false)}
           >
-            Show Less
+            {t("form.gallery.showLess")}
           </button>
         </div>
       )}
@@ -1485,24 +1816,99 @@ function GalleryImagePathRows({
             className={BUTTON_STYLES.action}
             onClick={onBrowseFolder}
           >
-            Browse
+            {t("form.addFolder")}
           </button>
           <button
             type="button"
+            disabled={addImagesDisabled}
             className={BUTTON_STYLES.action}
-            onClick={() => onChange((current) => [...current, ""])}
+            onClick={onAddImages}
           >
-            <Plus size={14} />
-            Add Images
+            {t("form.addImages")}
           </button>
           <button
             type="button"
             disabled={paths.length === 0}
             className={BUTTON_STYLES.secondary}
-            onClick={clearPaths}
+            onClick={onClearPaths}
           >
-            Clear All
+            {t("form.clearAll")}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniThumbnailPathRows({
+  paths,
+  onChange,
+  addImagesDisabled,
+  onAddImages,
+}: {
+  paths: string[];
+  onChange: (paths: string[]) => void;
+  addImagesDisabled: boolean;
+  onAddImages: () => void;
+}) {
+  const t = useTranslation();
+  function updatePath(index: number, value: string) {
+    const nextPaths = paths.map((path, currentIndex) =>
+      currentIndex === index ? value : path,
+    );
+    onChange(nextPaths);
+  }
+
+  function removePath(index: number) {
+    onChange(paths.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  return (
+    <div className={FORM_ROW_START_STYLES}>
+      <span className="pt-2">{t("form.miniThumbnailPaths")}</span>
+      <div className="grid gap-3">
+        <div className="grid gap-2" data-testid="performer-mini-thumbnail-path-list">
+          {paths.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-500">
+              {t("form.miniThumbnailEmpty")}
+            </p>
+          ) : (
+            paths.map((path, index) => (
+              <div
+                key={`${path}-${index}`}
+                className="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2"
+              >
+                <input
+                  className={inputClass(false)}
+                  aria-label={`Mini Thumbnail Path ${index + 1}`}
+                  value={path}
+                  onChange={(event) => updatePath(index, event.target.value)}
+                />
+                <button
+                  type="button"
+                  className={BUTTON_STYLES.iconDanger}
+                  aria-label={`Remove Mini Thumbnail Path ${index + 1}`}
+                  title={t("common.remove")}
+                  onClick={() => removePath(index)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={addImagesDisabled}
+            className={BUTTON_STYLES.action}
+            onClick={onAddImages}
+          >
+            {t("form.addImages")}
+          </button>
+          <span className="ml-auto text-xs font-semibold text-slate-500">
+            {t("form.thumbnailSelected", { count: String(paths.length) })}
+          </span>
         </div>
       </div>
     </div>
@@ -1520,16 +1926,17 @@ function SelectInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
     <label className={FORM_ROW_STYLES}>
-      {label}
+      {translateUiDisplayLabel(t, label)}
       <select
         className={inputClass(false)}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option key={option} value={option}>{translateUiDisplayLabel(t, option)}</option>
         ))}
       </select>
     </label>
@@ -1577,9 +1984,10 @@ function AvailabilityBadgeInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>{label}</span>
+      <span>{translateUiDisplayLabel(t, label)}</span>
       <div className="flex gap-2.5">
         {options.map((option) => {
           const isSelected = value === option;
@@ -1609,7 +2017,7 @@ function AvailabilityBadgeInput({
               onClick={() => onChange(option)}
               className={`${PILL_STYLES} transition-colors duration-150 ${badgeColorClass}`}
             >
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </button>
           );
         })}
@@ -1622,7 +2030,7 @@ function AvailabilityBadgeInput({
         >
           {options.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </option>
           ))}
         </select>
@@ -1636,14 +2044,18 @@ function PerformerStatusBadge({
 }: {
   value: string;
 }) {
+  const t = useTranslation();
   const options = ["Active", "Retired", "Unknown"];
+  const normalizedValue = /^(unknow|unkown)$/i.test(value.trim())
+    ? "Unknown"
+    : value;
 
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>Status</span>
+      <span>{t("form.availability")}</span>
       <div className="flex flex-wrap items-center gap-2.5">
         {options.map((option) => {
-          const isSelected = value === option;
+          const isSelected = normalizedValue === option;
           let badgeColorClass = "";
           if (option === "Active") {
             badgeColorClass = isSelected
@@ -1665,15 +2077,15 @@ function PerformerStatusBadge({
               className={`${PILL_STYLES} ${badgeColorClass}`}
               aria-current={isSelected ? "true" : undefined}
             >
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </span>
           );
         })}
         <input
           className="sr-only"
           readOnly
-          value={value}
-          aria-label="Status"
+          value={normalizedValue}
+          aria-label={t("form.availability")}
         />
       </div>
     </div>
@@ -1703,6 +2115,7 @@ function PathInputCompact({
           className="h-8.5 min-w-0 flex-1 select-text rounded-md border border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 focus:border-sakura-300 focus:ring-2 focus:ring-sakura-100"
           aria-label={field.label}
           value={value}
+          placeholder={field.placeholder}
           onChange={(event) => onChange(event.target.value)}
         />
         <button
@@ -1727,6 +2140,7 @@ function ChipInput({
   onDraftChange,
   onAdd,
   onRemove,
+  autoChips = [],
 }: {
   label: string;
   draft: string;
@@ -1736,7 +2150,9 @@ function ChipInput({
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (chip: string) => void;
+  autoChips?: string[];
 }) {
+  const t = useTranslation();
   const optionListId = `${label.toLowerCase().replace(/\s+/g, "-")}-options`;
 
   return (
@@ -1755,8 +2171,18 @@ function ChipInput({
               aria-label={`Remove ${chip}`}
               onClick={() => onRemove(chip)}
             >
-              <X size={13} />
+              <Trash2 size={14} />
             </button>
+          </span>
+        ))}
+        {autoChips.map((chip) => (
+          <span
+            key={`auto:${knownNameKey(chip)}`}
+            className={`${PILL_STYLES} border-slate-200 bg-slate-50 text-slate-600`}
+            title={t("form.fromRoleName")}
+            data-known-name-source="role"
+          >
+            <span className={CHIP_TEXT_STYLES}>{chip}</span>
           </span>
         ))}
         <input
@@ -1774,11 +2200,11 @@ function ChipInput({
         />
         <button
           type="button"
-          className="inline-flex size-7 items-center justify-center rounded-full border border-sakura-100 bg-sakura-50 text-sakura-500 transition-colors hover:bg-sakura-100"
+          className={BUTTON_STYLES.compactAction}
           aria-label={`Add ${label}`}
           onClick={onAdd}
         >
-          <Plus size={15} />
+          {t("common.add")}
         </button>
         {options.length > 0 && (
           <datalist id={optionListId}>
@@ -1805,9 +2231,13 @@ function CategoryPicker({
   managedCategoryRecords: ManagedCategory[];
   onChange: Dispatch<SetStateAction<string[]>>;
 }) {
+  const t = useTranslation();
   const [categorySearch, setCategorySearch] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllSelected, setShowAllSelected] = useState(false);
+  const [visibleResultCount, setVisibleResultCount] = useState(
+    PICKER_RENDER_BATCH_SIZE,
+  );
   const normalizedSelected = normalizeFormCategories(selected);
   const normalizedManagedCategories = normalizeFormCategories(managedCategories);
   const categoryOptions = buildCategoryOptions(
@@ -1818,15 +2248,21 @@ function CategoryPicker({
   const availableCategories = categoryOptions.filter(
     (category) => !hasFormCategory(normalizedSelected, category.label),
   );
-  const categorySearchKey = categorySearch.trim().toLowerCase();
-  const filteredCategories = availableCategories.filter((category) =>
-    category.searchText.includes(categorySearchKey),
+  const filteredCategories = rankPickerSearchResults(
+    availableCategories,
+    categorySearch,
+    (category) => ({
+      id: category.label,
+      primary: category.label,
+      secondary: [],
+    }),
   );
   const visibleSelected = showAllSelected
     ? normalizedSelected
     : normalizedSelected.slice(0, 4);
   const hiddenSelectedCount = Math.max(normalizedSelected.length - visibleSelected.length, 0);
-  const shouldShowResults = isSearchOpen && categorySearch.trim().length > 0;
+  const shouldShowResults = isSearchOpen;
+  const visibleCategories = filteredCategories.slice(0, visibleResultCount);
 
   useEffect(() => {
     if (
@@ -1843,9 +2279,26 @@ function CategoryPicker({
     }
   }, [normalizedSelected.length]);
 
+  useEffect(() => {
+    setVisibleResultCount(PICKER_RENDER_BATCH_SIZE);
+  }, [categorySearch, isSearchOpen, availableCategories.length]);
+
   function addSelectedCategory(category: string) {
     onChange((current) => addFormCategory(current, category));
-    setIsSearchOpen(categorySearch.trim().length > 0);
+    setIsSearchOpen(true);
+  }
+
+  function handleResultsScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.currentTarget;
+    const remaining =
+      target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remaining > 48) {
+      return;
+    }
+
+    setVisibleResultCount((current) =>
+      Math.min(current + PICKER_RENDER_BATCH_SIZE, filteredCategories.length),
+    );
   }
 
   return (
@@ -1868,17 +2321,13 @@ function CategoryPicker({
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
-          aria-label="Search categories"
+          aria-label={t("form.searchCategories")}
           value={categorySearch}
-          placeholder={categorySearchPlaceholder(kind)}
-          onFocus={() => {
-            if (categorySearch.trim()) {
-              setIsSearchOpen(true);
-            }
-          }}
+          placeholder={categorySearchPlaceholder(kind, t)}
+          onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
             setCategorySearch(event.target.value);
-            setIsSearchOpen(event.target.value.trim().length > 0);
+            setIsSearchOpen(true);
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -1890,7 +2339,7 @@ function CategoryPicker({
           <button
             type="button"
             className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sakura-300"
-            aria-label="Clear category search"
+            aria-label={t("form.clearCategorySearch")}
             onClick={() => {
               setCategorySearch("");
               setIsSearchOpen(false);
@@ -1901,13 +2350,16 @@ function CategoryPicker({
         )}
 
         {shouldShowResults && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div
+            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+            onScroll={handleResultsScroll}
+          >
             {normalizedManagedCategories.length === 0 ? (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
                 No Managed Categories available.
               </p>
             ) : filteredCategories.length > 0 ? (
-              filteredCategories.map((category) => (
+              visibleCategories.map((category) => (
                 <button
                   key={category.label}
                   type="button"
@@ -1918,7 +2370,10 @@ function CategoryPicker({
                   onClick={() => addSelectedCategory(category.label)}
                 >
                   <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-800">
-                    {category.displayPath}
+                    <HighlightedPickerText
+                      text={category.displayPath}
+                      query={categorySearch}
+                    />
                   </span>
                   <span
                     className="min-w-0 truncate whitespace-nowrap text-right text-sm font-medium text-slate-500"
@@ -1926,14 +2381,14 @@ function CategoryPicker({
                   >
                     {" "}
                   </span>
-                  <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
-                    <Plus size={14} />
+                  <span className="flex h-8 items-center justify-center justify-self-end rounded-full px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                    Add
                   </span>
                 </button>
               ))
             ) : (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
-                No matching Managed Categories. Use Manage Category to add it first.
+                {t("form.category.noMatches")}
               </p>
             )}
           </div>
@@ -1942,7 +2397,7 @@ function CategoryPicker({
 
       {normalizedSelected.length === 0 ? (
         <p className="text-sm font-medium text-slate-500">
-          No categories selected.
+          {t("form.noCategories")}
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -1982,7 +2437,7 @@ function CategoryPicker({
               className={`${PILL_STYLES} border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600`}
               onClick={() => setShowAllSelected(true)}
             >
-              +{hiddenSelectedCount} more
+              {formatMoreCount(t, hiddenSelectedCount)}
             </button>
           )}
           {showAllSelected && normalizedSelected.length > 4 && (
@@ -2000,9 +2455,12 @@ function CategoryPicker({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="font-medium text-slate-500">
           {normalizedSelected.length > 0
-            ? `${normalizedSelected.length} ${
-                normalizedSelected.length === 1 ? "category" : "categories"
-              } selected`
+            ? t(
+                normalizedSelected.length === 1
+                  ? "form.category.selectedOne"
+                  : "form.category.selectedMany",
+                { count: String(normalizedSelected.length) },
+              )
             : ""}
         </span>
         <div className="flex items-center gap-4">
@@ -2012,7 +2470,7 @@ function CategoryPicker({
               className="font-semibold text-slate-500 transition-colors hover:text-slate-700"
               onClick={() => onChange([])}
             >
-              Clear all
+              {t("common.clearAll")}
             </button>
           )}
           {normalizedSelected.length > 0 && (
@@ -2022,7 +2480,7 @@ function CategoryPicker({
             to="/settings/category-management"
             className="font-semibold text-sakura-600 transition-colors hover:text-sakura-700"
           >
-            Manage Category
+            {t("form.manageCategory")}
           </Link>
         </div>
       </div>
@@ -2030,23 +2488,41 @@ function CategoryPicker({
   );
 }
 
-function categorySearchPlaceholder(kind: FormConfig["kind"]) {
+function categorySearchPlaceholder(kind: FormConfig["kind"], t: ReturnType<typeof useTranslation>) {
   if (kind === "images") {
-    return "Search categories, face, body, pose, setting...";
+    return t("form.categorySearchImage");
   }
 
   if (kind === "performers") {
-    return "Search categories, face, body, specialty, attribute...";
+    return t("form.categorySearchPerformer");
   }
 
-  return "Search categories, genre, setting, attribute...";
+  return t("form.categorySearchVideo");
+}
+
+function HighlightedPickerText({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {splitPickerHighlight(text, query).map((part, index) =>
+        part.highlighted ? (
+          <mark
+            key={`${part.text}-${index}`}
+            className="rounded bg-sakura-100 px-0 text-inherit"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${part.text}-${index}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 type CategoryOption = {
   label: string;
   displayPath: string;
   pathParts: string[];
-  searchText: string;
 };
 
 function buildCategoryOptions(
@@ -2063,10 +2539,18 @@ function buildCategoryOptions(
   const recordsByKey = new Map(
     managedCategoryRecords.map((category) => [category.key, category]),
   );
+  const parentKeys = new Set(
+    managedCategoryRecords
+      .map((category) => category.parentKey)
+      .filter((key): key is string => Boolean(key)),
+  );
 
   for (const category of managedCategoryRecords) {
     const label = category.name.trim();
     if (!label) {
+      continue;
+    }
+    if (parentKeys.has(category.key)) {
       continue;
     }
     if (!categorySupportsFormKind(category, kind)) {
@@ -2079,7 +2563,6 @@ function buildCategoryOptions(
       label,
       displayPath,
       pathParts,
-      searchText: `${label} ${displayPath}`.toLowerCase(),
     });
   }
 
@@ -2094,7 +2577,6 @@ function buildCategoryOptions(
       label: normalizedLabel,
       displayPath: normalizedLabel,
       pathParts: [normalizedLabel],
-      searchText: normalizedLabel.toLowerCase(),
     });
   }
 
@@ -2148,13 +2630,15 @@ function RatingInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const [hoverValue, setHoverValue] = useState<number | null>(null);
   const ratingVal = getRatingControlValue(value);
   const previewValue = hoverValue ?? ratingVal;
 
   return (
     <div className="grid min-h-9 grid-cols-[minmax(7rem,9rem)_auto] items-center justify-start gap-3 text-sm font-semibold text-slate-700">
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{displayLabel}</span>
       <div
         className="flex shrink-0 items-center gap-1"
         onMouseLeave={() => setHoverValue(null)}
@@ -2169,7 +2653,7 @@ function RatingInput({
               onClick={() => onChange(String(star))}
               onMouseEnter={() => setHoverValue(star)}
               className="flex size-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-sakura-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400"
-              aria-label={`Rate ${label} ${star} out of 5`}
+              aria-label={`Rate ${displayLabel} ${star} out of 5`}
             >
               <Star
                 size={17}
@@ -2212,6 +2696,7 @@ function formatRatingControlValue(value: FormValues[string] | unknown) {
 }
 
 function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
+  const t = useTranslation();
   return (
     <div className="grid gap-3">
       {fields.map((field) => (
@@ -2219,12 +2704,12 @@ function ReadOnlyRows({ fields }: { fields: ReadOnlyField[] }) {
           key={field.label}
           className={FORM_ROW_STYLES}
         >
-          {field.label}
+          {translateUiDisplayLabel(t, field.label)}
           <input
             className={inputClass(true)}
             readOnly
             value={field.value}
-            aria-label={`${field.label} read-only placeholder`}
+            aria-label={`${translateUiDisplayLabel(t, field.label)} read-only placeholder`}
           />
         </label>
       ))}
@@ -2274,31 +2759,8 @@ function derivePerformerStatusDisplay(debutDate: string, retiredDate: string) {
   return "Unknown";
 }
 
-function buildPerformerSuggestions(performers: Performer[]) {
-  const recentPerformers = [...performers].sort(
-    (left, right) => performerSuggestionTime(right) - performerSuggestionTime(left),
-  );
-
-  return {
-    birthplace: uniqueSuggestions(recentPerformers.map((performer) => performer.birthplace))
-      .slice(0, 10),
-    nationality: uniqueSuggestions(recentPerformers.map((performer) => performer.nationality))
-      .slice(0, 10),
-    bloodType: uniqueSuggestions(recentPerformers.map((performer) => performer.bloodType))
-      .slice(0, 10),
-    cupSize: uniqueSuggestions(recentPerformers.map((performer) => performer.cupSize))
-      .slice(0, 10),
-  };
-}
-
-function performerSuggestionTime(performer: Performer) {
-  const updatedAt = Date.parse(String(performer.updatedAt ?? ""));
-  if (Number.isFinite(updatedAt)) {
-    return updatedAt;
-  }
-
-  const createdAt = Date.parse(String(performer.createdAt ?? ""));
-  return Number.isFinite(createdAt) ? createdAt : 0;
+function buildPerformerSuggestions(_performers: Performer[]) {
+  return getStoredPerformerSuggestionCache();
 }
 
 function removeCachedPerformerSuggestion(
@@ -2355,7 +2817,10 @@ function addCachedPerformerSuggestion(
 
   return {
     ...current,
-    [fieldName]: [normalizedSuggestion, ...remainingSuggestions].slice(0, 10),
+    [fieldName]: [normalizedSuggestion, ...remainingSuggestions].slice(
+      0,
+      performerSuggestionLimit,
+    ),
   };
 }
 
@@ -2369,7 +2834,7 @@ function mergePerformerSuggestionCaches(
       uniqueSuggestions([
         ...(primary[fieldName] ?? []),
         ...(fallback[fieldName] ?? []),
-      ]).slice(0, 10),
+      ]).slice(0, performerSuggestionLimit),
     ]),
   );
 }
@@ -2388,7 +2853,7 @@ function getStoredPerformerSuggestionCache() {
         .filter(([, values]) => Array.isArray(values))
         .map(([fieldName, values]) => [
           fieldName,
-          uniqueSuggestions(values as string[]).slice(0, 10),
+          uniqueSuggestions(values as string[]).slice(0, performerSuggestionLimit),
         ]),
     );
   } catch {
@@ -2418,10 +2883,13 @@ function resetPerformerSuggestionCachesOnce() {
 }
 
 const performerSuggestionFieldNames = [
+  "gender",
   "birthplace",
   "nationality",
   "bloodType",
   "cupSize",
+  "publisherLabel",
+  "creditType",
 ];
 
 function uniqueSuggestions(values: Array<string | null | undefined>) {
@@ -2482,6 +2950,150 @@ function addChip(
   setDraft("");
 }
 
+function memorySuggestionKey(fieldName: string, suggestion: string) {
+  return `${fieldName}\u0000${suggestion.trim().toLowerCase()}`;
+}
+
+function removeSuppressedSuggestions(
+  cache: Record<string, string[]>,
+  suppressed: Set<string>,
+) {
+  return Object.fromEntries(
+    Object.entries(cache).map(([fieldName, suggestions]) => [
+      fieldName,
+      suggestions.filter(
+        (suggestion) =>
+          !suppressed.has(memorySuggestionKey(fieldName, suggestion)),
+      ),
+    ]),
+  );
+}
+
+function formSnapshot(data: FormSubmitData) {
+  return JSON.stringify(data);
+}
+
+function legacyCredits(
+  relations: RelatedPerformerFormValue[],
+): CreditFormValue[] {
+  return relations.map((relation, index) => ({
+    ...emptyCreditFormValue(relation.performerId, index),
+    performerNameSnapshot: relation.nameSnapshot,
+  }));
+}
+
+function creditsToLegacyRelations(
+  credits: CreditFormValue[],
+  performers: Performer[],
+  fallback: RelatedPerformerFormValue[],
+): RelatedPerformerFormValue[] {
+  const performerById = new Map(
+    performers.map((performer) => [performer.id, performer]),
+  );
+  const fallbackById = new Map(
+    fallback
+      .filter((relation) => relation.performerId)
+      .map((relation) => [relation.performerId, relation]),
+  );
+  const seen = new Set<string>();
+  const relations: RelatedPerformerFormValue[] = [];
+
+  for (const credit of credits) {
+    const performerId = credit.performerId.trim();
+    if (!performerId || seen.has(performerId)) {
+      continue;
+    }
+    seen.add(performerId);
+    const performer = performerById.get(performerId);
+    relations.push({
+      performerId,
+      nameSnapshot:
+        performer?.name ||
+        performer?.originalName ||
+        fallbackById.get(performerId)?.nameSnapshot ||
+        credit.performerNameSnapshot ||
+        "Unresolved Performer",
+    });
+  }
+
+  for (const relation of fallback) {
+    if (!relation.performerId && relation.nameSnapshot.trim()) {
+      relations.push(relation);
+    }
+  }
+  return relations;
+}
+
+function formConfirmationCopy(
+  t: ReturnType<typeof useTranslation>,
+  confirmation: FormConfirmation,
+  kind: FormConfig["kind"],
+  mode: FormMode,
+  deleteAction?: FormDeleteAction,
+) {
+  const noun = kind === "videos" ? "video" : kind === "images" ? "image" : "performer";
+
+  if (confirmation === "delete") {
+    const itemLabel = deleteAction?.itemLabel ?? `this ${noun}`;
+    return {
+      title: t("form.confirm.delete.title", { title: itemLabel }),
+      description: (
+        <>
+          <p>{t("form.confirm.delete.description", { title: itemLabel })}</p>
+          {deleteAction?.errorMessage && (
+            <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              {deleteAction.errorMessage}
+            </p>
+          )}
+        </>
+      ),
+      confirmLabel: t("common.delete"),
+      pendingLabel: "Deleting...",
+    };
+  }
+
+  if (confirmation === "discard") {
+    return {
+      title: t("form.confirm.discard.title"),
+      description: t("form.confirm.discard.description"),
+      confirmLabel: t("form.confirm.discard.action"),
+      pendingLabel: "Discarding...",
+    };
+  }
+
+  if (confirmation === "replaceGallery") {
+    return {
+      title: "Replace Gallery Path?",
+      description: "Current Gallery Path rows will be replaced.",
+      confirmLabel: "Replace",
+      pendingLabel: "Replacing...",
+    };
+  }
+
+  if (confirmation === "clearGallery") {
+    return {
+      title: "Clear Gallery Path?",
+      description: "Current Gallery Path rows will be removed from this form.",
+      confirmLabel: "Clear",
+      pendingLabel: "Clearing...",
+    };
+  }
+
+  return mode === "create"
+    ? {
+        title: `Save new ${noun}?`,
+        description: "Review the form before saving this new record.",
+        confirmLabel: "Save",
+        pendingLabel: "Saving...",
+      }
+    : {
+        title: t("form.confirm.saveChanges.title"),
+        description: t("form.confirm.saveChanges.description"),
+        confirmLabel: t("form.confirm.saveChanges.action"),
+        pendingLabel: "Saving...",
+      };
+}
+
 function inputClass(inactive: boolean) {
   return [
     "h-9 w-full select-text rounded-lg border px-3 text-sm outline-none transition selection:bg-sakura-100 selection:text-slate-900",
@@ -2522,10 +3134,11 @@ function AvailabilityBadgeRow({
   label: string;
   value: string;
 }) {
+  const t = useTranslation();
   const options = ["Owned", "Not Owned", "Missing"];
   return (
     <div className={FORM_ROW_STYLES}>
-      <span>{label}</span>
+      <span>{translateUiDisplayLabel(t, label)}</span>
       <div className="flex gap-2.5">
         {options.map((option) => {
           const isSelected = value === option;
@@ -2549,7 +3162,7 @@ function AvailabilityBadgeRow({
               key={option}
               className={`${PILL_STYLES} ${badgeColorClass}`}
             >
-              {option}
+              {translateUiDisplayLabel(t, option)}
             </span>
           );
         })}
@@ -2582,6 +3195,38 @@ function CensorshipSelectInput({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const close = () => setOpen(false);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+      }
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !containerRef.current?.contains(event.target)
+      ) {
+        close();
+      }
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [open]);
   const displayToCensorship = (val: string) => {
     if (val === "Reduced / Reduced Mosaic") return "Reduced";
     if (val === "Unknown") return "";
@@ -2598,53 +3243,65 @@ function CensorshipSelectInput({
 
   return (
     <label className={FORM_ROW_STYLES}>
-      {label}
-      <select
-        className={inputClass(false)}
-        value={uiValue}
-        onChange={(event) => onChange(displayToCensorship(event.target.value))}
+      {displayLabel}
+      <span
+        ref={containerRef}
+        className="relative"
       >
-        {options.map((option) => (
-          <option key={option}>{option}</option>
-        ))}
-      </select>
+        <button
+          type="button"
+          aria-label={displayLabel}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className={`${inputClass(false)} flex items-center justify-between text-left`}
+          onClick={() => setOpen((current) => !current)}
+        >
+          <span>{translateUiDisplayLabel(t, uiValue)}</span>
+          <ChevronDown size={15} className="text-sakura-500" />
+        </button>
+        {open && (
+          <span
+            role="listbox"
+            aria-label={`${displayLabel} options`}
+            className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          >
+            {options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={option === uiValue}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-slate-600 hover:bg-sakura-50 hover:text-sakura-600"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(displayToCensorship(option));
+                  setOpen(false);
+                }}
+              >
+                {translateUiDisplayLabel(t, option)}
+                {option === uiValue && <Check size={14} className="text-sakura-500" />}
+              </button>
+            ))}
+          </span>
+        )}
+      </span>
     </label>
   );
 }
 
-function SearchTextInput({
-  field,
-  value,
+function SourceLinksInput({
+  rows,
   onChange,
 }: {
-  field: TextField;
-  value: string;
-  onChange: (value: string) => void;
+  rows: SourceLinkFormValue[];
+  onChange: Dispatch<SetStateAction<SourceLinkFormValue[]>>;
 }) {
-  return (
-    <label className={FORM_ROW_STYLES}>
-      <span>{field.label}</span>
-      <div className="relative flex-1">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-          <Search size={14} />
-        </span>
-        <input
-          className="h-9 w-full select-text rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-700 outline-none transition selection:bg-sakura-100 selection:text-slate-900 placeholder:text-slate-400 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
-          aria-label={field.label}
-          value={value}
-          placeholder="Search or enter publisher..."
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </div>
-    </label>
-  );
-}
+  const t = useTranslation();
+  const visibleRows = rows.length > 0 ? rows : [];
+  const errors = sourceLinkValidationErrors(rows);
 
-function SourceLinksInput() {
-  const [rows, setRows] = useState([{ title: "", link: "" }]);
-
-  function updateRow(index: number, field: "title" | "link", value: string) {
-    setRows((current) =>
+  function updateRow(index: number, field: keyof SourceLinkFormValue, value: string) {
+    onChange((current) =>
       current.map((row, currentIndex) =>
         currentIndex === index ? { ...row, [field]: value } : row,
       ),
@@ -2652,67 +3309,111 @@ function SourceLinksInput() {
   }
 
   function removeRow(index: number) {
-    setRows((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    onChange((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  function addRow() {
+    onChange((current) => [...current, { title: "", url: "" }]);
   }
 
   return (
     <div className={FORM_ROW_START_STYLES}>
-      <span className="pt-2">Source Links</span>
+      <span className="pt-2">{t("form.sourceLinks")}</span>
       <div className="grid gap-2">
-        {rows.map((row, index) => {
-          const canDelete = rows.length > 1;
-
-          return (
-            <div
-              key={index}
-              className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_2.25rem]"
-            >
-              <input
-                className={inputClass(false)}
-                aria-label={`Source Link Title ${index + 1}`}
-                placeholder={`Title ${index + 1}`}
-                value={row.title}
-                onChange={(event) => updateRow(index, "title", event.target.value)}
-              />
-              <input
-                className={inputClass(false)}
-                aria-label={`Source Link URL ${index + 1}`}
-                placeholder={`Link ${index + 1}`}
-                value={row.link}
-                onChange={(event) => updateRow(index, "link", event.target.value)}
-              />
-              {canDelete ? (
-                <button
-                  type="button"
-                  className={BUTTON_STYLES.iconDanger}
-                  aria-label={`Delete Source Link ${index + 1}`}
-                  title="Delete"
-                  onClick={() => removeRow(index)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              ) : (
-                <span aria-hidden="true" />
-              )}
-            </div>
-          );
-        })}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-medium text-amber-700">
-            Deferred: source links are not saved yet.
+        {visibleRows.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+            {t("form.noSourceLinks")}
           </p>
+        ) : (
+          visibleRows.map((row, index) => {
+            const error = errors.find((item) => item.index === index)?.message;
+
+            return (
+              <div key={index} className="grid gap-1">
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_2.25rem]">
+                  <input
+                    className={inputClass(false)}
+                    aria-label={`Source Link Title ${index + 1}`}
+                    placeholder={`Title ${index + 1}`}
+                    value={row.title}
+                    onChange={(event) => updateRow(index, "title", event.target.value)}
+                  />
+                  <input
+                    className={inputClass(Boolean(error))}
+                    aria-label={`Source Link URL ${index + 1}`}
+                    placeholder={t("form.sourceUrlPlaceholder")}
+                    value={row.url}
+                    onChange={(event) => updateRow(index, "url", event.target.value)}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `source-link-error-${index + 1}` : undefined}
+                  />
+                  <button
+                    type="button"
+                    className={BUTTON_STYLES.iconDanger}
+                    aria-label={`Remove Source Link ${index + 1}`}
+                    title={t("common.remove")}
+                    onClick={() => removeRow(index)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                {error && (
+                  <p
+                    id={`source-link-error-${index + 1}`}
+                    className="text-xs font-semibold text-rose-600"
+                  >
+                    {error}
+                  </p>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div className="flex justify-end">
           <button
             type="button"
             className={BUTTON_STYLES.action}
-            onClick={() => setRows((current) => [...current, { title: "", link: "" }])}
+            onClick={addRow}
           >
-            <Plus size={14} />
-            Add Link
+            {t("form.addSourceLink")}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function sourceLinkValidationErrors(rows: SourceLinkFormValue[]) {
+  return rows
+    .map((row, index) => {
+      const title = row.title.trim();
+      const url = row.url.trim();
+
+      if (!title && !url) {
+        return null;
+      }
+
+      if (!url) {
+        return {
+          index,
+          message: "Source URL is required when a title is entered.",
+        };
+      }
+
+      if (!isHttpSourceUrl(url)) {
+        return {
+          index,
+          message: "Source URL must start with http:// or https://.",
+        };
+      }
+
+      return null;
+    })
+    .filter((error): error is { index: number; message: string } => error !== null);
+}
+
+function isHttpSourceUrl(url: string) {
+  return normalizeHttpSourceUrl(url) !== null;
 }
 
 export default FormPage;

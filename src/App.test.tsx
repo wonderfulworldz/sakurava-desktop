@@ -1,5 +1,6 @@
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -7,14 +8,29 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import App from "./App";
+import StickyHorizontalScroll from "./components/StickyHorizontalScroll";
 import GlobalImageViewer from "./components/gallery/GlobalImageViewer";
 import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
 import CategoriesPage from "./pages/CategoriesPage";
-import { appearanceThemeStorageKey } from "./lib/appearanceTheme";
+import {
+  appearanceAccentStorageKey,
+  appearanceDensityStorageKey,
+  appearanceThemeStorageKey,
+  appearanceUiScaleStorageKey,
+} from "./lib/appearanceTheme";
+import { formatDateOnlyDisplay, formatLocalTimestampDisplay } from "./lib/dateDisplay";
 import { sakuravaRef } from "./lib/exportCsv";
 import { languageStorageKey } from "./lib/language";
+import {
+  customLanguagesStorageKey,
+  maxCustomLanguages,
+} from "./lib/customLanguages";
+import { languageOverridesStorageKey } from "./lib/languageOverrides";
+import { rankPickerSearchResults } from "./lib/relatedPicker";
+import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
+import tailwindConfig from "../tailwind.config";
 
 const dialogMocks = vi.hoisted(() => ({
   open: vi.fn(),
@@ -34,6 +50,99 @@ type TestTauriEventCallback = (event: {
   payload: any;
 }) => void;
 
+describe("date display helpers", () => {
+  it("formats date-only values with padded days without timezone shifting", () => {
+    expect(formatDateOnlyDisplay("2026-02-02")).toBe("Feb 02, 2026");
+    expect(formatDateOnlyDisplay("2026-12-31")).toBe("Dec 31, 2026");
+  });
+
+  it("formats local timestamps without forcing UTC", () => {
+    const localTimestamp = new Date(2026, 1, 2, 3, 4).getTime();
+    const formatted = formatLocalTimestampDisplay(localTimestamp);
+
+    expect(formatted).toMatch(/^Feb 02, 2026,/);
+    expect(formatted).not.toContain("2026-02-02");
+  });
+});
+
+describe("picker search ranking", () => {
+  const itemFields = (item: {
+    id: string;
+    title: string;
+    secondary?: string[];
+  }) => ({
+    id: item.id,
+    primary: item.title,
+    secondary: item.secondary ?? [],
+  });
+
+  it("matches 1-character queries by token prefix only", () => {
+    const results = rankPickerSearchResults(
+      [
+        { id: "1", title: "Abc" },
+        { id: "2", title: "B Aa" },
+        { id: "3", title: "Cba" },
+        { id: "4", title: "1ab" },
+      ],
+      "A",
+      itemFields,
+    );
+
+    expect(results.map((item) => item.title)).toEqual(["Abc", "B Aa"]);
+  });
+
+  it("allows 2+ character contains while ranking prefix results first", () => {
+    const results = rankPickerSearchResults(
+      [
+        { id: "contains", title: "1ab" },
+        { id: "prefix-b", title: "Abd" },
+        { id: "prefix-a", title: "Abc" },
+        { id: "miss", title: "A bc" },
+      ],
+      "Ab",
+      itemFields,
+    );
+
+    expect(results.map((item) => item.title)).toEqual(["Abc", "Abd", "1ab"]);
+  });
+
+  it("ranks secondary field matches after primary matches and normalizes diacritics", () => {
+    const results = rankPickerSearchResults(
+      [
+        { id: "secondary", title: "Bravo", secondary: ["Ábaco"] },
+        { id: "primary", title: "Ábaco" },
+        { id: "contains", title: "X ab" },
+      ],
+      "aba",
+      itemFields,
+    );
+
+    expect(results.map((item) => item.id)).toEqual([
+      "primary",
+      "secondary",
+    ]);
+  });
+
+  it("returns full deterministic ranked results unless a caller requests a limit", () => {
+    const items = Array.from({ length: 35 }, (_, index) => ({
+      id: `item-${index}`,
+      title: `Alpha ${String(index).padStart(2, "0")}`,
+    }));
+    const results = rankPickerSearchResults(
+      items,
+      "alpha",
+      itemFields,
+    );
+    const limitedResults = rankPickerSearchResults(items, "alpha", itemFields, 30);
+
+    expect(results).toHaveLength(35);
+    expect(results[0]?.title).toBe("Alpha 00");
+    expect(results[34]?.title).toBe("Alpha 34");
+    expect(limitedResults).toHaveLength(30);
+    expect(limitedResults[29]?.title).toBe("Alpha 29");
+  });
+});
+
 function createTauriEventHarness() {
   let nextCallbackId = 1;
   const callbacks = new Map<number, TestTauriEventCallback>();
@@ -51,14 +160,120 @@ function createTauriEventHarness() {
   };
 }
 
+function confirmDialog(confirmName: string | RegExp) {
+  const dialog = screen.getByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: confirmName }));
+}
+
+function clickAndConfirm(
+  buttonName: string | RegExp,
+  confirmName: string | RegExp,
+) {
+  fireEvent.click(screen.getByRole("button", { name: buttonName }));
+  confirmDialog(confirmName);
+}
+
+function clickSaveAndConfirm() {
+  clickAndConfirm("Save", /^(Save|Save changes)$/);
+}
+
+function clickSaveEntryAndConfirm() {
+  clickAndConfirm(/^(Save Entry|Save Category)$/, /^(Save|Save changes)$/);
+}
+
+function selectCategoryFilter(optionName: string) {
+  if (!screen.queryByRole("listbox", { name: "Category filter options" })) {
+    fireEvent.click(screen.getByTestId("category-management-filter-control"));
+  }
+  fireEvent.click(screen.getByRole("option", { name: optionName }));
+}
+
+function catalogSortControl(kind: "videos" | "images" | "performers") {
+  return screen.getByTestId(`${kind}.sort-sort-control`);
+}
+
+function selectCatalogSort(
+  kind: "videos" | "images" | "performers",
+  optionName: string,
+) {
+  fireEvent.click(catalogSortControl(kind));
+  fireEvent.click(
+    within(screen.getByRole("listbox", { name: "Sort options" }))
+      .getByRole("option", { name: optionName }),
+  );
+}
+
+function catalogColumnWidths(kind: "videos" | "images" | "performers") {
+  return Array.from(screen.getByTestId(`${kind}-catalog-table-colgroup`).children)
+    .map((column) => ({
+      id: column.getAttribute("data-column-id"),
+      width: (column as HTMLElement).style.width,
+    }));
+}
+
+function catalogTableInlineWidth(kind: "videos" | "images" | "performers") {
+  const table = screen.getByTestId(`${kind}-catalog-table`) as HTMLElement;
+  return {
+    minWidth: table.style.minWidth,
+    width: table.style.width,
+  };
+}
+
+function selectCategorySort(optionName: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Sort" }));
+  fireEvent.click(screen.getByRole("option", { name: optionName }));
+}
+
 describe("App", () => {
+  let systemThemeDark = false;
+  let systemThemeListeners = new Set<(event: MediaQueryListEvent) => void>();
+
+  afterEach(() => {
+    cleanup();
+    document
+      .querySelectorAll("[data-memory-popup]")
+      .forEach((popup) => popup.remove());
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.useRealTimers();
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
     delete (window as Partial<Window>).__TAURI_EVENT_PLUGIN_INTERNALS__;
     window.localStorage.clear();
+    clearAllSessionFilterStateForTests();
     delete document.documentElement.dataset.theme;
+    delete document.documentElement.dataset.themePreference;
+    delete document.documentElement.dataset.accent;
+    delete document.documentElement.dataset.density;
+    delete document.documentElement.dataset.uiScale;
+    document.documentElement.style.removeProperty("--appearance-accent");
+    systemThemeDark = false;
+    systemThemeListeners = new Set();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        matches: systemThemeDark,
+        media: query,
+        onchange: null,
+        addEventListener: (
+          event: string,
+          listener: (event: MediaQueryListEvent) => void,
+        ) => {
+          if (event === "change") systemThemeListeners.add(listener);
+        },
+        removeEventListener: (
+          event: string,
+          listener: (event: MediaQueryListEvent) => void,
+        ) => {
+          if (event === "change") systemThemeListeners.delete(listener);
+        },
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
     Object.defineProperty(document, "fullscreenElement", {
       configurable: true,
       get: () => null,
@@ -116,6 +331,9 @@ describe("App", () => {
     expect(screen.getByText("Continue Cataloging")).toBeInTheDocument();
     expect(screen.getByText("No records yet.")).toBeInTheDocument();
     expect(screen.getByText(/No recent records yet/i)).toBeInTheDocument();
+    expect(document.querySelector(".home-accent-streak")).not.toBeNull();
+    expect(document.querySelector(".home-accent-streak-strong")).not.toBeNull();
+    expect(document.querySelector(".bg-rose-300\\/40")).toBeNull();
   });
 
   it("collapses and expands the sidebar without changing navigation", () => {
@@ -201,11 +419,8 @@ describe("App", () => {
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Alias Mapping" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Glossary entries are independent from Video, Image, Performer, and Category catalog metadata.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Glossary entries are independent/))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Navigate to Settings" }))
       .toHaveAttribute("href", "/settings");
   });
@@ -342,6 +557,9 @@ describe("App", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+    confirmDialog("Discard");
     expect(screen.queryByLabelText("Term")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
@@ -381,7 +599,20 @@ describe("App", () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
-    for (const column of ["Term", "Synonyms", "Categories", "Definition", "Source"]) {
+    const table = screen.getByRole("table");
+    const tableScroll = screen.getByTestId("glossary-table-scroll");
+    expect(tableScroll).toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
+    expect(tableScroll.closest("[data-sticky-horizontal-scroll='true']"))
+      .toHaveClass("sticky-horizontal-scroll-frame");
+    expect(tableScroll.className).not.toContain("px-");
+    expect(tableScroll.className).not.toContain("mx-");
+    expect(table.className).not.toContain("sakura");
+    expect(screen.getByTestId("glossary-sort-control").closest(".relative")?.querySelector("svg"))
+      .not.toBeNull();
+    expect(screen.getByTestId("glossary-category-filter-control").closest(".relative")?.querySelector("svg"))
+      .not.toBeNull();
+
+    for (const column of ["TERM", "SYNONYMS", "CATEGORIES", "DEFINITION", "SOURCE"]) {
       expect(screen.getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
     expect(screen.queryByRole("columnheader", { name: "Thumbnail" }))
@@ -461,14 +692,24 @@ describe("App", () => {
       .toHaveClass("truncate");
     expect(screen.queryByText("Edit")).not.toBeInTheDocument();
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("32");
+    expect(screen.getByText("Page size")).toBeInTheDocument();
+    expect(screen.getByText("per page")).toBeInTheDocument();
+    expect(screen.queryByText("Rows per page")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Terms per page")).toHaveDisplayValue("32");
     for (const pageSize of ["32", "64", "128", "256"]) {
       expect(
-        within(screen.getByLabelText("Rows per page")).getByRole("option", {
+        within(screen.getByLabelText("Terms per page")).getByRole("option", {
           name: pageSize,
         }),
       ).toBeInTheDocument();
     }
+    fireEvent.click(screen.getByLabelText("Terms per page control"));
+    expect(
+      screen.getByRole("listbox", {
+        name: "Terms per page options",
+      }).parentElement,
+    ).toHaveAttribute("data-placement", "down");
+    fireEvent.keyDown(document, { key: "Escape" });
   });
 
   it("expands and collapses Glossary parent rows without opening edit", () => {
@@ -530,21 +771,34 @@ describe("App", () => {
     window.history.pushState({}, "", "/glossary");
     render(<App />);
 
+    const glossaryFilterControl = screen.getByTestId("glossary-category-filter-control");
+
     expect(screen.getByPlaceholderText("Search terms...")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Category Filter" }))
-      .toHaveTextContent("Categories");
+    expect(
+      within(glossaryFilterControl).queryByRole("searchbox"),
+    ).not.toBeInTheDocument();
+    expect(glossaryFilterControl.parentElement).toHaveClass("shrink-0", "sm:w-auto");
+    expect(within(glossaryFilterControl).queryByText("Categories")).not.toBeInTheDocument();
+    const zeroSelectedBadge = screen.getByLabelText("0 active filters");
+    expect(zeroSelectedBadge).toBeInTheDocument();
+    expect(zeroSelectedBadge).toHaveTextContent("0");
     expect(screen.queryByText("All parent terms")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Sort")).toBeInTheDocument();
+    const sortPicker = screen.getByLabelText("Sort").closest("div") as HTMLElement;
+    expect(sortPicker.querySelector("svg.lucide-arrow-up-down")).not.toBeNull();
+    expect(sortPicker.querySelector("svg.lucide-search")).toBeNull();
     expect(screen.queryByText("View")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Search terms"), {
       target: { value: "taxonomy" },
     });
 
-    expect(screen.getByLabelText("Glossary active filters")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Remove filter Search: taxonomy" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Remove filter Search: taxonomy" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
     ).toBeInTheDocument();
@@ -552,56 +806,40 @@ describe("App", () => {
       screen.queryByRole("row", { name: "Edit glossary entry Alias Mapping" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove filter Search: taxonomy" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Clear glossary search" }));
     expect(screen.getByLabelText("Search terms")).toHaveValue("");
     expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
 
-    fireEvent.focus(screen.getByRole("button", { name: "Category Filter" }));
+    fireEvent.click(glossaryFilterControl);
     expect(
-      screen.getByRole("button", {
-        name: "Select glossary category filter AAA Standalone",
-      }),
-    ).toHaveTextContent("AAA Standalone");
+      within(screen.getByRole("listbox", { name: "Category filter options" }))
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["All", "Parents Only", "Children Only"]);
     expect(
-      within(
-        screen.getByRole("button", {
-          name: "Select glossary category filter Alias Mapping",
-        }),
-      ).getByText("Parent"),
-    ).toBeInTheDocument();
-    const subParentOption = screen.getByRole("button", {
-      name: "Select glossary category filter Alias Mapping > Category Drift",
-    });
-    expect(subParentOption).toHaveTextContent("Category Drift");
-    expect(subParentOption).toHaveTextContent("Sub-Parent");
-    expect(subParentOption).not.toHaveTextContent("Alias Mapping > Category Drift");
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Select glossary category filter Alias Mapping",
-      }),
-    );
+      within(screen.getByRole("listbox", { name: "Category filter options" })).queryByRole(
+        "searchbox",
+      ),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Parents Only" }));
 
-    expect(screen.getByRole("button", { name: "Category Filter" }))
-      .toHaveTextContent("Categories");
-    const oneSelectedBadge = screen.getByLabelText("Selected category filters: 1");
+    expect(within(glossaryFilterControl).queryByText("Categories")).not.toBeInTheDocument();
+    const oneSelectedBadge = screen.getByLabelText("1 active filters");
     expect(oneSelectedBadge).toBeInTheDocument();
     expect(oneSelectedBadge).toHaveClass("rounded-md");
     expect(oneSelectedBadge).not.toHaveClass("rounded-full");
+    const categoryFilterBadge = screen.getByTestId("glossary-category-filter-badge");
+    const categoryFilterChevron = screen.getByTestId("glossary-category-filter-chevron");
     expect(
-      screen
-        .getByRole("button", {
-          name: "Select glossary category filter Alias Mapping",
-        })
-        .querySelector("svg"),
-    ).not.toBeNull();
+      categoryFilterBadge.compareDocumentPosition(categoryFilterChevron)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
+      screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
-    ).toHaveTextContent("Cat: Alias Mapping");
+      screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }),
+    ).toHaveTextContent("Filter: Parents Only");
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
     ).toBeInTheDocument();
@@ -609,18 +847,16 @@ describe("App", () => {
       screen.queryByRole("row", { name: "Edit glossary entry Source Citation" }),
     ).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }));
+    fireEvent.click(glossaryFilterControl);
     fireEvent.click(
-      screen.getByRole("button", {
-        name: "Select glossary category filter Local Reference",
-      }),
+      screen.getByRole("option", { name: "Children Only" }),
     );
 
-    expect(screen.getByRole("button", { name: "Category Filter" }))
-      .toHaveTextContent("Categories");
-    expect(screen.getByLabelText("Selected category filters: 2")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Remove filter Category: Local Reference" }),
-    ).toHaveTextContent("Cat: Local Reference");
+    expect(within(glossaryFilterControl).queryByText("Categories")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("1 active filters")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove filter Filter: Children Only" }))
+      .toHaveTextContent("Filter: Children Only");
     expect(
       screen.getByRole("row", { name: "Edit glossary entry Category Drift" }),
     ).toBeInTheDocument();
@@ -631,37 +867,53 @@ describe("App", () => {
       screen.queryByRole("row", { name: "Edit glossary entry AAA Standalone" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Select glossary category filter Alias Mapping > Category Drift > Nested Child",
-      }),
-    );
-    const compactNestedChip = screen.getByRole("button", {
-      name: "Remove filter Category: Alias Mapping > Category Drift > Nested Child",
-    });
-    expect(compactNestedChip).toHaveTextContent("Cat: ... > Cat > Nested Child");
-    expect(compactNestedChip).toHaveAttribute(
-      "title",
-      "Category: Alias Mapping > Category Drift > Nested Child",
-    );
-    const threeSelectedBadge = screen.getByLabelText("Selected category filters: 3");
-    expect(threeSelectedBadge).toBeInTheDocument();
-    expect(threeSelectedBadge).toHaveTextContent("3");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove filter Category: Alias Mapping" }),
-    );
-    expect(screen.queryByRole("row", { name: "Edit glossary entry Category Drift" }))
-      .not.toBeInTheDocument();
-    expect(screen.getByRole("row", { name: "Edit glossary entry Source Citation" }))
-      .toBeInTheDocument();
-
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
-    expect(screen.getByRole("button", { name: "Category Filter" }))
-      .toHaveTextContent("Categories");
+    expect(within(glossaryFilterControl).queryByText("Categories")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
     expect(screen.getByRole("row", { name: "Edit glossary entry AAA Standalone" }))
       .toBeInTheDocument();
+  });
+
+  it("keeps Glossary search filter sort and page size in session memory", () => {
+    window.history.pushState({}, "", "/glossary");
+    const glossaryRender = render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Search terms"), {
+      target: { value: "taxonomy" },
+    });
+    fireEvent.click(screen.getByTestId("glossary-category-filter-control"));
+    fireEvent.click(
+      screen.getByRole("option", { name: "Parents Only" }),
+    );
+    fireEvent.focus(screen.getByLabelText("Sort"));
+    fireEvent.click(screen.getByRole("button", { name: "Select sort Term Z-A" }));
+    fireEvent.change(screen.getByLabelText("Terms per page"), {
+      target: { value: "64" },
+    });
+    glossaryRender.unmount();
+
+    window.history.pushState({}, "", "/glossary");
+    const restoredGlossaryRender = render(<App />);
+
+    expect(screen.getByLabelText("Search terms")).toHaveValue("taxonomy");
+    expect(screen.getByLabelText("Glossary active filters")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove filter Filter: Parents Only" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("glossary-sort-control")).toHaveTextContent("Term Z-A");
+    expect(screen.getByLabelText("Terms per page")).toHaveDisplayValue("64");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+    restoredGlossaryRender.unmount();
+
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+
+    expect(screen.getByLabelText("Search terms")).toHaveValue("");
+    expect(screen.queryByLabelText("Glossary active filters")).not.toBeInTheDocument();
+    expect(screen.getByTestId("glossary-sort-control"))
+      .toHaveTextContent("Term A-Z");
+    expect(screen.getByLabelText("Terms per page")).toHaveDisplayValue("32");
   });
 
   it("sorts static Glossary entries by term", () => {
@@ -683,7 +935,7 @@ describe("App", () => {
     fireEvent.focus(screen.getByLabelText("Sort"));
     expect(screen.getByRole("listbox", { name: "Sort options" }))
       .toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Select sort Z-A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select sort Term Z-A" }));
 
     rows = within(tableBody as HTMLElement).getAllByRole("row");
     expect(rows.map((row) => row.textContent)).toEqual([
@@ -695,11 +947,91 @@ describe("App", () => {
       expect.stringContaining("AAA Standalone"),
     ]);
 
-    for (const option of ["A-Z", "Z-A", "Last Added", "Last Updated"]) {
+    for (const option of ["Term A-Z", "Term Z-A", "Last Added", "Last Modified"]) {
       fireEvent.focus(screen.getByLabelText("Sort"));
       expect(screen.getByRole("button", { name: `Select sort ${option}` }))
         .toBeInTheDocument();
     }
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by TERM" }));
+    rows = within(tableBody as HTMLElement).getAllByRole("row");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Alias Mapping"),
+      expect.stringContaining("Category Drift"),
+      expect.stringContaining("Nested Child"),
+      expect.stringContaining("Local Reference"),
+      expect.stringContaining("Source Citation"),
+      expect.stringContaining("AAA Standalone"),
+    ]);
+    expect(
+      screen.getByRole("button", { name: "Sort by TERM" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(screen.getByRole("button", { name: "Sort by TERM" }));
+    expect(
+      screen.getByRole("button", { name: "Sort by TERM" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("truncates long Glossary table values without widening columns", async () => {
+    window.history.pushState({}, "", "/glossary");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "glossary_list") {
+        return [
+          persistedGlossaryEntry({
+            id: "glossary-long",
+            term: "Glossary Entry With An Exceptionally Long Term That Should Truncate",
+            definition:
+              "This glossary definition is intentionally long so the row keeps its width and clamps the text instead of stretching the table.",
+            synonymsJson: JSON.stringify([
+              "First synonym",
+              "Second synonym",
+              "Third synonym",
+            ]),
+            category: "A Very Long Glossary Category Label That Should Truncate",
+            sourceTitle: "An Extremely Long Source Title That Should Not Expand The Table",
+            sourceUrl:
+              "https://example.invalid/some/very/long/source/path/that/should/stay/clipped",
+          }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "glossary_category",
+            name: "A Very Long Glossary Category Label That Should Truncate",
+          }),
+        ];
+      }
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const table = await screen.findByRole("table");
+    expect(
+      within(table).getByText(
+        "Glossary Entry With An Exceptionally Long Term That Should Truncate",
+      ),
+    ).toHaveClass("truncate");
+    expect(
+      within(table).getByText(
+        "This glossary definition is intentionally long so the row keeps its width and clamps the text instead of stretching the table.",
+      ),
+    ).toHaveClass("truncate");
+    expect(
+      within(table).getByText("A Very Long Glossary Category Label That Should Truncate"),
+    ).toHaveClass("truncate");
+    expect(
+      within(table).getByRole("link", {
+        name: "Open source An Extremely Long Source Title That Should Not Expand The Table",
+      }),
+    ).toHaveClass("overflow-hidden");
+    expect(within(table).getByText("+3")).toBeInTheDocument();
   });
 
   it("shows a neutral Glossary empty state for unmatched static filters", () => {
@@ -812,9 +1144,9 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("switch", { name: "Favorite" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    clickSaveEntryAndConfirm();
 
-    expect(await screen.findByText("Glossary entry saved."))
+    expect(await screen.findByText("Data created successfully."))
       .toBeInTheDocument();
     expect(screen.getByText("Created Runtime Term")).toBeInTheDocument();
     expect(
@@ -871,9 +1203,9 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Definition"), {
       target: { value: "Updated definition." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    clickSaveEntryAndConfirm();
 
-    expect(await screen.findByText("Glossary entry updated."))
+    expect(await screen.findByText("Data updated successfully."))
       .toBeInTheDocument();
     expect(screen.getByText("Updated Runtime Term")).toBeInTheDocument();
     expect(
@@ -942,7 +1274,6 @@ describe("App", () => {
       }
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
@@ -950,11 +1281,11 @@ describe("App", () => {
     expect(await screen.findByText("Delete Runtime Term")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("row", { name: "Edit glossary entry Delete Runtime Term" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog", { name: "Delete glossary entry?" }))
+      .toBeInTheDocument();
+    confirmDialog("Delete");
 
     await waitFor(() => {
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Delete glossary entry "Delete Runtime Term"?',
-      );
       expect(
         vi.mocked(invoke).mock.calls.some(([command]) =>
           command === "glossary_delete"
@@ -962,8 +1293,7 @@ describe("App", () => {
       ).toBe(true);
     });
     expect(screen.queryByText("Delete Runtime Term")).not.toBeInTheDocument();
-    expect(screen.getByText("Glossary entry deleted.")).toBeInTheDocument();
-    confirmSpy.mockRestore();
+    expect(screen.getByText("Data deleted successfully.")).toBeInTheDocument();
   });
 
   it.each([
@@ -1018,12 +1348,14 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Category Management" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search categories...")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Name A-Z")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search categories")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Title A-Z",
+    );
     expect(screen.queryByText("Catalog Browse")).not.toBeInTheDocument();
     expect(screen.queryByText("catalog browse")).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Category" })).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
@@ -1061,16 +1393,17 @@ describe("App", () => {
     }) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = {
       invoke,
+      convertFileSrc: (path: string) => `asset://${path}`,
     };
 
     render(<App />);
 
-    await screen.findByRole("button", { name: "Edit Drama" });
+    await screen.findByRole("row", { name: "Edit Drama" });
     fireEvent.click(screen.getByRole("button", { name: "Card view" }));
     const dramaCard = screen.getByRole("article", { name: "Category Drama" });
     expect(within(dramaCard).queryByText("Managed")).not.toBeInTheDocument();
     expect(within(dramaCard).getAllByText("3").length).toBeGreaterThan(0);
-    expect(within(dramaCard).getByText("No description yet.")).toBeInTheDocument();
+    expect(within(dramaCard).getByText("N/A")).toBeInTheDocument();
     expect(within(dramaCard).getByLabelText("Videos 1")).toHaveAttribute(
       "href",
       "/videos?category=Drama",
@@ -1142,10 +1475,10 @@ describe("App", () => {
         key: "cat_performer",
         name: "Performer Category",
       }),
-      ...Array.from({ length: 22 }, (_, index) =>
+      ...Array.from({ length: 33 }, (_, index) =>
         managedCategoryFixture({
           key: `cat_extra_${index}`,
-          name: `Extra Category ${String(index + 1).padStart(2, "0")}`,
+          name: `Z Extra Category ${String(index + 1).padStart(2, "0")}`,
         }),
       ),
     ];
@@ -1174,6 +1507,15 @@ describe("App", () => {
           }),
         ];
       }
+      if (command === "credit_list") {
+        return [
+          {
+            creditTypeCategoryId: "cat_extra_0",
+            roleImportanceCategoryId: null,
+            characterName: "Not a category",
+          },
+        ];
+      }
       if (command === "managed_category_list") {
         return managedCategories;
       }
@@ -1187,41 +1529,62 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByRole("button", { name: "Edit Parent Category" });
+    await screen.findAllByText("Parent Category");
     fireEvent.click(screen.getByRole("button", { name: "Card view" }));
-    const parentCategoryCard = screen.getByRole("article", {
+    expect(screen.queryByRole("article", {
       name: "Category Parent Category",
+    })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Parent Category" }))
+      .toHaveClass("text-base", "font-semibold", "text-slate-700");
+    expect(
+      screen.getByRole("heading", { name: "Parent Category" }).compareDocumentPosition(
+        screen.getByRole("heading", { name: "No Parent Selected" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const sectionGrid = screen.getAllByTestId("category-management-card-section-grid")[0];
+    expect(sectionGrid).toHaveClass("xl:grid-cols-4");
+    const videoChildCard = screen.getByRole("article", {
+      name: "Category Video Category",
     });
-    expect(parentCategoryCard).toBeInTheDocument();
-    expect(parentCategoryCard).toHaveAttribute("data-category-card-kind", "parent");
-    expect(parentCategoryCard).toHaveClass("bg-sakura-50");
-    expect(within(parentCategoryCard).getByText("1 child category"))
+    expect(videoChildCard).toHaveAttribute("data-category-card-kind", "child");
+    expect(within(videoChildCard).getByText("Child of Parent Category"))
       .toBeInTheDocument();
-    expect(within(parentCategoryCard).getByTitle("Videos")).toHaveClass("bg-white");
-    expect(within(parentCategoryCard).getByLabelText("Videos 1"))
-      .toHaveClass("text-sakura-600");
-    expect(within(parentCategoryCard).getByLabelText("Videos 1")).toHaveAttribute(
-      "href",
-      "/videos?category=Parent%20Category",
-    );
-    expect(screen.getByText("Showing 1-25 of 26 categories")).toBeInTheDocument();
-    expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("25");
-    expect(screen.getByAltText("Parent Category thumbnail")).toHaveAttribute(
-      "src",
-      "asset://D:/Sakurava/thumbs/parent.jpg",
-    );
+    expect(within(videoChildCard).queryByRole("button", {
+      name: /category Video Category/,
+    })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Collapse category group Parent Category",
+    }));
+    expect(screen.queryByRole("article", {
+      name: "Category Video Category",
+    })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Expand category group Parent Category",
+    }));
+    expect(screen.getByRole("article", {
+      name: "Category Video Category",
+    })).toBeInTheDocument();
+    expect(screen.getByText("Showing 1-32 of 37")).toBeInTheDocument();
+    expect(screen.queryByText("Showing 1-32 of 37 categories")).not.toBeInTheDocument();
+    expect(screen.getByText("Page size")).toBeInTheDocument();
+    expect(screen.getByText("per page")).toBeInTheDocument();
+    expect(screen.queryByText("Rows per page")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Categories per page")).toHaveDisplayValue("32");
 
-    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    expect(screen.getByText("Showing 26-26 of 26 categories")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Showing 33-37 of 37")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Rows per page"), {
-      target: { value: "50" },
+    fireEvent.change(screen.getByLabelText("Categories per page"), {
+      target: { value: "64" },
     });
-    expect(screen.getByText("Showing 1-26 of 26 categories")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1-37 of 37")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Table view" }));
+    expect(screen.getByText("Showing 1-37 of 37")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Card view" }));
+    expect(screen.getByText("Showing 1-37 of 37")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter categories"), {
-      target: { value: "videos" },
-    });
+    selectCategoryFilter("Videos Used");
+    expect(screen.getByText("Showing 1-2 of 2")).toBeInTheDocument();
     const videoCategoryCardWithParent = screen.getByRole("article", {
       name: "Category Video Category",
     });
@@ -1245,28 +1608,46 @@ describe("App", () => {
       .not.toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Category Performer Category" }))
       .not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Table view" }));
+    expect(screen.getByText("Showing 1-2 of 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Card view" }));
+    expect(screen.getByText("Showing 1-2 of 2")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter categories"), {
-      target: { value: "images" },
-    });
+    selectCategoryFilter("Images Used");
     expect(screen.getByRole("article", { name: "Category Image Category" }))
       .toBeInTheDocument();
-    expect(screen.queryByRole("article", { name: "Category Video Category" }))
-      .not.toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Category Video Category" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Filter: Videos Used filter" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Filter: Images Used filter" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("2 active filters")).toHaveTextContent("2");
 
-    fireEvent.change(screen.getByLabelText("Filter categories"), {
-      target: { value: "performers" },
-    });
+    selectCategoryFilter("Performers Used");
+    expect(screen.getByRole("article", { name: "Category Performer Category" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Category Image Category" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("3 active filters")).toHaveTextContent("3");
+    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
+    expect(screen.queryByText("cat_performer")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Filter: Images Used filter" }));
+    expect(screen.getByRole("article", { name: "Category Video Category" }))
+      .toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Category Performer Category" }))
       .toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Category Image Category" }))
       .not.toBeInTheDocument();
-    expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
-    expect(screen.queryByText("cat_performer")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("2 active filters")).toHaveTextContent("2");
 
-    fireEvent.change(screen.getByLabelText("Filter categories"), {
-      target: { value: "videos" },
-    });
+    selectCategoryFilter("Videos Used");
+    expect(screen.queryByRole("article", { name: "Category Video Category" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
+
+    selectCategoryFilter("Videos Used");
     const videoCategoryCard = screen.getByRole("article", {
       name: "Category Video Category",
     });
@@ -1274,7 +1655,10 @@ describe("App", () => {
       .toHaveClass("text-sakura-600");
     expect(within(videoCategoryCard).getByLabelText("Videos 1"))
       .toHaveAttribute("href", "/videos?category=Video%20Category");
-  });
+    fireEvent.click(screen.getByTestId("category-management-filter-control"));
+    expect(screen.queryByRole("option", { name: "Credits Used" }))
+      .not.toBeInTheDocument();
+  }, 10_000);
 
   it.each([
     [
@@ -1307,12 +1691,26 @@ describe("App", () => {
     expect(screen.getAllByLabelText(fallback).length).toBeGreaterThan(0);
     expect(screen.getAllByText(cardTitle)).toHaveLength(30);
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-    expect(screen.getByText("No filters selected")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Last Added");
+    expect(screen.getByTestId(`${path.slice(1)}-toolbar-filter-button`).querySelector("svg"))
+      .not.toBeNull();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
+    const sortControl = screen.getByTestId(`${path.slice(1)}.sort-sort-control`);
+    expect(sortControl).toHaveTextContent(
+      path === "/performers" ? "Name A-Z" : "Title A-Z",
+    );
+    expect(sortControl).not.toHaveTextContent(/^Sort$/);
+    expect(sortControl.querySelector("svg")).not.toBeNull();
     expect(screen.queryByDisplayValue("Add category filter")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     expect(screen.getByText("Category")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Add category filter")).toBeInTheDocument();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     for (const pageSize of ["32", "64", "128", "256"]) {
       expect(screen.getByRole("option", { name: pageSize })).toBeInTheDocument();
@@ -1363,13 +1761,19 @@ describe("App", () => {
     expect(screen.getByText("Showing 1-40 of 40 categories")).toBeInTheDocument();
   });
 
-  it("normalizes persisted catalog page sizes", () => {
+  it("keeps catalog page size in session memory instead of localStorage", () => {
     window.history.pushState({}, "", "/videos");
     window.localStorage.setItem("sakurava.catalog.videos.pageSize.v1", "90");
 
     const { unmount } = render(<App />);
 
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "64" },
+    });
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(window.localStorage.getItem("sakurava.catalog.videos.pageSize.v1"))
+      .toBe("90");
 
     unmount();
     window.history.pushState({}, "", "/images");
@@ -1377,7 +1781,154 @@ describe("App", () => {
 
     render(<App />);
 
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+    expect(window.localStorage.getItem("sakurava.catalog.images.pageSize.v1"))
+      .toBe("64");
+  });
+
+  it("keeps Catalog toolbar memory scoped by entity during the session", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_memory",
+            title: "Memory Video",
+            categoriesJson: '["Memory Category"]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [persistedImage({ id: "image_memory", title: "Memory Image" })];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    const firstRender = render(<App />);
+    expect(await screen.findByText("Memory Video")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Videos search"), {
+      target: { value: "memory" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "Memory Category" },
+    });
+    selectCatalogSort("videos", "Title A-Z");
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
+    fireEvent.change(screen.getByLabelText("Items per page"), {
+      target: { value: "64" },
+    });
+    firstRender.unmount();
+
+    window.history.pushState({}, "", "/images");
+    const imageRender = render(<App />);
+    expect(await screen.findByText("Memory Image")).toBeInTheDocument();
+    expect(screen.getByLabelText("Images search")).toHaveValue("");
+    expect(catalogSortControl("images")).toHaveTextContent("Title A-Z");
+    expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/videos");
+    const restoredVideoRender = render(<App />);
+    expect(await screen.findByText("Memory Video")).toBeInTheDocument();
+    expect(screen.getByLabelText("Videos search")).toHaveValue("memory");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to grid view" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Duration" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+    expect(screen.getByLabelText("Videos search")).toHaveValue("");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
+    expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to list view" })).toBeInTheDocument();
+    restoredVideoRender.unmount();
+
+    window.history.pushState({}, "", "/videos");
+    render(<App />);
+    expect(await screen.findByText("Memory Video")).toBeInTheDocument();
+    expect(screen.getByLabelText("Videos search")).toHaveValue("");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
+    expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
+  });
+
+  it("syncs the sticky horizontal scrollbar mirror with table scrolling", async () => {
+    const originalClientWidth = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "clientWidth",
+    );
+    const originalScrollWidth = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollWidth",
+    );
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get() {
+        return 120;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+      configurable: true,
+      get() {
+        return 320;
+      },
+    });
+    window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = vi.fn();
+
+    try {
+      render(
+        <StickyHorizontalScroll testId="sticky-scroll-test">
+          <div style={{ width: 320 }}>Wide table content</div>
+        </StickyHorizontalScroll>,
+      );
+
+      const body = screen.getByTestId("sticky-scroll-test") as HTMLDivElement;
+      const frame = body.closest("[data-sticky-horizontal-scroll='true']");
+      expect(frame).toHaveClass("sticky-horizontal-scroll-frame");
+      await waitFor(() => expect(frame).toHaveAttribute("data-overflowing", "true"));
+
+      const mirror = frame?.querySelector(
+        ".sticky-horizontal-scrollbar",
+      ) as HTMLDivElement;
+      expect(mirror).toBeInTheDocument();
+      expect(mirror.closest(".sticky-horizontal-scrollbar-shell"))
+        .toHaveAttribute("data-active", "true");
+
+      act(() => {
+        body.scrollLeft = 48;
+        fireEvent.scroll(body);
+      });
+      expect(mirror.scrollLeft).toBe(48);
+
+      act(() => {
+        mirror.scrollLeft = 12;
+        fireEvent.scroll(mirror);
+      });
+      expect(body.scrollLeft).toBe(12);
+    } finally {
+      if (originalClientWidth) {
+        Object.defineProperty(HTMLElement.prototype, "clientWidth", originalClientWidth);
+      }
+      if (originalScrollWidth) {
+        Object.defineProperty(HTMLElement.prototype, "scrollWidth", originalScrollWidth);
+      }
+      window.requestAnimationFrame = originalRequestAnimationFrame;
+      window.cancelAnimationFrame = originalCancelAnimationFrame;
+    }
   });
 
   it.each([
@@ -1385,18 +1936,18 @@ describe("App", () => {
       path: "/videos",
       panelName: "Videos filters",
       filters: ["Availability", "Censorship", "Release Years", "Publisher / Label", "Category", "Quality", "Rating", "Duration"],
-      absent: ["Image Count", "Debut Years", "Status", "Filmography Count", "Pictorials Count"],
+      absent: ["Image Count", "Debut Years", "Status", "Filmography Count", "Pictorials Count", "Gender", "Body Type"],
     },
     {
       path: "/images",
       panelName: "Images filters",
       filters: ["Availability", "Censorship", "Release Years", "Publisher / Label", "Category", "Quality", "Rating", "Image Count"],
-      absent: ["Duration", "Debut Years", "Status", "Filmography Count", "Pictorials Count"],
+      absent: ["Duration", "Debut Years", "Status", "Filmography Count", "Pictorials Count", "Gender", "Body Type"],
     },
     {
       path: "/performers",
       panelName: "Performers filters",
-      filters: ["Status", "Age", "Body Height", "Nationality", "Body Type", "Debut Years", "Cup Size", "Rating", "Filmography Count", "Category", "Pictorials Count", "Gender"],
+      filters: ["Availability", "Age", "Body Height", "Nationality", "Body Type", "Debut Years", "Cup Size", "Rating", "Filmography Count", "Category", "Pictorials Count", "Gender"],
       absent: ["Quality", "Duration", "Image Count", "Release Years"],
     },
   ])(
@@ -1407,7 +1958,8 @@ describe("App", () => {
 
       expect(screen.getByPlaceholderText(/Search .*\.{3}/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-      expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Last Added");
+      expect(screen.getByTestId(`${path.slice(1)}.sort-sort-control`))
+        .toHaveTextContent(path === "/performers" ? "Name A-Z" : "Title A-Z");
       expect(
         screen.getByRole("button", { name: "Switch to list view" }),
       ).toBeInTheDocument();
@@ -1423,11 +1975,266 @@ describe("App", () => {
       }
       expect(
         panel.queryByText(
-          "Data-dependent filters are unavailable until reliable fields or helpers exist.",
+      "Data-dependent filters are unavailable until reliable fields or helpers exist.",
         ),
       ).not.toBeInTheDocument();
     },
   );
+
+  it("does not render Performer taxonomy filters on Category Management", () => {
+    window.history.pushState({}, "", "/categories");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Category Management" })).toBeInTheDocument();
+    expect(screen.queryByText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByText("Body Type")).not.toBeInTheDocument();
+  });
+
+  it.each(["Body Type", "bodytype", "body-type", "body_type"])(
+    "sources Performer Catalog Body Type options from taxonomy parent %s",
+    async (bodyTypeParentName) => {
+      window.history.pushState({}, "", "/performers");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "performer_list") {
+          return [
+            persistedPerformer({
+              name: "Taxonomy Performer",
+              categoriesJson: '["Woman","Athletic"]',
+            }),
+          ];
+        }
+        if (command === "managed_category_list") {
+          return performerTaxonomyFixtures(bodyTypeParentName);
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+      render(<App />);
+
+      expect(await screen.findByText("Taxonomy Performer")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+      const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+      await waitFor(() => expect(panel.getByLabelText("Body Type")).toBeEnabled());
+
+      fireEvent.click(panel.getByRole("button", { name: "Open Body Type options" }));
+      const listbox = within(screen.getByRole("listbox", { name: "Body Type options" }));
+      expect(listbox.getByText("Athletic")).toBeInTheDocument();
+      expect(listbox.queryByText(bodyTypeParentName)).not.toBeInTheDocument();
+    },
+  );
+
+  it("filters Performer Catalog by Gender direct field and Body Type taxonomy labels", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_alpha",
+            name: "Alpha Performer",
+            gender: "Woman",
+            categoriesJson: '["Athletic","Featured"]',
+          }),
+          persistedPerformer({
+            id: "performer_beta",
+            name: "Beta Performer",
+            gender: "Man",
+            categoriesJson: '["Legacy Woman","Slim","Featured"]',
+          }),
+          persistedPerformer({
+            id: "performer_gamma",
+            name: "Gamma Performer",
+            gender: "woman",
+            categoriesJson: '["Slim"]',
+          }),
+          persistedPerformer({
+            id: "performer_delta",
+            name: "Delta Performer",
+            gender: "",
+            categoriesJson: '["Athletic"]',
+          }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return [
+          ...performerTaxonomyFixtures("Body Type"),
+          managedCategoryFixture({
+            key: "cat_gender_man",
+            name: "Man",
+            parentKey: "cat_gender",
+            showInVideos: false,
+            showInImages: false,
+            showInPerformers: true,
+          }),
+          managedCategoryFixture({
+            key: "cat_gender_non_binary",
+            name: "Non-binary",
+            parentKey: "cat_gender",
+            showInVideos: false,
+            showInImages: false,
+            showInPerformers: true,
+          }),
+          managedCategoryFixture({
+            key: "cat_body_type_slim",
+            name: "Slim",
+            parentKey: "cat_body_type",
+            showInVideos: false,
+            showInImages: false,
+            showInPerformers: true,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+    await waitFor(() => expect(panel.getByLabelText("Gender")).toBeEnabled());
+
+    fireEvent.click(panel.getByRole("button", { name: "Open Gender options" }));
+    const genderOptions = within(screen.getByRole("listbox", { name: "Gender options" }));
+    expect(genderOptions.queryByText("Gender")).not.toBeInTheDocument();
+    expect(genderOptions.queryByText("Legacy Woman")).not.toBeInTheDocument();
+    expect(genderOptions.queryByText("Non-binary")).not.toBeInTheDocument();
+    expect(genderOptions.queryByText("All genders")).toBeInTheDocument();
+    expect(genderOptions.getAllByRole("option").map((option) => option.textContent))
+      .toEqual(["All genders+", "Man+", "Woman+"]);
+    fireEvent.click(genderOptions.getByText("Woman"));
+
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.getByText("Gamma Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delta Performer")).not.toBeInTheDocument();
+    expect(screen.getByText("Gender: Woman")).toBeInTheDocument();
+
+    fireEvent.click(panel.getByRole("button", { name: "Open Body Type options" }));
+    const bodyTypeOptions = within(screen.getByRole("listbox", { name: "Body Type options" }));
+    expect(bodyTypeOptions.queryByText("Body Type")).not.toBeInTheDocument();
+    fireEvent.click(bodyTypeOptions.getByText("Athletic"));
+
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    expect(screen.getByText("Gender: Woman")).toBeInTheDocument();
+    expect(screen.getByText("Body Type: Athletic")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Gamma Performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Beta Performer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delta Performer")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Performers search"), {
+      target: { value: "alpha" },
+    });
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+    expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+    expect(screen.queryByText("Gender: Woman")).not.toBeInTheDocument();
+    expect(screen.queryByText("Body Type: Athletic")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText("Alpha Performer")).toBeInTheDocument();
+    expect(screen.getByText("Beta Performer")).toBeInTheDocument();
+    expect(screen.getByText("Gamma Performer")).toBeInTheDocument();
+    expect(screen.getByText("Delta Performer")).toBeInTheDocument();
+  });
+
+  it("filters Performer Catalog table view by Gender direct field and keeps it in session memory", async () => {
+    window.history.pushState({}, "", "/performers");
+    window.localStorage.setItem("sakurava.catalog.performers.gender.v1", "Man");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_table_woman",
+            name: "Table Woman Performer",
+            gender: "Woman",
+          }),
+          persistedPerformer({
+            id: "performer_table_man",
+            name: "Table Man Performer",
+            gender: "Man",
+          }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    const firstRender = render(<App />);
+
+    expect(await screen.findByText("Table Woman Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    let panel = within(screen.getByRole("region", { name: "Performers filters" }));
+    await waitFor(() => expect(panel.getByLabelText("Gender")).toBeEnabled());
+    fireEvent.click(panel.getByRole("button", { name: "Open Gender options" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Gender options" })).getByText("Woman"));
+
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.getByTestId("performers-catalog-table")).toBeInTheDocument();
+    expect(screen.getByText("Table Woman Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Table Man Performer")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("sakurava.catalog.performers.gender.v1")).toBe("Man");
+    expect(invoke).not.toHaveBeenCalledWith(
+      "performer_update",
+      expect.anything(),
+      expect.anything(),
+    );
+
+    firstRender.unmount();
+    window.history.pushState({}, "", "/performers");
+    render(<App />);
+
+    expect(await screen.findByText("Table Woman Performer")).toBeInTheDocument();
+    expect(screen.queryByText("Table Man Performer")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to grid view" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
+    panel = within(screen.getByRole("region", { name: "Performers filters" }));
+    expect(panel.getByLabelText("Gender")).toHaveValue("Woman");
+  });
+
+  it("shows clean empty taxonomy filter states when Performer Catalog parents are missing", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [persistedPerformer({ name: "No Taxonomy Performer" })];
+      }
+      if (command === "managed_category_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("No Taxonomy Performer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    const panel = within(screen.getByRole("region", { name: "Performers filters" }));
+
+    expect(panel.getByText("No Gender values found")).toBeInTheDocument();
+    expect(panel.getByText("No Body Type categories found")).toBeInTheDocument();
+    expect(panel.getByLabelText("Gender")).toBeDisabled();
+    expect(panel.getByLabelText("Body Type")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Clear all filters" }))
+      .not.toBeInTheDocument();
+  });
 
   it.each([
     [
@@ -1484,9 +2291,9 @@ describe("App", () => {
   );
 
   it.each([
-    ["/videos/sample-id", "hexagon", "3.8 / 5"],
-    ["/images/sample-id", "hexagon", "4.2 / 5"],
-    ["/performers/sample-id", "hexagon", "3.8 / 5"],
+    ["/videos/sample-id", "hexagon", "3.8"],
+    ["/images/sample-id", "hexagon", "4.2"],
+    ["/performers/sample-id", "hexagon", "3.8"],
   ])(
     "renders spider chart only for static detail rating summary at %s",
     (path, shape, score) => {
@@ -1501,6 +2308,7 @@ describe("App", () => {
       expect(chart).toHaveAttribute("data-dimension-count", "6");
       expect(chart).toHaveAttribute("data-shape", shape);
       expect(ratingSection.getByText(score)).toBeInTheDocument();
+      expect(ratingSection.queryByText(`${score} / 5`)).not.toBeInTheDocument();
       expect(ratingSection.queryByLabelText("4/5")).not.toBeInTheDocument();
       expect(ratingSection.queryByLabelText("5/5")).not.toBeInTheDocument();
     },
@@ -1519,6 +2327,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
       screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
       screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "Source Links" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
   });
@@ -1534,8 +2343,25 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
       screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
+      screen.getByRole("heading", { name: "Source Links" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
+  });
+
+  it("renders Detail section title icons inside rounded square backgrounds", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    for (const title of ["Rating Summary", "Source Links", "System Info", "Related Performers"]) {
+      const section = screen
+        .getByRole("heading", { name: title })
+        .closest("section") as HTMLElement;
+      const iconWrapper = within(section).getByTestId("detail-section-icon");
+
+      expect(iconWrapper).toHaveClass("rounded-lg", "bg-sakura-50/80");
+      expect(iconWrapper).not.toHaveClass("border", "border-sakura-100");
+      expect(iconWrapper.querySelector("svg")).not.toBeNull();
+    }
   });
 
   it("keeps Performer Detail section order unchanged", () => {
@@ -1544,17 +2370,17 @@ describe("App", () => {
 
     expectSectionOrder([
       screen.getByRole("heading", { name: "Aoi Hanami" }).closest("section"),
-      screen.getByRole("heading", { name: "Profile Metadata" }).closest("section"),
       screen.getByRole("heading", { name: "Rating Summary" }).closest("section"),
       screen.getByRole("heading", { name: "Personal" }).closest("section"),
       screen.getByRole("heading", { name: "Physical" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
       screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
+      screen.getByRole("heading", { name: "Source Links" }).closest("section"),
       screen.getByRole("heading", { name: "System Info" }).closest("section"),
     ]);
   });
 
-  it("renders a pentagon spider chart for five valid persisted rating dimensions", async () => {
+  it("renders the full detail radar map for partial persisted rating dimensions", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     window.__TAURI_INTERNALS__ = {
       invoke: vi.fn(async (command: string) => {
@@ -1575,14 +2401,45 @@ describe("App", () => {
     expect(await screen.findByText("Persisted Video")).toBeInTheDocument();
     const section = screen.getByText("Rating Summary").closest("section");
     expect(section).not.toBeNull();
-    const chart = within(section as HTMLElement).getByTestId("spider-chart");
+    const sectionElement = section as HTMLElement;
+    const ratingSection = within(sectionElement);
+    const chart = ratingSection.getByTestId("spider-chart");
 
-    expect(chart).toHaveAttribute("data-dimension-count", "5");
-    expect(chart).toHaveAttribute("data-shape", "pentagon");
-    expect(within(section as HTMLElement).getByText("4.2 / 5")).toBeInTheDocument();
+    expect(chart).toHaveAttribute("data-dimension-count", "6");
+    expect(chart).toHaveAttribute("data-shape", "hexagon");
+    expect(chart).toHaveAttribute("aria-label", "6-dimension radar map");
+    const gradient = chart.querySelector("defs radialGradient");
+    expect(gradient).not.toBeNull();
+    const gradientStops = Array.from(
+      gradient?.querySelectorAll("stop") ?? [],
+    ).map((stop) => stop.getAttribute("stop-opacity") ?? stop.getAttribute("stopOpacity"));
+    expect(gradientStops).toEqual(["0.28", "0.22", "0.06"]);
+    expect(chart.getAttribute("viewBox")).toBe("0 0 420 420");
+    expect(ratingSection.getByText("4.2")).toBeInTheDocument();
+    expect(ratingSection.queryByText("4.2 / 5")).not.toBeInTheDocument();
+    expect(ratingSection.getByText("Chemistry")).toBeInTheDocument();
+    expect(ratingSection.getByTestId("spider-chart-path")).toHaveAttribute("fill");
+    expect(ratingSection.getByTestId("spider-chart-path"))
+      .toHaveAttribute("stroke-width", "1");
+    expect(ratingSection.getByTestId("spider-chart-path"))
+      .toHaveAttribute("stroke", "var(--appearance-accent)");
+    expect(chart.querySelectorAll('circle[fill="var(--appearance-accent)"]').length)
+      .toBe(6);
+    expect(
+      gradient?.querySelector('stop[stop-color="var(--appearance-accent)"]'),
+    ).not.toBeNull();
+    expect(ratingSection.getByTestId("spider-chart-path").getAttribute("d"))
+      .toContain("C");
+    expect(chart.querySelectorAll("polygon").length).toBeGreaterThanOrEqual(5);
+    expect(chart.querySelectorAll("line").length).toBe(6);
+    expect(ratingSection.getAllByRole("img").length).toBeGreaterThan(0);
+    expect(sectionElement.querySelector("[data-testid='detail-section-icon'] svg.lucide-star"))
+      .not.toBeNull();
+    expect(sectionElement.querySelector("svg.lucide-info")).toBeNull();
+    expect(chart.querySelector('circle[r="25"]')).toBeNull();
   });
 
-  it("shows an honest empty state when detail ratingJson has no valid rating", async () => {
+  it("keeps radar labels visible when detail ratingJson has no valid rating", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     window.__TAURI_INTERNALS__ = {
       invoke: vi.fn(async (command: string) => {
@@ -1602,8 +2459,45 @@ describe("App", () => {
     expect(section).not.toBeNull();
     const ratingSection = within(section as HTMLElement);
 
-    expect(ratingSection.queryByTestId("spider-chart")).not.toBeInTheDocument();
-    expect(ratingSection.getByText("Not rated")).toBeInTheDocument();
+    expect(ratingSection.getByTestId("spider-chart")).toBeInTheDocument();
+    expect(ratingSection.getAllByText("N/A").length).toBeGreaterThan(0);
+    expect(ratingSection.getByText("Rewatch")).toBeInTheDocument();
+    expect(ratingSection.getByText("Chemistry")).toBeInTheDocument();
+    expect(ratingSection.queryByText("Not rated")).not.toBeInTheDocument();
+  });
+
+  it("renders the clipped Signature radar label on Image Detail", () => {
+    window.history.pushState({}, "", "/images/sample-id");
+    const { unmount } = render(<App />);
+
+    const ratingSection = screen
+      .getByRole("heading", { name: "Rating Summary" })
+      .closest("section") as HTMLElement;
+    expect(within(ratingSection).getByText("Signature")).toBeInTheDocument();
+    expect(within(ratingSection).getByText("Atmosphere")).toBeInTheDocument();
+
+    unmount();
+    window.history.pushState({}, "", "/performers/sample-id");
+    render(<App />);
+    const ratingHeadings = screen.getAllByRole("heading", { name: "Rating Summary" });
+    const performerRatingSection = ratingHeadings[ratingHeadings.length - 1]
+      .closest("section") as HTMLElement;
+    expect(within(performerRatingSection).getByText("Exceptional"))
+      .toBeInTheDocument();
+  });
+
+  it("does not render file actions in Detail System Info", () => {
+    window.history.pushState({}, "", "/videos/sample-id");
+    render(<App />);
+
+    const systemInfo = screen
+      .getByRole("heading", { name: "System Info" })
+      .closest("section") as HTMLElement;
+
+    expect(within(systemInfo).queryByRole("button", { name: /Save as/i }))
+      .not.toBeInTheDocument();
+    expect(within(systemInfo).queryByRole("button", { name: /Open folder/i }))
+      .not.toBeInTheDocument();
   });
 
   it.each([
@@ -1621,7 +2515,7 @@ describe("App", () => {
     },
     {
       path: "/performers/sample-id",
-      heading: "Profile Metadata",
+      heading: "Personal",
       hiddenLabels: ["Cover Path"],
       techLabels: [],
     },
@@ -1927,133 +2821,62 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search settings" }))
+      .toBeInTheDocument();
+    for (const section of [
+      "Overview",
+      "Appearance",
+      "Language",
+      "Catalog Preferences",
+      "Library & Media",
+      "Backup & Recovery",
+      "Import / Export",
+      "Performance & Cache",
+    ]) {
+      expect(screen.getAllByRole("heading", { name: section }).length)
+        .toBeGreaterThan(0);
+    }
+    expect(screen.queryByText(/^1\. Overview$/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Theme").length).toBeGreaterThan(0);
+    expect(screen.getByText("Accent Color")).toBeInTheDocument();
+    expect(screen.getByText("Density")).toBeInTheDocument();
+    expect(screen.getByLabelText("UI Scale")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "System" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reset Appearance" }))
+      .toBeEnabled();
+    const appearanceCard = screen
+      .getAllByRole("heading", { name: "Appearance" })[0]
+      .closest("section");
+    expect(appearanceCard).not.toBeNull();
     expect(
-      screen.getByText(
-        "Manage application preferences, optimization, data safety, and app information.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Appearance" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Language" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Optimization" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data Safety & Migration" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "App Information" }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Theme" })).toBeInTheDocument();
-    expect(screen.getByText("Accent Style")).toBeInTheDocument();
-    expect(screen.getByText("UI Density")).toBeInTheDocument();
-    expect(screen.getAllByText("App Language").length).toBeGreaterThan(0);
-    expect(screen.getByText("Installed Languages")).toBeInTheDocument();
-    expect(screen.getByText("Language CSV Tools")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Media & Library" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cache" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Catalog Preferences" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Scanning & Updates" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Backup & Restore" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Import & Export" })).toBeInTheDocument();
-    expect(screen.getByText("App Version")).toBeInTheDocument();
-    expect(screen.getByText("Database Status")).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Category Management" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Open Category Management" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByText("Catalog Settings")).not.toBeInTheDocument();
-    expect(screen.queryByText("Categories Audit")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Sakurava").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("1.0.0 MVP")).toBeInTheDocument();
-    expect(screen.getByText("Local / Offline")).toBeInTheDocument();
-    expect(screen.getByText("Windows Desktop")).toBeInTheDocument();
-    expect(screen.getAllByText("Browser preview").length).toBeGreaterThan(0);
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getByText("Local SQLite database")).toBeInTheDocument();
-    expect(screen.getByText("All data is stored locally on this device.")).toBeInTheDocument();
-    expect(screen.getByText("Good")).toBeInTheDocument();
-    expect(screen.getByText("Not tracked yet")).toBeInTheDocument();
-    expect(screen.getByText("Manual thumbnail rendering")).toBeInTheDocument();
-    expect(screen.getAllByText("Enabled").length).toBeGreaterThan(0);
+      within(appearanceCard as HTMLElement).queryAllByRole("button", {
+        hidden: true,
+      }).filter((control) => control.hasAttribute("disabled")),
+    ).toHaveLength(0);
     expect(
-      screen.getByText(/Pictures, Videos, Documents, and Downloads/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Media Loading")).toBeInTheDocument();
-    expect(screen.getByText("Hardware Acceleration")).toBeInTheDocument();
-    expect(screen.getByText("Parallel Processing")).toBeInTheDocument();
-    expect(screen.getByText("Default View")).toBeInTheDocument();
-    expect(screen.getByText("Default Sort")).toBeInTheDocument();
-    expect(screen.getByText("Items per Page")).toBeInTheDocument();
-    expect(screen.getByText("Auto Scan New Folders")).toBeInTheDocument();
-    expect(screen.getByText("Scan Interval")).toBeInTheDocument();
-    expect(screen.getByText("Ignore Short Videos")).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("Category name")).not.toBeInTheDocument();
-    expect(screen.queryByText("Apply Rename")).not.toBeInTheDocument();
-    expect(screen.queryByText("Apply Delete")).not.toBeInTheDocument();
-    expect(screen.queryByText("Runtime CRUD enabled")).not.toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "Appearance" })[0]
+        .previousElementSibling,
+    ).toHaveClass("rounded-lg", "bg-sakura-50");
+    expect(screen.getByLabelText("Default View")).toBeDisabled();
+    expect(screen.getByLabelText("Default Sort")).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Remember Preferences" }))
+      .toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Preview Before Apply" }))
+      .toBeDisabled();
+    expect(screen.getByRole("listbox", { name: "Configured media roots" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("Last Backup").length).toBeGreaterThan(0);
     expect(screen.getByText("Cache Size")).toBeInTheDocument();
-    expect(screen.getByText("Thumbnail Cache")).toBeInTheDocument();
-    expect(screen.getByText("Batch 35 planning")).toBeInTheDocument();
-    expect(screen.getByText("Preview Cache")).toBeInTheDocument();
-    expect(screen.getByText("CSV data exchange for Videos, Images, Performers, and Categories. Export, Import Preview, and confirmed Apply are available now. No media files are included.")).toBeInTheDocument();
-    expect(screen.getByText("Light")).toBeInTheDocument();
-    expect(screen.getByText("Dark")).toBeInTheDocument();
-    expect(screen.getAllByText("Planned / disabled").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Sakura Pink/)).toBeInTheDocument();
-    expect(screen.getByText("Compact")).toBeInTheDocument();
-    expect(screen.getByText("Comfortable")).toBeInTheDocument();
-    expect(screen.getByText("Spacious")).toBeInTheDocument();
-    expect(screen.getAllByText("English").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Indonesian").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Changes apply to app UI only. Catalog data is not translated."),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Export Starter CSV")).toBeInTheDocument();
-    expect(screen.getByText("Import Custom Language")).toBeInTheDocument();
-    expect(screen.getByText("Remove Custom Language")).toBeInTheDocument();
-    expect(screen.getByText("Reset Custom Language")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Clearing cache does not delete your source media.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Full app data safety for database/sql-like backups. Generated thumbnails/cache-like app data may be included later; original media files are not included.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Sakurava works completely offline. Back up your database regularly to prevent data loss. Clearing cache will not delete your source media or catalog data.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Keep your data safe")).toBeInTheDocument();
-    expect(screen.queryByText("Welcome Slider")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reset to Defaults" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Backup Database" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Restore Database" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Clear Cache" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Import Data" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export Data" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Export Videos CSV" }))
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Reset Overview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset Performance & Cache" }))
+      .toBeDisabled();
+    expect(screen.queryByRole("heading", { name: "System Info" }))
       .not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export Images CSV" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export Performers CSV" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export Categories CSV" }))
-      .not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Import CSV preview" }))
-      .not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Dark$/ })).toBeEnabled();
-    // Language Editor UI is removed — no editor table, search, or region
-    expect(screen.queryByRole("region", { name: "Language Editor" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Search translation keys")).not.toBeInTheDocument();
-    // English shown as primary/not removable
-    expect(screen.getByText("Not removable")).toBeInTheDocument();
-    expect(screen.getByText("Primary")).toBeInTheDocument();
-    // Indonesian shown as custom/removable
-    expect(screen.getByText("Removable")).toBeInTheDocument();
+    expect(screen.queryByText(/Planned/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Soon/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/MVP/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Diagnostics")).not.toBeInTheDocument();
   });
 
   it("defaults Appearance theme to Light and persists Dark/Light selection", () => {
@@ -2103,6 +2926,33 @@ describe("App", () => {
     );
   });
 
+  it("persists System theme and follows OS preference changes", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "System" }));
+
+    expect(window.localStorage.getItem(appearanceThemeStorageKey)).toBe("system");
+    expect(document.documentElement).toHaveAttribute(
+      "data-theme-preference",
+      "system",
+    );
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+
+    act(() => {
+      systemThemeDark = true;
+      systemThemeListeners.forEach((listener) =>
+        listener({ matches: true } as MediaQueryListEvent),
+      );
+    });
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: "System" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   it("defaults App Language to English and falls back for invalid saved language", () => {
     window.history.pushState({}, "", "/settings");
     window.localStorage.setItem(languageStorageKey, "invalid");
@@ -2117,6 +2967,21 @@ describe("App", () => {
 
   it("persists Indonesian App Language and reloads it", () => {
     window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "settings.title": "Pengaturan",
+          "settings.language.appLanguage": "Bahasa Aplikasi",
+          "app.sidebar.navigateTo": "Buka {label}",
+          "nav.home": "Beranda",
+        },
+      }),
+    );
     const { unmount } = render(<App />);
 
     fireEvent.change(screen.getByLabelText("App Language"), {
@@ -2126,8 +2991,8 @@ describe("App", () => {
     expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
     expect(screen.getByRole("heading", { name: "Pengaturan" }))
       .toBeInTheDocument();
-    expect(screen.getByText("Bahasa Aplikasi")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Keamanan Data & Migrasi" }))
+    expect(screen.getByLabelText("Bahasa Aplikasi")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Backup & Recovery" }))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Buka Beranda" }))
       .toHaveAttribute("href", "/");
@@ -2146,6 +3011,208 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
   });
 
+  it("applies the selected custom language inside the separate Image Viewer window", async () => {
+    const eventHarness = createTauriEventHarness();
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string, args: Record<string, any> = {}) => {
+        if (command === "plugin:event|listen") {
+          eventHarness.listenersByEvent.set(args.event, args.handler);
+          return args.handler;
+        }
+        if (
+          command === "plugin:event|unlisten" ||
+          command === "plugin:event|emit_to"
+        ) {
+          return null;
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+      transformCallback: eventHarness.transformCallback,
+    } as unknown as Window["__TAURI_INTERNALS__"];
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: vi.fn(),
+    };
+    window.history.pushState({}, "", "/?sakuravaWindow=image-viewer");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "viewer.showShortcuts": "Tampilkan pintasan gambar",
+          "viewer.shortcuts.action.closeViewer": "Tutup penampil",
+          "viewer.moreActions": "Aksi gambar lainnya",
+          "viewer.more.saveAs": "Simpan Sebagai",
+          "viewer.more.fileInfo": "Info Berkas",
+          "viewer.fileInfo.name": "Nama Berkas",
+        },
+      }),
+    );
+    window.localStorage.setItem(
+      "sakurava.globalImageViewer.payload.v1",
+      JSON.stringify({
+        images: [{ path: "C:/Gallery/translated.jpg" }],
+        initialIndex: 0,
+        openRequestId: "image-open-translated",
+      }),
+    );
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Tampilkan pintasan gambar" }),
+    );
+    expect(screen.getByText("Tutup penampil")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Aksi gambar lainnya" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByText("Simpan Sebagai")).toBeInTheDocument();
+    fireEvent.click(within(menu).getByText("Info Berkas"));
+    expect(await screen.findByText("Nama Berkas")).toBeInTheDocument();
+  });
+
+  it("translates Performer Form availability labels and never renders malformed Unknown copy", () => {
+    window.history.pushState({}, "", "/performers/new");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "enum.status.active": "Aktif",
+          "enum.status.retired": "Pensiun",
+          "enum.common.unknown": "Tidak diketahui",
+        },
+      }),
+    );
+
+    render(<App />);
+
+    expect(screen.getByText("Aktif")).toBeInTheDocument();
+    expect(screen.getByText("Pensiun")).toBeInTheDocument();
+    expect(screen.getByText("Tidak diketahui")).toBeInTheDocument();
+    expect(screen.queryByText(/Unknow|Unkown/)).not.toBeInTheDocument();
+  });
+
+  it("translates Category Management and Glossary filter controls, chips, and empty helpers", () => {
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "common.filter": "Saring",
+          "filter.childrenOnly": "Anak Saja",
+          "filter.performersUsed": "Dipakai Performer",
+          "categories.toolbar.filter": "Saring",
+          "categories.toolbar.clearAllFilters": "Hapus semua filter",
+          "categories.empty": "Kategori kosong",
+          "categories.noMatches": "Tidak ada kategori cocok",
+          "glossary.toolbar.clearAllFilters": "Hapus semua filter",
+          "glossary.empty": "Glosarium kosong",
+          "glossary.emptyHint": "Ubah pencarian atau tambahkan entri.",
+        },
+      }),
+    );
+
+    window.history.pushState({}, "", "/settings/category-management");
+    const categoryView = render(<App />);
+    fireEvent.click(
+      screen.getByTestId("category-management-filter-control"),
+    );
+    expect(screen.getByRole("option", { name: "Anak Saja" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Dipakai Performer" }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Anak Saja" }));
+    expect(screen.getByText("Saring: Anak Saja")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hapus semua filter" }))
+      .toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search categories"), {
+      target: { value: "no-category-can-match-this" },
+    });
+    expect(screen.getByText(/Tidak ada kategori cocok|Kategori kosong/))
+      .toBeInTheDocument();
+
+    categoryView.unmount();
+    window.history.pushState({}, "", "/glossary");
+    render(<App />);
+    fireEvent.click(screen.getByTestId("glossary-category-filter-control"));
+    fireEvent.click(screen.getByRole("option", { name: "Anak Saja" }));
+    expect(screen.getByText("Saring: Anak Saja")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hapus semua filter" }))
+      .toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search terms"), {
+      target: { value: "no-glossary-entry-can-match-this" },
+    });
+    expect(screen.getByText("Glosarium kosong")).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      path: "/videos",
+      region: "Videos filters",
+      option: "Availability: Dimiliki",
+      expected: "Ketersediaan: Dimiliki",
+    },
+    {
+      path: "/images",
+      region: "Images filters",
+      option: "Image Count: Banyak",
+      expected: "Jumlah Gambar: Banyak",
+    },
+    {
+      path: "/performers",
+      region: "Performers filters",
+      option: "Availability: Aktif",
+      expected: "Ketersediaan: Aktif",
+    },
+  ])("translates active catalog filter chips for $path", ({
+    path,
+    region,
+    option,
+    expected,
+  }) => {
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({
+        id: {
+          "catalog.filterChip.availability": "Ketersediaan",
+          "catalog.filterChip.imageCount": "Jumlah Gambar",
+          "enum.availability.owned": "Dimiliki",
+          "enum.count.many": "Banyak",
+          "enum.status.active": "Aktif",
+        },
+      }),
+    );
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: region }))
+        .getByRole("button", { name: option }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
+
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
   it("does not translate user catalog data", () => {
     window.localStorage.setItem(languageStorageKey, "id");
     setManagedCategories(["Settings"]);
@@ -2156,6 +3223,296 @@ describe("App", () => {
     expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 
+  it("shows real installed languages and exposes only functional Language controls", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "ja", label: "Japanese", baseLanguage: "en" }]),
+    );
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    const languageCard = screen
+      .getAllByRole("heading", { name: "Language" })[0]
+      .closest("section") as HTMLElement;
+    expect(languageCard).toBeInTheDocument();
+    expect(within(languageCard).getByText("English, Japanese"))
+      .toBeInTheDocument();
+    expect(within(languageCard).getByRole("button", { name: "Manage..." }))
+      .toBeEnabled();
+    expect(within(languageCard).getByRole("button", { name: "Import Language CSV" }))
+      .toBeEnabled();
+    expect(
+      within(languageCard).getByRole("button", {
+        name: "Export Language CSV",
+      }),
+    ).toBeEnabled();
+    expect(within(languageCard).queryByRole("button", { name: "Reset Language" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(within(languageCard).getByRole("button", { name: "Manage..." }));
+
+    expect(within(languageCard).getByText("Default · Source · Protected"))
+      .toBeInTheDocument();
+    expect(
+      within(languageCard).getByRole("button", {
+        name: "Remove custom language Japanese",
+      }),
+    ).toBeEnabled();
+  });
+
+  it("removes an active custom language and falls back safely to English", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(languageStorageKey, "ja");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "ja", label: "Japanese", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(
+      languageOverridesStorageKey,
+      JSON.stringify({ ja: { "settings.title": "設定" } }),
+    );
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage..." }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove custom language Japanese",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove Language" }));
+
+    expect(screen.getByLabelText("App Language")).toHaveValue("en");
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("en");
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBeNull();
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBeNull();
+    expect(screen.getByText(/Removed language "ja"/)).toBeInTheDocument();
+  });
+
+  it("imports a valid custom Language CSV without touching catalog data", async () => {
+    window.history.pushState({}, "", "/settings");
+    setManagedCategories(["Private User Category"]);
+    const sourcePath = "D:/Languages/japanese.csv";
+    const csvContent = [
+      "language_code,key,text,context",
+      "ja,nav.home,ホーム,Sidebar",
+    ].join("\n");
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === "import_csv_read") {
+          return {
+            sourcePath,
+            csvContent,
+            bytesRead: csvContent.length,
+            success: true,
+          };
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+    expect(await screen.findByText("Add Japanese")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Language" }));
+
+    expect(screen.getByLabelText("App Language")).toHaveTextContent("Japanese");
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(languageOverridesStorageKey) ?? "{}",
+      ).ja["nav.home"],
+    ).toBe("ホーム");
+    expect(
+      JSON.parse(
+        window.localStorage.getItem("sakurava.managedCategories.v1") ?? "[]",
+      ),
+    ).toEqual(["Private User Category"]);
+  });
+
+  it("blocks a new Language CSV when 25 custom languages are installed", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify(
+        Array.from({ length: maxCustomLanguages }, (_, index) => ({
+          code: `x${index.toString(36).padStart(2, "0")}`,
+          label: `Custom ${index + 1}`,
+          baseLanguage: "en",
+        })),
+      ),
+    );
+    const sourcePath = "D:/Languages/overflow.csv";
+    const csvContent = [
+      "language_code,key,text,context",
+      "zz,nav.home,Overflow,Sidebar",
+    ].join("\n");
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === "import_csv_read") {
+          return {
+            sourcePath,
+            csvContent,
+            bytesRead: csvContent.length,
+            success: true,
+          };
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+
+    expect(
+      await screen.findByText(/Up to 25 custom languages can be installed/),
+    ).toBeInTheDocument();
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(customLanguagesStorageKey) ?? "[]",
+      ),
+    ).toHaveLength(maxCustomLanguages);
+  });
+
+  it("rejects an invalid Language CSV without corrupting installed languages", async () => {
+    window.history.pushState({}, "", "/settings");
+    const originalLanguages = JSON.stringify([
+      { code: "ja", label: "Japanese", baseLanguage: "en" },
+    ]);
+    window.localStorage.setItem(customLanguagesStorageKey, originalLanguages);
+    const sourcePath = "D:/Languages/invalid.csv";
+    const csvContent = "Wrong,Headers\nja,Japanese";
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (
+          command === "video_list" ||
+          command === "image_list" ||
+          command === "performer_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === "import_csv_read") {
+          return {
+            sourcePath,
+            csvContent,
+            bytesRead: csvContent.length,
+            success: true,
+          };
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+
+    expect(await screen.findByText(/Invalid CSV headers/)).toBeInTheDocument();
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBe(
+      originalLanguages,
+    );
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBeNull();
+  });
+
+  it("exports a Language starter CSV containing UI keys but no user data", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Languages/starter.csv";
+    dialogMocks.save.mockResolvedValue(destinationPath);
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (
+        command === "video_list" ||
+        command === "image_list" ||
+        command === "performer_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      if (command === "export_csv_write") {
+        expect(args.destinationPath).toBe(destinationPath);
+        expect(args.csvContent).toContain(",nav.home,Home,Nav > Home");
+        for (const key of [
+          "home.savedVideos",
+          "enum.availability.owned",
+          "sort.titleAz",
+          "pagination.showing",
+          "detail.ratingSummary",
+          "rating.rewatch",
+          "form.addSourceLink",
+          "count.selected",
+          "categoryManagement.subtitle",
+          "glossary.saveEntry",
+          "viewer.more.saveAs",
+          "categories.table.header.name",
+          "categories.table.header.description",
+          "glossary.form.field.category",
+          "glossary.form.field.thumbnail",
+          "common.status.available",
+        ]) {
+          expect(args.csvContent).toContain(`,${key},`);
+        }
+        expect(args.csvContent).not.toContain("Private User Title");
+        return { destinationPath, bytesWritten: args.csvContent.length, success: true };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Export Language CSV" }),
+    );
+
+    expect(await screen.findByText(`Language CSV exported to ${destinationPath}`))
+      .toBeInTheDocument();
+  });
+
   it("shows desktop runtime database status when Tauri is available", () => {
     window.history.pushState({}, "", "/settings");
     window.__TAURI_INTERNALS__ = {
@@ -2164,9 +3521,144 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getAllByText("Desktop runtime").length).toBeGreaterThan(0);
-    expect(screen.getByText("Available")).toBeInTheDocument();
-    expect(screen.getByText("Runtime Status")).toBeInTheDocument();
+    expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
+  });
+
+  it("persists and applies Appearance accent presets", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Blue accent" }));
+
+    expect(window.localStorage.getItem(appearanceAccentStorageKey)).toBe(
+      '{"type":"blue"}',
+    );
+    expect(document.documentElement).toHaveAttribute("data-accent", "blue");
+    expect(document.documentElement.style.getPropertyValue("--appearance-accent"))
+      .toBe("#3b82f6");
+    expect(screen.getByRole("button", { name: "Blue accent" }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("routes the shared Sakura utility palette through Appearance tokens", () => {
+    const colors = tailwindConfig.theme?.extend?.colors?.sakura;
+
+    expect(colors).toMatchObject({
+      50: "var(--appearance-accent-50)",
+      100: "var(--appearance-accent-100)",
+      200: "var(--appearance-accent-200)",
+      300: "var(--appearance-accent-300)",
+      400: "var(--appearance-accent-400)",
+      500: "var(--appearance-accent-500)",
+      600: "var(--appearance-accent-600)",
+      700: "var(--appearance-accent-700)",
+      800: "var(--appearance-accent-800)",
+    });
+  });
+
+  it("validates, persists, and applies a custom Appearance accent", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Custom accent color picker"), {
+      target: { value: "#2f7f6f" },
+    });
+
+    expect(window.localStorage.getItem(appearanceAccentStorageKey)).toBe(
+      '{"type":"custom","color":"#2f7f6f"}',
+    );
+    expect(document.documentElement).toHaveAttribute("data-accent", "custom");
+    expect(document.documentElement.style.getPropertyValue("--appearance-accent"))
+      .toBe("#2f7f6f");
+  });
+
+  it("falls back safely when a stored custom Appearance accent is invalid", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      appearanceAccentStorageKey,
+      '{"type":"custom","color":"#ffffff"}',
+    );
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute("data-accent", "sakura");
+    expect(document.documentElement.style.getPropertyValue("--appearance-accent"))
+      .toBe("#f16f9b");
+    expect(screen.getByRole("button", { name: "Sakura Pink accent" }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("persists and applies Appearance density", () => {
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Compact" }));
+
+    expect(window.localStorage.getItem(appearanceDensityStorageKey)).toBe(
+      "compact",
+    );
+    expect(document.documentElement).toHaveAttribute("data-density", "compact");
+    expect(screen.getByRole("button", { name: "Compact" }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("loads safe density and UI Scale fallbacks and persists UI Scale", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(appearanceDensityStorageKey, "spacious");
+    window.localStorage.setItem(appearanceUiScaleStorageKey, "125");
+    render(<App />);
+
+    expect(document.documentElement).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "100");
+    expect(screen.getByLabelText("UI Scale")).toHaveValue("100");
+
+    fireEvent.change(screen.getByLabelText("UI Scale"), {
+      target: { value: "110" },
+    });
+
+    expect(window.localStorage.getItem(appearanceUiScaleStorageKey)).toBe("110");
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "110");
+  });
+
+  it("resets only Appearance preferences", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem("unrelated.settings.value", "preserved");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    fireEvent.click(screen.getByRole("button", { name: "Purple accent" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compact" }));
+    fireEvent.change(screen.getByLabelText("UI Scale"), {
+      target: { value: "110" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reset Appearance" }));
+
+    expect(window.localStorage.getItem(appearanceThemeStorageKey)).toBe("light");
+    expect(window.localStorage.getItem(appearanceAccentStorageKey)).toBe(
+      '{"type":"sakura"}',
+    );
+    expect(window.localStorage.getItem(appearanceDensityStorageKey)).toBe(
+      "comfortable",
+    );
+    expect(window.localStorage.getItem(appearanceUiScaleStorageKey)).toBe("100");
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
+    expect(window.localStorage.getItem("unrelated.settings.value")).toBe(
+      "preserved",
+    );
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    expect(document.documentElement).toHaveAttribute("data-accent", "sakura");
+    expect(document.documentElement).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "100");
   });
 
   it("renders Data Safety actions and reveals Export CSV actions progressively", () => {
@@ -2197,7 +3689,10 @@ describe("App", () => {
       .not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Import CSV preview" }))
       .not.toBeInTheDocument();
-    expect(screen.getByText(/confirmed Apply are available now/)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Preview Before Apply" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
 
@@ -2262,7 +3757,7 @@ describe("App", () => {
     expect(screen.getByText("Apply changes database records only after confirmation.")).toBeInTheDocument();
     expect(screen.getByText("Delete affects catalog records only. Original media files are not deleted.")).toBeInTheDocument();
     const previewTable = screen.getByRole("table");
-    for (const column of ["Row", "Action", "Result", "Target", "Changes", "Status"]) {
+    for (const column of ["ROW", "ACTION", "RESULT", "TARGET", "CHANGES", "STATUS"]) {
       expect(within(previewTable).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
@@ -2611,7 +4106,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/settings/category-management");
     setManagedCategories(
       Array.from(
-        { length: 30 },
+        { length: 37 },
         (_, index) => `Category ${String(index + 1).padStart(2, "0")}`,
       ),
     );
@@ -2619,8 +4114,16 @@ describe("App", () => {
     render(<App />);
 
     const toolbar = screen.getByLabelText("Category Management toolbar");
+    const toolbarRow = screen.getByTestId("category-management-toolbar-row");
     const pagination = screen.getByLabelText("Category Management pagination");
     const table = screen.getByRole("table");
+    const tableScroll = screen.getByTestId("category-management-table-scroll");
+    expect(screen.getByTestId("category-management-route-page")).toHaveClass("space-y-6");
+    expect(screen.getByTestId("category-management-route-page").className)
+      .not.toContain("max-w-[1180px]");
+    expect(screen.getByTestId("category-management-page")).toHaveClass("space-y-6");
+    expect(screen.getByRole("heading", { name: "Category Management" }))
+      .toHaveClass("text-4xl", "font-semibold", "tracking-normal");
     expect(
       toolbar.compareDocumentPosition(pagination)
         & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -2629,36 +4132,200 @@ describe("App", () => {
       pagination.compareDocumentPosition(table)
         & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    for (const column of [
-      "Thumbnail",
-      "Name",
-      "Description",
-      "Usage",
-      "Total Usage",
-      "Action",
+    expect(toolbarRow).toHaveClass(
+      "flex",
+      "w-full",
+      "sm:flex-row",
+    );
+    for (const control of [
+      screen.getByLabelText("Search categories"),
+      screen.getByTestId("category-management-filter-control"),
+      screen.getByRole("button", { name: "Sort" }),
+      screen.getByRole("button", { name: "Card view" }),
     ]) {
+      expect(control.closest("[data-testid='category-management-toolbar-row']"))
+        .toBe(toolbarRow);
+    }
+    expect(
+      within(screen.getByTestId("category-management-filter-control")).queryByRole(
+        "searchbox",
+      ),
+    ).not.toBeInTheDocument();
+    for (const column of ["NAME", "PARENT", "DESCRIPTION", "USAGE", "TOTAL USAGE"]) {
       expect(within(table).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
+    expect(within(table).getByText("Thumbnail")).toHaveClass("sr-only");
+    expect(
+      within(table).getAllByLabelText("Category thumbnail placeholder").length,
+    ).toBeGreaterThan(0);
+    expect(within(table).queryByRole("columnheader", { name: "Action" }))
+      .not.toBeInTheDocument();
+    expect(within(table).queryByRole("button", { name: /^Edit / }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent("Title A-Z");
+    expect(screen.getByRole("button", { name: "Sort" })).not.toHaveTextContent(/^Sort$/);
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveClass("sm:w-44");
+    expect(screen.getByRole("button", { name: "Card view" })).toHaveClass("sm:w-auto");
+    expect(screen.getByTestId("category-management-sort-control").querySelector("svg"))
+      .not.toBeNull();
+    expect(screen.getByTestId("category-management-filter-control").querySelector("svg"))
+      .not.toBeNull();
+    expect(tableScroll).toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
+    expect(tableScroll.closest("[data-sticky-horizontal-scroll='true']"))
+      .toHaveClass("sticky-horizontal-scroll-frame");
+    expect(tableScroll.className).not.toContain("px-");
+    expect(tableScroll.className).not.toContain("mx-");
+    expect(table.className).not.toContain("sakura");
+    expect(screen.queryByText("Sorting")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("0 active filters")).toHaveTextContent("0");
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(screen.queryByText("No filter selected")).not.toBeInTheDocument();
 
-    expect(screen.getByText("Showing 1-25 of 30 categories")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Rows per page")).toHaveLength(1);
-    expect(screen.getByLabelText("Rows per page")).toHaveDisplayValue("25");
-    for (const option of ["25", "50", "100"]) {
+    expect(screen.getByText("Showing 1-32 of 37")).toBeInTheDocument();
+    expect(screen.queryByText("Showing 1-32 of 37 categories")).not.toBeInTheDocument();
+    expect(screen.getByText("Page size")).toBeInTheDocument();
+    expect(screen.getByText("per page")).toBeInTheDocument();
+    expect(screen.queryByText("Rows per page")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Categories per page")).toHaveLength(1);
+    expect(screen.getByLabelText("Categories per page")).toHaveDisplayValue("32");
+    expect(screen.getByLabelText("Categories per page control")).toHaveClass(
+      "h-9",
+      "rounded-lg",
+      "border-slate-200",
+      "px-3",
+    );
+    fireEvent.click(screen.getByLabelText("Categories per page control"));
+    expect(
+      screen.getByRole("listbox", {
+        name: "Categories per page options",
+      }).parentElement,
+    ).toHaveAttribute("data-placement", "down");
+    fireEvent.keyDown(document, { key: "Escape" });
+    for (const option of ["32", "64", "128", "256"]) {
       expect(screen.getByRole("option", { name: option })).toBeInTheDocument();
     }
-    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(screen.getByText("Showing 26-30 of 30 categories")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    expect(screen.getByText("Showing 33-37 of 37")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Rows per page"), {
-      target: { value: "50" },
+    fireEvent.change(screen.getByLabelText("Categories per page"), {
+      target: { value: "64" },
     });
 
-    expect(screen.getByText("Showing 1-30 of 30 categories")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1-37 of 37")).toBeInTheDocument();
+  });
+
+  it("truncates long Category Management table values without widening columns", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_parent_long",
+            name: "Managed Category With An Extremely Long Name That Should Truncate",
+            description:
+              "A long category description that should wrap and clamp instead of forcing the table wider than intended.",
+          }),
+          managedCategoryFixture({
+            key: "cat_child_long",
+            name: "Child With A Very Long Category Name For Truncation",
+            parentKey: "cat_parent_long",
+            description:
+              "A child description that also needs to stay inside the row and not shift the table layout around.",
+          }),
+        ];
+      }
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const table = await screen.findByRole("table");
+    expect(
+      within(table).getAllByText(
+        "Managed Category With An Extremely Long Name That Should Truncate",
+      )[0],
+    ).toHaveClass("truncate");
+    expect(
+      within(table).getByText(
+        "A long category description that should wrap and clamp instead of forcing the table wider than intended.",
+      ),
+    ).toHaveClass("line-clamp-2");
+    expect(screen.getByTestId("category-parent-chip")).toHaveClass("overflow-hidden");
+    expect(within(table).getByLabelText("1 child")).toHaveClass("overflow-hidden");
+  });
+
+  it("uses a custom Category Management Sort picker and preserves sort behavior", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({
+            key: "cat_bravo",
+            name: "Bravo Category",
+            createdAt: "2026-05-13T00:00:00.000Z",
+            updatedAt: "2026-05-13T00:00:00.000Z",
+          }),
+          managedCategoryFixture({
+            key: "cat_alpha",
+            name: "Alpha Category",
+            createdAt: "2026-05-12T00:00:00.000Z",
+            updatedAt: "2026-05-12T00:00:00.000Z",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    await screen.findByText("Alpha Category");
+    const table = screen.getByRole("table");
+    let bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(within(bodyRows[0]).getByText("Alpha Category")).toBeInTheDocument();
+    expect(within(bodyRows[1]).getByText("Bravo Category")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort" }));
+    const sortListbox = screen.getByRole("listbox", { name: "Sort options" });
+    for (const optionName of [
+      "Title A-Z",
+      "Title Z-A",
+      "Last Added",
+      "Last Modified",
+    ]) {
+      const option = within(sortListbox).getByRole("option", { name: optionName });
+      expect(option).toBeInTheDocument();
+      expect(option.querySelector(".lucide-plus")).toBeNull();
+      expect(option.querySelector(".lucide-check")).toBeNull();
+    }
+
+    fireEvent.click(within(sortListbox).getByRole("option", { name: "Last Added" }));
+    expect(screen.queryByRole("listbox", { name: "Sort options" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent("Last Added");
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(within(bodyRows[0]).getByText("Bravo Category")).toBeInTheDocument();
+    expect(within(bodyRows[1]).getByText("Alpha Category")).toBeInTheDocument();
+
+    selectCategorySort("Title A-Z");
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(within(bodyRows[0]).getByText("Alpha Category")).toBeInTheDocument();
+    expect(within(bodyRows[1]).getByText("Bravo Category")).toBeInTheDocument();
   });
 
   it("toggles Category Management entry form and card/table views", () => {
@@ -2667,37 +4334,50 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Add Entry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Category" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Add Category" }))
       .not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
 
     expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Category Management" }))
       .toBeInTheDocument();
+    expect(screen.getByText("Category")).toBeInTheDocument();
+    expect(screen.getAllByText("*")).toHaveLength(2);
     expect(screen.getByText("Parent Category")).toBeInTheDocument();
     expect(screen.getByText("Used In")).toBeInTheDocument();
     const usedInControls = screen.getByLabelText("Used In controls");
-    expect(usedInControls).toHaveClass("grid", "w-full", "grid-cols-3");
-    for (const label of ["Videos", "Images", "Performers"]) {
+    expect(usedInControls).toHaveClass(
+      "grid",
+      "w-full",
+      "grid-cols-2",
+      "lg:grid-cols-4",
+    );
+    for (const label of ["Videos", "Images", "Performers", "Credits"]) {
       const toggle = within(usedInControls).getByRole("button", {
         name: `Show in ${label}`,
       });
-      expect(toggle).toHaveAttribute("aria-pressed", "true");
-      expect(toggle).toHaveClass("bg-sakura-50", "text-sakura-700");
+      expect(toggle).toHaveAttribute("aria-pressed", "false");
+      expect(toggle).toHaveClass("bg-slate-50", "text-slate-500");
     }
     fireEvent.click(
       within(usedInControls).getByRole("button", { name: "Show in Images" }),
     );
+    fireEvent.click(
+      within(usedInControls).getByRole("button", { name: "Show in Credits" }),
+    );
     expect(
       within(usedInControls).getByRole("button", { name: "Show in Images" }),
-    ).toHaveAttribute("aria-pressed", "false");
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByText("Thumbnail").length).toBeGreaterThan(0);
     expect(screen.getByText("Definition")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save Entry" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Category" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+    confirmDialog("Discard");
     expect(screen.queryByRole("heading", { name: "Add Category" }))
       .not.toBeInTheDocument();
 
@@ -2711,10 +4391,14 @@ describe("App", () => {
     expect(cardPlaceholder).toBeInTheDocument();
     expect(categoryCard).toHaveAttribute("data-category-card-kind", "root");
     expect(categoryCard).toHaveClass("bg-slate-50");
-    expect(cardPlaceholder.parentElement?.className).toContain("bg-[radial-gradient");
+    expect(cardPlaceholder.parentElement).toHaveClass("aspect-square");
+    expect(cardPlaceholder.parentElement).toHaveClass(
+      "category-accent-placeholder",
+    );
     expect(cardPlaceholder.parentElement?.className).not.toContain("ring-");
     expect(cardPlaceholder.parentElement?.className).not.toContain("border");
-    expect(within(categoryCard).getByText("No Parent")).toBeInTheDocument();
+    expect(within(categoryCard).getByText("No Parent Selected")).toBeInTheDocument();
+    expect(within(categoryCard).getByText("N/A")).toBeInTheDocument();
     expect(within(categoryCard).getByTitle("Videos")).toHaveClass("bg-white");
     expect(within(categoryCard).getByLabelText("Videos 0")).toBeInTheDocument();
     expect(within(categoryCard).getByLabelText("Images 0")).toBeInTheDocument();
@@ -2779,22 +4463,23 @@ describe("App", () => {
     }) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = {
       invoke,
+      convertFileSrc: (path: string) => `asset://${path}`,
     };
 
     render(<App />);
 
     expect(await screen.findAllByText("Parent Category")).not.toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Add Entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
     expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue("");
     expect(screen.getByLabelText("Search parent categories")).toHaveDisplayValue(
-      "No Parent",
+      "No Parent Selected",
     );
 
     fireEvent.change(screen.getByPlaceholderText("Category name"), {
       target: { value: "  parent category  " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Category" }));
     expect(await screen.findByText("A category with this name already exists."))
       .toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -2807,13 +4492,14 @@ describe("App", () => {
       target: { value: "  New Category  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Show in Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
-    expect(await screen.findByText('Added category "New Category".'))
+    fireEvent.click(screen.getByRole("button", { name: "Show in Credits" }));
+    clickSaveEntryAndConfirm();
+    expect(await screen.findByText("Data created successfully."))
       .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Edit Category" }))
+    expect(screen.getByRole("heading", { name: "Add Category" }))
       .toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name"))
-      .toHaveDisplayValue("New Category");
+      .toHaveDisplayValue("");
     expect(invoke).toHaveBeenCalledWith(
       "managed_category_create",
       {
@@ -2822,17 +4508,16 @@ describe("App", () => {
           parentKey: null,
           description: "",
           thumbnailPath: "",
-          showInVideos: true,
-          showInImages: false,
-          showInPerformers: true,
+          showInVideos: false,
+          showInImages: true,
+          showInPerformers: false,
+          showInCredits: true,
         }),
       },
       undefined,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Edit Child Category" }),
-    );
+    fireEvent.click(screen.getByRole("row", { name: "Edit Child Category" }));
     expect(screen.getByRole("heading", { name: "Edit Category" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue(
       "Child Category",
@@ -2850,14 +4535,14 @@ describe("App", () => {
       .toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Show in Performers" }))
       .toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Show in Credits" }))
+      .toHaveAttribute("aria-pressed", "false");
 
     fireEvent.change(screen.getByPlaceholderText("Category name"), {
       target: { value: "Unsaved Child" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Edit Child Category" }),
-    );
+    fireEvent.click(screen.getByRole("row", { name: "Edit Child Category" }));
     expect(screen.getByPlaceholderText("Category name")).toHaveDisplayValue(
       "Child Category",
     );
@@ -2869,13 +4554,13 @@ describe("App", () => {
       target: { value: "  Updated definition  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Show in Performers" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Entry" }));
-    expect(await screen.findByText('Saved category "Updated Child".'))
+    clickSaveEntryAndConfirm();
+    expect(await screen.findByText("Data updated successfully."))
       .toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Edit Category" }))
+    expect(screen.getByRole("heading", { name: "Add Category" }))
       .toBeInTheDocument();
     expect(screen.getByPlaceholderText("Category name"))
-      .toHaveDisplayValue("Updated Child");
+      .toHaveDisplayValue("");
     expect(invoke).toHaveBeenCalledWith(
       "managed_category_update",
       {
@@ -2888,6 +4573,7 @@ describe("App", () => {
           showInVideos: true,
           showInImages: false,
           showInPerformers: false,
+          showInCredits: false,
         }),
       },
       undefined,
@@ -2915,7 +4601,6 @@ describe("App", () => {
         parentKey: "cat_parent",
       }),
     ];
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [
@@ -2942,53 +4627,43 @@ describe("App", () => {
       invoke,
     };
 
-    try {
-      render(<App />);
+    render(<App />);
 
-      await screen.findByRole("button", { name: "Collapse Parent Category" });
-      fireEvent.click(
-        screen.getByRole("button", { name: "Edit Parent Category" }),
-      );
-      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-      expect(
-        screen.getByText("Delete is blocked while this category has child categories."),
-      ).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Collapse Parent Category" });
+    fireEvent.click(screen.getByRole("row", { name: "Edit Parent Category" }));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(
+      screen.getByText("Delete is blocked while this category has child categories."),
+    ).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      fireEvent.click(
-        screen.getByRole("button", { name: "Edit Used Category" }),
-      );
-      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-      expect(
-        screen.getByText("Delete is blocked while records use this category."),
-      ).toBeInTheDocument();
-      expect(invoke).not.toHaveBeenCalledWith(
-        "managed_category_delete",
-        expect.anything(),
-        undefined,
-      );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("row", { name: "Edit Used Category" }));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(
+      screen.getByText("Delete is blocked while records use this category."),
+    ).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "managed_category_delete",
+      expect.anything(),
+      undefined,
+    );
 
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      fireEvent.click(
-        screen.getByRole("button", { name: "Edit Unused Category" }),
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("row", { name: "Edit Unused Category" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog", { name: "Delete category?" }))
+      .toBeInTheDocument();
+    confirmDialog("Delete");
 
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Delete "Unused Category"? This only deletes unused managed category metadata.',
-      );
-      expect(await screen.findByText('Deleted category "Unused Category".'))
-        .toBeInTheDocument();
-      expect(invoke).toHaveBeenCalledWith(
-        "managed_category_delete",
-        { key: "cat_unused" },
-        undefined,
-      );
-      expect(screen.queryByRole("button", { name: "Edit Unused Category" }))
-        .not.toBeInTheDocument();
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    expect(await screen.findByText("Data deleted successfully."))
+      .toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "managed_category_delete",
+      { key: "cat_unused" },
+      undefined,
+    );
+    expect(screen.queryByRole("row", { name: "Edit Unused Category" }))
+      .not.toBeInTheDocument();
   });
 
   it("renders Category Management table hierarchy and prevents self-parent selection", async () => {
@@ -3004,6 +4679,7 @@ describe("App", () => {
         name: "Child Category",
         parentKey: "cat_parent",
         description: "Child definition",
+        thumbnailPath: "D:/Thumbs/child.jpg",
       }),
       managedCategoryFixture({
         key: "cat_solo",
@@ -3047,6 +4723,7 @@ describe("App", () => {
     }) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = {
       invoke,
+      convertFileSrc: (path: string) => `asset://${path}`,
     };
 
     render(<App />);
@@ -3056,14 +4733,53 @@ describe("App", () => {
     let bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(3);
     expect(within(bodyRows[0]).getByText("Parent Category")).toBeInTheDocument();
+    expect(bodyRows[0]).toHaveAttribute("data-category-row-kind", "parent");
+    expect(bodyRows[0]).toHaveClass("bg-slate-50", "hover:bg-sakura-50/60");
+    expect(bodyRows[0].className).not.toContain("border-l");
     expect(within(bodyRows[0]).getByLabelText("1 child")).toBeInTheDocument();
     expect(within(bodyRows[0]).getByLabelText("Category thumbnail placeholder"))
-      .toHaveClass("size-10", "rounded-lg");
+      .toHaveClass("category-table-thumbnail-box", "aspect-square", "size-11", "rounded-lg");
     expect(within(bodyRows[1]).getByText("Child Category")).toBeInTheDocument();
+    expect(bodyRows[1]).toHaveAttribute("data-category-row-kind", "child");
+    expect(bodyRows[1]).toHaveAttribute(
+      "data-category-child-indent",
+      "from-thumbnail",
+    );
+    expect(bodyRows[1]).toHaveClass("bg-white", "hover:bg-sakura-50/50");
+    expect(bodyRows[1].className).not.toContain("border-l");
     expect(within(bodyRows[1]).queryByText("Parent Category > Child Category"))
       .not.toBeInTheDocument();
-    expect(within(bodyRows[1]).getByLabelText("Category thumbnail placeholder"))
-      .toHaveClass("size-10", "rounded-lg");
+    const childThumbnail = within(bodyRows[1]).getByTestId("category-table-thumbnail");
+    expect(childThumbnail)
+      .toHaveClass("category-table-thumbnail-box", "aspect-square", "size-11", "rounded-lg");
+    expect(childThumbnail.querySelector("img")).toHaveClass("h-full", "w-full", "object-cover");
+    expect(within(bodyRows[1]).queryByText("-")).not.toBeInTheDocument();
+    expect(within(bodyRows[1]).queryByText("−")).not.toBeInTheDocument();
+    const parentThumbnailCell = within(bodyRows[0])
+      .getByLabelText("Category thumbnail placeholder")
+      .closest("td");
+    const childThumbnailCell = within(bodyRows[1])
+      .getByTestId("category-table-thumbnail")
+      .closest("td");
+    const childNameCell = within(bodyRows[1])
+      .getByText("Child Category")
+      .closest("td");
+    const parentChip = within(bodyRows[1]).getByTestId("category-parent-chip");
+    const childParentCell = parentChip.closest("td");
+    const childUsageCell = within(bodyRows[1])
+      .getByLabelText("Videos 1")
+      .closest("td");
+    const childTotalUsageCell = within(bodyRows[1])
+      .getByText("3")
+      .closest("td");
+    expect(parentThumbnailCell).not.toHaveClass("pl-6");
+    expect(childThumbnailCell).toHaveClass("pl-6");
+    expect(childNameCell).toHaveClass("pl-6");
+    expect(childParentCell).toHaveClass("pl-6");
+    expect(childUsageCell).toHaveClass("pl-6");
+    expect(childTotalUsageCell).toHaveClass("pl-6");
+    expect(parentChip).toHaveClass("inline-flex", "w-fit", "bg-sakura-50");
+    expect(parentChip).not.toHaveClass("block", "w-full", "flex-1");
     expect(within(bodyRows[0]).getByLabelText("Videos 2")).toBeInTheDocument();
     expect(within(bodyRows[0]).getByLabelText("Images 1")).toBeInTheDocument();
     expect(within(bodyRows[0]).getByLabelText("Performers 1")).toBeInTheDocument();
@@ -3072,11 +4788,35 @@ describe("App", () => {
     expect(within(bodyRows[1]).getByLabelText("Images 1")).toBeInTheDocument();
     expect(within(bodyRows[1]).getByLabelText("Performers 1")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Sort by NAME" }));
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows[0]).toHaveTextContent("Parent Category");
+    expect(bodyRows[1]).toHaveTextContent("Child Category");
+    expect(
+      screen.getByRole("button", { name: "Sort by NAME" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(screen.getByRole("button", { name: "Sort by NAME" }));
+    expect(
+      screen.getByRole("button", { name: "Sort by NAME" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "descending");
+
     fireEvent.click(
-      within(bodyRows[1]).getByRole("button", {
-        name: "Edit Child Category",
+      within(bodyRows[0]).getByRole("button", {
+        name: "Collapse Parent Category",
       }),
     );
+    expect(screen.queryByRole("heading", { name: "Edit Category" }))
+      .not.toBeInTheDocument();
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(2);
+    fireEvent.click(
+      within(bodyRows[0]).getByRole("button", {
+        name: "Expand Parent Category",
+      }),
+    );
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(3);
+    fireEvent.click(bodyRows[1]);
     const parentPicker = screen.getByTestId("parent-category-picker-field");
     const parentSearch = within(parentPicker).getByLabelText(
       "Search parent categories",
@@ -3084,8 +4824,8 @@ describe("App", () => {
     expect(parentSearch).toHaveDisplayValue("Parent Category");
     fireEvent.focus(parentSearch);
     expect(
-      screen.getByRole("button", { name: "Select No Parent" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Select No Parent" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Select parent category Parent Category",
@@ -3114,11 +4854,7 @@ describe("App", () => {
     expect(screen.queryByText("Parent Category > Child Category"))
       .not.toBeInTheDocument();
 
-    fireEvent.click(
-      within(bodyRows[0]).getByRole("button", {
-        name: "Edit Parent Category",
-      }),
-    );
+    fireEvent.click(screen.getByRole("row", { name: "Edit Parent Category" }));
     expect(screen.getByLabelText("Search parent categories")).toBeDisabled();
   });
 
@@ -3169,7 +4905,7 @@ describe("App", () => {
       invoke,
     };
 
-    render(<App />);
+    const categoryRender = render(<App />);
 
     await screen.findAllByText("Parent Category");
     const table = screen.getByRole("table");
@@ -3177,10 +4913,19 @@ describe("App", () => {
     expect(screen.queryByText(/Needs\s+Review/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Missing\s+thumbnail/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Has\s+children/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("0 active filters")).toHaveTextContent("0");
 
-    fireEvent.change(screen.getByLabelText("Filter categories"), {
-      target: { value: "parent-only" },
+    selectCategoryFilter("Parents Only");
+    const categoryFilterListbox = screen.getByRole("listbox", {
+      name: "Category filter options",
     });
+    expect(within(categoryFilterListbox).queryByRole("searchbox")).not.toBeInTheDocument();
+    const parentFilterOption = within(categoryFilterListbox).getByRole("option", {
+      name: "Parents Only",
+    });
+    expect(parentFilterOption).toHaveAttribute("aria-selected", "true");
+    expect(parentFilterOption.querySelector(".lucide-check")).not.toBeNull();
 
     let bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(1);
@@ -3189,10 +4934,17 @@ describe("App", () => {
     expect(within(bodyRows[0]).getByLabelText("Videos 1")).toBeInTheDocument();
     expect(within(bodyRows[0]).getByLabelText("Images 1")).toBeInTheDocument();
     expect(within(bodyRows[0]).getByText("2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Active category filters")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Filter: Parents Only filter" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
 
-    fireEvent.change(screen.getByLabelText("Filter categories"), {
-      target: { value: "child-only" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Remove Filter: Parents Only filter" }));
+    expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
+    bodyRows = within(table).getAllByRole("row").slice(1);
+    expect(bodyRows).toHaveLength(3);
+
+    selectCategoryFilter("Children Only");
 
     bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows).toHaveLength(1);
@@ -3201,6 +4953,59 @@ describe("App", () => {
       .not.toBeInTheDocument();
     expect(within(bodyRows[0]).queryByText("Solo Category"))
       .not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("category-management-filter-control")).queryByRole(
+        "searchbox",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Filter: Children Only filter" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
+    fireEvent.change(screen.getByLabelText("Search categories"), {
+      target: { value: "Child" },
+    });
+    selectCategorySort("Last Added");
+    categoryRender.unmount();
+
+    window.history.pushState({}, "", "/settings/category-management");
+    const restoredCategoryRender = render(<App />);
+    await screen.findByText("Child Category");
+    expect(screen.getByLabelText("Search categories")).toHaveValue("Child");
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Last Added",
+    );
+    expect(screen.getByRole("button", { name: "Remove Filter: Children Only filter" }))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("1 active filters")).toHaveTextContent("1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+    expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("0 active filters")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Search categories")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Title A-Z",
+    );
+    restoredCategoryRender.unmount();
+
+    window.history.pushState({}, "", "/settings/category-management");
+    render(<App />);
+    await screen.findAllByText("Parent Category");
+    expect(screen.getByLabelText("Search categories")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
+      "Title A-Z",
+    );
+    expect(screen.queryByLabelText("Active category filters")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("category-management-filter-control")).queryByRole(
+        "searchbox",
+      ),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("category-management-filter-control"));
+    expect(
+      within(screen.getByRole("listbox", { name: "Category filter options" })).queryByRole(
+        "searchbox",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("adds a configured media root from the Settings folder picker", async () => {
@@ -3246,8 +5051,7 @@ describe("App", () => {
     expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
       JSON.stringify([canonicalRoot]),
     );
-    expect(screen.getByText("1 configured")).toBeInTheDocument();
-    expect(screen.getByText(/choose a folder, not a drive root/i)).toBeInTheDocument();
+    expect(screen.getByText("1 folder configured")).toBeInTheDocument();
   });
 
   it("does not duplicate and can remove a configured media root", async () => {
@@ -3289,7 +5093,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     expect(screen.queryByText(displayRoot)).not.toBeInTheDocument();
-    expect(screen.getByText("None")).toBeInTheDocument();
+    expect(screen.getByText("No folders configured")).toBeInTheDocument();
     expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
       JSON.stringify([]),
     );
@@ -3858,17 +5662,34 @@ describe("App", () => {
       window.history.pushState({}, "", path);
       render(<App />);
 
-      expect(screen.getByText(formLabel)).toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: "Browse" }).length)
-        .toBeGreaterThan(0);
+    expect(screen.getByText(formLabel)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Browse" }).length)
+      .toBeGreaterThan(0);
       expect(screen.getAllByText(emptyRelatedText).length).toBeGreaterThan(0);
       expect(screen.getByLabelText(ratingLabel)).toBeInTheDocument();
       expect(screen.queryByText(/Use Detect after/)).not.toBeInTheDocument();
       expect(screen.queryByText("Primary Cover")).not.toBeInTheDocument();
       expect(screen.queryByText("Thumbnails (Optional)")).not.toBeInTheDocument();
-      expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
-    },
+    expect(screen.queryByText("sample-id")).not.toBeInTheDocument();
+  },
   );
+
+  it("uses field-specific placeholders on create forms", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    expect(screen.getByLabelText(/^Title/)).toHaveAttribute(
+      "placeholder",
+      "Video title",
+    );
+    expect(screen.getByLabelText("Code")).toHaveAttribute("placeholder", "VID-001");
+    expect(screen.getByLabelText("Media Path")).toHaveAttribute(
+      "placeholder",
+      "D:/Videos/title/video.mp4",
+    );
+    expect(screen.queryByText("Saved as typed or selected local media path."))
+      .not.toBeInTheDocument();
+  });
 
   it("uses one content box with unnumbered section headings", () => {
     window.history.pushState({}, "", "/videos/new");
@@ -3889,17 +5710,22 @@ describe("App", () => {
       "lg:grid-cols-[180px_minmax(0,1fr)]",
       "lg:items-center",
     );
-    expect(categoriesRow).toHaveClass(
+    expect(categoriesRow).not.toHaveClass(
       "lg:grid-cols-[180px_minmax(0,1fr)]",
-      "lg:items-start",
     );
     expect(screen.queryByRole("heading", { name: "1. Basic Identity" }))
       .not.toBeInTheDocument();
   });
 
-  it("renders Source Links as deferred title and link rows", () => {
+  it("renders functional Source Links row controls", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
+
+    expect(screen.getByText("No source links added.")).toBeInTheDocument();
+    expect(screen.queryByText("Deferred: source links are not saved yet."))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
 
     expect(screen.getByLabelText("Source Link Title 1")).toHaveAttribute(
       "placeholder",
@@ -3907,19 +5733,45 @@ describe("App", () => {
     );
     expect(screen.getByLabelText("Source Link URL 1")).toHaveAttribute(
       "placeholder",
-      "Link 1",
+      "https://example.com/source",
     );
-    expect(screen.getByText("Deferred: source links are not saved yet."))
+    expect(screen.getByRole("button", { name: "Remove Source Link 1" }))
       .toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
-      .not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
 
     expect(screen.getByLabelText("Source Link Title 2")).toBeInTheDocument();
     expect(screen.getByLabelText("Source Link URL 2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete Source Link 2" }))
+    expect(screen.getByRole("button", { name: "Remove Source Link 2" }))
       .toBeInTheDocument();
+  });
+
+  it("removes one Source Link row without clearing the others", () => {
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "First source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/first" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link Title 2"), {
+      target: { value: "Second source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 2"), {
+      target: { value: "https://example.invalid/second" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Source Link 1" }));
+
+    expect(screen.getByLabelText("Source Link Title 1"))
+      .toHaveValue("Second source");
+    expect(screen.getByLabelText("Source Link URL 1"))
+      .toHaveValue("https://example.invalid/second");
+    expect(screen.queryByDisplayValue("First source")).not.toBeInTheDocument();
   });
 
   it("renders Availability and Performer Status with matching rectangular chip sets", () => {
@@ -3941,7 +5793,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/performers/new");
     render(<App />);
 
-    const statusSection = screen.getByText("Status").closest("div") as HTMLElement;
+    const statusSection = screen.getByText("Availability").closest("div") as HTMLElement;
     for (const label of ["Active", "Retired", "Unknown"]) {
       const chip = within(statusSection)
         .getAllByText(label)
@@ -3949,7 +5801,7 @@ describe("App", () => {
       expect(chip).toHaveClass("rounded-md");
       expect(chip).not.toHaveClass("rounded-full");
     }
-    expect(screen.getByLabelText("Status")).toHaveValue("Unknown");
+    expect(screen.getByLabelText("Availability")).toHaveValue("Unknown");
   });
 
   it.each([
@@ -4005,11 +5857,11 @@ describe("App", () => {
     expectSectionOrder([
       screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
       screen.getByRole("heading", { name: "Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "File" }).closest("section"),
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
       screen.getByRole("heading", { name: "Related Images" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
@@ -4025,12 +5877,12 @@ describe("App", () => {
     expect(techInfo.getByLabelText("Duration")).toBeInTheDocument();
     expect(techInfo.getByLabelText("Duration")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(techInfo.getByText("Resolution")).toBeInTheDocument();
     expect(techInfo.getByLabelText("Resolution")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(techInfo.getByText("File Size")).toBeInTheDocument();
     expect(techInfo.getByText("File Type")).toBeInTheDocument();
@@ -4046,12 +5898,12 @@ describe("App", () => {
     expectSectionOrder([
       screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
       screen.getByRole("heading", { name: "Metadata" }).closest("section"),
-      screen.getByRole("heading", { name: "Files" }).closest("section"),
+      screen.getByRole("heading", { name: "File" }).closest("section"),
       screen.getByRole("heading", { name: "Tech Info" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
-      screen.getByRole("heading", { name: "Related Performer" }).closest("section"),
-      screen.getByRole("heading", { name: "Related Video" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Performers" }).closest("section"),
+      screen.getByRole("heading", { name: "Related Videos" }).closest("section"),
       screen.getByRole("heading", { name: "Notes" }).closest("section"),
     ]);
 
@@ -4063,7 +5915,16 @@ describe("App", () => {
     );
 
     expect(screen.queryByLabelText("Gallery Folder Path")).not.toBeInTheDocument();
+    const filesSection = within(
+      screen.getByRole("heading", { name: "File" }).closest("section") as HTMLElement,
+    );
+    expect(filesSection.getByText("Gallery Path")).toBeInTheDocument();
+    expect(filesSection.queryByText("Gallery Images")).not.toBeInTheDocument();
+    expect(filesSection.queryByText("Galley Path")).not.toBeInTheDocument();
+    expect(filesSection.getByRole("button", { name: "Add Folder" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Images" })).toBeInTheDocument();
+    expect(filesSection.queryByRole("button", { name: "+ Add Images" }))
+      .not.toBeInTheDocument();
     expect(screen.getByTestId("gallery-image-path-list")).toHaveClass("overflow-y-auto");
     expect(metadata.queryByLabelText("Image Count")).not.toBeInTheDocument();
     expect(techInfo.getByLabelText("Image Count")).toBeInTheDocument();
@@ -4104,7 +5965,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/videos/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Related Performer" }))
+    expect(screen.getByRole("heading", { name: "Related Performers" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related performers")).toBeInTheDocument();
     expect(screen.getByText("No related performers selected.")).toBeInTheDocument();
@@ -4150,7 +6011,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/images/new");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Related Video" }))
+    expect(screen.getByRole("heading", { name: "Related Videos" }))
       .toBeInTheDocument();
     expect(screen.getByLabelText("Search related videos")).toBeInTheDocument();
     expect(screen.getByText("No related videos selected.")).toBeInTheDocument();
@@ -4214,6 +6075,7 @@ describe("App", () => {
               nationality: "Japan",
               debutDate: "2008-01-01",
               status: "Active",
+              ratingJson: '{"overall":4,"visual":5}',
               aliasesJson:
                 '["Sakura Aoi","Aoi","Cherry","Bloom","Aoi S.","Sakura","Hanami","AS","Aoi-chan","Sakura Bloom"]',
             }),
@@ -4234,16 +6096,60 @@ describe("App", () => {
         if (command === "video_get") {
           return created;
         }
+        if (command === "credit_create") {
+          expect(args.input).toEqual(
+            expect.objectContaining({
+              workType: "video",
+              workId: created.id,
+              performerId: "performer_aoi",
+              characterName: "Lead Role",
+              creditTypeCategoryId: "Custom Main",
+              billingOrder: 1,
+            }),
+          );
+          return { id: "credit_aoi", ...args.input };
+        }
 
         throw new Error(`Unexpected command ${command}`);
       },
     ) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
-
+    const originalRelatedListScrollTo = HTMLElement.prototype.scrollTo;
+    const relatedListScrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: relatedListScrollTo,
+    });
     render(<App />);
 
     const relatedPerformerSearch = await screen.findByLabelText("Search related performers");
     expect(relatedPerformerSearch).toHaveClass("select-text");
+    expect(screen.queryByTestId("related-performer-result-row"))
+      .not.toBeInTheDocument();
+    fireEvent.focus(relatedPerformerSearch);
+    expect(
+      await screen.findByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText((_, element) => element?.tagName === "MARK"))
+      .not.toBeInTheDocument();
+    fireEvent.change(relatedPerformerSearch, {
+      target: { value: "aoi" },
+    });
+    expect(within(screen.getByRole("button", {
+      name: "Add related performer Aoi Sakura",
+    })).getByText("Aoi").tagName.toLowerCase()).toBe("mark");
+    fireEvent.change(relatedPerformerSearch, {
+      target: { value: "japan" },
+    });
+    expect(
+      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).not.toBeInTheDocument();
+    fireEvent.change(relatedPerformerSearch, {
+      target: { value: "2008" },
+    });
+    expect(
+      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).not.toBeInTheDocument();
     fireEvent.change(relatedPerformerSearch, {
       target: { value: "cherry" },
     });
@@ -4251,36 +6157,57 @@ describe("App", () => {
       name: "Add related performer Aoi Sakura",
     });
     expect(performerResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(performerResult).getByText("Aoi Sakura")).toHaveClass(
+    expect(within(performerResult).getByText("Aoi Sakura").closest(".truncate"))
+      .toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(within(performerResult).getByText(/Japan/)).toHaveClass(
-      "truncate",
+    expect(performerResult).toHaveTextContent("Japan · 2008-Now · ★ 4.5");
+    expect(within(performerResult).getByText("★ 4.5")).toHaveClass(
+      "shrink-0",
       "whitespace-nowrap",
     );
     fireEvent.click(
       performerResult,
     );
-    expect(screen.getByLabelText("Search related performers")).toHaveValue("cherry");
-    const selectedPerformerChipText = screen.getByText("Aoi Sakura");
-    expect(selectedPerformerChipText).toHaveClass(
-      "min-w-0",
-      "truncate",
-      "whitespace-nowrap",
-    );
-    expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Add related performer Aoi Sakura" }),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear related performer search" }));
     expect(screen.getByLabelText("Search related performers")).toHaveValue("");
+    expect(screen.queryByTestId("related-performer-result-row"))
+      .not.toBeInTheDocument();
+    const selectedList = screen.getByTestId("related-performer-credit-list");
+    await waitFor(() => expect(relatedListScrollTo).toHaveBeenCalled());
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: originalRelatedListScrollTo,
+    });
+    expect(within(selectedList).getAllByText("Aoi Sakura")).toHaveLength(1);
+    expect(screen.getByLabelText("Related performer 1 role name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Related performer 1 order")).toHaveValue(1);
+    expect(screen.getByLabelText("Related performer 1 credit type"))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Credit" }))
+      .not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Related performer 1 order"), {
+      target: { value: "7" },
+    });
+    fireEvent.blur(screen.getByLabelText("Related performer 1 order"));
+    expect(screen.getByLabelText("Related performer 1 order")).toHaveValue(1);
+    fireEvent.change(screen.getByLabelText("Related performer 1 role name"), {
+      target: { value: "Lead Role" },
+    });
+    fireEvent.change(screen.getByLabelText("Related performer 1 credit type"), {
+      target: { value: "Custom Main" },
+    });
+    expect(screen.queryByText("performer_aoi")).not.toBeInTheDocument();
+    fireEvent.focus(screen.getByLabelText("Search related performers"));
+    expect(
+      screen.getByRole("button", { name: "Add related performer Aoi Sakura" }),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Related Video" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Related Video")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4288,6 +6215,188 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  }, 15_000);
+
+  it.each([
+    {
+      path: "/videos/video_credit/edit",
+      workType: "video",
+      getCommand: "video_get",
+      record: persistedVideo({ id: "video_credit", title: "Credit Video" }),
+    },
+    {
+      path: "/images/image_credit/edit",
+      workType: "image",
+      getCommand: "image_get",
+      record: persistedImage({ id: "image_credit", title: "Credit Image" }),
+    },
+  ])(
+    "loads existing $workType credits into compact Related Performers",
+    async ({ path, workType, getCommand, record }) => {
+      window.history.pushState({}, "", path);
+      const performer = persistedPerformer({
+        id: "performer_credit",
+        name: "Credit Performer",
+        aliasesJson: '["Identity Alias"]',
+      });
+      const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+        if (command === getCommand) {
+          return record;
+        }
+        if (command === "credit_list_by_work") {
+          expect(args).toEqual({ workType, workId: record.id });
+          return [
+            {
+              id: `credit_${workType}`,
+              workType,
+              workId: record.id,
+              performerId: performer.id,
+              characterName: "Loaded Role",
+              characterOriginalName: "Original Role",
+              creditedAs: "Custom Billing",
+              creditedAsMode: "custom",
+              creditTypeCategoryId: "cat_voice",
+              roleImportanceCategoryId: "cat_main",
+              characterMode: "text",
+              characterId: null,
+              billingOrder: 3,
+              note: "Loaded note",
+              legacySourceKey: null,
+              createdAt: "1",
+              updatedAt: "1",
+            },
+          ];
+        }
+        if (command === "performer_list") {
+          return [performer];
+        }
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({
+              key: "cat_voice",
+              name: "Voice",
+              showInCredits: true,
+            }),
+            managedCategoryFixture({
+              key: "cat_main",
+              name: "Main",
+              showInCredits: true,
+            }),
+          ];
+        }
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+      window.localStorage.setItem(
+        "sakurava.performerSuggestionCache.v1",
+        JSON.stringify({ creditType: ["User Main"] }),
+      );
+      window.localStorage.setItem(
+        "sakurava.performerSuggestionsCacheVersion",
+        "batch-38-9-4-direct-field-history-v1",
+      );
+
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: "Related Performers" }))
+        .toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByLabelText("Related performer 1 role name"))
+          .toHaveValue("Loaded Role"),
+      );
+      await waitFor(() =>
+        expect(screen.getByLabelText("Related performer 1 credit type"))
+          .toHaveValue("cat_voice"),
+      );
+      expect(screen.getByLabelText("Related performer 1 credit type"))
+        .not.toHaveAttribute("list");
+      fireEvent.focus(screen.getByLabelText("Related performer 1 credit type"));
+      const creditTypeSuggestions = screen.getByRole("listbox", {
+        name: "Credit Type suggestions",
+      });
+      expect(within(creditTypeSuggestions).getByRole("button", {
+        name: "User Main",
+      })).toBeInTheDocument();
+      expect(within(creditTypeSuggestions).queryByRole("button", {
+        name: "Main",
+      })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", {
+        name: "Remove Related performer 1 credit type suggestion User Main",
+      })).toBeInTheDocument();
+      expect(screen.getByLabelText("Related performer 1 order"))
+        .toHaveAttribute("type", "number");
+      const list = screen.getByTestId("related-performer-credit-list");
+      expect(within(list).getByText("Credit Performer")).toBeInTheDocument();
+      expect(within(list).getByRole("button", { name: "Remove Credit Performer" }))
+        .toBeInTheDocument();
+      expect(screen.queryByText("Character Mode")).not.toBeInTheDocument();
+      expect(screen.queryByText("Credited As Mode")).not.toBeInTheDocument();
+      expect(screen.queryByText("Character Original Name")).not.toBeInTheDocument();
+      expect(screen.queryByText("Role Importance")).not.toBeInTheDocument();
+      expect(screen.queryByText("Billing Order")).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Role$/)).not.toBeInTheDocument();
+      expect(screen.getByText("Role Name")).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Move Credit Performer/))
+        .not.toBeInTheDocument();
+      expect(screen.queryByText("Loaded note")).not.toBeInTheDocument();
+      expect(screen.queryByText("Identity Alias")).not.toBeInTheDocument();
+    },
+  );
+
+  it("does not persist form picker queries after navigating away and back", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_cherry",
+            name: "Cherry Sakura",
+            aliasesJson: '["Cherry"]',
+          }),
+        ];
+      }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({ key: "cat_video", name: "Video Only" }),
+          managedCategoryFixture({ key: "cat_image", name: "Image Only" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    window.history.pushState({}, "", "/videos/new");
+    const videoRender = render(<App />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "Video" },
+    });
+    fireEvent.change(await screen.findByLabelText("Search related performers"), {
+      target: { value: "Cherry" },
+    });
+    videoRender.unmount();
+
+    window.history.pushState({}, "", "/images/new");
+    const imageRender = render(<App />);
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toHaveValue("");
+    expect(await screen.findByLabelText("Search related performers")).toHaveValue("");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
+      target: { value: "Image" },
+    });
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/videos/new");
+    render(<App />);
+    expect(screen.getByRole("textbox", { name: "Search categories" }))
+      .toHaveValue("");
+    expect(screen.queryByTestId("category-result-row")).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("Search related performers"))
+      .toHaveValue("");
+    expect(screen.queryByTestId("related-performer-result-row"))
+      .not.toBeInTheDocument();
   });
 
   it("selects existing Images on video forms and saves relatedImagesJson", async () => {
@@ -4336,6 +6445,17 @@ describe("App", () => {
 
     const relatedImageSearch = await screen.findByLabelText("Search related images");
     expect(relatedImageSearch).toHaveClass("select-text");
+    expect(screen.queryByTestId("related-image-result-row")).not.toBeInTheDocument();
+    fireEvent.focus(relatedImageSearch);
+    expect(
+      await screen.findByRole("button", { name: "Add related image Hanami Gallery" }),
+    ).toBeInTheDocument();
+    fireEvent.change(relatedImageSearch, {
+      target: { value: "hana" },
+    });
+    expect(within(screen.getByRole("button", {
+      name: "Add related image Hanami Gallery",
+    })).getByText("Hana").tagName.toLowerCase()).toBe("mark");
     fireEvent.change(relatedImageSearch, {
       target: { value: "img-001" },
     });
@@ -4343,18 +6463,31 @@ describe("App", () => {
       name: "Add related image Hanami Gallery",
     });
     expect(imageResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(imageResult).getByText("Hanami Gallery")).toHaveClass(
+    expect(within(imageResult).getByText("Hanami Gallery").closest(".truncate"))
+      .toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(within(imageResult).getByText(/IMG-001/)).toHaveClass(
-      "truncate",
+    expect(within(imageResult).getByText("IMG-001 · 2026")).toHaveClass(
+      "shrink-0",
       "whitespace-nowrap",
     );
+    expect(within(imageResult).getByText("IMG-001 · 2026"))
+      .not.toHaveClass("truncate");
+    expect(imageResult).toHaveTextContent("IMG-001 · 2026 · ★ 3.5");
+    expect(within(imageResult).getByText("★ 3.5")).toHaveClass(
+      "shrink-0",
+      "whitespace-nowrap",
+    );
+    expect(imageResult).not.toHaveTextContent("IMG-...");
+    expect(imageResult).not.toHaveTextContent("202...");
+    expect(imageResult).not.toHaveTextContent("★ 3...");
+    expect(within(imageResult).queryByText(/Rating 3\.5/)).not.toBeInTheDocument();
     fireEvent.click(
       imageResult,
     );
     expect(screen.getByLabelText("Search related images")).toHaveValue("img-001");
+    expect(screen.queryByTestId("related-image-result-row")).not.toBeInTheDocument();
     expect(screen.getByText("IMG-001")).toBeInTheDocument();
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
 
@@ -4362,7 +6495,7 @@ describe("App", () => {
       target: { value: "Video With Images" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Video With Images")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4403,7 +6536,6 @@ describe("App", () => {
         if (command === "image_get") {
           return created;
         }
-
         throw new Error(`Unexpected command ${command}`);
       },
     ) as unknown as TestTauriInvoke;
@@ -4413,6 +6545,17 @@ describe("App", () => {
 
     const relatedVideoSearch = await screen.findByLabelText("Search related videos");
     expect(relatedVideoSearch).toHaveClass("select-text");
+    expect(screen.queryByTestId("related-video-result-row")).not.toBeInTheDocument();
+    fireEvent.focus(relatedVideoSearch);
+    expect(
+      await screen.findByRole("button", { name: "Add related video Spring Feature" }),
+    ).toBeInTheDocument();
+    fireEvent.change(relatedVideoSearch, {
+      target: { value: "spring" },
+    });
+    expect(within(screen.getByRole("button", {
+      name: "Add related video Spring Feature",
+    })).getByText("Spring").tagName.toLowerCase()).toBe("mark");
     fireEvent.change(relatedVideoSearch, {
       target: { value: "vid-001" },
     });
@@ -4420,18 +6563,31 @@ describe("App", () => {
       name: "Add related video Spring Feature",
     });
     expect(videoResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(videoResult).getByText("Spring Feature")).toHaveClass(
+    expect(within(videoResult).getByText("Spring Feature").closest(".truncate"))
+      .toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(within(videoResult).getByText(/VID-001/)).toHaveClass(
-      "truncate",
+    expect(within(videoResult).getByText("VID-001 · 2026")).toHaveClass(
+      "shrink-0",
       "whitespace-nowrap",
     );
+    expect(within(videoResult).getByText("VID-001 · 2026"))
+      .not.toHaveClass("truncate");
+    expect(videoResult).toHaveTextContent("VID-001 · 2026 · ★ 3.5");
+    expect(within(videoResult).getByText("★ 3.5")).toHaveClass(
+      "shrink-0",
+      "whitespace-nowrap",
+    );
+    expect(videoResult).not.toHaveTextContent("VID-...");
+    expect(videoResult).not.toHaveTextContent("202...");
+    expect(videoResult).not.toHaveTextContent("★ 3...");
+    expect(within(videoResult).queryByText(/Rating 3\.5/)).not.toBeInTheDocument();
     fireEvent.click(
       videoResult,
     );
     expect(screen.getByLabelText("Search related videos")).toHaveValue("vid-001");
+    expect(screen.queryByTestId("related-video-result-row")).not.toBeInTheDocument();
     expect(screen.getByText("VID-001")).toBeInTheDocument();
     expect(screen.queryByText("video_spring")).not.toBeInTheDocument();
 
@@ -4439,7 +6595,7 @@ describe("App", () => {
       target: { value: "Image With Videos" },
     });
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Image With Videos")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4493,7 +6649,7 @@ describe("App", () => {
       expect(screen.queryByText("Former Gallery")).not.toBeInTheDocument(),
     );
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     await waitFor(() => {
       expect(
@@ -4540,6 +6696,16 @@ describe("App", () => {
         if (command === "image_get") {
           return created;
         }
+        if (command === "credit_create") {
+          expect(args.input).toEqual(
+            expect.objectContaining({
+              workType: "image",
+              workId: created.id,
+              performerId: "performer_yuki",
+            }),
+          );
+          return { id: "credit_yuki", ...args.input };
+        }
 
         throw new Error(`Unexpected command ${command}`);
       },
@@ -4560,7 +6726,7 @@ describe("App", () => {
       target: { value: "Related Image" },
     });
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Related Image")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4643,6 +6809,7 @@ describe("App", () => {
         name: "Remove related image IMG-123",
       }),
     );
+    fireEvent.focus(screen.getByLabelText("Search related images"));
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
@@ -4655,7 +6822,7 @@ describe("App", () => {
       target: { value: "Related Performer" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Related Performer")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
@@ -4686,7 +6853,7 @@ describe("App", () => {
         if (command === "video_get") {
           return existing;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
         }
         if (command === "video_update") {
@@ -4702,16 +6869,15 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Former Performer")).toBeInTheDocument();
-    expect(screen.getByText("Unresolved")).toBeInTheDocument();
     expect(screen.queryByText("missing_performer")).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Remove related performer Former Performer",
+        name: "Remove Former Performer",
       }),
     );
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     await waitFor(() => {
       expect(
@@ -4730,7 +6896,7 @@ describe("App", () => {
     });
   });
 
-  it("expands, collapses, removes, and clears related performer chips", async () => {
+  it("keeps many related performers compact, reorderable, and removable", async () => {
     window.history.pushState({}, "", "/videos/video_test_001/edit");
     const existing = persistedVideo({
       title: "Many Related Performers",
@@ -4760,26 +6926,32 @@ describe("App", () => {
     render(<App />);
 
     const performerSection = (await screen.findByRole("heading", {
-      name: "Related Performer",
+      name: "Related Performers",
     })).closest("section") as HTMLElement;
     const relatedPerformers = within(performerSection);
 
     expect(relatedPerformers.getByText("Performer 1")).toBeInTheDocument();
-    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "+2 more" }));
     expect(relatedPerformers.getByText("Performer 5")).toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "Show less" }));
-    expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "+2 more" }));
+    expect(relatedPerformers.getByTestId("related-performer-credit-list"))
+      .toHaveClass("overflow-y-auto");
+    expect(relatedPerformers.queryByLabelText(/Move Performer/))
+      .not.toBeInTheDocument();
+    fireEvent.change(
+      relatedPerformers.getByLabelText("Related performer 5 order"),
+      { target: { value: "2" } },
+    );
+    fireEvent.blur(
+      relatedPerformers.getByLabelText("Related performer 5 order"),
+    );
+    expect(relatedPerformers.getByLabelText("Related performer 2 order"))
+      .toHaveValue(2);
     fireEvent.click(
       relatedPerformers.getByRole("button", {
-        name: "Remove related performer Performer 5",
+        name: "Remove Performer 5",
       }),
     );
     expect(relatedPerformers.queryByText("Performer 5")).not.toBeInTheDocument();
-    expect(relatedPerformers.getByText("4 performers selected")).toBeInTheDocument();
-    fireEvent.click(relatedPerformers.getByRole("button", { name: "Clear all" }));
-    expect(relatedPerformers.getByText("No related performers selected.")).toBeInTheDocument();
+    expect(relatedPerformers.getAllByTestId("credit-editor-row")).toHaveLength(4);
   });
 
   it("expands, collapses, removes, and clears related catalog chips", async () => {
@@ -4910,23 +7082,6 @@ describe("App", () => {
         ],
       },
     },
-    {
-      path: "/performers/new",
-      buttonName: "Browse",
-      buttonIndex: 2,
-      inputLabel: "Thumbnail 2",
-      selectedPath: "D:/Sakurava/Performers/performer-thumb-2.webp",
-      expectedDialog: {
-        title: "Select Image File",
-        directory: false,
-        filters: [
-          {
-            name: "Image",
-            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
-          },
-        ],
-      },
-    },
   ])(
     "fills $inputLabel from native picker on $path",
     async ({ path, buttonName, buttonIndex = 0, inputLabel, selectedPath, expectedDialog }) => {
@@ -4977,9 +7132,9 @@ describe("App", () => {
       path: "/performers",
       searchLabel: "Performers search",
       searchValue: "sample",
-      dataFilterLabel: "Status",
+      dataFilterLabel: "Availability",
       dataFilterValue: "Active",
-      dataChip: "Status: Active",
+      dataChip: "Availability: Active",
     },
   ])(
     "renders active toolbar chips for $path",
@@ -4996,11 +7151,11 @@ describe("App", () => {
         target: { value: "Category A" },
       });
       fireEvent.click(panel.getByRole("button", { name: `${dataFilterLabel}: ${dataFilterValue}` }));
-      fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
+      fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
 
-      expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
       expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
-      expect(screen.getByText(`Search: ${searchValue}`)).toBeInTheDocument();
+      expect(screen.queryByText(`Search: ${searchValue}`)).not.toBeInTheDocument();
       expect(screen.getByText("Category: Category A")).toBeInTheDocument();
       expect(screen.getByText(dataChip)).toBeInTheDocument();
     },
@@ -5025,7 +7180,7 @@ describe("App", () => {
       path: "/performers",
       buttonName: "Filters 0",
       regionName: "Performers filters",
-      sectionLabels: ["Status", "Cup Size", "Gender", "Body Height", "Age", "Body Type", "Nationality", "Debut Years", "Rating", "Filmography Count", "Category", "Pictorials Count"],
+      sectionLabels: ["Availability", "Cup Size", "Gender", "Body Height", "Age", "Body Type", "Nationality", "Debut Years", "Rating", "Filmography Count", "Category", "Pictorials Count"],
       controls: ["Nationality", "Debut Years", "Cup Size", "Category"],
     },
   ])(
@@ -5045,7 +7200,11 @@ describe("App", () => {
       }
       expect(panel.queryByRole("button", { name: "Reset all filters" })).not.toBeInTheDocument();
       if (path === "/performers") {
-        expect(panel.getAllByText("Deferred")).toHaveLength(2);
+        expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
+        expect(panel.getByText("No Gender values found")).toBeInTheDocument();
+        expect(panel.getByText("No Body Type categories found")).toBeInTheDocument();
+        expect(panel.getByLabelText("Gender")).toBeDisabled();
+        expect(panel.getByLabelText("Body Type")).toBeDisabled();
       } else {
         expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
       }
@@ -5076,6 +7235,31 @@ describe("App", () => {
     expect(panel.getAllByPlaceholderText("Search debut years...")).toHaveLength(1);
   });
 
+  it("highlights catalog filter dropdown query matches without changing visible text", () => {
+    window.history.pushState({}, "", "/videos");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
+    const panel = within(screen.getByRole("region", { name: "Videos filters" }));
+
+    const categoryField = panel.getByLabelText("Category");
+    fireEvent.focus(categoryField);
+    fireEvent.change(categoryField, { target: { value: "cat" } });
+
+    const categoryOptions = panel.getByRole("listbox", { name: "Category options" });
+    const categoryOption = within(categoryOptions).getByRole("option", { name: "Category A+" });
+    expect(categoryOption).toHaveTextContent("Category A");
+    expect(within(categoryOption).getByTestId("catalog-query-highlight"))
+      .toHaveClass("bg-sakura-100", "text-sakura-800");
+
+    fireEvent.change(categoryField, { target: { value: "" } });
+    expect(
+      within(categoryOptions).getByRole("option", { name: "Category A+" }),
+    ).toHaveTextContent("Category A");
+    expect(within(categoryOptions).queryByTestId("catalog-query-highlight"))
+      .not.toBeInTheDocument();
+  });
+
   it("uses a custom Sort picker and closes other open filter dropdowns", () => {
     window.history.pushState({}, "", "/performers");
     render(<App />);
@@ -5087,16 +7271,56 @@ describe("App", () => {
     fireEvent.focus(categoryField);
     expect(panel.getByRole("listbox", { name: "Category options" })).toBeInTheDocument();
 
-    const sortField = screen.getByLabelText("Sort");
-    fireEvent.focus(sortField);
+    const sortField = catalogSortControl("performers");
+    fireEvent.click(sortField);
 
     expect(screen.queryByRole("listbox", { name: "Category options" })).not.toBeInTheDocument();
     const sortOptions = screen.getByRole("listbox", { name: "Sort options" });
     expect(sortOptions).toBeInTheDocument();
-    fireEvent.click(within(sortOptions).getByText("Rating"));
+    expect(within(sortOptions).queryByRole("option", { name: "Rating" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(within(sortOptions).getByRole("option", { name: "Name Z-A" }));
 
-    expect(sortField).toHaveValue("Rating");
+    expect(sortField).toHaveTextContent("Name Z-A");
     expect(screen.queryByRole("listbox", { name: "Sort options" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      path: "/videos",
+      kind: "videos" as const,
+      expected: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
+      removed: ["Release Year", "Rating", "Duration", "Image Count", "Status", "Filmography", "Pictorials"],
+      defaultSort: "Title A-Z",
+    },
+    {
+      path: "/images",
+      kind: "images" as const,
+      expected: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
+      removed: ["Release Year", "Rating", "Duration", "Image Count", "Status", "Filmography", "Pictorials"],
+      defaultSort: "Title A-Z",
+    },
+    {
+      path: "/performers",
+      kind: "performers" as const,
+      expected: ["Name A-Z", "Name Z-A", "Last Added", "Last Updated"],
+      removed: ["Release Year", "Rating", "Duration", "Image Count", "Status", "Filmography", "Pictorials"],
+      defaultSort: "Name A-Z",
+    },
+  ])("renders simplified catalog toolbar sort options for $path", ({ path, kind, expected, removed, defaultSort }) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(catalogSortControl(kind)).toHaveTextContent(defaultSort);
+    fireEvent.click(catalogSortControl(kind));
+
+    const sortOptions = screen.getByRole("listbox", { name: "Sort options" });
+    expect(within(sortOptions).getAllByRole("option").map((option) => option.textContent))
+      .toEqual(expected);
+    for (const removedOption of removed) {
+      expect(within(sortOptions).queryByRole("option", { name: removedOption }))
+        .not.toBeInTheDocument();
+    }
   });
 
   it("keeps only one catalog filter dropdown open and closes it on Escape or another control", () => {
@@ -5115,13 +7339,20 @@ describe("App", () => {
     expect(screen.queryByRole("listbox", { name: "Debut Years options" })).not.toBeInTheDocument();
     expect(panel.getByRole("listbox", { name: "Category options" })).toBeInTheDocument();
 
-    fireEvent.click(panel.getByRole("button", { name: "Status: Active" }));
+    fireEvent.click(panel.getByRole("button", { name: "Availability: Active" }));
     expect(screen.queryByRole("listbox", { name: "Category options" })).not.toBeInTheDocument();
 
     fireEvent.focus(panel.getByLabelText("Cup Size"));
     expect(panel.getByRole("listbox", { name: "Cup Size options" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("listbox", { name: "Cup Size options" })).not.toBeInTheDocument();
+
+    fireEvent.click(catalogSortControl("performers"));
+    const catalogSortOptions = screen.getByRole("listbox", { name: "Sort options" });
+    fireEvent.scroll(catalogSortOptions);
+    expect(catalogSortOptions).toBeInTheDocument();
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("listbox", { name: "Sort options" })).not.toBeInTheDocument();
   });
 
   it("keeps manual path typing available when browse is enabled", () => {
@@ -5168,14 +7399,13 @@ describe("App", () => {
     window.history.pushState({}, "", "/performers/new");
     render(<App />);
 
-    expect(screen.getByLabelText("Status")).toHaveAttribute("readonly");
-    expect(screen.getByLabelText("Status")).toHaveValue("Unknown");
+    expect(screen.getByLabelText("Availability")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Availability")).toHaveValue("Unknown");
     expect(screen.queryByRole("combobox", { name: "Status" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Thumbnail 1")).not.toBeDisabled();
-    expect(screen.getByLabelText("Thumbnail 2")).not.toBeDisabled();
-    expect(screen.getByLabelText("Thumbnail 3")).not.toBeDisabled();
-    expect(screen.getByLabelText("Thumbnail 4")).not.toBeDisabled();
-    expect(screen.getAllByRole("button", { name: "Browse" })).toHaveLength(5);
+    expect(screen.getByText("Mini Thumbnail Paths")).toBeInTheDocument();
+    expect(screen.getByText("No Mini Thumbnail Path row added.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Images" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Browse" })).toHaveLength(1);
     expect(screen.getByLabelText("Filmography")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("Pictorials")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("Debut Date")).not.toBeDisabled();
@@ -5207,11 +7437,11 @@ describe("App", () => {
     expect(screen.queryByText(/not saved in MVP/i)).not.toBeInTheDocument();
   });
 
-  it("derives non-editable Performer Status from debut and retired dates", () => {
+  it("derives non-editable Performer Availability from debut and retired dates", () => {
     window.history.pushState({}, "", "/performers/new");
     render(<App />);
 
-    const status = screen.getByLabelText("Status");
+    const status = screen.getByLabelText("Availability");
     expect(status).toHaveAttribute("readonly");
     expect(status).toHaveValue("Unknown");
     expect(screen.queryByRole("combobox", { name: "Status" })).not.toBeInTheDocument();
@@ -5265,7 +7495,7 @@ describe("App", () => {
     expect(measurements).toHaveValue("12 / 34 / 56");
   });
 
-  it("loads local performer suggestions while preserving manual typing", async () => {
+  it("loads local Birthplace Nationality Blood Type and Cup Size recent suggestions while preserving manual typing", async () => {
     window.history.pushState({}, "", "/performers/new");
     seedPerformerSuggestionCache({
       birthplace: ["Tokyo"],
@@ -5299,6 +7529,8 @@ describe("App", () => {
 
     fireEvent.focus(birthplace);
     const birthplaceSuggestions = await screen.findByLabelText("Birthplace suggestions");
+    expect(within(birthplaceSuggestions).queryByText("Recent")).not.toBeInTheDocument();
+    expect(within(birthplaceSuggestions).queryByText("Standard")).not.toBeInTheDocument();
     expect(within(birthplaceSuggestions).getByRole("button", { name: "Tokyo" }))
       .toBeInTheDocument();
     expect(
@@ -5327,23 +7559,10 @@ describe("App", () => {
     expect(screen.getByLabelText("Cup Size")).toHaveValue("E");
   });
 
-  it("caps performer suggestions at 10 most recent values", async () => {
+  it("caps performer suggestions at 30 most recent values with dropdown scrolling", async () => {
     window.history.pushState({}, "", "/performers/new");
     seedPerformerSuggestionCache({
-      birthplace: [
-        "City 12",
-        "City 11",
-        "City 10",
-        "City 9",
-        "City 8",
-        "City 7",
-        "City 6",
-        "City 5",
-        "City 4",
-        "City 3",
-        "City 2",
-        "City 1",
-      ],
+      birthplace: Array.from({ length: 31 }, (_, index) => `City ${31 - index}`),
     });
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_list") {
@@ -5367,11 +7586,17 @@ describe("App", () => {
       within(birthplaceSuggestions).getAllByRole("button", {
         name: /^City /,
       }),
-    ).toHaveLength(10);
-    expect(within(birthplaceSuggestions).getByRole("button", { name: "City 12" }))
+    ).toHaveLength(30);
+    expect(birthplaceSuggestions).toHaveClass("max-h-72", "overflow-y-auto");
+    expect(within(birthplaceSuggestions).getByRole("button", { name: "City 31" }))
       .toBeInTheDocument();
     expect(within(birthplaceSuggestions).queryByRole("button", { name: "City 1" }))
       .not.toBeInTheDocument();
+    expect(
+      within(birthplaceSuggestions).getByRole("button", {
+        name: "Remove Birthplace suggestion City 2",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("resets old and current performer suggestion cache keys without clearing records", async () => {
@@ -5406,24 +7631,28 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByLabelText("Birthplace");
+    const birthplace = await screen.findByLabelText("Birthplace");
     await waitFor(() =>
       expect(window.localStorage.getItem("sakurava.hiddenPerformerSuggestions.v1"))
         .toBeNull(),
     );
+    fireEvent.focus(birthplace);
+    expect(screen.queryByLabelText("Birthplace suggestions")).not.toBeInTheDocument();
+    fireEvent.focus(screen.getByLabelText("Cup Size"));
+    expect(screen.queryByLabelText("Cup Size suggestions")).not.toBeInTheDocument();
     expect(window.localStorage.getItem("sakurava.performerSuggestionCache.v1"))
       .toBeNull();
     expect(window.localStorage.getItem("sakurava.performerSuggestionCacheReset.v2"))
       .toBeNull();
     expect(window.localStorage.getItem("sakurava.performerSuggestionsCacheVersion"))
-      .toBe("batch-33-3-suggestions-fresh-v1");
+      .toBe("batch-38-9-4-direct-field-history-v1");
     expect(window.localStorage.getItem("sakurava.managedCategories.v1"))
       .toBe('["Classic"]');
     expect(performers[0].birthplace).toBe("Tokyo");
     expect(performers[0].cupSize).toBe("A");
   });
 
-  it("removes performer suggestions locally by field and lets saved values return", async () => {
+  it("removes performer suggestions locally by field and lets newly saved values return", async () => {
     window.history.pushState({}, "", "/performers/new");
     seedPerformerSuggestionCache({
       birthplace: ["Tokyo"],
@@ -5498,6 +7727,8 @@ describe("App", () => {
       .toBeNull();
     expect(window.localStorage.getItem("sakurava.performerSuggestionCache.v1"))
       .toContain('"birthplace":[]');
+    fireEvent.focus(birthplace);
+    expect(screen.queryByLabelText("Birthplace suggestions")).not.toBeInTheDocument();
 
     fireEvent.change(birthplace, {
       target: { value: "Manual City" },
@@ -5529,7 +7760,7 @@ describe("App", () => {
       target: { value: "A" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -5542,7 +7773,7 @@ describe("App", () => {
     );
     expect(window.localStorage.getItem("sakurava.performerSuggestionCache.v1"))
       .toContain('"cupSize":["A"');
-  });
+  }, 10000);
 
   it("orders Performer form completed data sections without duplicate related placeholders", () => {
     window.history.pushState({}, "", "/performers/new");
@@ -5550,8 +7781,8 @@ describe("App", () => {
 
     expectSectionOrder([
       screen.getByRole("heading", { name: "Basic Identity" }).closest("section"),
-      screen.getByRole("heading", { name: "Media Assets" }).closest("section"),
-      screen.getByRole("heading", { name: "Status & Activity" }).closest("section"),
+      screen.getByRole("heading", { name: "File" }).closest("section"),
+      screen.getByRole("heading", { name: "Metadata" }).closest("section"),
       screen.getByRole("heading", { name: "Profile Details" }).closest("section"),
       screen.getByRole("heading", { name: "Categories" }).closest("section"),
       screen.getByRole("heading", { name: "Rating" }).closest("section"),
@@ -5726,6 +7957,79 @@ describe("App", () => {
     expect(invoke).toHaveBeenCalledWith("video_list", {}, undefined);
   });
 
+  it("does not expose Credit counts on Video Catalog cards", async () => {
+    window.history.pushState({}, "", "/videos");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [
+          persistedVideo({ id: "video_credits", title: "Credited Catalog Video" }),
+          persistedVideo({ id: "video_empty", title: "Empty Credits Video" }),
+        ];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Credited Catalog Video")).toBeInTheDocument();
+    expect(screen.getByText("Empty Credits Video")).toBeInTheDocument();
+    expect(screen.queryByText(/Credits:/)).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("credit_list", {}, undefined);
+  });
+
+  it("does not expose Credit counts on Image Catalog cards", async () => {
+    window.history.pushState({}, "", "/images");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_list") {
+        return [
+          persistedImage({ id: "image_credits", title: "Credited Catalog Image" }),
+        ];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Credited Catalog Image")).toBeInTheDocument();
+    expect(screen.queryByText(/Credits:/)).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("credit_list", {}, undefined);
+  });
+
+  it("keeps Performer Catalog identity search isolated from character names", async () => {
+    window.history.pushState({}, "", "/performers");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_identity",
+            name: "Identity Performer",
+            originalName: "Original Identity",
+            aliasesJson: '["Approved Alias"]',
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Identity Performer")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Performers search"), {
+      target: { value: "Unrelated Character Name" },
+    });
+    expect(screen.getByText("No matching items")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("credit_list", {}, undefined);
+    expect(invoke).not.toHaveBeenCalledWith(
+      "credit_list_by_performer",
+      expect.anything(),
+      undefined,
+    );
+  });
+
   it("filters collection cards with search", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
@@ -5761,6 +8065,113 @@ describe("App", () => {
     expect(screen.getByText("No matching items")).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      path: "/videos",
+      command: "video_list",
+      searchLabel: "Videos search",
+      searchValue: "VID-CODE-7788",
+      matchingText: "Code Match Video",
+      nonMatchingText: "Other Video",
+      records: [
+        persistedVideo({
+          id: "video_code",
+          title: "Code Match Video",
+          code: "VID-CODE-7788",
+        }),
+        persistedVideo({
+          id: "video_other",
+          title: "Other Video",
+          code: "VID-OTHER",
+        }),
+      ],
+    },
+    {
+      path: "/images",
+      command: "image_list",
+      searchLabel: "Images search",
+      searchValue: "IMG-CODE-7788",
+      matchingText: "Code Match Image",
+      nonMatchingText: "Other Image",
+      records: [
+        persistedImage({
+          id: "image_code",
+          title: "Code Match Image",
+          code: "IMG-CODE-7788",
+        }),
+        persistedImage({
+          id: "image_other",
+          title: "Other Image",
+          code: "IMG-OTHER",
+        }),
+      ],
+    },
+    {
+      path: "/performers",
+      command: "performer_list",
+      searchLabel: "Performers search",
+      searchValue: "Alias Needle",
+      matchingText: "Alias Match Performer",
+      nonMatchingText: "Other Performer",
+      records: [
+        persistedPerformer({
+          id: "performer_alias",
+          name: "Alias Match Performer",
+          aliasesJson: '["Alias Needle"]',
+        }),
+        persistedPerformer({
+          id: "performer_other",
+          name: "Other Performer",
+          aliasesJson: '["Other Alias"]',
+        }),
+      ],
+    },
+  ])(
+    "catalog search matches required secondary fields at $path in card and table views",
+    async ({ path, command, searchLabel, searchValue, matchingText, nonMatchingText, records }) => {
+      window.history.pushState({}, "", path);
+      const kind = path.slice(1);
+      const title = kind === "videos" ? "Videos" : kind === "images" ? "Images" : "Performers";
+      const invoke = vi.fn(async (incomingCommand: string) => {
+        if (incomingCommand === command) {
+          return records;
+        }
+
+        throw new Error(`Unexpected command ${incomingCommand}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText(matchingText)).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(searchLabel), {
+        target: { value: searchValue },
+      });
+
+      expect(screen.getByText(matchingText)).toBeInTheDocument();
+      expect(screen.queryByText(nonMatchingText)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
+      expect(screen.queryByText(`Search: ${searchValue}`)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+      expect(screen.queryByTestId(`${kind}-active-filter-row`)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: `Clear ${title} search` }));
+      expect(screen.getByLabelText(searchLabel)).toHaveValue("");
+      expect(screen.getByText(matchingText)).toBeInTheDocument();
+      expect(screen.getByText(nonMatchingText)).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText(searchLabel), {
+        target: { value: searchValue },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.getByText(matchingText)).toBeInTheDocument();
+      expect(screen.queryByText(nonMatchingText)).not.toBeInTheDocument();
+    },
+  );
+
   it("sorts collection cards without mutating the loaded records", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
@@ -5793,22 +8204,18 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Zulu Video")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Last Added");
-    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
-      heading.textContent,
-    )).toEqual(["Zulu Video", "Alpha Video", "Beta Video"]);
-
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "Title A-Z" },
-    });
-
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
       heading.textContent,
     )).toEqual(["Alpha Video", "Beta Video", "Zulu Video"]);
 
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "Last Updated" },
-    });
+    selectCatalogSort("videos", "Title Z-A");
+
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
+      heading.textContent,
+    )).toEqual(["Zulu Video", "Beta Video", "Alpha Video"]);
+
+    selectCatalogSort("videos", "Last Updated");
 
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
       heading.textContent,
@@ -6062,7 +8469,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     const panel = within(screen.getByRole("region", { name: "Performers filters" }));
 
-    fireEvent.click(panel.getByRole("button", { name: "Status: Active" }));
+    fireEvent.click(panel.getByRole("button", { name: "Availability: Active" }));
     fireEvent.change(panel.getByLabelText("performers Rating"), {
       target: { value: "5" },
     });
@@ -6073,7 +8480,7 @@ describe("App", () => {
     expect(screen.queryByText("Retired Smaller Performer")).not.toBeInTheDocument();
   });
 
-  it("filters Performer Catalog by age, height, nationality, debut year, and cup size while keeping deferred cells inert", async () => {
+  it("filters Performer Catalog by age, height, nationality, debut year, and cup size while keeping taxonomy filters inactive by default", async () => {
     window.history.pushState({}, "", "/performers");
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_list") {
@@ -6110,7 +8517,9 @@ describe("App", () => {
     expect(await screen.findByText("Adult Japan Medium Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
     const panel = within(screen.getByRole("region", { name: "Performers filters" }));
-    expect(panel.getAllByText("Deferred")).toHaveLength(2);
+    expect(panel.queryByText("Deferred")).not.toBeInTheDocument();
+    expect(panel.getByLabelText("Gender")).toBeDisabled();
+    expect(panel.getByLabelText("Body Type")).toBeDisabled();
     fireEvent.click(panel.getByRole("button", { name: "Age: Adult" }));
     fireEvent.click(panel.getByRole("button", { name: "Body Height: Medium" }));
     fireEvent.change(panel.getByLabelText("Nationality"), {
@@ -6271,9 +8680,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Category A" },
     });
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "Title A-Z" },
-    });
+    selectCatalogSort("videos", "Title A-Z");
 
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) =>
       heading.textContent,
@@ -6283,12 +8690,12 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Category B" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
 
     expect(screen.getByText("No matching items")).toBeInTheDocument();
   });
 
-  it("clears catalog search, category filters, and data filters without resetting sort or page size", async () => {
+  it("clears catalog search, category filters, data filters, sort, and page size", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list") {
@@ -6328,19 +8735,17 @@ describe("App", () => {
       target: { value: "Category A" },
     });
     fireEvent.click(panel.getByRole("button", { name: "Duration: Long" }));
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "Title A-Z" },
-    });
+    selectCatalogSort("videos", "Title A-Z");
     fireEvent.change(screen.getByLabelText("Items per page"), {
       target: { value: "64" },
     });
 
     expect(screen.getByLabelText("Videos search")).toHaveValue("alpha");
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Title A-Z");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
-    expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
-    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
     expect(screen.getByText("Duration: Long")).toBeInTheDocument();
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
@@ -6348,14 +8753,14 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Duration filter" }));
 
-    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
-    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 1" })).toBeInTheDocument();
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
     expect(screen.queryByText("Duration: Long")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Duration: Long" }));
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
@@ -6367,14 +8772,17 @@ describe("App", () => {
     expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
     expect(screen.queryByText("Duration: Long")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-    expect(screen.getByText("No filters selected")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Title A-Z");
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     expect(screen.getByText("Alpha Archive")).toBeInTheDocument();
     expect(screen.getByText("Beta Clip")).toBeInTheDocument();
   });
 
-  it("resets advanced panel filters without resetting sort or page size", async () => {
+  it("resets advanced panel filters, sort, and page size", async () => {
     window.history.pushState({}, "", "/images");
     const invoke = vi.fn(async (command: string) => {
       if (command === "image_list") {
@@ -6414,16 +8822,14 @@ describe("App", () => {
       target: { value: "Category A" },
     });
     fireEvent.click(panel.getByRole("button", { name: "Image Count: Some" }));
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "Title A-Z" },
-    });
+    selectCatalogSort("images", "Title A-Z");
     fireEvent.change(screen.getByLabelText("Items per page"), {
       target: { value: "64" },
     });
 
-    expect(screen.getByRole("button", { name: "Filters 3" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Filters 3" }));
-    expect(screen.getByText("Search: alpha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filters 2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
     expect(screen.getByText("Image Count: Some")).toBeInTheDocument();
     expect(screen.queryByText("Beta Gallery")).not.toBeInTheDocument();
@@ -6431,7 +8837,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
     expect(screen.getByRole("button", { name: "Filters 0" })).toBeInTheDocument();
-    expect(screen.getByText("No filters selected")).toBeInTheDocument();
+    expect(screen.queryByText("No filters selected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear all filters" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Search: alpha")).not.toBeInTheDocument();
     expect(screen.queryByText("Category: Category A")).not.toBeInTheDocument();
     expect(screen.queryByText("Image Count: Some")).not.toBeInTheDocument();
@@ -6440,8 +8849,8 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "Image Count: Some" }),
     ).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Title A-Z");
-    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
+    expect(catalogSortControl("images")).toHaveTextContent("Title A-Z");
+    expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("32");
     expect(screen.getByText("Alpha Gallery")).toBeInTheDocument();
     expect(screen.getByText("Beta Gallery")).toBeInTheDocument();
   });
@@ -6575,16 +8984,24 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
   });
 
-  it("switches collection cards to a read-only table with detail links", async () => {
+  it("switches Video Catalog cards to the aligned table view", async () => {
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list") {
         return [
           persistedVideo({
             id: "video_1",
-            title: "Table Video",
+            title: "Table Video With A Very Long Title For Truncation",
             originalTitle: "Original Table Video",
-            categoriesJson: '["Category A"]',
+            code: "",
+            categoriesJson: '["Category A","Category B","Category C"]',
+            coverPath: "",
+            durationMinutes: 84,
+            quality: "",
+            releaseDate: "",
+            ratingJson: "{}",
+            censorship: "Unknow",
+            availability: "Missing",
           }),
         ];
       }
@@ -6599,28 +9016,106 @@ describe("App", () => {
 
     expect(await screen.findByLabelText("Cover Placeholder")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Videos catalog toolbar")).toBeInTheDocument();
+    expect(screen.getByTestId("videos-toolbar-search-region")).toHaveClass("flex-1");
+    expect(screen.getByRole("button", { name: "Filters 0" })).toHaveClass("shrink-0", "sm:w-auto");
+    expect(catalogSortControl("videos")).toHaveClass("sm:w-44");
+    expect(screen.getByRole("button", { name: "Switch to list view" }))
+      .toHaveClass("shrink-0", "sm:w-auto");
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
 
-    expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Categories" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Quality" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Favorite" })).toBeInTheDocument();
+    const table = screen.getByTestId("videos-catalog-table");
+    expect(table).toHaveClass("min-w-[1480px]", "table-fixed");
+    const videoTableWidth = catalogTableInlineWidth("videos");
+    expect(videoTableWidth).toEqual({ minWidth: "1696px", width: "1696px" });
+    const videoColumnWidths = catalogColumnWidths("videos");
+    expect(videoColumnWidths).toEqual([
+      { id: "availability", width: "144px" },
+      { id: "thumbnail", width: "112px" },
+      { id: "favorite", width: "64px" },
+      { id: "title", width: "224px" },
+      { id: "originalTitle", width: "224px" },
+      { id: "code", width: "128px" },
+      { id: "categories", width: "240px" },
+      { id: "year", width: "96px" },
+      { id: "duration", width: "112px" },
+      { id: "quality", width: "112px" },
+      { id: "censorship", width: "128px" },
+      { id: "rating", width: "112px" },
+    ]);
+    const tableScroll = screen.getByTestId("videos-catalog-table-scroll");
+    expect(tableScroll).toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
+    expect(tableScroll.closest("[data-sticky-horizontal-scroll='true']"))
+      .toHaveClass("sticky-horizontal-scroll-frame");
+    expect(tableScroll.className).not.toContain("px-");
+    expect(tableScroll.className).not.toContain("mx-");
+    expect(table.className).not.toContain("sakura");
     expect(
-      screen.getByRole("link", { name: "Table Video" }),
-    ).toHaveAttribute("href", "/videos/video_1");
-    expect(screen.queryByLabelText("Cover Placeholder")).not.toBeInTheDocument();
+      within(table).getAllByRole("columnheader").map((header) => header.textContent),
+    ).toEqual([
+      "AVAILABILITY",
+      "THUMBNAIL",
+      "FAVORITE",
+      "TITLE",
+      "ORIGINAL TITLE",
+      "CODE",
+      "CATEGORIES",
+      "RELEASE",
+      "DURATION",
+      "QUALITY",
+      "CENSORSHIP",
+      "RATING",
+    ]);
+    expect(within(table).getByText("THUMBNAIL")).toHaveClass("sr-only");
+    expect(within(table).getByText("FAVORITE")).toHaveClass("sr-only");
+    expect(within(table).queryByRole("columnheader", { name: "Thumbnail" }))
+      .not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Favorite" }))
+      .not.toBeInTheDocument();
+    expect(within(table).queryByText("MISSING")).not.toBeInTheDocument();
+    expect(within(table).getByText("Missing").closest("[data-testid='catalog-table-status-chip']"))
+      .toHaveClass("inline-flex", "w-fit");
+    expect(within(table).getByLabelText("Cover Placeholder"))
+      .toHaveAttribute("data-thumbnail-shape", "16:9");
+    expect(within(table).getByLabelText("Cover Placeholder")).not.toHaveTextContent("N/A");
+    expect(within(table).getByText("Table Video With A Very Long Title For Truncation"))
+      .toHaveClass("truncate");
+    expect(within(table).getByText("Table Video With A Very Long Title For Truncation"))
+      .toHaveAttribute("title", "Table Video With A Very Long Title For Truncation");
+    expect(within(table).getByText("Original Table Video")).toHaveAttribute("title", "Original Table Video");
+    expect(within(table).getByText("1h 24m")).toBeInTheDocument();
+    expect(within(table).getByText("Unknown")).toBeInTheDocument();
+    expect(within(table).queryByText("Unknow")).not.toBeInTheDocument();
+    expect(within(table).getAllByText("N/A").length).toBeGreaterThanOrEqual(3);
+    expect(within(table).getByTestId("catalog-table-category-chips"))
+      .toHaveAttribute("title", "Category A, Category B, Category C");
+    expect(within(table).getByLabelText("1 more categories")).toHaveTextContent("+1");
+    expect(within(table).queryByText(/categoriesJson/)).not.toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Sort by Rating" }));
+    expect(catalogTableInlineWidth("videos")).toEqual(videoTableWidth);
+    expect(catalogColumnWidths("videos")).toEqual(videoColumnWidths);
+    expect(within(table).getByRole("button", { name: "Sort by Rating" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+    expect(window.location.pathname).toBe("/videos");
+    expect(invoke).toHaveBeenCalledWith(
+      "video_update",
+      { id: "video_1", patch: { favorite: false } },
+      undefined,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to grid view" }));
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Cover Placeholder")).toBeInTheDocument();
-  });
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
+    fireEvent.click(within(screen.getByTestId("videos-catalog-table")).getByRole("row", {
+      name: "Open Table Video With A Very Long Title For Truncation",
+    }));
+    expect(window.location.pathname).toBe("/videos/video_1");
+  }, 10000);
 
   it("keeps search, category filter, sort, and pagination active in table view", async () => {
     window.history.pushState({}, "", "/videos");
@@ -6661,7 +9156,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Zulu Archive 01")).toBeInTheDocument();
+    expect(await screen.findByText("Alpha Archive 02")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     fireEvent.click(screen.getByRole("button", { name: "Filters 0" }));
@@ -6671,9 +9166,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Category A" },
     });
-    fireEvent.change(screen.getByLabelText("Sort"), {
-      target: { value: "Title A-Z" },
-    });
+    selectCatalogSort("videos", "Title A-Z");
 
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Alpha Archive 02");
     expect(screen.queryByText("Beta Clip 03")).not.toBeInTheDocument();
@@ -6685,7 +9178,7 @@ describe("App", () => {
     expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
   });
 
-  it("renders entity-aware table columns for images and performers", async () => {
+  it("renders Image and Performer Catalog table-specific columns and formatting", async () => {
     window.history.pushState({}, "", "/images");
     const imageInvoke = vi.fn(async (command: string) => {
       if (command === "image_list") {
@@ -6694,7 +9187,12 @@ describe("App", () => {
             id: "image_1",
             title: "Table Image",
             code: "IMG-TABLE",
-            imageCount: 42,
+            imageCount: 1240,
+            categoriesJson: '["Portrait","Studio","Outdoor"]',
+            coverPath: "",
+            quality: "",
+            censorship: "Leaked",
+            ratingJson: "{}",
           }),
         ];
       }
@@ -6709,17 +9207,54 @@ describe("App", () => {
 
     expect(await screen.findByText("Table Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
-    expect(screen.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Categories" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
+    const imageTable = screen.getByTestId("images-catalog-table");
+    const imageTableWidth = catalogTableInlineWidth("images");
+    expect(imageTableWidth).toEqual({ minWidth: "1728px", width: "1728px" });
+    const imageColumnWidths = catalogColumnWidths("images");
+    expect(imageColumnWidths).toEqual([
+      { id: "availability", width: "144px" },
+      { id: "thumbnail", width: "112px" },
+      { id: "favorite", width: "64px" },
+      { id: "title", width: "224px" },
+      { id: "originalTitle", width: "224px" },
+      { id: "code", width: "128px" },
+      { id: "categories", width: "240px" },
+      { id: "year", width: "96px" },
+      { id: "imageCount", width: "144px" },
+      { id: "quality", width: "112px" },
+      { id: "censorship", width: "128px" },
+      { id: "rating", width: "112px" },
+    ]);
     expect(
-      screen.getByRole("columnheader", { name: "Image Count" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Quality" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Favorite" })).toBeInTheDocument();
-    expect(screen.getByText("IMG-TABLE")).toBeInTheDocument();
+      within(imageTable).getAllByRole("columnheader").map((header) => header.textContent),
+    ).toEqual([
+      "AVAILABILITY",
+      "THUMBNAIL",
+      "FAVORITE",
+      "TITLE",
+      "ORIGINAL TITLE",
+      "CODE",
+      "CATEGORIES",
+      "RELEASE",
+      "TOTAL PICS",
+      "QUALITY",
+      "CENSORSHIP",
+      "RATING",
+    ]);
+    expect(within(imageTable).getByText("THUMBNAIL")).toHaveClass("sr-only");
+    expect(within(imageTable).getByLabelText("Image Placeholder"))
+      .toHaveAttribute("data-thumbnail-shape", "16:9");
+    expect(within(imageTable).getByText(/1[,.]240 pics/)).toBeInTheDocument();
+    expect(within(imageTable).getByText("Leaked").closest("[data-testid='catalog-table-status-chip']"))
+      .toHaveClass("inline-flex", "w-fit");
+    expect(within(imageTable).getByLabelText("1 more categories")).toHaveTextContent("+1");
+    expect(within(imageTable).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
+    expect(within(imageTable).getByText("-")).toBeInTheDocument();
+    expect(within(imageTable).getByText("IMG-TABLE")).toHaveAttribute("title", "IMG-TABLE");
+    fireEvent.click(within(imageTable).getByRole("button", { name: "Sort by Rating" }));
+    expect(catalogTableInlineWidth("images")).toEqual(imageTableWidth);
+    expect(catalogColumnWidths("images")).toEqual(imageColumnWidths);
+    expect(within(imageTable).getByRole("button", { name: "Sort by Rating" })).toBeInTheDocument();
     imageRender.unmount();
 
     window.history.pushState({}, "", "/performers");
@@ -6729,8 +9264,14 @@ describe("App", () => {
           persistedPerformer({
             id: "performer_1",
             name: "Table Performer",
-            filmographyCount: 7,
-            pictorialsCount: 3,
+            status: "Unknow",
+            filmographyCount: 0,
+            pictorialsCount: 120,
+            relatedImagesJson: relatedCatalogJson("image", 120),
+            categoriesJson: '["Classic","Body Type: Athletic","Featured"]',
+            coverPath: "",
+            debutDate: "",
+            ratingJson: "{}",
           }),
         ];
       }
@@ -6745,18 +9286,49 @@ describe("App", () => {
 
     expect(await screen.findByText("Table Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
-    expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Categories" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Debut Year" })).toBeInTheDocument();
+    const performerTable = screen.getByTestId("performers-catalog-table");
+    const performerTableWidth = catalogTableInlineWidth("performers");
+    expect(performerTableWidth).toEqual({ minWidth: "1488px", width: "1488px" });
+    const performerColumnWidths = catalogColumnWidths("performers");
+    expect(performerColumnWidths).toEqual([
+      { id: "status", width: "128px" },
+      { id: "thumbnail", width: "96px" },
+      { id: "favorite", width: "64px" },
+      { id: "name", width: "224px" },
+      { id: "originalName", width: "224px" },
+      { id: "categories", width: "240px" },
+      { id: "debutYear", width: "128px" },
+      { id: "filmography", width: "144px" },
+      { id: "pictorials", width: "128px" },
+      { id: "rating", width: "112px" },
+    ]);
     expect(
-      screen.getByRole("columnheader", { name: "Filmography" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("columnheader", { name: "Pictorials" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Favorite" })).toBeInTheDocument();
+      within(performerTable).getAllByRole("columnheader").map((header) => header.textContent),
+    ).toEqual([
+      "AVAILABILITY",
+      "THUMBNAIL",
+      "FAVORITE",
+      "NAME",
+      "ORIGINAL NAME",
+      "CATEGORIES",
+      "DEBUT",
+      "FILMOGRAPHY",
+      "PICTORIALS",
+      "RATING",
+    ]);
+    expect(performerTable).toHaveClass("min-w-[1200px]");
+    expect(within(performerTable).getByLabelText("Profile Placeholder"))
+      .toHaveAttribute("data-thumbnail-shape", "portrait");
+    expect(within(performerTable).getByText("Unknown")).toBeInTheDocument();
+    expect(within(performerTable).queryByText("Unknow")).not.toBeInTheDocument();
+    expect(within(performerTable).getByText("120 sets")).toBeInTheDocument();
+    expect(within(performerTable).getAllByText("N/A").length).toBeGreaterThanOrEqual(2);
+    expect(within(performerTable).getByText("-")).toBeInTheDocument();
+    expect(within(performerTable).getByLabelText("1 more categories")).toHaveTextContent("+1");
+    fireEvent.click(within(performerTable).getByRole("button", { name: "Sort by Rating" }));
+    expect(catalogTableInlineWidth("performers")).toEqual(performerTableWidth);
+    expect(catalogColumnWidths("performers")).toEqual(performerColumnWidths);
+    expect(within(performerTable).getByRole("button", { name: "Sort by Rating" })).toBeInTheDocument();
   });
 
   it("sorts the Video Catalog table from a sortable header without clearing filters or page size", async () => {
@@ -6805,16 +9377,30 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "Category A" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filters 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters 1" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
 
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Duration");
+    expect(catalogSortControl("videos")).toHaveTextContent("Title A-Z");
     expect(screen.getByLabelText("Items per page")).toHaveDisplayValue("64");
     expect(screen.getByText("Showing 1-2 of 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Short Archive");
+    expect(
+      screen.getByRole("button", { name: "Sort by Duration" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
+    expect(screen.getByRole("button", { name: "Sort by Duration" }))
+      .toHaveClass("text-sakura-800");
+    expect(screen.getByRole("button", { name: "Sort by Duration" }).className)
+      .not.toContain("rounded");
+    expect(screen.getByRole("button", { name: "Sort by Duration" }).className)
+      .not.toContain("bg-");
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Long Archive");
+    expect(
+      screen.getByRole("button", { name: "Sort by Duration" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "descending");
     expect(screen.queryByText("Other Clip")).not.toBeInTheDocument();
-    expect(screen.getByText("Search: archive")).toBeInTheDocument();
+    expect(screen.queryByText("Search: archive")).not.toBeInTheDocument();
     expect(screen.getByText("Category: Category A")).toBeInTheDocument();
   });
 
@@ -6848,7 +9434,12 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     fireEvent.click(screen.getByRole("button", { name: "Sort by Image Count" }));
 
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Image Count");
+    expect(catalogSortControl("images")).toHaveTextContent("Title A-Z");
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Small Image Set");
+    expect(
+      screen.getByRole("button", { name: "Sort by Image Count" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Image Count" }));
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Large Image Set");
     expect(
       screen.getByRole("button", { name: "Sort by Image Count" }).closest("th"),
@@ -6885,7 +9476,12 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch to list view" }));
     fireEvent.click(screen.getByRole("button", { name: "Sort by Filmography" }));
 
-    expect(screen.getByLabelText("Sort")).toHaveDisplayValue("Filmography");
+    expect(catalogSortControl("performers")).toHaveTextContent("Name A-Z");
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Small Performer");
+    expect(
+      screen.getByRole("button", { name: "Sort by Filmography" }).closest("th"),
+    ).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Filmography" }));
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Large Performer");
     expect(
       screen.getByRole("button", { name: "Sort by Filmography" }).closest("th"),
@@ -7165,7 +9761,61 @@ describe("App", () => {
         ).not.toBeInTheDocument();
       });
     },
+    10000,
   );
+
+  it("opens Detail cover viewer once for a rapid double click", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any> = {}) => {
+        if (command === "image_get") {
+          expect(args.id).toBe("image_test_001");
+          return persistedImage({
+            title: "Single Viewer Detail",
+            coverPath: "D:/Sakurava/image-preview-cover.jpg",
+          });
+        }
+        if (command === "performer_list" || command === "video_list") {
+          return [];
+        }
+        if (command === "path_status_check") {
+          return {
+            path: args.path,
+            status: "exists",
+            kind: "file",
+            message: "Path exists",
+          };
+        }
+        if (command === "plugin:app|supports_multiple_windows") {
+          return false;
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(<App />);
+
+    const previewButton = await screen.findByRole("button", {
+      name: "Preview Image Cover",
+    });
+    fireEvent.click(previewButton);
+    fireEvent.click(previewButton);
+
+    expect(await screen.findByRole("dialog", { name: "Image Cover" }))
+      .toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        vi.mocked(invoke).mock.calls.filter(
+          ([command]) => command === "plugin:app|supports_multiple_windows",
+        ),
+      ).toHaveLength(1);
+    });
+  });
 
   it("keeps detail placeholder non-interactive when no safe image source exists", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
@@ -7260,7 +9910,59 @@ describe("App", () => {
       .toHaveAttribute("aria-expanded", "true");
   });
 
-  it("does not render gender or source links on detail without persisted fields", async () => {
+  it("renders Performer Detail Body Type from taxonomy categories while Gender remains direct-field only", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_get") {
+        return persistedPerformer({
+          name: "Taxonomy Detail Performer",
+          gender: "Non-binary",
+          categoriesJson: '["Woman","Athletic","Classic"]',
+        });
+      }
+      if (command === "video_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Taxonomy Detail Performer"))
+      .toBeInTheDocument();
+    const personal = screen
+      .getByRole("heading", { name: "Personal" })
+      .closest("section") as HTMLElement;
+    const physical = screen
+      .getByRole("heading", { name: "Physical" })
+      .closest("section") as HTMLElement;
+    expect(screen.queryByRole("heading", { name: "Profile Metadata" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Metadata" }))
+      .not.toBeInTheDocument();
+    expect(within(personal).getByText("Gender")).toBeInTheDocument();
+    expect(within(personal).getByText("Non-binary")).toBeInTheDocument();
+    expect(within(personal).queryByText("Woman")).not.toBeInTheDocument();
+    expect(within(personal).queryByText("Body Type")).not.toBeInTheDocument();
+    expectPrecedes(personal, "Gender", "Birth Date");
+    expectPrecedes(personal, "Birth Date", "Birthplace");
+    expectPrecedes(personal, "Debut Date", "Retired Date");
+    expect(within(physical).getByText("Body Type")).toBeInTheDocument();
+    expect(within(physical).getByText("Athletic")).toBeInTheDocument();
+    expectPrecedes(physical, "Body Type", "Height");
+    expectPrecedes(physical, "Height", "Weight");
+    expectPrecedes(physical, "Weight", "Measurement");
+    expectPrecedes(physical, "Measurement", "Cup Size");
+    expect(within(physical).getByText("Blood Type")).toBeInTheDocument();
+    expectPrecedes(physical, "Cup Size", "Blood Type");
+  });
+
+  it("renders Performer Detail Gender and Body Type as N/A when missing", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
     const invoke = vi.fn(async (command: string) => {
       if (command === "performer_get") {
@@ -7271,6 +9973,9 @@ describe("App", () => {
       if (command === "video_list" || command === "image_list") {
         return [];
       }
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
 
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
@@ -7280,10 +9985,260 @@ describe("App", () => {
 
     expect(await screen.findByText("No Deferred Fields Performer"))
       .toBeInTheDocument();
-    expect(screen.queryByText("Gender")).not.toBeInTheDocument();
-    expect(screen.queryByText("Source Links")).not.toBeInTheDocument();
-    expect(screen.queryByText("Deferred: source links are not saved yet."))
+    const personal = screen
+      .getByRole("heading", { name: "Personal" })
+      .closest("section") as HTMLElement;
+    const physical = screen
+      .getByRole("heading", { name: "Physical" })
+      .closest("section") as HTMLElement;
+    expect(screen.queryByRole("heading", { name: "Profile Metadata" }))
       .not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Metadata" }))
+      .not.toBeInTheDocument();
+    expect(within(personal).getByText("Gender")).toBeInTheDocument();
+    expect(within(personal).queryByText("Body Type")).not.toBeInTheDocument();
+    expect(within(personal).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
+    expect(within(physical).getByText("Body Type")).toBeInTheDocument();
+    expect(within(physical).getAllByText("N/A").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Source Links")).toBeInTheDocument();
+  });
+
+  it("does not render Gender or Body Type metadata on Video and Image Detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const videoInvoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({ title: "No Taxonomy Video" });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke: videoInvoke };
+
+    const { unmount } = render(<App />);
+    expect(await screen.findByText("No Taxonomy Video")).toBeInTheDocument();
+    const videoMetadata = screen
+      .getByRole("heading", { name: "Metadata" })
+      .closest("section") as HTMLElement;
+    expect(within(videoMetadata).queryByText("Gender")).not.toBeInTheDocument();
+    expect(within(videoMetadata).queryByText("Body Type")).not.toBeInTheDocument();
+
+    unmount();
+    window.history.pushState({}, "", "/images/image_test_001");
+    const imageInvoke = vi.fn(async (command: string) => {
+      if (command === "image_get") {
+        return persistedImage({ title: "No Taxonomy Image" });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke: imageInvoke };
+
+    render(<App />);
+    expect(await screen.findByText("No Taxonomy Image")).toBeInTheDocument();
+    const imageMetadata = screen
+      .getByRole("heading", { name: "Metadata" })
+      .closest("section") as HTMLElement;
+    expect(within(imageMetadata).queryByText("Gender")).not.toBeInTheDocument();
+    expect(within(imageMetadata).queryByText("Body Type")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "/videos/video_test_001",
+      "video_get",
+      persistedVideo({
+        title: "Source Video",
+        sourceLinksJson:
+          '[{"title":"Studio source","url":"https://example.invalid/video/source"}]',
+      }),
+    ],
+    [
+      "/images/image_test_001",
+      "image_get",
+      persistedImage({
+        title: "Source Image",
+        sourceLinksJson:
+          '[{"title":"Image source","url":"https://example.invalid/image/source"}]',
+      }),
+    ],
+    [
+      "/performers/performer_test_001",
+      "performer_get",
+      persistedPerformer({
+        name: "Source Performer",
+        sourceLinksJson:
+          '[{"title":"Performer source","url":"https://example.invalid/performer/source"}]',
+      }),
+    ],
+  ])("renders safe Source Links on Detail for %s", async (path, getCommand, record) => {
+    window.history.pushState({}, "", path);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === getCommand) {
+        return record;
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText(/Source (Video|Image|Performer)/))
+      .toBeInTheDocument();
+    const sourceSection = screen
+      .getByRole("heading", { name: "Source Links" })
+      .closest("section") as HTMLElement;
+    const sourceIcon = sourceSection
+      .querySelector("[data-testid='detail-section-icon'] svg");
+    expect(sourceIcon).not.toBeNull();
+    expect(sourceIcon).toHaveClass("lucide-earth");
+    expect(sourceSection.querySelector("svg.lucide-info")).toBeNull();
+    expect(within(sourceSection).queryByText("Source Title")).not.toBeInTheDocument();
+    expect(within(sourceSection).queryByText("Source URL")).not.toBeInTheDocument();
+    expect(within(sourceSection).getByText(/^(Studio|Image|Performer) source$/))
+      .toBeInTheDocument();
+    expect(within(sourceSection).getByText(/^https:\/\/example\.invalid\//))
+      .toHaveClass("truncate");
+    const openAction = within(sourceSection).getByRole("button", {
+      name: /Open Source Link/,
+    });
+    expect(openAction).toBeEnabled();
+    fireEvent.click(openAction);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("open_source_link", {
+        url: expect.stringMatching(/^https:\/\/example\.invalid\//),
+      }, undefined);
+    });
+    expect(within(sourceSection).queryByText(/sourceLinksJson/))
+      .not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      expect.stringMatching(/create|update|delete/i),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    ["javascript:alert(1)", "Script source"],
+    ["data:text/plain,source", "Data source"],
+    ["file:///D:/source.txt", "File source"],
+    ["https://", "Malformed source"],
+  ])("blocks unsafe Detail Source Link URL %s", async (sourceUrl, sourceTitle) => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Unsafe Source Video",
+          sourceLinksJson: JSON.stringify([{ title: sourceTitle, url: sourceUrl }]),
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Unsafe Source Video")).toBeInTheDocument();
+    const sourceSection = screen
+      .getByRole("heading", { name: "Source Links" })
+      .closest("section") as HTMLElement;
+
+    expect(within(sourceSection).getByText(sourceTitle)).toBeInTheDocument();
+    expect(within(sourceSection).getByText(sourceUrl)).toBeInTheDocument();
+    expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(sourceSection).getByRole("button", {
+      name: `Open Source Link ${sourceTitle}`,
+    })).toBeDisabled();
+    expect(invoke).not.toHaveBeenCalledWith(
+      expect.stringMatching(/create|update|delete/i),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("renders Source Links URL as N/A when missing", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Missing URL Source Video",
+          sourceTitle: "Missing URL source",
+          sourceUrl: "",
+        });
+      }
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+      if (command === "path_status_check") {
+        return {
+          path: "",
+          status: "notSet",
+          kind: "unknown",
+          message: "Path is not set",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Missing URL Source Video"))
+      .toBeInTheDocument();
+    const sourceSection = screen
+      .getByRole("heading", { name: "Source Links" })
+      .closest("section") as HTMLElement;
+    expect(within(sourceSection).getByText("Missing URL source"))
+      .toBeInTheDocument();
+    expect(within(sourceSection).getByText("N/A")).toBeInTheDocument();
+    expect(within(sourceSection).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("keeps extreme detail text constrained in title, chips, and metadata rows", async () => {
@@ -7330,6 +10285,75 @@ describe("App", () => {
     expect(metadataRow).toHaveClass("min-w-0");
   });
 
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      getCommand: "video_get",
+      listCommands: ["performer_list", "image_list"],
+      record: persistedVideo({
+        title: "Many Category Video",
+        categoriesJson: JSON.stringify([
+          "Category 1",
+          "Category 2",
+          "Category 3",
+          "Category 4",
+          "Category 5",
+          "Category 6",
+          "Category 7",
+        ]),
+      }),
+    },
+    {
+      path: "/images/image_test_001",
+      getCommand: "image_get",
+      listCommands: ["performer_list", "video_list"],
+      record: persistedImage({
+        title: "Many Category Image",
+        categoriesJson: JSON.stringify([
+          "Image Category 1",
+          "Image Category 2",
+          "Image Category 3",
+          "Image Category 4",
+          "Image Category 5",
+          "Image Category 6",
+          "Image Category 7",
+        ]),
+      }),
+    },
+  ])(
+    "renders one-row collapsed category chips with overflow on $path",
+    async ({ path, getCommand, listCommands, record }) => {
+      window.history.pushState({}, "", path);
+      const invoke = vi.fn(async (command: string) => {
+        if (command === getCommand) {
+          return record;
+        }
+        if (listCommands.includes(command)) {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText(record.title as string)).toBeInTheDocument();
+      const chipRow = screen.getByTestId("detail-category-chip-row");
+      expect(chipRow).toHaveClass("max-h-14", "flex-wrap", "overflow-hidden");
+      expect(within(chipRow).getByRole("button", { name: "Show 2 more categories" }))
+        .toHaveTextContent("+2");
+      expect(within(chipRow).queryByText(/Category 7$/)).not.toBeInTheDocument();
+
+      fireEvent.click(within(chipRow).getByRole("button", { name: "Show 2 more categories" }));
+
+      expect(chipRow).toHaveClass("flex-wrap");
+      expect(within(chipRow).getByText(/Category 7$/)).toBeInTheDocument();
+      expect(within(chipRow).getByRole("button", { name: "Collapse categories" }))
+        .toHaveTextContent("Show less");
+    },
+  );
+
   it("keeps very long related LiteCard titles clamped and stats truncated", async () => {
     window.history.pushState({}, "", "/videos/video_test_001");
     const longRelatedTitle =
@@ -7373,6 +10397,544 @@ describe("App", () => {
     expect(imageCount).toHaveClass("truncate");
     expect(imageCount.closest(".grid")).toHaveClass("min-w-0");
   });
+
+  it("renders Video Detail related performers and images in redesigned carousel pages", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const scrollToMock = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollToMock,
+    });
+    let relatedPerformers = Array.from({ length: 20 }, (_, index) =>
+      persistedPerformer({
+        id: `performer_slider_${index + 1}`,
+        name: `Carousel Performer ${index + 1}`,
+      }),
+    );
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Carousel Related Video",
+          relatedPerformersJson: JSON.stringify(
+            Array.from({ length: 20 }, (_, index) => ({
+              performerId: `performer_slider_${index + 1}`,
+              nameSnapshot: `Snapshot Performer ${index + 1}`,
+            })),
+          ),
+          relatedImagesJson: JSON.stringify(
+            Array.from({ length: 20 }, (_, index) => ({
+              recordId: `image_slider_${index + 1}`,
+              titleSnapshot: `Snapshot Image ${index + 1}`,
+            })),
+          ),
+        });
+      }
+      if (command === "performer_list") {
+        return relatedPerformers;
+      }
+      if (command === "performer_get") {
+        return persistedPerformer({
+          id: args.id,
+          name: `Loaded ${args.id}`,
+        });
+      }
+      if (command === "performer_update") {
+        const performerIndex = relatedPerformers.findIndex(
+          (performer) => performer.id === args.id,
+        );
+        expect(performerIndex).toBeGreaterThanOrEqual(0);
+        relatedPerformers = relatedPerformers.map((performer, index) =>
+          index === performerIndex
+            ? { ...performer, favorite: args.patch.favorite }
+            : performer,
+        );
+        return relatedPerformers[performerIndex];
+      }
+      if (command === "image_list") {
+        return Array.from({ length: 20 }, (_, index) =>
+          persistedImage({
+            id: `image_slider_${index + 1}`,
+            title: `Carousel Image ${index + 1}`,
+          }),
+        );
+      }
+      if (command === "image_get") {
+        return persistedImage({
+          id: args.id,
+          title: `Loaded ${args.id}`,
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Carousel Related Video")).toBeInTheDocument();
+    for (const [heading, countLabel] of [
+      ["Related Performers", "20 performers"],
+      ["Related Images", "20 images"],
+    ] as const) {
+      const section = screen.getByRole("heading", { name: heading }).closest("section");
+      expect(section).not.toBeNull();
+      const count = within(section as HTMLElement).getByText(countLabel);
+      expect(count).toBeInTheDocument();
+      expect(count).toHaveClass("text-sm", "text-slate-500");
+      expect(count).not.toHaveClass("rounded-md", "bg-slate-100", "border");
+      expect(within(section as HTMLElement).queryByText(/Read-only Related/i))
+        .not.toBeInTheDocument();
+      const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+      expect(carousel).toHaveAttribute("aria-label", `${heading} carousel`);
+      expect(carousel).toHaveAttribute("tabindex", "0");
+      expect(carousel).toHaveClass("overflow-hidden");
+      expect(carousel).not.toHaveClass("overflow-x-auto");
+      expect(carousel).not.toHaveClass("focus-visible:ring-2");
+      expect(carousel).not.toHaveClass("focus-visible:ring-sakura-300");
+      expect(carousel).not.toHaveClass("group");
+      expect(carousel).toHaveClass("group/carousel");
+      expect(carousel).toHaveAttribute("data-visible-count", "5");
+      expect(carousel).toHaveAttribute("data-rendered-count", "20");
+      expect(carousel).toHaveAttribute("data-total-count", "20");
+      expect(carousel).toHaveAttribute("data-page-count", "4");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card"))
+        .toHaveLength(20);
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window"))
+        .toHaveLength(4);
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveClass("basis-full", "shrink-0", "gap-2");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
+      const track = within(carousel).getByTestId("detail-related-carousel-track");
+      expect(track)
+        .toHaveClass("w-full", "transition-transform", "duration-300", "ease-out");
+      expect(track).not.toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto", "scroll-smooth");
+      expect(track).toHaveStyle({ transform: "translateX(-0%)" });
+      expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
+        .not.toHaveClass("min-h-[23rem]");
+      expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
+        .toHaveClass("overflow-hidden");
+      expect(within(carousel).getByTestId("detail-related-carousel-viewport"))
+        .not.toHaveClass("cursor-grab");
+      const firstCardShell = within(carousel).getAllByTestId("detail-related-carousel-card")[0];
+      expect(firstCardShell)
+        .toHaveClass("flex", "w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0", "[&>*]:h-full");
+      expect(firstCardShell).not.toHaveClass("h-[22rem]");
+      expect(firstCardShell).not.toHaveClass("shrink-0", "snap-start");
+      expect(firstCardShell.getAttribute("style") ?? "")
+        .not.toContain("flex-basis");
+      expect(within(carousel).getByTestId("detail-related-carousel-controls"))
+        .toHaveClass("min-h-9");
+      const previousButton = within(carousel).getByRole("button", { name: "Previous related items" });
+      const nextButton = within(carousel).getByRole("button", { name: "Next related items" });
+      expect(previousButton)
+        .toBeDisabled();
+      expect(previousButton).toHaveClass("focus-visible:ring-2");
+      expect(nextButton)
+        .not.toHaveClass("opacity-0");
+      expect(nextButton).toHaveClass("focus-visible:ring-2");
+      expect(nextButton).not.toHaveClass("absolute");
+      expect(within(carousel).getAllByRole("button", { name: /Go to .* page/ }))
+        .toHaveLength(4);
+      expect(within(carousel).getByRole("button", { name: `Go to ${heading} page 1` }))
+        .toHaveAttribute("aria-current", "page");
+      expect(within(carousel).getByRole("button", { name: `Go to ${heading} page 1` }))
+        .toHaveClass("focus-visible:ring-2");
+    }
+
+    const performersSection = screen.getByRole("heading", { name: "Related Performers" }).closest("section") as HTMLElement;
+    const performersCarousel = within(performersSection).getByTestId("detail-related-carousel");
+    expect(within(performersCarousel).getByText("Carousel Performer 1")).toBeInTheDocument();
+    expect(within(performersCarousel).getByText("Carousel Performer 16")).toBeInTheDocument();
+    const locationBeforeArrowClick = window.location.pathname;
+    fireEvent.click(within(performersCarousel).getByRole("button", { name: "Next related items" }));
+    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 2" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(performersCarousel).toHaveAttribute("data-active-page", "2");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-100%)" });
+
+    fireEvent.keyDown(performersCarousel, { key: "End" });
+    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 4" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-300%)" });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+
+    fireEvent.keyDown(performersCarousel, { key: "Home" });
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    fireEvent.keyDown(performersCarousel, { key: "ArrowLeft" });
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    fireEvent.keyDown(performersCarousel, { key: "ArrowRight" });
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 2" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-100%)" });
+    fireEvent.click(within(performersCarousel).getByRole("button", { name: "Previous related items" }));
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-0%)" });
+
+    fireEvent.click(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 3" }));
+    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 3" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-200%)" });
+    expect(within(performersCarousel).getByText("Carousel Performer 11")).toBeInTheDocument();
+    fireEvent.transitionEnd(within(performersCarousel).getByTestId("detail-related-carousel-track"));
+    expect(within(performersCarousel).getByText("Carousel Performer 1")).toBeInTheDocument();
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 3" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(within(performersCarousel).getByTestId("detail-related-carousel-track"))
+      .toHaveStyle({ transform: "translateX(-200%)" });
+
+    fireEvent.keyDown(performersCarousel, { key: "Home" });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    expect(within(performersCarousel).getByRole("button", { name: "Go to Related Performers page 1" }))
+      .toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Carousel Performer 1").closest("a"))
+      .toHaveAttribute("href", "/performers/performer_slider_1");
+    expect(screen.getByText("Carousel Image 1").closest("a"))
+      .toHaveAttribute("href", "/images/image_slider_1");
+    fireEvent.pointerDown(within(performersCarousel).getByText("Carousel Performer 1").closest("a") as HTMLElement, {
+      clientX: 12,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(within(performersCarousel).getByText("Carousel Performer 1").closest("a") as HTMLElement, {
+      clientX: 96,
+      pointerId: 1,
+    });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    fireEvent.click(within(performersCarousel).getAllByRole("button", { name: "Favorite" })[0]);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "performer_update",
+        expect.objectContaining({
+          id: "performer_slider_1",
+          patch: expect.objectContaining({ favorite: false }),
+        }),
+        undefined,
+      );
+    });
+    expect(window.location.pathname).toBe(locationBeforeArrowClick);
+    const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section") as HTMLElement;
+    expect(within(imagesSection).getByText("Carousel Image 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Carousel Performer 1").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/performers/performer_slider_1");
+  }, 10_000);
+
+  it("clicking a Video Detail related image card navigates to Image Detail", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Related Image Navigation Video",
+          relatedImagesJson:
+            '[{"recordId":"image_nav","titleSnapshot":"Related Image Nav"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_nav",
+            title: "Related Image Nav",
+          }),
+        ];
+      }
+      if (command === "image_get") {
+        return persistedImage({
+          id: args.id,
+          title: "Loaded Related Image Nav",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Image Navigation Video")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Related Image Nav").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/images/image_nav");
+  });
+
+  it("renders Image Detail related performers and videos in carousel viewports", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        expect(args.id).toBe("image_test_001");
+        return persistedImage({
+          title: "Carousel Related Image",
+          relatedPerformersJson:
+            '[{"performerId":"performer_slider","nameSnapshot":"Snapshot Performer"}]',
+          relatedVideosJson:
+            '[{"recordId":"video_slider","titleSnapshot":"Snapshot Video"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_slider",
+            name: "Image Slider Performer",
+          }),
+        ];
+      }
+      if (command === "performer_get") {
+        return persistedPerformer({
+          id: args.id,
+          name: "Loaded Image Slider Performer",
+        });
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_slider",
+            title: "Image Slider Video",
+          }),
+        ];
+      }
+      if (command === "video_get") {
+        return persistedVideo({
+          id: args.id,
+          title: "Loaded Image Slider Video",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Carousel Related Image")).toBeInTheDocument();
+    for (const heading of ["Related Performers", "Related Videos"]) {
+      const section = screen.getByRole("heading", { name: heading }).closest("section");
+      expect(section).not.toBeNull();
+      expect(within(section as HTMLElement).getByText(heading === "Related Performers" ? "1 performer" : "1 video"))
+        .toBeInTheDocument();
+      const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+      expect(carousel).toHaveClass("overflow-hidden");
+      expect(carousel).toHaveAttribute("data-visible-count", "5");
+      expect(carousel).toHaveAttribute("data-rendered-count", "1");
+      expect(carousel).toHaveAttribute("data-total-count", "1");
+      expect(within(carousel).queryByRole("button", { name: "Next related items" }))
+        .not.toBeInTheDocument();
+      expect(within(carousel).getByTestId("detail-related-carousel-window"))
+        .toHaveClass("basis-full", "shrink-0", "gap-2");
+      expect(within(carousel).getByTestId("detail-related-carousel-window"))
+        .toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .toHaveClass("w-full", "transition-transform");
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .not.toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto");
+      expect(within(carousel).getByTestId("detail-related-carousel-card"))
+        .toHaveClass("w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0", "[&>*]:h-full");
+      expect(within(carousel).getByTestId("detail-related-carousel-card"))
+        .not.toHaveClass("h-[22rem]");
+    }
+    expect(screen.getByText("Image Slider Performer").closest("a"))
+      .toHaveAttribute("href", "/performers/performer_slider");
+    expect(screen.getByText("Image Slider Video").closest("a"))
+      .toHaveAttribute("href", "/videos/video_slider");
+    fireEvent.click(screen.getByText("Image Slider Performer").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/performers/performer_slider");
+  });
+
+  it("clicking an Image Detail related video card navigates to Video Detail", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Related Video Navigation Image",
+          relatedVideosJson:
+            '[{"recordId":"video_nav","titleSnapshot":"Related Video Nav"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_nav",
+            title: "Related Video Nav",
+          }),
+        ];
+      }
+      if (command === "video_get") {
+        return persistedVideo({
+          id: args.id,
+          title: "Loaded Related Video Nav",
+        });
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Related Video Navigation Image")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Related Video Nav").closest("a") as HTMLElement);
+    expect(window.location.pathname).toBe("/videos/video_nav");
+  });
+
+  it("reduces Detail related carousel visible count in narrow windows", async () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 520,
+    });
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "video_get") {
+        expect(args.id).toBe("video_test_001");
+        return persistedVideo({
+          title: "Narrow Carousel Video",
+          relatedPerformersJson: JSON.stringify(
+            Array.from({ length: 9 }, (_, index) => ({
+              performerId: `narrow_performer_${index + 1}`,
+              nameSnapshot: `Narrow Performer ${index + 1}`,
+            })),
+          ),
+        });
+      }
+      if (command === "performer_list") {
+        return Array.from({ length: 9 }, (_, index) =>
+          persistedPerformer({
+            id: `narrow_performer_${index + 1}`,
+            name: `Narrow Performer ${index + 1}`,
+          }),
+        );
+      }
+      if (command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Narrow Carousel Video")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Performers" }).closest("section");
+    expect(section).not.toBeNull();
+    const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+
+    await waitFor(() => {
+      expect(carousel).toHaveAttribute("data-visible-count", "2");
+    });
+    expect(carousel).toHaveAttribute("data-page-count", "5");
+    expect(carousel).toHaveAttribute("data-rendered-count", "9");
+    expect(within(carousel).getAllByTestId("detail-related-carousel-card"))
+      .toHaveLength(9);
+    expect(within(carousel).getAllByTestId("detail-related-carousel-window"))
+      .toHaveLength(5);
+    expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+      .toHaveClass("gap-2");
+    expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+      .toHaveStyle({ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" });
+    expect(within(carousel).getByTestId("detail-related-carousel-track"))
+      .toHaveClass("w-full", "transition-transform");
+    expect(within(carousel).getByTestId("detail-related-carousel-track"))
+      .not.toHaveClass("overflow-x-auto", "snap-x");
+    expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+      .not.toHaveClass("shrink-0", "snap-start");
+
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1024,
+    });
+  });
+
+  it.each([
+    { width: 900, visibleCount: 4, pageCount: 2 },
+    { width: 700, visibleCount: 3, pageCount: 3 },
+    { width: 320, visibleCount: 1, pageCount: 7 },
+  ])(
+    "uses $visibleCount-card responsive basis for $width px related carousel",
+    async ({ width, visibleCount, pageCount }) => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: width,
+      });
+      window.history.pushState({}, "", "/videos/video_test_001");
+      const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+        if (command === "video_get") {
+          expect(args.id).toBe("video_test_001");
+          return persistedVideo({
+            title: `Responsive ${visibleCount} Carousel Video`,
+            relatedPerformersJson: JSON.stringify(
+              Array.from({ length: 7 }, (_, index) => ({
+                performerId: `responsive_performer_${index + 1}`,
+                nameSnapshot: `Responsive Performer ${index + 1}`,
+              })),
+            ),
+          });
+        }
+        if (command === "performer_list") {
+          return Array.from({ length: 7 }, (_, index) =>
+            persistedPerformer({
+              id: `responsive_performer_${index + 1}`,
+              name: `Responsive Performer ${index + 1}`,
+            }),
+          );
+        }
+        if (command === "image_list") {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      expect(await screen.findByText(`Responsive ${visibleCount} Carousel Video`))
+        .toBeInTheDocument();
+      const section = screen.getByRole("heading", { name: "Related Performers" }).closest("section");
+      expect(section).not.toBeNull();
+      const carousel = within(section as HTMLElement).getByTestId("detail-related-carousel");
+
+      await waitFor(() => {
+        expect(carousel).toHaveAttribute("data-visible-count", String(visibleCount));
+      });
+      expect(carousel).toHaveAttribute("data-page-count", String(pageCount));
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .toHaveClass("w-full", "transition-transform");
+      expect(within(carousel).getByTestId("detail-related-carousel-track"))
+        .not.toHaveClass("overflow-x-auto", "snap-x", "scroll-smooth");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveClass("gap-2");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-window")[0])
+        .toHaveStyle({
+          gridTemplateColumns: `repeat(${visibleCount}, minmax(0, 1fr))`,
+        });
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+        .toHaveClass("w-full", "min-w-0", "[&>*]:w-full", "[&>*]:min-w-0", "[&>*]:h-full");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+        .not.toHaveClass("h-[22rem]");
+      expect(within(carousel).getAllByTestId("detail-related-carousel-card")[0])
+        .not.toHaveClass("shrink-0", "snap-start");
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 1024,
+      });
+    },
+  );
 
   it("renders saved Performer mini thumbnails and opens thumbnail preview", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
@@ -7445,12 +11007,14 @@ describe("App", () => {
     expect(
       within(dialog).getByAltText("Gallery image 1 full size"),
     ).toHaveAttribute("src", "asset://localhost/D:/Sakurava/thumb-1.jpg");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next gallery image" }));
     expect(
-      within(dialog).queryByRole("button", { name: "Next gallery image" }),
-    ).not.toBeInTheDocument();
+      within(dialog).getByAltText("Gallery image 2 full size"),
+    ).toHaveAttribute("src", "asset://localhost/D:/Sakurava/thumb-2.jpg");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Previous gallery image" }));
     expect(
-      within(dialog).queryByRole("button", { name: "Previous gallery image" }),
-    ).not.toBeInTheDocument();
+      within(dialog).getByAltText("Gallery image 1 full size"),
+    ).toHaveAttribute("src", "asset://localhost/D:/Sakurava/thumb-1.jpg");
 
     expect(
       within(dialog).queryByRole("button", { name: "Close gallery viewer" }),
@@ -7499,6 +11063,7 @@ describe("App", () => {
   });
 
   it("falls back to collection placeholder when cover image loading fails", async () => {
+    clearAllSessionFilterStateForTests();
     window.history.pushState({}, "", "/videos");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_list") {
@@ -7573,6 +11138,148 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("renders sorted Video Related Performers carousel with compact metadata", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") {
+        return persistedVideo({
+          title: "Credits Video",
+          relatedPerformersJson:
+            '[{"performerId":"performer_aoi","nameSnapshot":"Legacy Aoi"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer_aoi",
+            name: "Aoi Sakura",
+            originalName: "Sakura Aoi",
+            aliasesJson: '["Must Not Be Character"]',
+          }),
+        ];
+      }
+      if (command === "image_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({ key: "credit_cast", name: "Cast" }),
+          managedCategoryFixture({ key: "role_lead", name: "Lead" }),
+        ];
+      }
+      if (command === "credit_list_by_work") {
+        return [
+          persistedCredit({
+            id: "credit_second",
+            performerId: "performer_aoi",
+            characterName: "",
+            billingOrder: null,
+          }),
+          persistedCredit({
+            id: "credit_first",
+            performerId: "performer_aoi",
+            characterName: "Hana",
+            characterOriginalName: "花",
+            creditedAs: "A. Sakura",
+            creditedAsMode: "custom",
+            creditTypeCategoryId: "credit_cast",
+            roleImportanceCategoryId: "role_lead",
+            billingOrder: 1,
+            note: "Opening role",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Credits Video")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Performers" })
+      .closest("section") as HTMLElement;
+    const credits = within(section);
+    expect(credits.getAllByText("Aoi Sakura")).toHaveLength(1);
+    expect(credits.getByText("Aoi Sakura").closest("a"))
+      .toHaveAttribute("href", "/performers/performer_aoi");
+    expect(credits.getByText("Hana").closest("a")).toBeNull();
+    expect(credits.getByText("Hana").closest(
+      '[data-testid="credit-metadata"]',
+    )).toBeInTheDocument();
+    expect(credits.getByText("Cast")).toBeInTheDocument();
+    expect(credits.queryByText("Lead")).not.toBeInTheDocument();
+    expect(credits.queryByText("Opening role")).not.toBeInTheDocument();
+    expect(credits.queryByText("A. Sakura")).not.toBeInTheDocument();
+    expect(credits.queryByText("Must Not Be Character")).not.toBeInTheDocument();
+    expect(credits.getByLabelText("Related Performers carousel"))
+      .toBeInTheDocument();
+  });
+
+  it("renders Image credits with Self and safe unresolved fallbacks", async () => {
+    window.history.pushState({}, "", "/images/image_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Credits Image",
+          relatedPerformersJson:
+            '[{"performerId":"missing_performer","nameSnapshot":"Legacy Snapshot"}]',
+        });
+      }
+      if (command === "performer_list") {
+        return [];
+      }
+      if (command === "video_list") {
+        return [];
+      }
+      if (command === "managed_category_list") {
+        return [];
+      }
+      if (command === "credit_list_by_work") {
+        expect(args).toEqual({ workType: "image", workId: "image_test_001" });
+        return [
+          persistedCredit({
+            id: "credit_self",
+            workType: "image",
+            performerId: "missing_performer",
+            characterMode: "self",
+            creditTypeCategoryId: "missing_credit_type",
+          }),
+          persistedCredit({
+            id: "credit_second_role",
+            workType: "image",
+            performerId: "missing_performer",
+            characterName: "Guest Role",
+            billingOrder: 2,
+          }),
+          persistedCredit({
+            id: "credit_unknown",
+            workType: "image",
+            performerId: "unknown_performer",
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Credits Image")).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Related Performers" })
+      .closest("section") as HTMLElement;
+    const credits = within(section);
+    expect(credits.getAllByText("Legacy Snapshot")).toHaveLength(1);
+    expect(credits.getByText("Unknown performer")).toBeInTheDocument();
+    expect(credits.getByText("Self")).toBeInTheDocument();
+    expect(credits.getByText("Self").closest("a")).toBeNull();
+    expect(credits.getByText("Guest Role").closest("a")).toBeNull();
+    expect(credits.getByText("missing_credit_type")).toBeInTheDocument();
+    expect(credits.getByText("Legacy Snapshot").closest("a"))
+      .not.toHaveAttribute("href", "/performers/missing_performer");
   });
 
   it("maps and persists Related Performer favorite state on video detail", async () => {
@@ -7974,23 +11681,41 @@ describe("App", () => {
     const videosSection = screen.getByRole("heading", { name: "Related Videos" }).closest("section");
     expect(videosSection).not.toBeNull();
     const videos = within(videosSection as HTMLElement);
-    expect(videos.getByRole("button", { name: "Card" })).toBeInTheDocument();
-    expect(videos.getByRole("button", { name: "Table" })).toBeInTheDocument();
-    expect(videos.getByLabelText("Sort")).toBeInTheDocument();
-    expect(videos.getByLabelText("Per page")).toHaveValue("12");
+    expect(videos.queryByRole("button", { name: "Card" })).not.toBeInTheDocument();
+    expect(videos.queryByRole("button", { name: "Table" })).not.toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Switch to table view" })).toBeInTheDocument();
+    expect(videos.getByTestId("performer-related-view-button"))
+      .toHaveClass("h-9", "w-9");
+    expect(videos.getByTestId("performer-related-search-control"))
+      .toHaveClass("flex", "items-center");
+    expect(videos.getByTestId("performer-related-sort-control"))
+      .toHaveAttribute("aria-haspopup", "listbox");
+    expect(videos.getByText("Page size")).toBeInTheDocument();
+    expect(videos.getByText("per page")).toBeInTheDocument();
+    expect(videos.getByLabelText("Related items per page")).toHaveValue("20");
     expect(
-      within(videos.getByLabelText("Per page")).getByRole("option", { name: "12" }),
+      within(videos.getByLabelText("Related items per page")).getByRole("option", { name: "20" }),
     ).toBeInTheDocument();
     expect(
-      within(videos.getByLabelText("Per page")).getByRole("option", { name: "24" }),
+      within(videos.getByLabelText("Related items per page")).getByRole("option", { name: "40" }),
     ).toBeInTheDocument();
     expect(
-      within(videos.getByLabelText("Per page")).getByRole("option", { name: "48" }),
+      within(videos.getByLabelText("Related items per page")).getByRole("option", { name: "80" }),
     ).toBeInTheDocument();
     expect(
-      within(videos.getByLabelText("Per page")).getByRole("option", { name: "96" }),
+      within(videos.getByLabelText("Related items per page")).getByRole("option", { name: "120" }),
     ).toBeInTheDocument();
+    expect(videos.getByLabelText("Search related items")).toBeInTheDocument();
     expect(videos.getByText("Hanami Feature")).toBeInTheDocument();
+    expect(videos.getByTestId("performer-related-videos-card-grid"))
+      .toHaveClass("[grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]");
+    fireEvent.click(videos.getByLabelText("Related items per page control"));
+    expect(
+      videos.getByRole("listbox", {
+        name: "Related items per page options",
+      }).parentElement,
+    ).toHaveAttribute("data-placement", "down");
+    fireEvent.keyDown(document, { key: "Escape" });
     const relatedVideoCard = videos.getByText("Hanami Feature").closest("a");
     expect(relatedVideoCard).not.toBeNull();
     expect(relatedVideoCard).toHaveAttribute("href", "/videos/video_hanami");
@@ -7998,23 +11723,52 @@ describe("App", () => {
     expect(videoRating).toHaveClass("bg-sakura-50");
     expect(videoRating).toHaveClass("text-sakura-600");
     expect(videoRating).not.toHaveClass("bg-sakura-500");
-    fireEvent.click(videos.getByRole("button", { name: "Table" }));
-    expect(videos.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
-    expect(videos.getByRole("columnheader", { name: "Publisher / Label" })).toBeInTheDocument();
-    expect(videos.getByRole("columnheader", { name: "Release Year" })).toBeInTheDocument();
-    expect(videos.getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
-    expect(videos.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
-    expect(videos.getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
-    expect(videos.getByRole("link", { name: "View" })).toHaveAttribute("href", "/videos/video_hanami");
+    fireEvent.click(videos.getByRole("button", { name: "Switch to table view" }));
+    expect(videos.getByRole("button", { name: "Switch to card view" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "AVAIL" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "FAV" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: /TITLE/ })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by AVAIL" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by Title" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "CODE" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by CODE" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "TOTAL" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by TOTAL" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "CENSOR" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by CENSOR" })).toBeInTheDocument();
+    expect(videos.getByRole("columnheader", { name: "RATING" })).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Sort by RATING" })).toBeInTheDocument();
+    expect(videos.getByTestId("performer-related-videos-table-scroll"))
+      .toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
+    expect(
+      videos.getByTestId("performer-related-videos-table-scroll")
+        .closest("[data-sticky-horizontal-scroll='true']"),
+    ).toHaveClass("sticky-horizontal-scroll-frame");
+    expect(videos.getByTestId("performer-related-videos-table"))
+      .toHaveClass("w-full", "table-fixed", "min-w-[1040px]");
+    expect(videos.getByTestId("performer-related-videos-table"))
+      .toHaveStyle({ width: "100%" });
+    expect(videos.getByRole("link", { name: "Hanami Feature" })).toHaveAttribute("href", "/videos/video_hanami");
 
     const imagesSection = screen.getByRole("heading", { name: "Related Images" }).closest("section");
     expect(imagesSection).not.toBeNull();
     const images = within(imagesSection as HTMLElement);
-    expect(images.getByRole("button", { name: "Card" })).toBeInTheDocument();
-    expect(images.getByRole("button", { name: "Table" })).toBeInTheDocument();
-    expect(images.getByLabelText("Sort")).toBeInTheDocument();
-    expect(images.getByLabelText("Per page")).toHaveValue("12");
+    expect(images.queryByRole("button", { name: "Card" })).not.toBeInTheDocument();
+    expect(images.queryByRole("button", { name: "Table" })).not.toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Switch to table view" })).toBeInTheDocument();
+    expect(images.getByTestId("performer-related-view-button"))
+      .toHaveClass("h-9", "w-9");
+    expect(images.getByTestId("performer-related-search-control"))
+      .toHaveClass("flex", "items-center");
+    expect(images.getByTestId("performer-related-sort-control"))
+      .toHaveAttribute("aria-haspopup", "listbox");
+    expect(images.getByText("Page size")).toBeInTheDocument();
+    expect(images.getByText("per page")).toBeInTheDocument();
+    expect(images.getByLabelText("Related items per page")).toHaveValue("20");
+    expect(images.getByLabelText("Search related items")).toBeInTheDocument();
     expect(images.getByText("Hanami Gallery")).toBeInTheDocument();
+    expect(images.getByTestId("performer-related-images-card-grid"))
+      .toHaveClass("[grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]");
     const relatedImageCard = images.getByText("Hanami Gallery").closest("a");
     expect(relatedImageCard).not.toBeNull();
     expect(relatedImageCard).toHaveAttribute("href", "/images/image_hanami");
@@ -8022,14 +11776,28 @@ describe("App", () => {
     expect(imageRating).toHaveClass("bg-sakura-50");
     expect(imageRating).toHaveClass("text-sakura-600");
     expect(imageRating).not.toHaveClass("bg-sakura-500");
-    fireEvent.click(images.getByRole("button", { name: "Table" }));
-    expect(images.getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
-    expect(images.getByRole("columnheader", { name: "Publisher / Label" })).toBeInTheDocument();
-    expect(images.getByRole("columnheader", { name: "Release Year" })).toBeInTheDocument();
-    expect(images.getByRole("columnheader", { name: "Images Total" })).toBeInTheDocument();
-    expect(images.getByRole("columnheader", { name: "Rating" })).toBeInTheDocument();
-    expect(images.getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
-    expect(images.getByRole("link", { name: "View" })).toHaveAttribute("href", "/images/image_hanami");
+    fireEvent.click(images.getByRole("button", { name: "Switch to table view" }));
+    expect(images.getByRole("button", { name: "Switch to card view" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "AVAIL" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "FAV" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: /TITLE/ })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Sort by AVAIL" })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Sort by Title" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "CODE" })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Sort by CODE" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "TOTAL" })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Sort by TOTAL" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "CENSOR" })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Sort by CENSOR" })).toBeInTheDocument();
+    expect(images.getByRole("columnheader", { name: "RATING" })).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Sort by RATING" })).toBeInTheDocument();
+    expect(images.getByTestId("performer-related-images-table-scroll"))
+      .toHaveClass("sticky-horizontal-scroll-body", "overflow-x-auto");
+    expect(images.getByTestId("performer-related-images-table"))
+      .toHaveClass("w-full", "table-fixed", "min-w-[1040px]");
+    expect(images.getByTestId("performer-related-images-table"))
+      .toHaveStyle({ width: "100%" });
+    expect(images.getByRole("link", { name: "Hanami Gallery" })).toHaveAttribute("href", "/images/image_hanami");
 
     expect(screen.queryByText("video_hanami")).not.toBeInTheDocument();
     expect(screen.queryByText("image_hanami")).not.toBeInTheDocument();
@@ -8052,6 +11820,122 @@ describe("App", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("keeps Performer Related Videos and Images while showing credit metadata", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        expect(args.id).toBe("performer_test_001");
+        return persistedPerformer({
+          name: "Filmography Performer",
+          aliasesJson: '["Identity Alias"]',
+          relatedVideosJson:
+            '[{"recordId":"legacy_video","titleSnapshot":"Legacy Video"}]',
+          relatedImagesJson:
+            '[{"recordId":"legacy_image","titleSnapshot":"Legacy Image"}]',
+        });
+      }
+      if (command === "credit_list_by_performer") {
+        expect(args).toEqual({ performerId: "performer_test_001" });
+        return [
+          persistedCredit({
+            id: "credit_image",
+            workType: "image",
+            workId: "image_credit",
+            performerId: "performer_test_001",
+            characterMode: "self",
+            creditTypeCategoryId: "credit_model",
+          }),
+          persistedCredit({
+            id: "credit_video_second_role",
+            workId: "video_credit",
+            performerId: "performer_test_001",
+            characterName: "",
+            billingOrder: 2,
+          }),
+          persistedCredit({
+            id: "credit_video_first_role",
+            workId: "video_credit",
+            performerId: "performer_test_001",
+            characterName: "Hana",
+            characterOriginalName: "花",
+            creditedAsMode: "custom",
+            creditedAs: "Stage Name",
+            creditTypeCategoryId: "credit_cast",
+            roleImportanceCategoryId: "role_lead",
+            billingOrder: 1,
+            note: "Lead performance",
+          }),
+          persistedCredit({
+            id: "credit_missing_video",
+            workId: "missing_video",
+            performerId: "performer_test_001",
+            creditTypeCategoryId: "missing_category",
+          }),
+        ];
+      }
+      if (command === "video_list") {
+        return [
+          persistedVideo({
+            id: "video_credit",
+            title: "Credited Video",
+            originalTitle: "Credited Video Original",
+            releaseDate: "2025-05-01",
+            publisherLabel: "Video Studio",
+          }),
+          persistedVideo({ id: "legacy_video", title: "Legacy Video" }),
+        ];
+      }
+      if (command === "image_list") {
+        return [
+          persistedImage({
+            id: "image_credit",
+            title: "Credited Image",
+            releaseDate: "2026-01-01",
+            publisherLabel: "Image Studio",
+          }),
+          persistedImage({ id: "legacy_image", title: "Legacy Image" }),
+        ];
+      }
+      if (command === "managed_category_list") {
+        return [
+          managedCategoryFixture({ key: "credit_cast", name: "Cast" }),
+          managedCategoryFixture({ key: "role_lead", name: "Lead" }),
+          managedCategoryFixture({ key: "credit_model", name: "Model" }),
+        ];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Filmography Performer")).toBeInTheDocument();
+    const videosSection = screen.getByRole("heading", {
+      name: "Related Videos",
+    }).closest("section") as HTMLElement;
+    const imagesSection = screen.getByRole("heading", {
+      name: "Related Images",
+    }).closest("section") as HTMLElement;
+    const videos = within(videosSection);
+    const images = within(imagesSection);
+    expect(videos.getAllByText("Credited Video")).toHaveLength(1);
+    expect(videos.getByText("Credited Video").closest("a"))
+      .toHaveAttribute("href", "/videos/video_credit");
+    expect(images.getByText("Credited Image").closest("a"))
+      .toHaveAttribute("href", "/images/image_credit");
+    expect(videos.queryByText("Hana")).not.toBeInTheDocument();
+    expect(images.queryByText("Self")).not.toBeInTheDocument();
+    expect(videos.queryByText("Cast")).not.toBeInTheDocument();
+    expect(images.queryByText("Model")).not.toBeInTheDocument();
+    expect(videos.getByText("Unresolved Video")).toBeInTheDocument();
+    expect(videos.queryByText("missing_category")).not.toBeInTheDocument();
+    expect(videos.queryByText("Legacy Video")).not.toBeInTheDocument();
+    expect(images.queryByText("Legacy Image")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Credits / Filmography" }))
+      .not.toBeInTheDocument();
   });
 
   it("keeps unresolved Performer related catalog items visible as safe fallbacks", async () => {
@@ -8189,26 +12073,44 @@ describe("App", () => {
     const videos = within(section as HTMLElement);
 
     expect(videos.getByText("Alpha Video")).toBeInTheDocument();
-    expect(videos.queryByText("Missing Date Video")).not.toBeInTheDocument();
-    expect(videos.getByText("1 / 2")).toBeInTheDocument();
-    fireEvent.click(videos.getByRole("button", { name: "Next" }));
     expect(videos.getByText("Missing Date Video")).toBeInTheDocument();
-    fireEvent.click(videos.getByRole("button", { name: "Previous" }));
-    fireEvent.change(videos.getByLabelText("Per page"), { target: { value: "24" } });
+    expect(videos.getByText("Showing 1-13 of 13")).toBeInTheDocument();
+    expect(videos.getByRole("button", { name: "Page 1" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(videos.queryByRole("button", { name: "Page 2" })).not.toBeInTheDocument();
+    fireEvent.change(videos.getByLabelText("Related items per page"), { target: { value: "40" } });
     expect(videos.getByText("Missing Date Video")).toBeInTheDocument();
-    expect(videos.getByText("1 / 1")).toBeInTheDocument();
-    fireEvent.change(videos.getByLabelText("Per page"), { target: { value: "12" } });
+    expect(videos.getByText("Showing 1-13 of 13")).toBeInTheDocument();
+    fireEvent.change(videos.getByLabelText("Search related items"), {
+      target: { value: "zulu" },
+    });
+    expect(videos.getByText("Showing 1-1 of 1 filtered from 13")).toBeInTheDocument();
+    expect(videos.getByText("Zulu Video")).toBeInTheDocument();
+    fireEvent.change(videos.getByLabelText("Search related items"), {
+      target: { value: "" },
+    });
+    fireEvent.change(videos.getByLabelText("Related items per page"), { target: { value: "20" } });
 
-    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "az" } });
+    selectRelatedSort(videos, "A-Z");
     expectPrecedes(section as HTMLElement, "Alpha Video", "Middle Video");
-    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "za" } });
+    selectRelatedSort(videos, "Z-A");
     expectPrecedes(section as HTMLElement, "Zulu Video", "Page Video 9");
-    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "new" } });
+    selectRelatedSort(videos, "New Release");
     expectPrecedes(section as HTMLElement, "Alpha Video", "Middle Video");
-    expect(videos.queryByText("Missing Date Video")).not.toBeInTheDocument();
-    fireEvent.change(videos.getByLabelText("Sort"), { target: { value: "old" } });
+    expect(videos.getByText("Missing Date Video")).toBeInTheDocument();
+    selectRelatedSort(videos, "Old Release");
     expectPrecedes(section as HTMLElement, "Page Video 9", "Page Video 8");
-    expect(videos.queryByText("Missing Date Video")).not.toBeInTheDocument();
+    expect(videos.getByText("Missing Date Video")).toBeInTheDocument();
+    fireEvent.click(videos.getByRole("button", { name: "Switch to table view" }));
+    fireEvent.click(videos.getByRole("button", { name: "Sort by CODE" }));
+    expectPrecedes(section as HTMLElement, "Alpha Video", "Middle Video");
+    fireEvent.click(videos.getByRole("button", { name: "Sort by TOTAL" }));
+    expectPrecedes(section as HTMLElement, "Alpha Video", "Zulu Video");
+    fireEvent.click(videos.getByRole("button", { name: "Sort by RATING" }));
+    expect(videos.getByRole("columnheader", { name: /RATING/ }))
+      .toHaveAttribute("aria-sort", "ascending");
   });
 
   it("sorts and paginates Performer Related Images locally", async () => {
@@ -8265,26 +12167,44 @@ describe("App", () => {
     const images = within(section as HTMLElement);
 
     expect(images.getByText("Alpha Gallery")).toBeInTheDocument();
-    expect(images.queryByText("Missing Date Gallery")).not.toBeInTheDocument();
-    expect(images.getByText("1 / 2")).toBeInTheDocument();
-    fireEvent.click(images.getByRole("button", { name: "Next" }));
     expect(images.getByText("Missing Date Gallery")).toBeInTheDocument();
-    fireEvent.click(images.getByRole("button", { name: "Previous" }));
-    fireEvent.change(images.getByLabelText("Per page"), { target: { value: "24" } });
+    expect(images.getByText("Showing 1-13 of 13")).toBeInTheDocument();
+    expect(images.getByRole("button", { name: "Page 1" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(images.queryByRole("button", { name: "Page 2" })).not.toBeInTheDocument();
+    fireEvent.change(images.getByLabelText("Related items per page"), { target: { value: "40" } });
     expect(images.getByText("Missing Date Gallery")).toBeInTheDocument();
-    expect(images.getByText("1 / 1")).toBeInTheDocument();
-    fireEvent.change(images.getByLabelText("Per page"), { target: { value: "12" } });
+    expect(images.getByText("Showing 1-13 of 13")).toBeInTheDocument();
+    fireEvent.change(images.getByLabelText("Search related items"), {
+      target: { value: "zulu" },
+    });
+    expect(images.getByText("Showing 1-1 of 1 filtered from 13")).toBeInTheDocument();
+    expect(images.getByText("Zulu Gallery")).toBeInTheDocument();
+    fireEvent.change(images.getByLabelText("Search related items"), {
+      target: { value: "" },
+    });
+    fireEvent.change(images.getByLabelText("Related items per page"), { target: { value: "20" } });
 
-    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "az" } });
+    selectRelatedSort(images, "A-Z");
     expectPrecedes(section as HTMLElement, "Alpha Gallery", "Middle Gallery");
-    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "za" } });
+    selectRelatedSort(images, "Z-A");
     expectPrecedes(section as HTMLElement, "Zulu Gallery", "Page Gallery 9");
-    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "new" } });
+    selectRelatedSort(images, "New Release");
     expectPrecedes(section as HTMLElement, "Alpha Gallery", "Middle Gallery");
-    expect(images.queryByText("Missing Date Gallery")).not.toBeInTheDocument();
-    fireEvent.change(images.getByLabelText("Sort"), { target: { value: "old" } });
+    expect(images.getByText("Missing Date Gallery")).toBeInTheDocument();
+    selectRelatedSort(images, "Old Release");
     expectPrecedes(section as HTMLElement, "Page Gallery 9", "Page Gallery 8");
-    expect(images.queryByText("Missing Date Gallery")).not.toBeInTheDocument();
+    expect(images.getByText("Missing Date Gallery")).toBeInTheDocument();
+    fireEvent.click(images.getByRole("button", { name: "Switch to table view" }));
+    fireEvent.click(images.getByRole("button", { name: "Sort by CODE" }));
+    expectPrecedes(section as HTMLElement, "Alpha Gallery", "Middle Gallery");
+    fireEvent.click(images.getByRole("button", { name: "Sort by TOTAL" }));
+    expectPrecedes(section as HTMLElement, "Alpha Gallery", "Zulu Gallery");
+    fireEvent.click(images.getByRole("button", { name: "Sort by RATING" }));
+    expect(images.getByRole("columnheader", { name: /RATING/ }))
+      .toHaveAttribute("aria-sort", "ascending");
   });
 
   it("creates a video through Tauri commands without exposing the internal id", async () => {
@@ -8301,13 +12221,22 @@ describe("App", () => {
           expect(args.input.title).toBe("Created Video");
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
           expect(args.input.relatedPerformersJson).toBe("[]");
+          expect(args.input.sourceLinksJson).toBe(
+            '[{"title":"Official source","url":"https://example.invalid/video"}]',
+          );
           return created;
         }
         if (command === "video_get") {
           return created;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
+        }
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({ key: "cat_classic", name: "Classic" }),
+            managedCategoryFixture({ key: "cat_drama", name: "Drama" }),
+          ];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -8326,8 +12255,15 @@ describe("App", () => {
       target: { value: "typed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: " Official source " },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: " https://example.invalid/video " },
+    });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Created Video")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
@@ -8392,7 +12328,7 @@ describe("App", () => {
       target: { value: "D:/Media/detected.mp4" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Detected Video")).toBeInTheDocument();
   });
@@ -8443,12 +12379,12 @@ describe("App", () => {
     expect(screen.getByLabelText("Duration")).toHaveDisplayValue("");
     expect(screen.getByLabelText("Duration")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(screen.getByLabelText("Resolution")).toHaveDisplayValue("");
     expect(screen.getByLabelText("Resolution")).toHaveAttribute(
       "placeholder",
-      "Not detected yet",
+      "n/a",
     );
     expect(screen.getByLabelText("File Size")).toHaveDisplayValue("4096");
     expect(screen.getByLabelText("File Type")).toHaveDisplayValue("MP4");
@@ -8517,8 +12453,11 @@ describe("App", () => {
         if (command === "video_get") {
           return created;
         }
-        if (command === "performer_list") {
+        if (command === "performer_list" || command === "image_list") {
           return [];
+        }
+        if (command === "managed_category_list") {
+          return [managedCategoryFixture({ key: "cat_updated", name: "Updated" })];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -8537,6 +12476,11 @@ describe("App", () => {
     )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add Classic" }))
       .not.toBeInTheDocument();
+    fireEvent.focus(screen.getByRole("textbox", { name: "Search categories" }));
+    expect(screen.getByRole("button", { name: "Add Classic" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Drama" })).toBeInTheDocument();
+    expect(screen.queryByText((_, element) => element?.tagName === "MARK"))
+      .not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
@@ -8550,9 +12494,10 @@ describe("App", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "clas" },
     });
+    expect(screen.getByText("Clas").tagName.toLowerCase()).toBe("mark");
     fireEvent.click(screen.getByRole("button", { name: "Add Classic" }));
     expect(screen.getByText("Classic")).toBeInTheDocument();
-    expect(screen.getByText("1 category selected")).toBeInTheDocument();
+    expect(screen.getByText("1 category selected.")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "classic" },
     });
@@ -8577,10 +12522,47 @@ describe("App", () => {
       target: { value: "Picker Video" },
     });
     fillVideoRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Picker Video")).toBeInTheDocument();
     expect(screen.getByText("Drama")).toBeInTheDocument();
+  }, 10000);
+
+  it("renders category picker results in deterministic scroll-loaded batches", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    setManagedCategories(
+      Array.from({ length: 35 }, (_, index) =>
+        `Batch Category ${String(index + 1).padStart(2, "0")}`,
+      ),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(screen.queryByTestId("category-result-row")).not.toBeInTheDocument();
+
+    fireEvent.focus(screen.getByRole("textbox", { name: "Search categories" }));
+
+    let rows = screen.getAllByTestId("category-result-row");
+    expect(rows).toHaveLength(30);
+    expect(rows[0]).toHaveTextContent("Batch Category 01");
+    expect(rows[29]).toHaveTextContent("Batch Category 30");
+    expect(screen.queryByRole("button", { name: "Add Batch Category 31" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.scroll(rows[0].parentElement as HTMLElement);
+
+    rows = screen.getAllByTestId("category-result-row");
+    expect(rows).toHaveLength(35);
+    expect(rows[30]).toHaveTextContent("Batch Category 31");
+    expect(rows[34]).toHaveTextContent("Batch Category 35");
   });
 
   it("shows managed category parent paths and keeps search text after selection", async () => {
@@ -8611,15 +12593,23 @@ describe("App", () => {
 
     const search = screen.getByRole("textbox", { name: "Search categories" });
     expect(search).toHaveClass("select-text");
+    fireEvent.change(search, { target: { value: "body" } });
+    expect(screen.queryByRole("button", { name: "Add Bodytype" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Slim" }))
+      .not.toBeInTheDocument();
+
     fireEvent.change(search, { target: { value: "slim" } });
 
     const slimResult = await screen.findByRole("button", { name: "Add Slim" });
     expect(slimResult).toHaveClass("grid", "h-12", "overflow-hidden");
-    expect(within(slimResult).getByText("Bodytype > Slim")).toHaveClass(
+    expect(slimResult).toHaveTextContent(/Bodytype\s*>\s*Slim/);
+    const slimLabel = within(slimResult).getByText("Slim");
+    expect(slimLabel.tagName.toLowerCase()).toBe("mark");
+    expect(slimLabel.closest("span")).toHaveClass(
       "truncate",
       "whitespace-nowrap",
     );
-    expect(slimResult).toHaveTextContent(/Bodytype\s*>\s*Slim/);
 
     fireEvent.click(slimResult);
 
@@ -8817,7 +12807,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Cute" }));
     expect(screen.queryByText("Cute")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+1 more" })).not.toBeInTheDocument();
-    expect(screen.getByText("4 categories selected")).toBeInTheDocument();
+    expect(screen.getByText("4 categories selected.")).toBeInTheDocument();
     expect(screen.queryByText(/Record.only/)).not.toBeInTheDocument();
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
@@ -8829,6 +12819,7 @@ describe("App", () => {
         expect(args.id).toBe("video_test_001");
         return persistedVideo({
           title: "Timestamped Video",
+          releaseDate: "2026-02-02",
           createdAt: "1778611681088",
           updatedAt: "1778611707544",
         });
@@ -8843,10 +12834,16 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Timestamped Video")).toBeInTheDocument();
+    expect(screen.getByText("Release Date")).toBeInTheDocument();
+    expect(screen.getByText("Feb 02, 2026")).toBeInTheDocument();
+    expect(screen.queryByText("2026-02-02")).not.toBeInTheDocument();
     expect(screen.getByText("System Info")).toBeInTheDocument();
     expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
     expect(screen.getByText("Last edited")).toBeInTheDocument();
-    expect(screen.getAllByText("May 12, 2026, 06:48 PM UTC")).toHaveLength(2);
+    expect(screen.getAllByText(formatExpectedLocalTimestamp("1778611681088")).length)
+      .toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(formatExpectedLocalTimestamp("1778611707544")).length)
+      .toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Created At")).not.toBeInTheDocument();
     expect(screen.queryByText("Updated At")).not.toBeInTheDocument();
     expect(screen.queryByText("1778611681088")).not.toBeInTheDocument();
@@ -8908,7 +12905,8 @@ describe("App", () => {
       { path: "D:/Sakurava/videos/status-video.mp4" },
       undefined,
     );
-    expect(screen.queryByRole("button", { name: /open/i })).not.toBeInTheDocument();
+    expect(within(statusSection as HTMLElement).queryByRole("button", { name: /Open folder/i }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reveal/i })).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_update",
@@ -9114,74 +13112,173 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
   });
 
-  it("hides destructive delete controls in browser preview detail pages", () => {
-    window.history.pushState({}, "", "/videos/sample-id");
-    render(<App />);
-
-    expect(screen.getByRole("heading", { name: "Video Detail" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Delete permanently" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("opens delete confirmation with item-specific safety copy", async () => {
-    window.history.pushState({}, "", "/videos/video_test_001");
+  it.each([
+    {
+      path: "/videos/video_test_001",
+      title: "Read Only Detail Video",
+      heading: "Video Detail",
+      getCommand: "video_get",
+      record: persistedVideo({ title: "Read Only Detail Video" }),
+    },
+    {
+      path: "/images/image_test_001",
+      title: "Read Only Detail Image",
+      heading: "Image Detail",
+      getCommand: "image_get",
+      record: persistedImage({ title: "Read Only Detail Image" }),
+    },
+    {
+      path: "/performers/performer_test_001",
+      title: "Read Only Detail Performer",
+      heading: "Performer Detail",
+      getCommand: "performer_get",
+      record: persistedPerformer({ name: "Read Only Detail Performer" }),
+    },
+  ])("does not render Delete on $heading pages", async ({ path, title, heading, getCommand, record }) => {
+    window.history.pushState({}, "", path);
     const invoke = vi.fn(async (command: string) => {
-      if (command === "video_get") {
-        return persistedVideo({ title: "Delete Candidate Video" });
+      if (command === getCommand) return record;
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
       }
-
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
-    window.__TAURI_INTERNALS__ = {
-      invoke,
-    };
+    window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
 
-    expect(await screen.findByText("Delete Candidate Video")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+    expect(await screen.findByText(title)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Delete/i })).not.toBeInTheDocument();
+  });
 
+  it.each([
+    ["/videos/new", "Video Create Form"],
+    ["/images/new", "Image Create Form"],
+    ["/performers/new", "Performer Create Form"],
+  ])("does not render Delete on create form %s", async (path, formLabel) => {
+    window.history.pushState({}, "", path);
+    const invoke = vi.fn(async (command: string) => {
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByRole("form", { name: formLabel })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      path: "/videos/video_test_001/edit",
+      title: "Editable Delete Video",
+      formLabel: "Video Edit Form",
+      getCommand: "video_get",
+      record: persistedVideo({ title: "Editable Delete Video" }),
+    },
+    {
+      path: "/images/image_test_001/edit",
+      title: "Editable Delete Image",
+      formLabel: "Image Edit Form",
+      getCommand: "image_get",
+      record: persistedImage({ title: "Editable Delete Image" }),
+    },
+    {
+      path: "/performers/performer_test_001/edit",
+      title: "Editable Delete Performer",
+      formLabel: "Performer Edit Form",
+      getCommand: "performer_get",
+      record: persistedPerformer({ name: "Editable Delete Performer" }),
+    },
+  ])("renders Delete on $formLabel", async ({ path, title, formLabel, getCommand, record }) => {
+    window.history.pushState({}, "", path);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === getCommand) return record;
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "video_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue(title)).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: formLabel })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("opens edit form delete confirmation with item-specific safety copy", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
+    const nativeConfirm = vi.spyOn(window, "confirm");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_get") return persistedVideo({ title: "Delete Candidate Video" });
+      if (command === "performer_list" || command === "image_list" || command === "managed_category_list") {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Delete Candidate Video")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-    expect(
-      screen.getByRole("region", { name: "Delete confirmation" }),
-    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", {
+      name: "Delete Delete Candidate Video?",
+    });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByTestId("confirm-dialog-backdrop")).toBeInTheDocument();
+    expect(nativeConfirm).not.toHaveBeenCalled();
     expect(screen.getByText("Delete Delete Candidate Video?")).toBeInTheDocument();
     expect(
       screen.getByText(/removes the saved Sakurava record for Delete Candidate Video/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/does not delete local media files/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Delete permanently" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/does not delete local media files/i)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    nativeConfirm.mockRestore();
   });
 
-  it("cancels delete confirmation without calling the delete command", async () => {
-    window.history.pushState({}, "", "/videos/video_test_001");
+  it("cancels edit form delete confirmation without calling the delete command", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
     const invoke = vi.fn(async (command: string) => {
-      if (command === "video_get") {
-        return persistedVideo({ title: "Cancel Delete Video" });
+      if (command === "video_get") return persistedVideo({ title: "Cancel Delete Video" });
+      if (command === "performer_list" || command === "image_list" || command === "managed_category_list") {
+        return [];
       }
-
       throw new Error(`Unexpected command ${command}`);
     }) as unknown as TestTauriInvoke;
-    window.__TAURI_INTERNALS__ = {
-      invoke,
-    };
+    window.__TAURI_INTERNALS__ = { invoke };
 
     render(<App />);
 
-    expect(await screen.findByText("Cancel Delete Video")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Cancel Delete Video")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
 
-    expect(
-      screen.queryByRole("region", { name: "Delete confirmation" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Delete Cancel Delete Video?" }))
+      .not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_delete",
       expect.anything(),
@@ -9191,7 +13288,7 @@ describe("App", () => {
 
   it.each([
     {
-      path: "/videos/video_test_001",
+      path: "/videos/video_test_001/edit",
       title: "Deletable Video",
       getCommand: "video_get",
       deleteCommand: "video_delete",
@@ -9201,7 +13298,7 @@ describe("App", () => {
       record: persistedVideo({ title: "Deletable Video" }),
     },
     {
-      path: "/images/image_test_001",
+      path: "/images/image_test_001/edit",
       title: "Deletable Image",
       getCommand: "image_get",
       deleteCommand: "image_delete",
@@ -9211,7 +13308,7 @@ describe("App", () => {
       record: persistedImage({ title: "Deletable Image" }),
     },
     {
-      path: "/performers/performer_test_001",
+      path: "/performers/performer_test_001/edit",
       title: "Deletable Performer",
       getCommand: "performer_get",
       deleteCommand: "performer_delete",
@@ -9241,7 +13338,13 @@ describe("App", () => {
           if (command === deleteCommand) {
             return { id: args.id, deleted: true };
           }
-          if (command === listCommand) {
+          if (
+            command === listCommand ||
+            command === "performer_list" ||
+            command === "image_list" ||
+            command === "video_list" ||
+            command === "managed_category_list"
+          ) {
             return [];
           }
 
@@ -9254,9 +13357,16 @@ describe("App", () => {
 
       render(<App />);
 
-      expect(await screen.findByText(title)).toBeInTheDocument();
+      expect(await screen.findByDisplayValue(title)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-      fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+      const deleteDialog = await screen.findByRole(
+        "dialog",
+        {},
+        { timeout: 5_000 },
+      );
+      fireEvent.click(
+        within(deleteDialog).getByRole("button", { name: "Delete" }),
+      );
 
       await waitFor(() => expect(window.location.pathname).toBe(collectionPath));
       expect(
@@ -9264,14 +13374,14 @@ describe("App", () => {
       ).toBeInTheDocument();
       expect(invoke).toHaveBeenCalledWith(
         deleteCommand,
-        { id: path.split("/").pop() },
+        { id: path.split("/")[2] },
         undefined,
       );
     },
   );
 
-  it("shows an error and stays on detail when delete returns false", async () => {
-    window.history.pushState({}, "", "/images/image_test_001");
+  it("shows an error and stays on edit form when delete returns false", async () => {
+    window.history.pushState({}, "", "/images/image_test_001/edit");
     const invoke = vi.fn(
       async (command: string, args: Record<string, any> = {}) => {
         if (command === "image_get") {
@@ -9279,6 +13389,13 @@ describe("App", () => {
         }
         if (command === "image_delete") {
           return { id: args.id, deleted: false };
+        }
+        if (
+          command === "performer_list" ||
+          command === "video_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -9290,21 +13407,24 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Failed Delete Image")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Failed Delete Image")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    const deleteDialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(deleteDialog).getByRole("button", { name: "Delete" }),
+    );
 
     expect(
       await screen.findByText(
         "Image delete failed. The saved Sakurava record was not removed.",
       ),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/images/image_test_001");
-    expect(screen.getByRole("heading", { name: "Image Detail" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/images/image_test_001/edit");
+    expect(screen.getByRole("form", { name: "Image Edit Form" })).toBeInTheDocument();
   });
 
   it("disables delete confirmation while pending and prevents duplicate submits", async () => {
-    window.history.pushState({}, "", "/performers/performer_test_001");
+    window.history.pushState({}, "", "/performers/performer_test_001/edit");
     let resolveDelete: (value: { id: string; deleted: boolean }) => void = () => {};
     const deletePromise = new Promise<{ id: string; deleted: boolean }>((resolve) => {
       resolveDelete = resolve;
@@ -9317,8 +13437,20 @@ describe("App", () => {
         if (command === "performer_delete") {
           return deletePromise;
         }
-        if (command === "performer_list") {
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list"
+        ) {
           return [];
+        }
+        if (command === "managed_category_list") {
+          return [
+            managedCategoryFixture({
+              key: "cat_typed_category",
+              name: "Typed Category",
+            }),
+          ];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -9330,9 +13462,9 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Pending Delete Performer")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Pending Delete Performer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    confirmDialog("Delete");
 
     const pendingButton = await screen.findByRole("button", { name: "Deleting..." });
     expect(pendingButton).toBeDisabled();
@@ -9345,11 +13477,18 @@ describe("App", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/performers"));
   });
 
-  it("does not add bulk, checkbox, or row delete behavior to detail pages", async () => {
-    window.history.pushState({}, "", "/videos/video_test_001");
+  it("does not add bulk, checkbox, or row delete behavior to edit form delete", async () => {
+    window.history.pushState({}, "", "/videos/video_test_001/edit");
     const invoke = vi.fn(async (command: string) => {
       if (command === "video_get") {
         return persistedVideo({ title: "Single Delete Only Video" });
+      }
+      if (
+        command === "performer_list" ||
+        command === "image_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
       }
 
       throw new Error(`Unexpected command ${command}`);
@@ -9360,10 +13499,12 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Single Delete Only Video")).toBeInTheDocument();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(await screen.findByDisplayValue("Single Delete Only Video")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /delete|select/i }))
+      .not.toBeInTheDocument();
     expect(screen.queryByText(/bulk/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/select/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /bulk|select all/i }))
+      .not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
   });
 
@@ -9553,8 +13694,6 @@ describe("App", () => {
     expect(await screen.findByText("Favorite Failure Video")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
 
-    expect(screen.getByRole("button", { name: "Add to Favorites" }))
-      .toBeInTheDocument();
     expect(
       await screen.findByText(
         "Favorite update failed. The saved record was not changed.",
@@ -9571,11 +13710,15 @@ describe("App", () => {
       title: "Existing Video",
       categoriesJson: '["Classic"]',
       ratingJson: '{"rewatch":3}',
+      sourceLinksJson:
+        '[{"title":"Existing source","url":"https://example.invalid/old-video"}]',
     });
     const updated = persistedVideo({
       title: "Updated Video",
       categoriesJson: '["Classic","Updated"]',
       ratingJson: '{"rewatch":5}',
+      sourceLinksJson:
+        '[{"title":"Updated source","url":"https://example.invalid/new-video"}]',
     });
     let currentVideo = existing;
     const invoke = vi.fn(
@@ -9603,6 +13746,9 @@ describe("App", () => {
           expect(args.patch.title).toBe("Updated Video");
           expect(args.patch.categoriesJson).toBe('["Classic","Updated"]');
           expect(args.patch.relatedPerformersJson).toBe("[]");
+          expect(args.patch.sourceLinksJson).toBe(
+            '[{"title":"Updated source","url":"https://example.invalid/new-video"}]',
+          );
           expect(args.patch.ratingJson).toContain('"rewatch":5');
           currentVideo = updated;
           return updated;
@@ -9624,15 +13770,24 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Video")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Existing source")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.invalid/old-video"))
+      .toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Video" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Updated source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/new-video" },
     });
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "updated" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillVideoRatingFields({ Rewatch: "5" });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Updated Video")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
@@ -9677,6 +13832,9 @@ describe("App", () => {
             '["C:/Gallery/one.jpg","C:/Gallery/two.jpg"]',
           );
           expect(args.input.relatedPerformersJson).toBe("[]");
+          expect(args.input.sourceLinksJson).toBe(
+            '[{"title":"Image source","url":"https://example.invalid/image"}]',
+          );
           return created;
         }
         if (command === "image_get") {
@@ -9692,6 +13850,12 @@ describe("App", () => {
     window.__TAURI_INTERNALS__ = {
       invoke,
     };
+    dialogMocks.open.mockResolvedValue([
+      " C:/Gallery/one.jpg ",
+      "",
+      "C:/Gallery/two.jpg",
+      "C:/Gallery/one.jpg",
+    ]);
 
     render(<App />);
 
@@ -9699,30 +13863,26 @@ describe("App", () => {
       target: { value: "Created Image" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    const galleryInputs = screen.getAllByLabelText(/Gallery Image Path/);
-    fireEvent.change(galleryInputs[0], {
-      target: { value: " C:/Gallery/one.jpg " },
-    });
-    fireEvent.change(galleryInputs[2], {
-      target: { value: "C:/Gallery/two.jpg" },
-    });
-    fireEvent.change(galleryInputs[3], {
-      target: { value: "C:/Gallery/one.jpg" },
-    });
+    expect(await screen.findByDisplayValue("C:/Gallery/one.jpg")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("C:/Gallery/two.jpg")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search categories" }), {
       target: { value: "typed" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Typed Category" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Image source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/image" },
+    });
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Created Image")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("image_test_001")).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it("saves detected Image Tech Info and availability from a typed image path", async () => {
     window.history.pushState({}, "", "/images/new");
@@ -9771,6 +13931,7 @@ describe("App", () => {
       },
     ) as unknown as TestTauriInvoke;
     window.__TAURI_INTERNALS__ = { invoke };
+    dialogMocks.open.mockResolvedValue("D:/Images/one.jpg");
 
     render(<App />);
 
@@ -9778,11 +13939,9 @@ describe("App", () => {
       target: { value: "Detected Image" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
-      target: { value: "D:/Images/one.jpg" },
-    });
+    expect(await screen.findByDisplayValue("D:/Images/one.jpg")).toBeInTheDocument();
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Detected Image")).toBeInTheDocument();
   });
@@ -9858,7 +14017,7 @@ describe("App", () => {
       target: { value: "Folder Gallery Image" },
     });
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Browse" })[1],
+      screen.getByRole("button", { name: "Add Folder" }),
     );
 
     expect(
@@ -9866,7 +14025,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("C:/GalleryFolder/b.png")).toBeInTheDocument();
     expect(
-      screen.getByText("Loaded 3 Gallery Images path rows."),
+      screen.getByText("Loaded 3 Gallery Path rows."),
     ).toBeInTheDocument();
     expect(dialogMocks.open).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -9877,7 +14036,7 @@ describe("App", () => {
     );
 
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Folder Gallery Image")).toBeInTheDocument();
   });
@@ -9885,7 +14044,6 @@ describe("App", () => {
   it("confirms before replacing existing image Gallery Images rows from a folder", async () => {
     window.history.pushState({}, "", "/images/image_test_001/edit");
     dialogMocks.open.mockResolvedValue("C:/Replacement");
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const existing = persistedImage({
       title: "Existing Gallery Image",
       galleryImagePathsJson: '["C:/Old/one.jpg"]',
@@ -9927,22 +14085,174 @@ describe("App", () => {
 
     expect(await screen.findByDisplayValue("C:/Old/one.jpg")).toBeInTheDocument();
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Browse" })[1],
+      screen.getByRole("button", { name: "Add Folder" }),
     );
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Replace current Gallery Images path rows?",
-    );
+    expect(screen.getByRole("dialog", { name: "Replace Gallery Path?" }))
+      .toBeInTheDocument();
+    confirmDialog("Replace");
     expect(
       await screen.findByDisplayValue("C:/Replacement/new.gif"),
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("C:/Old/one.jpg")).not.toBeInTheDocument();
 
     fillImageRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Existing Gallery Image")).toBeInTheDocument();
-    confirmSpy.mockRestore();
+  }, 10000);
+
+  it("does not mutate image gallery rows when Add Folder is canceled", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue(null);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Folder" }));
+
+    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("No Gallery Path rows added.")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "gallery_folder_images_list",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("adds selected image files to Gallery Path rows without mutating Cover Path", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue([
+      "C:/Gallery/one.jpg",
+      "C:/Gallery/two.png",
+      "C:/Gallery/one.jpg",
+    ]);
+    const probedPaths: string[] = [];
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "media_metadata_probe") {
+        probedPaths.push(args.path);
+        return {
+          path: args.path,
+          status: "exists",
+          kind: "file",
+          fileSizeBytes: args.path.endsWith("one.jpg") ? 1000 : 2000,
+          fileType: args.path.endsWith("one.jpg") ? "JPG" : "PNG",
+          width: args.path.endsWith("one.jpg") ? 1200 : 800,
+          height: args.path.endsWith("one.jpg") ? 800 : 600,
+          resolution: args.path.endsWith("one.jpg") ? "1200 x 800" : "800 x 600",
+          message: "Metadata checked",
+        };
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Cover Path"), {
+      target: { value: "C:/Cover/cover.jpg" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+
+    expect(await screen.findByDisplayValue("C:/Gallery/one.jpg")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("C:/Gallery/two.png")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cover Path")).toHaveDisplayValue("C:/Cover/cover.jpg");
+    expect(screen.getByLabelText("Image Count")).toHaveDisplayValue("2");
+    expect(screen.getByLabelText("Main Resolution")).toHaveDisplayValue("1200 x 800");
+    expect(screen.getByLabelText("Total File Size")).toHaveDisplayValue("3000");
+    expect(screen.getByLabelText("Main File Type")).toHaveDisplayValue("JPG");
+    expect(probedPaths).toEqual(["C:/Gallery/one.jpg", "C:/Gallery/two.png"]);
+    expect(dialogMocks.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Select Image Files",
+        multiple: true,
+        directory: false,
+        filters: [
+          {
+            name: "Image",
+            extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+          },
+        ],
+      }),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("does not mutate image gallery rows when Add Images is canceled", async () => {
+    window.history.pushState({}, "", "/images/new");
+    dialogMocks.open.mockResolvedValue(null);
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+
+    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("No Gallery Path rows added.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Gallery Image Path 1")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "image_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("does not drive Image Tech Info from Cover Path detection", async () => {
+    window.history.pushState({}, "", "/images/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Cover Path"), {
+      target: { value: "C:/Cover/cover.jpg" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Detect" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Image Count")).toHaveDisplayValue("");
+    });
+    expect(screen.getByLabelText("Main Resolution")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Total File Size")).toHaveDisplayValue("");
+    expect(screen.getByLabelText("Main File Type")).toHaveDisplayValue("");
+    expect(invoke).not.toHaveBeenCalledWith(
+      "media_metadata_probe",
+      expect.objectContaining({ path: "C:/Cover/cover.jpg" }),
+      expect.anything(),
+    );
   });
 
   it("loads and updates an image through Tauri commands", async () => {
@@ -9954,12 +14264,16 @@ describe("App", () => {
         '["C:/Gallery/existing-one.jpg","C:/Gallery/existing-two.jpg"]',
       categoriesJson: '["Portrait"]',
       ratingJson: '{"memorability":3}',
+      sourceLinksJson:
+        '[{"title":"Existing image source","url":"https://example.invalid/old-image"}]',
     });
     const updated = persistedImage({
       title: "Updated Image",
       galleryImagePathsJson: '["C:/Gallery/updated.jpg"]',
       categoriesJson: '["Portrait","Updated"]',
       ratingJson: '{"memorability":5}',
+      sourceLinksJson:
+        '[{"title":"","url":"https://example.invalid/url-only-image"}]',
     });
     let currentImage = existing;
     const invoke = vi.fn(
@@ -9976,6 +14290,9 @@ describe("App", () => {
             '["C:/Gallery/updated.jpg","C:/Gallery/existing-two.jpg"]',
           );
           expect(args.patch.relatedPerformersJson).toBe("[]");
+          expect(args.patch.sourceLinksJson).toBe(
+            '[{"title":"","url":"https://example.invalid/url-only-image"}]',
+          );
           expect(args.patch.ratingJson).toContain('"memorability":5');
           currentImage = updated;
           return updated;
@@ -9994,15 +14311,20 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Image")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Existing image source")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.invalid/old-image"))
+      .toBeInTheDocument();
     expect(
       screen.getByDisplayValue("C:/Gallery/existing-one.jpg"),
     ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/url-only-image" },
+    });
     fireEvent.change(screen.getByLabelText("Gallery Image Path 1"), {
       target: { value: " C:/Gallery/updated.jpg " },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
-    fireEvent.change(screen.getByLabelText("Gallery Image Path 3"), {
-      target: { value: "C:/Gallery/updated.jpg" },
     });
     fireEvent.change(screen.getByLabelText(/^Title/), {
       target: { value: "Updated Image" },
@@ -10012,7 +14334,7 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillImageRatingFields({ Memorability: "5" });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(
       await screen.findByText("Updated Image", {}, { timeout: 5000 }),
@@ -10057,31 +14379,35 @@ describe("App", () => {
 
     expect(await screen.findByText("Gallery Detail Image")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Gallery" })).toBeInTheDocument();
-    expect(screen.getByText("Showing 16 of 40 images")).toBeInTheDocument();
+    expect(screen.getByText("Showing 15 of 40 images")).toBeInTheDocument();
     const initialImages = screen.getAllByRole("img", {
       name: /Gallery image/i,
     });
-    expect(initialImages).toHaveLength(16);
+    expect(initialImages).toHaveLength(15);
+    expect(screen.getByTestId("image-detail-gallery-grid")).toHaveClass("lg:grid-cols-5");
     expect(initialImages[0]).toHaveAttribute(
       "src",
       "asset://localhost/C:/Gallery/01.jpg",
     );
+    expect(initialImages[0]).toHaveAttribute("loading", "lazy");
     expect(initialImages[1]).toHaveAttribute(
       "src",
       "asset://localhost/C:/Gallery/02.jpg",
     );
+    expect(screen.queryByAltText("Gallery image 16")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show All" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Load More" }));
 
     await waitFor(() => {
       expect(
         screen.getAllByRole("img", { name: /Gallery image/i }),
-      ).toHaveLength(32);
+      ).toHaveLength(30);
     });
-    expect(screen.getByText("Showing 32 of 40 images")).toBeInTheDocument();
+    expect(screen.getByText("Showing 30 of 40 images")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load More" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Load More" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show All" }));
 
     await waitFor(() => {
       expect(
@@ -10091,6 +14417,9 @@ describe("App", () => {
     expect(screen.getByText("Showing 40 of 40 images")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Load More" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Show All" }),
     ).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "gallery_folder_images_list",
@@ -10157,7 +14486,7 @@ describe("App", () => {
     expect(within(actionBar).queryByRole("button", { name: "Close gallery viewer" }))
       .not.toBeInTheDocument();
     expect(within(actionBar).getByLabelText("Image aspect ratio"))
-      .toHaveTextContent("1:1");
+      .toHaveTextContent("-");
     expect(within(controlBar).getByRole("button", { name: "Reset gallery image view" }))
       .toBeInTheDocument();
     const bottomDock = within(viewer).getByLabelText("Image viewer bottom dock");
@@ -10441,7 +14770,7 @@ describe("App", () => {
     expect(secondStoredPayload.openRequestId).toBe(emittedOpenRequestIds[1]);
   });
 
-  it("does not return success when existing viewer payload delivery fails", async () => {
+  it("keeps the existing viewer window when payload delivery does not ack", async () => {
     const { openGlobalImageViewerWindow } = await import(
       "./runtime/globalImageViewerWindow"
     );
@@ -10490,10 +14819,8 @@ describe("App", () => {
         images: [{ path: "C:/Gallery/same.jpg" }],
         initialIndex: 0,
       }),
-    ).resolves.toMatchObject({
-      mode: "fallback",
-    });
-  });
+    ).resolves.toEqual({ mode: "window" });
+  }, 10000);
 
   it("creates a separate Tauri image viewer window when one is not open", async () => {
     const { openGlobalImageViewerWindow } = await import(
@@ -11036,9 +15363,11 @@ describe("App", () => {
     expect(within(moreMenu).queryByRole("menuitem", { name: "Full Window" }))
       .not.toBeInTheDocument();
     expect(within(moreMenu).getByRole("menuitem", { name: "Save As" }))
-      .toBeDisabled();
-    expect(within(moreMenu).getByRole("menuitem", { name: "Copy Image" }))
-      .toBeDisabled();
+      .toBeEnabled();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Open Folder" }))
+      .toBeEnabled();
+    expect(within(moreMenu).queryByRole("menuitem", { name: "Copy Image" }))
+      .not.toBeInTheDocument();
     await act(async () => {
       fireEvent.click(within(moreMenu).getByRole("menuitem", { name: "Copy File Name" }));
     });
@@ -11432,6 +15761,446 @@ describe("App", () => {
     expect(within(viewer).getByText("800 x 1200")).toBeInTheDocument();
   });
 
+  it("keeps image viewer zoom controls within 1% and 1000% with 1% slider movement and assistive snapping", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "zoom-wide.jpg",
+            path: "C:/Gallery/zoom-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const zoomSlider = within(viewer).getByLabelText(
+      "Set gallery image zoom percentage",
+    );
+    expect(zoomSlider).toHaveAttribute("min", "0.01");
+    expect(zoomSlider).toHaveAttribute("max", "10");
+    expect(zoomSlider).toHaveAttribute("step", "0.01");
+
+    fireEvent.change(zoomSlider, { target: { value: "10" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1000%");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom in gallery image" }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1000%");
+
+    fireEvent.change(zoomSlider, { target: { value: "0.01" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1%");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Zoom out gallery image" }),
+    );
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1%");
+
+    fireEvent.change(zoomSlider, { target: { value: "0.37" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("37%");
+    fireEvent.change(zoomSlider, { target: { value: "0.63" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("63%");
+    fireEvent.change(zoomSlider, { target: { value: "0.19" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("19%");
+    fireEvent.change(zoomSlider, { target: { value: "0.21" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("25%");
+    fireEvent.change(zoomSlider, { target: { value: "0.44" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("44%");
+    fireEvent.change(zoomSlider, { target: { value: "0.46" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("50%");
+    fireEvent.change(zoomSlider, { target: { value: "0.94" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("94%");
+    fireEvent.change(zoomSlider, { target: { value: "0.96" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+    fireEvent.change(zoomSlider, { target: { value: "1.44" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("144%");
+    fireEvent.change(zoomSlider, { target: { value: "1.46" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("150%");
+    fireEvent.change(zoomSlider, { target: { value: "2.12" } });
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("212%");
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    );
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Width",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+  });
+
+  it("snaps the image viewer rotation slider near supported angles and keeps rotate buttons working", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "rotation-wide.jpg",
+            path: "C:/Gallery/rotation-wide.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const rotationSlider = within(viewer).getByLabelText("Set image rotation degrees");
+    const rotationValue = within(viewer).getByLabelText("Image rotation value");
+
+    for (const [input, expected] of [
+      ["-174", "-180°"],
+      ["-129", "-135°"],
+      ["-84", "-90°"],
+      ["-39", "-45°"],
+      ["6", "0°"],
+      ["39", "45°"],
+      ["84", "90°"],
+      ["129", "135°"],
+      ["174", "180°"],
+    ]) {
+      fireEvent.change(rotationSlider, { target: { value: input } });
+      expect(rotationValue).toHaveTextContent(expected);
+    }
+
+    for (const value of ["12", "33", "77"]) {
+      fireEvent.change(rotationSlider, { target: { value } });
+      expect(rotationValue).toHaveTextContent(`${value}°`);
+    }
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(rotationValue).toHaveTextContent("0°");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Rotate gallery image right" }),
+    );
+    expect(rotationValue).toHaveTextContent("15°");
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Rotate gallery image left" }),
+    );
+    expect(rotationValue).toHaveTextContent("0°");
+  });
+
+  it("resets image viewer transforms to 100 percent rotation zero and centered pan", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "reset-wide.jpg",
+            path: "C:/Gallery/reset-wide.jpg",
+            resolution: "1600 x 900",
+          },
+          {
+            filename: "reset-next.jpg",
+            path: "C:/Gallery/reset-next.jpg",
+            resolution: "1600 x 900",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const zoomSlider = within(viewer).getByLabelText(
+      "Set gallery image zoom percentage",
+    );
+    const rotationSlider = within(viewer).getByLabelText("Set image rotation degrees");
+    const panSurface = within(viewer).getByLabelText("Image pan surface");
+
+    fireEvent.change(zoomSlider, { target: { value: "10" } });
+    fireEvent.change(rotationSlider, { target: { value: "84" } });
+    fireEvent.pointerDown(panSurface, {
+      clientX: 500,
+      clientY: 350,
+      pointerId: 30,
+    });
+    fireEvent.pointerMove(panSurface, {
+      clientX: 420,
+      clientY: 310,
+      pointerId: 30,
+    });
+    expect(panSurface).not.toHaveAttribute("data-pan-x", "0");
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("1000%");
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("90°");
+
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+
+    expect(within(viewer).getByText("1 / 2")).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("0°");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-x", "0");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-y", "0");
+    expect(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    ).not.toHaveClass("bg-sakura-500/85");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("2 / 2")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(viewer).getByRole("button", {
+        name: "Cycle gallery image fit mode: Fit Window",
+      }),
+    );
+    fireEvent.change(rotationSlider, { target: { value: "-39" } });
+    fireEvent.click(
+      within(viewer).getByRole("button", { name: "Reset gallery image view" }),
+    );
+    expect(within(viewer).getByText("2 / 2")).toBeInTheDocument();
+    expect(within(viewer).getByLabelText("Image zoom value"))
+      .toHaveTextContent("100%");
+    expect(within(viewer).getByLabelText("Image rotation value"))
+      .toHaveTextContent("0°");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-x", "0");
+    expect(within(viewer).getByLabelText("Image pan surface"))
+      .toHaveAttribute("data-pan-y", "0");
+  });
+
+  it("keeps image viewer header dimensions and ratio badge on the same source across formats", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "Alexandrina.jpg",
+            path: "C:/Gallery/Alexandrina.jpg",
+            resolution: "1200 x 1500",
+          },
+          {
+            filename: "sample.webp",
+            path: "C:/Gallery/sample.webp",
+            resolution: "1920 x 1080",
+          },
+          {
+            filename: "wide-16-10.jpg",
+            path: "C:/Gallery/wide-16-10.jpg",
+            resolution: "1600 x 1000",
+          },
+          {
+            filename: "tall-10-16.jpeg",
+            path: "C:/Gallery/tall-10-16.jpeg",
+            resolution: "1000 x 1600",
+          },
+          {
+            filename: "uncommon.jpg",
+            path: "C:/Gallery/uncommon.jpg",
+            resolution: "997 x 733",
+          },
+          {
+            filename: "near-square.jpg",
+            path: "C:/Gallery/near-square.jpg",
+            resolution: "1007 x 1000",
+          },
+          {
+            filename: "unknown.bin",
+            path: "C:/Gallery/unknown.bin",
+          },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const ratio = within(viewer).getByLabelText("Image aspect ratio");
+    expect(within(viewer).getByText("1200 x 1500")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("4:5");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1920 x 1080")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("16:9");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1600 x 1000")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("16:10");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1000 x 1600")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("10:16");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("997 x 733")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("997:733");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(within(viewer).getByText("1007 x 1000")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("1007:1000");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+  });
+
+  it("updates image viewer png ratio after load without stale or misleading 1:1 fallbacks", () => {
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn() as unknown as TestTauriInvoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          {
+            filename: "Alexandrina.png",
+            path: "C:/Gallery/Alexandrina.png",
+            resolution: "1842 x 2304",
+          },
+          { filename: "tall.png", path: "C:/Gallery/tall.png" },
+          { filename: "wide.png", path: "C:/Gallery/wide.png", resolution: "1 x 1" },
+          { filename: "square.png", path: "C:/Gallery/square.png" },
+          { filename: "broken.png", path: "C:/Gallery/broken.png" },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", {
+      name: "Gallery full-size viewer",
+    });
+    const ratio = within(viewer).getByLabelText("Image aspect ratio");
+    expect(within(viewer).getByText("1842 x 2304")).toBeInTheDocument();
+    expect(ratio).toHaveTextContent("4:5");
+    expect(ratio).not.toHaveTextContent("307:384");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    const screenshotPngImage = within(viewer).getByAltText("Gallery image 1 full size");
+    Object.defineProperty(screenshotPngImage, "naturalWidth", {
+      configurable: true,
+      value: 1842,
+    });
+    Object.defineProperty(screenshotPngImage, "naturalHeight", {
+      configurable: true,
+      value: 2304,
+    });
+    fireEvent.load(screenshotPngImage);
+    expect(ratio).toHaveTextContent("4:5");
+    expect(ratio).not.toHaveTextContent("307:384");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    const tallImage = within(viewer).getByAltText("Gallery image 2 full size");
+    Object.defineProperty(tallImage, "naturalWidth", {
+      configurable: true,
+      value: 600,
+    });
+    Object.defineProperty(tallImage, "naturalHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    fireEvent.load(tallImage);
+    expect(ratio).toHaveTextContent("1:2");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    const wrongMetadataImage = within(viewer).getByAltText("Gallery image 3 full size");
+    Object.defineProperty(wrongMetadataImage, "naturalWidth", {
+      configurable: true,
+      value: 1842,
+    });
+    Object.defineProperty(wrongMetadataImage, "naturalHeight", {
+      configurable: true,
+      value: 2304,
+    });
+    fireEvent.load(wrongMetadataImage);
+    expect(ratio).toHaveTextContent("4:5");
+    expect(ratio).not.toHaveTextContent("307:384");
+    expect(ratio).not.toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    const squareImage = within(viewer).getByAltText("Gallery image 4 full size");
+    Object.defineProperty(squareImage, "naturalWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(squareImage, "naturalHeight", {
+      configurable: true,
+      value: 900,
+    });
+    fireEvent.load(squareImage);
+    expect(ratio).toHaveTextContent("1:1");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    expect(ratio).toHaveTextContent("-");
+    fireEvent.error(within(viewer).getByAltText("Gallery image 5 full size"));
+    expect(ratio).toHaveTextContent("-");
+    expect(
+      within(viewer).queryByAltText("Gallery image 5 full size"),
+    ).not.toBeInTheDocument();
+  });
+
   it("persists and clears remembered viewer fit, zoom, and rotation settings", () => {
     window.__TAURI_INTERNALS__ = {
       invoke: vi.fn() as unknown as TestTauriInvoke,
@@ -11551,6 +16320,173 @@ describe("App", () => {
       .not.toHaveTextContent("300%");
   });
 
+  it("runs Image Viewer More menu Save As and Open Folder for the current image path", async () => {
+    dialogMocks.save.mockResolvedValue("C:/Export/two-copy.jpg");
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "detail_source_file_copy_as") {
+        return {
+          sourcePath: args.sourcePath,
+          destinationPath: args.destinationPath,
+          success: true,
+          message: "Source file saved",
+        };
+      }
+      if (command === "detail_source_folder_reveal") {
+        return {
+          sourcePath: args.sourcePath,
+          folderPath: "C:/Gallery",
+          success: true,
+          message: "Source folder open request sent",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          { filename: "one.jpg", path: "C:/Gallery/one.jpg", resolution: "800 x 600" },
+          { filename: "two.jpg", path: "C:/Gallery/two.jpg", resolution: "800 x 600" },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", { name: "Gallery full-size viewer" });
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next gallery image" }));
+    fireEvent.click(within(viewer).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+    const saveAs = within(moreMenu).getByRole("menuitem", { name: "Save As" });
+    const openFolder = within(moreMenu).getByRole("menuitem", { name: "Open Folder" });
+
+    expect(saveAs).toBeEnabled();
+    expect(openFolder).toBeEnabled();
+
+    fireEvent.click(saveAs);
+    fireEvent.click(saveAs);
+    await waitFor(() => {
+      expect(vi.mocked(invoke).mock.calls.filter(
+        ([command]) => command === "detail_source_file_copy_as",
+      )).toHaveLength(1);
+    });
+    expect(invoke).toHaveBeenCalledWith(
+      "detail_source_file_copy_as",
+      {
+        sourcePath: "C:/Gallery/two.jpg",
+        destinationPath: "C:/Export/two-copy.jpg",
+      },
+      undefined,
+    );
+    expect(await within(moreMenu).findByText("Source file saved"))
+      .toBeInTheDocument();
+
+    fireEvent.click(openFolder);
+    fireEvent.click(openFolder);
+    await waitFor(() => {
+      expect(vi.mocked(invoke).mock.calls.filter(
+        ([command]) => command === "detail_source_folder_reveal",
+      )).toHaveLength(1);
+    });
+    expect(invoke).toHaveBeenCalledWith(
+      "detail_source_folder_reveal",
+      { sourcePath: "C:/Gallery/two.jpg" },
+      undefined,
+    );
+    await waitFor(() => {
+      expect(within(moreMenu).queryByText("Source folder open request sent"))
+        .not.toBeInTheDocument();
+    });
+    expect(within(moreMenu).queryByText("Source folder opened"))
+      .not.toBeInTheDocument();
+  });
+
+  it("keeps Image Viewer More menu helper messages quiet while preserving essential errors", async () => {
+    dialogMocks.save.mockResolvedValueOnce(null).mockResolvedValueOnce("C:/Export/error.jpg");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "detail_source_file_copy_as") {
+        return {
+          sourcePath: "C:/Gallery/error.jpg",
+          destinationPath: "C:/Export/error.jpg",
+          success: false,
+          message: "Source file could not be saved",
+        };
+      }
+      if (command === "detail_source_folder_reveal") {
+        return {
+          sourcePath: "C:/Gallery/error.jpg",
+          success: false,
+          message: "Source folder could not be opened",
+        };
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = {
+      invoke,
+      convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${filePath}`),
+    };
+
+    render(
+      <GlobalImageViewer
+        images={[
+          { filename: "error.jpg", path: "C:/Gallery/error.jpg", resolution: "800 x 600" },
+        ]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", { name: "Gallery full-size viewer" });
+    fireEvent.click(within(viewer).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+    const saveAs = within(moreMenu).getByRole("menuitem", { name: "Save As" });
+    const openFolder = within(moreMenu).getByRole("menuitem", { name: "Open Folder" });
+
+    fireEvent.click(saveAs);
+    await waitFor(() => {
+      expect(within(moreMenu).queryByText("Save canceled")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(saveAs);
+    expect(await within(moreMenu).findByText("Source file could not be saved"))
+      .toBeInTheDocument();
+
+    fireEvent.click(openFolder);
+    expect(await within(moreMenu).findByText("Source folder could not be opened"))
+      .toBeInTheDocument();
+  });
+
+  it("disables Image Viewer More menu file actions when the current image path is missing", () => {
+    render(
+      <GlobalImageViewer
+        images={[{ filename: "missing.jpg", path: "", resolution: "800 x 600" }]}
+        initialIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const viewer = screen.getByRole("dialog", { name: "Gallery full-size viewer" });
+    fireEvent.click(within(viewer).getByRole("button", { name: "More image actions" }));
+    const moreMenu = within(viewer).getByRole("menu", {
+      name: "More image actions menu",
+    });
+
+    expect(within(moreMenu).getByRole("menuitem", { name: "Save As" }))
+      .toBeDisabled();
+    expect(within(moreMenu).getByRole("menuitem", { name: "Open Folder" }))
+      .toBeDisabled();
+  });
+
   it("keeps a gallery viewer fallback when the selected full-size image fails", async () => {
     window.history.pushState({}, "", "/images/image_test_001");
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -11663,6 +16599,7 @@ describe("App", () => {
         expect(args.id).toBe("image_test_001");
         return persistedImage({
           title: "Timestamped Image",
+          releaseDate: "2026-02-02",
           createdAt: "2026-05-10T01:02:03.000Z",
           updatedAt: "2026-05-12T07:08:09.000Z",
         });
@@ -11677,11 +16614,14 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Timestamped Image")).toBeInTheDocument();
+    expect(screen.getByText("Release Date")).toBeInTheDocument();
+    expect(screen.getByText("Feb 02, 2026")).toBeInTheDocument();
+    expect(screen.queryByText("2026-02-02")).not.toBeInTheDocument();
     expect(screen.getByText("System Info")).toBeInTheDocument();
     expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
-    expect(screen.getByText("May 10, 2026, 01:02 AM UTC")).toBeInTheDocument();
+    expect(screen.getByText(formatExpectedLocalTimestamp("2026-05-10T01:02:03.000Z"))).toBeInTheDocument();
     expect(screen.getByText("Last edited")).toBeInTheDocument();
-    expect(screen.getByText("May 12, 2026, 07:08 AM UTC")).toBeInTheDocument();
+    expect(screen.getByText(formatExpectedLocalTimestamp("2026-05-12T07:08:09.000Z"))).toBeInTheDocument();
     expect(screen.queryByText("2026-05-10T01:02:03.000Z")).not.toBeInTheDocument();
     expect(screen.queryByText("2026-05-12T07:08:09.000Z")).not.toBeInTheDocument();
   });
@@ -11712,6 +16652,7 @@ describe("App", () => {
     setManagedCategories(["Typed Category"]);
     const created = persistedPerformer({
       name: "Created Performer",
+      gender: "Woman",
       aliasesJson: '["Typed Alias"]',
       categoriesJson: '["Typed Category"]',
       ratingJson: '{"attraction":4}',
@@ -11722,6 +16663,9 @@ describe("App", () => {
           expect(args.input.name).toBe("Created Performer");
           expect(args.input.aliasesJson).toBe('["Typed Alias"]');
           expect(args.input.categoriesJson).toBe('["Typed Category"]');
+          expect(args.input.sourceLinksJson).toBe(
+            '[{"title":"Performer source","url":"https://example.invalid/performer"}]',
+          );
           expect(args.input.performerThumbnailPathsJson).toBe(
             '["D:/Thumbs/created-1.jpg","D:/Thumbs/created-2.jpg"]',
           );
@@ -11729,6 +16673,7 @@ describe("App", () => {
           expect(args.input.debutDate).toBe("2020-01-02");
           expect(args.input.retiredDate).toBe("2024-03-04");
           expect(args.input.birthDate).toBe("1998-01-20");
+          expect(args.input.gender).toBe("Woman");
           expect(args.input.birthplace).toBe("Tokyo");
           expect(args.input.nationality).toBe("Japanese");
           expect(args.input.bloodType).toBe("A");
@@ -11800,6 +16745,9 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Birth Date"), {
       target: { value: "1998-01-20" },
     });
+    fireEvent.change(screen.getByLabelText("Gender"), {
+      target: { value: "Woman" },
+    });
     fireEvent.change(screen.getByLabelText("Birthplace"), {
       target: { value: "Tokyo" },
     });
@@ -11829,19 +16777,32 @@ describe("App", () => {
       target: { value: "related image" },
     });
     fireEvent.click(await screen.findByRole("button", { name: "Add related image Related Image" }));
-    fireEvent.change(screen.getByLabelText("Thumbnail 1"), {
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Performer source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/performer" },
+    });
+    dialogMocks.open.mockResolvedValueOnce([
+      "D:/Thumbs/created-1-placeholder.jpg",
+      "D:/Thumbs/created-2-placeholder.jpg",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Mini Thumbnail Path 2")).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail Path 1"), {
       target: { value: " D:/Thumbs/created-1.jpg " },
     });
-    fireEvent.change(screen.getByLabelText("Thumbnail 2"), {
-      target: { value: "" },
-    });
-    fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
+    fireEvent.change(screen.getByLabelText("Mini Thumbnail Path 2"), {
       target: { value: "D:/Thumbs/created-2.jpg" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Created Performer")).toBeInTheDocument();
+    expect(screen.getByText("Woman")).toBeInTheDocument();
     expect(screen.getByText("Typed Alias")).toBeInTheDocument();
     expect(screen.getByText("Typed Category")).toBeInTheDocument();
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
@@ -11871,6 +16832,211 @@ describe("App", () => {
     expect(screen.queryByText(/categoriesJson/)).not.toBeInTheDocument();
   });
 
+  it("renders Gender as a Performer direct field only", () => {
+    window.history.pushState({}, "", "/videos/new");
+    const { unmount } = render(<App />);
+
+    expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+    unmount();
+
+    window.history.pushState({}, "", "/images/new");
+    const imageRender = render(<App />);
+
+    expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+    imageRender.unmount();
+
+    window.history.pushState({}, "", "/performers/new");
+    render(<App />);
+
+    expect(screen.getByLabelText("Gender")).toBeInTheDocument();
+    expect(screen.queryByText("No Gender categories found")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+    expect(screen.queryByText("No Body Type categories found")).not.toBeInTheDocument();
+  });
+
+  it("shows Gender as a recent-only direct field without defaults or Category Management taxonomy", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const gender = await screen.findByLabelText("Gender");
+    expect(gender).toHaveValue("");
+    fireEvent.focus(gender);
+    expect(screen.queryByRole("listbox", { name: "Gender suggestions" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByText("Standard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Woman" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Man" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Non-binary" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unknown" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+
+    fireEvent.change(gender, { target: { value: "Woman" } });
+    expect(gender).toHaveValue("Woman");
+  });
+
+  it.each(["bodytype", "body-type", "body_type"])(
+    "does not render Body Type form field from parent variant %s",
+    async (bodyTypeParentName) => {
+      window.history.pushState({}, "", "/performers/new");
+      const invoke = vi.fn(async (command: string) => {
+        if (command === "managed_category_list") {
+          return performerTaxonomyFixtures(bodyTypeParentName);
+        }
+        if (
+          command === "performer_list" ||
+          command === "video_list" ||
+          command === "image_list"
+        ) {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke;
+      window.__TAURI_INTERNALS__ = { invoke };
+
+      render(<App />);
+
+      const gender = await screen.findByLabelText("Gender");
+      expect(gender).toHaveValue("");
+      expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+      expect(screen.queryByText("Athletic")).not.toBeInTheDocument();
+    },
+  );
+
+  it("shows discard confirmation after changing Performer Gender direct field", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Gender"), {
+      target: { value: "Woman" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+  });
+
+  it("saves Performer Gender through the real performer field", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const created = persistedPerformer({
+      name: "Gender Performer",
+      gender: "Woman",
+      categoriesJson: "[]",
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (command === "performer_create") {
+        expect(args.input.categoriesJson).toBe("[]");
+        expect(args.input.gender).toBe("Woman");
+        expect(args.input.measurements).toBe("");
+        expect(args.input.cupSize).toBe("");
+        return created;
+      }
+      if (command === "performer_get") {
+        return created;
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("Gender"), {
+      target: { value: "Woman" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Gender Performer" },
+    });
+    fillPerformerRatingFields();
+    clickSaveAndConfirm();
+
+    expect(await screen.findByText("Gender Performer")).toBeInTheDocument();
+    expect(screen.getByText("Woman")).toBeInTheDocument();
+  });
+
+  it("loads Gender from performer.gender and not saved performer taxonomy categories", async () => {
+    window.history.pushState({}, "", "/performers/performer_test_001/edit");
+    const existing = persistedPerformer({
+      name: "Saved Gender Performer",
+      gender: "Non-binary",
+      categoriesJson: '["Woman","Athletic","Classic"]',
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "managed_category_list") {
+        return performerTaxonomyFixtures("Body Type");
+      }
+      if (command === "performer_get") {
+        return existing;
+      }
+      if (
+        command === "performer_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Saved Gender Performer"))
+      .toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Gender")).toHaveValue("Non-binary");
+      expect(screen.queryByLabelText("Body Type")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("Classic")).toBeInTheDocument();
+  });
+
   it("saves empty performer mini thumbnail fields safely", async () => {
     window.history.pushState({}, "", "/performers/new");
     const created = persistedPerformer({ name: "Empty Thumbnail Performer" });
@@ -11898,9 +17064,71 @@ describe("App", () => {
       target: { value: "Empty Thumbnail Performer" },
     });
     fillPerformerRatingFields();
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    clickSaveAndConfirm();
 
     expect(await screen.findByText("Empty Thumbnail Performer")).toBeInTheDocument();
+  });
+
+  it("adds performer mini thumbnail images up to four rows without Add Folder", async () => {
+    window.history.pushState({}, "", "/performers/new");
+    const created = persistedPerformer({ name: "Mini Thumbnail Performer" });
+    const invoke = vi.fn(
+      async (command: string, args: Record<string, any>) => {
+        if (command === "performer_create") {
+          expect(args.input.performerThumbnailPathsJson).toBe(
+            '["D:/Thumbs/one.jpg","D:/Thumbs/two.jpg","D:/Thumbs/three.jpg","D:/Thumbs/four.jpg"]',
+          );
+          return created;
+        }
+        if (command === "performer_get") {
+          return created;
+        }
+        if (
+          command === "performer_list" ||
+          command === "video_list" ||
+          command === "image_list"
+        ) {
+          return [];
+        }
+
+        throw new Error(`Unexpected command ${command}`);
+      },
+    ) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+    dialogMocks.open.mockResolvedValueOnce([
+      "D:/Thumbs/one.jpg",
+      "D:/Thumbs/two.jpg",
+      "D:/Thumbs/three.jpg",
+      "D:/Thumbs/four.jpg",
+      "D:/Thumbs/five.jpg",
+    ]);
+
+    render(<App />);
+
+    const filesSection = screen.getByRole("heading", { name: "File" }).closest("section");
+    expect(filesSection).not.toBeNull();
+    expect(within(filesSection as HTMLElement).getByText("Mini Thumbnail Paths"))
+      .toBeInTheDocument();
+    expect(within(filesSection as HTMLElement).getByRole("button", { name: "Add Images" }))
+      .toBeInTheDocument();
+    expect(within(filesSection as HTMLElement).queryByRole("button", { name: "Add Folder" }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(within(filesSection as HTMLElement).getByRole("button", { name: "Add Images" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Mini Thumbnail Path 1")).toHaveValue("D:/Thumbs/one.jpg");
+      expect(screen.getByLabelText("Mini Thumbnail Path 4")).toHaveValue("D:/Thumbs/four.jpg");
+    });
+    expect(screen.queryByLabelText("Mini Thumbnail Path 5")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Name/), {
+      target: { value: "Mini Thumbnail Performer" },
+    });
+    fillPerformerRatingFields();
+    clickSaveAndConfirm();
+
+    expect(await screen.findByText("Mini Thumbnail Performer")).toBeInTheDocument();
   });
 
   it("loads and updates a performer through Tauri commands", async () => {
@@ -11909,6 +17137,7 @@ describe("App", () => {
     const existing = persistedPerformer({
       name: "Existing Performer",
       aliasesJson: '["Alias One"]',
+      gender: "Woman",
       debutDate: "2020-01-02",
       retiredDate: "",
       birthplace: "Tokyo",
@@ -11926,12 +17155,17 @@ describe("App", () => {
         '["D:/Thumbs/existing-1.jpg","D:/Thumbs/existing-2.jpg"]',
       categoriesJson: '["Classic"]',
       ratingJson: '{"attraction":3}',
+      sourceLinksJson:
+        '[{"title":"Existing performer source","url":"https://example.invalid/old-performer"}]',
     });
     const updated = persistedPerformer({
       name: "Updated Performer",
+      gender: "Non-binary",
       aliasesJson: '["Alias One","Alias Two"]',
       categoriesJson: '["Classic","Updated"]',
       ratingJson: '{"attraction":5}',
+      sourceLinksJson:
+        '[{"title":"Updated performer source","url":"https://example.invalid/new-performer"}]',
     });
     let currentPerformer = existing;
     const invoke = vi.fn(
@@ -11951,6 +17185,7 @@ describe("App", () => {
           expect(args.patch.ratingJson).toContain('"attraction":5');
           expect(args.patch.debutDate).toBe("2021-02-03");
           expect(args.patch.retiredDate).toBe("2024-05-06");
+          expect(args.patch.gender).toBe("Non-binary");
           expect(args.patch.birthplace).toBe("Osaka");
           expect(args.patch.nationality).toBe("Japanese");
           expect(args.patch.bloodType).toBe("B");
@@ -11965,6 +17200,9 @@ describe("App", () => {
           );
           expect(args.patch.relatedImagesJson).toBe(
             '[{"recordId":"image_existing","titleSnapshot":"Existing Image"}]',
+          );
+          expect(args.patch.sourceLinksJson).toBe(
+            '[{"title":"Updated performer source","url":"https://example.invalid/new-performer"}]',
           );
           currentPerformer = updated;
           return updated;
@@ -11998,15 +17236,19 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByDisplayValue("Existing Performer")).toBeInTheDocument();
-    expect(screen.getByLabelText("Thumbnail 1")).toHaveValue(
+    expect(screen.getByDisplayValue("Existing performer source")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.invalid/old-performer"))
+      .toBeInTheDocument();
+    expect(screen.getByLabelText("Mini Thumbnail Path 1")).toHaveValue(
       "D:/Thumbs/existing-1.jpg",
     );
-    expect(screen.getByLabelText("Thumbnail 2")).toHaveValue(
+    expect(screen.getByLabelText("Mini Thumbnail Path 2")).toHaveValue(
       "D:/Thumbs/existing-2.jpg",
     );
-    expect(screen.getByLabelText("Thumbnail 3")).toHaveValue("");
-    expect(screen.getByLabelText("Thumbnail 4")).toHaveValue("");
+    expect(screen.queryByLabelText("Mini Thumbnail Path 3")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Mini Thumbnail Path 4")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Debut Date")).toHaveValue("2020-01-02");
+    expect(screen.getByLabelText("Gender")).toHaveValue("Woman");
     expect(screen.getByLabelText("Birthplace")).toHaveValue("Tokyo");
     expect(screen.getByLabelText("Height")).toHaveValue(160);
     expect(screen.getByLabelText("Measurements")).toHaveValue("11 / 22 / 33");
@@ -12015,11 +17257,20 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText(/^Name/), {
       target: { value: "Updated Performer" },
     });
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Updated performer source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/new-performer" },
+    });
     fireEvent.change(screen.getByLabelText("Debut Date"), {
       target: { value: "2021-02-03" },
     });
     fireEvent.change(screen.getByLabelText("Retired Date"), {
       target: { value: "2024-05-06" },
+    });
+    fireEvent.change(screen.getByLabelText("Gender"), {
+      target: { value: "Non-binary" },
     });
     fireEvent.change(screen.getByLabelText("Birthplace"), {
       target: { value: "Osaka" },
@@ -12048,21 +17299,116 @@ describe("App", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Updated" }));
     fillPerformerRatingFields({ Attraction: "5" });
-    fireEvent.change(screen.getByLabelText("Thumbnail 2"), {
-      target: { value: "" },
-    });
-    fireEvent.change(screen.getByLabelText("Thumbnail 3"), {
-      target: { value: "D:/Thumbs/updated-3.jpg" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Mini Thumbnail Path 2" }));
+    dialogMocks.open.mockResolvedValueOnce(["D:/Thumbs/updated-3.jpg"]);
+    fireEvent.click(screen.getByRole("button", { name: "Add Images" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Mini Thumbnail Path 2")).toHaveValue(
+        "D:/Thumbs/updated-3.jpg",
+      ),
+    );
+    clickSaveAndConfirm();
 
     expect(
       await screen.findByText("Updated Performer", {}, { timeout: 5000 }),
     ).toBeInTheDocument();
     expect(screen.getByText("Alias Two")).toBeInTheDocument();
+    expect(screen.getByText("Non-binary")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
     expect(screen.queryByText("performer_test_001")).not.toBeInTheDocument();
   }, 10000);
+
+  it("shows credit Role Names as display-only performer aliases without saving them", async () => {
+    window.history.pushState({}, "", "/performers/performer_known_names/edit");
+    const performer = persistedPerformer({
+      id: "performer_known_names",
+      name: "Known Name Performer",
+      aliasesJson: '["Manual Alias","Traveler"]',
+    });
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (command === "performer_get") {
+        return performer;
+      }
+      if (command === "credit_list_by_performer") {
+        expect(args).toEqual({ performerId: performer.id });
+        return [
+          persistedCredit({
+            id: "credit_traveler",
+            performerId: performer.id,
+            characterName: " traveler ",
+          }),
+          persistedCredit({
+            id: "credit_narrator",
+            performerId: performer.id,
+            characterName: "Narrator",
+          }),
+          persistedCredit({
+            id: "credit_invalid",
+            performerId: performer.id,
+            characterName: "N/A",
+          }),
+        ];
+      }
+      if (
+        command === "managed_category_list" ||
+        command === "video_list" ||
+        command === "image_list"
+      ) {
+        return [];
+      }
+      if (command === "performer_update") {
+        expect(args.patch.aliasesJson).toBe('["Manual Alias","Narrator"]');
+        return {
+          ...performer,
+          ...args.patch,
+          aliasesJson: args.patch.aliasesJson,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Manual Alias")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Traveler" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Narrator").closest("[data-known-name-source]"))
+      .toHaveAttribute("title", "From role name");
+    expect(screen.queryByRole("button", { name: "Remove Narrator" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByText("N/A")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Traveler" }));
+    expect(screen.getByText("traveler").closest("[data-known-name-source]"))
+      .toHaveAttribute("title", "From role name");
+
+    fireEvent.change(screen.getByPlaceholderText("Add alias..."), {
+      target: { value: "Narrator" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Aliases" }));
+    expect(screen.getByRole("button", { name: "Add Aliases" }))
+      .toHaveClass("rounded-lg", "h-8");
+    expect(screen.getByRole("button", { name: "Add Aliases" }))
+      .not.toHaveClass("rounded-full");
+    expect(screen.getByRole("button", { name: "Remove Narrator" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("Narrator")).toHaveLength(1);
+
+    fillPerformerRatingFields();
+    clickSaveAndConfirm();
+    expect(await screen.findByText("Known Name Performer")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "credit_update",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "credit_delete",
+      expect.anything(),
+      expect.anything(),
+    );
+  }, 15_000);
 
   it("shows persisted timestamps on performer detail", async () => {
     window.history.pushState({}, "", "/performers/performer_test_001");
@@ -12118,40 +17464,71 @@ describe("App", () => {
     expect(screen.queryByText("88")).not.toBeInTheDocument();
     expect(screen.getByText("System Info")).toBeInTheDocument();
     expect(screen.getByText("Created in Sakurava")).toBeInTheDocument();
-    expect(screen.getByText("May 9, 2026, 01:02 AM UTC")).toBeInTheDocument();
+    expect(screen.getByText(formatExpectedLocalTimestamp("2026-05-09T01:02:03.000Z"))).toBeInTheDocument();
     expect(screen.getByText("Last edited")).toBeInTheDocument();
-    expect(screen.getByText("May 12, 2026, 10:11 AM UTC")).toBeInTheDocument();
+    expect(screen.getByText(formatExpectedLocalTimestamp("2026-05-12T10:11:12.000Z"))).toBeInTheDocument();
     expect(screen.queryByText("2026-05-09T01:02:03.000Z")).not.toBeInTheDocument();
     expect(screen.queryByText("2026-05-12T10:11:12.000Z")).not.toBeInTheDocument();
     expect(screen.getByText("Years Active")).toBeInTheDocument();
     expect(screen.getByText("2020 - 2024")).toBeInTheDocument();
     expect(screen.getByText("(22 - 26 y)")).toBeInTheDocument();
-    const metadataSection = screen
-      .getByRole("heading", { name: "Profile Metadata" })
-      .closest("section");
-    expect(metadataSection).not.toBeNull();
-    const metadata = within(metadataSection as HTMLElement);
-    expect(screen.getByText("Debut Date")).toBeInTheDocument();
-    expect(metadata.getByText("2020-01-02")).toBeInTheDocument();
-    expect(metadata.getByText("Retired Date")).toBeInTheDocument();
-    expect(metadata.getByText("2024-03-04")).toBeInTheDocument();
-    expect(metadata.getByText("Birth Date")).toBeInTheDocument();
-    expect(metadata.queryByText("Status")).not.toBeInTheDocument();
-    expect(screen.getByText("Birthplace")).toBeInTheDocument();
-    expect(screen.getByText("Tokyo")).toBeInTheDocument();
-    expect(screen.getByText("Japanese")).toBeInTheDocument();
-    expect(screen.getByText("Aquarius")).toBeInTheDocument();
-    expect(screen.getByText("160 cm")).toBeInTheDocument();
-    expect(screen.getByText("48 kg")).toBeInTheDocument();
-    expect(screen.getByText("11 / 22 / 33 cm")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Profile Metadata" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Metadata" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText("Retired")).toBeInTheDocument();
+    const personalSection = screen
+      .getByRole("heading", { name: "Personal" })
+      .closest("section") as HTMLElement;
+    expect(within(personalSection).getByText("Gender")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Birth Date")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Jan 20, 1998")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Debut Date")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Jan 02, 2020")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Retired Date")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Mar 04, 2024")).toBeInTheDocument();
+    expect(within(personalSection).queryByText("1998-01-20")).not.toBeInTheDocument();
+    expect(within(personalSection).queryByText("2020-01-02")).not.toBeInTheDocument();
+    expect(within(personalSection).queryByText("2024-03-04")).not.toBeInTheDocument();
+    expect(within(personalSection).getByText("Birthplace")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Tokyo")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Nationality")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Japanese")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Astrological Sign / Zodiac")).toBeInTheDocument();
+    expect(within(personalSection).getByText("Aquarius")).toBeInTheDocument();
+    expect(within(personalSection).queryByText("Blood Type")).not.toBeInTheDocument();
+    expectPrecedes(personalSection, "Gender", "Birth Date");
+    expectPrecedes(personalSection, "Birth Date", "Birthplace");
+    expectPrecedes(personalSection, "Birthplace", "Nationality");
+    expectPrecedes(personalSection, "Nationality", "Astrological Sign / Zodiac");
+    expectPrecedes(personalSection, "Astrological Sign / Zodiac", "Debut Date");
+    expectPrecedes(personalSection, "Debut Date", "Retired Date");
+    const physicalSection = screen
+      .getByRole("heading", { name: "Physical" })
+      .closest("section") as HTMLElement;
+    expect(within(physicalSection).getByText("Body Type")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Height")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("160 cm")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Weight")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("48 kg")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Measurement")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("11 / 22 / 33 cm")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Cup Size")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("Blood Type")).toBeInTheDocument();
+    expect(within(physicalSection).getByText("A")).toBeInTheDocument();
+    expectPrecedes(physicalSection, "Body Type", "Height");
+    expectPrecedes(physicalSection, "Height", "Weight");
+    expectPrecedes(physicalSection, "Weight", "Measurement");
+    expectPrecedes(physicalSection, "Measurement", "Cup Size");
+    expectPrecedes(physicalSection, "Cup Size", "Blood Type");
     expect(screen.queryByText("Not saved")).not.toBeInTheDocument();
   });
 
   it.each([
-    ["/videos/new", "Related Performer", "Related Images"],
-    ["/videos/sample-id/edit", "Related Performer", "Related Images"],
-    ["/images/new", "Related Performer", "Related Video"],
-    ["/images/sample-id/edit", "Related Performer", "Related Video"],
+    ["/videos/new", "Related Performers", "Related Images"],
+    ["/videos/sample-id/edit", "Related Performers", "Related Images"],
+    ["/images/new", "Related Performers", "Related Videos"],
+    ["/images/sample-id/edit", "Related Performers", "Related Videos"],
     ["/performers/new", "Related Videos", "Related Images"],
     ["/performers/sample-id/edit", "Related Videos", "Related Images"],
   ])("renders separate related sections for %s", (path, first, second) => {
@@ -12194,7 +17571,7 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
   it.each([
@@ -12221,22 +17598,89 @@ describe("App", () => {
     "/images/new",
     "/performers/new",
   ])(
-    "source links section shows deferred row controls on %s",
+    "source links section shows functional row controls on %s",
     (path) => {
       window.history.pushState({}, "", path);
       render(<App />);
 
       expect(screen.getByText("Source Links")).toBeInTheDocument();
+      expect(screen.getByText("No source links added.")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+
       expect(screen.getByLabelText("Source Link Title 1")).toBeInTheDocument();
       expect(screen.getByLabelText("Source Link URL 1")).toBeInTheDocument();
-      expect(screen.getByText("Deferred: source links are not saved yet."))
+      expect(screen.getByRole("button", { name: "Add Source Link" }))
         .toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add Link" }))
+      expect(screen.getByRole("button", { name: "Remove Source Link 1" }))
         .toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete Source Link 1" }))
-        .not.toBeInTheDocument();
     },
   );
+
+  it("blocks invalid Source Link URLs before saving", async () => {
+    window.history.pushState({}, "", "/videos/new");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "performer_list" || command === "image_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/^Title/), {
+      target: { value: "Invalid Source Video" },
+    });
+    fillVideoRatingFields();
+    fireEvent.click(screen.getByRole("button", { name: "Add Source Link" }));
+    fireEvent.change(screen.getByLabelText("Source Link Title 1"), {
+      target: { value: "Invalid source" },
+    });
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "example.invalid/source" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText("Source URL must start with http:// or https://."),
+    ).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith(
+      "video_create",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("marks Source Link edits dirty and confirms discard", async () => {
+    window.history.pushState({}, "", "/images/image_test_001/edit");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "image_get") {
+        return persistedImage({
+          title: "Dirty Source Image",
+          sourceLinksJson:
+            '[{"title":"Existing source","url":"https://example.invalid/source"}]',
+        });
+      }
+      if (command === "performer_list" || command === "video_list") {
+        return [];
+      }
+
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Existing source")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Source Link URL 1"), {
+      target: { value: "https://example.invalid/changed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("dialog", { name: "Discard changes?" }))
+      .toBeInTheDocument();
+  });
 
   it("renders read-only Tech Info fields on Video and Image forms", async () => {
     // 1. Video Form Tech Info Check
@@ -12343,7 +17787,7 @@ describe("App", () => {
     render(<App />);
 
     // Performer Auto fields
-    const statusInput = await screen.findByLabelText("Status");
+    const statusInput = await screen.findByLabelText("Availability");
     const filmographyInput = await screen.findByLabelText("Filmography");
     const pictorialsInput = await screen.findByLabelText("Pictorials");
     const signInput = await screen.findByLabelText("Astrological Sign");
@@ -12364,7 +17808,7 @@ describe("App", () => {
       ["/videos/new", ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]],
       ["/images/new", ["Memorability", "Visual", "Posing", "Atmosphere", "Flow", "Signature"]],
       ["/performers/new", ["Attraction", "Visual", "Performance", "Popularity", "Exceptional", "Versatility"]],
-    ])("renders all six empty rating criteria at %s", async (path, labels) => {
+    ])("renders all six default rating criteria at %s", async (path, labels) => {
       window.history.pushState({}, "", path);
       const invoke = vi.fn(async (command: string) => {
         if (
@@ -12383,7 +17827,7 @@ describe("App", () => {
       render(<App />);
 
       for (const label of labels) {
-        expect(screen.getByLabelText(label)).toHaveValue(null);
+        expect(screen.getByLabelText(label)).toHaveValue(1);
         expect(
           screen.getByRole("button", { name: `Rate ${label} 1 out of 5` }),
         ).toBeInTheDocument();
@@ -12391,14 +17835,76 @@ describe("App", () => {
           screen.getByRole("button", { name: `Rate ${label} 5 out of 5` }),
         ).toBeInTheDocument();
       }
-      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("1.0");
     });
 
-    it("blocks save and shows inline validation when any rating is empty", async () => {
-      window.history.pushState({}, "", "/videos/new");
+    it.each([
+      {
+        path: "/videos/new",
+        titleLabel: /^Title/,
+        title: "Default Rating Video",
+        createCommand: "video_create",
+        getCommand: "video_get",
+        created: persistedVideo({
+          title: "Default Rating Video",
+          ratingJson:
+            '{"rewatch":1,"performance":1,"visual":1,"intensity":1,"story":1,"chemistry":1}',
+        }),
+        expectedRatingJson:
+          '{"rewatch":1,"performance":1,"visual":1,"intensity":1,"story":1,"chemistry":1}',
+      },
+      {
+        path: "/images/new",
+        titleLabel: /^Title/,
+        title: "Default Rating Image",
+        createCommand: "image_create",
+        getCommand: "image_get",
+        created: persistedImage({
+          title: "Default Rating Image",
+          ratingJson:
+            '{"memorability":1,"visual":1,"posing":1,"atmosphere":1,"flow":1,"signature":1}',
+        }),
+        expectedRatingJson:
+          '{"memorability":1,"visual":1,"posing":1,"atmosphere":1,"flow":1,"signature":1}',
+      },
+      {
+        path: "/performers/new",
+        titleLabel: /^Name/,
+        title: "Default Rating Performer",
+        createCommand: "performer_create",
+        getCommand: "performer_get",
+        created: persistedPerformer({
+          name: "Default Rating Performer",
+          ratingJson:
+            '{"attraction":1,"visual":1,"performance":1,"popularity":1,"exceptional":1,"versatility":1}',
+        }),
+        expectedRatingJson:
+          '{"attraction":1,"visual":1,"performance":1,"popularity":1,"exceptional":1,"versatility":1}',
+      },
+    ])("saves new default rating criteria of 1 at $path", async ({
+      path,
+      titleLabel,
+      title,
+      createCommand,
+      getCommand,
+      created,
+      expectedRatingJson,
+    }) => {
+      window.history.pushState({}, "", path);
       const invoke = vi.fn(async (command: string, args?: any) => {
-        if (command === "performer_list") return [];
-        if (command === "image_list") return [];
+        if (
+          command === "performer_list" ||
+          command === "image_list" ||
+          command === "video_list" ||
+          command === "managed_category_list"
+        ) {
+          return [];
+        }
+        if (command === createCommand) {
+          expect(args.input.ratingJson).toBe(expectedRatingJson);
+          return created;
+        }
+        if (command === getCommand) return created;
         return [];
       }) as any;
       window.__TAURI_INTERNALS__ = {
@@ -12407,18 +17913,12 @@ describe("App", () => {
 
       render(<App />);
 
-      fireEvent.change(screen.getByLabelText(/^Title/), {
-        target: { value: "New Video" },
+      fireEvent.change(screen.getByLabelText(titleLabel), {
+        target: { value: title },
       });
+      clickSaveAndConfirm();
 
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-      expect(invoke).not.toHaveBeenCalledWith("video_create", expect.anything());
-      expect(await screen.findByText("Please complete all rating criteria.")).toBeInTheDocument();
-      expect(screen.getByTestId("rating-validation-error")).toHaveTextContent(
-        "Complete all 6 rating criteria before saving.",
-      );
-      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(await screen.findByText(title)).toBeInTheDocument();
     });
 
     it("saves when all rating criteria are filled", async () => {
@@ -12452,7 +17952,7 @@ describe("App", () => {
         Story: "4",
         Chemistry: "5",
       });
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      clickSaveAndConfirm();
 
       await waitFor(() => {
         expect(
@@ -12480,7 +17980,7 @@ describe("App", () => {
 
       render(<App />);
 
-      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("1.0");
       fillVideoRatingFields({
         Rewatch: "5",
         Performance: "4",
@@ -12493,7 +17993,7 @@ describe("App", () => {
       expect(screen.getByTestId("average-rating-display")).toHaveTextContent("4.2");
     });
 
-    it("opens old invalid edit rating data as empty instead of 0", async () => {
+    it("opens old invalid edit rating data as the default instead of 0", async () => {
       window.history.pushState({}, "", "/videos/video_test_001/edit");
       const invoke = vi.fn(async (command: string) => {
         if (command === "video_get") {
@@ -12513,9 +18013,9 @@ describe("App", () => {
 
       expect(await screen.findByDisplayValue("Old Rating Video")).toBeInTheDocument();
       for (const label of ["Rewatch", "Performance", "Visual", "Intensity", "Story", "Chemistry"]) {
-        expect(screen.getByLabelText(label)).toHaveValue(null);
+        expect(screen.getByLabelText(label)).toHaveValue(1);
       }
-      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("Complete all ratings");
+      expect(screen.getByTestId("average-rating-display")).toHaveTextContent("1.0");
       expect(screen.queryByDisplayValue("0")).not.toBeInTheDocument();
     });
 
@@ -12534,11 +18034,11 @@ describe("App", () => {
       const rewatchInput = screen.getByLabelText("Rewatch");
       const starFour = screen.getByRole("button", { name: "Rate Rewatch 4 out of 5" });
 
-      expect(rewatchInput).toHaveValue(null);
+      expect(rewatchInput).toHaveValue(1);
       fireEvent.mouseEnter(starFour);
-      expect(rewatchInput).toHaveValue(null);
+      expect(rewatchInput).toHaveValue(1);
       fireEvent.mouseLeave(starFour.parentElement as HTMLElement);
-      expect(rewatchInput).toHaveValue(null);
+      expect(rewatchInput).toHaveValue(1);
 
       fireEvent.mouseEnter(starFour);
       fireEvent.click(starFour);
@@ -12636,6 +18136,18 @@ function expectPrecedes(container: HTMLElement, firstText: string, secondText: s
   ).toBeTruthy();
 }
 
+function selectRelatedSort(scope: ReturnType<typeof within>, optionName: string) {
+  fireEvent.click(scope.getByTestId("performer-related-sort-control"));
+  fireEvent.click(
+    within(scope.getByRole("listbox", { name: "Related sort options" }))
+      .getByRole("option", { name: optionName }),
+  );
+}
+
+function formatExpectedLocalTimestamp(value: string | number) {
+  return formatLocalTimestampDisplay(value);
+}
+
 function setManagedCategories(categories: string[]) {
   window.localStorage.setItem(
     "sakurava.managedCategories.v1",
@@ -12650,7 +18162,7 @@ function seedPerformerSuggestionCache(cache: Record<string, string[]>) {
   );
   window.localStorage.setItem(
     "sakurava.performerSuggestionsCacheVersion",
-    "batch-33-3-suggestions-fresh-v1",
+    "batch-38-9-4-direct-field-history-v1",
   );
 }
 
@@ -12664,10 +18176,40 @@ function managedCategoryFixture(overrides: Record<string, unknown> = {}) {
     showInVideos: true,
     showInImages: true,
     showInPerformers: true,
+    showInCredits: false,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,
   };
+}
+
+function performerTaxonomyFixtures(bodyTypeParentName: string) {
+  return [
+    managedCategoryFixture({
+      key: "cat_gender",
+      name: "Gender",
+    }),
+    managedCategoryFixture({
+      key: "cat_gender_woman",
+      name: "Woman",
+      parentKey: "cat_gender",
+      showInVideos: false,
+      showInImages: false,
+      showInPerformers: true,
+    }),
+    managedCategoryFixture({
+      key: "cat_body_type",
+      name: bodyTypeParentName,
+    }),
+    managedCategoryFixture({
+      key: "cat_body_type_athletic",
+      name: "Athletic",
+      parentKey: "cat_body_type",
+      showInVideos: false,
+      showInImages: false,
+      showInPerformers: true,
+    }),
+  ];
 }
 
 function persistedGlossaryEntry(overrides: Record<string, unknown> = {}) {
@@ -12739,6 +18281,7 @@ function persistedVideo(overrides: Record<string, unknown> = {}) {
     categoriesJson: '["Classic"]',
     relatedPerformersJson: "[]",
     relatedImagesJson: "[]",
+    sourceLinksJson: "[]",
     ratingJson: '{"rewatch":4,"performance":3}',
     notes: "Persisted notes",
     favorite: true,
@@ -12768,6 +18311,7 @@ function persistedImage(overrides: Record<string, unknown> = {}) {
     categoriesJson: '["Portrait"]',
     relatedPerformersJson: "[]",
     relatedVideosJson: "[]",
+    sourceLinksJson: "[]",
     ratingJson: '{"memorability":4,"visual":3}',
     notes: "Persisted image notes",
     favorite: true,
@@ -12787,6 +18331,7 @@ function persistedPerformer(overrides: Record<string, unknown> = {}) {
     debutDate: "",
     retiredDate: "",
     birthDate: "2026-05-11",
+    gender: "",
     birthplace: "",
     nationality: "",
     bloodType: "",
@@ -12800,10 +18345,34 @@ function persistedPerformer(overrides: Record<string, unknown> = {}) {
     pictorialsCount: 8,
     relatedVideosJson: "[]",
     relatedImagesJson: "[]",
+    sourceLinksJson: "[]",
     categoriesJson: '["Classic"]',
     ratingJson: '{"attraction":4,"visual":3}',
     notes: "Persisted performer notes",
     favorite: true,
+    createdAt: "2026-05-11T00:00:00.000Z",
+    updatedAt: "2026-05-11T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function persistedCredit(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "credit_test_001",
+    workType: "video",
+    workId: "video_test_001",
+    performerId: "performer_test_001",
+    characterName: "",
+    characterOriginalName: null,
+    creditedAs: null,
+    creditedAsMode: "auto",
+    creditTypeCategoryId: null,
+    roleImportanceCategoryId: null,
+    characterMode: "text",
+    characterId: null,
+    billingOrder: null,
+    note: null,
+    legacySourceKey: null,
     createdAt: "2026-05-11T00:00:00.000Z",
     updatedAt: "2026-05-11T00:00:00.000Z",
     ...overrides,

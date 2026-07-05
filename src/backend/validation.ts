@@ -136,6 +136,7 @@ export function normalizePerformerDefaults(performer: NewPerformer): NewPerforme
     debutDate: performer.debutDate ?? "",
     retiredDate: performer.retiredDate ?? "",
     birthDate: performer.birthDate ?? "",
+    gender: performer.gender ?? "",
     birthplace: performer.birthplace ?? "",
     nationality: performer.nationality ?? "",
     bloodType: performer.bloodType ?? "",

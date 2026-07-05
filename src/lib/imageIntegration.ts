@@ -1,30 +1,46 @@
-import type { Image, ImagePatch, NewImage, Performer, Video } from "../backend/types";
+import type {
+  Credit,
+  Image,
+  ImagePatch,
+  ManagedCategory,
+  NewImage,
+  Performer,
+  Video,
+} from "../backend/types";
 import {
   normalizeRelatedCatalogRecordsJson,
   normalizeRelatedPerformersJson,
+  parseSourceLinkArray,
   parseGalleryImagePathArray,
   parseRatingObject,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
   parseTextLabelArray,
   stringifyGalleryImagePathArray,
+  stringifySourceLinkArray,
   stringifyTextLabelArray,
 } from "../backend/json";
 import type { CollectionConfig, ImageCollectionItem } from "./collectionData";
 import { collectionConfigs } from "./collectionData";
 import { deriveQualityBucket, deriveReleaseYear } from "./catalogDerivedFields";
 import type { DetailSection, ImageDetailConfig } from "./detailData";
-import { DETAIL_EMPTY_VALUE, formatSystemTimestamp } from "./detailData";
+import {
+  DETAIL_EMPTY_VALUE,
+  formatSystemTimestamp,
+  sourceLinksFromRecord,
+} from "./detailData";
 import { detailConfigs } from "./detailData";
 import type {
   FormConfig,
   FormMode,
   RelatedCatalogRecordFormValue,
   RelatedPerformerFormValue,
+  SourceLinkFormValue,
 } from "./formData";
 import { formConfigs } from "./formData";
-import { createRatingSummary, getRatingDimensions } from "./ratingSummary";
+import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
+import { buildCreditDetailItems } from "./creditDisplay";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -42,6 +58,8 @@ export function buildImageDetailConfig(
   image: Image,
   performers: Performer[] = [],
   videos: Video[] = [],
+  credits: Credit[] = [],
+  managedCategories: ManagedCategory[] = [],
 ): ImageDetailConfig {
   const baseConfig = detailConfigs.images as ImageDetailConfig;
   const galleryImagePaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
@@ -68,7 +86,7 @@ export function buildImageDetailConfig(
       { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
       { label: "Gallery status", value: formatSavedListStatus(galleryImagePaths) },
     ],
-    rating: getRatingDimensions(image.ratingJson, imageRatingFields),
+    rating: getDetailRatingDimensions(image.ratingJson, imageRatingFields),
     techItems: [
       { label: "Image Count", value: formatGalleryCount(image.imageCount, galleryImagePaths) },
       { label: "Main Resolution", value: formatOptionalText(image.mainResolution) },
@@ -76,6 +94,7 @@ export function buildImageDetailConfig(
       { label: "Main File Type", value: formatOptionalText(image.mainFileType) },
     ],
     notes: detailNotes(image.notes),
+    sourceLinks: sourceLinksFromRecord(image),
     galleryImagePaths,
     relatedSections: buildRelatedSections(
       baseConfig.relatedSections,
@@ -83,6 +102,8 @@ export function buildImageDetailConfig(
       performers,
       image.relatedVideosJson,
       videos,
+      credits,
+      managedCategories,
     ),
   };
 }
@@ -119,6 +140,11 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
       edit: formConfigs.images.initialGalleryImagePaths?.edit ?? [],
       [mode]: parseGalleryImagePathArray(image.galleryImagePathsJson),
     },
+    initialSourceLinks: {
+      create: formConfigs.images.initialSourceLinks?.create ?? [],
+      edit: formConfigs.images.initialSourceLinks?.edit ?? [],
+      [mode]: parseSourceLinkArray(image.sourceLinksJson),
+    },
   };
 }
 
@@ -128,6 +154,7 @@ export function imageFormToCreateInput(
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   galleryImagePaths: string[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): NewImage {
   return {
     title: textValue(values.title),
@@ -152,6 +179,7 @@ export function imageFormToCreateInput(
     relatedVideosJson: normalizeRelatedCatalogRecordsJson(
       JSON.stringify(relatedVideos),
     ),
+    sourceLinksJson: stringifySourceLinkArray(sourceLinks),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -163,6 +191,7 @@ export function imageFormToPatch(
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   galleryImagePaths: string[] = [],
+  sourceLinks: SourceLinkFormValue[] = [],
 ): ImagePatch {
   return imageFormToCreateInput(
     values,
@@ -170,6 +199,7 @@ export function imageFormToPatch(
     relatedPerformers,
     relatedVideos,
     galleryImagePaths,
+    sourceLinks,
   );
 }
 
@@ -237,12 +267,12 @@ function formRating(values: FormValues): Record<string, number> {
 
 function normalizeFormRatingValue(value: FormValues[string] | unknown): number {
   const number = Number(value);
-  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 0;
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 1;
 }
 
 function formatFormRatingValue(value: FormValues[string] | unknown): string {
   const rating = normalizeFormRatingValue(value);
-  return rating > 0 ? String(rating) : "";
+  return String(rating);
 }
 
 function textValue(value: FormValues[string]) {
@@ -299,12 +329,24 @@ function buildRelatedSections(
   performers: Performer[],
   relatedVideosJson: string | null | undefined,
   videos: Video[],
+  credits: Credit[],
+  managedCategories: ManagedCategory[],
 ): DetailSection[] {
   return sections.map((section) =>
     section.title.includes("Performer")
       ? {
           ...section,
-          description: "Read-only Related Performer links saved on this record.",
+          title: "Related Performers",
+          description:
+            credits.length > 0
+              ? "Related Performers saved for this Image."
+              : "Read-only Related Performer links saved on this record.",
+          credits: buildCreditDetailItems(
+            credits,
+            performers,
+            managedCategories,
+            relatedPerformersJson,
+          ),
           relatedPerformers: buildRelatedPerformerItems(
             relatedPerformersJson,
             performers,

@@ -12,6 +12,11 @@ export type RelatedCatalogRecordFormValue = {
   titleSnapshot: string;
 };
 
+export type SourceLinkFormValue = {
+  title: string;
+  url: string;
+};
+
 export type TextField = {
   name: string;
   label: string;
@@ -78,6 +83,7 @@ export type FormConfig = {
   initialPerformerRelatedVideos?: Record<FormMode, RelatedCatalogRecordFormValue[]>;
   initialPerformerRelatedImages?: Record<FormMode, RelatedCatalogRecordFormValue[]>;
   initialGalleryImagePaths?: Record<FormMode, string[]>;
+  initialSourceLinks?: Record<FormMode, SourceLinkFormValue[]>;
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
@@ -97,9 +103,9 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     editBackLabel: "Back to Video Detail",
     requiredField: "title",
     basicFields: [
-      { name: "title", label: "Title", required: true },
-      { name: "originalTitle", label: "Original Title" },
-      { name: "code", label: "Code" },
+      { name: "title", label: "Title", required: true, placeholder: "Video title" },
+      { name: "originalTitle", label: "Original Title", placeholder: "Original release title" },
+      { name: "code", label: "Code", placeholder: "VID-001" },
     ],
     selectFields: [
       { name: "availability", label: "Availability", options: availabilityOptions },
@@ -109,29 +115,29 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       {
         name: "coverPath",
         label: "Cover Path",
-        helper: "Saved as typed or selected local image path.",
+        placeholder: "D:/Videos/title/cover.jpg",
       },
       {
         name: "mediaPath",
         label: "Media Path",
-        helper: "Saved as typed or selected local media path.",
+        placeholder: "D:/Videos/title/video.mp4",
       },
     ],
     metadataFields: [
       { name: "releaseDate", label: "Release Date", type: "date" },
-      { name: "publisherLabel", label: "Publisher / Label" },
+      { name: "publisherLabel", label: "Publisher / Label", placeholder: "Studio or label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Use Detect after selecting or typing a media path. Values are saved only when the form is saved.",
+    techMessage: "Detect from the media path when available.",
     techInputFields: [
       {
         name: "durationMinutes",
         label: "Duration",
         type: "number",
         suffix: "minutes",
-        placeholder: "Not detected yet",
+        placeholder: "n/a",
       },
-      { name: "resolution", label: "Resolution", placeholder: "Not detected yet" },
+      { name: "resolution", label: "Resolution", placeholder: "n/a" },
       { name: "fileSizeBytes", label: "File Size", type: "number", suffix: "bytes" },
       { name: "fileType", label: "File Type" },
     ],
@@ -165,12 +171,12 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         fileType: "",
         publisherLabel: "",
         notes: "",
-        rewatch: "",
-        performance: "",
-        visual: "",
-        intensity: "",
-        story: "",
-        chemistry: "",
+        rewatch: "1",
+        performance: "1",
+        visual: "1",
+        intensity: "1",
+        story: "1",
+        chemistry: "1",
       },
       edit: {
         title: "Sample Video Title",
@@ -212,6 +218,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialSourceLinks: {
+      create: [],
+      edit: [],
+    },
   },
   images: {
     kind: "images",
@@ -226,9 +236,9 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     editBackLabel: "Back to Image Detail",
     requiredField: "title",
     basicFields: [
-      { name: "title", label: "Title", required: true },
-      { name: "originalTitle", label: "Original Title" },
-      { name: "code", label: "Code" },
+      { name: "title", label: "Title", required: true, placeholder: "Image set title" },
+      { name: "originalTitle", label: "Original Title", placeholder: "Original image set title" },
+      { name: "code", label: "Code", placeholder: "IMG-001" },
     ],
     selectFields: [
       { name: "availability", label: "Availability", options: availabilityOptions },
@@ -238,15 +248,15 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       {
         name: "coverPath",
         label: "Cover Path",
-        helper: "Saved as typed or selected local image path.",
+        placeholder: "D:/Images/set/cover.jpg",
       },
     ],
     metadataFields: [
       { name: "releaseDate", label: "Release Date", type: "date" },
-      { name: "publisherLabel", label: "Publisher / Label" },
+      { name: "publisherLabel", label: "Publisher / Label", placeholder: "Studio or label" },
     ],
     techTitle: "Tech Info",
-    techMessage: "Use Detect after adding Gallery Images paths. Values are saved only when the form is saved.",
+    techMessage: "Detect from Gallery Path when available.",
     techInputFields: [
       { name: "imageCount", label: "Image Count", type: "number" },
       { name: "mainResolution", label: "Main Resolution" },
@@ -283,12 +293,12 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         mainFileType: "",
         publisherLabel: "",
         notes: "",
-        memorability: "",
-        visual: "",
-        posing: "",
-        atmosphere: "",
-        flow: "",
-        signature: "",
+        memorability: "1",
+        visual: "1",
+        posing: "1",
+        atmosphere: "1",
+        flow: "1",
+        signature: "1",
       },
       edit: {
         title: "Sample Image Title",
@@ -326,6 +336,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialSourceLinks: {
+      create: [],
+      edit: [],
+    },
   },
   performers: {
     kind: "performers",
@@ -340,15 +354,15 @@ export const formConfigs: Record<FormKind, FormConfig> = {
     editBackLabel: "Back to Performer Detail",
     requiredField: "name",
     basicFields: [
-      { name: "name", label: "Name", required: true },
-      { name: "originalName", label: "Original Name" },
+      { name: "name", label: "Name", required: true, placeholder: "Performer name" },
+      { name: "originalName", label: "Original Name", placeholder: "Original performer name" },
     ],
     selectFields: [],
     pathFields: [
       {
         name: "coverPath",
         label: "Cover Path",
-        helper: "Saved as typed or selected local image path.",
+        placeholder: "D:/Performers/name/cover.jpg",
       },
     ],
     metadataFields: [],
@@ -371,36 +385,33 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         {
           name: "thumbnail1",
           label: "Thumbnail 1",
-          helper: "Optional saved local image path.",
+          placeholder: "D:/Performers/name/thumb-1.jpg",
         },
         {
           name: "thumbnail2",
           label: "Thumbnail 2",
-          helper: "Optional saved local image path.",
+          placeholder: "D:/Performers/name/thumb-2.jpg",
         },
         {
           name: "thumbnail3",
           label: "Thumbnail 3",
-          helper: "Optional saved local image path.",
+          placeholder: "D:/Performers/name/thumb-3.jpg",
         },
         {
           name: "thumbnail4",
           label: "Thumbnail 4",
-          helper: "Optional saved local image path.",
+          placeholder: "D:/Performers/name/thumb-4.jpg",
         },
       ],
       summary: [],
       personal: [
+        { name: "gender", label: "Gender" },
         { name: "debutDate", label: "Debut Date", type: "date" },
         { name: "retiredDate", label: "Retired Date", type: "date" },
         { name: "birthDate", label: "Birth Date", type: "date" },
         { name: "birthplace", label: "Birthplace" },
         { name: "nationality", label: "Nationality" },
-        {
-          name: "astrologicalSign",
-          label: "Astrological Sign",
-          helper: "Derived from Birth Date.",
-        },
+        { name: "astrologicalSign", label: "Astrological Sign" },
         { name: "bloodType", label: "Blood Type" },
       ],
       physical: [
@@ -415,6 +426,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         name: "",
         originalName: "",
         favorite: false,
+        gender: "",
         coverPath: "",
         thumbnail1: "",
         thumbnail2: "",
@@ -432,17 +444,18 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         measurements: "",
         cupSize: "",
         notes: "",
-        attraction: "",
-        visual: "",
-        performance: "",
-        popularity: "",
-        exceptional: "",
-        versatility: "",
+        attraction: "1",
+        visual: "1",
+        performance: "1",
+        popularity: "1",
+        exceptional: "1",
+        versatility: "1",
       },
       edit: {
         name: "Sample Performer Name",
         originalName: "Original Name Placeholder",
         favorite: true,
+        gender: "",
         coverPath: "D:/Images/Performers/sample_cover.jpg",
         thumbnail1: "",
         thumbnail2: "",
@@ -481,6 +494,10 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       edit: [],
     },
     initialPerformerRelatedImages: {
+      create: [],
+      edit: [],
+    },
+    initialSourceLinks: {
       create: [],
       edit: [],
     },

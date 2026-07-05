@@ -1,15 +1,24 @@
-import { Plus, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
+import { type UIEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { RelatedPerformerReference } from "../backend/json";
+import {
+  parseTextLabelArray,
+  type RelatedPerformerReference,
+} from "../backend/json";
 import type { Performer } from "../backend/types";
-import { performerSearchText } from "../lib/relatedPicker";
+import {
+  rankPickerSearchResults,
+  splitPickerHighlight,
+} from "../lib/relatedPicker";
+import { useTranslation } from "../lib/LanguageContext";
+import { formatMoreCount } from "../lib/uiDisplayLabels";
 
 const RELATED_CHIP_STYLES =
   "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold";
 const RELATED_CHIP_TEXT_STYLES = "min-w-0 truncate whitespace-nowrap";
 const RELATED_ROW_GRID_STYLES =
-  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(10rem,0.75fr)_2.25rem] items-center gap-4";
+  "group grid h-12 w-full grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)_2.25rem] items-center gap-4";
+const PICKER_RENDER_BATCH_SIZE = 30;
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -18,6 +27,8 @@ type RelatedPerformerPickerProps = {
   selected: RelatedPerformerReference[];
   loadState: LoadState;
   onChange: (nextSelected: RelatedPerformerReference[]) => void;
+  showSelectedSummary?: boolean;
+  maxOccurrencesPerPerformer?: number;
 };
 
 function RelatedPerformerPicker({
@@ -25,13 +36,27 @@ function RelatedPerformerPicker({
   selected,
   loadState,
   onChange,
+  showSelectedSummary = true,
+  maxOccurrencesPerPerformer = 1,
 }: RelatedPerformerPickerProps) {
+  const t = useTranslation();
   const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [showAllSelected, setShowAllSelected] = useState(false);
-  const selectedIds = new Set(
-    selected.map((relation) => relation.performerId).filter(Boolean),
+  const [visibleResultCount, setVisibleResultCount] = useState(
+    PICKER_RENDER_BATCH_SIZE,
   );
+  const [showAllSelected, setShowAllSelected] = useState(false);
+  const [limitMessage, setLimitMessage] = useState("");
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const selectedCountById = selected.reduce((counts, relation) => {
+    if (relation.performerId) {
+      counts.set(
+        relation.performerId,
+        (counts.get(relation.performerId) ?? 0) + 1,
+      );
+    }
+    return counts;
+  }, new Map<string, number>());
   const selectedNames = new Set(
     selected
       .filter((relation) => !relation.performerId)
@@ -42,23 +67,31 @@ function RelatedPerformerPicker({
     () => new Map(performers.map((performer) => [performer.id, performer])),
     [performers],
   );
-  const normalizedQuery = query.trim().toLowerCase();
-  const availablePerformers = performers
-    .filter((performer) => !selectedIds.has(performer.id))
+  const availablePerformers = rankPickerSearchResults(
+    performers
+    .filter(
+      (performer) =>
+        (selectedCountById.get(performer.id) ?? 0) <
+        maxOccurrencesPerPerformer,
+    )
     .filter(
       (performer) =>
         !selectedNames.has(performerBaseName(performer).trim().toLowerCase()),
-    )
-    .filter((performer) => {
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return performerSearchText(performer).includes(normalizedQuery);
-    });
+    ),
+    query,
+    (performer) => ({
+      id: performer.id,
+      primary: performerBaseName(performer),
+      secondary: [
+        performer.originalName,
+        ...parseTextLabelArray(performer.aliasesJson),
+      ],
+    }),
+  );
   const visibleSelected = showAllSelected ? selected : selected.slice(0, 3);
   const hiddenSelectedCount = Math.max(selected.length - visibleSelected.length, 0);
-  const shouldShowResults = isSearchOpen && query.trim().length > 0;
+  const shouldShowResults = isSearchOpen;
+  const visiblePerformers = availablePerformers.slice(0, visibleResultCount);
 
   useEffect(() => {
     if (selected.length <= 3) {
@@ -66,8 +99,53 @@ function RelatedPerformerPicker({
     }
   }, [selected.length]);
 
+  useEffect(() => {
+    setVisibleResultCount(PICKER_RENDER_BATCH_SIZE);
+  }, [query, isSearchOpen, performers.length]);
+
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return;
+    }
+
+    const close = () => setIsSearchOpen(false);
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Node && pickerRef.current?.contains(event.target)) {
+        return;
+      }
+      close();
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !pickerRef.current?.contains(event.target)
+      ) {
+        close();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isSearchOpen]);
+
   function addPerformer(performer: Performer) {
+    if (
+      (selectedCountById.get(performer.id) ?? 0) >=
+      maxOccurrencesPerPerformer
+    ) {
+      setLimitMessage(
+        `${performerBaseName(performer)} can be added up to ${maxOccurrencesPerPerformer} times.`,
+      );
+      setIsSearchOpen(true);
+      return;
+    }
+
     const nameSnapshot = performerBaseName(performer);
+    setLimitMessage("");
     onChange([
       ...selected,
       {
@@ -75,7 +153,8 @@ function RelatedPerformerPicker({
         nameSnapshot,
       },
     ]);
-    setIsSearchOpen(query.trim().length > 0);
+    setQuery("");
+    setIsSearchOpen(false);
   }
 
   function removeRelation(relation: RelatedPerformerReference) {
@@ -89,8 +168,22 @@ function RelatedPerformerPicker({
     );
   }
 
+  function handleResultsScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.currentTarget;
+    const remaining =
+      target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remaining > 48) {
+      return;
+    }
+
+    setVisibleResultCount((current) =>
+      Math.min(current + PICKER_RENDER_BATCH_SIZE, availablePerformers.length),
+    );
+  }
+
   return (
     <div
+      ref={pickerRef}
       className="grid gap-4 text-sm font-semibold text-slate-700"
       onBlur={() => {
         window.setTimeout(() => setIsSearchOpen(false), 120);
@@ -109,17 +202,13 @@ function RelatedPerformerPicker({
               ? "border-sakura-400 ring-4 ring-sakura-100"
               : "border-slate-200 focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100",
           ].join(" ")}
-          aria-label="Search related performers"
-          placeholder="Search performer name, alias, tag..."
+          aria-label={t("picker.relatedPerformers.search")}
+          placeholder={t("picker.relatedPerformers.placeholder")}
           value={query}
-          onFocus={() => {
-            if (query.trim()) {
-              setIsSearchOpen(true);
-            }
-          }}
+          onFocus={() => setIsSearchOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
-            setIsSearchOpen(event.target.value.trim().length > 0);
+            setIsSearchOpen(true);
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -131,7 +220,7 @@ function RelatedPerformerPicker({
           <button
             type="button"
             className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sakura-300"
-            aria-label="Clear related performer search"
+            aria-label={t("picker.relatedPerformers.clear")}
             onClick={() => {
               setQuery("");
               setIsSearchOpen(false);
@@ -142,7 +231,10 @@ function RelatedPerformerPicker({
         )}
 
         {shouldShowResults && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div
+            className="sakurava-scrollbar absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+            onScroll={handleResultsScroll}
+          >
             {loadState === "loading" && (
               <p className="px-4 py-3 text-sm font-medium text-slate-500">
                 Loading performers...
@@ -165,9 +257,9 @@ function RelatedPerformerPicker({
                   No matching performers available. Use Performers to add it first.
                 </p>
               )}
-            {availablePerformers.map((performer) => {
+            {visiblePerformers.map((performer) => {
               const name = performerBaseName(performer);
-              const meta = performerMeta(performer);
+              const meta = performerMetaParts(performer);
 
               return (
                 <button
@@ -180,13 +272,11 @@ function RelatedPerformerPicker({
                   onClick={() => addPerformer(performer)}
                 >
                   <span className="min-w-0 truncate whitespace-nowrap font-bold text-slate-900">
-                    {name}
+                    <HighlightedPickerText text={name} query={query} />
                   </span>
-                  <span className="min-w-0 truncate whitespace-nowrap text-right text-sm font-medium text-slate-500">
-                    {meta}
-                  </span>
-                  <span className="flex size-8 items-center justify-center justify-self-end rounded-full text-sakura-500 transition-colors group-hover:bg-sakura-100">
-                    <Plus size={14} />
+                  <PerformerMeta parts={meta} />
+                  <span className="flex h-8 items-center justify-center justify-self-end rounded-md px-2 text-[11px] font-bold text-sakura-500 transition-colors group-hover:bg-sakura-100">
+                    Add
                   </span>
                 </button>
               );
@@ -195,7 +285,13 @@ function RelatedPerformerPicker({
         )}
       </div>
 
-      {selected.length === 0 ? (
+      {limitMessage && (
+        <p className="text-sm font-medium text-amber-700" role="status">
+          {limitMessage}
+        </p>
+      )}
+
+      {showSelectedSummary && (selected.length === 0 ? (
         <p className="text-sm font-medium text-slate-500">
           No related performers selected.
         </p>
@@ -236,7 +332,7 @@ function RelatedPerformerPicker({
                     onClick={() => removeRelation(relation)}
                   >
                     <X size={13} />
-                    <span className="sr-only">Remove</span>
+                    <span className="sr-only">{t("common.remove")}</span>
                   </button>
                 </span>
               );
@@ -247,7 +343,7 @@ function RelatedPerformerPicker({
               className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600"
               onClick={() => setShowAllSelected(true)}
             >
-              +{hiddenSelectedCount} more
+              {formatMoreCount(t, hiddenSelectedCount)}
             </button>
           )}
           {showAllSelected && selected.length > 3 && (
@@ -260,14 +356,12 @@ function RelatedPerformerPicker({
             </button>
           )}
         </div>
-      )}
+      ))}
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="font-medium text-slate-500">
           {selected.length > 0
-            ? `${selected.length} ${
-                selected.length === 1 ? "performer" : "performers"
-              } selected`
+            ? t("count.selected", { count: String(selected.length) })
             : ""}
         </span>
         <div className="flex items-center gap-4">
@@ -277,7 +371,7 @@ function RelatedPerformerPicker({
               className="font-semibold text-slate-500 transition-colors hover:text-slate-700"
               onClick={() => onChange([])}
             >
-              Clear all
+              {t("common.clearAll")}
             </button>
           )}
           {selected.length > 0 && (
@@ -287,7 +381,7 @@ function RelatedPerformerPicker({
             to="/performers"
             className="font-semibold text-sakura-600 transition-colors hover:text-sakura-700"
           >
-            Open Performers
+            {t("picker.openPerformers")}
           </Link>
         </div>
       </div>
@@ -295,18 +389,63 @@ function RelatedPerformerPicker({
   );
 }
 
+function HighlightedPickerText({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {splitPickerHighlight(text, query).map((part, index) =>
+        part.highlighted ? (
+          <mark
+            key={`${part.text}-${index}`}
+            className="rounded bg-sakura-100 px-0 text-inherit"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={`${part.text}-${index}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function performerBaseName(performer: Performer) {
   return performer.name || performer.originalName || "Unnamed Performer";
 }
 
-function performerMeta(performer: Performer) {
-  return [
+function PerformerMeta({ parts }: { parts: { context: string[]; rating: string } }) {
+  if (parts.context.length === 0 && !parts.rating) {
+    return <span aria-hidden="true" />;
+  }
+
+  return (
+    <span className="flex min-w-0 items-center justify-end gap-1.5 text-right text-sm font-medium text-slate-500">
+      {parts.context.length > 0 && (
+        <span className="min-w-0 truncate whitespace-nowrap">
+          {parts.context.join(" · ")}
+        </span>
+      )}
+      {parts.context.length > 0 && parts.rating && (
+        <span className="shrink-0" aria-hidden="true">
+          {" · "}
+        </span>
+      )}
+      {parts.rating && (
+        <span className="shrink-0 whitespace-nowrap">{parts.rating}</span>
+      )}
+    </span>
+  );
+}
+
+function performerMetaParts(performer: Performer) {
+  const context = [
     performer.nationality.trim(),
     performerActiveRange(performer),
-    ratingLabel(performer.ratingJson),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ].filter(Boolean);
+
+  return {
+    context,
+    rating: ratingLabel(performer.ratingJson),
+  };
 }
 
 function performerActiveRange(performer: Performer) {
@@ -320,7 +459,7 @@ function performerActiveRange(performer: Performer) {
   }
 
   if (debut && performer.status === "Active") {
-    return `${debut}-Present`;
+    return `${debut}-Now`;
   }
 
   return debut || retired;
@@ -339,7 +478,7 @@ function ratingLabel(ratingJson: string) {
 
     const average =
       ratings.reduce((total, rating) => total + rating, 0) / ratings.length;
-    return `Rating ${average.toFixed(1)}`;
+    return `★ ${average.toFixed(1)}`;
   } catch {
     return "";
   }

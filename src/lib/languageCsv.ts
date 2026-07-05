@@ -5,16 +5,20 @@ import {
   type LanguageCode,
 } from "./language";
 import {
-  getOverridesForLanguage,
   resetOverrideForLanguage,
   setOverrideForLanguage,
 } from "./languageOverrides";
-import { addCustomLanguage, getStoredCustomLanguages } from "./customLanguages";
+import {
+  addCustomLanguage,
+  getStoredCustomLanguages,
+  isProtectedLanguageCode,
+  maxCustomLanguages,
+  normalizeCustomLanguageCode,
+  normalizeCustomLanguageLabel,
+} from "./customLanguages";
 import { localFileTimestamp } from "../runtime/exportCommands";
 
-// --- CSV headers (5-column format) ---
-
-const csvHeaders = ["Language Code", "Language Name", "Key", "Text", "Description"] as const;
+const csvHeaders = ["language_code", "key", "text", "context"] as const;
 
 // --- CSV filename ---
 
@@ -40,53 +44,19 @@ function escapeCsvCell(value: string): string {
   return value;
 }
 
-function resolveEffectiveText(
-  languageCode: LanguageCode,
-  key: string,
-  overrides: Record<string, string>,
-): string {
-  if (overrides[key]) {
-    return overrides[key];
-  }
-
-  const builtInText = getBuiltInText(languageCode, key);
-  if (builtInText !== undefined) {
-    return builtInText;
-  }
-
-  const englishText = getBuiltInText("en", key);
-  if (englishText !== undefined) {
-    return englishText;
-  }
-
-  return key;
-}
-
-/**
- * Export a custom language CSV.
- * - If languageCode is "en": exports a starter CSV prefilled from English text.
- * - If languageCode is non-English: exports an edit/replace CSV for that language.
- */
 export function buildLanguageExportCsv(languageCode: LanguageCode): string {
   const keys = getAllTranslationKeys();
-  const isEnglish = languageCode === "en";
-  const overrides = isEnglish ? {} : getOverridesForLanguage(languageCode);
-
-  const code = isEnglish ? "custom" : languageCode;
-  const name = isEnglish
-    ? "Custom Language"
-    : getLanguageLabel(languageCode);
+  const targetCode = languageCode === "en" ? "" : languageCode;
 
   const headerRow = csvHeaders.join(",");
   const dataRows = keys.map((key) => {
-    const text = resolveEffectiveText(languageCode, key, overrides);
+    const english = getBuiltInText("en", key) ?? key;
     const description = getKeyDescription(key);
 
     return [
-      escapeCsvCell(code),
-      escapeCsvCell(name),
+      escapeCsvCell(targetCode),
       escapeCsvCell(key),
-      escapeCsvCell(text),
+      escapeCsvCell(english),
       escapeCsvCell(description),
     ].join(",");
   });
@@ -94,16 +64,12 @@ export function buildLanguageExportCsv(languageCode: LanguageCode): string {
   return [headerRow, ...dataRows].join("\n");
 }
 
-function getLanguageLabel(languageCode: LanguageCode): string {
-  const custom = getStoredCustomLanguages();
-  const found = custom.find((l) => l.code === languageCode);
-  if (found) {
-    return found.label;
+function resolveLanguageName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
   }
-  if (languageCode === "id") {
-    return "Indonesian";
-  }
-  return languageCode;
 }
 
 // --- CSV import preview ---
@@ -227,26 +193,16 @@ export function buildCustomLanguageCsvPreview(
   const headerRow = allRows[0];
   const normalizedHeaders = headerRow.map((h) => h.trim().toLowerCase());
 
-  // Detect old 7-column format and give clear error
-  if (
-    normalizedHeaders.length >= 7 &&
-    normalizedHeaders[0] === "language code" &&
-    normalizedHeaders[2] === "base language"
-  ) {
-    return emptyCustomPreview(
-      "Unsupported 7-column CSV format detected. Please use the current 5-column format: Language Code,Language Name,Key,Text,Description",
-    );
-  }
+  const isFinalFormat =
+    normalizedHeaders.length === 4 &&
+    normalizedHeaders[0] === "language_code" &&
+    normalizedHeaders[1] === "key" &&
+    normalizedHeaders[2] === "text" &&
+    normalizedHeaders[3] === "context";
 
-  // Validate 5-column headers
-  if (
-    normalizedHeaders[0] !== "language code" ||
-    normalizedHeaders[1] !== "language name" ||
-    normalizedHeaders[2] !== "key" ||
-    normalizedHeaders[3] !== "text"
-  ) {
+  if (!isFinalFormat) {
     return emptyCustomPreview(
-      "Invalid CSV headers. Expected: Language Code,Language Name,Key,Text,Description",
+      "Invalid CSV headers. Expected: language_code,key,text,context.",
     );
   }
 
@@ -255,17 +211,20 @@ export function buildCustomLanguageCsvPreview(
     return emptyCustomPreview("No data rows in CSV.");
   }
 
-  // Extract language metadata from first data row
   const firstRow = dataRows[0];
-  const languageCode = (firstRow[0] ?? "").trim().toLowerCase();
-  const languageName = (firstRow[1] ?? "").trim();
+  const languageCode = normalizeCustomLanguageCode(firstRow[0]);
+  const languageName = languageCode
+    ? normalizeCustomLanguageLabel(resolveLanguageName(languageCode))
+    : null;
 
   if (!languageCode) {
-    return emptyCustomPreview("Language Code is required.");
+    return emptyCustomPreview(
+      "Fill language_code with a valid non-English target language code.",
+    );
   }
 
   if (!languageName) {
-    return emptyCustomPreview("Language Name is required.");
+    return emptyCustomPreview("Language Name must contain 2-60 safe characters.");
   }
 
   if (languageCode === "en") {
@@ -279,9 +238,9 @@ export function buildCustomLanguageCsvPreview(
     const cells = dataRows[i];
     const lineNumber = i + 2;
     const rowLangCode = (cells[0] ?? "").trim().toLowerCase();
-    const rowKey = (cells[2] ?? "").trim();
-    const rowText = (cells[3] ?? "").trim();
-    const rowDescription = (cells[4] ?? "").trim();
+    const rowKey = (cells[1] ?? "").trim();
+    const rowText = (cells[2] ?? "").trim();
+    const rowDescription = (cells[3] ?? "").trim();
 
     if (!rowKey) {
       continue; // skip blank rows
@@ -320,7 +279,7 @@ export function buildCustomLanguageCsvPreview(
         text: rowText,
         description: rowDescription,
         action: "skip",
-        warning: "Unknown key — not applied.",
+        error: "Unknown key — import cannot be applied.",
       });
       continue;
     }
@@ -354,7 +313,12 @@ export function buildCustomLanguageCsvPreview(
   const existingCustom = getStoredCustomLanguages();
   const isNew = !existingCustom.some(
     (lang) => lang.code.trim().toLowerCase() === languageCode,
-  ) && languageCode !== "id"; // id is bundled, treat as existing
+  ) && isProtectedLanguageCode(languageCode) === false;
+  if (isNew && existingCustom.length >= maxCustomLanguages) {
+    return emptyCustomPreview(
+      `Up to ${maxCustomLanguages} custom languages can be installed. Remove one before importing another.`,
+    );
+  }
 
   return {
     languageCode,
@@ -384,12 +348,34 @@ export type LanguageCsvApplyReport = {
 export function applyCustomLanguageCsvPreview(
   preview: CustomLanguageCsvPreview,
 ): LanguageCsvApplyReport {
-  // Register/update the custom language metadata
-  addCustomLanguage({
-    code: preview.languageCode,
-    label: preview.languageName,
-    baseLanguage: "en",
-  });
+  if (preview.headerError || preview.validRows === 0) {
+    return {
+      applied: 0,
+      overrides: 0,
+      resets: 0,
+      skipped: preview.totalRows,
+      warnings: preview.warningRows,
+      errors: Math.max(1, preview.errorRows),
+    };
+  }
+
+  if (!isProtectedLanguageCode(preview.languageCode)) {
+    const registration = addCustomLanguage({
+      code: preview.languageCode,
+      label: preview.languageName,
+      baseLanguage: "en",
+    });
+    if (!registration.ok) {
+      return {
+        applied: 0,
+        overrides: 0,
+        resets: 0,
+        skipped: preview.totalRows,
+        warnings: preview.warningRows,
+        errors: Math.max(1, preview.errorRows),
+      };
+    }
+  }
 
   // Apply translations as overrides
   let overrides = 0;

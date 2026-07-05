@@ -863,6 +863,7 @@ function updateCategorySnapshot(
     showInPerformers: parseBooleanCsvCell(
       row.values["Show in Performers"] ?? "true",
     ),
+    showInCredits: existing?.showInCredits ?? false,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

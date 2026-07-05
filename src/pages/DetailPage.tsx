@@ -1,30 +1,50 @@
 import {
   ArrowLeft,
+  ArrowUpDown,
   Calendar,
   ChevronDown,
   ChevronUp,
   Clapperboard,
   Clock,
   Edit3,
+  ExternalLink,
   FileImage,
   Film,
+  Globe2,
+  Grid2X2,
   Heart,
   Image as ImageIcon,
   Info,
+  List,
   Play,
   Ruler,
+  Search,
   Star,
-  Trash2,
+  type LucideIcon,
   UserRound,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+  Children,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import { VideoLiteCard, ImageLiteCard, PerformerLiteCard } from "../components/cards";
 import ContentThumbnailPlaceholder from "../components/ContentThumbnailPlaceholder";
+import SakuravaSelect from "../components/SakuravaSelect";
+import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import GlobalImageViewer from "../components/gallery/GlobalImageViewer";
 import type {
   DetailConfig,
   DetailSection,
+  CreditDetailItem,
+  FilmographyDetailItem,
   MediaPathItem,
   PerformerDetailConfig,
   SourceLinkItem,
@@ -39,7 +59,16 @@ import {
   type GlobalImageViewerWindowPayload,
   type GlobalImageViewerWindowResult,
 } from "../runtime/globalImageViewerWindow";
+import { formatDateOnlyDisplay, isDateOnlyValue } from "../lib/dateDisplay";
+import {
+  readSessionFilterState,
+  writeSessionFilterState,
+} from "../lib/sessionFilterState";
 import { openMediaPath } from "../runtime/mediaOpenCommands";
+import {
+  normalizeHttpSourceUrl,
+  openSourceLink,
+} from "../runtime/sourceLinkCommands";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
 import {
   checkPathStatus,
@@ -49,18 +78,15 @@ import {
 import { updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { updateVideo } from "../runtime/videoCommands";
-
-export type DetailDeleteAction = {
-  itemLabel: string;
-  isPending: boolean;
-  errorMessage: string | null;
-  onOpen: () => void;
-  onConfirm: () => void;
-};
+import { useTranslation } from "../lib/LanguageContext";
+import {
+  translateUiDisplayLabel,
+  translateUiDisplayValue,
+  type UiTranslator,
+} from "../lib/uiDisplayLabels";
 
 type DetailPageProps = {
   config: DetailConfig;
-  deleteAction?: DetailDeleteAction;
 };
 
 function logGlobalViewerFallback(
@@ -87,7 +113,10 @@ type DetailFavoriteAction = {
   onToggle: () => void;
 };
 
-function DetailPage({ config, deleteAction }: DetailPageProps) {
+const DETAIL_CHIP_VISIBLE_LIMIT = 5;
+const RELATED_CAROUSEL_VISIBLE_COUNT = 5;
+
+function DetailPage({ config }: DetailPageProps) {
   const [favorite, setFavorite] = useState(config.favorite);
   const [favoritePending, setFavoritePending] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
@@ -148,7 +177,6 @@ function DetailPage({ config, deleteAction }: DetailPageProps) {
     return (
       <PerformerDetailPage
         config={localConfig}
-        deleteAction={deleteAction}
         favoriteAction={favoriteAction}
       />
     );
@@ -157,26 +185,13 @@ function DetailPage({ config, deleteAction }: DetailPageProps) {
   return (
     <CatalogDetailPage
       config={localConfig}
-      deleteAction={deleteAction}
       favoriteAction={favoriteAction}
     />
   );
 }
 
-function DetailHeader({ config, deleteAction }: DetailPageProps) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  function openConfirmation() {
-    deleteAction?.onOpen();
-    setConfirmOpen(true);
-  }
-
-  function closeConfirmation() {
-    if (!deleteAction?.isPending) {
-      setConfirmOpen(false);
-    }
-  }
-
+function DetailHeader({ config }: DetailPageProps) {
+  const t = useTranslation();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -185,84 +200,37 @@ function DetailHeader({ config, deleteAction }: DetailPageProps) {
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
         >
           <ArrowLeft size={16} />
-          {config.backLabel}
+          {translateUiDisplayLabel(t, config.backLabel)}
         </Link>
         <div className="flex items-center gap-2">
-          {deleteAction && (
-            <button
-              type="button"
-              onClick={openConfirmation}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-600 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
-            >
-              <Trash2 size={16} />
-              Delete
-            </button>
-          )}
           <Link
             to={config.editTo}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600"
           >
             <Edit3 size={16} />
-            Edit
+            {t("detail.edit")}
           </Link>
         </div>
       </div>
       <div>
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          {config.title}
+          {translateUiDisplayLabel(t, config.title)}
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          {config.subtitle}
+          {translateUiDisplayLabel(t, config.subtitle)}
         </p>
       </div>
-      {deleteAction && confirmOpen && (
-        <section
-          aria-label="Delete confirmation"
-          className="rounded-lg border border-rose-200 bg-rose-50/70 p-4"
-        >
-          <h2 className="text-base font-semibold text-rose-900">
-            Delete {deleteAction.itemLabel}?
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-rose-800">
-            This removes the saved Sakurava record for {deleteAction.itemLabel}.
-            It does not delete local media files from this device.
-          </p>
-          {deleteAction.errorMessage && (
-            <p className="mt-3 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700">
-              {deleteAction.errorMessage}
-            </p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={closeConfirmation}
-              disabled={deleteAction.isPending}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={deleteAction.onConfirm}
-              disabled={deleteAction.isPending}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {deleteAction.isPending ? "Deleting..." : "Delete permanently"}
-            </button>
-          </div>
-        </section>
-      )}
     </div>
   );
 }
 
 function CatalogDetailPage({
   config,
-  deleteAction,
   favoriteAction,
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   const heroSection = (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
@@ -273,7 +241,7 @@ function CatalogDetailPage({
   );
   const detailSummarySection = (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)]">
-      <RowsCard title="Metadata" icon={Calendar} items={config.metadata} />
+      <RowsCard title={t("detail.metadata")} icon={Calendar} items={config.metadata} />
       <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
       <RowsCard
         title={config.techTitle}
@@ -287,26 +255,26 @@ function CatalogDetailPage({
   if (config.kind === "images") {
     return (
       <div className="space-y-5">
-        <DetailHeader config={config} deleteAction={deleteAction} />
+        <DetailHeader config={config} />
         {heroSection}
         <GalleryGrid paths={config.galleryImagePaths} />
         {detailSummarySection}
         <NotesCard notes={config.notes} />
-        <SourceLinksCard links={config.sourceLinks} />
         <RelatedRows sections={config.relatedSections} />
+        <SourceLinksCard links={config.sourceLinks} />
         <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <DetailHeader config={config} deleteAction={deleteAction} />
+    <div className="min-w-0 max-w-full space-y-5">
+      <DetailHeader config={config} />
       {heroSection}
       {detailSummarySection}
       <NotesCard notes={config.notes} />
-      <SourceLinksCard links={config.sourceLinks} />
       <RelatedRows sections={config.relatedSections} />
+      <SourceLinksCard links={config.sourceLinks} />
       <SystemInfoCard items={config.systemInfo} mediaPaths={config.mediaPaths} />
     </div>
   );
@@ -318,6 +286,7 @@ function CatalogIdentity({
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   const playableMedia =
     config.kind === "videos"
       ? config.mediaPaths.find((item) => item.playable)
@@ -368,12 +337,13 @@ function CatalogIdentity({
 
       {config.categories.length > 0 && (
         <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-semibold text-slate-800">Categories</p>
-          <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-            {config.categories.map((category) => (
-              <Chip key={category} label={category} tone="pinkSoft" />
-            ))}
-          </div>
+          <p className="text-sm font-semibold text-slate-800">
+            {t("detail.categories")}
+          </p>
+          <OverflowChipList
+            ariaLabel={t("detail.categoriesLabel")}
+            labels={config.categories}
+          />
         </div>
       )}
     </div>
@@ -382,20 +352,23 @@ function CatalogIdentity({
 
 function PerformerDetailPage({
   config,
-  deleteAction,
   favoriteAction,
 }: {
   config: PerformerDetailConfig;
-  deleteAction?: DetailDeleteAction;
   favoriteAction: DetailFavoriteAction;
 }) {
-  const profileMetadataItems = config.gender
-    ? [config.gender, ...config.metadata]
-    : config.metadata;
+  const t = useTranslation();
+  const physicalItems = [
+    config.bodyType ?? {
+      label: t("detail.bodyType"),
+      value: t("detail.notAvailable"),
+    },
+    ...config.physical,
+  ];
 
   return (
-    <div className="space-y-5">
-      <DetailHeader config={config} deleteAction={deleteAction} />
+    <div className="min-w-0 max-w-full space-y-5">
+      <DetailHeader config={config} />
 
       <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
         <PerformerProfileCard
@@ -403,13 +376,12 @@ function PerformerDetailPage({
           favoriteAction={favoriteAction}
         />
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <PerformerSummaryCards config={config} />
-          <RowsCard title="Profile Metadata" icon={Calendar} items={profileMetadataItems} />
           <RatingSummaryCard title={config.ratingTitle} rating={config.rating} />
           <section className="grid gap-5 lg:grid-cols-2">
-            <RowsCard title="Personal" icon={UserRound} items={config.personal} />
-            <RowsCard title="Physical" icon={Ruler} items={config.physical} />
+            <RowsCard title={t("detail.personal")} icon={UserRound} items={config.personal} />
+            <RowsCard title={t("detail.physical")} icon={Ruler} items={physicalItems} />
           </section>
           <NotesCard notes={config.notes} />
         </div>
@@ -429,6 +401,7 @@ function PerformerProfileCard({
   config: PerformerDetailConfig;
   favoriteAction: DetailFavoriteAction;
 }) {
+  const t = useTranslation();
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="relative">
@@ -456,6 +429,8 @@ function PerformerProfileCard({
               key={label}
               label={label}
               path={config.thumbnailPaths[index]}
+              paths={config.thumbnailPaths}
+              index={index}
             />
           );
         })}
@@ -469,7 +444,7 @@ function PerformerProfileCard({
       />
 
       <div
-        aria-label="Performer hero chips"
+        aria-label={t("detail.performerHeroChips")}
         className="mt-4 flex flex-wrap gap-2"
       >
         {config.chips.map((chip) => (
@@ -484,13 +459,13 @@ function PerformerProfileCard({
       {config.aliases.length > 0 && (
         <>
           <Divider />
-          <LabelBlock title="Aliases" labels={config.aliases} />
+          <LabelBlock title={t("detail.aliases")} labels={config.aliases} />
         </>
       )}
       {config.categories.length > 0 && (
         <>
           <Divider />
-          <LabelBlock title="Categories" labels={config.categories} />
+          <LabelBlock title={t("detail.categories")} labels={config.categories} oneRowOverflow />
         </>
       )}
     </section>
@@ -504,7 +479,10 @@ function MainFavoriteButton({
   favorite: boolean;
   favoriteAction: DetailFavoriteAction;
 }) {
-  const label = favorite ? "Remove from Favorites" : "Add to Favorites";
+  const t = useTranslation();
+  const label = favorite
+    ? t("detail.removeFavorite")
+    : t("detail.addFavorite");
 
   return (
     <button
@@ -583,6 +561,7 @@ function ExpandableTitle({
 }
 
 function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
+  const t = useTranslation();
   const icons = [Calendar, Clapperboard, FileImage];
 
   return (
@@ -600,14 +579,14 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-600">
-                {item.label}
+                {translateUiDisplayLabel(t, item.label)}
               </p>
               <p className="mt-1 whitespace-pre-line text-2xl font-semibold leading-tight text-slate-950">
-                {item.value}
+                {translateUiDisplayValue(t, item.value)}
               </p>
               {item.secondaryValue && (
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {item.secondaryValue}
+                  {translateUiDisplayValue(t, item.secondaryValue)}
                 </p>
               )}
             </div>
@@ -624,6 +603,7 @@ function LargePlaceholder({ config }: DetailPageProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [previewPayload, setPreviewPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
+  const previewOpeningRef = useRef(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(config.coverPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
@@ -635,19 +615,29 @@ function LargePlaceholder({ config }: DetailPageProps) {
   useEffect(() => {
     setImageFailed(false);
     setPreviewPayload(null);
+    previewOpeningRef.current = false;
   }, [assetSrc, mediaAssetScopeReady]);
 
   async function handlePreviewOpen() {
+    if (previewOpeningRef.current) {
+      return;
+    }
+
+    previewOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: previewTitle,
       images: [{ path: config.coverPath ?? "", title: previewTitle }],
       initialIndex: 0,
     });
-    const viewerResult = await openGlobalImageViewerWindow(payload);
+    try {
+      const viewerResult = await openGlobalImageViewerWindow(payload);
 
-    if (viewerResult.mode === "fallback") {
-      logGlobalViewerFallback("detail cover preview", viewerResult);
-      setPreviewPayload(payload);
+      if (viewerResult.mode === "fallback") {
+        logGlobalViewerFallback("detail cover preview", viewerResult);
+        setPreviewPayload(payload);
+      }
+    } finally {
+      previewOpeningRef.current = false;
     }
   }
 
@@ -701,10 +691,21 @@ function coverPreviewTitle(kind: DetailConfig["kind"]) {
   return "Performer Cover";
 }
 
-function SmallThumbnail({ label, path }: { label: string; path?: string }) {
+function SmallThumbnail({
+  index,
+  label,
+  path,
+  paths = path ? [path] : [],
+}: {
+  index?: number;
+  label: string;
+  path?: string;
+  paths?: string[];
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [previewPayload, setPreviewPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
+  const previewOpeningRef = useRef(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(path);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
@@ -712,19 +713,41 @@ function SmallThumbnail({ label, path }: { label: string; path?: string }) {
   useEffect(() => {
     setImageFailed(false);
     setPreviewPayload(null);
+    previewOpeningRef.current = false;
   }, [assetSrc, mediaAssetScopeReady]);
 
   async function handlePreviewOpen() {
+    if (previewOpeningRef.current) {
+      return;
+    }
+
+    previewOpeningRef.current = true;
+    const viewerImages = paths
+      .map((thumbnailPath, thumbnailIndex) => ({
+        path: thumbnailPath,
+        title: `Performer Thumbnail ${thumbnailIndex + 1}`,
+      }))
+      .filter((image) => image.path.trim());
+    const initialIndex = Math.max(
+      0,
+      viewerImages.findIndex((image) => image.path === path),
+    );
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: label,
-      images: [{ path: path ?? "", title: label }],
-      initialIndex: 0,
+      images: viewerImages.length > 0
+        ? viewerImages
+        : [{ path: path ?? "", title: label }],
+      initialIndex: typeof index === "number" ? initialIndex : 0,
     });
-    const viewerResult = await openGlobalImageViewerWindow(payload);
+    try {
+      const viewerResult = await openGlobalImageViewerWindow(payload);
 
-    if (viewerResult.mode === "fallback") {
-      logGlobalViewerFallback("detail thumbnail preview", viewerResult);
-      setPreviewPayload(payload);
+      if (viewerResult.mode === "fallback") {
+        logGlobalViewerFallback("detail thumbnail preview", viewerResult);
+        setPreviewPayload(payload);
+      }
+    } finally {
+      previewOpeningRef.current = false;
     }
   }
 
@@ -777,6 +800,7 @@ function RowsCard({
   items: { label: string; value: string }[];
   message?: string;
 }) {
+  const t = useTranslation();
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
       <CardTitle title={title} icon={Icon} />
@@ -788,13 +812,13 @@ function RowsCard({
             className="grid min-w-0 grid-cols-[minmax(7rem,0.85fr)_minmax(0,1.15fr)] gap-4 py-3 text-sm"
           >
             <span className="min-w-0 truncate font-medium text-slate-700" title={item.label}>
-              {item.label}
+              {translateUiDisplayLabel(t, item.label ?? "")}
             </span>
             <span
               className="min-w-0 break-words text-slate-500 [overflow-wrap:anywhere]"
               title={detailDisplayValue(item.value)}
             >
-              {detailDisplayValue(item.value)}
+              {translateUiDisplayValue(t, detailDisplayValue(item.value) ?? "N/A")}
             </span>
           </div>
         ))}
@@ -808,6 +832,10 @@ function detailDisplayValue(value: string | number | null | undefined) {
 
   if (isEmptyDetailValue(label)) {
     return "N/A";
+  }
+
+  if (isDateOnlyValue(label)) {
+    return formatDateOnlyDisplay(label);
   }
 
   return label;
@@ -834,6 +862,7 @@ function isEmptyDetailValue(value: string | number | null | undefined) {
 }
 
 function HeroPlayButton({ item }: { item: MediaPathItem }) {
+  const t = useTranslation();
   const [status, setStatus] = useState<PathStatusState>(() => ({
     label: item.label,
     path: item.path.trim(),
@@ -905,7 +934,7 @@ function HeroPlayButton({ item }: { item: MediaPathItem }) {
         className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-sm font-semibold text-white shadow-sm shadow-sakura-200 transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none"
       >
         <Play size={16} fill="currentColor" />
-        {opening ? "Opening..." : "Play"}
+        {opening ? t("viewer.opening") : t("detail.play")}
       </button>
       {feedback && (
         <span className="text-xs font-medium text-slate-500">{feedback}</span>
@@ -920,6 +949,7 @@ type PathStatusState = PathStatusResult & {
 };
 
 function MediaPathStatusRows({ items }: { items: MediaPathItem[] }) {
+  const t = useTranslation();
   const [statuses, setStatuses] = useState<PathStatusState[]>(() =>
     initialPathStatuses(items),
   );
@@ -952,8 +982,8 @@ function MediaPathStatusRows({ items }: { items: MediaPathItem[] }) {
 
         return (
           <div key={status.label} className="text-sm">
-            <p className="font-medium text-slate-600">{status.label}</p>
-            <p className="mt-1 text-slate-500">{display.label}</p>
+            <p className="font-medium text-slate-600">{translateUiDisplayLabel(t, status.label)}</p>
+            <p className="mt-1 text-slate-500">{translateUiDisplayLabel(t, display.label)}</p>
           </div>
         );
       })}
@@ -1009,15 +1039,16 @@ function SystemInfoCard({
   items: { label: string; value: string }[];
   mediaPaths?: MediaPathItem[];
 }) {
+  const t = useTranslation();
   return (
     <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-      <CardTitle title="System Info" icon={Info} />
+      <CardTitle title={t("detail.systemInfo")} icon={Info} />
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {items.map((item) => (
           <div key={item.label} className="text-sm">
-            <p className="font-medium text-slate-600">{item.label}</p>
+            <p className="font-medium text-slate-600">{translateUiDisplayLabel(t, item.label)}</p>
             <p className="mt-1 text-slate-500">
-              {detailDisplayValue(item.value)}
+              {translateUiDisplayValue(t, detailDisplayValue(item.value) ?? t("detail.notAvailable"))}
             </p>
           </div>
         ))}
@@ -1034,20 +1065,20 @@ function RatingSummaryCard({
   title: string;
   rating: { label: string; value: number }[];
 }) {
+  const t = useTranslation();
   const average = calculateAverageRating(rating);
-  const canRenderChart =
-    average !== null && rating.length >= 3 && rating.length <= 8;
+  const canRenderChart = rating.length >= 3 && rating.length <= 8;
 
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title={title} icon={Info} />
+      <CardTitle title={title} icon={Star} />
       {canRenderChart ? (
         <SpiderChart dimensions={rating} average={average} />
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center">
-          <p className="text-sm font-semibold text-slate-700">Not rated</p>
+          <p className="text-sm font-semibold text-slate-700">{t("detail.notRated")}</p>
           <p className="mt-1 text-xs text-slate-500">
-            Rating not available for a readable spider chart.
+            {t("detail.ratingUnavailable")}
           </p>
         </div>
       )}
@@ -1060,32 +1091,60 @@ function SpiderChart({
   average,
 }: {
   dimensions: { label: string; value: number }[];
-  average: number;
+  average: number | null;
 }) {
-  const center = 130;
-  const radius = 72;
-  const labelRadius = 105;
+  const t = useTranslation();
+  const gradientId = useId().replace(/:/g, "");
+  const center = 210;
+  const radius = 84;
+  const labelRadius = 158;
   const levels = [0.2, 0.4, 0.6, 0.8, 1];
   const dimensionCount = dimensions.length;
   const shapeName = spiderShapeName(dimensionCount);
+  const normalizedDimensions = dimensions.map((dimension) => ({
+    ...dimension,
+    value: normalizeRadarValue(dimension.value),
+  }));
   const outerPoints = dimensions.map((_, index) =>
     polarPoint(index, dimensionCount, radius, center),
   );
-  const scorePoints = dimensions.map((dimension, index) =>
+  const scorePoints = normalizedDimensions.map((dimension, index) =>
     polarPoint(index, dimensionCount, radius * (dimension.value / 5), center),
   );
+  const radarPath = buildSmoothClosedPath(scorePoints);
 
   return (
     <div className="mt-4 flex justify-center">
       <svg
-        viewBox="0 0 260 260"
-        className="aspect-square w-full max-w-[310px]"
+        viewBox="0 0 420 420"
+        className="aspect-square w-full max-w-[420px]"
         role="img"
-        aria-label={`${dimensionCount}-dimension spider chart`}
+        aria-label={`${dimensionCount}-dimension radar map`}
         data-testid="spider-chart"
         data-dimension-count={dimensionCount}
         data-shape={shapeName}
       >
+        <title>{t("detail.ratingRadar")}</title>
+        <desc>
+          {dimensions
+            .map((dimension) => `${dimension.label}: ${formatRadarValue(dimension.value)}`)
+            .join(", ")}
+        </desc>
+        <defs>
+          <radialGradient id={gradientId} cx="50%" cy="42%" r="74%">
+            <stop offset="0%" stopColor="rgb(255 255 255)" stopOpacity="0.28" />
+            <stop
+              offset="58%"
+              stopColor="var(--appearance-accent-muted)"
+              stopOpacity="0.22"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--appearance-accent)"
+              stopOpacity="0.06"
+            />
+          </radialGradient>
+        </defs>
         {levels.map((level) => (
           <polygon
             key={level}
@@ -1096,9 +1155,11 @@ function SpiderChart({
                 ),
               )
               .join(" ")}
-            fill={level === 1 ? "rgb(255 241 246 / 0.55)" : "none"}
-            stroke="rgb(251 207 232)"
-            strokeWidth="1"
+            fill="none"
+            stroke={level === 1 ? "rgb(203 213 225)" : "rgb(226 232 240)"}
+            strokeWidth={level === 1 ? "1" : "0.85"}
+            opacity={level === 1 ? "0.9" : "0.72"}
+            vectorEffect="non-scaling-stroke"
           />
         ))}
         {outerPoints.map((point, index) => (
@@ -1109,40 +1170,67 @@ function SpiderChart({
             x2={point.x}
             y2={point.y}
             stroke="rgb(226 232 240)"
-            strokeWidth="1"
+            strokeWidth="0.85"
+            opacity="0.72"
+            vectorEffect="non-scaling-stroke"
           />
         ))}
-        <polygon
-          points={scorePoints.map(pointString).join(" ")}
-          fill="rgb(244 114 182 / 0.28)"
-          stroke="rgb(244 114 182)"
+        <path
+          d={radarPath}
+          data-testid="spider-chart-path"
+          fill={`url(#${gradientId})`}
+          stroke="var(--appearance-accent)"
           strokeLinejoin="round"
-          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
         />
+        {scorePoints.map((point, index) => (
+          <circle
+            key={`${dimensions[index].label}-point`}
+            cx={point.x}
+            cy={point.y}
+            r="3.2"
+            fill="var(--appearance-accent)"
+            stroke="white"
+            strokeWidth="1.25"
+          />
+        ))}
         {dimensions.map((dimension, index) => {
           const point = polarPoint(index, dimensionCount, labelRadius, center);
+          const anchor = labelAnchor(point.x, center);
+          const labelX = point.x + (anchor === "end" ? -14 : anchor === "start" ? 14 : 0);
           return (
-            <text
-              key={dimension.label}
-              x={point.x}
-              y={point.y}
-              textAnchor={labelAnchor(point.x, center)}
-              dominantBaseline="middle"
-              className="fill-slate-500 text-[10px] font-medium"
-            >
-              {dimension.label}
-            </text>
+            <g key={dimension.label}>
+              <text
+                x={labelX}
+                y={point.y - 9}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className="fill-slate-600 text-[11px] font-medium"
+              >
+                {translateUiDisplayLabel(t, dimension.label)}
+              </text>
+              <text
+                x={labelX}
+                y={point.y + 8}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className="fill-slate-400 text-[10px] font-medium"
+              >
+                {formatRadarValue(dimension.value)}
+              </text>
+            </g>
           );
         })}
-        <circle cx={center} cy={center} r="25" fill="white" stroke="rgb(251 207 232)" />
         <text
           x={center}
           y={center}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-slate-900 text-[13px] font-bold"
+          className="fill-slate-900 text-[16px] font-semibold [paint-order:stroke] [stroke:#ffffff] [stroke-width:4px]"
         >
-          {average.toFixed(1)} / 5
+          {average === null ? "N/A" : average.toFixed(1)}
         </text>
       </svg>
     </div>
@@ -1164,6 +1252,38 @@ function polarPoint(
 
 function pointString(point: { x: number; y: number }) {
   return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
+}
+
+function buildSmoothClosedPath(points: { x: number; y: number }[]) {
+  if (points.length === 0) {
+    return "";
+  }
+
+  if (points.length === 1) {
+    return `M ${pointString(points[0])}`;
+  }
+
+  const segments = points.map((point, index) => {
+    const previous = points[(index - 1 + points.length) % points.length];
+    const current = point;
+    const next = points[(index + 1) % points.length];
+    const afterNext = points[(index + 2) % points.length];
+
+    const control1 = {
+      x: current.x + (next.x - previous.x) / 6,
+      y: current.y + (next.y - previous.y) / 6,
+    };
+    const control2 = {
+      x: next.x - (afterNext.x - current.x) / 6,
+      y: next.y - (afterNext.y - current.y) / 6,
+    };
+
+    return `${index === 0 ? `M ${pointString(current)} ` : ""}C ${pointString(
+      control1,
+    )} ${pointString(control2)} ${pointString(next)}`;
+  });
+
+  return `${segments.join(" ")} Z`;
 }
 
 function labelAnchor(x: number, center: number) {
@@ -1188,12 +1308,13 @@ function spiderShapeName(dimensionCount: number) {
 }
 
 function NotesCard({ notes }: { notes: string }) {
+  const t = useTranslation();
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Notes" icon={FileImage} />
+      <CardTitle title={t("detail.notes")} icon={FileImage} />
       <div className="mt-4 min-w-0 rounded-lg border border-sakura-100 bg-sakura-50/30 px-4 py-3">
         <p className="min-w-0 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
-          {notes}
+          {translateUiDisplayValue(t, notes)}
         </p>
       </div>
     </section>
@@ -1201,47 +1322,99 @@ function NotesCard({ notes }: { notes: string }) {
 }
 
 function SourceLinksCard({ links }: { links?: SourceLinkItem[] }) {
-  const visibleLinks = (links ?? [])
-    .map((link) => ({
-      title: link.title.trim(),
-      url: link.url.trim(),
-    }))
-    .filter((link) => link.title && isSafeSourceUrl(link.url));
+  const t = useTranslation();
+  const visibleLinks = normalizeSourceLinks(links);
+  const [openError, setOpenError] = useState("");
 
-  if (visibleLinks.length === 0) {
-    return null;
+  async function handleOpen(url: string) {
+    setOpenError("");
+    const result = await openSourceLink(url);
+    if (!result.opened) {
+      setOpenError(result.message);
+    }
   }
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <CardTitle title="Source Links" icon={Info} />
+      <CardTitle title={t("detail.sourceLinks")} icon={Globe2} />
       <div className="mt-4 divide-y divide-slate-100">
-        {visibleLinks.map((link) => (
+        {visibleLinks.length === 0 ? (
           <div
-            key={`${link.title}-${link.url}`}
             className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]"
           >
-            <span className="min-w-0 break-words font-semibold text-slate-700 [overflow-wrap:anywhere]">
-              {link.title}
-            </span>
-            <a
-              href={link.url}
-              target="_blank"
-              rel="noreferrer"
-              title={link.url}
-              className="min-w-0 truncate text-sakura-600 underline-offset-4 hover:underline"
-            >
-              {link.url}
-            </a>
+            <span className="font-semibold text-slate-700">{t("detail.sourceLink")}</span>
+            <span className="text-slate-500">{t("detail.notAvailable")}</span>
           </div>
-        ))}
+        ) : (
+          visibleLinks.map((link) => (
+            <div
+              key={`${link.title}-${link.url}`}
+              className="grid min-w-0 gap-2 py-3 text-sm md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_auto]"
+            >
+              <span className="min-w-0 truncate font-semibold text-slate-700" title={link.title}>
+                {link.title}
+              </span>
+              <span
+                className={[
+                  "min-w-0 truncate",
+                  link.safeUrl ? "text-sakura-600" : "text-slate-500",
+                ].join(" ")}
+                title={link.url}
+              >
+                {link.url || "N/A"}
+              </span>
+              <button
+                type="button"
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:bg-sakura-50 hover:text-sakura-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+                disabled={!link.safeUrl}
+                aria-label={`Open Source Link ${link.title}`}
+                title={link.safeUrl ? "Open in external browser" : "Invalid Source Link URL"}
+                onClick={() => void handleOpen(link.url)}
+              >
+                <ExternalLink size={14} />
+                {t("common.open")}
+              </button>
+            </div>
+          ))
+        )}
       </div>
+      {openError && (
+        <p role="status" className="mt-3 text-xs font-semibold text-rose-600">
+          {openError}
+        </p>
+      )}
     </section>
   );
 }
 
-function isSafeSourceUrl(url: string) {
-  return /^https?:\/\//i.test(url);
+function safeSourceUrl(url: string) {
+  return normalizeHttpSourceUrl(url);
+}
+
+function normalizeSourceLinks(links: SourceLinkItem[] | undefined) {
+  return (links ?? [])
+    .map((link) => {
+      const url = link.url?.trim() ?? "";
+      const title = link.title?.trim() || sourceLabelFromUrl(url);
+      return {
+        title,
+        url,
+        safeUrl: safeSourceUrl(url),
+      };
+    })
+    .filter((link) => link.title || link.url);
+}
+
+function sourceLabelFromUrl(url: string) {
+  if (!url) {
+    return "N/A";
+  }
+
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
 }
 
 function RelatedRows({
@@ -1249,18 +1422,28 @@ function RelatedRows({
 }: {
   sections: DetailSection[];
 }) {
+  const t = useTranslation();
   return (
-    <section className="grid gap-4">
+    <section className="grid min-w-0 max-w-full gap-4">
       {sections.map((section) => (
         <section
           key={section.title}
-          className="rounded-lg border border-slate-200 bg-white p-5"
+          className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5"
         >
           <div className="flex items-start justify-between gap-4">
-            <CardTitle title={section.title} icon={relatedSectionIcon(section.title)} />
+            <CardTitle
+              title={translateUiDisplayLabel(t, section.title)}
+              icon={relatedSectionIcon(section.title)}
+            />
+            <span className="shrink-0 text-sm font-semibold text-slate-500">
+              {relatedCountLabel(t, section)}
+            </span>
           </div>
-          <p className="mt-2 text-xs text-slate-500">{section.description}</p>
-          {section.relatedPerformers ? (
+          {section.filmography?.length ? (
+            <FilmographySummary items={section.filmography} />
+          ) : section.credits?.length ? (
+            <CreditSummary credits={section.credits} />
+          ) : section.relatedPerformers ? (
             <RelatedPerformerSummary section={section} />
           ) : section.relatedCatalogRecords ? (
             <RelatedCatalogSummary section={section} />
@@ -1285,16 +1468,203 @@ function relatedSectionIcon(title: string) {
   return UserRound;
 }
 
+function relatedCountLabel(t: UiTranslator, section: DetailSection) {
+  const count =
+    (section.filmography?.length ||
+      (section.credits
+        ? new Set(section.credits.map((credit) => credit.performerId)).size
+        : 0) ||
+      section.relatedPerformers?.length) ??
+    section.relatedCatalogRecords?.length ??
+    0;
+  if (section.title.includes("Performer")) {
+    return t(count === 1 ? "count.performer" : "count.performers", {
+      count: String(count),
+    });
+  }
+  if (section.title.includes("Video")) {
+    return t(count === 1 ? "count.video" : "count.videos", {
+      count: String(count),
+    });
+  }
+  if (section.title.includes("Image")) {
+    return t(count === 1 ? "count.image" : "count.images", {
+      count: String(count),
+    });
+  }
+  return `${count} ${count === 1 ? "Credit" : "Credits"}`;
+}
+
+function FilmographySummary({
+  items,
+}: {
+  items: FilmographyDetailItem[];
+}) {
+  const t = useTranslation();
+  return (
+    <div className="mt-4 grid gap-3">
+      {items.map((item) => (
+        <article
+          key={item.id}
+          className="rounded-lg border border-slate-200 bg-slate-50/40 p-4"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                {item.workRouteTo ? (
+                  <Link
+                    to={item.workRouteTo}
+                    className="font-semibold text-sakura-600 hover:text-sakura-700"
+                  >
+                    {item.workTitle}
+                  </Link>
+                ) : (
+                  <p className="font-semibold text-slate-800">
+                    {item.workTitle}
+                  </p>
+                )}
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                  {item.workType}
+                </span>
+              </div>
+              {item.workOriginalTitle && (
+                <p className="mt-1 text-sm text-slate-500">
+                  {item.workOriginalTitle}
+                </p>
+              )}
+              {(item.releaseDate || item.publisherLabel) && (
+                <p className="mt-1 text-xs text-slate-400">
+                  {[item.releaseDate, item.publisherLabel].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+          </div>
+          <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
+            <CreditField
+              label={t("detail.role")}
+              value={item.characterName}
+            />
+            <CreditField label={t("detail.creditType")} value={item.creditType} />
+          </dl>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function CreditSummary({ credits }: { credits: CreditDetailItem[] }) {
+  const t = useTranslation();
+  const groupedCredits = groupCreditsByPerformer(credits);
+
+  return (
+    <RelatedCarousel label={t("detail.relatedPerformers")}>
+      {groupedCredits.map((group, index) => {
+        const credit = group[0];
+        const liteItem: HomeRecentItem = {
+          kind: "performers",
+          key: credit.performerRouteTo?.split("/").pop() ?? `credit-${index}`,
+          title: credit.performerName,
+          detail: credit.performerOriginalName ?? "",
+          typeLabel: "Performer",
+          coverPath: credit.performerCoverPath,
+          favorite: credit.performerFavorite ?? false,
+          aliases: credit.performerAliases,
+          rating: credit.performerRating,
+          filmographyCount: credit.performerFilmographyCount,
+          pictorialsCount: credit.performerPictorialsCount,
+        };
+        const creditMetadata = group
+          .filter((item) => item.characterName || item.creditType)
+          .map((item) => ({
+            id: item.id,
+            roleName: item.characterName,
+            creditType: item.creditType,
+          }));
+
+        return (
+          <div
+            key={credit.performerId || credit.id}
+            className="relative flex h-full min-w-0 flex-col"
+          >
+            {!credit.performerRouteTo && (
+              <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                Unavailable
+              </span>
+            )}
+            <div className="min-h-0 flex-1 [&>*]:h-full">
+              <RelatedLiteCard
+                kind="performers"
+                item={liteItem}
+                linkTo={credit.performerRouteTo ?? "#"}
+                favoriteInteractive={Boolean(credit.performerRouteTo)}
+                creditMetadata={creditMetadata}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </RelatedCarousel>
+  );
+}
+
+function groupCreditsByPerformer(credits: CreditDetailItem[]) {
+  const groups: CreditDetailItem[][] = [];
+  const groupByPerformer = new Map<string, CreditDetailItem[]>();
+
+  credits.forEach((credit) => {
+    const key = credit.performerId || `credit:${credit.id}`;
+    const existing = groupByPerformer.get(key);
+    if (existing) {
+      existing.push(credit);
+      return;
+    }
+
+    const group = [credit];
+    groupByPerformer.set(key, group);
+    groups.push(group);
+  });
+
+  return groups;
+}
+
+function CreditField({
+  label,
+  value,
+  secondaryValue,
+}: {
+  label: string;
+  value?: string;
+  secondaryValue?: string;
+}) {
+  return (
+    <div>
+      <dt className="font-semibold text-slate-700">{label}</dt>
+      <dd className="mt-0.5 text-slate-500">
+        {value || "N/A"}
+        {secondaryValue && (
+          <span className="ml-1 text-slate-400">({secondaryValue})</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
 function RelatedLiteCard({
   kind,
   item,
   linkTo,
   favoriteInteractive,
+  creditMetadata,
 }: {
   kind: "videos" | "images" | "performers";
   item: HomeRecentItem;
   linkTo: string;
   favoriteInteractive: boolean;
+  creditMetadata?: Array<{
+    id: string;
+    roleName?: string;
+    creditType?: string;
+  }>;
 }) {
   const [favorite, setFavorite] = useState(item.favorite);
   const currentItem = { ...item, favorite };
@@ -1337,6 +1707,7 @@ function RelatedLiteCard({
         linkTo={linkTo}
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+        creditMetadata={creditMetadata}
       />
     );
   }
@@ -1361,24 +1732,63 @@ function RelatedLiteCard({
 }
 
 function RelatedCatalogSummary({ section }: { section: DetailSection }) {
+  const t = useTranslation();
   const relatedCatalogRecords = section.relatedCatalogRecords ?? [];
   const emptyText = section.title.includes("Image")
-    ? "No related images saved."
-    : "No related videos saved.";
-  const [viewMode, setViewMode] = useState<"card" | "table">("card");
-  const [sortMode, setSortMode] = useState<RelatedSortMode>("new");
-  const [pageSize, setPageSize] = useState(12);
-  const [page, setPage] = useState(1);
+    ? t("detail.related.empty.images")
+    : t("detail.related.empty.videos");
   const hasControls = section.controls === "performer-related";
   const kind = section.title.includes("Image") ? "images" : "videos";
+  const sessionKey = hasControls ? performerRelatedSessionKey(kind) : "";
+  const initialSessionState = readSessionFilterState(sessionKey, {
+    viewMode: "card",
+    sortMode: "new",
+    pageSize: 20,
+    searchQuery: "",
+  });
+  const [viewMode, setViewMode] = useState<"card" | "table">(
+    initialSessionState.viewMode === "table" ? "table" : "card",
+  );
+  const [sortMode, setSortMode] = useState<RelatedSortMode>(
+    isRelatedSortMode(initialSessionState.sortMode)
+      ? initialSessionState.sortMode
+      : "new",
+  );
+  const [pageSize, setPageSize] = useState(
+    isRelatedPageSize(initialSessionState.pageSize)
+      ? initialSessionState.pageSize
+      : 20,
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    typeof initialSessionState.searchQuery === "string"
+      ? initialSessionState.searchQuery
+      : "",
+  );
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (!hasControls) {
+      return;
+    }
+
+    writeSessionFilterState(sessionKey, {
+      viewMode,
+      sortMode,
+      pageSize,
+      searchQuery,
+    });
+  }, [hasControls, pageSize, searchQuery, sessionKey, sortMode, viewMode]);
 
   if (relatedCatalogRecords.length === 0) {
     return <RelatedEmptyState message={emptyText} title={section.title} />;
   }
 
-  const sortedRecords = hasControls
-    ? sortRelatedCatalogRecords(relatedCatalogRecords, sortMode)
+  const filteredRecords = hasControls
+    ? filterRelatedCatalogRecords(relatedCatalogRecords, searchQuery)
     : relatedCatalogRecords;
+  const sortedRecords = hasControls
+    ? sortRelatedCatalogRecords(filteredRecords, sortMode)
+    : filteredRecords;
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRecords = hasControls
@@ -1392,6 +1802,8 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
           itemCount={relatedCatalogRecords.length}
           page={safePage}
           pageSize={pageSize}
+          resultCount={sortedRecords.length}
+          searchQuery={searchQuery}
           sortMode={sortMode}
           totalPages={totalPages}
           viewMode={viewMode}
@@ -1404,6 +1816,10 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
             setSortMode(nextSortMode);
             setPage(1);
           }}
+          onSearchQueryChange={(nextSearchQuery) => {
+            setSearchQuery(nextSearchQuery);
+            setPage(1);
+          }}
           onViewModeChange={(nextViewMode) => {
             setViewMode(nextViewMode);
             setPage(1);
@@ -1411,9 +1827,60 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
         />
       )}
       {viewMode === "table" && hasControls ? (
-        <PerformerRelatedCatalogTable items={visibleRecords} kind={kind} />
+        <PerformerRelatedCatalogTable
+          items={visibleRecords}
+          kind={kind}
+          sortMode={sortMode}
+          onSortModeChange={(nextSortMode) => {
+            setSortMode(nextSortMode);
+            setPage(1);
+          }}
+        />
+      ) : hasControls ? (
+        <div
+          className="mt-4 grid min-w-0 max-w-full gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]"
+          data-testid={`performer-related-${kind}-card-grid`}
+        >
+          {visibleRecords.map((record, index) => {
+            const liteItem: HomeRecentItem = {
+              kind,
+              key: record.routeTo?.split("/").pop() ?? `catalog-${index}`,
+              title: record.title,
+              detail: record.code ?? "",
+              typeLabel: kind === "videos" ? "Video" : "Image",
+              coverPath: record.coverPath,
+              favorite: record.favorite ?? false,
+              code: record.code,
+              releaseYear: record.releaseDate?.slice(0, 4),
+              rating: record.rating,
+              duration: kind === "videos" ? record.metadata : undefined,
+              imageCount: kind === "images" ? record.metadata : undefined,
+            };
+
+            return (
+              <div
+                key={`${record.title}-${index}`}
+                className="relative flex min-w-0 flex-col"
+              >
+                {record.unresolved && (
+                  <span className="absolute left-2 top-2 z-10 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                    Unavailable
+                  </span>
+                )}
+                <div className="min-h-0 flex-1 [&>*]:h-full">
+                  <RelatedLiteCard
+                    kind={kind}
+                    item={liteItem}
+                    linkTo={record.routeTo ?? "#"}
+                    favoriteInteractive={Boolean(record.routeTo && !record.unresolved)}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <RelatedCarousel label={section.title}>
           {visibleRecords.map((record, index) => {
             const liteItem: HomeRecentItem = {
               kind,
@@ -1458,13 +1925,67 @@ function RelatedCatalogSummary({ section }: { section: DetailSection }) {
               />
             );
           })}
-        </div>
+        </RelatedCarousel>
       )}
     </>
   );
 }
 
-type RelatedSortMode = "az" | "za" | "new" | "old";
+type RelatedSortMode =
+  | "az"
+  | "za"
+  | "new"
+  | "old"
+  | "availabilityAsc"
+  | "availabilityDesc"
+  | "codeAsc"
+  | "codeDesc"
+  | "metricAsc"
+  | "metricDesc"
+  | "censorshipAsc"
+  | "censorshipDesc"
+  | "ratingAsc"
+  | "ratingDesc";
+
+const RELATED_SORT_OPTIONS: Array<{ label: string; value: RelatedSortMode }> = [
+  { label: "A-Z", value: "az" },
+  { label: "Z-A", value: "za" },
+  { label: "New Release", value: "new" },
+  { label: "Old Release", value: "old" },
+];
+
+function performerRelatedSessionKey(kind: "videos" | "images") {
+  return kind === "videos"
+    ? "detail:performer:related-videos"
+    : "detail:performer:related-images";
+}
+
+function isRelatedSortMode(value: unknown): value is RelatedSortMode {
+  return (
+    value === "az" ||
+    value === "za" ||
+    value === "new" ||
+    value === "old" ||
+    value === "availabilityAsc" ||
+    value === "availabilityDesc" ||
+    value === "codeAsc" ||
+    value === "codeDesc" ||
+    value === "metricAsc" ||
+    value === "metricDesc" ||
+    value === "censorshipAsc" ||
+    value === "censorshipDesc" ||
+    value === "ratingAsc" ||
+    value === "ratingDesc"
+  );
+}
+
+function isRelatedPageSize(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    [20, 40, 80, 120].includes(value)
+  );
+}
 
 function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   const relatedPerformers = section.relatedPerformers ?? [];
@@ -1479,7 +2000,7 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
   }
 
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+    <RelatedCarousel label={section.title}>
       {relatedPerformers.map((performer, index) => {
         const liteItem: HomeRecentItem = {
           kind: "performers",
@@ -1523,8 +2044,234 @@ function RelatedPerformerSummary({ section }: { section: DetailSection }) {
           />
         );
       })}
+    </RelatedCarousel>
+  );
+}
+
+function RelatedCarousel({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
+  const t = useTranslation();
+  const items = Children.toArray(children);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] = useState(RELATED_CAROUSEL_VISIBLE_COUNT);
+  const pages = chunkRelatedCarouselItems(items, visibleCount);
+  const pageCount = Math.max(
+    1,
+    pages.length,
+  );
+  const [page, setPage] = useState(0);
+  const safePage = Math.min(page, pageCount - 1);
+  const canNavigate = pageCount > 1;
+  const trackStyle: CSSProperties = {
+    transform: `translateX(-${safePage * 100}%)`,
+  };
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount - 1));
+  }, [pageCount]);
+
+  useEffect(() => {
+    const target = carouselRef.current;
+
+    function updateVisibleCount(width?: number) {
+      const measuredWidth =
+        width && width > 0
+          ? width
+          : target?.getBoundingClientRect().width || window.innerWidth;
+      setVisibleCount(relatedCarouselVisibleCount(measuredWidth));
+    }
+
+    const handleResize = () => updateVisibleCount();
+
+    updateVisibleCount();
+    window.addEventListener("resize", handleResize);
+
+    if (!target || typeof ResizeObserver === "undefined") {
+      return () => window.removeEventListener("resize", handleResize);
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      updateVisibleCount(entries[0]?.contentRect.width);
+    });
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  function goToPage(nextPage: number) {
+    const targetPage = Math.max(0, Math.min(pageCount - 1, nextPage));
+    setPage(targetPage);
+  }
+
+  function handleControlClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!canNavigate) {
+      return;
+    }
+
+    if (
+      event.key !== "ArrowRight" &&
+      event.key !== "ArrowLeft" &&
+      event.key !== "Home" &&
+      event.key !== "End" &&
+      event.key !== "PageDown" &&
+      event.key !== "PageUp"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.key === "ArrowRight" || event.key === "PageDown") {
+      goToPage(safePage + 1);
+    } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      goToPage(safePage - 1);
+    } else if (event.key === "Home") {
+      goToPage(0);
+    } else if (event.key === "End") {
+      goToPage(pageCount - 1);
+    }
+  }
+
+  return (
+    <div
+      aria-label={`${label} carousel`}
+      data-testid="detail-related-carousel"
+      data-visible-count={visibleCount}
+      data-rendered-count={items.length}
+      data-total-count={items.length}
+      data-page-count={pageCount}
+      data-active-page={safePage + 1}
+      ref={carouselRef}
+      className="group/carousel mt-4 min-w-0 overflow-hidden focus:outline-none"
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
+      <div
+        className="min-w-0 overflow-hidden"
+        data-testid="detail-related-carousel-viewport"
+      >
+        <div
+          className="flex w-full min-w-0 transition-transform duration-300 ease-out motion-reduce:transition-none"
+          data-testid="detail-related-carousel-track"
+          style={trackStyle}
+        >
+          {pages.map((pageItems, pageIndex) => (
+            <div
+              key={`related-page-${pageIndex}`}
+              className="grid min-w-0 shrink-0 basis-full items-stretch gap-2"
+              data-page={pageIndex + 1}
+              data-testid="detail-related-carousel-window"
+              style={{
+                gridTemplateColumns: `repeat(${visibleCount}, minmax(0, 1fr))`,
+              }}
+            >
+              {pageItems.map((child, itemIndex) => (
+                <div
+                  key={`related-slide-${pageIndex * visibleCount + itemIndex}`}
+                  className="flex w-full min-w-0 [&>*]:h-full [&>*]:min-w-0 [&>*]:w-full"
+                  data-testid="detail-related-carousel-card"
+                >
+                  {child}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      {canNavigate && (
+        <div
+          className="mt-4 flex min-h-9 items-center justify-center gap-3"
+          data-testid="detail-related-carousel-controls"
+        >
+          <button
+            type="button"
+            aria-label={t("detail.previousRelated")}
+            disabled={safePage === 0}
+            onClick={(event) => {
+              handleControlClick(event);
+              goToPage(safePage - 1);
+            }}
+            className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div className="flex items-center gap-2" aria-label={`${label} pages`}>
+            {Array.from({ length: pageCount }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-current={index === safePage ? "page" : undefined}
+                aria-label={`Go to ${label} page ${index + 1}`}
+                onClick={(event) => {
+                  handleControlClick(event);
+                  goToPage(index);
+                }}
+                className={[
+                  "size-2.5 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2",
+                  index === safePage
+                    ? "border-sakura-500 bg-sakura-500"
+                    : "border-slate-300 bg-white hover:border-sakura-300",
+                ].join(" ")}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-label={t("detail.nextRelated")}
+            disabled={safePage >= pageCount - 1}
+            onClick={(event) => {
+              handleControlClick(event);
+              goToPage(safePage + 1);
+            }}
+            className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ArrowLeft size={16} className="rotate-180" />
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+function chunkRelatedCarouselItems(items: ReactNode[], visibleCount: number) {
+  const pages: ReactNode[][] = [];
+
+  for (let index = 0; index < items.length; index += visibleCount) {
+    pages.push(items.slice(index, index + visibleCount));
+  }
+
+  return pages.length > 0 ? pages : [[]];
+}
+
+function relatedCarouselVisibleCount(width: number) {
+  if (width >= 980) {
+    return 5;
+  }
+  if (width >= 760) {
+    return 4;
+  }
+  if (width >= 560) {
+    return 3;
+  }
+  if (width >= 360) {
+    return 2;
+  }
+
+  return 1;
 }
 
 function RelatedCatalogCard({
@@ -1534,6 +2281,7 @@ function RelatedCatalogCard({
   item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
   icon: typeof Info;
 }) {
+  const t = useTranslation();
   const isImage = icon === ImageIcon;
   const content = (
     <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
@@ -1544,7 +2292,7 @@ function RelatedCatalogCard({
         path={item.coverPath}
       />
       <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        {item.unresolved && <Chip label={t("detail.unavailable")} tone="orange" />}
         <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
           {dashDetailText(item.title)}
         </p>
@@ -1579,16 +2327,17 @@ function RelatedPerformerCard({
 }: {
   item: NonNullable<DetailSection["relatedPerformers"]>[number];
 }) {
+  const t = useTranslation();
   const content = (
     <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
       <RelatedWideThumbnail
         aspectClass="aspect-square"
         icon={UserRound}
-        label="Related performer"
+        label={t("detail.relatedPerformer")}
         path={item.coverPath}
       />
       <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        {item.unresolved && <Chip label={t("detail.unavailable")} tone="orange" />}
         <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
           {dashDetailText(item.name)}
         </p>
@@ -1623,6 +2372,7 @@ function PerformerRelatedCatalogCard({
   item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
   kind: "videos" | "images";
 }) {
+  const t = useTranslation();
   const content = (
     <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-950/[0.02]">
       <RelatedWideThumbnail
@@ -1632,7 +2382,7 @@ function PerformerRelatedCatalogCard({
         path={item.coverPath}
       />
       <div className="space-y-2 px-1 pb-1 pt-2.5">
-        {item.unresolved && <Chip label="Unavailable" tone="orange" />}
+        {item.unresolved && <Chip label={t("detail.unavailable")} tone="orange" />}
         <p className="min-h-9 min-w-0 line-clamp-2 text-sm font-semibold leading-snug text-slate-950">
           {dashDetailText(item.title)}
         </p>
@@ -1753,105 +2503,246 @@ function RelatedControls({
   itemCount,
   page,
   pageSize,
+  resultCount,
+  searchQuery,
   sortMode,
   totalPages,
   viewMode,
   onPageChange,
   onPageSizeChange,
+  onSearchQueryChange,
   onSortModeChange,
   onViewModeChange,
 }: {
   itemCount: number;
   page: number;
   pageSize: number;
+  resultCount: number;
+  searchQuery: string;
   sortMode: RelatedSortMode;
   totalPages: number;
   viewMode: "card" | "table";
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onSearchQueryChange: (query: string) => void;
   onSortModeChange: (sortMode: RelatedSortMode) => void;
   onViewModeChange: (viewMode: "card" | "table") => void;
 }) {
+  const t = useTranslation();
+  const rangeStart = resultCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, resultCount);
+  const sortControlRef = useRef<HTMLDivElement | null>(null);
+  const [sortOpen, setSortOpen] = useState(false);
+  const selectedSort =
+    RELATED_SORT_OPTIONS.find((option) => option.value === sortMode) ??
+    RELATED_SORT_OPTIONS[0];
+  const viewAction = viewMode === "card" ? "table" : "card";
+  const viewLabel =
+    viewMode === "card" ? "Switch to table view" : "Switch to card view";
+  const ViewIcon = viewMode === "card" ? List : Grid2X2;
+
+  useEffect(() => {
+    if (!sortOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && sortControlRef.current?.contains(target)) {
+        return;
+      }
+      setSortOpen(false);
+    }
+
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSortOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sortOpen]);
+
+  function selectSortMode(nextSortMode: RelatedSortMode) {
+    onSortModeChange(nextSortMode);
+    setSortOpen(false);
+  }
+
   return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
-      <p className="text-xs font-semibold text-slate-500">
-        {itemCount} {itemCount === 1 ? "item" : "items"}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onViewModeChange("card")}
-          className={`h-9 rounded-lg px-3 text-xs font-semibold ${
-            viewMode === "card"
-              ? "bg-sakura-500 text-white"
-              : "border border-slate-200 bg-white text-slate-700"
-          }`}
+    <div className="mt-4 min-w-0 max-w-full space-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <div className="grid min-w-0 items-center gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto_auto]">
+        <label
+          className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500"
+          data-testid="performer-related-search-control"
         >
-          Card
-        </button>
+          <span className="shrink-0">{t("common.search")}</span>
+          <input
+            aria-label={t("detail.searchRelated")}
+            className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+          />
+        </label>
+        <div className="relative min-w-0 shrink-0" ref={sortControlRef}>
+          <button
+            type="button"
+            aria-label={`Sort ${translateUiDisplayLabel(t, selectedSort.label)}`}
+            aria-haspopup="listbox"
+            aria-expanded={sortOpen}
+            className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus:ring-4 focus:ring-sakura-100 sm:w-44"
+            data-testid="performer-related-sort-control"
+            onClick={() => setSortOpen((open) => !open)}
+          >
+            <ArrowUpDown size={16} className="shrink-0 text-slate-500" />
+            <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-950">
+              {translateUiDisplayLabel(t, selectedSort.label)}
+            </span>
+            <ChevronDown
+              size={16}
+              className={sortOpen ? "rotate-180 transition" : "transition"}
+            />
+          </button>
+          {sortOpen && (
+            <div className="absolute right-0 z-50 mt-2 w-full min-w-44 rounded-lg border border-slate-200 bg-white shadow-lg">
+              <div
+                role="listbox"
+                aria-label={t("detail.relatedSortOptions")}
+                className="sakurava-scrollbar max-h-64 overflow-y-auto p-1"
+              >
+                {RELATED_SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === selectedSort.value}
+                    className={[
+                      "flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition",
+                      option.value === selectedSort.value
+                        ? "bg-sakura-50 text-sakura-700"
+                        : "text-slate-700 hover:bg-sakura-50 hover:text-sakura-700",
+                    ].join(" ")}
+                    onClick={() => selectSortMode(option.value)}
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      {translateUiDisplayLabel(t, option.label)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <button
           type="button"
-          onClick={() => onViewModeChange("table")}
-          className={`h-9 rounded-lg px-3 text-xs font-semibold ${
+          aria-label={viewLabel}
+          title={viewLabel}
+          onClick={() => {
+            setSortOpen(false);
+            onViewModeChange(viewAction);
+          }}
+          className={[
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition focus:outline-none focus:ring-4 focus:ring-sakura-100",
             viewMode === "table"
-              ? "bg-sakura-500 text-white"
-              : "border border-slate-200 bg-white text-slate-700"
-          }`}
+              ? "border-sakura-200 bg-sakura-50 text-sakura-700 hover:border-sakura-300"
+              : "border-slate-200 bg-white text-slate-700 hover:border-sakura-200 hover:text-sakura-600",
+          ].join(" ")}
+          data-testid="performer-related-view-button"
         >
-          Table
+          <ViewIcon size={16} aria-hidden="true" />
+          <span className="sr-only">{t("common.view")}</span>
         </button>
-        <label className="text-xs font-semibold text-slate-500">
-          Sort
-          <select
-            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
-            value={sortMode}
-            onChange={(event) =>
-              onSortModeChange(event.target.value as RelatedSortMode)
-            }
-          >
-            <option value="az">A-Z</option>
-            <option value="za">Z-A</option>
-            <option value="new">New Release</option>
-            <option value="old">Old Release</option>
-          </select>
-        </label>
-        <label className="text-xs font-semibold text-slate-500">
-          Per page
-          <select
-            aria-label="Per page"
-            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+      </div>
+      <nav
+        className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
+        aria-label={t("detail.relatedPagination")}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <p className="text-sm font-semibold text-slate-600">
+            {t("pagination.showing", {
+              start: String(rangeStart),
+              end: String(rangeEnd),
+              total: String(resultCount),
+            })}
+            {resultCount !== itemCount ? ` filtered from ${itemCount}` : ""}
+          </p>
+        <label className="flex items-center text-xs font-semibold text-slate-500">
+          {t("common.pageSize")}
+          <SakuravaSelect
+            ariaLabel="Related items per page"
+            className="ml-2 w-24"
+            placement="down"
             value={pageSize}
-            onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          >
-            {[12, 24, 48, 96].map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={onPageSizeChange}
+            options={[20, 40, 80, 120].map((option) => ({
+              value: option,
+              label: String(option),
+            }))}
+          />
+          <span className="ml-2">{t("common.perPage")}</span>
         </label>
+        </div>
+        <div className="flex items-center gap-2">
         <button
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 disabled:opacity-50"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
-          Previous
+          {t("common.previous")}
         </button>
-        <span className="text-xs font-semibold text-slate-500">
-          {page} / {totalPages}
-        </span>
+        {buildDetailPaginationPages(page, totalPages).map((pageNumber) => (
+          <button
+            key={pageNumber}
+            type="button"
+            onClick={() => onPageChange(pageNumber)}
+            aria-current={pageNumber === page ? "page" : undefined}
+            aria-label={`Page ${pageNumber}`}
+            className={`flex size-9 items-center justify-center rounded-lg text-sm font-semibold ${
+              pageNumber === page
+                ? "bg-sakura-500 text-white"
+                : "border border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            {pageNumber}
+          </button>
+        ))}
         <button
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 disabled:opacity-50"
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
+      </nav>
     </div>
   );
+}
+
+function normalizeRadarValue(value: number) {
+  return Number.isFinite(value) && value >= 1 && value <= 5 ? value : 0;
+}
+
+function formatRadarValue(value: number) {
+  return Number.isFinite(value) && value >= 1 && value <= 5
+    ? `${value}/5`
+    : "N/A";
+}
+
+function buildDetailPaginationPages(currentPage: number, totalPages: number) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: 5 }, (_, index) => start + index);
 }
 
 function RelatedCatalogTable({
@@ -1861,6 +2752,7 @@ function RelatedCatalogTable({
   items: NonNullable<DetailSection["relatedCatalogRecords"]>;
   kind: "videos" | "images";
 }) {
+  const t = useTranslation();
   return (
     <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
       <table className="min-w-[760px] table-fixed divide-y divide-slate-200 text-left text-sm">
@@ -1874,10 +2766,12 @@ function RelatedCatalogTable({
         </colgroup>
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
           <tr>
-            <th className="px-4 py-3">Title</th>
-            <th className="px-4 py-3">Release Date</th>
+            <th className="px-4 py-3">{t("detail.related.table.header.title")}</th>
+            <th className="px-4 py-3">{t("detail.related.table.header.releaseDate")}</th>
             <th className="px-4 py-3">
-              {kind === "images" ? "Total" : "Duration"}
+              {kind === "images"
+                ? t("detail.related.table.header.total")
+                : t("detail.related.table.header.duration")}
             </th>
           </tr>
         </thead>
@@ -1910,75 +2804,326 @@ function RelatedCatalogTable({
 function PerformerRelatedCatalogTable({
   items,
   kind,
+  sortMode,
+  onSortModeChange,
 }: {
   items: NonNullable<DetailSection["relatedCatalogRecords"]>;
   kind: "videos" | "images";
+  sortMode: RelatedSortMode;
+  onSortModeChange: (sortMode: RelatedSortMode) => void;
 }) {
+  const t = useTranslation();
+  const tableWidth = 1040;
+
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+    <div className="mt-4 min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <StickyHorizontalScroll testId={`performer-related-${kind}-table-scroll`}>
+      <table
+        className="w-full min-w-[1040px] table-fixed divide-y divide-slate-200 text-left text-sm"
+        data-testid={`performer-related-${kind}-table`}
+        style={{ minWidth: `${tableWidth}px`, width: "100%" }}
+      >
+        <colgroup data-testid={`performer-related-${kind}-table-colgroup`}>
+          <col className="w-[11%]" data-column-id="availability" />
+          <col className="w-[6%]" data-column-id="favorite" />
+          <col className="w-[31%]" data-column-id="title" />
+          <col className="w-[15%]" data-column-id="code" />
+          <col className="w-[14%]" data-column-id="metric" />
+          <col className="w-[14%]" data-column-id="censorship" />
+          <col className="w-[9%]" data-column-id="rating" />
+        </colgroup>
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-500">
           <tr>
-            <th className="px-4 py-3">Title</th>
-            <th className="px-4 py-3">Publisher / Label</th>
-            <th className="px-4 py-3">Release Year</th>
-            <th className="px-4 py-3">
-              {kind === "images" ? "Images Total" : "Duration"}
+            <RelatedSortableHeader
+              label={t("detail.table.availabilityShort")}
+              sortMode={sortMode}
+              sortAsc="availabilityAsc"
+              sortDesc="availabilityDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <th className="min-w-0 overflow-hidden px-3 py-3">
+              <span className="block truncate">{t("detail.table.favoriteShort")}</span>
             </th>
-            <th className="px-4 py-3">Rating</th>
-            <th className="px-4 py-3">Action</th>
+            <RelatedSortableHeader
+              label={t("detail.table.titleShort")}
+              sortLabel="Title"
+              sortMode={sortMode}
+              sortAsc="az"
+              sortDesc="za"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label={t("detail.table.codeShort")}
+              sortMode={sortMode}
+              sortAsc="codeAsc"
+              sortDesc="codeDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label={kind === "images"
+                ? t("detail.performer.relatedImages.table.header.total")
+                : t("detail.performer.relatedVideos.table.header.total")}
+              sortMode={sortMode}
+              sortAsc="metricAsc"
+              sortDesc="metricDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label={t("detail.table.censorshipShort")}
+              sortMode={sortMode}
+              sortAsc="censorshipAsc"
+              sortDesc="censorshipDesc"
+              onSortModeChange={onSortModeChange}
+            />
+            <RelatedSortableHeader
+              label={t("detail.table.ratingShort")}
+              sortMode={sortMode}
+              sortAsc="ratingAsc"
+              sortDesc="ratingDesc"
+              onSortModeChange={onSortModeChange}
+            />
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="divide-y divide-slate-100">
           {items.map((item, index) => (
-            <tr key={`${item.title}-${index}`}>
-              <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
-                <span className="block min-w-0 truncate" title={item.title}>
-                  {item.title}
-                </span>
+            <tr
+              key={`${item.title}-${index}`}
+              className="h-[4.25rem] transition hover:bg-slate-50/80"
+            >
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableStatusChip value={detailTableValue(item.availability)} tone="availability" />
               </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                <span
-                  className="block min-w-0 truncate"
-                  title={detailDisplayValue(item.publisherLabel)}
-                >
-                  {detailDisplayValue(item.publisherLabel)}
-                </span>
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableFavorite item={item} kind={kind} index={index} />
               </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                {releaseYearLabel(item.releaseDate)}
-              </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                <span
-                  className="block min-w-0 truncate"
-                  title={detailDisplayValue(item.metadata)}
-                >
-                  {detailDisplayValue(item.metadata)}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-slate-600">
-                {typeof item.rating === "number" && Number.isFinite(item.rating)
-                  ? item.rating.toFixed(1)
-                  : "Not rated"}
-              </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className="min-w-0 overflow-hidden px-3 py-3 font-semibold text-slate-900">
                 {item.routeTo && !item.unresolved ? (
-                  <Link
-                    to={item.routeTo}
-                    className="text-xs font-semibold text-sakura-600 hover:text-sakura-700"
-                  >
-                    View
+                  <Link to={item.routeTo} className="block min-w-0 max-w-full truncate whitespace-nowrap hover:text-sakura-600" title={item.title}>
+                    {detailTableValue(item.title)}
                   </Link>
                 ) : (
-                  "Unavailable"
+                  <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={detailTableValue(item.title)}>
+                    {detailTableValue(item.title)}
+                  </span>
                 )}
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3 text-slate-600">
+                <RelatedTablePlainValue value={detailTableValue(item.code)} />
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3 text-slate-600">
+                <RelatedTablePlainValue value={detailTableValue(item.metadata)} />
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableStatusChip value={detailTableValue(item.censorship)} tone="censorship" />
+              </td>
+              <td className="min-w-0 overflow-hidden px-3 py-3">
+                <RelatedTableRatingChip rating={item.rating} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </StickyHorizontalScroll>
     </div>
   );
+}
+
+function RelatedSortableHeader({
+  label,
+  sortLabel = label,
+  sortMode,
+  sortAsc,
+  sortDesc,
+  onSortModeChange,
+}: {
+  label: string;
+  sortLabel?: string;
+  sortMode: RelatedSortMode;
+  sortAsc: RelatedSortMode;
+  sortDesc: RelatedSortMode;
+  onSortModeChange: (sortMode: RelatedSortMode) => void;
+}) {
+  const activeAscending = sortMode === sortAsc;
+  const activeDescending = sortMode === sortDesc;
+  const active = activeAscending || activeDescending;
+  const nextSortMode = activeAscending ? sortDesc : sortAsc;
+
+  return (
+    <th
+      aria-sort={
+        activeAscending ? "ascending" : activeDescending ? "descending" : "none"
+      }
+      className="min-w-0 overflow-hidden px-3 py-3"
+    >
+      <button
+        type="button"
+        aria-label={`Sort by ${sortLabel}`}
+        title={`Sort by ${sortLabel}`}
+        className={[
+          "inline-flex max-w-full items-center gap-1 text-left font-semibold transition hover:text-sakura-700 focus:outline-none",
+          active ? "text-sakura-800" : "",
+        ].join(" ")}
+        onClick={() => onSortModeChange(nextSortMode)}
+      >
+        <span className="truncate">{label}</span>
+        {active && (
+          <span aria-hidden="true" className="text-[10px] text-sakura-700">
+            {activeAscending ? "↑" : "↓"}
+          </span>
+        )}
+      </button>
+    </th>
+  );
+}
+
+function RelatedTablePlainValue({ value }: { value: string }) {
+  const t = useTranslation();
+  const translatedValue = translateUiDisplayValue(t, value);
+  return (
+    <span className="block min-w-0 max-w-full truncate whitespace-nowrap" title={translatedValue}>
+      {translatedValue}
+    </span>
+  );
+}
+
+function RelatedTableStatusChip({
+  value,
+  tone,
+}: {
+  value: string;
+  tone: "availability" | "censorship";
+}) {
+  const t = useTranslation();
+  const translatedValue = translateUiDisplayLabel(t, value);
+  return (
+    <span
+      className={[
+        "inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border px-2.5 py-1 text-xs font-semibold",
+        relatedTableStatusToneClass(value, tone),
+      ].join(" ")}
+      title={translatedValue}
+      data-testid="performer-related-table-status-chip"
+    >
+      <span className="truncate">{translatedValue}</span>
+    </span>
+  );
+}
+
+function RelatedTableRatingChip({ rating }: { rating?: number | null }) {
+  const value =
+    typeof rating === "number" && Number.isFinite(rating)
+      ? rating.toFixed(1)
+      : "N/A";
+
+  return (
+    <span
+      className="inline-flex w-fit max-w-full items-center overflow-hidden rounded-md border border-sakura-200 bg-sakura-50 px-2.5 py-1 text-xs font-semibold text-sakura-700"
+      title={value}
+      data-testid="performer-related-table-rating-chip"
+    >
+      {value}
+    </span>
+  );
+}
+
+function RelatedTableFavorite({
+  item,
+  kind,
+  index,
+}: {
+  item: NonNullable<DetailSection["relatedCatalogRecords"]>[number];
+  kind: "videos" | "images";
+  index: number;
+}) {
+  const [favorite, setFavorite] = useState(Boolean(item.favorite));
+
+  useEffect(() => {
+    setFavorite(Boolean(item.favorite));
+  }, [item.favorite, item.routeTo, item.title]);
+
+  function handleFavoriteClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!item.routeTo || item.unresolved) {
+      return;
+    }
+
+    const id = item.routeTo.split("/").pop();
+    if (!id) {
+      return;
+    }
+
+    const nextFavorite = !favorite;
+    setFavorite(nextFavorite);
+
+    if (!isTauriRuntimeAvailable()) {
+      return;
+    }
+
+    const updateFn = kind === "videos" ? updateVideo : updateImage;
+    updateFn(id, { favorite: nextFavorite })
+      .then((updatedRecord) => {
+        if (!updatedRecord) {
+          setFavorite(!nextFavorite);
+          return;
+        }
+        setFavorite(updatedRecord.favorite);
+      })
+      .catch(() => setFavorite(!nextFavorite));
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={favorite ? "Remove from Favorites" : "Add to Favorites"}
+      title={favorite ? "Favorite" : "Not favorite"}
+      disabled={!item.routeTo || item.unresolved}
+      className={[
+        "inline-flex size-9 items-center justify-center rounded-lg border transition focus:outline-none focus:ring-2 focus:ring-sakura-200 disabled:cursor-not-allowed disabled:opacity-50",
+        favorite
+          ? "border-sakura-200 bg-sakura-50 text-sakura-600"
+          : "border-slate-200 bg-white text-slate-400 hover:border-sakura-200 hover:text-sakura-500",
+      ].join(" ")}
+      data-testid="performer-related-table-favorite-button"
+      data-row-index={index}
+      onClick={handleFavoriteClick}
+    >
+      <Star size={16} fill={favorite ? "currentColor" : "none"} aria-hidden="true" />
+    </button>
+  );
+}
+
+function detailTableValue(value: string | number | null | undefined) {
+  const label = typeof value === "number" ? String(value) : value?.trim();
+  return label && !isEmptyDetailValue(label) ? label : "N/A";
+}
+
+function relatedTableStatusToneClass(
+  value: string,
+  tone: "availability" | "censorship",
+) {
+  if (value === "N/A") {
+    return "border-slate-200 bg-slate-50 text-slate-500";
+  }
+
+  if (tone === "availability") {
+    if (value === "Owned") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+    if (value === "Not Owned") {
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    }
+    if (value === "Missing") {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
+  }
+
+  if (value === "Unknown") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function sortRelatedCatalogRecords(
@@ -1989,7 +3134,12 @@ function sortRelatedCatalogRecords(
     .map((item, index) => ({
       item,
       index,
-      title: item.title.toLocaleLowerCase(),
+      availability: normalizedRelatedSortText(item.availability),
+      censorship: normalizedRelatedSortText(item.censorship),
+      code: normalizedRelatedSortText(item.code),
+      metric: relatedMetricSortValue(item.metadata),
+      rating: relatedRatingSortValue(item.rating),
+      title: normalizedRelatedSortText(item.title) ?? "",
       time: releaseDateTime(item.releaseDate),
     }))
     .sort((a, b) => {
@@ -2000,6 +3150,56 @@ function sortRelatedCatalogRecords(
         }
 
         return a.index - b.index;
+      }
+
+      if (sortMode === "availabilityAsc" || sortMode === "availabilityDesc") {
+        return compareRelatedTextSort(
+          a.availability,
+          b.availability,
+          a.index,
+          b.index,
+          sortMode === "availabilityAsc",
+        );
+      }
+
+      if (sortMode === "codeAsc" || sortMode === "codeDesc") {
+        return compareRelatedTextSort(
+          a.code,
+          b.code,
+          a.index,
+          b.index,
+          sortMode === "codeAsc",
+        );
+      }
+
+      if (sortMode === "metricAsc" || sortMode === "metricDesc") {
+        return compareRelatedNumberSort(
+          a.metric,
+          b.metric,
+          a.index,
+          b.index,
+          sortMode === "metricAsc",
+        );
+      }
+
+      if (sortMode === "censorshipAsc" || sortMode === "censorshipDesc") {
+        return compareRelatedTextSort(
+          a.censorship,
+          b.censorship,
+          a.index,
+          b.index,
+          sortMode === "censorshipAsc",
+        );
+      }
+
+      if (sortMode === "ratingAsc" || sortMode === "ratingDesc") {
+        return compareRelatedNumberSort(
+          a.rating,
+          b.rating,
+          a.index,
+          b.index,
+          sortMode === "ratingAsc",
+        );
       }
 
       const aMissing = a.time === null;
@@ -2017,6 +3217,95 @@ function sortRelatedCatalogRecords(
       return a.index - b.index;
     })
     .map(({ item }) => item);
+}
+
+function normalizedRelatedSortText(value: string | number | null | undefined) {
+  const text = typeof value === "number" ? String(value) : value?.trim();
+  return text && !isEmptyDetailValue(text) ? text.toLocaleLowerCase() : null;
+}
+
+function relatedMetricSortValue(value: string | number | null | undefined) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const text = value?.toString().trim();
+  if (!text || isEmptyDetailValue(text)) {
+    return null;
+  }
+
+  const numericMatch = text.match(/-?\d+(?:\.\d+)?/);
+  return numericMatch ? Number(numericMatch[0]) : null;
+}
+
+function relatedRatingSortValue(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function compareRelatedTextSort(
+  a: string | null,
+  b: string | null,
+  aIndex: number,
+  bIndex: number,
+  ascending: boolean,
+) {
+  if (a === null || b === null) {
+    if (a !== b) {
+      return a === null ? 1 : -1;
+    }
+    return aIndex - bIndex;
+  }
+
+  const comparison = a.localeCompare(b);
+  if (comparison !== 0) {
+    return ascending ? comparison : -comparison;
+  }
+  return aIndex - bIndex;
+}
+
+function compareRelatedNumberSort(
+  a: number | null,
+  b: number | null,
+  aIndex: number,
+  bIndex: number,
+  ascending: boolean,
+) {
+  if (a === null || b === null) {
+    if (a !== b) {
+      return a === null ? 1 : -1;
+    }
+    return aIndex - bIndex;
+  }
+
+  if (a !== b) {
+    return ascending ? a - b : b - a;
+  }
+  return aIndex - bIndex;
+}
+
+function filterRelatedCatalogRecords(
+  items: NonNullable<DetailSection["relatedCatalogRecords"]>,
+  query: string,
+) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    [
+      item.title,
+      item.originalTitle,
+      item.code,
+      item.publisherLabel,
+      item.metadata,
+      item.releaseDate,
+    ]
+      .filter(Boolean)
+      .some((value) =>
+        String(value).toLocaleLowerCase().includes(normalizedQuery),
+      ),
+  );
 }
 
 function releaseDateTime(value: string | undefined) {
@@ -2159,45 +3448,58 @@ function RelatedEmptyState({
   title: string;
   message?: string;
 }) {
+  const t = useTranslation();
   const fallbackMessage =
     message ??
     (title.includes("Image")
-      ? "No related images saved."
+      ? t("detail.related.empty.images")
       : title.includes("Video")
-        ? "No related videos saved."
-        : "No related performers saved.");
+        ? t("detail.related.empty.videos")
+        : t("detail.related.empty.performers"));
 
   return (
     <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4">
-      <p className="text-sm font-medium text-slate-500">{fallbackMessage}</p>
+      <p className="text-sm font-medium text-slate-500">{translateUiDisplayLabel(t, fallbackMessage)}</p>
     </div>
   );
 }
 
-const GALLERY_BATCH_SIZE = 16;
+const GALLERY_BATCH_SIZE = 15;
 
 function GalleryGrid({ paths }: { paths: string[] }) {
+  const t = useTranslation();
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
   const [viewerPayload, setViewerPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
+  const viewerOpeningRef = useRef(false);
   const visiblePaths = paths.slice(0, visibleCount);
   const canLoadMore = visibleCount < paths.length;
 
   useEffect(() => {
     setVisibleCount(GALLERY_BATCH_SIZE);
     setViewerPayload(null);
+    viewerOpeningRef.current = false;
   }, [paths]);
 
   async function handlePreviewOpen(index: number) {
+    if (viewerOpeningRef.current) {
+      return;
+    }
+
+    viewerOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
       images: paths.map((path) => ({ path })),
       initialIndex: index,
     });
-    const viewerResult = await openGlobalImageViewerWindow(payload);
+    try {
+      const viewerResult = await openGlobalImageViewerWindow(payload);
 
-    if (viewerResult.mode === "fallback") {
-      logGlobalViewerFallback("detail gallery preview", viewerResult);
-      setViewerPayload(payload);
+      if (viewerResult.mode === "fallback") {
+        logGlobalViewerFallback("detail gallery preview", viewerResult);
+        setViewerPayload(payload);
+      }
+    } finally {
+      viewerOpeningRef.current = false;
     }
   }
 
@@ -2205,20 +3507,26 @@ function GalleryGrid({ paths }: { paths: string[] }) {
     <>
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle title="Gallery" icon={ImageIcon} />
+          <CardTitle title={t("detail.gallery")} icon={ImageIcon} />
           {paths.length > 0 && (
             <p className="text-xs font-medium text-slate-500">
-              Showing {visiblePaths.length} of {paths.length} images
+              {t("detail.galleryShowing", {
+                shown: String(visiblePaths.length),
+                total: String(paths.length),
+              })}
             </p>
           )}
         </div>
         {paths.length === 0 ? (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-500">
-            No Gallery Images saved.
+            {t("detail.galleryEmpty")}
           </p>
         ) : (
           <>
-            <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+            <div
+              className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+              data-testid="image-detail-gallery-grid"
+            >
               {visiblePaths.map((path, index) => (
                 <GalleryImageTile
                   key={`${path}-${index}`}
@@ -2229,7 +3537,7 @@ function GalleryGrid({ paths }: { paths: string[] }) {
               ))}
             </div>
             {canLoadMore && (
-              <div className="mt-4 flex justify-center">
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -2237,7 +3545,14 @@ function GalleryGrid({ paths }: { paths: string[] }) {
                   }
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
                 >
-                  Load More
+                  {t("detail.loadMore")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(paths.length)}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sakura-200 hover:text-sakura-600"
+                >
+                  {t("detail.showAll")}
                 </button>
               </div>
             )}
@@ -2313,27 +3628,112 @@ function CardTitle({
   icon: Icon,
 }: {
   title: string;
-  icon: typeof Info;
+  icon: LucideIcon;
 }) {
+  const t = useTranslation();
   return (
     <div className="flex items-center gap-2">
-      <Icon size={18} className="text-sakura-500" />
-      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+      <span
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-sakura-50/80 text-sakura-500"
+        data-testid="detail-section-icon"
+      >
+        <Icon size={17} aria-hidden="true" />
+      </span>
+      <h2 className="text-base font-semibold text-slate-950">{translateUiDisplayLabel(t, title)}</h2>
     </div>
   );
 }
 
-function LabelBlock({ title, labels }: { title: string; labels: string[] }) {
+function LabelBlock({
+  title,
+  labels,
+  oneRowOverflow = false,
+}: {
+  title: string;
+  labels: string[];
+  oneRowOverflow?: boolean;
+}) {
+  const t = useTranslation();
   return (
     <div className="min-w-0">
-      <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-        {labels.map((label) => (
-          <Chip key={label} label={label} tone="pinkSoft" />
+      <p className="text-sm font-semibold text-slate-800">{translateUiDisplayLabel(t, title)}</p>
+      {oneRowOverflow ? (
+        <OverflowChipList ariaLabel={`Detail ${title.toLowerCase()}`} labels={labels} />
+      ) : (
+        <div className="mt-3 flex min-w-0 flex-wrap gap-2">
+          {labels.map((label) => (
+            <Chip key={label} label={label} tone="accentSoft" />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OverflowChipList({
+  ariaLabel,
+  labels,
+}: {
+  ariaLabel: string;
+  labels: string[];
+}) {
+  const t = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const cleanLabels = labels
+    .map(cleanDetailChipLabel)
+    .filter(Boolean)
+    .filter((label, index, current) => current.indexOf(label) === index);
+  const visibleLabels = expanded
+    ? cleanLabels
+    : cleanLabels.slice(0, DETAIL_CHIP_VISIBLE_LIMIT);
+  const hiddenCount = Math.max(0, cleanLabels.length - visibleLabels.length);
+
+  return (
+    <div className="mt-3 min-w-0">
+      <div
+        aria-label={ariaLabel}
+        data-testid="detail-category-chip-row"
+        className={[
+          "flex min-w-0 gap-2",
+          expanded ? "flex-wrap" : "max-h-14 flex-wrap overflow-hidden",
+        ].join(" ")}
+      >
+        {visibleLabels.map((label) => (
+          <Chip key={label} label={label} tone="accentSoft" />
         ))}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            aria-label={`Show ${hiddenCount} more categories`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded(true)}
+            className="inline-flex shrink-0 items-center rounded-md border border-sakura-100 bg-sakura-50/70 px-2.5 py-1 text-xs font-semibold text-sakura-600 transition hover:border-sakura-200 hover:bg-sakura-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2"
+          >
+            +{hiddenCount}
+          </button>
+        )}
+        {expanded && cleanLabels.length > DETAIL_CHIP_VISIBLE_LIMIT && (
+          <button
+            type="button"
+            aria-label={t("detail.collapseCategories")}
+            onClick={() => setExpanded(false)}
+            className="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-300 focus-visible:ring-offset-2"
+          >
+            Show less
+          </button>
+        )}
       </div>
     </div>
   );
+}
+
+function cleanDetailChipLabel(label: string) {
+  return label
+    .trim()
+    .replace(/^\[\s*["']?/, "")
+    .replace(/["']?\s*\]$/, "")
+    .replace(/^(["'])(.*)\1$/, "$2")
+    .trim();
 }
 
 function Chip({
@@ -2342,24 +3742,26 @@ function Chip({
   icon: Icon,
 }: {
   label: string;
-  tone: "green" | "orange" | "pink" | "pinkSoft" | "neutral";
+  tone: "green" | "orange" | "accent" | "accentSoft" | "neutral";
   icon?: typeof Heart;
 }) {
+  const t = useTranslation();
+  const displayLabel = translateUiDisplayLabel(t, label);
   const toneClass = {
     green: "border-emerald-100 bg-emerald-50 text-emerald-700",
     orange: "border-orange-100 bg-orange-50 text-orange-600",
-    pink: "border-sakura-100 bg-sakura-50 text-sakura-600",
-    pinkSoft: "border-sakura-100 bg-sakura-50/70 text-sakura-600",
+    accent: "border-sakura-100 bg-sakura-50 text-sakura-600",
+    accentSoft: "border-sakura-100 bg-sakura-50/70 text-sakura-600",
     neutral: "border-slate-200 bg-slate-100 text-slate-600",
   }[tone];
 
   return (
     <span
       className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${toneClass}`}
-      title={label}
+      title={displayLabel}
     >
       {Icon && <Icon size={14} fill="currentColor" />}
-      <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
+      <span className="min-w-0 truncate whitespace-nowrap">{displayLabel}</span>
     </span>
   );
 }

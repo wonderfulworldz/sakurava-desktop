@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useTranslation } from "../lib/LanguageContext";
 import { detailConfigs } from "../lib/detailData";
 import type { DetailConfig } from "../lib/detailData";
-import type { Image, Performer } from "../backend/types";
+import type { Credit, Image, ManagedCategory, Performer } from "../backend/types";
 import { buildVideoDetailConfig } from "../lib/videoIntegration";
 import DetailPage from "./DetailPage";
-import {
-  deleteVideo,
-  getVideo,
-  isVideoRuntimeAvailable,
-} from "../runtime/videoCommands";
+import { getVideo, isVideoRuntimeAvailable } from "../runtime/videoCommands";
 import {
   isPerformerRuntimeAvailable,
   listPerformers,
@@ -18,17 +15,17 @@ import {
   isImageRuntimeAvailable,
   listImages,
 } from "../runtime/imageCommands";
+import { listCreditsByWork } from "../runtime/creditCommands";
+import { listManagedCategories } from "../runtime/managedCategoryCommands";
 
 function VideoDetailPage() {
+  const t = useTranslation();
   const { itemKey } = useParams();
-  const navigate = useNavigate();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.videos);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isVideoRuntimeAvailable()),
   );
-  const [deletePending, setDeletePending] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +53,8 @@ function VideoDetailPage() {
         setMissing(false);
         let performers: Performer[] = [];
         let images: Image[] = [];
+        let credits: Credit[] = [];
+        let managedCategories: ManagedCategory[] = [];
         if (isPerformerRuntimeAvailable()) {
           try {
             performers = await listPerformers();
@@ -70,10 +69,28 @@ function VideoDetailPage() {
             images = [];
           }
         }
+        try {
+          credits = await listCreditsByWork("video", video.id);
+        } catch {
+          credits = [];
+        }
+        try {
+          managedCategories = await listManagedCategories();
+        } catch {
+          managedCategories = [];
+        }
         if (cancelled) {
           return;
         }
-        setConfig(buildVideoDetailConfig(video, performers, images));
+        setConfig(
+          buildVideoDetailConfig(
+            video,
+            performers,
+            images,
+            credits,
+            managedCategories,
+          ),
+        );
         setLoading(false);
       })
       .catch(() => {
@@ -88,37 +105,13 @@ function VideoDetailPage() {
     };
   }, [itemKey]);
 
-  async function handleDelete() {
-    if (!itemKey || deletePending) {
-      return;
-    }
-
-    setDeletePending(true);
-    setDeleteError(null);
-
-    try {
-      const result = await deleteVideo(itemKey);
-
-      if (!result.deleted) {
-        setDeleteError("Video delete failed. The saved Sakurava record was not removed.");
-        return;
-      }
-
-      navigate("/videos", { replace: true });
-    } catch {
-      setDeleteError("Video delete failed. The saved Sakurava record was not removed.");
-    } finally {
-      setDeletePending(false);
-    }
-  }
-
   if (loading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Video Detail
+          {t("detail.videoTitle")}
         </h1>
-        <p className="mt-3 text-sm text-slate-500">Loading video...</p>
+        <p className="mt-3 text-sm text-slate-500">{t("status.loadingVideo")}</p>
       </section>
     );
   }
@@ -127,27 +120,16 @@ function VideoDetailPage() {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
-          Video Detail
+          {t("detail.videoTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          This video could not be found.
+          {t("detail.videoMissing")}
         </p>
       </section>
     );
   }
 
-  const deleteAction =
-    itemKey && isVideoRuntimeAvailable()
-      ? {
-          itemLabel: config.displayTitle || "this video",
-          isPending: deletePending,
-          errorMessage: deleteError,
-          onOpen: () => setDeleteError(null),
-          onConfirm: handleDelete,
-        }
-      : undefined;
-
-  return <DetailPage config={config} deleteAction={deleteAction} />;
+  return <DetailPage config={config} />;
 }
 
 export default VideoDetailPage;

@@ -32,7 +32,7 @@ export async function detectImageTechInfo(
   galleryImagePaths: string[],
 ) {
   const normalizedPaths = parseGalleryPaths(galleryImagePaths);
-  const sourcePaths = normalizedPaths.length > 0 ? normalizedPaths : [textValue(values.coverPath)];
+  const sourcePaths = normalizedPaths;
   const probes = [];
 
   for (const path of sourcePaths.slice(0, GALLERY_PROBE_LIMIT)) {

@@ -58,6 +58,7 @@ pub struct Video {
     pub categories_json: String,
     pub related_performers_json: String,
     pub related_images_json: String,
+    pub source_links_json: String,
     pub rating_json: String,
     pub notes: String,
     pub favorite: bool,
@@ -84,6 +85,7 @@ pub struct VideoInput {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -108,6 +110,7 @@ pub struct VideoPatch {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -134,6 +137,7 @@ pub struct Image {
     pub categories_json: String,
     pub related_performers_json: String,
     pub related_videos_json: String,
+    pub source_links_json: String,
     pub rating_json: String,
     pub notes: String,
     pub favorite: bool,
@@ -161,6 +165,7 @@ pub struct ImageInput {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -186,6 +191,7 @@ pub struct ImagePatch {
     pub categories_json: Option<String>,
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
@@ -202,6 +208,7 @@ pub struct Performer {
     pub debut_date: String,
     pub retired_date: String,
     pub birth_date: String,
+    pub gender: String,
     pub birthplace: String,
     pub nationality: String,
     pub blood_type: String,
@@ -215,6 +222,7 @@ pub struct Performer {
     pub pictorials_count: Option<i64>,
     pub related_videos_json: String,
     pub related_images_json: String,
+    pub source_links_json: String,
     pub categories_json: String,
     pub rating_json: String,
     pub notes: String,
@@ -233,6 +241,7 @@ pub struct PerformerInput {
     pub debut_date: Option<String>,
     pub retired_date: Option<String>,
     pub birth_date: Option<String>,
+    pub gender: Option<String>,
     pub birthplace: Option<String>,
     pub nationality: Option<String>,
     pub blood_type: Option<String>,
@@ -246,6 +255,7 @@ pub struct PerformerInput {
     pub pictorials_count: Option<i64>,
     pub related_videos_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
@@ -262,6 +272,7 @@ pub struct PerformerPatch {
     pub debut_date: Option<String>,
     pub retired_date: Option<String>,
     pub birth_date: Option<String>,
+    pub gender: Option<String>,
     pub birthplace: Option<String>,
     pub nationality: Option<String>,
     pub blood_type: Option<String>,
@@ -275,6 +286,7 @@ pub struct PerformerPatch {
     pub pictorials_count: Option<Option<i64>>,
     pub related_videos_json: Option<String>,
     pub related_images_json: Option<String>,
+    pub source_links_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
     pub notes: Option<String>,
@@ -344,6 +356,7 @@ pub struct ManagedCategory {
     pub show_in_videos: bool,
     pub show_in_images: bool,
     pub show_in_performers: bool,
+    pub show_in_credits: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -359,6 +372,7 @@ pub struct ManagedCategoryInput {
     pub show_in_videos: Option<bool>,
     pub show_in_images: Option<bool>,
     pub show_in_performers: Option<bool>,
+    pub show_in_credits: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -371,6 +385,7 @@ pub struct ManagedCategoryPatch {
     pub show_in_videos: Option<bool>,
     pub show_in_images: Option<bool>,
     pub show_in_performers: Option<bool>,
+    pub show_in_credits: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -419,6 +434,74 @@ pub struct PathStatusResult {
 pub struct MediaOpenResult {
     pub path: String,
     pub opened: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Credit {
+    pub id: String,
+    pub work_type: String,
+    pub work_id: String,
+    pub performer_id: String,
+    pub character_name: String,
+    pub character_original_name: Option<String>,
+    pub credited_as: Option<String>,
+    pub credited_as_mode: String,
+    pub credit_type_category_id: Option<String>,
+    pub role_importance_category_id: Option<String>,
+    pub character_mode: String,
+    pub character_id: Option<String>,
+    pub billing_order: Option<i64>,
+    pub note: Option<String>,
+    pub legacy_source_key: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditInput {
+    pub work_type: String,
+    pub work_id: String,
+    pub performer_id: String,
+    pub character_name: Option<String>,
+    pub character_original_name: Option<String>,
+    pub credited_as: Option<String>,
+    pub credited_as_mode: Option<String>,
+    pub credit_type_category_id: Option<String>,
+    pub role_importance_category_id: Option<String>,
+    pub character_mode: Option<String>,
+    pub character_id: Option<String>,
+    pub billing_order: Option<i64>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditPatch {
+    pub work_type: Option<String>,
+    pub work_id: Option<String>,
+    pub performer_id: Option<String>,
+    pub character_name: Option<String>,
+    pub character_original_name: Option<Option<String>>,
+    pub credited_as: Option<Option<String>>,
+    pub credited_as_mode: Option<String>,
+    pub credit_type_category_id: Option<Option<String>>,
+    pub role_importance_category_id: Option<Option<String>>,
+    pub character_mode: Option<String>,
+    pub character_id: Option<Option<String>>,
+    pub billing_order: Option<Option<i64>>,
+    pub note: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DetailFileActionResult {
+    pub source_path: String,
+    pub destination_path: Option<String>,
+    pub folder_path: Option<String>,
+    pub success: bool,
     pub message: String,
 }
 
@@ -745,6 +828,114 @@ pub fn open_media_path(path: String) -> Result<MediaOpenResult, String> {
     })
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceLinkOpenResult {
+    url: String,
+    opened: bool,
+    message: String,
+}
+
+#[tauri::command]
+pub fn open_source_link(url: String) -> Result<SourceLinkOpenResult, String> {
+    let safe_url = validate_source_link_url(&url)?;
+    open_url_with_default_browser(&safe_url)?;
+
+    Ok(SourceLinkOpenResult {
+        url: safe_url,
+        opened: true,
+        message: "Source Link open request sent".to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn credit_create(
+    database: State<'_, RuntimeDatabase>,
+    input: CreditInput,
+) -> Result<Credit, String> {
+    with_connection(&database, |connection| create_credit(connection, input))
+}
+
+#[tauri::command]
+pub fn credit_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<Credit>, String> {
+    with_connection(&database, list_credits)
+}
+
+#[tauri::command]
+pub fn credit_get(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<Option<Credit>, String> {
+    with_connection(&database, |connection| get_credit(connection, &id))
+}
+
+#[tauri::command]
+pub fn credit_update(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+    patch: CreditPatch,
+) -> Result<Option<Credit>, String> {
+    with_connection(&database, |connection| {
+        update_credit(connection, &id, patch)
+    })
+}
+
+#[tauri::command]
+pub fn credit_delete(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<DeleteResult, String> {
+    with_connection(&database, |connection| delete_credit(connection, id))
+}
+
+#[tauri::command]
+pub fn credit_list_by_work(
+    database: State<'_, RuntimeDatabase>,
+    work_type: String,
+    work_id: String,
+) -> Result<Vec<Credit>, String> {
+    with_connection(&database, |connection| {
+        list_credits_by_work(connection, &work_type, &work_id)
+    })
+}
+
+#[tauri::command]
+pub fn credit_list_by_performer(
+    database: State<'_, RuntimeDatabase>,
+    performer_id: String,
+) -> Result<Vec<Credit>, String> {
+    with_connection(&database, |connection| {
+        list_credits_by_performer(connection, &performer_id)
+    })
+}
+
+#[tauri::command]
+pub fn detail_source_file_copy_as(
+    source_path: String,
+    destination_path: String,
+) -> Result<DetailFileActionResult, String> {
+    copy_detail_source_file_as(&source_path, &destination_path)
+}
+
+#[tauri::command]
+pub fn detail_source_folder_reveal(source_path: String) -> Result<DetailFileActionResult, String> {
+    let source = validate_detail_source_file_path(&source_path)?;
+    let folder = source
+        .parent()
+        .ok_or_else(|| "Source folder could not be resolved".to_string())?
+        .to_path_buf();
+
+    reveal_detail_source_folder(&source)?;
+
+    Ok(DetailFileActionResult {
+        source_path: source.display().to_string(),
+        destination_path: None,
+        folder_path: Some(folder.display().to_string()),
+        success: true,
+        message: "Source folder open request sent".to_string(),
+    })
+}
+
 #[tauri::command]
 pub fn gallery_folder_images_list(
     folder_path: String,
@@ -784,6 +975,7 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
         categories_json: normalize_string_array_json(input.categories_json),
         related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_images_json: normalize_related_catalog_records_json(input.related_images_json),
+        source_links_json: normalize_source_links_json(input.source_links_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
@@ -797,8 +989,8 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 id, title, originalTitle, code, censorship, availability, releaseDate,
                 durationMinutes, resolution, fileSizeBytes, fileType,
                 publisherLabel, coverPath, mediaPath, categoriesJson,
-                relatedPerformersJson, relatedImagesJson, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+                relatedPerformersJson, relatedImagesJson, source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 video.id,
                 video.title,
@@ -817,6 +1009,7 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 video.categories_json,
                 video.related_performers_json,
                 video.related_images_json,
+                video.source_links_json,
                 video.rating_json,
                 video.notes,
                 bool_to_int(video.favorite),
@@ -887,6 +1080,9 @@ fn update_video(
         video.related_images_json =
             normalize_related_catalog_records_json(patch.related_images_json);
     }
+    if patch.source_links_json.is_some() {
+        video.source_links_json = normalize_source_links_json(patch.source_links_json);
+    }
     if patch.rating_json.is_some() {
         video.rating_json = normalize_object_json(patch.rating_json);
     }
@@ -904,8 +1100,9 @@ fn update_video(
                 resolution = ?9, fileSizeBytes = ?10, fileType = ?11,
                 publisherLabel = ?12, coverPath = ?13, mediaPath = ?14,
                 categoriesJson = ?15, relatedPerformersJson = ?16,
-                relatedImagesJson = ?17, ratingJson = ?18, notes = ?19,
-                favorite = ?20, updatedAt = ?21
+                relatedImagesJson = ?17, source_links_json = ?18,
+                ratingJson = ?19, notes = ?20,
+                favorite = ?21, updatedAt = ?22
             WHERE id = ?1",
             params![
                 video.id,
@@ -925,6 +1122,7 @@ fn update_video(
                 video.categories_json,
                 video.related_performers_json,
                 video.related_images_json,
+                video.source_links_json,
                 video.rating_json,
                 video.notes,
                 bool_to_int(video.favorite),
@@ -960,6 +1158,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
         categories_json: normalize_string_array_json(input.categories_json),
         related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
+        source_links_json: normalize_source_links_json(input.source_links_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
@@ -973,9 +1172,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 id, title, originalTitle, code, censorship, availability, releaseDate,
                 publisherLabel, coverPath, folderPath, imageCount, galleryImagePathsJson,
                 mainResolution, totalFileSizeBytes, mainFileType,
-                categoriesJson, relatedPerformersJson, relatedVideosJson, ratingJson, notes,
-                favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+                categoriesJson, relatedPerformersJson, relatedVideosJson,
+                source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
             params![
                 image.id,
                 image.title,
@@ -995,6 +1194,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
+                image.source_links_json,
                 image.rating_json,
                 image.notes,
                 bool_to_int(image.favorite),
@@ -1069,6 +1269,9 @@ fn update_image(
         image.related_videos_json =
             normalize_related_catalog_records_json(patch.related_videos_json);
     }
+    if patch.source_links_json.is_some() {
+        image.source_links_json = normalize_source_links_json(patch.source_links_json);
+    }
     if patch.rating_json.is_some() {
         image.rating_json = normalize_object_json(patch.rating_json);
     }
@@ -1087,7 +1290,8 @@ fn update_image(
                 galleryImagePathsJson = ?12, mainResolution = ?13,
                 totalFileSizeBytes = ?14, mainFileType = ?15, categoriesJson = ?16,
                 relatedPerformersJson = ?17, relatedVideosJson = ?18,
-                ratingJson = ?19, notes = ?20, favorite = ?21, updatedAt = ?22
+                source_links_json = ?19, ratingJson = ?20, notes = ?21,
+                favorite = ?22, updatedAt = ?23
             WHERE id = ?1",
             params![
                 image.id,
@@ -1108,6 +1312,7 @@ fn update_image(
                 image.categories_json,
                 image.related_performers_json,
                 image.related_videos_json,
+                image.source_links_json,
                 image.rating_json,
                 image.notes,
                 bool_to_int(image.favorite),
@@ -1131,6 +1336,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         debut_date: default_text(input.debut_date),
         retired_date: default_text(input.retired_date),
         birth_date: default_text(input.birth_date),
+        gender: default_text(input.gender),
         birthplace: default_text(input.birthplace),
         nationality: default_text(input.nationality),
         blood_type: default_text(input.blood_type),
@@ -1144,12 +1350,9 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         ),
         filmography_count: input.filmography_count,
         pictorials_count: input.pictorials_count,
-        related_videos_json: normalize_related_catalog_records_json(
-            input.related_videos_json,
-        ),
-        related_images_json: normalize_related_catalog_records_json(
-            input.related_images_json,
-        ),
+        related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
+        related_images_json: normalize_related_catalog_records_json(input.related_images_json),
+        source_links_json: normalize_source_links_json(input.source_links_json),
         categories_json: normalize_string_array_json(input.categories_json),
         rating_json: normalize_object_json(input.rating_json),
         notes: default_text(input.notes),
@@ -1162,12 +1365,12 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         .execute(
             "INSERT INTO performers (
                 id, name, originalName, aliasesJson, status, debutDate, retiredDate,
-                birthDate, birthplace, nationality, bloodType, heightCm, weightKg,
+                birthDate, gender, birthplace, nationality, bloodType, heightCm, weightKg,
                 measurements, cupSize, coverPath, performerThumbnailPathsJson,
                 filmographyCount, pictorialsCount, relatedVideosJson,
-                relatedImagesJson, categoriesJson, ratingJson, notes, favorite,
-                createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
+                relatedImagesJson, source_links_json, categoriesJson, ratingJson,
+                notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
             params![
                 performer.id,
                 performer.name,
@@ -1177,6 +1380,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 performer.debut_date,
                 performer.retired_date,
                 performer.birth_date,
+                performer.gender,
                 performer.birthplace,
                 performer.nationality,
                 performer.blood_type,
@@ -1190,6 +1394,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 performer.pictorials_count,
                 performer.related_videos_json,
                 performer.related_images_json,
+                performer.source_links_json,
                 performer.categories_json,
                 performer.rating_json,
                 performer.notes,
@@ -1247,6 +1452,7 @@ fn update_performer(
     apply_text(&mut performer.debut_date, patch.debut_date);
     apply_text(&mut performer.retired_date, patch.retired_date);
     apply_text(&mut performer.birth_date, patch.birth_date);
+    apply_text(&mut performer.gender, patch.gender);
     apply_text(&mut performer.birthplace, patch.birthplace);
     apply_text(&mut performer.nationality, patch.nationality);
     apply_text(&mut performer.blood_type, patch.blood_type);
@@ -1277,6 +1483,9 @@ fn update_performer(
         performer.related_images_json =
             normalize_related_catalog_records_json(patch.related_images_json);
     }
+    if patch.source_links_json.is_some() {
+        performer.source_links_json = normalize_source_links_json(patch.source_links_json);
+    }
     if patch.categories_json.is_some() {
         performer.categories_json = normalize_string_array_json(patch.categories_json);
     }
@@ -1294,13 +1503,13 @@ fn update_performer(
             "UPDATE performers SET
                 name = ?2, originalName = ?3, aliasesJson = ?4, status = ?5,
                 debutDate = ?6, retiredDate = ?7, birthDate = ?8,
-                birthplace = ?9, nationality = ?10, bloodType = ?11,
-                heightCm = ?12, weightKg = ?13, measurements = ?14, cupSize = ?15,
-                coverPath = ?16, performerThumbnailPathsJson = ?17,
-                filmographyCount = ?18, pictorialsCount = ?19,
-                relatedVideosJson = ?20, relatedImagesJson = ?21,
-                categoriesJson = ?22, ratingJson = ?23, notes = ?24,
-                favorite = ?25, updatedAt = ?26
+                gender = ?9, birthplace = ?10, nationality = ?11, bloodType = ?12,
+                heightCm = ?13, weightKg = ?14, measurements = ?15, cupSize = ?16,
+                coverPath = ?17, performerThumbnailPathsJson = ?18,
+                filmographyCount = ?19, pictorialsCount = ?20,
+                relatedVideosJson = ?21, relatedImagesJson = ?22,
+                source_links_json = ?23, categoriesJson = ?24, ratingJson = ?25,
+                notes = ?26, favorite = ?27, updatedAt = ?28
             WHERE id = ?1",
             params![
                 performer.id,
@@ -1311,6 +1520,7 @@ fn update_performer(
                 performer.debut_date,
                 performer.retired_date,
                 performer.birth_date,
+                performer.gender,
                 performer.birthplace,
                 performer.nationality,
                 performer.blood_type,
@@ -1324,6 +1534,7 @@ fn update_performer(
                 performer.pictorials_count,
                 performer.related_videos_json,
                 performer.related_images_json,
+                performer.source_links_json,
                 performer.categories_json,
                 performer.rating_json,
                 performer.notes,
@@ -1364,6 +1575,7 @@ fn create_managed_category(
         show_in_videos: input.show_in_videos.unwrap_or(true),
         show_in_images: input.show_in_images.unwrap_or(true),
         show_in_performers: input.show_in_performers.unwrap_or(true),
+        show_in_credits: input.show_in_credits.unwrap_or(false),
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
@@ -1372,8 +1584,8 @@ fn create_managed_category(
         .execute(
             "INSERT INTO managedCategories (
                 key, name, parentKey, description, thumbnailPath,
-                showInVideos, showInImages, showInPerformers, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                showInVideos, showInImages, showInPerformers, showInCredits, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 category.key,
                 category.name,
@@ -1383,6 +1595,7 @@ fn create_managed_category(
                 category.show_in_videos,
                 category.show_in_images,
                 category.show_in_performers,
+                category.show_in_credits,
                 category.created_at,
                 category.updated_at
             ],
@@ -1453,14 +1666,18 @@ fn update_managed_category(
     if let Some(show_in_performers) = patch.show_in_performers {
         category.show_in_performers = show_in_performers;
     }
+    if let Some(show_in_credits) = patch.show_in_credits {
+        category.show_in_credits = show_in_credits;
+    }
     category.updated_at = current_timestamp();
 
     connection
         .execute(
             "UPDATE managedCategories SET
                 name = ?1, parentKey = ?2, description = ?3, thumbnailPath = ?4,
-                showInVideos = ?5, showInImages = ?6, showInPerformers = ?7, updatedAt = ?8
-             WHERE key = ?9",
+                showInVideos = ?5, showInImages = ?6, showInPerformers = ?7,
+                showInCredits = ?8, updatedAt = ?9
+             WHERE key = ?10",
             params![
                 category.name,
                 category.parent_key,
@@ -1469,6 +1686,7 @@ fn update_managed_category(
                 category.show_in_videos,
                 category.show_in_images,
                 category.show_in_performers,
+                category.show_in_credits,
                 category.updated_at,
                 key
             ],
@@ -1497,7 +1715,7 @@ fn delete_managed_category_if_unused(
         return Err("Category cannot be deleted while it has child categories.".to_string());
     }
 
-    if category_usage_count(connection, &category.name)? > 0 {
+    if category_usage_count(connection, &category.key, &category.name)? > 0 {
         return Err("Category cannot be deleted while records use it.".to_string());
     }
 
@@ -1592,10 +1810,7 @@ fn list_glossary_entries(connection: &Connection) -> Result<Vec<GlossaryEntry>, 
     Ok(rows)
 }
 
-fn get_glossary_entry(
-    connection: &Connection,
-    id: &str,
-) -> Result<Option<GlossaryEntry>, String> {
+fn get_glossary_entry(connection: &Connection, id: &str) -> Result<Option<GlossaryEntry>, String> {
     connection
         .query_row(
             "SELECT * FROM glossary_entries WHERE id = ?1",
@@ -2122,6 +2337,349 @@ fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(trimmed))
 }
 
+fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, String> {
+    let work_type = validate_credit_choice(input.work_type, &["video", "image"], "workType")?;
+    let work_id = require_text(input.work_id, "Credit workId is required")?;
+    let performer_id = require_text(input.performer_id, "Credit performerId is required")?;
+    let credited_as_mode = validate_credit_choice(
+        input.credited_as_mode.unwrap_or_else(|| "auto".to_string()),
+        &["auto", "custom"],
+        "creditedAsMode",
+    )?;
+    let character_mode = validate_credit_choice(
+        input.character_mode.unwrap_or_else(|| "text".to_string()),
+        &["text", "self", "linked"],
+        "characterMode",
+    )?;
+    let timestamp = current_timestamp();
+    let credit = Credit {
+        id: new_id("credit"),
+        work_type,
+        work_id,
+        performer_id,
+        character_name: default_text(input.character_name),
+        character_original_name: normalize_optional_text(input.character_original_name),
+        credited_as: normalize_optional_text(input.credited_as),
+        credited_as_mode,
+        credit_type_category_id: normalize_optional_text(input.credit_type_category_id),
+        role_importance_category_id: normalize_optional_text(input.role_importance_category_id),
+        character_mode,
+        character_id: normalize_optional_text(input.character_id),
+        billing_order: input.billing_order,
+        note: normalize_optional_text(input.note),
+        legacy_source_key: None,
+        created_at: timestamp.clone(),
+        updated_at: timestamp,
+    };
+    connection
+        .execute(
+            "INSERT INTO credits (
+                id, workType, workId, performerId, characterName, characterOriginalName,
+                creditedAs, creditedAsMode, creditTypeCategoryId, roleImportanceCategoryId,
+                characterMode, characterId, billingOrder, note, legacySourceKey,
+                createdAt, updatedAt
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            params![
+                credit.id,
+                credit.work_type,
+                credit.work_id,
+                credit.performer_id,
+                credit.character_name,
+                credit.character_original_name,
+                credit.credited_as,
+                credit.credited_as_mode,
+                credit.credit_type_category_id,
+                credit.role_importance_category_id,
+                credit.character_mode,
+                credit.character_id,
+                credit.billing_order,
+                credit.note,
+                credit.legacy_source_key,
+                credit.created_at,
+                credit.updated_at
+            ],
+        )
+        .map_err(database_error)?;
+    get_credit(connection, &credit.id)?
+        .ok_or_else(|| "Created credit could not be read".to_string())
+}
+
+fn list_credits(connection: &Connection) -> Result<Vec<Credit>, String> {
+    query_credits(
+        connection,
+        "SELECT * FROM credits ORDER BY createdAt ASC, id ASC",
+        [],
+    )
+}
+
+fn get_credit(connection: &Connection, id: &str) -> Result<Option<Credit>, String> {
+    connection
+        .query_row("SELECT * FROM credits WHERE id = ?1", [id], credit_from_row)
+        .optional()
+        .map_err(database_error)
+}
+
+fn update_credit(
+    connection: &Connection,
+    id: &str,
+    patch: CreditPatch,
+) -> Result<Option<Credit>, String> {
+    let Some(mut credit) = get_credit(connection, id)? else {
+        return Ok(None);
+    };
+    if let Some(value) = patch.work_type {
+        credit.work_type = validate_credit_choice(value, &["video", "image"], "workType")?;
+    }
+    if let Some(value) = patch.work_id {
+        credit.work_id = require_text(value, "Credit workId is required")?;
+    }
+    if let Some(value) = patch.performer_id {
+        credit.performer_id = require_text(value, "Credit performerId is required")?;
+    }
+    if let Some(value) = patch.character_name {
+        credit.character_name = value.trim().to_string();
+    }
+    if let Some(value) = patch.character_original_name {
+        credit.character_original_name = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.credited_as {
+        credit.credited_as = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.credited_as_mode {
+        credit.credited_as_mode =
+            validate_credit_choice(value, &["auto", "custom"], "creditedAsMode")?;
+    }
+    if let Some(value) = patch.credit_type_category_id {
+        credit.credit_type_category_id = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.role_importance_category_id {
+        credit.role_importance_category_id = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.character_mode {
+        credit.character_mode =
+            validate_credit_choice(value, &["text", "self", "linked"], "characterMode")?;
+    }
+    if let Some(value) = patch.character_id {
+        credit.character_id = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.billing_order {
+        credit.billing_order = value;
+    }
+    if let Some(value) = patch.note {
+        credit.note = normalize_optional_text(value);
+    }
+    credit.updated_at = current_timestamp();
+    connection
+        .execute(
+            "UPDATE credits SET workType = ?1, workId = ?2, performerId = ?3,
+                characterName = ?4, characterOriginalName = ?5, creditedAs = ?6,
+                creditedAsMode = ?7, creditTypeCategoryId = ?8,
+                roleImportanceCategoryId = ?9, characterMode = ?10, characterId = ?11,
+                billingOrder = ?12, note = ?13, updatedAt = ?14 WHERE id = ?15",
+            params![
+                credit.work_type,
+                credit.work_id,
+                credit.performer_id,
+                credit.character_name,
+                credit.character_original_name,
+                credit.credited_as,
+                credit.credited_as_mode,
+                credit.credit_type_category_id,
+                credit.role_importance_category_id,
+                credit.character_mode,
+                credit.character_id,
+                credit.billing_order,
+                credit.note,
+                credit.updated_at,
+                id
+            ],
+        )
+        .map_err(database_error)?;
+    get_credit(connection, id)
+}
+
+fn delete_credit(connection: &Connection, id: String) -> Result<DeleteResult, String> {
+    let deleted = connection
+        .execute("DELETE FROM credits WHERE id = ?1", [&id])
+        .map_err(database_error)?
+        > 0;
+    Ok(DeleteResult { id, deleted })
+}
+
+fn list_credits_by_work(
+    connection: &Connection,
+    work_type: &str,
+    work_id: &str,
+) -> Result<Vec<Credit>, String> {
+    let work_type = validate_credit_choice(work_type.to_string(), &["video", "image"], "workType")?;
+    let work_id = require_text(work_id.to_string(), "Credit workId is required")?;
+    query_credits(
+        connection,
+        "SELECT * FROM credits WHERE workType = ?1 AND workId = ?2 ORDER BY billingOrder ASC, createdAt ASC, id ASC",
+        params![work_type, work_id],
+    )
+}
+
+fn list_credits_by_performer(
+    connection: &Connection,
+    performer_id: &str,
+) -> Result<Vec<Credit>, String> {
+    let performer_id = require_text(performer_id.to_string(), "Credit performerId is required")?;
+    query_credits(
+        connection,
+        "SELECT * FROM credits WHERE performerId = ?1 ORDER BY createdAt ASC, id ASC",
+        [performer_id],
+    )
+}
+
+fn query_credits<P: rusqlite::Params>(
+    connection: &Connection,
+    sql: &str,
+    params: P,
+) -> Result<Vec<Credit>, String> {
+    let mut statement = connection.prepare(sql).map_err(database_error)?;
+    let credits = statement
+        .query_map(params, credit_from_row)
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+    Ok(credits)
+}
+
+fn validate_credit_choice(value: String, allowed: &[&str], field: &str) -> Result<String, String> {
+    let value = value.trim().to_lowercase();
+    if allowed.contains(&value.as_str()) {
+        Ok(value)
+    } else {
+        Err(format!("Credit {field} is invalid"))
+    }
+}
+
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty())
+}
+
+fn copy_detail_source_file_as(
+    source_path: &str,
+    destination_path: &str,
+) -> Result<DetailFileActionResult, String> {
+    let source = validate_detail_source_file_path(source_path)?;
+    let destination = validate_detail_destination_file_path(destination_path)?;
+
+    if paths_refer_to_same_file(&source, &destination) {
+        return Err("Destination must be different from the source file".to_string());
+    }
+
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|_| "Destination folder could not be prepared".to_string())?;
+    }
+
+    fs::copy(&source, &destination).map_err(|_| "Source file could not be saved".to_string())?;
+
+    Ok(DetailFileActionResult {
+        source_path: source.display().to_string(),
+        destination_path: Some(destination.display().to_string()),
+        folder_path: None,
+        success: true,
+        message: "Source file saved".to_string(),
+    })
+}
+
+fn validate_detail_source_file_path(path: &str) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return Err("Source file path is required".to_string());
+    }
+
+    let metadata = fs::metadata(trimmed).map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => "Source file does not exist".to_string(),
+        io::ErrorKind::PermissionDenied => "Source file is inaccessible".to_string(),
+        _ => "Source file could not be checked".to_string(),
+    })?;
+
+    if !metadata.is_file() {
+        return Err("Source path must be a file".to_string());
+    }
+
+    Ok(PathBuf::from(trimmed))
+}
+
+fn validate_detail_destination_file_path(path: &str) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return Err("Destination path is required".to_string());
+    }
+
+    let destination = PathBuf::from(trimmed);
+    if destination.is_dir() {
+        return Err("Destination must be a file path".to_string());
+    }
+
+    Ok(destination)
+}
+
+fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn reveal_detail_source_folder(path: &Path) -> Result<(), String> {
+    const SW_SHOWNORMAL: i32 = 1;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: isize,
+            lp_operation: *const u16,
+            lp_file: *const u16,
+            lp_parameters: *const u16,
+            lp_directory: *const u16,
+            n_show_cmd: i32,
+        ) -> isize;
+    }
+
+    let explorer = wide_null("explorer.exe");
+    let parameters = wide_null(&format!("/select,\"{}\"", path.display()));
+
+    let result = unsafe {
+        ShellExecuteW(
+            0,
+            std::ptr::null(),
+            explorer.as_ptr(),
+            parameters.as_ptr(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    if result <= 32 {
+        return Err("Source folder could not be opened".to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn reveal_detail_source_folder(_path: &Path) -> Result<(), String> {
+    Err("Source folder open is unavailable on this platform".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn wide_null(value: &str) -> Vec<u16> {
+    std::ffi::OsStr::new(value)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
+}
+
 fn write_export_csv_file(
     destination_path: &str,
     csv_content: &str,
@@ -2234,6 +2792,58 @@ fn open_media_file_with_default_app(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_source_link_url(url: &str) -> Result<String, String> {
+    let trimmed = url.trim();
+    let remainder = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+        .ok_or_else(|| "Source Link URL must use http or https".to_string())?;
+    let authority = remainder.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.is_empty() || authority.chars().any(char::is_whitespace) {
+        return Err("Source Link URL is invalid".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn open_url_with_default_browser(url: &str) -> Result<(), String> {
+    const SW_SHOWNORMAL: i32 = 1;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: isize,
+            lp_operation: *const u16,
+            lp_file: *const u16,
+            lp_parameters: *const u16,
+            lp_directory: *const u16,
+            n_show_cmd: i32,
+        ) -> isize;
+    }
+
+    let wide_url = wide_null(url);
+    let result = unsafe {
+        ShellExecuteW(
+            0,
+            std::ptr::null(),
+            wide_url.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    if result <= 32 {
+        return Err("Source Link could not be opened".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_url_with_default_browser(_url: &str) -> Result<(), String> {
+    Err("Source Link open is unavailable on this platform".to_string())
+}
+
 #[cfg(not(target_os = "windows"))]
 fn open_media_file_with_default_app(_path: &Path) -> Result<(), String> {
     Err("Media file open is unavailable on this platform".to_string())
@@ -2289,6 +2899,7 @@ fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
         categories_json: row.get("categoriesJson")?,
         related_performers_json: row.get("relatedPerformersJson")?,
         related_images_json: row.get("relatedImagesJson")?,
+        source_links_json: row.get("source_links_json")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
@@ -2317,6 +2928,7 @@ fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
         categories_json: row.get("categoriesJson")?,
         related_performers_json: row.get("relatedPerformersJson")?,
         related_videos_json: row.get("relatedVideosJson")?,
+        source_links_json: row.get("source_links_json")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
@@ -2335,6 +2947,7 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         debut_date: row.get("debutDate")?,
         retired_date: row.get("retiredDate")?,
         birth_date: row.get("birthDate")?,
+        gender: row.get("gender")?,
         birthplace: row.get("birthplace")?,
         nationality: row.get("nationality")?,
         blood_type: row.get("bloodType")?,
@@ -2348,6 +2961,7 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         pictorials_count: row.get("pictorialsCount")?,
         related_videos_json: row.get("relatedVideosJson")?,
         related_images_json: row.get("relatedImagesJson")?,
+        source_links_json: row.get("source_links_json")?,
         categories_json: row.get("categoriesJson")?,
         rating_json: row.get("ratingJson")?,
         notes: row.get("notes")?,
@@ -2367,6 +2981,7 @@ fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Manage
         show_in_videos: row.get("showInVideos")?,
         show_in_images: row.get("showInImages")?,
         show_in_performers: row.get("showInPerformers")?,
+        show_in_credits: row.get("showInCredits")?,
         created_at: row.get("createdAt")?,
         updated_at: row.get("updatedAt")?,
     })
@@ -2481,7 +3096,11 @@ fn managed_category_child_count(connection: &Connection, key: &str) -> Result<i6
         .map_err(database_error)
 }
 
-fn category_usage_count(connection: &Connection, category_name: &str) -> Result<i64, String> {
+fn category_usage_count(
+    connection: &Connection,
+    category_key: &str,
+    category_name: &str,
+) -> Result<i64, String> {
     let target = category_name.trim().to_lowercase();
     let mut total = 0;
 
@@ -2504,6 +3123,15 @@ fn category_usage_count(connection: &Connection, category_name: &str) -> Result<
             }
         }
     }
+
+    total += connection
+        .query_row(
+            "SELECT COUNT(*) FROM credits
+             WHERE creditTypeCategoryId = ?1 OR roleImportanceCategoryId = ?1",
+            [category_key],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(database_error)?;
 
     Ok(total)
 }
@@ -2843,6 +3471,68 @@ fn normalize_related_catalog_records_json(value: Option<String>) -> String {
     serde_json::to_string(&references).unwrap_or_else(|_| "[]".to_string())
 }
 
+fn credit_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Credit> {
+    Ok(Credit {
+        id: row.get("id")?,
+        work_type: row.get("workType")?,
+        work_id: row.get("workId")?,
+        performer_id: row.get("performerId")?,
+        character_name: row.get("characterName")?,
+        character_original_name: row.get("characterOriginalName")?,
+        credited_as: row.get("creditedAs")?,
+        credited_as_mode: row.get("creditedAsMode")?,
+        credit_type_category_id: row.get("creditTypeCategoryId")?,
+        role_importance_category_id: row.get("roleImportanceCategoryId")?,
+        character_mode: row.get("characterMode")?,
+        character_id: row.get("characterId")?,
+        billing_order: row.get("billingOrder")?,
+        note: row.get("note")?,
+        legacy_source_key: row.get("legacySourceKey")?,
+        created_at: row.get("createdAt")?,
+        updated_at: row.get("updatedAt")?,
+    })
+}
+
+fn normalize_source_links_json(value: Option<String>) -> String {
+    let Some(value) = value else {
+        return "[]".to_string();
+    };
+    let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&value) else {
+        return "[]".to_string();
+    };
+
+    let mut links = Vec::new();
+
+    for item in items {
+        let Value::Object(map) = item else {
+            continue;
+        };
+        let title = map
+            .get("title")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string();
+        let url = map
+            .get("url")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string();
+
+        if title.is_empty() && url.is_empty() {
+            continue;
+        }
+
+        links.push(json!({
+            "title": title,
+            "url": url,
+        }));
+    }
+
+    serde_json::to_string(&links).unwrap_or_else(|_| "[]".to_string())
+}
+
 fn current_timestamp() -> String {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -2925,7 +3615,10 @@ mod tests {
         assert!(created.id.starts_with("glossary_"));
         assert_eq!(created.term, "Source Citation");
         assert_eq!(created.definition, "Stores a source title and URL as text.");
-        assert_eq!(created.synonyms_json, r#"["Reference link","Reference link","Source note"]"#);
+        assert_eq!(
+            created.synonyms_json,
+            r#"["Reference link","Reference link","Source note"]"#
+        );
         assert_eq!(created.category, "Reference");
         assert_eq!(created.parent_id, "");
         assert_eq!(created.thumbnail_path, "D:/Glossary/thumb.png");
@@ -2969,8 +3662,8 @@ mod tests {
         assert_eq!(updated.source_title, "Updated Source");
         assert_eq!(updated.source_url, "http://example.invalid/updated");
 
-        let deleted = glossary_delete_for_test(&connection, updated.id.clone())
-            .expect("delete glossary");
+        let deleted =
+            glossary_delete_for_test(&connection, updated.id.clone()).expect("delete glossary");
         assert_eq!(
             deleted,
             DeleteResult {
@@ -2984,11 +3677,9 @@ mod tests {
 
         for table_name in ["videos", "images", "performers", "managedCategories"] {
             let count: i64 = connection
-                .query_row(
-                    &format!("SELECT COUNT(*) FROM {table_name}"),
-                    [],
-                    |row| row.get(0),
-                )
+                .query_row(&format!("SELECT COUNT(*) FROM {table_name}"), [], |row| {
+                    row.get(0)
+                })
                 .expect("catalog table count");
             assert_eq!(count, 0, "{table_name} should not be mutated");
         }
@@ -3160,6 +3851,9 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":" image-1 ","titleSnapshot":" Image One "},{"recordId":"image-1","titleSnapshot":"Duplicate"},{"recordId":"","titleSnapshot":"Legacy Image"}]"#.to_string(),
                 ),
+                source_links_json: Some(
+                    r#"[{"title":" Studio ","url":" https://example.invalid/video "},{"title":"","url":""}]"#.to_string(),
+                ),
                 rating_json: Some(r#"{"score":4,"source":"manual"}"#.to_string()),
                 notes: None,
                 favorite: None,
@@ -3176,6 +3870,10 @@ mod tests {
         assert_eq!(
             created.related_images_json,
             r#"[{"recordId":"image-1","titleSnapshot":"Image One"},{"recordId":"","titleSnapshot":"Legacy Image"}]"#
+        );
+        assert_eq!(
+            created.source_links_json,
+            r#"[{"title":"Studio","url":"https://example.invalid/video"}]"#
         );
         assert_eq!(created.rating_json, r#"{"score":4,"source":"manual"}"#);
         assert!(!created.favorite);
@@ -3211,6 +3909,7 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#.to_string(),
                 ),
+                source_links_json: Some("invalid".to_string()),
                 rating_json: Some("invalid".to_string()),
                 notes: Some("note".to_string()),
                 favorite: Some(true),
@@ -3225,6 +3924,7 @@ mod tests {
             updated.related_images_json,
             r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#
         );
+        assert_eq!(updated.source_links_json, "[]");
         assert_eq!(updated.rating_json, "{}");
         assert!(updated.favorite);
 
@@ -3271,6 +3971,10 @@ mod tests {
                 related_videos_json: Some(
                     r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#.to_string(),
                 ),
+                source_links_json: Some(
+                    r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#
+                        .to_string(),
+                ),
                 rating_json: Some(r#"{"score":5}"#.to_string()),
                 notes: None,
                 favorite: None,
@@ -3290,6 +3994,10 @@ mod tests {
         assert_eq!(
             created.related_videos_json,
             r#"[{"recordId":"video-1","titleSnapshot":"Video One"}]"#
+        );
+        assert_eq!(
+            created.source_links_json,
+            r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#
         );
         assert_eq!(created.rating_json, r#"{"score":5}"#);
         assert!(!created.favorite);
@@ -3324,6 +4032,9 @@ mod tests {
                     r#"[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]"#.to_string(),
                 ),
                 related_videos_json: Some("invalid".to_string()),
+                source_links_json: Some(
+                    r#"[{"title":"","url":"https://example.invalid/url-only"}]"#.to_string(),
+                ),
                 rating_json: Some(r#"{"quality":"high"}"#.to_string()),
                 notes: None,
                 favorite: Some(true),
@@ -3339,6 +4050,10 @@ mod tests {
             r#"[{"nameSnapshot":"Performer Two","performerId":"performer-2"}]"#
         );
         assert_eq!(updated.related_videos_json, "[]");
+        assert_eq!(
+            updated.source_links_json,
+            r#"[{"title":"","url":"https://example.invalid/url-only"}]"#
+        );
         assert_eq!(updated.rating_json, r#"{"quality":"high"}"#);
         assert!(updated.favorite);
 
@@ -3418,6 +4133,7 @@ mod tests {
                 debut_date: Some("2020-01-02".to_string()),
                 retired_date: None,
                 birth_date: Some("1999-04-12".to_string()),
+                gender: Some("Woman".to_string()),
                 birthplace: Some("Tokyo".to_string()),
                 nationality: Some("Japanese".to_string()),
                 blood_type: Some("A".to_string()),
@@ -3436,6 +4152,9 @@ mod tests {
                 ),
                 related_images_json: Some(
                     r#"[{"recordId":"image-1","titleSnapshot":"Image One"}]"#.to_string(),
+                ),
+                source_links_json: Some(
+                    r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#.to_string(),
                 ),
                 categories_json: Some(r#"["Featured"]"#.to_string()),
                 rating_json: Some(r#"{"score":3}"#.to_string()),
@@ -3460,7 +4179,12 @@ mod tests {
             created.related_images_json,
             r#"[{"recordId":"image-1","titleSnapshot":"Image One"}]"#
         );
+        assert_eq!(
+            created.source_links_json,
+            r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#
+        );
         assert_eq!(created.debut_date, "2020-01-02");
+        assert_eq!(created.gender, "Woman");
         assert_eq!(created.birthplace, "Tokyo");
         assert_eq!(created.height_cm, Some(160));
         assert!(!created.favorite);
@@ -3485,6 +4209,7 @@ mod tests {
                 debut_date: Some("2021-03-04".to_string()),
                 retired_date: Some("2024-05-06".to_string()),
                 birth_date: None,
+                gender: Some("Non-binary".to_string()),
                 birthplace: Some("Osaka".to_string()),
                 nationality: None,
                 blood_type: None,
@@ -3500,6 +4225,7 @@ mod tests {
                 related_images_json: Some(
                     r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#.to_string(),
                 ),
+                source_links_json: Some("{bad json".to_string()),
                 categories_json: None,
                 rating_json: Some("[]".to_string()),
                 notes: Some("note".to_string()),
@@ -3514,6 +4240,7 @@ mod tests {
         assert_eq!(updated.rating_json, "{}");
         assert_eq!(updated.debut_date, "2021-03-04");
         assert_eq!(updated.retired_date, "2024-05-06");
+        assert_eq!(updated.gender, "Non-binary");
         assert_eq!(updated.birthplace, "Osaka");
         assert_eq!(updated.height_cm, None);
         assert_eq!(updated.weight_kg, Some(49));
@@ -3524,6 +4251,7 @@ mod tests {
             updated.related_images_json,
             r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#
         );
+        assert_eq!(updated.source_links_json, "[]");
         assert!(updated.favorite);
 
         assert!(
@@ -3779,6 +4507,341 @@ mod tests {
         let _ = std::fs::remove_dir_all(temp_root);
     }
 
+    fn credit_input(work_type: &str, work_id: &str, performer_id: &str) -> CreditInput {
+        CreditInput {
+            work_type: work_type.to_string(),
+            work_id: work_id.to_string(),
+            performer_id: performer_id.to_string(),
+            character_name: Some("  Lead  ".to_string()),
+            character_original_name: Some(" ".to_string()),
+            credited_as: Some(" Stage Name ".to_string()),
+            credited_as_mode: Some("custom".to_string()),
+            credit_type_category_id: None,
+            role_importance_category_id: None,
+            character_mode: Some("text".to_string()),
+            character_id: None,
+            billing_order: Some(2),
+            note: Some(" Note ".to_string()),
+        }
+    }
+
+    #[test]
+    fn credit_crud_and_filtered_lists_use_independent_credit_rows() {
+        let connection = test_connection();
+        let first = create_credit(&connection, credit_input("video", "video-1", "performer-1"))
+            .expect("create credit");
+        let second = create_credit(&connection, credit_input("image", "image-1", "performer-1"))
+            .expect("create second credit");
+        create_credit(&connection, credit_input("video", "video-1", "performer-2"))
+            .expect("create third credit");
+
+        assert_eq!(first.character_name, "Lead");
+        assert_eq!(first.character_original_name, None);
+        assert_eq!(first.credited_as.as_deref(), Some("Stage Name"));
+        assert_eq!(first.note.as_deref(), Some("Note"));
+        assert_eq!(list_credits(&connection).expect("list").len(), 3);
+        assert_eq!(
+            get_credit(&connection, &first.id).expect("get"),
+            Some(first.clone())
+        );
+        assert_eq!(
+            list_credits_by_work(&connection, "video", "video-1")
+                .expect("list by work")
+                .len(),
+            2
+        );
+        assert_eq!(
+            list_credits_by_performer(&connection, "performer-1")
+                .expect("list by performer")
+                .len(),
+            2
+        );
+
+        let updated = update_credit(
+            &connection,
+            &first.id,
+            CreditPatch {
+                work_type: None,
+                work_id: None,
+                performer_id: None,
+                character_name: Some("Updated Role".to_string()),
+                character_original_name: None,
+                credited_as: Some(None),
+                credited_as_mode: Some("auto".to_string()),
+                credit_type_category_id: None,
+                role_importance_category_id: None,
+                character_mode: Some("self".to_string()),
+                character_id: None,
+                billing_order: Some(None),
+                note: Some(None),
+            },
+        )
+        .expect("update")
+        .expect("updated credit");
+        assert_eq!(updated.character_name, "Updated Role");
+        assert_eq!(updated.credited_as, None);
+        assert_eq!(updated.credited_as_mode, "auto");
+        assert_eq!(updated.character_mode, "self");
+        assert_eq!(updated.billing_order, None);
+        assert_eq!(updated.note, None);
+
+        assert!(
+            delete_credit(&connection, second.id.clone())
+                .expect("delete")
+                .deleted
+        );
+        assert!(get_credit(&connection, &second.id)
+            .expect("get deleted")
+            .is_none());
+    }
+
+    #[test]
+    fn credit_validation_rejects_invalid_modes_and_required_ids() {
+        let connection = test_connection();
+        let mut invalid = credit_input("audio", "work", "performer");
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("work type"),
+            "Credit workType is invalid"
+        );
+        invalid = credit_input("video", " ", "performer");
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("work id"),
+            "Credit workId is required"
+        );
+        invalid = credit_input("image", "work", " ");
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("performer id"),
+            "Credit performerId is required"
+        );
+        invalid = credit_input("video", "work", "performer");
+        invalid.character_mode = Some("library".to_string());
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("character mode"),
+            "Credit characterMode is invalid"
+        );
+    }
+
+    #[test]
+    fn managed_category_credits_scope_round_trips_and_credit_keys_block_delete() {
+        let connection = test_connection();
+        let created = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                key: Some("cat-credit-type-voice".to_string()),
+                name: "Voice".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: Some(false),
+                show_in_images: Some(false),
+                show_in_performers: Some(false),
+                show_in_credits: Some(true),
+            },
+        )
+        .expect("create credit category");
+        assert!(created.show_in_credits);
+        assert_eq!(
+            list_managed_categories(&connection)
+                .expect("list categories")
+                .first()
+                .map(|category| category.show_in_credits),
+            Some(true)
+        );
+
+        let updated = update_managed_category(
+            &connection,
+            &created.key,
+            ManagedCategoryPatch {
+                name: None,
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: Some(false),
+            },
+        )
+        .expect("update category")
+        .expect("updated category");
+        assert!(!updated.show_in_credits);
+
+        let credit = create_credit(
+            &connection,
+            CreditInput {
+                work_type: "video".to_string(),
+                work_id: "video-credits".to_string(),
+                performer_id: "performer-credits".to_string(),
+                character_name: Some(created.key.clone()),
+                character_original_name: None,
+                credited_as: None,
+                credited_as_mode: None,
+                credit_type_category_id: Some(created.key.clone()),
+                role_importance_category_id: None,
+                character_mode: None,
+                character_id: None,
+                billing_order: None,
+                note: None,
+            },
+        )
+        .expect("credit using category");
+        let credit_before = get_credit(&connection, &credit.id)
+            .expect("get credit")
+            .expect("stored credit");
+
+        assert_eq!(
+            delete_managed_category_if_unused(&connection, created.key.clone())
+                .expect_err("used category blocks delete"),
+            "Category cannot be deleted while records use it."
+        );
+        assert_eq!(
+            get_credit(&connection, &credit.id).expect("credit after usage check"),
+            Some(credit_before)
+        );
+
+        let character_only = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                key: Some("cat-character-text".to_string()),
+                name: "Character Text".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: Some(true),
+            },
+        )
+        .expect("character-text category");
+        connection
+            .execute(
+                "UPDATE credits SET characterName = ?1 WHERE id = ?2",
+                params![character_only.key, credit.id],
+            )
+            .expect("set character text");
+        assert!(
+            delete_managed_category_if_unused(&connection, character_only.key)
+                .expect("characterName is not category usage")
+                .deleted
+        );
+
+        let role_category = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                key: Some("cat-role-main".to_string()),
+                name: "Main".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: Some(true),
+            },
+        )
+        .expect("role category");
+        connection
+            .execute(
+                "UPDATE credits SET creditTypeCategoryId = NULL,
+                 roleImportanceCategoryId = ?1 WHERE id = ?2",
+                params![role_category.key, credit.id],
+            )
+            .expect("set role category");
+        assert_eq!(
+            delete_managed_category_if_unused(&connection, role_category.key)
+                .expect_err("role usage blocks delete"),
+            "Category cannot be deleted while records use it."
+        );
+    }
+
+    #[test]
+    fn detail_source_copy_rejects_missing_source() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "sakurava-detail-copy-missing-test-{}",
+            std::process::id()
+        ));
+        let destination_path = std::env::temp_dir().join(format!(
+            "sakurava-detail-copy-destination-test-{}.mp4",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&missing_path);
+        let _ = std::fs::remove_file(&destination_path);
+
+        assert_eq!(
+            copy_detail_source_file_as(
+                missing_path.to_string_lossy().as_ref(),
+                destination_path.to_string_lossy().as_ref(),
+            )
+            .expect_err("missing source should fail"),
+            "Source file does not exist"
+        );
+        assert!(!destination_path.exists());
+    }
+
+    #[test]
+    fn detail_source_copy_writes_destination_without_deleting_original() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-detail-copy-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let source_path = temp_root.join("source.mp4");
+        let destination_path = temp_root.join("export").join("source-copy.mp4");
+        std::fs::write(&source_path, "source bytes").expect("write source");
+
+        let result = copy_detail_source_file_as(
+            source_path.to_string_lossy().as_ref(),
+            destination_path.to_string_lossy().as_ref(),
+        )
+        .expect("copy source");
+
+        assert!(result.success);
+        assert!(source_path.is_file());
+        assert!(destination_path.is_file());
+        assert_eq!(
+            std::fs::read_to_string(&source_path).expect("read source"),
+            "source bytes"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&destination_path).expect("read destination"),
+            "source bytes"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn detail_source_folder_reveal_validation_rejects_missing_path() {
+        assert_eq!(
+            validate_detail_source_file_path("   ").expect_err("empty path should fail"),
+            "Source file path is required"
+        );
+    }
+
+    #[test]
+    fn detail_source_copy_rejects_same_source_and_destination() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-detail-same-path-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create temp root");
+        let source_path = temp_root.join("source.mp4");
+        std::fs::write(&source_path, "source bytes").expect("write source");
+
+        assert_eq!(
+            copy_detail_source_file_as(
+                source_path.to_string_lossy().as_ref(),
+                source_path.to_string_lossy().as_ref(),
+            )
+            .expect_err("same path should fail"),
+            "Destination must be different from the source file"
+        );
+        assert!(source_path.is_file());
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
     #[test]
     fn export_csv_write_rejects_empty_path() {
         assert_eq!(
@@ -3808,10 +4871,8 @@ mod tests {
 
     #[test]
     fn export_csv_write_writes_csv_text_without_database_access() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "sakurava-export-write-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-export-write-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp_root);
         std::fs::create_dir_all(&temp_root).expect("create export folder");
         let destination = temp_root.join("export.csv");
@@ -3878,18 +4939,16 @@ mod tests {
 
     #[test]
     fn import_csv_read_reads_csv_text_without_database_access() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "sakurava-import-read-test-{}",
-            std::process::id()
-        ));
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-import-read-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp_root);
         std::fs::create_dir_all(&temp_root).expect("create import folder");
         let source = temp_root.join("import.csv");
         let content = "Action,Sakurava Ref,Title\r\nAuto,VID-ABC1234,\"A, B\"";
         std::fs::write(&source, content).expect("write import csv");
 
-        let result = read_import_csv_file(source.to_string_lossy().as_ref())
-            .expect("read csv import");
+        let result =
+            read_import_csv_file(source.to_string_lossy().as_ref()).expect("read csv import");
 
         assert!(result.success);
         assert_eq!(result.bytes_read, content.len());
@@ -3916,6 +4975,7 @@ mod tests {
             categories_json: None,
             related_performers_json: None,
             related_images_json: None,
+            source_links_json: None,
             rating_json: None,
             notes: None,
             favorite: None,
@@ -3941,6 +5001,7 @@ mod tests {
             categories_json: None,
             related_performers_json: None,
             related_videos_json: None,
+            source_links_json: None,
             rating_json: None,
             notes: None,
             favorite: None,
@@ -3956,6 +5017,7 @@ mod tests {
             debut_date: None,
             retired_date: None,
             birth_date: None,
+            gender: None,
             birthplace: None,
             nationality: None,
             blood_type: None,
@@ -3969,6 +5031,7 @@ mod tests {
             pictorials_count: None,
             related_videos_json: None,
             related_images_json: None,
+            source_links_json: None,
             categories_json: None,
             rating_json: None,
             notes: None,

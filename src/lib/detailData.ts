@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Image, UserRound, Video } from "lucide-react";
+import { parseSourceLinkArray } from "../backend/json";
+import { formatLocalTimestampDisplay } from "./dateDisplay";
 
 export type DetailKind = "videos" | "images" | "performers";
 export const DETAIL_EMPTY_VALUE = "N/A";
@@ -23,18 +25,62 @@ export type RelatedCatalogDetailItem = {
   originalTitle?: string;
   code?: string;
   coverPath?: string;
+  availability?: string;
+  censorship?: string;
   publisherLabel?: string;
   metadata?: string;
   releaseDate?: string;
   rating?: number | null;
   favorite?: boolean;
   routeTo?: string;
+  roleName?: string;
+  creditType?: string;
   unresolved: boolean;
+};
+
+export type CreditDetailItem = {
+  id: string;
+  performerId: string;
+  performerName: string;
+  performerOriginalName?: string;
+  performerRouteTo?: string;
+  performerCoverPath?: string;
+  performerRating?: number | null;
+  performerFavorite?: boolean;
+  performerAliases?: string;
+  performerFilmographyCount?: string;
+  performerPictorialsCount?: string;
+  characterName?: string;
+  characterOriginalName?: string;
+  creditedAs?: string;
+  creditType?: string;
+  roleImportance?: string;
+  billingOrder?: number;
+  note?: string;
+};
+
+export type FilmographyDetailItem = {
+  id: string;
+  workTitle: string;
+  workOriginalTitle?: string;
+  workType: "Video" | "Image";
+  workRouteTo?: string;
+  releaseDate?: string;
+  publisherLabel?: string;
+  characterName?: string;
+  characterOriginalName?: string;
+  creditedAs?: string;
+  creditType?: string;
+  roleImportance?: string;
+  billingOrder?: number;
+  note?: string;
 };
 
 export type DetailSection = {
   title: string;
   description: string;
+  credits?: CreditDetailItem[];
+  filmography?: FilmographyDetailItem[];
   relatedPerformers?: RelatedPerformerDetailItem[];
   relatedCatalogRecords?: RelatedCatalogDetailItem[];
   controls?: "performer-related";
@@ -53,8 +99,8 @@ type MetadataItem = {
 };
 
 export type SourceLinkItem = {
-  title: string;
-  url: string;
+  title?: string;
+  url?: string;
 };
 
 export type MediaPathItem = {
@@ -80,6 +126,7 @@ type BaseDetailConfig = {
   chips: string[];
   categories: string[];
   gender?: MetadataItem;
+  bodyType?: MetadataItem;
   metadata: MetadataItem[];
   sourceLinks?: SourceLinkItem[];
   mediaPaths: MediaPathItem[];
@@ -122,32 +169,37 @@ export type DetailConfig =
 export function formatSystemTimestamp(
   value: string | number | null | undefined,
 ) {
-  if (value === null || value === undefined) {
-    return DETAIL_EMPTY_VALUE;
+  return formatLocalTimestampDisplay(value, DETAIL_EMPTY_VALUE);
+}
+
+export function sourceLinksFromRecord(record: unknown): SourceLinkItem[] {
+  if (!record || typeof record !== "object") {
+    return [];
   }
 
-  const rawValue = String(value).trim();
-  if (!rawValue) {
-    return DETAIL_EMPTY_VALUE;
+  const sourceRecord = record as {
+    sourceTitle?: unknown;
+    sourceUrl?: unknown;
+    sourceLinksJson?: unknown;
+  };
+  const links: SourceLinkItem[] = [];
+  const sourceTitle =
+    typeof sourceRecord.sourceTitle === "string" ? sourceRecord.sourceTitle : "";
+  const sourceUrl =
+    typeof sourceRecord.sourceUrl === "string" ? sourceRecord.sourceUrl : "";
+
+  if (sourceTitle.trim() || sourceUrl.trim()) {
+    links.push({
+      title: sourceTitle,
+      url: sourceUrl,
+    });
   }
 
-  const date = /^\d+$/.test(rawValue)
-    ? new Date(Number(rawValue))
-    : new Date(rawValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return DETAIL_EMPTY_VALUE;
+  if (typeof sourceRecord.sourceLinksJson === "string") {
+    links.push(...parseSourceLinkArray(sourceRecord.sourceLinksJson));
   }
 
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-    timeZoneName: "short",
-  }).format(date);
+  return links;
 }
 
 export const detailConfigs: Record<DetailKind, DetailConfig> = {
@@ -292,10 +344,9 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Pictorials", value: "9" },
     ],
     metadata: [
+      { label: "Birth Date", value: "1999-04-12" },
       { label: "Debut Date", value: "2015-04-01" },
       { label: "Retired Date", value: DETAIL_EMPTY_VALUE },
-      { label: "Birth Date", value: "1999-04-12" },
-      { label: "Status", value: "Active" },
     ],
     mediaPaths: [{ label: "Profile image status", path: "" }],
     systemInfo: [
@@ -303,10 +354,9 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
       { label: "Last edited", value: DETAIL_EMPTY_VALUE },
     ],
     personal: [
-      { label: "Birth Date", value: "1999-04-12" },
       { label: "Birthplace", value: DETAIL_EMPTY_VALUE },
       { label: "Nationality", value: DETAIL_EMPTY_VALUE },
-      { label: "Astrological Sign", value: "Aries" },
+      { label: "Zodiac", value: "Aries" },
       { label: "Blood Type", value: DETAIL_EMPTY_VALUE },
     ],
     physical: [
@@ -338,12 +388,12 @@ export const detailConfigs: Record<DetailKind, DetailConfig> = {
     relatedSections: [
       {
         title: "Related Videos",
-        description: "Read-only Related Video links saved on this performer.",
+        description: "",
         relatedCatalogRecords: [],
       },
       {
         title: "Related Images",
-        description: "Read-only Related Image links saved on this performer.",
+        description: "",
         relatedCatalogRecords: [],
       },
     ],

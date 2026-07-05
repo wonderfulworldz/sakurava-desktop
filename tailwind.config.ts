@@ -6,14 +6,15 @@ export default {
     extend: {
       colors: {
         sakura: {
-          50: "#fff4f7",
-          100: "#ffe6ee",
-          200: "#ffc7d8",
-          300: "#ffa3bf",
-          400: "#f87da3",
-          500: "#f16f9b",
-          600: "#d84f7f",
-          700: "#b83d66",
+          50: "var(--appearance-accent-50)",
+          100: "var(--appearance-accent-100)",
+          200: "var(--appearance-accent-200)",
+          300: "var(--appearance-accent-300)",
+          400: "var(--appearance-accent-400)",
+          500: "var(--appearance-accent-500)",
+          600: "var(--appearance-accent-600)",
+          700: "var(--appearance-accent-700)",
+          800: "var(--appearance-accent-800)",
         },
       },
       fontFamily: {

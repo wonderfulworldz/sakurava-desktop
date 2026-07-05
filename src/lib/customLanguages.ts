@@ -1,5 +1,5 @@
 export const customLanguagesStorageKey = "sakurava.customLanguages.v1";
-export const removedBundledLanguagesStorageKey = "sakurava.removedBundledLanguages.v1";
+export const maxCustomLanguages = 25;
 
 export type CustomLanguageMeta = {
   code: string;
@@ -7,73 +7,27 @@ export type CustomLanguageMeta = {
   baseLanguage: string;
 };
 
-/** Bundled non-English languages that ship with the app but are removable. */
-export const bundledLanguages: CustomLanguageMeta[] = [
-  { code: "id", label: "Indonesian", baseLanguage: "en" },
-];
+const protectedLanguageCodes = new Set(["en"]);
 
-export function getRemovedBundledLanguages(): string[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
+export type CustomLanguageMutationResult = {
+  ok: boolean;
+  error?: string;
+};
 
-  try {
-    const raw = window.localStorage.getItem(removedBundledLanguagesStorageKey);
-    if (!raw) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter((item): item is string => typeof item === "string");
-  } catch {
-    return [];
-  }
+export function normalizeCustomLanguageCode(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const code = value.trim().toLowerCase();
+  return /^[a-z][a-z0-9-]{1,15}$/.test(code) ? code : null;
 }
 
-function markBundledLanguageRemoved(code: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const removed = getRemovedBundledLanguages();
-  const normalizedCode = code.trim().toLowerCase();
-  if (removed.includes(normalizedCode)) {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(
-      removedBundledLanguagesStorageKey,
-      JSON.stringify([...removed, normalizedCode]),
-    );
-  } catch {
-    // Low-risk persistence.
-  }
+export function normalizeCustomLanguageLabel(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const label = value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().replace(/\s+/g, " ");
+  return label.length >= 2 && label.length <= 60 ? label : null;
 }
 
-function unmarkBundledLanguageRemoved(code: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const removed = getRemovedBundledLanguages();
-  const normalizedCode = code.trim().toLowerCase();
-  const filtered = removed.filter((c) => c !== normalizedCode);
-
-  try {
-    if (filtered.length === 0) {
-      window.localStorage.removeItem(removedBundledLanguagesStorageKey);
-    } else {
-      window.localStorage.setItem(
-        removedBundledLanguagesStorageKey,
-        JSON.stringify(filtered),
-      );
-    }
-  } catch {
-    // Low-risk persistence.
-  }
+export function isProtectedLanguageCode(code: string): boolean {
+  return protectedLanguageCodes.has(code.trim().toLowerCase());
 }
 
 export function getStoredCustomLanguages(): CustomLanguageMeta[] {
@@ -92,32 +46,65 @@ export function getStoredCustomLanguages(): CustomLanguageMeta[] {
       return [];
     }
 
-    return parsed.filter(
-      (item): item is CustomLanguageMeta =>
-        item &&
-        typeof item === "object" &&
-        typeof item.code === "string" &&
-        typeof item.label === "string" &&
-        typeof item.baseLanguage === "string" &&
-        item.code.trim() !== "" &&
-        item.label.trim() !== "",
-    );
+    const result: CustomLanguageMeta[] = [];
+    const seenCodes = new Set<string>();
+    const seenLabels = new Set<string>();
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const candidate = item as Partial<CustomLanguageMeta>;
+      const code = normalizeCustomLanguageCode(candidate.code);
+      const label = normalizeCustomLanguageLabel(candidate.label);
+      if (
+        !code ||
+        !label ||
+        isProtectedLanguageCode(code) ||
+        seenCodes.has(code) ||
+        seenLabels.has(label.toLocaleLowerCase())
+      ) {
+        continue;
+      }
+      seenCodes.add(code);
+      seenLabels.add(label.toLocaleLowerCase());
+      result.push({ code, label, baseLanguage: "en" });
+      if (result.length === maxCustomLanguages) break;
+    }
+    return result;
   } catch {
     return [];
   }
 }
 
-export function addCustomLanguage(meta: CustomLanguageMeta): void {
+export function addCustomLanguage(
+  meta: CustomLanguageMeta,
+): CustomLanguageMutationResult {
   if (typeof window === "undefined") {
-    return;
+    return { ok: false, error: "Custom languages require browser storage." };
   }
 
   const existing = getStoredCustomLanguages();
-  const normalizedCode = meta.code.trim().toLowerCase();
-
-  // If re-adding a bundled language, unmark it as removed
-  if (bundledLanguages.some((b) => b.code === normalizedCode)) {
-    unmarkBundledLanguageRemoved(normalizedCode);
+  const normalizedCode = normalizeCustomLanguageCode(meta.code);
+  const normalizedLabel = normalizeCustomLanguageLabel(meta.label);
+  if (!normalizedCode || !normalizedLabel) {
+    return { ok: false, error: "Language code or name is invalid." };
+  }
+  if (isProtectedLanguageCode(normalizedCode)) {
+    return { ok: false, error: "Built-in languages cannot be replaced." };
+  }
+  const existingByCode = existing.find((lang) => lang.code === normalizedCode);
+  if (!existingByCode && existing.length >= maxCustomLanguages) {
+    return {
+      ok: false,
+      error: `Up to ${maxCustomLanguages} custom languages can be installed.`,
+    };
+  }
+  if (
+    existing.some(
+      (lang) =>
+        lang.code !== normalizedCode &&
+        lang.label.toLocaleLowerCase() === normalizedLabel.toLocaleLowerCase(),
+    )
+  ) {
+    return { ok: false, error: "A custom language with this name already exists." };
   }
 
   // Replace if exists, otherwise append
@@ -126,8 +113,8 @@ export function addCustomLanguage(meta: CustomLanguageMeta): void {
   );
   filtered.push({
     code: normalizedCode,
-    label: meta.label.trim(),
-    baseLanguage: (meta.baseLanguage || "en").trim().toLowerCase(),
+    label: normalizedLabel,
+    baseLanguage: "en",
   });
 
   try {
@@ -136,25 +123,22 @@ export function addCustomLanguage(meta: CustomLanguageMeta): void {
       JSON.stringify(filtered),
     );
   } catch {
-    // Custom language persistence is low-risk.
+    return { ok: false, error: "Custom language storage is unavailable." };
   }
+  return { ok: true };
 }
 
-export function removeCustomLanguage(code: string): void {
+export function removeCustomLanguage(code: string): CustomLanguageMutationResult {
   if (typeof window === "undefined") {
-    return;
+    return { ok: false, error: "Custom languages require browser storage." };
   }
 
   const normalizedCode = code.trim().toLowerCase();
-
-  // Cannot remove English
-  if (normalizedCode === "en") {
-    return;
+  if (isProtectedLanguageCode(normalizedCode)) {
+    return { ok: false, error: "Built-in languages cannot be removed." };
   }
-
-  // Mark bundled language as removed so it doesn't reappear
-  if (bundledLanguages.some((b) => b.code === normalizedCode)) {
-    markBundledLanguageRemoved(normalizedCode);
+  if (!isCustomLanguageCode(normalizedCode)) {
+    return { ok: false, error: "Custom language was not found." };
   }
 
   // Remove from custom languages storage
@@ -173,8 +157,9 @@ export function removeCustomLanguage(code: string): void {
       );
     }
   } catch {
-    // Custom language persistence is low-risk.
+    return { ok: false, error: "Custom language storage is unavailable." };
   }
+  return { ok: true };
 }
 
 export function isCustomLanguageCode(code: string): boolean {

@@ -1,8 +1,9 @@
-import { Image, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Image, Tags, UserRound, Video, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../runtime/MediaAssetScopeContext";
+import { useTranslation } from "../lib/LanguageContext";
 
 export type CategoryCatalogCardStatus = "Managed" | "Unused Managed";
 
@@ -15,6 +16,7 @@ export type CategoryCatalogCardData = {
   videos: number;
   images: number;
   performers: number;
+  credits?: number;
   total: number;
   status: CategoryCatalogCardStatus;
 };
@@ -22,10 +24,21 @@ export type CategoryCatalogCardData = {
 function CategoryCatalogCard({
   category,
   actions,
+  onClick,
+  density = "comfortable",
+  thumbnailShape = "wide",
+  emptyDescriptionText,
 }: {
   category: CategoryCatalogCardData;
   actions?: ReactNode;
+  onClick?: () => void;
+  density?: "comfortable" | "compact";
+  thumbnailShape?: "wide" | "square";
+  emptyDescriptionText?: string;
 }) {
+  const t = useTranslation();
+  const resolvedEmptyDescription =
+    emptyDescriptionText ?? t("categoryCard.noDescription");
   const cardKind = category.childCount && category.childCount > 0
     ? "parent"
     : category.parentName
@@ -37,7 +50,8 @@ function CategoryCatalogCard({
       : cardKind === "child"
         ? "border-slate-200 bg-white"
         : "border-slate-200 bg-slate-50";
-  const contentTone = "px-3 pb-3 pt-4";
+  const contentTone =
+    density === "compact" ? "px-3 pb-3 pt-3" : "px-3 pb-3 pt-4";
   const statBaseTone =
     cardKind === "parent"
       ? "bg-white"
@@ -46,25 +60,43 @@ function CategoryCatalogCard({
         : "bg-white";
   const relationshipText =
     cardKind === "parent"
-      ? `${category.childCount} ${
-          category.childCount === 1 ? "child category" : "child categories"
-        }`
+      ? t(
+          category.childCount === 1
+            ? "categoryCard.childCount"
+            : "categoryCard.childrenCount",
+          { count: String(category.childCount) },
+        )
       : category.parentName
-        ? `Child of ${category.parentName}`
-        : "No Parent";
+        ? t("categoryCard.childOf", { name: category.parentName })
+        : t("categoryCard.noParent");
 
   return (
     <article
-      aria-label={`Category ${category.name}`}
+      aria-label={t("categoryCard.label", { name: category.name })}
       data-category-card-kind={cardKind}
-      className={`rounded-lg border p-3 shadow-sm ${articleTone}`}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick) {
+          return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`rounded-lg border p-3 shadow-sm ${onClick ? "cursor-pointer transition hover:border-sakura-200 focus:outline-none focus:ring-4 focus:ring-sakura-100" : ""} ${articleTone}`}
     >
-      <CategoryThumbnail category={category} />
+      <CategoryThumbnail category={category} shape={thumbnailShape} />
 
       <div className={contentTone}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
+            <h2
+              className={`truncate font-semibold tracking-normal text-slate-950 ${
+                density === "compact" ? "text-base" : "text-lg"
+              }`}
+            >
               {category.name}
             </h2>
             <p className="mt-1 truncate text-sm font-medium text-slate-500">
@@ -72,30 +104,40 @@ function CategoryCatalogCard({
             </p>
           </div>
           <div className="min-w-12 text-right">
-            <p className="text-xs font-semibold text-slate-500">Records</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">
+            <p className="text-xs font-semibold text-slate-500">{t("common.records")}</p>
+            <p
+              className={`mt-1 font-semibold text-slate-950 ${
+                density === "compact" ? "text-xl" : "text-2xl"
+              }`}
+            >
               {category.total}
             </p>
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-3 gap-2 pt-2">
+        <dl className="mt-3 grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">
           <CountBlock
-            label="Videos"
+            label={t("common.videos")}
             value={category.videos}
             icon={Video}
             statBaseTone={statBaseTone}
             to={categoryUsageLink("videos", category.name)}
           />
           <CountBlock
-            label="Images"
+            label={t("common.credits")}
+            value={category.credits ?? 0}
+            icon={BadgeCheck}
+            statBaseTone={statBaseTone}
+          />
+          <CountBlock
+            label={t("common.images")}
             value={category.images}
             icon={Image}
             statBaseTone={statBaseTone}
             to={categoryUsageLink("images", category.name)}
           />
           <CountBlock
-            label="Performers"
+            label={t("common.performers")}
             value={category.performers}
             icon={UserRound}
             statBaseTone={statBaseTone}
@@ -103,8 +145,8 @@ function CategoryCatalogCard({
           />
         </dl>
 
-        <p className="mt-5 max-h-12 overflow-hidden text-sm font-medium leading-6 text-slate-500">
-          {formatDescription(category.description)}
+        <p className="mt-4 line-clamp-2 text-sm font-medium leading-6 text-slate-500">
+          {formatDescription(category.description, resolvedEmptyDescription)}
         </p>
 
         {actions && <div className="mt-4">{actions}</div>}
@@ -113,7 +155,14 @@ function CategoryCatalogCard({
   );
 }
 
-function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) {
+function CategoryThumbnail({
+  category,
+  shape,
+}: {
+  category: CategoryCatalogCardData;
+  shape: "wide" | "square";
+}) {
+  const t = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
   const assetSrc = localImagePathToAssetSrc(category.thumbnailPath);
@@ -124,7 +173,11 @@ function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) 
   }, [assetSrc, mediaAssetScopeReady]);
 
   return (
-    <div className="relative flex aspect-[3/2] w-full items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.96),transparent_34%),radial-gradient(circle_at_78%_82%,rgba(244,114,182,0.14),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(253,242,248,0.94)_50%,rgba(252,231,243,0.78))] text-sakura-500">
+    <div
+      className={`relative flex ${
+        shape === "square" ? "aspect-square" : "aspect-[3/2]"
+      } category-accent-placeholder w-full items-center justify-center overflow-hidden rounded-lg text-sakura-500`}
+    >
       {showImage ? (
         <img
           src={assetSrc ?? undefined}
@@ -136,12 +189,12 @@ function CategoryThumbnail({ category }: { category: CategoryCatalogCardData }) 
       ) : (
         <>
           <div
-            className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.95),transparent_32%),radial-gradient(circle_at_74%_78%,rgba(244,114,182,0.12),transparent_42%),radial-gradient(circle_at_45%_55%,rgba(251,207,232,0.18),transparent_48%)]"
+            className="category-accent-placeholder-overlay absolute inset-0"
             aria-hidden="true"
           />
           <div
             className="relative z-10 flex size-16 items-center justify-center rounded-full bg-white/70 text-sakura-500"
-            aria-label="Category thumbnail placeholder"
+            aria-label={t("category.thumbnailPlaceholder")}
           >
             <Tags className="opacity-75" size={28} />
           </div>
@@ -162,7 +215,7 @@ function CountBlock({
   value: number;
   icon: LucideIcon;
   statBaseTone: string;
-  to: string;
+  to?: string;
 }) {
   const stateTone = value > 0 ? "text-sakura-600" : "text-slate-500";
   const content = (
@@ -170,7 +223,7 @@ function CountBlock({
       <dt className="sr-only">{label}</dt>
       <dd
         className={`flex min-w-0 items-center justify-center gap-2 text-base font-semibold ${stateTone}`}
-        aria-label={value > 0 ? undefined : `${label} ${value}`}
+        aria-label={value > 0 && to ? undefined : `${label} ${value}`}
       >
         <Icon aria-hidden="true" size={16} />
         <span className="sr-only">{label}</span>
@@ -179,12 +232,13 @@ function CountBlock({
     </>
   );
 
-  return value > 0 ? (
+  return value > 0 && to ? (
     <Link
       className={`rounded-md px-2.5 py-2 ${statBaseTone} ${stateTone}`}
       title={label}
       aria-label={`${label} ${value}`}
       to={to}
+      onClick={(event) => event.stopPropagation()}
     >
       {content}
     </Link>
@@ -202,10 +256,10 @@ function categoryUsageLink(kind: "videos" | "images" | "performers", category: s
   return `/${kind}?category=${encodeURIComponent(category)}`;
 }
 
-function formatDescription(description: string) {
+function formatDescription(description: string, emptyDescriptionText: string) {
   const trimmed = description.trim();
   if (!trimmed) {
-    return "No description yet.";
+    return emptyDescriptionText;
   }
 
   const maxLength = 118;

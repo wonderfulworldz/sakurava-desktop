@@ -47,6 +47,7 @@ export type PerformerCollectionItem = {
   createdAt?: number | string | null;
   updatedAt?: number | string | null;
   status: string;
+  gender?: string;
   birthDate?: string;
   nationality?: string;
   heightCm?: number | null;
@@ -195,7 +196,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Added", "Last Updated", "Title A-Z", "Release Year", "Rating", "Duration"],
+    sortOptions: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
     placeholderLabel: "Cover Placeholder",
     items: videoDurations.map((duration, index) => ({
       kind: "videos",
@@ -226,7 +227,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Added", "Last Updated", "Title A-Z", "Release Year", "Rating", "Image Count"],
+    sortOptions: ["Title A-Z", "Title Z-A", "Last Added", "Last Updated"],
     placeholderLabel: "Image Placeholder",
     items: imageCounts.map((imageCount, index) => ({
       kind: "images",
@@ -257,7 +258,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
     filterLabel: "Categories",
     filterOptions: ["All categories", "Category A", "Category B"],
     sortLabel: "Sort by",
-    sortOptions: ["Last Added", "Last Updated", "Name A-Z", "Rating", "Status", "Filmography", "Pictorials"],
+    sortOptions: ["Name A-Z", "Name Z-A", "Last Added", "Last Updated"],
     placeholderLabel: "Profile Placeholder",
     items: performerStats.map(([status, filmographyCount, pictorialsCount], index) => ({
       kind: "performers",
@@ -268,6 +269,7 @@ export const collectionConfigs: Record<CollectionKind, CollectionConfig> = {
       yearsActive: "Unknown - Now",
       activeAges: "Age unknown",
       status,
+      gender: "",
       birthDate: `19${90 + (index % 10)}-01-01`,
       nationality: index % 2 === 0 ? "Japan" : "Korea",
       heightCm: 152 + (index % 18),

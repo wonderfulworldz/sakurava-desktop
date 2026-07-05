@@ -266,6 +266,7 @@ const PERFORMER_COLUMNS = [
   "debutDate",
   "retiredDate",
   "birthDate",
+  "gender",
   "birthplace",
   "nationality",
   "bloodType",
@@ -296,6 +297,7 @@ const MANAGED_CATEGORY_COLUMNS = [
   "showInVideos",
   "showInImages",
   "showInPerformers",
+  "showInCredits",
   "createdAt",
   "updatedAt",
 ] as const;
@@ -376,6 +378,7 @@ function mapPerformerRow(row: SqliteRow): Performer {
       debutDate: String(row.debutDate ?? ""),
       retiredDate: String(row.retiredDate ?? ""),
       birthDate: String(row.birthDate ?? ""),
+      gender: String(row.gender ?? ""),
       birthplace: String(row.birthplace ?? ""),
       nationality: String(row.nationality ?? ""),
       bloodType: String(row.bloodType ?? ""),
@@ -421,6 +424,8 @@ function mapManagedCategoryRow(row: SqliteRow): ManagedCategory {
     showInImages: row.showInImages === undefined ? true : row.showInImages === 1,
     showInPerformers:
       row.showInPerformers === undefined ? true : row.showInPerformers === 1,
+    showInCredits:
+      row.showInCredits === undefined ? false : row.showInCredits === 1,
     createdAt: String(row.createdAt),
     updatedAt: String(row.updatedAt),
   };
@@ -518,6 +523,7 @@ export function createSqliteManagedCategoryRepository(
         showInVideos: normalized.showInVideos ?? true,
         showInImages: normalized.showInImages ?? true,
         showInPerformers: normalized.showInPerformers ?? true,
+        showInCredits: normalized.showInCredits ?? false,
         createdAt: timestamp,
         updatedAt: timestamp,
       };

@@ -10,6 +10,7 @@ import {
   defaultLanguageCode,
   getStoredLanguageCode,
   getSupportedLanguages,
+  normalizeLanguageCode,
   storeLanguageCode,
   translate,
   type LanguageCode,
@@ -40,9 +41,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 
   const setLanguageCode = useCallback((nextLanguageCode: LanguageCode) => {
-    setLanguageCodeState(nextLanguageCode);
-    storeLanguageCode(nextLanguageCode);
-    setOverrides(getOverridesForLanguage(nextLanguageCode));
+    const normalized = normalizeLanguageCode(nextLanguageCode);
+    setLanguageCodeState(normalized);
+    storeLanguageCode(normalized);
+    setOverrides(getOverridesForLanguage(normalized));
   }, []);
 
   const refreshOverrides = useCallback(() => {
@@ -50,8 +52,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [languageCode]);
 
   const refreshLanguages = useCallback(() => {
-    setLanguages(getSupportedLanguages());
-  }, []);
+    const nextLanguages = getSupportedLanguages();
+    setLanguages(nextLanguages);
+    if (!nextLanguages.some((language) => language.code === languageCode)) {
+      setLanguageCodeState(defaultLanguageCode);
+      storeLanguageCode(defaultLanguageCode);
+      setOverrides(getOverridesForLanguage(defaultLanguageCode));
+    }
+  }, [languageCode]);
 
   const value = useMemo<LanguageContextValue>(
     () => ({
@@ -76,4 +84,17 @@ export function useLanguage() {
     throw new Error("useLanguage must be used within LanguageProvider.");
   }
   return context;
+}
+
+export function useTranslation() {
+  const context = useContext(LanguageContext);
+  return useCallback(
+    (
+      key: string,
+      replacements: Record<string, string> = {},
+    ) =>
+      context?.t(key, replacements) ??
+      translate(defaultLanguageCode, key, replacements),
+    [context],
+  );
 }

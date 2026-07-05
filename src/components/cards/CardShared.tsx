@@ -1,8 +1,10 @@
-import { AlertTriangle, Ban, CircleHelp, Eye, Heart, ScanLine, Star } from "lucide-react";
+import { AlertTriangle, Ban, CircleHelp, Eye, Heart, ScanLine, Star, Tag, UserRound } from "lucide-react";
 import { type MouseEvent, type ReactNode, useEffect, useState } from "react";
 import ContentThumbnailPlaceholder from "../ContentThumbnailPlaceholder";
 import { localImagePathToAssetSrc } from "../../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../../runtime/MediaAssetScopeContext";
+import { useTranslation } from "../../lib/LanguageContext";
+import { formatMoreCount, translateUiDisplayLabel } from "../../lib/uiDisplayLabels";
 
 /* ─── Display Value Helper ─── */
 
@@ -163,14 +165,15 @@ function FavoriteButton({
 
 export type BadgeProps = {
   label: string;
-  tone?: "pink" | "slate";
+  tone?: "accent" | "slate";
 };
 
-export function StatusBadge({ label, tone = "pink" }: BadgeProps) {
+export function StatusBadge({ label, tone = "accent" }: BadgeProps) {
+  const t = useTranslation();
   if (!label || label === "-" || label === "Unspecified" || label === "n/a") return null;
 
   const colors =
-    tone === "pink"
+    tone === "accent"
       ? "border-sakura-200 bg-white/95 text-sakura-600"
       : "border-slate-200 bg-white/95 text-slate-700";
 
@@ -179,7 +182,7 @@ export function StatusBadge({ label, tone = "pink" }: BadgeProps) {
       className={`absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-md ${colors}`}
     >
       <span className="size-2 rounded-full bg-sakura-500" />
-      {label}
+      {translateUiDisplayLabel(t, label)}
     </span>
   );
 }
@@ -226,24 +229,26 @@ export function censorshipLabel(status: CensorshipStatus): string {
 }
 
 export function CensorshipIcon({ status, size = 16 }: { status: CensorshipStatus; size?: number }) {
+  const t = useTranslation();
   if (status === "Censored") {
-    return <Ban size={size} className="text-sakura-500" aria-label="Censored" />;
+    return <Ban size={size} className="text-sakura-500" aria-label={t("shared.censorship.censored")} />;
   }
   if (status === "Uncensored") {
-    return <Eye size={size} className="text-sakura-500" aria-label="Uncensored" />;
+    return <Eye size={size} className="text-sakura-500" aria-label={t("shared.censorship.uncensored")} />;
   }
   if (status === "Reduced") {
-    return <ScanLine size={size} className="text-sakura-500" aria-label="Reduced" />;
+    return <ScanLine size={size} className="text-sakura-500" aria-label={t("shared.censorship.reduced")} />;
   }
   if (status === "Leaked") {
-    return <AlertTriangle size={size} className="text-sakura-500" aria-label="Leaked" />;
+    return <AlertTriangle size={size} className="text-sakura-500" aria-label={t("shared.censorship.leaked")} />;
   }
-  return <CircleHelp size={size} className="text-sakura-500" aria-label="Unknown censorship" />;
+  return <CircleHelp size={size} className="text-sakura-500" aria-label={t("shared.censorship.unknown")} />;
 }
 
 /* ─── Category Chips ─── */
 
 export function CategoryChips({ categories, maxVisible, size = "sm" }: { categories: string[]; maxVisible?: number; size?: "sm" | "lg" }) {
+  const t = useTranslation();
   const valid = categories.filter((c) => c && c !== "-" && c !== "No category");
 
   if (valid.length === 0) {
@@ -262,8 +267,8 @@ export function CategoryChips({ categories, maxVisible, size = "sm" }: { categor
         ))}
       </div>
       {overflow > 0 && (
-        <span className={`inline-flex shrink-0 rounded-full border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${size === "lg" ? "px-3 py-1.5 text-xs" : "px-2.5 py-1 text-xs"}`}>
-          +{overflow}
+        <span className={`inline-flex shrink-0 rounded-md border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${size === "lg" ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[11px]"}`}>
+          {formatMoreCount(t, overflow)}
         </span>
       )}
     </div>
@@ -272,11 +277,11 @@ export function CategoryChips({ categories, maxVisible, size = "sm" }: { categor
 
 function CategoryChip({ label, size = "sm" }: { label: string; size?: "sm" | "lg" }) {
   const sizeClasses = size === "lg"
-    ? "px-3 py-1.5 text-xs"
-    : "px-2.5 py-1 text-xs";
+    ? "px-2.5 py-1 text-xs"
+    : "px-2 py-0.5 text-[11px]";
 
   return (
-    <span className={`inline-flex shrink-0 max-w-[130px] rounded-full border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${sizeClasses}`}>
+    <span className={`inline-flex min-w-0 max-w-[14ch] shrink rounded-md border border-sakura-100 bg-sakura-50 font-semibold text-sakura-600 ${sizeClasses}`}>
       <span className="truncate">{label}</span>
     </span>
   );
@@ -308,6 +313,52 @@ export function StatBox({
         <p className={`${valueSize} text-slate-900 dark:text-slate-100`}>{value}</p>
         <p className={`${labelSize} text-slate-500 dark:text-slate-400`}>{label}</p>
       </div>
+    </div>
+  );
+}
+
+export type CreditMetadata = {
+  id: string;
+  roleName?: string;
+  creditType?: string;
+};
+
+export function CreditMetadataRows({
+  rows,
+}: {
+  rows: CreditMetadata[];
+}) {
+  const t = useTranslation();
+  const normalizedRows = rows.length > 0
+    ? rows
+    : [{ id: "empty-credit-metadata" }];
+  const visibleRows = normalizedRows.slice(0, 3);
+  const overflow = Math.max(normalizedRows.length - visibleRows.length, 0);
+
+  return (
+    <div
+      className="space-y-1.5 text-xs"
+      data-testid="credit-metadata"
+    >
+      {visibleRows.map((row) => (
+        <div
+          key={row.id}
+          className="grid grid-cols-2 gap-3"
+          data-testid="credit-metadata-row"
+        >
+            <p className="flex min-w-0 items-center gap-2 font-medium text-slate-500">
+              <UserRound size={14} className="shrink-0 text-sakura-500" />
+              <span className="truncate">{row.roleName || "n/a"}</span>
+            </p>
+            <p className="flex min-w-0 items-center gap-2 font-medium text-slate-500">
+              <Tag size={14} className="shrink-0 text-sakura-500" />
+              <span className="truncate">{row.creditType || "n/a"}</span>
+            </p>
+        </div>
+      ))}
+      {overflow > 0 && (
+        <p className="text-xs font-medium text-slate-400">{formatMoreCount(t, overflow)}</p>
+      )}
     </div>
   );
 }

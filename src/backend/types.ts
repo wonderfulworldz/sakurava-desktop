@@ -6,11 +6,15 @@ export type JsonText = string;
 export type Censorship = "Censored" | "Uncensored" | "Reduced" | "";
 export type Availability = "Owned" | "Not Owned" | "Missing" | "";
 export type PerformerStatus = "Unknown" | "Active" | "Retired" | "";
+export type CreditWorkType = "video" | "image";
+export type CreditedAsMode = "auto" | "custom";
+export type CreditCharacterMode = "text" | "self" | "linked";
 
 export interface BaseCatalogRecord {
   id: EntityId;
   categoriesJson: JsonText;
   ratingJson: JsonText;
+  sourceLinksJson: JsonText;
   notes: string;
   favorite: boolean;
   createdAt: IsoDateTimeString;
@@ -62,6 +66,7 @@ export interface Performer extends BaseCatalogRecord {
   debutDate: IsoDateString;
   retiredDate: IsoDateString;
   birthDate: IsoDateString;
+  gender?: string;
   birthplace: string;
   nationality: string;
   bloodType: string;
@@ -86,6 +91,27 @@ export interface ManagedCategory {
   showInVideos: boolean;
   showInImages: boolean;
   showInPerformers: boolean;
+  showInCredits: boolean;
+  createdAt: IsoDateTimeString;
+  updatedAt: IsoDateTimeString;
+}
+
+export interface Credit {
+  id: EntityId;
+  workType: CreditWorkType;
+  workId: EntityId;
+  performerId: EntityId;
+  characterName: string;
+  characterOriginalName: string | null;
+  creditedAs: string | null;
+  creditedAsMode: CreditedAsMode;
+  creditTypeCategoryId: string | null;
+  roleImportanceCategoryId: string | null;
+  characterMode: CreditCharacterMode;
+  characterId: EntityId | null;
+  billingOrder: number | null;
+  note: string | null;
+  legacySourceKey: string | null;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 }
@@ -119,6 +145,11 @@ export type ImagePatch = Partial<NewImage>;
 export type NewPerformer = Pick<Performer, "name"> &
   Partial<Omit<Performer, GeneratedFields | "name">>;
 export type PerformerPatch = Partial<NewPerformer>;
+
+export type NewCredit = Pick<Credit, "workType" | "workId" | "performerId"> &
+  Partial<Omit<Credit, GeneratedFields | "workType" | "workId" | "performerId" | "legacySourceKey">>;
+export type CreditPatch = Partial<Omit<NewCredit, "workType" | "workId" | "performerId">> &
+  Partial<Pick<Credit, "workType" | "workId" | "performerId">>;
 
 export type NewManagedCategory = Pick<ManagedCategory, "name"> &
   Partial<Omit<ManagedCategory, ManagedCategoryGeneratedFields | "name">>;

@@ -1,6 +1,8 @@
 import { Calendar, Film, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { PerformerCollectionItem } from "../../lib/collectionData";
+import { useTranslation } from "../../lib/LanguageContext";
+import { translateUiDisplayValue } from "../../lib/uiDisplayLabels";
 import {
   CardThumbnail,
   CategoryChips,
@@ -18,10 +20,11 @@ type PerformerFullCardProps = {
 };
 
 export function PerformerFullCard({ item, linkTo, placeholderLabel, onFavoriteClick }: PerformerFullCardProps) {
+  const t = useTranslation();
   const name = dashText(item.name);
   const originalName = dashText(item.originalName);
   const status = dashText(item.status);
-  const yearsActive = dashText(item.yearsActive);
+  const yearsActive = translateUiDisplayValue(t, dashText(item.yearsActive));
   const filmography = displayValue(item.filmographyCountValue);
   const pictorials = displayValue(item.pictorialsCountValue);
 
@@ -66,20 +69,20 @@ export function PerformerFullCard({ item, linkTo, placeholderLabel, onFavoriteCl
             <Film size={20} className="shrink-0 text-sakura-500" />
             <div className="min-w-0">
               <p className="text-base font-bold text-slate-900 dark:text-slate-100">{filmography}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Filmography</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t("form.filmography")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2.5 rounded-xl bg-sakura-50 px-4 py-3 dark:bg-slate-700">
             <ImageIcon size={20} className="shrink-0 text-sakura-500" />
             <div className="min-w-0">
               <p className="text-base font-bold text-slate-900 dark:text-slate-100">{pictorials}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Pictorials</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t("form.pictorials")}</p>
             </div>
           </div>
         </div>
 
         {/* Categories */}
-        <CategoryChips categories={item.categories} maxVisible={5} size="lg" />
+        <CategoryChips categories={item.categories} maxVisible={2} size="lg" />
       </div>
     </Link>
   );

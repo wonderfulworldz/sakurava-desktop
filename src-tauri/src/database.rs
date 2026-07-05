@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS videos (
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedImagesJson TEXT NOT NULL DEFAULT '[]',
+  source_links_json TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS images (
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
+  source_links_json TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -79,6 +81,7 @@ CREATE TABLE IF NOT EXISTS performers (
   debutDate TEXT NOT NULL DEFAULT '',
   retiredDate TEXT NOT NULL DEFAULT '',
   birthDate TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT '',
   birthplace TEXT NOT NULL DEFAULT '',
   nationality TEXT NOT NULL DEFAULT '',
   bloodType TEXT NOT NULL DEFAULT '',
@@ -92,6 +95,7 @@ CREATE TABLE IF NOT EXISTS performers (
   pictorialsCount INTEGER,
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
   relatedImagesJson TEXT NOT NULL DEFAULT '[]',
+  source_links_json TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
   notes TEXT NOT NULL DEFAULT '',
@@ -111,6 +115,7 @@ CREATE TABLE IF NOT EXISTS managedCategories (
   showInVideos INTEGER NOT NULL DEFAULT 1 CHECK (showInVideos IN (0, 1)),
   showInImages INTEGER NOT NULL DEFAULT 1 CHECK (showInImages IN (0, 1)),
   showInPerformers INTEGER NOT NULL DEFAULT 1 CHECK (showInPerformers IN (0, 1)),
+  showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(name COLLATE NOCASE),
@@ -135,12 +140,35 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
 );
 "#;
 
-const SCHEMA_SQL: [&str; 5] = [
+const CREATE_CREDITS_TABLE_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS credits (
+  id TEXT PRIMARY KEY NOT NULL,
+  workType TEXT NOT NULL,
+  workId TEXT NOT NULL,
+  performerId TEXT NOT NULL,
+  characterName TEXT NOT NULL DEFAULT '',
+  characterOriginalName TEXT,
+  creditedAs TEXT,
+  creditedAsMode TEXT NOT NULL DEFAULT 'auto',
+  creditTypeCategoryId TEXT,
+  roleImportanceCategoryId TEXT,
+  characterMode TEXT NOT NULL DEFAULT 'text',
+  characterId TEXT,
+  billingOrder INTEGER,
+  note TEXT,
+  legacySourceKey TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+"#;
+
+const SCHEMA_SQL: [&str; 6] = [
     CREATE_VIDEOS_TABLE_SQL,
     CREATE_IMAGES_TABLE_SQL,
     CREATE_PERFORMERS_TABLE_SQL,
     CREATE_MANAGED_CATEGORIES_TABLE_SQL,
     CREATE_GLOSSARY_ENTRIES_TABLE_SQL,
+    CREATE_CREDITS_TABLE_SQL,
 ];
 
 #[derive(Debug, Clone)]
@@ -210,12 +238,14 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
 
     ensure_text_json_column(connection, "videos", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "videos", "relatedImagesJson", "[]")?;
+    ensure_text_json_column(connection, "videos", "source_links_json", "[]")?;
     ensure_text_column(connection, "videos", "resolution", "")?;
     ensure_integer_column(connection, "videos", "fileSizeBytes")?;
     ensure_text_column(connection, "videos", "fileType", "")?;
     ensure_text_json_column(connection, "images", "relatedPerformersJson", "[]")?;
     ensure_text_json_column(connection, "images", "relatedVideosJson", "[]")?;
     ensure_text_json_column(connection, "images", "galleryImagePathsJson", "[]")?;
+    ensure_text_json_column(connection, "images", "source_links_json", "[]")?;
     ensure_text_column(connection, "images", "mainResolution", "")?;
     ensure_integer_column(connection, "images", "totalFileSizeBytes")?;
     ensure_text_column(connection, "images", "mainFileType", "")?;
@@ -227,6 +257,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     )?;
     ensure_text_column(connection, "performers", "debutDate", "")?;
     ensure_text_column(connection, "performers", "retiredDate", "")?;
+    ensure_text_column(connection, "performers", "gender", "")?;
     ensure_text_column(connection, "performers", "birthplace", "")?;
     ensure_text_column(connection, "performers", "nationality", "")?;
     ensure_text_column(connection, "performers", "bloodType", "")?;
@@ -236,11 +267,78 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_text_column(connection, "performers", "cupSize", "")?;
     ensure_text_json_column(connection, "performers", "relatedVideosJson", "[]")?;
     ensure_text_json_column(connection, "performers", "relatedImagesJson", "[]")?;
+    ensure_text_json_column(connection, "performers", "source_links_json", "[]")?;
     ensure_boolean_column(connection, "managedCategories", "showInVideos", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInImages", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
+    ensure_boolean_column(connection, "managedCategories", "showInCredits", false)?;
     ensure_text_column(connection, "glossary_entries", "parent_id", "")?;
+    backfill_legacy_credits(connection)?;
 
+    Ok(())
+}
+
+fn backfill_legacy_credits(connection: &Connection) -> rusqlite::Result<()> {
+    for (table_name, work_type) in [("videos", "video"), ("images", "image")] {
+        let mut statement = connection.prepare(&format!(
+            "SELECT id, relatedPerformersJson FROM {table_name}"
+        ))?;
+        let records = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        for (work_id, related_json) in records {
+            let Ok(serde_json::Value::Array(relations)) =
+                serde_json::from_str::<serde_json::Value>(&related_json)
+            else {
+                continue;
+            };
+            for (index, relation) in relations.iter().enumerate() {
+                let Some(performer_id) = relation
+                    .get("performerId")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                else {
+                    continue;
+                };
+                let legacy_source_key = format!(
+                    "legacy:relatedPerformersJson:{work_type}:{work_id}:{performer_id}:{index}"
+                );
+                let credit_id =
+                    format!("credit_legacy:{work_type}:{work_id}:{performer_id}:{index}");
+                let timestamp = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|duration| duration.as_millis().to_string())
+                    .unwrap_or_else(|_| "0".to_string());
+                connection.execute(
+                    "INSERT OR IGNORE INTO credits (
+                        id, workType, workId, performerId, characterName,
+                        characterOriginalName, creditedAs, creditedAsMode,
+                        creditTypeCategoryId, roleImportanceCategoryId,
+                        characterMode, characterId, billingOrder, note,
+                        legacySourceKey, createdAt, updatedAt
+                     )
+                     SELECT ?1, ?2, ?3, ?4, '', NULL, NULL, 'auto',
+                            NULL, NULL, 'text', NULL, ?5, NULL, ?6, ?7, ?7
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM credits WHERE legacySourceKey = ?6
+                     )",
+                    rusqlite::params![
+                        credit_id,
+                        work_type,
+                        work_id,
+                        performer_id,
+                        index as i64,
+                        legacy_source_key,
+                        timestamp
+                    ],
+                )?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -629,6 +727,7 @@ mod tests {
         assert_eq!(
             table_names,
             vec![
+                "credits",
                 "glossary_entries",
                 "images",
                 "managedCategories",
@@ -652,6 +751,190 @@ mod tests {
         assert!(second.paths.database_file.is_file());
 
         let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn backfills_legacy_related_performers_idempotently_without_mutating_legacy_data() {
+        let connection = Connection::open_in_memory().expect("in-memory database");
+        initialize_schema(&connection).expect("initial schema");
+        let video_json = r#"[{"performerId":" performer-1 ","nameSnapshot":"One"},{"nameSnapshot":"bad"},{"performerId":""}]"#;
+        let image_json = r#"[{"performerId":"performer-2","nameSnapshot":"Two"}]"#;
+        let aliases_json = r#"["Alias One","Alias Two"]"#;
+        connection
+            .execute(
+                "INSERT INTO videos (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('video-1', 'Video', ?1, '1', '1')",
+                [video_json],
+            )
+            .expect("video");
+        connection
+            .execute(
+                "INSERT INTO images (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('image-1', 'Image', ?1, '1', '1')",
+                [image_json],
+            )
+            .expect("image");
+        connection
+            .execute(
+                "INSERT INTO performers (id, name, aliasesJson, createdAt, updatedAt)
+                 VALUES ('performer-1', 'One', ?1, '1', '1')",
+                [aliases_json],
+            )
+            .expect("performer");
+
+        initialize_schema(&connection).expect("backfill");
+        initialize_schema(&connection).expect("repeat backfill");
+
+        let credits: Vec<(String, String, String, i64)> = connection
+            .prepare(
+                "SELECT workType, workId, performerId, billingOrder
+                 FROM credits ORDER BY workType, workId",
+            )
+            .expect("credit query")
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .expect("credit rows")
+            .collect::<rusqlite::Result<_>>()
+            .expect("credits");
+        assert_eq!(
+            credits,
+            vec![
+                (
+                    "image".to_string(),
+                    "image-1".to_string(),
+                    "performer-2".to_string(),
+                    0
+                ),
+                (
+                    "video".to_string(),
+                    "video-1".to_string(),
+                    "performer-1".to_string(),
+                    0
+                )
+            ]
+        );
+        let stored_video_json: String = connection
+            .query_row(
+                "SELECT relatedPerformersJson FROM videos WHERE id = 'video-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("legacy video json");
+        let stored_aliases: String = connection
+            .query_row(
+                "SELECT aliasesJson FROM performers WHERE id = 'performer-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("aliases");
+        assert_eq!(stored_video_json, video_json);
+        assert_eq!(stored_aliases, aliases_json);
+
+        connection
+            .execute(
+                "UPDATE videos SET relatedPerformersJson = '{bad json' WHERE id = 'video-1'",
+                [],
+            )
+            .expect("invalid legacy json");
+        initialize_schema(&connection).expect("invalid json is safe");
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))
+            .expect("credit count");
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn backfill_survives_old_id_collisions_and_duplicate_legacy_relations() {
+        let connection = Connection::open_in_memory().expect("in-memory database");
+        initialize_schema(&connection).expect("initial schema");
+        let video_one_json = r#"[
+          {"performerId":"performer-1"},
+          {"performerId":"performer-1"},
+          {"performerId":"performer-2"}
+        ]"#;
+        let video_two_json = r#"[{"performerId":"performer-1"}]"#;
+        let image_json = r#"[{"performerId":"performer-3"}]"#;
+
+        connection
+            .execute(
+                "INSERT INTO videos (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('video-1', 'One', ?1, '1', '1')",
+                [video_one_json],
+            )
+            .expect("video one");
+        connection
+            .execute(
+                "INSERT INTO videos (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('video-2', 'Two', ?1, '1', '1')",
+                [video_two_json],
+            )
+            .expect("video two");
+        connection
+            .execute(
+                "INSERT INTO images (id, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('image-1', 'Image', ?1, '1', '1')",
+                [image_json],
+            )
+            .expect("image");
+
+        connection
+            .execute(
+                "INSERT INTO credits (
+                    id, workType, workId, performerId, characterName,
+                    creditedAsMode, characterMode, billingOrder,
+                    legacySourceKey, createdAt, updatedAt
+                 ) VALUES (
+                    'credit_legacy:video:video-1:0', 'video', 'video-1',
+                    'manual-performer', '', 'auto', 'text', NULL, NULL, '1', '1'
+                 )",
+                [],
+            )
+            .expect("existing manual-style collision");
+
+        initialize_schema(&connection).expect("collision-safe backfill");
+        initialize_schema(&connection).expect("repeat collision-safe backfill");
+
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))
+            .expect("credit count");
+        assert_eq!(count, 6);
+
+        let migrated_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM credits WHERE legacySourceKey IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .expect("migrated credit count");
+        assert_eq!(migrated_count, 5);
+
+        let distinct_id_count: i64 = connection
+            .query_row("SELECT COUNT(DISTINCT id) FROM credits", [], |row| {
+                row.get(0)
+            })
+            .expect("distinct ids");
+        assert_eq!(distinct_id_count, count);
+
+        let duplicate_performer_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM credits
+                 WHERE workType = 'video' AND workId = 'video-1'
+                   AND performerId = 'performer-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("duplicate performer credits");
+        assert_eq!(duplicate_performer_count, 2);
+
+        let stored_video_json: String = connection
+            .query_row(
+                "SELECT relatedPerformersJson FROM videos WHERE id = 'video-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("legacy json");
+        assert_eq!(stored_video_json, video_one_json);
     }
 
     #[test]
@@ -703,6 +986,7 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "videos", "relatedImagesJson"));
+        assert!(table_has_column(&connection, "videos", "source_links_json"));
         assert!(table_has_column(&connection, "videos", "resolution"));
         assert!(table_has_column(&connection, "videos", "fileSizeBytes"));
         assert!(table_has_column(&connection, "videos", "fileType"));
@@ -712,13 +996,18 @@ mod tests {
             "relatedPerformersJson"
         ));
         assert!(table_has_column(&connection, "images", "relatedVideosJson"));
+        assert!(table_has_column(&connection, "images", "source_links_json"));
         assert!(table_has_column(
             &connection,
             "images",
             "galleryImagePathsJson"
         ));
         assert!(table_has_column(&connection, "images", "mainResolution"));
-        assert!(table_has_column(&connection, "images", "totalFileSizeBytes"));
+        assert!(table_has_column(
+            &connection,
+            "images",
+            "totalFileSizeBytes"
+        ));
         assert!(table_has_column(&connection, "images", "mainFileType"));
         assert!(table_has_column(
             &connection,
@@ -727,6 +1016,7 @@ mod tests {
         ));
         assert!(table_has_column(&connection, "performers", "debutDate"));
         assert!(table_has_column(&connection, "performers", "retiredDate"));
+        assert!(table_has_column(&connection, "performers", "gender"));
         assert!(table_has_column(&connection, "performers", "birthplace"));
         assert!(table_has_column(&connection, "performers", "nationality"));
         assert!(table_has_column(&connection, "performers", "bloodType"));
@@ -746,6 +1036,11 @@ mod tests {
         ));
         assert!(table_has_column(
             &connection,
+            "performers",
+            "source_links_json"
+        ));
+        assert!(table_has_column(
+            &connection,
             "managedCategories",
             "showInVideos"
         ));
@@ -759,6 +1054,20 @@ mod tests {
             "managedCategories",
             "showInPerformers"
         ));
+        assert!(table_has_column(
+            &connection,
+            "managedCategories",
+            "showInCredits"
+        ));
+        let credits_default: String = connection
+            .query_row(
+                "SELECT dflt_value FROM pragma_table_info('managedCategories')
+                 WHERE name = 'showInCredits'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("showInCredits default");
+        assert_eq!(credits_default, "0");
     }
 
     #[test]

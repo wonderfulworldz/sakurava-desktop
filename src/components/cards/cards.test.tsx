@@ -156,16 +156,14 @@ describe("VideoFullCard", () => {
     expect(container.querySelector(".col-span-2")).not.toBeNull();
   });
 
-  it("renders category footer with maxVisible=4 and +N overflow", () => {
+  it("renders two readable category chips with +N overflow", () => {
     wrap(<VideoFullCard item={videoItem} linkTo="/videos/v1" />);
 
-    // 9 categories, max 4 visible = 4 chips + "+5"
     expect(screen.getByText("Action")).toBeInTheDocument();
     expect(screen.getByText("Drama")).toBeInTheDocument();
-    expect(screen.getByText("Sci-Fi")).toBeInTheDocument();
-    expect(screen.getByText("Horror")).toBeInTheDocument();
+    expect(screen.queryByText("Sci-Fi")).not.toBeInTheDocument();
     expect(screen.queryByText("Comedy")).not.toBeInTheDocument();
-    expect(screen.getByText("+5")).toBeInTheDocument();
+    expect(screen.getByText("+7")).toBeInTheDocument();
   });
 
   it("shows n/a for empty duration", () => {
@@ -175,16 +173,14 @@ describe("VideoFullCard", () => {
 });
 
 describe("ImageFullCard", () => {
-  it("renders category footer with maxVisible=4 and +N overflow", () => {
+  it("renders two readable category chips with +N overflow", () => {
     wrap(<ImageFullCard item={imageItem} linkTo="/images/i1" />);
 
-    // 7 categories, max 4 visible = 4 chips + "+3"
     expect(screen.getByText("Cosplay")).toBeInTheDocument();
     expect(screen.getByText("Blonde")).toBeInTheDocument();
-    expect(screen.getByText("Studio")).toBeInTheDocument();
-    expect(screen.getByText("Outdoor")).toBeInTheDocument();
+    expect(screen.queryByText("Studio")).not.toBeInTheDocument();
     expect(screen.queryByText("Portrait")).not.toBeInTheDocument();
-    expect(screen.getByText("+3")).toBeInTheDocument();
+    expect(screen.getByText("+5")).toBeInTheDocument();
   });
 
   it("image count stat value is number only, no 'images' inside value", () => {
@@ -201,30 +197,26 @@ describe("ImageFullCard", () => {
 });
 
 describe("PerformerFullCard", () => {
-  it("renders category footer with maxVisible=5 and +N overflow", () => {
+  it("renders two readable category chips with +N overflow", () => {
     wrap(<PerformerFullCard item={performerItem} linkTo="/performers/p1" />);
 
-    // 8 categories, max 5 visible = 5 chips + "+3"
     expect(screen.getByText("Cosplay")).toBeInTheDocument();
     expect(screen.getByText("Blonde")).toBeInTheDocument();
-    expect(screen.getByText("Petite")).toBeInTheDocument();
-    expect(screen.getByText("Japanese")).toBeInTheDocument();
-    expect(screen.getByText("Idol")).toBeInTheDocument();
+    expect(screen.queryByText("Petite")).not.toBeInTheDocument();
     expect(screen.queryByText("Gravure")).not.toBeInTheDocument();
     expect(screen.queryByText("Model")).not.toBeInTheDocument();
     expect(screen.queryByText("Actress")).not.toBeInTheDocument();
-    expect(screen.getByText("+3")).toBeInTheDocument();
+    expect(screen.getByText("+6")).toBeInTheDocument();
   });
 
-  it("renders all categories when count is at or below cap", () => {
+  it("keeps the readable two-chip cap for shorter category lists", () => {
     const item = { ...performerItem, categories: ["Slim", "Blonde", "Blue Eye", "Petite"] };
     wrap(<PerformerFullCard item={item} linkTo="/performers/p1" />);
 
     expect(screen.getByText("Slim")).toBeInTheDocument();
     expect(screen.getByText("Blonde")).toBeInTheDocument();
-    expect(screen.getByText("Blue Eye")).toBeInTheDocument();
-    expect(screen.getByText("Petite")).toBeInTheDocument();
-    expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Blue Eye")).not.toBeInTheDocument();
+    expect(screen.getByText("+2")).toBeInTheDocument();
   });
 
   it("renders name, rating, years active, filmography, pictorials", () => {
@@ -312,6 +304,63 @@ describe("Lite cards - primary stat labels", () => {
     expect(screen.getByText("Pictorials")).toBeInTheDocument();
   });
 
+  it("PerformerLiteCard integrates credit metadata without an as prefix", () => {
+    const { container } = wrap(
+      <PerformerLiteCard
+        item={performerLiteItem}
+        linkTo="/performers/p1"
+        creditMetadata={[
+          { id: "one", roleName: "Alhaitham", creditType: "Support" },
+          { id: "two", roleName: "Narrator", creditType: "Voice" },
+        ]}
+      />,
+    );
+
+    expect(container.querySelector(".aspect-\\[4\\/3\\]")).not.toBeNull();
+    expect(screen.getByText("Alhaitham")).toBeInTheDocument();
+    expect(screen.getByText("Support")).toBeInTheDocument();
+    expect(screen.getByText("Narrator")).toBeInTheDocument();
+    expect(screen.queryByText("as Alhaitham")).not.toBeInTheDocument();
+    expect(screen.getByTestId("credit-metadata")).toBeInTheDocument();
+    expect(screen.getByText("Alhaitham").closest("a")).toBeNull();
+  });
+
+  it("PerformerLiteCard renders one n/a row when credit metadata is empty", () => {
+    wrap(
+      <PerformerLiteCard
+        item={performerLiteItem}
+        linkTo="/performers/p1"
+        creditMetadata={[]}
+      />,
+    );
+
+    expect(screen.getByTestId("credit-metadata")).toBeInTheDocument();
+    expect(screen.getAllByText("n/a")).toHaveLength(2);
+    expect(screen.getAllByTestId("credit-metadata-row")).toHaveLength(1);
+    expect(screen.getByTestId("credit-metadata")).not.toHaveClass("min-h-[5.5rem]");
+    expect(screen.getByText("Filmography")).toBeInTheDocument();
+    expect(screen.getByText("Pictorials")).toBeInTheDocument();
+  });
+
+  it("PerformerLiteCard caps metadata at three rows and shows overflow", () => {
+    wrap(
+      <PerformerLiteCard
+        item={performerLiteItem}
+        linkTo="/performers/p1"
+        creditMetadata={Array.from({ length: 5 }, (_, index) => ({
+          id: String(index),
+          roleName: `Role ${index + 1}`,
+          creditType: `Type ${index + 1}`,
+        }))}
+      />,
+    );
+
+    expect(screen.getAllByTestId("credit-metadata-row")).toHaveLength(3);
+    expect(screen.getByText("+2 more")).toBeInTheDocument();
+    expect(screen.queryByText("Role 4")).not.toBeInTheDocument();
+    expect(screen.getByText("Filmography")).toBeInTheDocument();
+  });
+
   it("Lite cards do not render category footer", () => {
     const { container: vc } = wrap(<VideoLiteCard item={videoLiteItem} linkTo="/videos/v1" />);
     const { container: ic } = wrap(<ImageLiteCard item={imageLiteItem} linkTo="/images/i1" />);
@@ -383,6 +432,16 @@ describe("Censorship display", () => {
 });
 
 describe("CategoryChips", () => {
+  it("keeps short labels compact and caps long labels without a global minimum width", () => {
+    wrap(<CategoryChips categories={["4K", "Behind The Scenes"]} maxVisible={2} />);
+
+    const shortChip = screen.getByText("4K").closest("span")?.parentElement;
+    const longChip = screen.getByText("Behind The Scenes").closest("span")?.parentElement;
+    expect(shortChip).toHaveClass("min-w-0");
+    expect(shortChip).not.toHaveClass("min-w-[6.5rem]");
+    expect(longChip).toHaveClass("max-w-[14ch]", "rounded-md");
+  });
+
   it("is not hard-limited to 3", () => {
     wrap(<CategoryChips categories={["A", "B", "C", "D", "E"]} />);
     expect(screen.getByText("A")).toBeInTheDocument();

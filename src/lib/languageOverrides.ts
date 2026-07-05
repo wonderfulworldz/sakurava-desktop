@@ -20,7 +20,20 @@ export function getStoredLanguageOverrides(): LanguageOverrides {
       return {};
     }
 
-    return parsed as LanguageOverrides;
+    const sanitized: LanguageOverrides = {};
+    for (const [languageCode, values] of Object.entries(parsed)) {
+      if (!values || typeof values !== "object" || Array.isArray(values)) {
+        continue;
+      }
+      const entries = Object.entries(values).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === "string" && entry[1].trim() !== "",
+      );
+      if (entries.length > 0) {
+        sanitized[languageCode] = Object.fromEntries(entries);
+      }
+    }
+    return sanitized;
   } catch {
     return {};
   }

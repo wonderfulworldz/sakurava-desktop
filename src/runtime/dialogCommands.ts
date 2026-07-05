@@ -96,6 +96,19 @@ export async function selectLocalImageFile() {
   });
 }
 
+export async function selectLocalImageFiles() {
+  return selectLocalPaths({
+    title: "Select Image Files",
+    multiple: true,
+    filters: [
+      {
+        name: "Image",
+        extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+      },
+    ],
+  });
+}
+
 export async function selectLocalMediaFile() {
   return selectLocalPath({
     title: "Select Media File",
@@ -108,11 +121,28 @@ export async function selectLocalMediaFile() {
   });
 }
 
+export async function selectDetailSaveAsDestination(sourcePath: string) {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: "Save Source File As",
+    defaultPath: defaultDetailSaveAsFileName(sourcePath),
+  });
+}
+
 export async function selectLocalFolder() {
   return selectLocalPath({
     title: "Select Folder",
     directory: true,
   });
+}
+
+function defaultDetailSaveAsFileName(sourcePath: string) {
+  const normalizedPath = sourcePath.trim().replace(/\\/g, "/");
+  return normalizedPath.split("/").filter(Boolean).pop() ?? "sakurava-source-file";
 }
 
 export async function selectGalleryFolder() {
@@ -140,6 +170,31 @@ async function selectLocalPath(options: {
   });
 
   return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
+}
+
+async function selectLocalPaths(options: {
+  title: string;
+  multiple?: boolean;
+  directory?: boolean;
+  filters?: Array<{ name: string; extensions: string[] }>;
+}) {
+  if (!isTauriRuntimeAvailable()) {
+    return [];
+  }
+
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selectedPath = await open({
+    title: options.title,
+    multiple: options.multiple ?? false,
+    directory: options.directory ?? false,
+    filters: options.filters,
+  });
+
+  if (!selectedPath) {
+    return [];
+  }
+
+  return Array.isArray(selectedPath) ? selectedPath : [selectedPath];
 }
 
 export async function selectLanguageCsvExportDestination(languageCode: LanguageCode) {

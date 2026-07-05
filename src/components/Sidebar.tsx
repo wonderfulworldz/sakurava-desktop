@@ -89,7 +89,7 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         <div className="flex size-11 items-center justify-center">
           <img
             src="/assets/sakurava-logo-v1.svg"
-            alt="Sakurava logo"
+            alt={t("app.sidebar.logo")}
             className="size-10 object-contain"
             draggable={false}
           />
@@ -118,14 +118,14 @@ function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
 
       <nav
         className="flex flex-1 flex-col gap-1 px-3"
-        aria-label="Primary navigation"
+        aria-label={t("app.sidebar.primaryNavigation")}
       >
         {renderNavigationItems(primarySidebarItems)}
       </nav>
 
       <nav
         className="flex flex-col gap-1 px-3 pb-4"
-        aria-label="Support navigation"
+        aria-label={t("app.sidebar.supportNavigation")}
       >
         {renderNavigationItems(lowerSidebarItems)}
       </nav>

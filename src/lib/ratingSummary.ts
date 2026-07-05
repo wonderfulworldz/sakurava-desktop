@@ -74,6 +74,32 @@ export function getRatingDimensions(
     .filter((dimension): dimension is RatingDimension => dimension !== null);
 }
 
+export function getDetailRatingDimensions(
+  ratingJson: string | Record<string, unknown> | null | undefined,
+  fields: RatingFieldLabel[] = [],
+): RatingDimension[] {
+  const rating = parseRatingJson(ratingJson) ?? {};
+
+  if (fields.length === 0) {
+    return getRatingDimensions(ratingJson, fields);
+  }
+
+  return fields
+    .map((field) => {
+      const label = field.label.trim();
+      if (!label) {
+        return null;
+      }
+
+      return {
+        key: field.name,
+        label,
+        value: normalizeRatingScore(rating[field.name]) ?? 0,
+      };
+    })
+    .filter((dimension): dimension is RatingDimension => dimension !== null);
+}
+
 export function calculateAverageRating(
   dimensions: Pick<RatingDimension, "value">[],
 ): number | null {
