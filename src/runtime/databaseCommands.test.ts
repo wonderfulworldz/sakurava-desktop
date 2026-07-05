@@ -3,6 +3,7 @@ import {
   createBackupPackage,
   listBackupPackages,
   openBackupFolder,
+  previewBackupPackage,
   rotateAutomaticBackupPackages,
 } from "./databaseCommands";
 
@@ -49,6 +50,34 @@ describe("backup package runtime wrappers", () => {
       "backup_package_rotate_automatic",
       { keepCount: 3 },
     );
+  });
+
+  it("previews a backend-listed package by name without passing a filesystem path", async () => {
+    const preview = {
+      packageName: "sakurava-backup-20260706-120000-manual",
+      database: {
+        quickCheck: "ok",
+        requiredSchemaPresent: true,
+        counts: {
+          videos: 1,
+          images: 2,
+          performers: 3,
+          categories: 4,
+          glossary: 5,
+          credits: 6,
+        },
+      },
+      warnings: [],
+      errors: [],
+    };
+    tauriMocks.invoke.mockResolvedValue(preview);
+
+    await expect(
+      previewBackupPackage("sakurava-backup-20260706-120000-manual"),
+    ).resolves.toEqual(preview);
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_preview", {
+      packageName: "sakurava-backup-20260706-120000-manual",
+    });
   });
 
   it("opens only the backend-resolved backup folder without a path argument", async () => {

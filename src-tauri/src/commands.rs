@@ -33,8 +33,9 @@ use windows::{
 
 use crate::database::{
     backup_runtime_database, clear_app_generated_cache, create_backup_package,
-    list_backup_packages, open_default_backup_folder, restore_runtime_database,
-    rotate_automatic_backup_packages, BackupFolderOpenResult, BackupPackageInfo,
+    list_backup_packages, open_default_backup_folder, preview_backup_package,
+    restore_runtime_database, rotate_automatic_backup_packages, BackupFolderOpenResult,
+    BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError,
     BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
     DatabaseRestoreResult, RuntimeDatabase,
 };
@@ -577,6 +578,14 @@ pub fn backup_package_list(
     database: State<'_, RuntimeDatabase>,
 ) -> Result<Vec<BackupPackageInfo>, String> {
     list_backup_packages(&database)
+}
+
+#[tauri::command]
+pub fn backup_package_preview(
+    database: State<'_, RuntimeDatabase>,
+    package_name: String,
+) -> Result<BackupPackagePreview, BackupPackagePreviewError> {
+    preview_backup_package(&database, &package_name)
 }
 
 #[tauri::command]

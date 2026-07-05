@@ -22,6 +22,7 @@ pub fn run() {
             commands::database_restore,
             commands::backup_package_create,
             commands::backup_package_list,
+            commands::backup_package_preview,
             commands::backup_package_rotate_automatic,
             commands::backup_folder_open,
             commands::clear_app_cache,

@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rusqlite::{Connection, DatabaseName};
+use rusqlite::{Connection, DatabaseName, OpenFlags};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
@@ -175,6 +175,14 @@ const SCHEMA_SQL: [&str; 6] = [
     CREATE_GLOSSARY_ENTRIES_TABLE_SQL,
     CREATE_CREDITS_TABLE_SQL,
 ];
+const REQUIRED_SCHEMA_TABLES: [&str; 6] = [
+    "videos",
+    "images",
+    "performers",
+    "managedCategories",
+    "glossary_entries",
+    "credits",
+];
 
 #[derive(Debug, Clone)]
 pub struct RuntimeDatabasePaths {
@@ -248,8 +256,64 @@ pub struct BackupPackageManifest {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BackupPackageInfo {
+    pub package_name: String,
     pub package_path: String,
     pub manifest: BackupPackageManifest,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackagePreviewCounts {
+    pub videos: i64,
+    pub images: i64,
+    pub performers: i64,
+    pub categories: i64,
+    pub glossary: i64,
+    pub credits: i64,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackagePreviewDatabase {
+    pub file: String,
+    pub quick_check: String,
+    pub required_schema_present: bool,
+    pub counts: BackupPackagePreviewCounts,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackagePreviewContent {
+    pub database_included: bool,
+    pub original_media_included: bool,
+    pub app_managed_assets_included: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackagePreview {
+    pub package_name: String,
+    pub manifest: BackupPackageManifest,
+    pub database: BackupPackagePreviewDatabase,
+    pub content: BackupPackagePreviewContent,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackagePreviewError {
+    pub code: String,
+    pub message: String,
+}
+
+impl BackupPackagePreviewError {
+    fn new(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            code: code.to_string(),
+            message: message.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -363,6 +427,7 @@ fn create_backup_package_at(
         fs::rename(&staging_path, &package_path)
             .map_err(|error| format!("Unable to finalize backup package: {error}"))?;
         Ok(BackupPackageInfo {
+            package_name,
             package_path: package_path.display().to_string(),
             manifest,
         })
@@ -401,12 +466,312 @@ pub fn list_backup_packages(database: &RuntimeDatabase) -> Result<Vec<BackupPack
             continue;
         };
         packages.push(BackupPackageInfo {
+            package_name: entry.file_name().to_string_lossy().to_string(),
             package_path: canonical_package_path.display().to_string(),
             manifest,
         });
     }
     packages.sort_by(|left, right| right.manifest.created_at.cmp(&left.manifest.created_at));
     Ok(packages)
+}
+
+pub fn preview_backup_package(
+    database: &RuntimeDatabase,
+    package_name: &str,
+) -> Result<BackupPackagePreview, BackupPackagePreviewError> {
+    validate_backup_package_name(package_name)?;
+    let backup_folder = default_backup_folder(database);
+    if !backup_folder.is_dir() {
+        return Err(BackupPackagePreviewError::new(
+            "backup_folder_missing",
+            "Sakurava backup folder does not exist",
+        ));
+    }
+    let canonical_backup_folder = backup_folder.canonicalize().map_err(|error| {
+        BackupPackagePreviewError::new(
+            "backup_folder_unavailable",
+            format!("Unable to resolve Sakurava backup folder: {error}"),
+        )
+    })?;
+    let package_path = backup_folder.join(package_name);
+    let metadata = fs::symlink_metadata(&package_path).map_err(|error| {
+        BackupPackagePreviewError::new(
+            "package_not_found",
+            format!("Backup package was not found: {error}"),
+        )
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(BackupPackagePreviewError::new(
+            "invalid_package_type",
+            "Backup package must be a direct, non-symlink folder",
+        ));
+    }
+    let canonical_package_path = package_path.canonicalize().map_err(|error| {
+        BackupPackagePreviewError::new(
+            "package_unavailable",
+            format!("Unable to resolve backup package: {error}"),
+        )
+    })?;
+    if canonical_package_path.parent() != Some(canonical_backup_folder.as_path()) {
+        return Err(BackupPackagePreviewError::new(
+            "package_outside_backup_folder",
+            "Backup package must be a direct child of the Sakurava backup folder",
+        ));
+    }
+
+    let manifest_path = canonical_package_path.join(BACKUP_MANIFEST_FILE_NAME);
+    let manifest_text = fs::read_to_string(&manifest_path).map_err(|error| {
+        BackupPackagePreviewError::new(
+            "manifest_missing",
+            format!("Backup manifest is missing or unreadable: {error}"),
+        )
+    })?;
+    let manifest_value: serde_json::Value =
+        serde_json::from_str(&manifest_text).map_err(|error| {
+            BackupPackagePreviewError::new(
+                "manifest_malformed",
+                format!("Backup manifest is malformed: {error}"),
+            )
+        })?;
+    let manifest: BackupPackageManifest =
+        serde_json::from_value(manifest_value.clone()).map_err(|error| {
+            BackupPackagePreviewError::new(
+                "manifest_invalid",
+                format!("Backup manifest fields are invalid: {error}"),
+            )
+        })?;
+    validate_preview_manifest(&manifest)?;
+
+    let database_path = canonical_package_path.join(BACKUP_DATABASE_FILE_NAME);
+    if !database_path.is_file() {
+        return Err(BackupPackagePreviewError::new(
+            "database_missing",
+            "Backup package database is missing",
+        ));
+    }
+    let backup_connection = Connection::open_with_flags(
+        &database_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| {
+        BackupPackagePreviewError::new(
+            "database_unreadable",
+            format!("Unable to open backup database read-only: {error}"),
+        )
+    })?;
+    let quick_check: String = backup_connection
+        .query_row("PRAGMA quick_check", [], |row| row.get(0))
+        .map_err(|error| {
+            BackupPackagePreviewError::new(
+                "database_integrity_error",
+                format!("Unable to validate backup database integrity: {error}"),
+            )
+        })?;
+    if quick_check != "ok" {
+        return Err(BackupPackagePreviewError::new(
+            "database_integrity_failed",
+            format!("Backup database failed SQLite integrity check: {quick_check}"),
+        ));
+    }
+    for table_name in REQUIRED_SCHEMA_TABLES {
+        let table_count: i64 = backup_connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                [table_name],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                BackupPackagePreviewError::new(
+                    "schema_inspection_failed",
+                    format!("Unable to inspect backup database schema: {error}"),
+                )
+            })?;
+        if table_count != 1 {
+            return Err(BackupPackagePreviewError::new(
+                "required_schema_missing",
+                format!("Backup database is missing required table: {table_name}"),
+            ));
+        }
+    }
+
+    let counts = BackupPackagePreviewCounts {
+        videos: count_backup_rows(&backup_connection, "videos")?,
+        images: count_backup_rows(&backup_connection, "images")?,
+        performers: count_backup_rows(&backup_connection, "performers")?,
+        categories: count_backup_rows(&backup_connection, "managedCategories")?,
+        glossary: count_backup_rows(&backup_connection, "glossary_entries")?,
+        credits: count_backup_rows(&backup_connection, "credits")?,
+    };
+    let mut warnings = manifest_unknown_field_warnings(&manifest_value);
+    if !manifest.includes.app_managed_assets {
+        warnings.push(
+            "Directory package v1 does not include future app-managed asset sections.".to_string(),
+        );
+    }
+
+    Ok(BackupPackagePreview {
+        package_name: package_name.to_string(),
+        database: BackupPackagePreviewDatabase {
+            file: manifest.database.file.clone(),
+            quick_check,
+            required_schema_present: true,
+            counts,
+        },
+        content: BackupPackagePreviewContent {
+            database_included: manifest.includes.database,
+            original_media_included: manifest.includes.original_media,
+            app_managed_assets_included: manifest.includes.app_managed_assets,
+        },
+        manifest,
+        warnings,
+        errors: Vec::new(),
+    })
+}
+
+fn validate_backup_package_name(package_name: &str) -> Result<(), BackupPackagePreviewError> {
+    let trimmed = package_name.trim();
+    if trimmed.is_empty()
+        || trimmed != package_name
+        || trimmed == "."
+        || trimmed == ".."
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+        || Path::new(trimmed).components().count() != 1
+    {
+        return Err(BackupPackagePreviewError::new(
+            "invalid_package_name",
+            "Backup package name must identify one direct child folder",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_preview_manifest(
+    manifest: &BackupPackageManifest,
+) -> Result<(), BackupPackagePreviewError> {
+    if manifest.format != BACKUP_FORMAT {
+        return Err(BackupPackagePreviewError::new(
+            "unsupported_format",
+            "Backup manifest format is not supported",
+        ));
+    }
+    if manifest.version != BACKUP_FORMAT_VERSION {
+        return Err(BackupPackagePreviewError::new(
+            "unsupported_version",
+            format!(
+                "Backup manifest version {} is not supported",
+                manifest.version
+            ),
+        ));
+    }
+    if !is_valid_backup_created_at(&manifest.created_at) {
+        return Err(BackupPackagePreviewError::new(
+            "invalid_created_at",
+            "Backup manifest createdAt is invalid",
+        ));
+    }
+    if manifest.database.file != BACKUP_DATABASE_FILE_NAME {
+        return Err(BackupPackagePreviewError::new(
+            "invalid_database_file",
+            "Backup manifest database file must be sakurava.sqlite",
+        ));
+    }
+    if !manifest.includes.database {
+        return Err(BackupPackagePreviewError::new(
+            "database_not_included",
+            "Backup manifest must include the database",
+        ));
+    }
+    if manifest.includes.original_media {
+        return Err(BackupPackagePreviewError::new(
+            "original_media_not_supported",
+            "Directory package v1 cannot include original media",
+        ));
+    }
+    if manifest.includes.app_managed_assets {
+        return Err(BackupPackagePreviewError::new(
+            "app_managed_assets_not_supported",
+            "Directory package v1 cannot include app-managed assets",
+        ));
+    }
+    Ok(())
+}
+
+fn is_valid_backup_created_at(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 20
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'Z'
+    {
+        return false;
+    }
+    if bytes
+        .iter()
+        .enumerate()
+        .any(|(index, byte)| !matches!(index, 4 | 7 | 10 | 13 | 16 | 19) && !byte.is_ascii_digit())
+    {
+        return false;
+    }
+    let parse = |start: usize, end: usize| {
+        std::str::from_utf8(&bytes[start..end])
+            .ok()
+            .and_then(|text| text.parse::<u32>().ok())
+    };
+    matches!(parse(5, 7), Some(1..=12))
+        && matches!(parse(8, 10), Some(1..=31))
+        && matches!(parse(11, 13), Some(0..=23))
+        && matches!(parse(14, 16), Some(0..=59))
+        && matches!(parse(17, 19), Some(0..=59))
+}
+
+fn count_backup_rows(
+    connection: &Connection,
+    table_name: &str,
+) -> Result<i64, BackupPackagePreviewError> {
+    connection
+        .query_row(
+            &format!("SELECT COUNT(*) FROM \"{table_name}\""),
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| {
+            BackupPackagePreviewError::new(
+                "count_failed",
+                format!("Unable to count backup table {table_name}: {error}"),
+            )
+        })
+}
+
+fn manifest_unknown_field_warnings(manifest: &serde_json::Value) -> Vec<String> {
+    let Some(object) = manifest.as_object() else {
+        return Vec::new();
+    };
+    let known = [
+        "format",
+        "version",
+        "createdAt",
+        "backupType",
+        "note",
+        "includes",
+        "database",
+    ];
+    let unknown = object
+        .keys()
+        .filter(|key| !known.contains(&key.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    if unknown.is_empty() {
+        Vec::new()
+    } else {
+        vec![format!(
+            "Backup manifest contains unrecognized fields: {}.",
+            unknown.join(", ")
+        )]
+    }
 }
 
 pub fn rotate_automatic_backup_packages(
@@ -1573,6 +1938,318 @@ mod tests {
     }
 
     #[test]
+    fn previews_valid_package_metadata_counts_and_complete_schema_without_mutation() {
+        let app_data_dir = unique_test_dir("backup-package-preview").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "preview_video", "Preview Video");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            connection
+                .execute(
+                    "INSERT INTO images (id, title, createdAt, updatedAt)
+                     VALUES ('preview_image', 'Preview Image', '1', '1')",
+                    [],
+                )
+                .expect("insert image");
+            connection
+                .execute(
+                    "INSERT INTO performers (id, name, createdAt, updatedAt)
+                     VALUES ('preview_performer', 'Preview Performer', '1', '1')",
+                    [],
+                )
+                .expect("insert performer");
+            connection
+                .execute(
+                    "INSERT INTO managedCategories (key, name, createdAt, updatedAt)
+                     VALUES ('preview_category', 'Preview Category', '1', '1')",
+                    [],
+                )
+                .expect("insert category");
+            connection
+                .execute(
+                    "INSERT INTO glossary_entries
+                     (id, term, definition, created_at, updated_at)
+                     VALUES ('preview_glossary', 'Preview Term', 'Definition', 1, 1)",
+                    [],
+                )
+                .expect("insert glossary");
+            connection
+                .execute(
+                    "INSERT INTO credits
+                     (id, workType, workId, performerId, characterName, createdAt, updatedAt)
+                     VALUES
+                     ('preview_credit', 'video', 'preview_video', 'preview_performer', '', '1', '1')",
+                    [],
+                )
+                .expect("insert credit");
+        }
+        let created = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            Some("Preview note".to_string()),
+            UNIX_EPOCH + std::time::Duration::from_secs(40),
+        )
+        .expect("package");
+        insert_video_title(&database, "active_only", "Active Only");
+        let package_path = PathBuf::from(&created.package_path);
+        let manifest_before =
+            fs::read(package_path.join(BACKUP_MANIFEST_FILE_NAME)).expect("manifest bytes");
+        let database_before =
+            fs::read(package_path.join(BACKUP_DATABASE_FILE_NAME)).expect("database bytes");
+
+        let preview =
+            preview_backup_package(&database, &created.package_name).expect("preview succeeds");
+
+        assert_eq!(preview.package_name, created.package_name);
+        assert_eq!(preview.manifest, created.manifest);
+        assert_eq!(preview.database.quick_check, "ok");
+        assert!(preview.database.required_schema_present);
+        assert_eq!(
+            preview.database.counts,
+            BackupPackagePreviewCounts {
+                videos: 1,
+                images: 1,
+                performers: 1,
+                categories: 1,
+                glossary: 1,
+                credits: 1,
+            }
+        );
+        assert_eq!(
+            preview.content,
+            BackupPackagePreviewContent {
+                database_included: true,
+                original_media_included: false,
+                app_managed_assets_included: false,
+            }
+        );
+        assert!(preview
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("does not include future app-managed asset sections")));
+        assert!(preview.errors.is_empty());
+        assert_eq!(
+            read_video_title(&database, "active_only"),
+            Some("Active Only".to_string())
+        );
+        assert_eq!(
+            fs::read(package_path.join(BACKUP_MANIFEST_FILE_NAME)).expect("manifest after"),
+            manifest_before
+        );
+        assert_eq!(
+            fs::read(package_path.join(BACKUP_DATABASE_FILE_NAME)).expect("database after"),
+            database_before
+        );
+        assert_no_restore_safety_backup(&app_data_dir);
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn preview_rejects_unsupported_manifest_format_and_version() {
+        let app_data_dir =
+            unique_test_dir("backup-preview-manifest-version").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let invalid_format = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(41),
+        )
+        .expect("format package");
+        set_backup_manifest_field(&invalid_format, "format", serde_json::json!("other-format"));
+        assert_eq!(
+            preview_backup_package(&database, &invalid_format.package_name)
+                .expect_err("format rejection")
+                .code,
+            "unsupported_format"
+        );
+
+        let invalid_version = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(42),
+        )
+        .expect("version package");
+        set_backup_manifest_field(&invalid_version, "version", serde_json::json!(2));
+        assert_eq!(
+            preview_backup_package(&database, &invalid_version.package_name)
+                .expect_err("version rejection")
+                .code,
+            "unsupported_version"
+        );
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn preview_rejects_missing_or_malformed_package_files() {
+        let app_data_dir =
+            unique_test_dir("backup-preview-missing-files").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+
+        let missing_manifest = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(43),
+        )
+        .expect("missing manifest package");
+        fs::remove_file(
+            PathBuf::from(&missing_manifest.package_path).join(BACKUP_MANIFEST_FILE_NAME),
+        )
+        .expect("remove manifest");
+        assert_eq!(
+            preview_backup_package(&database, &missing_manifest.package_name)
+                .expect_err("missing manifest rejection")
+                .code,
+            "manifest_missing"
+        );
+
+        let malformed_manifest = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(44),
+        )
+        .expect("malformed package");
+        fs::write(
+            PathBuf::from(&malformed_manifest.package_path).join(BACKUP_MANIFEST_FILE_NAME),
+            "{broken",
+        )
+        .expect("break manifest");
+        assert_eq!(
+            preview_backup_package(&database, &malformed_manifest.package_name)
+                .expect_err("malformed manifest rejection")
+                .code,
+            "manifest_malformed"
+        );
+
+        let missing_database = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(45),
+        )
+        .expect("missing database package");
+        fs::remove_file(
+            PathBuf::from(&missing_database.package_path).join(BACKUP_DATABASE_FILE_NAME),
+        )
+        .expect("remove database");
+        assert_eq!(
+            preview_backup_package(&database, &missing_database.package_name)
+                .expect_err("missing database rejection")
+                .code,
+            "database_missing"
+        );
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn preview_rejects_traversal_nested_files_and_outside_packages() {
+        let app_data_dir = unique_test_dir("backup-preview-containment").join(APP_DATA_FOLDER_NAME);
+        let outside_dir = unique_test_dir("backup-preview-outside");
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let _ = fs::remove_dir_all(&outside_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let backup_folder = ensure_default_backup_folder(&database).expect("backup folder");
+        fs::create_dir_all(&outside_dir).expect("outside package");
+        fs::write(backup_folder.join("package-file"), "not a folder").expect("package file");
+
+        for invalid_name in [
+            "../backup-preview-outside",
+            "..\\backup-preview-outside",
+            "nested/package",
+            "nested\\package",
+            ".",
+            "..",
+            " package ",
+        ] {
+            assert_eq!(
+                preview_backup_package(&database, invalid_name)
+                    .expect_err("invalid name rejection")
+                    .code,
+                "invalid_package_name"
+            );
+        }
+        assert_eq!(
+            preview_backup_package(&database, "package-file")
+                .expect_err("file rejection")
+                .code,
+            "invalid_package_type"
+        );
+        assert!(outside_dir.is_dir());
+        let _ = fs::remove_dir_all(app_data_dir);
+        let _ = fs::remove_dir_all(outside_dir);
+    }
+
+    #[test]
+    fn preview_rejects_database_missing_any_current_schema_domain() {
+        let app_data_dir = unique_test_dir("backup-preview-schema").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let package = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(46),
+        )
+        .expect("package");
+        let package_database = PathBuf::from(&package.package_path).join(BACKUP_DATABASE_FILE_NAME);
+        fs::remove_file(&package_database).expect("remove complete database");
+        let incomplete = Connection::open(&package_database).expect("incomplete database");
+        for table_name in [
+            "videos",
+            "images",
+            "performers",
+            "managedCategories",
+            "glossary_entries",
+        ] {
+            incomplete
+                .execute(&format!("CREATE TABLE \"{table_name}\" (id TEXT)"), [])
+                .expect("partial table");
+        }
+        drop(incomplete);
+
+        let error =
+            preview_backup_package(&database, &package.package_name).expect_err("schema rejection");
+        assert_eq!(error.code, "required_schema_missing");
+        assert!(error.message.contains("credits"));
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn preview_rejects_symlink_package_when_platform_allows_symlink_creation() {
+        let app_data_dir = unique_test_dir("backup-preview-symlink").join(APP_DATA_FOLDER_NAME);
+        let outside_dir = unique_test_dir("backup-preview-symlink-target");
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let _ = fs::remove_dir_all(&outside_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let backup_folder = ensure_default_backup_folder(&database).expect("backup folder");
+        fs::create_dir_all(&outside_dir).expect("outside target");
+        let link = backup_folder.join("linked-package");
+        if std::os::windows::fs::symlink_dir(&outside_dir, &link).is_err() {
+            let _ = fs::remove_dir_all(app_data_dir);
+            let _ = fs::remove_dir_all(outside_dir);
+            return;
+        }
+
+        assert_eq!(
+            preview_backup_package(&database, "linked-package")
+                .expect_err("symlink rejection")
+                .code,
+            "invalid_package_type"
+        );
+        let _ = fs::remove_dir_all(link);
+        let _ = fs::remove_dir_all(app_data_dir);
+        let _ = fs::remove_dir_all(outside_dir);
+    }
+
+    #[test]
     fn rotation_deletes_only_old_automatic_packages_inside_backup_folder() {
         let app_data_dir = unique_test_dir("backup-package-rotation").join(APP_DATA_FOLDER_NAME);
         let outside_dir = unique_test_dir("backup-package-outside");
@@ -1909,6 +2586,23 @@ mod tests {
                 [id, title],
             )
             .expect("insert video");
+    }
+
+    fn set_backup_manifest_field(
+        package: &BackupPackageInfo,
+        field: &str,
+        value: serde_json::Value,
+    ) {
+        let manifest_path = PathBuf::from(&package.package_path).join(BACKUP_MANIFEST_FILE_NAME);
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&manifest_path).expect("manifest bytes"))
+                .expect("manifest json");
+        manifest[field] = value;
+        fs::write(
+            manifest_path,
+            serde_json::to_vec_pretty(&manifest).expect("manifest serialization"),
+        )
+        .expect("write manifest");
     }
 
     fn table_has_column(connection: &Connection, table_name: &str, column_name: &str) -> bool {
