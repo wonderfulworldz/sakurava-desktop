@@ -250,41 +250,136 @@ Manage local folders that Sakurava may access for media and image assets.
 
 **Purpose**
 
-Protect and restore the complete Sakurava database while clearly excluding
-external media files.
+Protect and restore the Sakurava database and explicitly allowlisted durable
+app-managed assets while clearly excluding external media files and disposable
+caches.
+
+**Current legacy behavior**
+
+- The existing manual backup asks the user to select a destination and creates
+  a database-only `.sqlite` file through SQLite online backup.
+- The existing restore command validates the selected SQLite source inside the
+  apply command, creates a database safety backup, and attempts database
+  rollback if apply fails.
+- The existing Settings confirmation occurs before the command performs its
+  validation. There is no separate read-only validation and preview step.
+- Raw SQLite backup and restore remain legacy compatibility behavior. They are
+  not the final Batch 41.7 package target.
 
 **Allowed visible controls**
 
-- Create a database backup.
-- Select and validate a restore file.
-- Show restore summary/preview.
-- Confirm and execute restore.
-- Show the restore source, safety-backup path, and result.
-- Auto Backup only if it can be implemented safely without a complex
-  scheduler; otherwise it remains absent.
+- Create a manual backup in Sakurava's default backup folder.
+- Open the default backup folder.
+- Add an optional note to a backup.
+- Enable or disable automatic backup while Sakurava is running.
+- Select the approved automatic-backup frequency and rotation count.
+- Select and validate a restore package.
+- Show a read-only restore summary/preview before confirmation.
+- Confirm and execute restore only after successful validation and preview.
+- Show the restore source, safety-package path, and result.
 
 **Existing capability to reuse**
 
 - SQLite online backup.
 - Restore-source validation and integrity check.
 - Pre-restore safety backup and rollback behavior.
-- Existing file dialogs and runtime commands.
+- Existing restore-source file dialog and runtime database foundation.
+
+**Default backup location**
+
+Normal manual and automatic backups use:
+
+```text
+%APPDATA%\app.sakurava.desktop\backups
+```
+
+The user does not choose a destination for normal backup. The runtime must
+resolve and create this app-owned directory, constrain package creation,
+listing, rotation, and deletion to it, and expose an Open Backup Folder action
+that opens only this resolved directory.
+
+**Target package contents**
+
+A conceptual Sakurava backup package contains:
+
+```text
+manifest.json
+sakurava.sqlite
+optional backup-note metadata
+explicitly allowlisted durable app-managed assets, only after ownership is defined
+```
+
+Original video files, original full image files, user media roots, and
+disposable caches are excluded. `thumbnail-cache`, `preview-cache`, and
+`generated-cache` are explicitly excluded. File paths referenced by records
+remain database metadata; referenced files are not copied.
+
+The physical package format is not yet locked. Implementation must stop until
+one of these is explicitly approved:
+
+1. a directory package v1 implemented without a new dependency; or
+2. a single archive package with explicit archive-dependency approval.
+
+The UI and documentation must not claim that either format is implemented
+before that decision.
+
+**Restore safety flow**
+
+The required flow is:
+
+```text
+select -> validate -> preview -> safety package -> confirm -> apply -> result
+```
+
+Validation and preview are read-only and must happen before any mutation.
+Confirmation is available only after successful validation and preview. The
+safety package must cover every component that apply may replace and must be
+created before confirmation. Apply must not bypass validation, preview, safety
+package creation, or confirmation. The result must report the restored source,
+safety-package path, and failure/rollback outcome.
+
+**Automatic backup model**
+
+- No OS scheduler, Windows Task Scheduler, background service, or always-on
+  tray process is used.
+- Automatic backup runs only while Sakurava is open.
+- If a due backup was missed while the app was closed, the next app start may
+  create at most one catch-up backup.
+- A concurrency lock must prevent unsafe overlap with manual backup, restore,
+  import, or other database mutation.
+- Rotation applies only to automatic backups and runs only after a successful
+  automatic backup.
+- Rotation inspects only the default backup folder, trusts package manifest
+  metadata rather than filename inference, deletes only automatic backups,
+  never deletes manual backups, and refuses every path outside the default
+  backup folder.
 
 **Not allowed in normal scope**
 
-- Media-file backup.
+- Original/full media-file backup.
+- User media-root backup.
+- Disposable-cache backup.
 - Cloud backup.
 - One-click restore.
-- Restore without validation, preview, safety backup, and confirmation.
-- A complex background scheduler.
+- Restore without read-only validation, preview, a complete safety package,
+  and confirmation.
+- An OS scheduler, background service, or always-on tray requirement.
+- Automatic rotation of manual backups.
 
 **Stop conditions**
 
-- Restore preview cannot be produced before mutation.
-- Safety backup cannot be created.
-- Restore failure cannot preserve or roll back the current database.
-- Auto Backup requires a service, scheduler, or new runtime architecture.
-- Any overwrite semantics remain ambiguous.
+- The physical package format is not approved.
+- The durable app-managed asset allowlist or ownership boundary is undefined.
+- An archive dependency is required but not approved.
+- Restore preview cannot run read-only before mutation.
+- The safety package cannot cover every restored component.
+- Restore failure cannot preserve or roll back the restored component set as
+  far as the approved package contract requires.
+- Rotation cannot distinguish trusted manual and automatic packages.
+- Any delete or rotation path can escape the default backup folder.
+- Auto Backup requires an OS scheduler, background service, or always-on tray.
+- Restore can run concurrently with backup, import, or database mutation.
+- Raw SQLite compatibility and migration policy is undefined.
 
 ### 4.7 Import / Export
 
@@ -375,7 +470,7 @@ The Normal Settings storage boundaries are locked as follows:
 | Language | Existing selected-language, custom-language, removed-bundled-language, and override localStorage keys. Enforce a maximum of 25 installed custom languages without destructive truncation. |
 | Catalog Preferences | Versioned localStorage for preference toggles and remembered per-catalog state. Invalid or obsolete values fall back safely. |
 | Media folders | Existing localStorage media-root storage unless a later filesystem decision is explicitly approved. Runtime scope must be restored defensively. |
-| Backup & Recovery | User-selected filesystem database backup files. External media files are excluded. |
+| Backup & Recovery | Versioned backup settings plus packages under `%APPDATA%\app.sakurava.desktop\backups`. Packages contain the database, manifest, optional note, and only explicitly allowlisted durable app-managed assets. Original media, user media roots, and disposable caches are excluded. Raw user-selected SQLite files are legacy compatibility, not the final Batch 41.7 target. |
 | Import / Export | A local CSV folder or ZIP package containing the locked CSV files and `manifest.json`. |
 | Performance & Cache | Existing app-data cache folders operated on through the existing scoped runtime command. |
 
@@ -420,7 +515,7 @@ command and its privacy boundary receive explicit approval.
 | Language | Context, fallback, custom CSV, overrides | In-app editor and extra conceptual groups | CSV compatibility change or storage migration | 41.4 |
 | Catalog Preferences | Existing per-catalog session-state model and read-only shell | Persistence claims before implementation | Remember/reset contract expansion | 41.5 |
 | Library & Media | Picker, root storage, scope validation | Scanner, watcher, mutation controls | New filesystem authority or command | 41.6 |
-| Backup & Recovery | Existing backup/restore runtime safety | Auto Backup until proven simple and safe | All implementation work in this data-risk section | 41.7 |
+| Backup & Recovery | SQLite backup, restore integrity validation, database safety backup, and rollback foundation | Destination-picker backup as the final target; OS scheduler/service; unapproved package claims | Package format, durable asset allowlist, new scoped runtime commands, archive dependency, and raw SQLite compatibility | 41.7.0-41.7.5 |
 | Import / Export | Existing CSV foundation and staged preview | Unsupported entities/package claims | All implementation work in this data-risk section | 41.8 |
 | Performance & Cache | Scoped cache clear | Unmeasured size and unavailable pipelines | Expanded recursive deletion or new performance architecture | 41.9 |
 
@@ -428,16 +523,27 @@ command and its privacy boundary receive explicit approval.
 
 ### 8.1 Backup & Recovery
 
-- A database backup is one database file.
-- Database backup does not include Videos, Images, thumbnails, or other external
-  media files.
-- Restore must validate the selected file before mutation.
-- Restore must show a summary/preview before apply.
-- Restore must clearly state that the current database will be replaced.
-- Restore must create a safety backup before overwrite.
-- Restore must require explicit confirmation after validation and preview.
-- Restore failure must not leave the active database partially restored.
-- The result must report both the restore source and safety-backup location.
+- The user-selected database-only `.sqlite` artifact is legacy compatibility,
+  not the final Batch 41.7 package.
+- Normal backup creates a package under
+  `%APPDATA%\app.sakurava.desktop\backups` without a destination picker.
+- The target package contains `manifest.json`, `sakurava.sqlite`, optional note
+  metadata, and only explicitly allowlisted durable app-managed assets.
+- Original/full media, user media roots, and disposable caches are excluded.
+- Referenced media paths remain database metadata only.
+- Restore must follow:
+  `select -> validate -> preview -> safety package -> confirm -> apply -> result`.
+- Validation and preview must be read-only.
+- The safety package must cover every component that apply may replace.
+- Restore failure must preserve or roll back the approved restored component
+  set as far as the locked package contract requires.
+- The result must report the restore source, safety-package location, restored
+  components, and failure/rollback outcome.
+- Automatic backup runs only while Sakurava is open, with at most one catch-up
+  backup on next start.
+- Automatic rotation is confined to the default backup folder, runs only after
+  successful automatic backup, uses trusted manifest metadata, and never
+  deletes manual packages.
 
 ### 8.2 Import / Export Package
 
@@ -524,7 +630,7 @@ request explicit approval before adding it.
 | --- | --- |
 | Schema or migration needed | Stop. Normal Settings assumes no schema change; request explicit approval. |
 | New Tauri command needed | Stop and document the command, authority, validation, and alternatives before approval. |
-| Restore overwrite risk | Do not apply without validation, preview, safety backup, confirmation, and failure recovery. |
+| Restore overwrite risk | Do not apply without read-only validation, preview, a safety package covering all restored components, confirmation, and failure recovery. |
 | CSV partial apply or transaction risk | Lock atomic versus reported partial-apply semantics before implementation. |
 | Date parsing ambiguity | Warn or block; never infer silently or use PC locale. |
 | Credit identity and multiple-role risk | Preserve distinct credit rows; do not add performer/work uniqueness. |
@@ -544,7 +650,12 @@ The direct Batch 41 sequence is:
 41.4  Language
 41.5  Catalog Preferences
 41.6  Library & Media
-41.7  Backup & Recovery
+41.7.0 Backup & Recovery Audit + Decision Amendment
+41.7.1 Runtime package foundation
+41.7.2 Restore validation and preview
+41.7.3 Package restore safety
+41.7.4 Settings UI and manual backup
+41.7.5 App-open automatic backup
 41.8  Import / Export
 41.9  Performance & Cache
 ```
