@@ -5182,7 +5182,7 @@ describe("App", () => {
       JSON.stringify([canonicalRoot]),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Media Root" }));
 
     expect(screen.queryByText(displayRoot)).not.toBeInTheDocument();
     expect(screen.getByText("No folders configured")).toBeInTheDocument();
@@ -5190,8 +5190,91 @@ describe("App", () => {
       JSON.stringify([]),
     );
     expect(
-      screen.getByText("Removed roots stop being restored after restart."),
+      screen.getByText(
+        "Configured media root removed. It will no longer be restored after restart.",
+      ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove Media Root" }),
+    ).toBeDisabled();
+  });
+
+  it("selects one media root and removes the selected non-first root safely", () => {
+    window.history.pushState({}, "", "/settings");
+    const roots = [
+      "D:\\Media One",
+      "D:\\Media Two",
+      "D:\\Media Three",
+    ];
+    window.localStorage.setItem(
+      "sakurava.mediaAssetRoots.v1",
+      JSON.stringify(roots),
+    );
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "media_asset_allow_root") {
+        return { rootPath: args.rootPath, success: true };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+
+    render(<App />);
+
+    const listbox = screen.getByRole("listbox", {
+      name: "Configured media roots",
+    });
+    const options = within(listbox).getAllByRole("option");
+    expect(options).toHaveLength(3);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[1]).toHaveAttribute("aria-selected", "false");
+    expect(options[2]).toHaveAttribute("aria-selected", "false");
+
+    fireEvent.click(options[1]);
+    expect(options[0]).toHaveAttribute("aria-selected", "false");
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Media Root" }),
+    );
+
+    expect(screen.queryByText("D:\\Media Two")).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "D:\\Media Three" }))
+      .toHaveAttribute("aria-selected", "true");
+    expect(window.localStorage.getItem("sakurava.mediaAssetRoots.v1")).toBe(
+      JSON.stringify(["D:\\Media One", "D:\\Media Three"]),
+    );
+    expect(
+      screen.getByText(
+        "Removing a configured root does not delete media files. Its current app-session access may remain until restart.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset Library & Media" }))
+      .not.toBeInTheDocument();
+    expect(
+      (invoke as unknown as ReturnType<typeof vi.fn>).mock.calls.every(
+        ([command]) =>
+          !/(delete|move|rename|copy)/i.test(String(command)),
+      ),
+    ).toBe(true);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Media Root" }),
+    );
+    expect(screen.getByRole("option", { name: "D:\\Media One" }))
+      .toHaveAttribute("aria-selected", "true");
+  });
+
+  it("handles invalid media-root localStorage without enabling Remove", () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(
+      "sakurava.mediaAssetRoots.v1",
+      JSON.stringify({ root: "D:\\Invalid Shape" }),
+    );
+    render(<App />);
+
+    expect(screen.getByText("No folders configured")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove Media Root" }),
+    ).toBeDisabled();
   });
 
   it("cancels database backup without calling the backup command", async () => {

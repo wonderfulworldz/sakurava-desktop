@@ -300,6 +300,7 @@ function SettingsPage() {
     state: "idle",
   });
   const [mediaRoots, setMediaRoots] = useState<string[]>([]);
+  const [selectedMediaRoot, setSelectedMediaRoot] = useState<string | null>(null);
   const [mediaRootStatus, setMediaRootStatus] = useState<MediaRootStatus>({
     state: "idle",
   });
@@ -421,6 +422,17 @@ function SettingsPage() {
     setMediaRoots(getStoredMediaAssetRoots());
     setManagedCategories(getStoredManagedCategories());
   }, []);
+
+  useEffect(() => {
+    setSelectedMediaRoot((current) => {
+      if (current && hasMediaRoot(mediaRoots, current)) {
+        return mediaRoots.find(
+          (root) => mediaRootKey(root) === mediaRootKey(current),
+        ) ?? mediaRoots[0] ?? null;
+      }
+      return mediaRoots[0] ?? null;
+    });
+  }, [mediaRoots]);
 
   async function loadCategoryData() {
     const [videos, images, performers] = await Promise.all([
@@ -904,9 +916,16 @@ function SettingsPage() {
 
       const result = await allowMediaAssetRoot(selectedPath);
       if (hasMediaRoot(mediaRoots, result.rootPath)) {
+        setSelectedMediaRoot(
+          mediaRoots.find(
+            (root) => mediaRootKey(root) === mediaRootKey(result.rootPath),
+          ) ?? null,
+        );
         setMediaRootStatus({
           state: "success",
-          message: `${displayMediaRootPath(result.rootPath)} is already configured.`,
+          message: t("settings.libraryMedia.duplicateRoot", {
+            path: displayMediaRootPath(result.rootPath),
+          }),
         });
         return;
       }
@@ -914,32 +933,36 @@ function SettingsPage() {
       const nextRoots = [...mediaRoots, result.rootPath];
       storeMediaAssetRoots(nextRoots);
       setMediaRoots(nextRoots);
+      setSelectedMediaRoot(result.rootPath);
       setMediaRootStatus({
         state: "success",
-        message: `Media root enabled for thumbnails: ${displayMediaRootPath(result.rootPath)}`,
+        message: t("settings.libraryMedia.addSuccess", {
+          path: displayMediaRootPath(result.rootPath),
+        }),
       });
     } catch (error) {
       setMediaRootStatus({
         state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "Media root was not enabled.",
+        message: mediaRootErrorMessage(error, t),
       });
     }
   }
 
   function handleRemoveMediaRoot(rootPath: string) {
+    const selectedIndex = mediaRoots.findIndex(
+      (root) => mediaRootKey(root) === mediaRootKey(rootPath),
+    );
     const nextRoots = mediaRoots.filter(
       (root) => mediaRootKey(root) !== mediaRootKey(rootPath),
     );
     storeMediaAssetRoots(nextRoots);
     setMediaRoots(nextRoots);
+    setSelectedMediaRoot(
+      nextRoots[Math.min(Math.max(selectedIndex, 0), nextRoots.length - 1)] ?? null,
+    );
     setMediaRootStatus({
       state: "success",
-      message: "Removed roots stop being restored after restart.",
+      message: t("settings.libraryMedia.removeSuccess"),
     });
   }
 
@@ -1162,6 +1185,7 @@ function SettingsPage() {
           languageCode,
           languages,
           mediaRoots,
+          selectedMediaRoot,
           isDesktopRuntime,
           isLanguageCsvBusy,
           isLanguageManagerOpen,
@@ -1203,6 +1227,7 @@ function SettingsPage() {
           setLanguageCsvStatus,
           handleAddMediaRoot,
           handleRemoveMediaRoot,
+          setSelectedMediaRoot,
           handleBackupData,
           handleRestoreData,
           setRestoreStatus,
@@ -1521,6 +1546,7 @@ function SettingsSection({
     languageCode,
     languages,
     mediaRoots,
+    selectedMediaRoot,
     isDesktopRuntime,
     isLanguageCsvBusy,
     isLanguageManagerOpen,
@@ -1562,6 +1588,7 @@ function SettingsSection({
     setLanguageCsvStatus,
     handleAddMediaRoot,
     handleRemoveMediaRoot,
+    setSelectedMediaRoot,
     handleBackupData,
     handleRestoreData,
     setRestoreStatus,
@@ -1873,7 +1900,11 @@ function SettingsSection({
         </p>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title={t("settings.library.title")} icon={Folder}>
+      <SettingsPanelCard
+        title={t("settings.library.title")}
+        icon={Folder}
+        showReset={false}
+      >
         <ControlRow label={t("settings.library.mediaRoot")} alignStart>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div
@@ -1885,33 +1916,52 @@ function SettingsSection({
                 <p className="px-2 py-1 text-sm font-medium text-slate-400">{t("settings.library.noFolders")}</p>
               ) : (
                 mediaRoots.map((root: string) => (
-                  <div
+                  <button
                     key={root}
+                    type="button"
                     role="option"
-                    aria-selected="true"
-                    className="rounded-md bg-sakura-50 px-2 py-1.5 text-sm font-medium text-slate-700"
+                    aria-selected={
+                      selectedMediaRoot !== null &&
+                      mediaRootKey(root) === mediaRootKey(selectedMediaRoot)
+                    }
+                    onClick={() => setSelectedMediaRoot(root)}
+                    className={`block w-full rounded-md px-2 py-1.5 text-left text-sm font-medium transition ${
+                      selectedMediaRoot !== null &&
+                      mediaRootKey(root) === mediaRootKey(selectedMediaRoot)
+                        ? "bg-sakura-50 text-slate-700"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
                     {displayMediaRootPath(root)}
-                  </div>
+                  </button>
                 ))
               )}
             </div>
             <div className="flex gap-2 sm:flex-col">
               <ShellButton
-                label={isMediaRootPending ? "Adding..." : "Add Folder..."}
-                ariaLabel="Add Media Root"
+                label={
+                  isMediaRootPending
+                    ? t("settings.libraryMedia.adding")
+                    : t("settings.libraryMedia.addFolder")
+                }
+                ariaLabel={t("settings.libraryMedia.addRootAria")}
                 disabled={!canAddMediaRoot}
                 onClick={handleAddMediaRoot}
               />
               <ShellButton
                 label={t("settings.library.remove")}
-                ariaLabel="Remove"
-                disabled={mediaRoots.length === 0}
-                onClick={() => mediaRoots[0] && handleRemoveMediaRoot(mediaRoots[0])}
+                ariaLabel={t("settings.libraryMedia.removeRootAria")}
+                disabled={!selectedMediaRoot}
+                onClick={() =>
+                  selectedMediaRoot && handleRemoveMediaRoot(selectedMediaRoot)
+                }
               />
             </div>
           </div>
           <SettingsStatusMessage status={mediaRootStatus} kind="mediaRoot" />
+          <p className="mt-2 text-xs font-medium text-slate-500">
+            {t("settings.libraryMedia.removeHelp")}
+          </p>
         </ControlRow>
       </SettingsPanelCard>
 
@@ -3672,6 +3722,7 @@ function SettingsStatusMessage({
     | ExportStatus;
   kind: "backup" | "restore" | "cache" | "mediaRoot" | "category" | "export";
 }) {
+  const t = useTranslation();
   if (!status || status.state === "idle" || status.state === "confirming") {
     return null;
   }
@@ -3685,7 +3736,7 @@ function SettingsStatusMessage({
         : kind === "cache"
           ? "Clearing app-generated cache..."
           : kind === "mediaRoot"
-            ? "Adding media root..."
+            ? t("settings.libraryMedia.pending")
             : kind === "export"
               ? `Exporting ${
                   "entity" in status ? exportEntityLabel(status.entity) : "data"
@@ -3769,6 +3820,22 @@ function MediaRootList({
 function hasMediaRoot(currentRoots: string[], nextRoot: string) {
   const nextKey = mediaRootKey(nextRoot);
   return currentRoots.some((root) => mediaRootKey(root) === nextKey);
+}
+
+function mediaRootErrorMessage(
+  error: unknown,
+  t: (key: string, replacements?: Record<string, string>) => string,
+) {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const knownErrors: Record<string, string> = {
+    "Media asset root path is required": "settings.libraryMedia.error.required",
+    "Media asset root folder does not exist": "settings.libraryMedia.error.missing",
+    "Media asset root must be a folder": "settings.libraryMedia.error.notFolder",
+    "Media asset root cannot be a drive or filesystem root":
+      "settings.libraryMedia.error.filesystemRoot",
+  };
+  return t(knownErrors[message] ?? "settings.libraryMedia.error.generic");
 }
 
 function mediaRootKey(rootPath: string) {
