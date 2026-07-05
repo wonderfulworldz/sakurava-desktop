@@ -19,9 +19,14 @@ import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import SakuravaSelect from "../components/SakuravaSelect";
 import {
   clearSessionFilterState,
+  hasSessionFilterState,
   readSessionFilterState,
   writeSessionFilterState,
 } from "../lib/sessionFilterState";
+import {
+  readCatalogPreferencePage,
+  storeCatalogPreferencePage,
+} from "../lib/catalogPreferences";
 import { useTranslation } from "../lib/LanguageContext";
 import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 
@@ -81,6 +86,28 @@ const sortOptions: Array<{ value: GlossarySortKey; label: string }> = [
   { value: "created-desc", label: "Last Added" },
   { value: "updated-desc", label: "Last Modified" },
 ];
+const glossarySortValues = new Set<GlossarySortKey>(sortOptions.map((option) => option.value));
+const glossaryFilterValues = new Set<GlossaryFilterValue>(["all", "parent", "child"]);
+
+function initialGlossaryFilters(): GlossarySessionFilters {
+  if (hasSessionFilterState(glossaryFilterSessionKey)) {
+    return readSessionFilterState(glossaryFilterSessionKey, emptyGlossarySessionFilters);
+  }
+  const durable = readCatalogPreferencePage("glossary");
+  const parentFilter =
+    typeof durable.filters === "string" &&
+    glossaryFilterValues.has(durable.filters as GlossaryFilterValue)
+      ? (durable.filters as GlossaryFilterValue)
+      : "all";
+  const sortKey = glossarySortValues.has(durable.sort as GlossarySortKey)
+    ? (durable.sort as GlossarySortKey)
+    : undefined;
+  const tableSort =
+    durable.tableSort && glossarySortValues.has(durable.tableSort.value as GlossarySortKey)
+      ? { ...durable.tableSort, value: durable.tableSort.value as GlossarySortKey }
+      : null;
+  return { ...emptyGlossarySessionFilters, parentFilter, sortKey, tableSort };
+}
 
 const sampleGlossaryEntries: GlossaryEntry[] = [
   {
@@ -267,10 +294,7 @@ function glossaryConfirmationCopy(
 
 function GlossaryPage() {
   const t = useTranslation();
-  const initialFilters = readSessionFilterState(
-    glossaryFilterSessionKey,
-    emptyGlossarySessionFilters,
-  );
+  const initialFilters = initialGlossaryFilters();
   const [entries, setEntries] = useState<GlossaryEntry[]>(() =>
     isGlossaryRuntimeAvailable() ? [] : sampleGlossaryEntries,
   );
@@ -387,6 +411,11 @@ function GlossaryPage() {
       pageSize,
       page,
       expandedEntryIds: [...expandedEntryIds],
+    });
+    storeCatalogPreferencePage("glossary", {
+      sort: sortKey,
+      tableSort,
+      filters: parentFilter,
     });
   }, [
     expandedEntryIds,

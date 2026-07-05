@@ -13,10 +13,13 @@ import CategoryCatalogCard, {
 import SakuravaSelect from "../components/SakuravaSelect";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
+  DEFAULT_CATALOG_PAGE_SIZE,
   normalizeCatalogPageSize,
-  readStoredCatalogPageSize,
-  storeCatalogPageSize,
 } from "../lib/catalogPagination";
+import {
+  readCatalogPreferencePage,
+  storeCatalogPreferencePage,
+} from "../lib/catalogPreferences";
 import { getStoredManagedCategories } from "../lib/managedCategories";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
 import { listImages } from "../runtime/imageCommands";
@@ -42,18 +45,29 @@ const emptyAudit = buildCategoryAudit({
   images: [],
   performers: [],
 });
-const categoryCatalogPageSizeStorageKey = "sakurava.catalog.categories.pageSize.v1";
+const categorySortValues = new Set<SortValue>([
+  "name", "usage-desc", "usage-asc", "updated-desc", "created-desc",
+]);
+const categoryUsageFilters = new Set<UsageFilter>(["all", "videos", "images", "performers"]);
 
 function CategoriesPage() {
   const t = useTranslation();
+  const initialPreference = readCatalogPreferencePage("categories");
+  const initialUsageFilter =
+    typeof initialPreference.filters === "string" &&
+    categoryUsageFilters.has(initialPreference.filters as UsageFilter)
+      ? (initialPreference.filters as UsageFilter)
+      : "all";
+  const initialSort =
+    categorySortValues.has(initialPreference.sort as SortValue)
+      ? (initialPreference.sort as SortValue)
+      : "name";
   const [auditRows, setAuditRows] = useState<CategoryAuditRow[]>([]);
   const [managedCategories, setManagedCategories] = useState<ManagedCategory[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [usageFilter, setUsageFilter] = useState<UsageFilter>("all");
-  const [sortValue, setSortValue] = useState<SortValue>("name");
-  const [pageSize, setPageSize] = useState(() =>
-    readStoredCatalogPageSize(categoryCatalogPageSizeStorageKey),
-  );
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>(initialUsageFilter);
+  const [sortValue, setSortValue] = useState<SortValue>(initialSort);
+  const [pageSize, setPageSize] = useState(DEFAULT_CATALOG_PAGE_SIZE);
   const [page, setPage] = useState(1);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
     "idle",
@@ -69,6 +83,13 @@ function CategoriesPage() {
   useEffect(() => {
     setPage(1);
   }, [searchQuery, usageFilter, sortValue, pageSize]);
+
+  useEffect(() => {
+    storeCatalogPreferencePage("categories", {
+      sort: sortValue,
+      filters: usageFilter,
+    });
+  }, [sortValue, usageFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -241,7 +262,6 @@ function CategoriesPage() {
             onPageSizeChange={(value) => {
               const nextPageSize = normalizeCatalogPageSize(value);
               setPageSize(nextPageSize);
-              storeCatalogPageSize(categoryCatalogPageSizeStorageKey, nextPageSize);
             }}
           />
         </>
