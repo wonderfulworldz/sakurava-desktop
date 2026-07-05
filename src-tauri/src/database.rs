@@ -1,7 +1,7 @@
 use std::{
     fs, io,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard, TryLockError},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -194,6 +194,7 @@ pub struct RuntimeDatabasePaths {
 pub struct RuntimeDatabase {
     pub paths: RuntimeDatabasePaths,
     connection: Arc<Mutex<Connection>>,
+    package_operation: Arc<Mutex<()>>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -217,6 +218,7 @@ pub struct DatabaseRestoreResult {
 pub enum BackupPackageType {
     Manual,
     Automatic,
+    Safety,
 }
 
 impl BackupPackageType {
@@ -224,6 +226,7 @@ impl BackupPackageType {
         match self {
             Self::Manual => "manual",
             Self::Automatic => "automatic",
+            Self::Safety => "safety",
         }
     }
 }
@@ -318,6 +321,56 @@ impl BackupPackagePreviewError {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct BackupPackageRestoreResult {
+    pub restored_package_name: String,
+    pub safety_package_name: String,
+    pub restored_at: String,
+    pub database_restored: bool,
+    pub rollback_attempted: bool,
+    pub rollback_succeeded: bool,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackageRestoreError {
+    pub code: String,
+    pub message: String,
+    pub restored_package_name: String,
+    pub safety_package_name: Option<String>,
+    pub rollback_attempted: bool,
+    pub rollback_succeeded: bool,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+impl BackupPackageRestoreError {
+    fn new(
+        code: &str,
+        message: impl Into<String>,
+        restored_package_name: impl Into<String>,
+    ) -> Self {
+        let message = message.into();
+        Self {
+            code: code.to_string(),
+            message: message.clone(),
+            restored_package_name: restored_package_name.into(),
+            safety_package_name: None,
+            rollback_attempted: false,
+            rollback_succeeded: false,
+            warnings: Vec::new(),
+            errors: vec![message],
+        }
+    }
+
+    fn from_preview(package_name: &str, error: BackupPackagePreviewError) -> Self {
+        Self::new(&error.code, error.message, package_name)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct BackupPackageRotationResult {
     pub kept_automatic: usize,
     pub removed_automatic: usize,
@@ -344,6 +397,18 @@ pub struct ClearCacheResult {
 impl RuntimeDatabase {
     pub fn connection(&self) -> Arc<Mutex<Connection>> {
         Arc::clone(&self.connection)
+    }
+
+    fn lock_package_operation(&self) -> Result<MutexGuard<'_, ()>, String> {
+        match self.package_operation.try_lock() {
+            Ok(guard) => Ok(guard),
+            Err(TryLockError::WouldBlock) => {
+                Err("Another backup or restore package operation is already running".to_string())
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                Err("Backup and restore package operations are unavailable".to_string())
+            }
+        }
     }
 }
 
@@ -376,6 +441,10 @@ pub fn create_backup_package(
     backup_type: BackupPackageType,
     note: Option<String>,
 ) -> Result<BackupPackageInfo, String> {
+    if backup_type == BackupPackageType::Safety {
+        return Err("Safety backup packages can only be created internally".to_string());
+    }
+    let _operation = database.lock_package_operation()?;
     create_backup_package_at(database, backup_type, note, SystemTime::now())
 }
 
@@ -774,10 +843,221 @@ fn manifest_unknown_field_warnings(manifest: &serde_json::Value) -> Vec<String> 
     }
 }
 
+pub fn restore_backup_package(
+    database: &RuntimeDatabase,
+    package_name: &str,
+) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError> {
+    restore_backup_package_with_hooks(
+        database,
+        package_name,
+        |_| Ok(()),
+        |connection, _| validate_restored_connection(connection),
+        |_| Ok(()),
+    )
+}
+
+fn restore_backup_package_with_hooks<P, F, R>(
+    database: &RuntimeDatabase,
+    package_name: &str,
+    pre_apply_hook: P,
+    post_apply_check: F,
+    rollback_source_check: R,
+) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError>
+where
+    P: FnOnce(&Path) -> Result<(), String>,
+    F: FnOnce(&Connection, &Path) -> Result<(), String>,
+    R: FnOnce(&Path) -> Result<(), String>,
+{
+    let _operation = database.lock_package_operation().map_err(|message| {
+        BackupPackageRestoreError::new("package_operation_busy", message, package_name)
+    })?;
+
+    // Never trust a preview produced by an earlier frontend request.
+    preview_backup_package(database, package_name)
+        .map_err(|error| BackupPackageRestoreError::from_preview(package_name, error))?;
+
+    let connection = database.connection();
+    let mut connection = connection.lock().map_err(|_| {
+        BackupPackageRestoreError::new(
+            "database_unavailable",
+            "Database connection is unavailable",
+            package_name,
+        )
+    })?;
+
+    let safety_package =
+        create_safety_backup_package(database, &connection, package_name, SystemTime::now())
+            .map_err(|message| {
+                BackupPackageRestoreError::new(
+                    "safety_package_failed",
+                    format!("Unable to create restore safety package: {message}"),
+                    package_name,
+                )
+            })?;
+
+    let package_path = default_backup_folder(database).join(package_name);
+    pre_apply_hook(&package_path).map_err(|message| {
+        let mut error =
+            BackupPackageRestoreError::new("pre_apply_check_failed", message, package_name);
+        error.safety_package_name = Some(safety_package.package_name.clone());
+        error
+    })?;
+
+    // Revalidate after the safety snapshot and immediately before the mutating restore call.
+    let preview = preview_backup_package(database, package_name).map_err(|error| {
+        let mut restore_error = BackupPackageRestoreError::from_preview(package_name, error);
+        restore_error.safety_package_name = Some(safety_package.package_name.clone());
+        restore_error
+    })?;
+    let source_path = package_path.join(BACKUP_DATABASE_FILE_NAME);
+    let safety_database_path =
+        PathBuf::from(&safety_package.package_path).join(BACKUP_DATABASE_FILE_NAME);
+
+    let apply_result = connection
+        .restore(DatabaseName::Main, &source_path, None::<fn(_)>)
+        .map_err(|error| format!("Unable to restore package database: {error}"))
+        .and_then(|_| post_apply_check(&connection, &safety_database_path));
+
+    if let Err(apply_error) = apply_result {
+        let rollback_result = rollback_source_check(&safety_database_path).and_then(|_| {
+            connection
+                .restore(DatabaseName::Main, &safety_database_path, None::<fn(_)>)
+                .map_err(|error| format!("Unable to roll back from safety package: {error}"))
+        });
+        let rollback_succeeded = rollback_result.is_ok();
+        let mut errors = vec![apply_error.clone()];
+        let message = if let Err(rollback_error) = rollback_result {
+            errors.push(rollback_error.clone());
+            format!("{apply_error}. {rollback_error}")
+        } else {
+            format!("{apply_error}. The active database was rolled back from the safety package.")
+        };
+        return Err(BackupPackageRestoreError {
+            code: if rollback_succeeded {
+                "restore_apply_failed"
+            } else {
+                "restore_rollback_failed"
+            }
+            .to_string(),
+            message,
+            restored_package_name: package_name.to_string(),
+            safety_package_name: Some(safety_package.package_name),
+            rollback_attempted: true,
+            rollback_succeeded,
+            warnings: preview.warnings,
+            errors,
+        });
+    }
+
+    Ok(BackupPackageRestoreResult {
+        restored_package_name: package_name.to_string(),
+        safety_package_name: safety_package.package_name,
+        restored_at: backup_created_at(SystemTime::now()).map_err(|message| {
+            BackupPackageRestoreError::new("result_timestamp_failed", message, package_name)
+        })?,
+        database_restored: true,
+        rollback_attempted: false,
+        rollback_succeeded: false,
+        warnings: preview.warnings,
+        errors: Vec::new(),
+    })
+}
+
+fn create_safety_backup_package(
+    database: &RuntimeDatabase,
+    connection: &Connection,
+    restored_package_name: &str,
+    created_at: SystemTime,
+) -> Result<BackupPackageInfo, String> {
+    let backup_folder = ensure_default_backup_folder(database)?;
+    let timestamp = backup_timestamp(created_at)?;
+    let base_name = format!("sakurava-backup-{timestamp}-safety");
+    let mut package_name = base_name.clone();
+    let mut package_path = backup_folder.join(&package_name);
+    if package_path.exists() {
+        package_name = format!("{base_name}-{}", timestamp_millis());
+        package_path = backup_folder.join(&package_name);
+    }
+    if package_path.exists() {
+        return Err("A restore safety package already exists for this operation".to_string());
+    }
+
+    let staging_path =
+        backup_folder.join(format!(".{package_name}.staging-{}", timestamp_millis()));
+    let result = (|| {
+        fs::create_dir(&staging_path)
+            .map_err(|error| format!("Unable to create safety package staging folder: {error}"))?;
+        let safety_database_path = staging_path.join(BACKUP_DATABASE_FILE_NAME);
+        connection
+            .backup(DatabaseName::Main, &safety_database_path, None)
+            .map_err(|error| format!("Unable to back up the active database: {error}"))?;
+
+        let manifest = BackupPackageManifest {
+            format: BACKUP_FORMAT.to_string(),
+            version: BACKUP_FORMAT_VERSION,
+            created_at: backup_created_at(created_at)?,
+            backup_type: BackupPackageType::Safety,
+            note: format!("Safety backup before restoring {restored_package_name}"),
+            includes: BackupPackageIncludes {
+                database: true,
+                original_media: false,
+                app_managed_assets: false,
+            },
+            database: BackupPackageDatabase {
+                file: BACKUP_DATABASE_FILE_NAME.to_string(),
+            },
+        };
+        let manifest_json = serde_json::to_string_pretty(&manifest)
+            .map_err(|error| format!("Unable to serialize safety package manifest: {error}"))?;
+        fs::write(staging_path.join(BACKUP_MANIFEST_FILE_NAME), manifest_json)
+            .map_err(|error| format!("Unable to write safety package manifest: {error}"))?;
+        fs::rename(&staging_path, &package_path)
+            .map_err(|error| format!("Unable to finalize safety package: {error}"))?;
+
+        Ok(BackupPackageInfo {
+            package_name,
+            package_path: package_path.display().to_string(),
+            manifest,
+        })
+    })();
+
+    if result.is_err() && staging_path.exists() {
+        let _ = fs::remove_dir_all(&staging_path);
+    }
+    result
+}
+
+fn validate_restored_connection(connection: &Connection) -> Result<(), String> {
+    let quick_check: String = connection
+        .query_row("PRAGMA quick_check", [], |row| row.get(0))
+        .map_err(|error| format!("Unable to validate restored database integrity: {error}"))?;
+    if quick_check != "ok" {
+        return Err(format!(
+            "Restored database failed SQLite integrity check: {quick_check}"
+        ));
+    }
+    for table_name in REQUIRED_SCHEMA_TABLES {
+        let present: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                [table_name],
+                |row| row.get(0),
+            )
+            .map_err(|error| format!("Unable to inspect restored database schema: {error}"))?;
+        if present != 1 {
+            return Err(format!(
+                "Restored database is missing required table: {table_name}"
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn rotate_automatic_backup_packages(
     database: &RuntimeDatabase,
     keep_count: usize,
 ) -> Result<BackupPackageRotationResult, String> {
+    let _operation = database.lock_package_operation()?;
     if keep_count == 0 || keep_count > 100 {
         return Err("Automatic backup rotation count must be between 1 and 100".to_string());
     }
@@ -1100,6 +1380,7 @@ pub fn open_runtime_database(paths: RuntimeDatabasePaths) -> rusqlite::Result<Ru
     Ok(RuntimeDatabase {
         paths,
         connection: Arc::new(Mutex::new(connection)),
+        package_operation: Arc::new(Mutex::new(())),
     })
 }
 
@@ -2247,6 +2528,466 @@ mod tests {
         let _ = fs::remove_dir_all(link);
         let _ = fs::remove_dir_all(app_data_dir);
         let _ = fs::remove_dir_all(outside_dir);
+    }
+
+    #[test]
+    fn restores_valid_package_after_revalidation_and_creates_database_only_safety_package() {
+        let app_data_dir = unique_test_dir("package-restore-success").join(APP_DATA_FOLDER_NAME);
+        let external_media_dir = unique_test_dir("package-restore-external-media");
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let _ = fs::remove_dir_all(&external_media_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "restored_video", "Restored Video");
+        let restored_package = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(50),
+        )
+        .expect("restore package");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            connection
+                .execute("DELETE FROM videos", [])
+                .expect("clear source row");
+        }
+        insert_video_title(&database, "current_video", "Current Video");
+        fs::create_dir_all(&external_media_dir).expect("external media dir");
+        let external_media = external_media_dir.join("keep.mp4");
+        fs::write(&external_media, "external media").expect("external media");
+
+        let result =
+            restore_backup_package(&database, &restored_package.package_name).expect("restore");
+
+        assert!(result.database_restored);
+        assert!(!result.rollback_attempted);
+        assert!(!result.rollback_succeeded);
+        assert!(result.errors.is_empty());
+        assert_eq!(result.restored_package_name, restored_package.package_name);
+        assert_eq!(read_video_title(&database, "current_video"), None);
+        assert_eq!(
+            read_video_title(&database, "restored_video"),
+            Some("Restored Video".to_string())
+        );
+        assert!(PathBuf::from(&restored_package.package_path).is_dir());
+        assert_eq!(
+            fs::read_to_string(&external_media).expect("external media after"),
+            "external media"
+        );
+
+        let safety = list_backup_packages(&database)
+            .expect("package list")
+            .into_iter()
+            .find(|package| package.package_name == result.safety_package_name)
+            .expect("safety package");
+        assert_eq!(safety.manifest.backup_type, BackupPackageType::Safety);
+        assert!(safety.manifest.includes.database);
+        assert!(!safety.manifest.includes.original_media);
+        assert!(!safety.manifest.includes.app_managed_assets);
+        assert_eq!(
+            Connection::open(PathBuf::from(&safety.package_path).join(BACKUP_DATABASE_FILE_NAME))
+                .expect("safety database")
+                .query_row(
+                    "SELECT title FROM videos WHERE id = 'current_video'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .expect("safety current row"),
+            "Current Video"
+        );
+
+        let _ = fs::remove_dir_all(app_data_dir);
+        let _ = fs::remove_dir_all(external_media_dir);
+    }
+
+    #[test]
+    fn package_restore_rejects_invalid_names_manifests_content_and_databases_before_mutation() {
+        let app_data_dir = unique_test_dir("package-restore-validation").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "current_video", "Current Video");
+
+        assert_eq!(
+            restore_backup_package(&database, "../outside")
+                .expect_err("traversal rejection")
+                .code,
+            "invalid_package_name"
+        );
+
+        for (seconds, field, value, expected_code) in [
+            (
+                51,
+                "format",
+                serde_json::json!("unsupported"),
+                "unsupported_format",
+            ),
+            (52, "version", serde_json::json!(2), "unsupported_version"),
+        ] {
+            let package = create_backup_package_at(
+                &database,
+                BackupPackageType::Manual,
+                None,
+                UNIX_EPOCH + std::time::Duration::from_secs(seconds),
+            )
+            .expect("invalid manifest package");
+            set_backup_manifest_field(&package, field, value);
+            assert_eq!(
+                restore_backup_package(&database, &package.package_name)
+                    .expect_err("manifest rejection")
+                    .code,
+                expected_code
+            );
+        }
+
+        for (seconds, field, expected_code) in [
+            (53, "originalMedia", "original_media_not_supported"),
+            (54, "appManagedAssets", "app_managed_assets_not_supported"),
+        ] {
+            let package = create_backup_package_at(
+                &database,
+                BackupPackageType::Manual,
+                None,
+                UNIX_EPOCH + std::time::Duration::from_secs(seconds),
+            )
+            .expect("unsupported content package");
+            let manifest_path =
+                PathBuf::from(&package.package_path).join(BACKUP_MANIFEST_FILE_NAME);
+            let mut manifest: serde_json::Value =
+                serde_json::from_slice(&fs::read(&manifest_path).expect("manifest"))
+                    .expect("manifest json");
+            manifest["includes"][field] = serde_json::json!(true);
+            fs::write(
+                manifest_path,
+                serde_json::to_vec_pretty(&manifest).expect("serialize"),
+            )
+            .expect("tamper includes");
+            assert_eq!(
+                restore_backup_package(&database, &package.package_name)
+                    .expect_err("content rejection")
+                    .code,
+                expected_code
+            );
+        }
+
+        let missing_database = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(55),
+        )
+        .expect("missing database package");
+        fs::remove_file(
+            PathBuf::from(&missing_database.package_path).join(BACKUP_DATABASE_FILE_NAME),
+        )
+        .expect("remove database");
+        assert_eq!(
+            restore_backup_package(&database, &missing_database.package_name)
+                .expect_err("missing database rejection")
+                .code,
+            "database_missing"
+        );
+
+        let corrupt_database = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(56),
+        )
+        .expect("corrupt package");
+        fs::write(
+            PathBuf::from(&corrupt_database.package_path).join(BACKUP_DATABASE_FILE_NAME),
+            "not sqlite",
+        )
+        .expect("corrupt database");
+        assert_eq!(
+            restore_backup_package(&database, &corrupt_database.package_name)
+                .expect_err("corrupt database rejection")
+                .code,
+            "database_integrity_error"
+        );
+
+        let incomplete = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(57),
+        )
+        .expect("incomplete package");
+        let incomplete_path =
+            PathBuf::from(&incomplete.package_path).join(BACKUP_DATABASE_FILE_NAME);
+        fs::remove_file(&incomplete_path).expect("remove complete database");
+        Connection::open(&incomplete_path)
+            .expect("incomplete database")
+            .execute("CREATE TABLE videos (id TEXT)", [])
+            .expect("partial schema");
+        assert_eq!(
+            restore_backup_package(&database, &incomplete.package_name)
+                .expect_err("schema rejection")
+                .code,
+            "required_schema_missing"
+        );
+
+        assert_eq!(
+            read_video_title(&database, "current_video"),
+            Some("Current Video".to_string())
+        );
+        assert!(list_backup_packages(&database)
+            .expect("packages")
+            .iter()
+            .all(|package| package.manifest.backup_type != BackupPackageType::Safety));
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn package_restore_rejects_symlink_to_outside_backup_folder_when_supported() {
+        let app_data_dir = unique_test_dir("package-restore-symlink").join(APP_DATA_FOLDER_NAME);
+        let outside_dir = unique_test_dir("package-restore-symlink-target");
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let _ = fs::remove_dir_all(&outside_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let backup_folder = ensure_default_backup_folder(&database).expect("backup folder");
+        fs::create_dir_all(&outside_dir).expect("outside dir");
+        let link = backup_folder.join("linked-restore-package");
+        if std::os::windows::fs::symlink_dir(&outside_dir, &link).is_err() {
+            let _ = fs::remove_dir_all(app_data_dir);
+            let _ = fs::remove_dir_all(outside_dir);
+            return;
+        }
+
+        assert_eq!(
+            restore_backup_package(&database, "linked-restore-package")
+                .expect_err("symlink restore rejection")
+                .code,
+            "invalid_package_type"
+        );
+        let _ = fs::remove_dir_all(link);
+        let _ = fs::remove_dir_all(app_data_dir);
+        let _ = fs::remove_dir_all(outside_dir);
+    }
+
+    #[test]
+    fn package_restore_revalidates_after_safety_snapshot_before_apply() {
+        let app_data_dir =
+            unique_test_dir("package-restore-revalidation").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "package_video", "Package Video");
+        let package = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(58),
+        )
+        .expect("package");
+        {
+            let connection = database.connection();
+            connection
+                .lock()
+                .expect("database lock")
+                .execute("DELETE FROM videos", [])
+                .expect("clear package row");
+        }
+        insert_video_title(&database, "current_video", "Current Video");
+
+        let error = restore_backup_package_with_hooks(
+            &database,
+            &package.package_name,
+            |package_path| {
+                let manifest_path = package_path.join(BACKUP_MANIFEST_FILE_NAME);
+                let mut manifest: serde_json::Value =
+                    serde_json::from_slice(&fs::read(&manifest_path).expect("manifest"))
+                        .expect("manifest json");
+                manifest["version"] = serde_json::json!(2);
+                fs::write(
+                    manifest_path,
+                    serde_json::to_vec_pretty(&manifest).expect("serialize"),
+                )
+                .expect("tamper between validation and apply");
+                Ok(())
+            },
+            |connection, _| validate_restored_connection(connection),
+            |_| Ok(()),
+        )
+        .expect_err("second validation rejection");
+
+        assert_eq!(error.code, "unsupported_version");
+        assert!(error.safety_package_name.is_some());
+        assert!(!error.rollback_attempted);
+        assert_eq!(
+            read_video_title(&database, "current_video"),
+            Some("Current Video".to_string())
+        );
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn package_restore_rolls_back_active_database_when_post_apply_check_fails() {
+        let app_data_dir = unique_test_dir("package-restore-rollback").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "package_video", "Package Video");
+        let package = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(59),
+        )
+        .expect("package");
+        {
+            let connection = database.connection();
+            connection
+                .lock()
+                .expect("database lock")
+                .execute("DELETE FROM videos", [])
+                .expect("clear package row");
+        }
+        insert_video_title(&database, "current_video", "Current Video");
+
+        let error = restore_backup_package_with_hooks(
+            &database,
+            &package.package_name,
+            |_| Ok(()),
+            |_, _| Err("Injected post-apply validation failure".to_string()),
+            |_| Ok(()),
+        )
+        .expect_err("apply failure");
+
+        assert_eq!(error.code, "restore_apply_failed");
+        assert!(error.rollback_attempted);
+        assert!(error.rollback_succeeded);
+        assert_eq!(
+            read_video_title(&database, "current_video"),
+            Some("Current Video".to_string())
+        );
+        assert_eq!(read_video_title(&database, "package_video"), None);
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn package_restore_reports_rollback_failure() {
+        let app_data_dir =
+            unique_test_dir("package-restore-rollback-failure").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        insert_video_title(&database, "package_video", "Package Video");
+        let package = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(60),
+        )
+        .expect("package");
+        {
+            let connection = database.connection();
+            connection
+                .lock()
+                .expect("database lock")
+                .execute("DELETE FROM videos", [])
+                .expect("clear package row");
+        }
+        insert_video_title(&database, "current_video", "Current Video");
+
+        let error = restore_backup_package_with_hooks(
+            &database,
+            &package.package_name,
+            |_| Ok(()),
+            |_, _| Err("Injected post-apply validation failure".to_string()),
+            |_| Err("Injected rollback source failure".to_string()),
+        )
+        .expect_err("rollback failure");
+
+        assert_eq!(error.code, "restore_rollback_failed");
+        assert!(error.rollback_attempted);
+        assert!(!error.rollback_succeeded);
+        assert!(error.errors.len() >= 2);
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn package_operations_reject_concurrent_backup_rotation_and_restore() {
+        let app_data_dir = unique_test_dir("package-operation-lock").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let package = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(61),
+        )
+        .expect("package");
+        let operation = database
+            .package_operation
+            .lock()
+            .expect("package operation lock");
+
+        assert_eq!(
+            create_backup_package(&database, BackupPackageType::Manual, None)
+                .expect_err("concurrent backup rejection"),
+            "Another backup or restore package operation is already running"
+        );
+        assert_eq!(
+            rotate_automatic_backup_packages(&database, 1)
+                .expect_err("concurrent rotation rejection"),
+            "Another backup or restore package operation is already running"
+        );
+        assert_eq!(
+            restore_backup_package(&database, &package.package_name)
+                .expect_err("concurrent restore rejection")
+                .code,
+            "package_operation_busy"
+        );
+        drop(operation);
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn automatic_rotation_never_removes_manual_or_safety_packages() {
+        let app_data_dir = unique_test_dir("package-rotation-safety").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let manual = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(62),
+        )
+        .expect("manual");
+        let safety = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_safety_backup_package(
+                &database,
+                &connection,
+                &manual.package_name,
+                UNIX_EPOCH + std::time::Duration::from_secs(63),
+            )
+            .expect("safety")
+        };
+        let old_automatic = create_backup_package_at(
+            &database,
+            BackupPackageType::Automatic,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(64),
+        )
+        .expect("old automatic");
+        let new_automatic = create_backup_package_at(
+            &database,
+            BackupPackageType::Automatic,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(65),
+        )
+        .expect("new automatic");
+
+        let result = rotate_automatic_backup_packages(&database, 1).expect("rotation");
+
+        assert_eq!(result.removed_automatic, 1);
+        assert!(PathBuf::from(manual.package_path).is_dir());
+        assert!(PathBuf::from(safety.package_path).is_dir());
+        assert!(!PathBuf::from(old_automatic.package_path).exists());
+        assert!(PathBuf::from(new_automatic.package_path).is_dir());
+        let _ = fs::remove_dir_all(app_data_dir);
     }
 
     #[test]

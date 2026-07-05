@@ -4,6 +4,7 @@ import {
   listBackupPackages,
   openBackupFolder,
   previewBackupPackage,
+  restoreBackupPackage,
   rotateAutomaticBackupPackages,
 } from "./databaseCommands";
 
@@ -78,6 +79,43 @@ describe("backup package runtime wrappers", () => {
     expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_preview", {
       packageName: "sakurava-backup-20260706-120000-manual",
     });
+  });
+
+  it("restores a package by name only and returns the structured result", async () => {
+    const result = {
+      restoredPackageName: "sakurava-backup-20260706-120000-manual",
+      safetyPackageName: "sakurava-backup-20260706-130000-safety",
+      restoredAt: "2026-07-06T13:00:01Z",
+      databaseRestored: true,
+      rollbackAttempted: false,
+      rollbackSucceeded: false,
+      warnings: [],
+      errors: [],
+    };
+    tauriMocks.invoke.mockResolvedValue(result);
+
+    await expect(
+      restoreBackupPackage("sakurava-backup-20260706-120000-manual"),
+    ).resolves.toEqual(result);
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_restore", {
+      packageName: "sakurava-backup-20260706-120000-manual",
+    });
+  });
+
+  it("propagates typed package restore errors", async () => {
+    const error = {
+      code: "required_schema_missing",
+      message: "Backup database is missing required table: credits",
+      restoredPackageName: "broken-package",
+      safetyPackageName: null,
+      rollbackAttempted: false,
+      rollbackSucceeded: false,
+      warnings: [],
+      errors: ["Backup database is missing required table: credits"],
+    };
+    tauriMocks.invoke.mockRejectedValue(error);
+
+    await expect(restoreBackupPackage("broken-package")).rejects.toEqual(error);
   });
 
   it("opens only the backend-resolved backup folder without a path argument", async () => {

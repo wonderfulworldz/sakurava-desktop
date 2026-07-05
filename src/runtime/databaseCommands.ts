@@ -14,7 +14,8 @@ export type DatabaseRestoreResult = {
   restartRequired: boolean;
 };
 
-export type BackupPackageType = "manual" | "automatic";
+export type BackupPackageType = "manual" | "automatic" | "safety";
+export type CreatableBackupPackageType = Exclude<BackupPackageType, "safety">;
 
 export type BackupPackageManifest = {
   format: "sakurava-backup-directory";
@@ -71,6 +72,28 @@ export type BackupPackageRotationResult = {
   removedPaths: string[];
 };
 
+export type BackupPackageRestoreResult = {
+  restoredPackageName: string;
+  safetyPackageName: string;
+  restoredAt: string;
+  databaseRestored: boolean;
+  rollbackAttempted: boolean;
+  rollbackSucceeded: boolean;
+  warnings: string[];
+  errors: string[];
+};
+
+export type BackupPackageRestoreError = {
+  code: string;
+  message: string;
+  restoredPackageName: string;
+  safetyPackageName: string | null;
+  rollbackAttempted: boolean;
+  rollbackSucceeded: boolean;
+  warnings: string[];
+  errors: string[];
+};
+
 export type BackupFolderOpenResult = {
   folderPath: string;
   opened: boolean;
@@ -89,7 +112,7 @@ export function restoreDatabase(sourcePath: string) {
 }
 
 export function createBackupPackage(
-  backupType: BackupPackageType,
+  backupType: CreatableBackupPackageType,
   note?: string,
 ) {
   return invokeTauriCommand<BackupPackageInfo>("backup_package_create", {
@@ -106,6 +129,13 @@ export function previewBackupPackage(packageName: string) {
   return invokeTauriCommand<BackupPackagePreview>("backup_package_preview", {
     packageName,
   });
+}
+
+export function restoreBackupPackage(packageName: string) {
+  return invokeTauriCommand<BackupPackageRestoreResult>(
+    "backup_package_restore",
+    { packageName },
+  );
 }
 
 export function rotateAutomaticBackupPackages(keepCount: number) {

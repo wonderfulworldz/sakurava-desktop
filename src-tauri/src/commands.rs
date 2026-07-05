@@ -34,10 +34,11 @@ use windows::{
 use crate::database::{
     backup_runtime_database, clear_app_generated_cache, create_backup_package,
     list_backup_packages, open_default_backup_folder, preview_backup_package,
-    restore_runtime_database, rotate_automatic_backup_packages, BackupFolderOpenResult,
-    BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError,
-    BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
-    DatabaseRestoreResult, RuntimeDatabase,
+    restore_backup_package, restore_runtime_database, rotate_automatic_backup_packages,
+    BackupFolderOpenResult, BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError,
+    BackupPackageRestoreError, BackupPackageRestoreResult, BackupPackageRotationResult,
+    BackupPackageType, ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult,
+    RuntimeDatabase,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -586,6 +587,14 @@ pub fn backup_package_preview(
     package_name: String,
 ) -> Result<BackupPackagePreview, BackupPackagePreviewError> {
     preview_backup_package(&database, &package_name)
+}
+
+#[tauri::command]
+pub fn backup_package_restore(
+    database: State<'_, RuntimeDatabase>,
+    package_name: String,
+) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError> {
+    restore_backup_package(&database, &package_name)
 }
 
 #[tauri::command]
