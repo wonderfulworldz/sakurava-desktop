@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createBackupPackage,
+  deleteBackupPackage,
+  exportBackupPackage,
   listBackupPackages,
   openBackupFolder,
   previewBackupPackage,
@@ -130,5 +132,36 @@ describe("backup package runtime wrappers", () => {
       "backup_folder_open",
       undefined,
     );
+  });
+
+  it("deletes a backend-listed package by package name only", async () => {
+    tauriMocks.invoke.mockResolvedValue({
+      packageName: "sakurava-backup-20260706-120000-manual",
+      deleted: true,
+    });
+
+    await deleteBackupPackage("sakurava-backup-20260706-120000-manual");
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_delete", {
+      packageName: "sakurava-backup-20260706-120000-manual",
+    });
+  });
+
+  it("exports a package to the trusted folder-picker destination", async () => {
+    tauriMocks.invoke.mockResolvedValue({
+      packageName: "sakurava-backup-20260706-120000-manual",
+      exported: true,
+      exportedPath: "D:/Exports/sakurava-backup-20260706-120000-manual",
+    });
+
+    await exportBackupPackage(
+      "sakurava-backup-20260706-120000-manual",
+      "D:/Exports",
+    );
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_export", {
+      packageName: "sakurava-backup-20260706-120000-manual",
+      destinationRoot: "D:/Exports",
+    });
   });
 });

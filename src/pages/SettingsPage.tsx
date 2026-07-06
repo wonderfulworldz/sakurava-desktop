@@ -88,6 +88,8 @@ import {
 import { clearAppCache } from "../runtime/cacheCommands";
 import {
   createBackupPackage,
+  deleteBackupPackage,
+  exportBackupPackage,
   listBackupPackages,
   openBackupFolder,
   previewBackupPackage,
@@ -97,6 +99,7 @@ import {
   type BackupPackageRestoreResult,
 } from "../runtime/databaseCommands";
 import {
+  selectBackupPackageExportDestination,
   selectExportCsvDestination,
   selectImportCsvSource,
   selectLanguageCsvExportDestination,
@@ -174,6 +177,14 @@ type BackupStatus =
 type AutomaticBackupStatus =
   | { state: "idle" }
   | { state: "pending" }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
+type BackupPackageManagementStatus =
+  | { state: "idle" }
+  | { state: "downloadPending"; packageName: string }
+  | { state: "deleteConfirm"; backupPackage: BackupPackageInfo }
+  | { state: "deletePending"; backupPackage: BackupPackageInfo }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
@@ -337,6 +348,8 @@ function SettingsPage() {
   );
   const [automaticBackupStatus, setAutomaticBackupStatus] =
     useState<AutomaticBackupStatus>({ state: "idle" });
+  const [backupPackageManagementStatus, setBackupPackageManagementStatus] =
+    useState<BackupPackageManagementStatus>({ state: "idle" });
   const selectedBackupPackageRef = useRef<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>({
     state: "idle",
@@ -376,12 +389,18 @@ function SettingsPage() {
     isPreviewPending ||
     isRestorePending ||
     restoreStatus.state === "confirming";
+  const isBackupPackageManagementPending =
+    backupPackageManagementStatus.state === "downloadPending" ||
+    backupPackageManagementStatus.state === "deletePending";
   const isCachePending = cacheStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
   const isExportPending = exportStatus.state === "pending";
   const isImportPending = importStatus.state === "pending";
   const isImportApplyPending = importApplyStatus.state === "pending";
-  const canBackUpDatabase = isDesktopRuntime && !isBackupOperationPending;
+  const canBackUpDatabase =
+    isDesktopRuntime &&
+    !isBackupOperationPending &&
+    !isBackupPackageManagementPending;
   const canClearCache =
     isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
   const canExportCsv =
@@ -663,6 +682,74 @@ function SettingsPage() {
       setBackupStatus({
         state: "error",
         message: t("settings.backup.error.openFolder"),
+      });
+    }
+  }
+
+  async function handleDownloadBackupPackage(backupPackage: BackupPackageInfo) {
+    if (
+      !isDesktopRuntime ||
+      isBackupOperationPending ||
+      isBackupPackageManagementPending
+    ) {
+      return;
+    }
+    setBackupPackageManagementStatus({
+      state: "downloadPending",
+      packageName: backupPackage.packageName,
+    });
+    const destinationRoot = await selectBackupPackageExportDestination();
+    if (!destinationRoot) {
+      setBackupPackageManagementStatus({ state: "idle" });
+      return;
+    }
+    try {
+      await exportBackupPackage(backupPackage.packageName, destinationRoot);
+      setBackupPackageManagementStatus({
+        state: "success",
+        message: t("settings.backup.management.downloadSuccess"),
+      });
+    } catch {
+      setBackupPackageManagementStatus({
+        state: "error",
+        message: t("settings.backup.management.downloadError"),
+      });
+    }
+  }
+
+  function handleRequestDeleteBackupPackage(backupPackage: BackupPackageInfo) {
+    if (isBackupOperationPending || isBackupPackageManagementPending) {
+      return;
+    }
+    setBackupPackageManagementStatus({
+      state: "deleteConfirm",
+      backupPackage,
+    });
+  }
+
+  async function handleConfirmDeleteBackupPackage() {
+    if (backupPackageManagementStatus.state !== "deleteConfirm") {
+      return;
+    }
+    const backupPackage = backupPackageManagementStatus.backupPackage;
+    setBackupPackageManagementStatus({
+      state: "deletePending",
+      backupPackage,
+    });
+    try {
+      await deleteBackupPackage(backupPackage.packageName);
+      if (selectedBackupPackageRef.current === backupPackage.packageName) {
+        setRestoreStatus({ state: "idle" });
+      }
+      await refreshBackupPackages();
+      setBackupPackageManagementStatus({
+        state: "success",
+        message: t("settings.backup.management.deleteSuccess"),
+      });
+    } catch {
+      setBackupPackageManagementStatus({
+        state: "error",
+        message: t("settings.backup.management.deleteError"),
       });
     }
   }
@@ -1338,6 +1425,7 @@ function SettingsPage() {
           backupHistoryPageSize,
           backupRecoverySettings,
           automaticBackupStatus,
+          backupPackageManagementStatus,
           importStatus,
           importApplyStatus,
           exportStatus,
@@ -1378,6 +1466,10 @@ function SettingsPage() {
           handleOpenBackupFolder,
           handleAutomaticBackupEnabled,
           handleAutomaticBackupFrequency,
+          handleDownloadBackupPackage,
+          handleRequestDeleteBackupPackage,
+          handleConfirmDeleteBackupPackage,
+          setBackupPackageManagementStatus,
           refreshBackupPackages,
           setBackupHistoryPage,
           setBackupHistoryPageSize,
@@ -1716,6 +1808,7 @@ function SettingsSection({
     backupHistoryPageSize,
     backupRecoverySettings,
     automaticBackupStatus,
+    backupPackageManagementStatus,
     importStatus,
     importApplyStatus,
     exportStatus,
@@ -1756,6 +1849,10 @@ function SettingsSection({
     handleOpenBackupFolder,
     handleAutomaticBackupEnabled,
     handleAutomaticBackupFrequency,
+    handleDownloadBackupPackage,
+    handleRequestDeleteBackupPackage,
+    handleConfirmDeleteBackupPackage,
+    setBackupPackageManagementStatus,
     refreshBackupPackages,
     setBackupHistoryPage,
     setBackupHistoryPageSize,
@@ -2285,12 +2382,23 @@ function SettingsSection({
           packages={backupPackages}
           page={backupHistoryPage}
           pageSize={backupHistoryPageSize}
-          busy={isBackupOperationPending}
+          busy={
+            isBackupOperationPending ||
+            backupPackageManagementStatus.state === "downloadPending" ||
+            backupPackageManagementStatus.state === "deletePending"
+          }
           restoreStatus={restoreStatus}
+          managementStatus={backupPackageManagementStatus}
           onRefresh={() => void refreshBackupPackages()}
           onPageChange={setBackupHistoryPage}
           onPageSizeChange={setBackupHistoryPageSize}
           onRestore={handleRestoreHistoryPackage}
+          onDownload={handleDownloadBackupPackage}
+          onDelete={handleRequestDeleteBackupPackage}
+          onCancelDelete={() =>
+            setBackupPackageManagementStatus({ state: "idle" })
+          }
+          onConfirmDelete={handleConfirmDeleteBackupPackage}
           onCancelRestore={() => setRestoreStatus({ state: "idle" })}
           onConfirmRestore={handleConfirmRestore}
         />
@@ -3128,10 +3236,15 @@ function BackupHistoryPanel({
   pageSize,
   busy,
   restoreStatus,
+  managementStatus,
   onRefresh,
   onPageChange,
   onPageSizeChange,
   onRestore,
+  onDownload,
+  onDelete,
+  onCancelDelete,
+  onConfirmDelete,
   onCancelRestore,
   onConfirmRestore,
 }: {
@@ -3140,10 +3253,15 @@ function BackupHistoryPanel({
   pageSize: number;
   busy: boolean;
   restoreStatus: RestoreStatus;
+  managementStatus: BackupPackageManagementStatus;
   onRefresh: () => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onRestore: (packageName: string) => void;
+  onDownload: (backupPackage: BackupPackageInfo) => void;
+  onDelete: (backupPackage: BackupPackageInfo) => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
   onCancelRestore: () => void;
   onConfirmRestore: () => void;
 }) {
@@ -3237,19 +3355,26 @@ function BackupHistoryPanel({
                       </button>
                       <button
                         type="button"
-                        disabled
-                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-400"
+                        disabled={busy}
+                        onClick={() => onDownload(backupPackage)}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 disabled:text-slate-300"
                       >
                         <Download size={13} aria-hidden="true" />
-                        {t("settings.backup.history.download")}
+                        {managementStatus.state === "downloadPending" &&
+                        managementStatus.packageName === backupPackage.packageName
+                          ? t("settings.backup.management.downloading")
+                          : t("settings.backup.history.download")}
+                        <span className="sr-only">{backupPackage.packageName}</span>
                       </button>
                       <button
                         type="button"
-                        disabled
-                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-400"
+                        disabled={busy}
+                        onClick={() => onDelete(backupPackage)}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 disabled:text-slate-300"
                       >
                         <Trash2 size={13} aria-hidden="true" />
                         {t("settings.backup.history.delete")}
+                        <span className="sr-only">{backupPackage.packageName}</span>
                       </button>
                     </div>
                   </td>
@@ -3321,6 +3446,24 @@ function BackupHistoryPanel({
         </div>
       </footer>
       <div className="space-y-3 px-4 pb-4">
+        {managementStatus.state === "success" ? (
+          <p role="status" className="text-sm font-semibold text-emerald-700">
+            {managementStatus.message}
+          </p>
+        ) : managementStatus.state === "error" ? (
+          <p role="alert" className="text-sm font-semibold text-rose-600">
+            {managementStatus.message}
+          </p>
+        ) : null}
+        {managementStatus.state === "deleteConfirm" ||
+        managementStatus.state === "deletePending" ? (
+          <BackupDeleteConfirmPanel
+            backupPackage={managementStatus.backupPackage}
+            pending={managementStatus.state === "deletePending"}
+            onCancel={onCancelDelete}
+            onConfirm={onConfirmDelete}
+          />
+        ) : null}
         {restoreStatus.state === "previewPending" ? (
           <p role="status" className="text-sm font-semibold text-slate-600">
             {t("settings.backup.validating")}
@@ -3347,6 +3490,74 @@ function BackupHistoryPanel({
         ) : restoreStatus.state === "success" ? (
           <RestoreResultPanel result={restoreStatus.result} />
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+function BackupDeleteConfirmPanel({
+  backupPackage,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  backupPackage: BackupPackageInfo;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const t = useTranslation();
+  return (
+    <section
+      role="dialog"
+      aria-label={t("settings.backup.management.deleteConfirmTitle")}
+      className="rounded-lg border border-rose-200 bg-rose-50 p-4"
+    >
+      <h4 className="text-sm font-semibold text-rose-900">
+        {t("settings.backup.management.deleteConfirmTitle")}
+      </h4>
+      <p className="mt-1 text-xs font-medium text-rose-800">
+        {t("settings.backup.management.deleteConfirmBody")}
+      </p>
+      <dl className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+        <div>
+          <dt className="font-semibold">{t("settings.backup.history.dateTime")}</dt>
+          <dd>{formatBackupCreatedAt(backupPackage.manifest.createdAt)}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold">{t("settings.backup.history.type")}</dt>
+          <dd>
+            {t(
+              backupPackage.manifest.backupType === "automatic"
+                ? "settings.backup.type.auto"
+                : "settings.backup.type.manual",
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold">{t("settings.backup.history.note")}</dt>
+          <dd className="truncate">{backupPackage.manifest.note || t("common.none")}</dd>
+        </div>
+      </dl>
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onCancel}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 disabled:text-slate-300"
+        >
+          {t("common.cancel")}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onConfirm}
+          className="h-9 rounded-lg bg-rose-600 px-4 text-xs font-semibold text-white hover:bg-rose-700 disabled:bg-rose-300"
+        >
+          {pending
+            ? t("settings.backup.management.deleting")
+            : t("settings.backup.management.deleteConfirmAction")}
+        </button>
       </div>
     </section>
   );

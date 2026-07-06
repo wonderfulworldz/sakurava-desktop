@@ -33,12 +33,13 @@ use windows::{
 
 use crate::database::{
     backup_runtime_database, clear_app_generated_cache, create_backup_package,
-    list_backup_packages, open_default_backup_folder, preview_backup_package,
-    restore_backup_package, restore_runtime_database, rotate_automatic_backup_packages,
-    BackupFolderOpenResult, BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError,
-    BackupPackageRestoreError, BackupPackageRestoreResult, BackupPackageRotationResult,
-    BackupPackageType, ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult,
-    RuntimeDatabase,
+    delete_backup_package, export_backup_package, list_backup_packages,
+    open_default_backup_folder, preview_backup_package, restore_backup_package,
+    restore_runtime_database, rotate_automatic_backup_packages, BackupFolderOpenResult,
+    BackupPackageDeleteResult, BackupPackageExportResult, BackupPackageInfo,
+    BackupPackagePreview, BackupPackagePreviewError, BackupPackageRestoreError,
+    BackupPackageRestoreResult, BackupPackageRotationResult, BackupPackageType,
+    ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -603,6 +604,23 @@ pub fn backup_package_rotate_automatic(
     keep_count: usize,
 ) -> Result<BackupPackageRotationResult, String> {
     rotate_automatic_backup_packages(&database, keep_count)
+}
+
+#[tauri::command]
+pub fn backup_package_delete(
+    database: State<'_, RuntimeDatabase>,
+    package_name: String,
+) -> Result<BackupPackageDeleteResult, String> {
+    delete_backup_package(&database, &package_name)
+}
+
+#[tauri::command]
+pub fn backup_package_export(
+    database: State<'_, RuntimeDatabase>,
+    package_name: String,
+    destination_root: String,
+) -> Result<BackupPackageExportResult, String> {
+    export_backup_package(&database, &package_name, destination_root)
 }
 
 #[tauri::command]
