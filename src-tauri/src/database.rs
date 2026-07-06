@@ -379,6 +379,21 @@ pub struct BackupPackageRotationResult {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct BackupPackageDeleteResult {
+    pub package_name: String,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPackageExportResult {
+    pub package_name: String,
+    pub exported: bool,
+    pub exported_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct BackupFolderOpenResult {
     pub folder_path: String,
     pub opened: bool,
@@ -1089,6 +1104,127 @@ pub fn rotate_automatic_backup_packages(
         removed_automatic: removed_paths.len(),
         removed_paths,
     })
+}
+
+fn resolve_normal_backup_package(
+    database: &RuntimeDatabase,
+    package_name: &str,
+) -> Result<(PathBuf, BackupPackageManifest), String> {
+    let preview = preview_backup_package(database, package_name)
+        .map_err(|error| error.message)?;
+    if preview.manifest.backup_type == BackupPackageType::Safety {
+        return Err("Safety backup packages cannot be managed from Backup History".to_string());
+    }
+
+    let backup_folder = default_backup_folder(database);
+    let canonical_backup_folder = backup_folder
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve Sakurava backup folder: {error}"))?;
+    let package_path = backup_folder.join(package_name);
+    let metadata = fs::symlink_metadata(&package_path)
+        .map_err(|error| format!("Backup package was not found: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("Backup package must be a direct, non-symlink folder".to_string());
+    }
+    let canonical_package_path = package_path
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve backup package: {error}"))?;
+    if canonical_package_path.parent() != Some(canonical_backup_folder.as_path()) {
+        return Err(
+            "Backup package must be a direct child of the Sakurava backup folder".to_string(),
+        );
+    }
+    let manifest = read_valid_backup_manifest(&canonical_package_path)
+        .ok_or_else(|| "Backup package manifest or content is invalid".to_string())?;
+    if manifest.backup_type == BackupPackageType::Safety {
+        return Err("Safety backup packages cannot be managed from Backup History".to_string());
+    }
+    Ok((canonical_package_path, manifest))
+}
+
+pub fn delete_backup_package(
+    database: &RuntimeDatabase,
+    package_name: &str,
+) -> Result<BackupPackageDeleteResult, String> {
+    let _operation = database.lock_package_operation()?;
+    let (package_path, _) = resolve_normal_backup_package(database, package_name)?;
+    fs::remove_dir_all(&package_path)
+        .map_err(|error| format!("Unable to delete backup package: {error}"))?;
+    Ok(BackupPackageDeleteResult {
+        package_name: package_name.to_string(),
+        deleted: true,
+    })
+}
+
+pub fn export_backup_package(
+    database: &RuntimeDatabase,
+    package_name: &str,
+    destination_root: impl AsRef<Path>,
+) -> Result<BackupPackageExportResult, String> {
+    let _operation = database.lock_package_operation()?;
+    let (package_path, _) = resolve_normal_backup_package(database, package_name)?;
+    let destination_root = destination_root.as_ref();
+    if destination_root.as_os_str().is_empty() || !destination_root.is_dir() {
+        return Err("Backup export destination must be an existing folder".to_string());
+    }
+    let canonical_destination_root = destination_root
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve backup export destination: {error}"))?;
+    let canonical_backup_folder = default_backup_folder(database)
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve Sakurava backup folder: {error}"))?;
+    if canonical_destination_root.starts_with(&canonical_backup_folder)
+        || canonical_destination_root.starts_with(&package_path)
+    {
+        return Err(
+            "Choose a destination outside Sakurava's backup package folders".to_string(),
+        );
+    }
+
+    let mut destination_path = canonical_destination_root.join(package_name);
+    let mut suffix = 1usize;
+    while destination_path.exists() {
+        destination_path =
+            canonical_destination_root.join(format!("{package_name}-{suffix}"));
+        suffix += 1;
+        if suffix > 10_000 {
+            return Err("Unable to choose a unique backup export folder".to_string());
+        }
+    }
+    let staging_path = canonical_destination_root.join(format!(
+        ".{package_name}.exporting-{}",
+        timestamp_millis()
+    ));
+    if staging_path.exists() {
+        return Err("Backup export staging folder already exists".to_string());
+    }
+
+    let result = (|| {
+        fs::create_dir(&staging_path)
+            .map_err(|error| format!("Unable to create backup export folder: {error}"))?;
+        fs::copy(
+            package_path.join(BACKUP_MANIFEST_FILE_NAME),
+            staging_path.join(BACKUP_MANIFEST_FILE_NAME),
+        )
+        .map_err(|error| format!("Unable to export backup manifest: {error}"))?;
+        fs::copy(
+            package_path.join(BACKUP_DATABASE_FILE_NAME),
+            staging_path.join(BACKUP_DATABASE_FILE_NAME),
+        )
+        .map_err(|error| format!("Unable to export backup database: {error}"))?;
+        fs::rename(&staging_path, &destination_path)
+            .map_err(|error| format!("Unable to finalize backup export: {error}"))?;
+        Ok(BackupPackageExportResult {
+            package_name: package_name.to_string(),
+            exported: true,
+            exported_path: destination_path.display().to_string(),
+        })
+    })();
+
+    if result.is_err() && staging_path.exists() {
+        let _ = fs::remove_dir_all(&staging_path);
+    }
+    result
 }
 
 pub fn open_default_backup_folder(
@@ -2126,6 +2262,179 @@ mod tests {
             .expect("backup row");
         assert_eq!(title, "Package Video");
         let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn package_delete_rejects_invalid_names_manifests_safety_and_legacy_files() {
+        let app_data_dir =
+            unique_test_dir("backup-package-delete-rejections").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+
+        for package_name in ["", "../outside", "nested/package"] {
+            assert!(
+                delete_backup_package(&database, package_name).is_err(),
+                "{package_name:?} should be rejected"
+            );
+        }
+
+        let missing_manifest = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(101),
+        )
+        .expect("missing-manifest package");
+        fs::remove_file(
+            PathBuf::from(&missing_manifest.package_path).join(BACKUP_MANIFEST_FILE_NAME),
+        )
+        .expect("remove manifest");
+        assert!(delete_backup_package(&database, &missing_manifest.package_name).is_err());
+        assert!(PathBuf::from(&missing_manifest.package_path).is_dir());
+
+        let safety = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(102),
+        )
+        .expect("safety fixture");
+        set_backup_manifest_field(&safety, "backupType", serde_json::json!("safety"));
+        assert!(delete_backup_package(&database, &safety.package_name).is_err());
+        assert!(PathBuf::from(&safety.package_path).is_dir());
+
+        let legacy_path = ensure_default_backup_folder(&database)
+            .expect("backup folder")
+            .join("legacy.sqlite");
+        fs::write(&legacy_path, b"legacy").expect("legacy file");
+        assert!(delete_backup_package(&database, "legacy.sqlite").is_err());
+        assert!(legacy_path.is_file());
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn package_delete_removes_only_the_selected_normal_package() {
+        let app_data_dir =
+            unique_test_dir("backup-package-delete-selected").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let selected = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(103),
+        )
+        .expect("selected package");
+        let sibling = create_backup_package_at(
+            &database,
+            BackupPackageType::Automatic,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(104),
+        )
+        .expect("sibling package");
+
+        let result =
+            delete_backup_package(&database, &selected.package_name).expect("delete package");
+
+        assert!(result.deleted);
+        assert_eq!(result.package_name, selected.package_name);
+        assert!(!PathBuf::from(selected.package_path).exists());
+        assert!(PathBuf::from(sibling.package_path).is_dir());
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn package_export_validates_source_and_copies_without_modifying_or_overwriting() {
+        let root = unique_test_dir("backup-package-export");
+        let app_data_dir = root.join(APP_DATA_FOLDER_NAME);
+        let destination_root = root.join("exports");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&destination_root).expect("export destination");
+        let database = prepare_database(&app_data_dir).expect("database init");
+        let source = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            Some("Export me".to_string()),
+            UNIX_EPOCH + std::time::Duration::from_secs(105),
+        )
+        .expect("source package");
+        let source_path = PathBuf::from(&source.package_path);
+        let source_manifest =
+            fs::read(source_path.join(BACKUP_MANIFEST_FILE_NAME)).expect("source manifest");
+        let existing_destination = destination_root.join(&source.package_name);
+        fs::create_dir(&existing_destination).expect("existing destination");
+        fs::write(existing_destination.join("keep.txt"), "keep").expect("existing marker");
+
+        let result = export_backup_package(
+            &database,
+            &source.package_name,
+            &destination_root,
+        )
+        .expect("export package");
+        let exported_path = PathBuf::from(&result.exported_path);
+
+        assert!(result.exported);
+        assert_eq!(result.package_name, source.package_name);
+        assert_ne!(exported_path, existing_destination);
+        assert!(exported_path.join(BACKUP_MANIFEST_FILE_NAME).is_file());
+        assert!(exported_path.join(BACKUP_DATABASE_FILE_NAME).is_file());
+        assert!(existing_destination.join("keep.txt").is_file());
+        assert!(source_path.is_dir());
+        assert_eq!(
+            fs::read(source_path.join(BACKUP_MANIFEST_FILE_NAME)).expect("manifest after"),
+            source_manifest
+        );
+
+        for invalid_name in ["", "../outside", "nested/package"] {
+            assert!(export_backup_package(&database, invalid_name, &destination_root).is_err());
+        }
+        assert!(export_backup_package(&database, &source.package_name, "").is_err());
+        assert!(export_backup_package(
+            &database,
+            &source.package_name,
+            default_backup_folder(&database)
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn package_export_rejects_missing_manifest_and_safety_package() {
+        let root = unique_test_dir("backup-package-export-rejections");
+        let app_data_dir = root.join(APP_DATA_FOLDER_NAME);
+        let destination_root = root.join("exports");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&destination_root).expect("export destination");
+        let database = prepare_database(&app_data_dir).expect("database init");
+
+        let missing_manifest = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(106),
+        )
+        .expect("missing manifest fixture");
+        fs::remove_file(
+            PathBuf::from(&missing_manifest.package_path).join(BACKUP_MANIFEST_FILE_NAME),
+        )
+        .expect("remove manifest");
+        assert!(export_backup_package(
+            &database,
+            &missing_manifest.package_name,
+            &destination_root
+        )
+        .is_err());
+
+        let safety = create_backup_package_at(
+            &database,
+            BackupPackageType::Manual,
+            None,
+            UNIX_EPOCH + std::time::Duration::from_secs(107),
+        )
+        .expect("safety fixture");
+        set_backup_manifest_field(&safety, "backupType", serde_json::json!("safety"));
+        assert!(export_backup_package(&database, &safety.package_name, &destination_root).is_err());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

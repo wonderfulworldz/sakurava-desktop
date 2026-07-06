@@ -836,6 +836,18 @@ const englishDictionary: TranslationDictionary = {
   "settings.backup.history.restore": "Restore",
   "settings.backup.history.download": "Download",
   "settings.backup.history.delete": "Delete",
+  "settings.backup.management.downloading": "Downloading...",
+  "settings.backup.management.downloadSuccess": "Backup downloaded.",
+  "settings.backup.management.downloadError":
+    "Backup could not be downloaded. Please try again.",
+  "settings.backup.management.deleteConfirmTitle": "Delete this backup?",
+  "settings.backup.management.deleteConfirmBody":
+    "This removes the backup package from Sakurava's backup folder. Your current library will not be changed.",
+  "settings.backup.management.deleteConfirmAction": "Delete Backup",
+  "settings.backup.management.deleting": "Deleting...",
+  "settings.backup.management.deleteSuccess": "Backup deleted.",
+  "settings.backup.management.deleteError":
+    "Backup could not be deleted. Please try again.",
   "settings.backup.history.showing": "Showing {start}-{end} of {total}",
   "settings.backup.history.pageSize": "Page size",
   "settings.backup.history.perPage": "per page",

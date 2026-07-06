@@ -140,6 +140,13 @@ export async function selectLocalFolder() {
   });
 }
 
+export async function selectBackupPackageExportDestination() {
+  return selectLocalPath({
+    title: "Download Backup Package To",
+    directory: true,
+  });
+}
+
 function defaultDetailSaveAsFileName(sourcePath: string) {
   const normalizedPath = sourcePath.trim().replace(/\\/g, "/");
   return normalizedPath.split("/").filter(Boolean).pop() ?? "sakurava-source-file";

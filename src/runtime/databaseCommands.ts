@@ -99,6 +99,17 @@ export type BackupFolderOpenResult = {
   opened: boolean;
 };
 
+export type BackupPackageDeleteResult = {
+  packageName: string;
+  deleted: true;
+};
+
+export type BackupPackageExportResult = {
+  packageName: string;
+  exported: true;
+  exportedPath: string;
+};
+
 export function backUpDatabase(destinationPath: string) {
   return invokeTauriCommand<DatabaseBackupResult>("database_backup", {
     destinationPath,
@@ -147,4 +158,21 @@ export function rotateAutomaticBackupPackages(keepCount: number) {
 
 export function openBackupFolder() {
   return invokeTauriCommand<BackupFolderOpenResult>("backup_folder_open");
+}
+
+export function deleteBackupPackage(packageName: string) {
+  return invokeTauriCommand<BackupPackageDeleteResult>(
+    "backup_package_delete",
+    { packageName },
+  );
+}
+
+export function exportBackupPackage(
+  packageName: string,
+  destinationRoot: string,
+) {
+  return invokeTauriCommand<BackupPackageExportResult>(
+    "backup_package_export",
+    { packageName, destinationRoot },
+  );
 }
