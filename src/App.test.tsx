@@ -22,7 +22,11 @@ import {
 } from "./lib/appearanceTheme";
 import { formatDateOnlyDisplay, formatLocalTimestampDisplay } from "./lib/dateDisplay";
 import { sakuravaRef } from "./lib/exportCsv";
-import { languageStorageKey } from "./lib/language";
+import {
+  getAllTranslationKeys,
+  getKeyDescription,
+  languageStorageKey,
+} from "./lib/language";
 import {
   customLanguagesStorageKey,
   maxCustomLanguages,
@@ -222,6 +226,64 @@ function catalogTableInlineWidth(kind: "videos" | "images" | "performers") {
 function selectCategorySort(optionName: string) {
   fireEvent.click(screen.getByRole("button", { name: "Sort" }));
   fireEvent.click(screen.getByRole("option", { name: optionName }));
+}
+
+function testBackupPackage(
+  packageName: string,
+  backupType: "manual" | "automatic" | "safety" = "manual",
+  note = "",
+) {
+  return {
+    packageName,
+    packagePath: `C:/App/backups/${packageName}`,
+    manifest: {
+      format: "sakurava-backup-directory",
+      version: 1,
+      createdAt: "2026-07-06T12:00:00Z",
+      backupType,
+      note,
+      includes: {
+        database: true,
+        originalMedia: false,
+        appManagedAssets: false,
+      },
+      database: { file: "sakurava.sqlite" },
+    },
+  };
+}
+
+function testBackupPreview(packageName: string) {
+  return {
+    packageName,
+    manifest: testBackupPackage(packageName).manifest,
+    database: {
+      file: "sakurava.sqlite",
+      quickCheck: "ok",
+      requiredSchemaPresent: true,
+      counts: {
+        videos: 11,
+        images: 12,
+        performers: 13,
+        categories: 14,
+        glossary: 15,
+        credits: 16,
+      },
+    },
+    content: {
+      databaseIncluded: true,
+      originalMediaIncluded: false,
+      appManagedAssetsIncluded: false,
+    },
+    warnings: ["Package v1 excludes app-managed assets."],
+    errors: [],
+  };
+}
+
+async function clickHistoryRestore(packageName: string) {
+  const packageMarker = await screen.findByText(packageName);
+  const row = packageMarker.closest("tr");
+  if (!row) throw new Error(`Backup history row not found for ${packageName}`);
+  fireEvent.click(within(row).getByRole("button", { name: /^Restore/ }));
 }
 
 describe("App", () => {
@@ -3769,8 +3831,9 @@ describe("App", () => {
 
     expect(screen.getByRole("button", { name: "Import Data" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Data" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Backup Database" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Backup Now" })).toBeEnabled();
+    expect(screen.getByRole("region", { name: "Backup History" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview Backup" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export Videos CSV" }))
       .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export Images CSV" }))
@@ -3840,15 +3903,17 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Import Data" }));
 
-    expect(await screen.findByRole("region", { name: "Import CSV preview" }))
-      .toBeInTheDocument();
+    const previewRegion = await screen.findByRole("region", {
+      name: "Import CSV preview",
+    });
+    expect(previewRegion).toBeInTheDocument();
     expect(screen.getByText("sakurava-videos.csv")).toBeInTheDocument();
     expect(screen.getByText("Videos CSV - 4 rows")).toBeInTheDocument();
     expect(screen.getByText("Blocked")).toBeInTheDocument();
     expect(screen.getByText("Preview only. No data has been changed.")).toBeInTheDocument();
     expect(screen.getByText("Apply changes database records only after confirmation.")).toBeInTheDocument();
     expect(screen.getByText("Delete affects catalog records only. Original media files are not deleted.")).toBeInTheDocument();
-    const previewTable = screen.getByRole("table");
+    const previewTable = within(previewRegion).getByRole("table");
     for (const column of ["ROW", "ACTION", "RESULT", "TARGET", "CHANGES", "STATUS"]) {
       expect(within(previewTable).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
@@ -5277,38 +5342,26 @@ describe("App", () => {
     ).toBeDisabled();
   });
 
-  it("cancels database backup without calling the backup command", async () => {
+  it("creates a manual package without opening a destination save dialog", async () => {
     window.history.pushState({}, "", "/settings");
-    const invoke = vi.fn();
-    window.__TAURI_INTERNALS__ = {
-      invoke,
-    };
-    dialogMocks.save.mockResolvedValue(null);
-
-    render(<App />);
-
-    const backupButton = screen.getByRole("button", { name: "Backup Database" });
-    expect(backupButton).toBeEnabled();
-    fireEvent.click(backupButton);
-
-    await waitFor(() => expect(dialogMocks.save).toHaveBeenCalledTimes(1));
-    expect(invoke).not.toHaveBeenCalledWith(
-      "database_backup",
-      expect.anything(),
-      undefined,
-    );
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
-  });
-
-  it("backs up the database to the selected destination", async () => {
-    window.history.pushState({}, "", "/settings");
-    const destinationPath = "D:/Backups/sakurava-backup-2026-05-13.sqlite";
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "database_backup") {
+    const packageName = "sakurava-backup-20260706-120000-manual";
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) {
+        return [];
+      }
+      if (command === "backup_package_create") {
         return {
-          destinationPath: args.destinationPath,
-          success: true,
+          packageName,
+          packagePath: `C:/App/backups/${packageName}`,
+          manifest: {
+            format: "sakurava-backup-directory",
+            version: 1,
+            createdAt: "2026-07-06T12:00:00Z",
+            backupType: "manual",
+            note: "",
+            includes: { database: true, originalMedia: false, appManagedAssets: false },
+            database: { file: "sakurava.sqlite" },
+          },
         };
       }
       throw new Error(`Unexpected command ${command}`);
@@ -5316,159 +5369,274 @@ describe("App", () => {
     window.__TAURI_INTERNALS__ = {
       invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.save.mockResolvedValue(destinationPath);
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Backup Database" }));
+    fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
-    await screen.findByText(`Backup created at ${destinationPath}`);
-    expect(dialogMocks.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        defaultPath: expect.stringMatching(
-          /^skv-backup-\d{8}-\d{6}\.sqlite$/,
-        ),
-        filters: [
-          {
-            name: "SQLite database",
-            extensions: ["sqlite"],
-          },
-        ],
-      }),
-    );
+    await screen.findByText("Backup created.");
+    expect(dialogMocks.save).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith(
-      "database_backup",
-      { destinationPath },
+      "backup_package_create",
+      { backupType: "manual", note: null },
       undefined,
     );
+    expect(invoke).not.toHaveBeenCalledWith("database_backup", expect.anything(), undefined);
+  });
+
+  it("registers structural translation keys for the package backup and restore flow", () => {
+    const keys = getAllTranslationKeys();
+    for (const key of [
+      "settings.backup.openFolder",
+      "settings.backup.note.label",
+      "settings.backup.preview.title",
+      "settings.backup.restoreConfirm.title",
+      "settings.backup.result.title",
+      "settings.backup.automatic.frequency",
+      "settings.backup.history.actions",
+    ]) {
+      expect(keys).toContain(key);
+      expect(getKeyDescription(key)).toMatch(/^Settings > Backup/);
+    }
+  });
+
+  it("passes a trimmed optional note, clears it after success, and refreshes the package list", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "sakurava-backup-20260706-120000-manual";
+    let listCalls = 0;
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") {
+        listCalls += 1;
+        return [];
+      }
+      if (command === "backup_package_create") {
+        return {
+          packageName,
+          packagePath: `C:/App/backups/${packageName}`,
+          manifest: {
+            format: "sakurava-backup-directory",
+            version: 1,
+            createdAt: "2026-07-06T12:00:00Z",
+            backupType: "manual",
+            note: "Before cleanup",
+            includes: { database: true, originalMedia: false, appManagedAssets: false },
+            database: { file: "sakurava.sqlite" },
+          },
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+
+    expect(screen.getByRole("textbox", { name: "Optional note" })).toHaveAttribute(
+      "placeholder",
+      "Add an optional note for this backup...",
+    );
+    expect(screen.getByText("0/255")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Optional note" }), {
+      target: { value: "  Before cleanup  " },
+    });
+    expect(screen.getByText("18/255")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
+
+    await screen.findByText("Backup created.");
+    expect(invoke).toHaveBeenCalledWith(
+      "backup_package_create",
+      { backupType: "manual", note: "Before cleanup" },
+      undefined,
+    );
+    expect(screen.getByRole("textbox", { name: "Optional note" })).toHaveValue("");
+    expect(listCalls).toBeGreaterThanOrEqual(2);
   });
 
   it("prevents duplicate backup submits while pending", async () => {
     window.history.pushState({}, "", "/settings");
-    let resolveDestination: (destinationPath: string) => void = () => {};
-    const destinationPathPromise = new Promise<string>((resolve) => {
-      resolveDestination = resolve;
+    let resolveBackup: (result: any) => void = () => {};
+    const backupPromise = new Promise<any>((resolve) => {
+      resolveBackup = resolve;
     });
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "database_backup") {
-        return {
-          destinationPath: args.destinationPath,
-          success: true,
-        };
-      }
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) return [];
+      if (command === "backup_package_create") return backupPromise;
       throw new Error(`Unexpected command ${command}`);
     });
     window.__TAURI_INTERNALS__ = {
       invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.save.mockReturnValue(destinationPathPromise);
-
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Backup Database" }));
+    fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
     const pendingButton = await screen.findByRole("button", {
-      name: "Backing Up...",
+      name: "Backing up...",
     });
     expect(pendingButton).toBeDisabled();
     fireEvent.click(pendingButton);
-    expect(dialogMocks.save).toHaveBeenCalledTimes(1);
-
-    resolveDestination("D:/Backups/sakurava-backup.sqlite");
-    await screen.findByText("Backup created at D:/Backups/sakurava-backup.sqlite");
     expect(
-      invoke.mock.calls.filter(([command]) => command === "database_backup"),
+      invoke.mock.calls.filter(([command]) => command === "backup_package_create"),
+    ).toHaveLength(1);
+
+    resolveBackup({
+      packageName: "pending-manual",
+      packagePath: "C:/App/backups/pending-manual",
+      manifest: {
+        format: "sakurava-backup-directory",
+        version: 1,
+        createdAt: "2026-07-06T12:00:00Z",
+        backupType: "manual",
+        note: "",
+        includes: { database: true, originalMedia: false, appManagedAssets: false },
+        database: { file: "sakurava.sqlite" },
+      },
+    });
+    await screen.findByText("Backup created.");
+    expect(
+      invoke.mock.calls.filter(([command]) => command === "backup_package_create"),
     ).toHaveLength(1);
   });
 
-  it("shows an error when database backup fails", async () => {
+  it("shows an error when package backup fails", async () => {
     window.history.pushState({}, "", "/settings");
-    const destinationPath = "D:/Backups/sakurava-backup.sqlite";
     const invoke = vi.fn(async (command: string) => {
-      if (command === "database_backup") {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) return [];
+      if (command === "backup_package_create") {
         throw new Error("Unable to back up SQLite database");
       }
       throw new Error(`Unexpected command ${command}`);
     });
     window.__TAURI_INTERNALS__ = {
-      invoke,
+      invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.save.mockResolvedValue(destinationPath);
-
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Backup Database" }));
+    fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Unable to back up SQLite database",
+      "Backup package creation failed.",
     );
-    expect(screen.getByRole("button", { name: "Backup Database" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Backup Now" })).toBeEnabled();
   });
 
-  it("cancels restore source selection without calling the restore command", async () => {
+  it("shows a friendly message for same-second backup collisions", async () => {
     window.history.pushState({}, "", "/settings");
-    const invoke = vi.fn();
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) return [];
+      if (command === "backup_package_create") {
+        throw new Error("A backup package already exists for this second and type");
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
     window.__TAURI_INTERNALS__ = {
-      invoke,
+      invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue(null);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "A backup was just created. Please wait a moment before creating another one.",
+    );
+    expect(screen.queryByText(/already exists for this second/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the scoped backup folder without passing a frontend path", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) return [];
+      if (command === "backup_folder_open") {
+        return { folderPath: "C:/App/backups", opened: true };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
 
     render(<App />);
 
-    const restoreButton = screen.getByRole("button", { name: "Restore Database" });
-    expect(restoreButton).toBeEnabled();
-    fireEvent.click(restoreButton);
+    fireEvent.click(screen.getByRole("button", { name: "Open Folder" }));
 
-    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalledTimes(1));
-    expect(dialogMocks.open).toHaveBeenCalledWith(
-      expect.objectContaining({
-        multiple: false,
-        directory: false,
-        filters: [
-          {
-            name: "SQLite database",
-            extensions: ["sqlite"],
-          },
-        ],
-      }),
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        "backup_folder_open",
+        {},
+        undefined,
+      ),
     );
+    expect(dialogMocks.open).not.toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalledWith(
       "database_restore",
       expect.anything(),
       undefined,
     );
-    expect(screen.queryByText("Confirm database restore")).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("requires confirmation before restoring a selected database", async () => {
+  it("renders the approved backup summary, automated shell, history columns, and safe restore flow", async () => {
     window.history.pushState({}, "", "/settings");
-    const invoke = vi.fn();
-    const sourcePath = "D:/Backups/sakurava-backup.sqlite";
+    const packageName = "sakurava-backup-20260706-120000-manual";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") {
+        return [
+          testBackupPackage(packageName, "manual", "Before migration"),
+          testBackupPackage("sakurava-backup-20260706-110000-safety", "safety"),
+        ];
+      }
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      throw new Error(`Unexpected command ${command}`);
+    });
     window.__TAURI_INTERNALS__ = {
-      invoke,
+      invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue(sourcePath);
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
+    expect(screen.getByRole("heading", { name: "Backup & Recovery" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Backup Now" })).toBeEnabled();
+    expect(screen.getAllByText("Last Backup").length).toBeGreaterThan(0);
+    expect(screen.getByText("Sakurava backup folder")).toBeInTheDocument();
+    expect(await screen.findByText("1 package")).toBeInTheDocument();
+    expect(screen.queryByText(`C:/App/backups/${packageName}`)).not.toBeInTheDocument();
+    expect(screen.queryByText("Original media files are not included.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rotation/)).not.toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Automated Backup" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Frequency" })).toBeDisabled();
+    expect(screen.getByRole("option", { name: "Daily" })).toBeInTheDocument();
 
-    expect(await screen.findByText("Confirm database restore")).toBeInTheDocument();
+    const history = screen.getByRole("region", { name: "Backup History" });
+    for (const heading of ["Date & Time", "Type", "Status", "Note", "Actions"]) {
+      expect(within(history).getByRole("columnheader", { name: heading })).toBeInTheDocument();
+    }
+    expect(within(history).getByRole("button", { name: /^Restore/ })).toBeEnabled();
+    expect(within(history).getByRole("button", { name: "Download" })).toBeDisabled();
+    expect(within(history).getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Preview Backup" })).not.toBeInTheDocument();
     expect(
-      screen.getByText("Current Sakurava database will be replaced."),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Only records are restored.")).toBeInTheDocument();
+      screen.queryByText("sakurava-backup-20260706-110000-safety"),
+    ).not.toBeInTheDocument();
+
+    await clickHistoryRestore(packageName);
+    expect(await screen.findByText("Confirm package restore")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "backup_package_preview",
+      { packageName },
+      undefined,
+    );
     expect(
-      screen.getByText("Local media files are not restored or deleted."),
+      screen.getByText(/current Sakurava database will be replaced/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("A safety backup will be created first."),
+      screen.getByText(/safety package of the current database/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(`Source: ${sourcePath}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(/cannot recover missing external media files/i),
+    ).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
-      "database_restore",
+      "backup_package_restore",
       expect.anything(),
       undefined,
     );
@@ -5476,38 +5644,53 @@ describe("App", () => {
 
   it("cancels restore confirmation without calling the restore command", async () => {
     window.history.pushState({}, "", "/settings");
-    const invoke = vi.fn();
+    const packageName = "restore-cancel-manual";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      throw new Error(`Unexpected command ${command}`);
+    });
     window.__TAURI_INTERNALS__ = {
-      invoke,
+      invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue("D:/Backups/sakurava-backup.sqlite");
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
-    await screen.findByText("Confirm database restore");
+    await clickHistoryRestore(packageName);
+    await screen.findByText("Confirm package restore");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.queryByText("Confirm database restore")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm package restore")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
-      "database_restore",
+      "backup_package_restore",
       expect.anything(),
       undefined,
     );
   });
 
-  it("restores the selected database after confirmation", async () => {
+  it("restores only the previewed package after confirmation and refreshes the list", async () => {
     window.history.pushState({}, "", "/settings");
-    const sourcePath = "D:/Backups/sakurava-backup.sqlite";
-    const safetyBackupPath =
-      "C:/Users/Example/AppData/Roaming/app.sakurava.desktop/sakurava-before-restore.sqlite";
+    const packageName = "restore-success-manual";
+    const safetyPackageName = "restore-safety";
+    let listCalls = 0;
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "database_restore") {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") {
+        listCalls += 1;
+        return [testBackupPackage(packageName)];
+      }
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      if (command === "backup_package_restore") {
         return {
-          sourcePath: args.sourcePath,
-          success: true,
-          safetyBackupPath,
-          restartRequired: false,
+          restoredPackageName: args.packageName,
+          safetyPackageName,
+          restoredAt: "2026-07-06T12:10:00Z",
+          databaseRestored: true,
+          rollbackAttempted: false,
+          rollbackSucceeded: false,
+          warnings: [],
+          errors: [],
         };
       }
       throw new Error(`Unexpected command ${command}`);
@@ -5515,130 +5698,198 @@ describe("App", () => {
     window.__TAURI_INTERNALS__ = {
       invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue(sourcePath);
-
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
-    await screen.findByText("Confirm database restore");
-    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+    await clickHistoryRestore(packageName);
+    await screen.findByText("Confirm package restore");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Restore" }));
 
-    await screen.findByText(
-      `Restored database from ${sourcePath}. Safety backup: ${safetyBackupPath}.`,
-    );
+    expect(await screen.findByText(`Restored package: ${packageName}`)).toBeInTheDocument();
+    expect(screen.getByText(`Safety package created: ${safetyPackageName}`)).toBeInTheDocument();
+    expect(screen.queryByText(/Rollback:/)).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
-      "database_restore",
-      { sourcePath },
+      "backup_package_restore",
+      { packageName },
       undefined,
     );
+    expect(listCalls).toBeGreaterThanOrEqual(2);
   });
 
-  it("shows restart guidance when restore reports restartRequired", async () => {
+  it("paginates backup history and keeps unsupported Download/Delete as visual shells", async () => {
     window.history.pushState({}, "", "/settings");
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "database_restore") {
-        return {
-          sourcePath: args.sourcePath,
-          success: true,
-          safetyBackupPath: "C:/Safety/sakurava-before-restore.sqlite",
-          restartRequired: true,
-        };
-      }
+    const packages = Array.from({ length: 35 }, (_, index) =>
+      testBackupPackage(
+        `history-package-${String(index + 1).padStart(2, "0")}`,
+        index % 2 === 0 ? "manual" : "automatic",
+      ),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return packages;
       throw new Error(`Unexpected command ${command}`);
     });
     window.__TAURI_INTERNALS__ = {
       invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue("D:/Backups/sakurava-backup.sqlite");
-
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
-    await screen.findByText("Confirm database restore");
-    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
-
+    expect(await screen.findByText("Showing 1-32 of 35")).toBeInTheDocument();
+    expect(screen.getByText("history-package-01")).toBeInTheDocument();
+    expect(screen.queryByText("history-package-35")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Download" })[0]).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Delete" })[0]).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(await screen.findByText("Showing 33-35 of 35")).toBeInTheDocument();
+    expect(screen.getByText("history-package-35")).toBeInTheDocument();
+    expect(screen.queryByText("history-package-01")).not.toBeInTheDocument();
     expect(
-      await screen.findByText(/Restart Sakurava to use the restored database\./),
-    ).toBeInTheDocument();
+      invoke.mock.calls.some(([command]) =>
+        ["backup_package_download", "backup_package_delete"].includes(command),
+      ),
+    ).toBe(false);
   });
 
   it("prevents duplicate restore submits while pending", async () => {
     window.history.pushState({}, "", "/settings");
-    let resolveRestore: (result: {
-      sourcePath: string;
-      success: boolean;
-      safetyBackupPath: string;
-      restartRequired: boolean;
-    }) => void = () => {};
-    const restorePromise = new Promise<{
-      sourcePath: string;
-      success: boolean;
-      safetyBackupPath: string;
-      restartRequired: boolean;
-    }>((resolve) => {
+    const packageName = "pending-restore-manual";
+    let resolveRestore: (result: any) => void = () => {};
+    const restorePromise = new Promise<any>((resolve) => {
       resolveRestore = resolve;
     });
-    const sourcePath = "D:/Backups/sakurava-backup.sqlite";
-    const invoke = vi.fn(async (command: string) => {
-      if (command === "database_restore") {
-        return restorePromise;
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      if (command === "backup_package_restore") return restorePromise;
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+
+    await clickHistoryRestore(packageName);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm Restore" }));
+
+    expect(await screen.findByText("Restoring backup package...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Backup Now" })).toBeDisabled();
+    expect(
+      invoke.mock.calls.filter(([command]) => command === "backup_package_restore"),
+    ).toHaveLength(1);
+
+    resolveRestore({
+      restoredPackageName: packageName,
+      safetyPackageName: "pending-restore-safety",
+      restoredAt: "2026-07-06T12:00:00Z",
+      databaseRestored: true,
+      rollbackAttempted: false,
+      rollbackSucceeded: false,
+      warnings: [],
+      errors: [],
+    });
+    await screen.findByText(`Restored package: ${packageName}`);
+  });
+
+  it("shows a typed runtime error when package restore fails", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "broken-restore-manual";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      if (command === "backup_package_restore") {
+        throw {
+          code: "restore_apply_failed",
+          message: "Restore failed and the active database was rolled back.",
+        };
       }
       throw new Error(`Unexpected command ${command}`);
     });
     window.__TAURI_INTERNALS__ = {
       invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue(sourcePath);
-
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
-    await screen.findByText("Confirm database restore");
-    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+    await clickHistoryRestore(packageName);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm Restore" }));
 
-    const pendingButton = await screen.findByRole("button", {
-      name: "Restoring...",
-    });
-    expect(pendingButton).toBeDisabled();
-    fireEvent.click(pendingButton);
-    expect(
-      invoke.mock.calls.filter(([command]) => command === "database_restore"),
-    ).toHaveLength(1);
-
-    resolveRestore({
-      sourcePath,
-      success: true,
-      safetyBackupPath: "C:/Safety/sakurava-before-restore.sqlite",
-      restartRequired: false,
-    });
-    await screen.findByText(
-      "Restored database from D:/Backups/sakurava-backup.sqlite. Safety backup: C:/Safety/sakurava-before-restore.sqlite.",
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Backup package restore failed.",
+    );
+    expect(invoke).toHaveBeenCalledWith(
+      "backup_package_restore",
+      { packageName },
+      undefined,
     );
   });
 
-  it("shows an error when database restore fails", async () => {
+  it("keeps restore disabled after preview failure and never calls restore", async () => {
     window.history.pushState({}, "", "/settings");
+    const packageName = "invalid-preview-manual";
     const invoke = vi.fn(async (command: string) => {
-      if (command === "database_restore") {
-        throw new Error("Restore source failed SQLite integrity check");
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      if (command === "backup_package_preview") {
+        throw {
+          code: "database_integrity_failed",
+          message: "Backup database failed SQLite integrity check.",
+        };
       }
       throw new Error(`Unexpected command ${command}`);
     });
     window.__TAURI_INTERNALS__ = {
-      invoke,
+      invoke: invoke as unknown as TestTauriInvoke,
     };
-    dialogMocks.open.mockResolvedValue("D:/Backups/broken.sqlite");
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Restore Database" }));
-    await screen.findByText("Confirm database restore");
-    fireEvent.click(screen.getByRole("button", { name: "Restore database" }));
+    await clickHistoryRestore(packageName);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Restore source failed SQLite integrity check",
+      "Backup package preview failed.",
     );
-    expect(screen.getByRole("button", { name: "Restore Database" })).toBeEnabled();
+    expect(screen.queryByText("Confirm package restore")).not.toBeInTheDocument();
+    expect(
+      invoke.mock.calls.filter(([command]) => command === "backup_package_restore"),
+    ).toHaveLength(0);
+  });
+
+  it("hides Preview action and blocks duplicate restore/backup submits while validation is pending", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "pending-preview-manual";
+    let resolvePreview: (value: any) => void = () => {};
+    const previewPromise = new Promise<any>((resolve) => {
+      resolvePreview = resolve;
+    });
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      if (command === "backup_package_preview") return previewPromise;
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    expect(screen.queryByRole("button", { name: "Preview Backup" })).not.toBeInTheDocument();
+    await clickHistoryRestore(packageName);
+    expect(await screen.findByText("Validating backup...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Backup Now" })).toBeDisabled();
+    const restoreRow = screen.getByText(packageName).closest("tr");
+    expect(restoreRow).not.toBeNull();
+    const restoreButton = within(restoreRow as HTMLElement).getByRole("button", {
+      name: /^Restore/,
+    });
+    expect(restoreButton).toBeDisabled();
+    fireEvent.click(restoreButton);
+    expect(
+      invoke.mock.calls.filter(([command]) => command === "backup_package_preview"),
+    ).toHaveLength(1);
+
+    resolvePreview(testBackupPreview(packageName));
+    expect(await screen.findByText("Confirm package restore")).toBeInTheDocument();
   });
 
   it("requires confirmation before clearing app-generated cache", async () => {
@@ -5708,6 +5959,9 @@ describe("App", () => {
       if (["video_list", "image_list", "performer_list"].includes(command)) {
         return [];
       }
+      if (command === "backup_package_list") {
+        return [];
+      }
       if (command === "clear_app_cache") {
         return {
           success: true,
@@ -5758,6 +6012,9 @@ describe("App", () => {
     window.history.pushState({}, "", "/settings");
     const invoke = vi.fn(async (command: string) => {
       if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      if (command === "backup_package_list") {
         return [];
       }
       if (command === "clear_app_cache") {
@@ -9895,7 +10152,10 @@ describe("App", () => {
       const dialog = await screen.findByRole(
         "dialog",
         { name: dialogName },
-        { timeout: 5000 },
+        // The mocked multi-window probe rejects before the in-app viewer
+        // fallback renders. Under the full 452-test run that transition can
+        // exceed the default wait without changing the asserted behavior.
+        { timeout: 10000 },
       );
       expect(within(dialog).getByLabelText("Image metadata")).toBeInTheDocument();
       expect(within(dialog).getByLabelText("Image viewer actions")).toBeInTheDocument();
