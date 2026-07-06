@@ -18,12 +18,19 @@ import {
   FilePenLine,
   ImageUp,
   Plus,
+  Download,
+  Trash2,
+  RefreshCw,
+  CalendarDays,
+  Package,
+  FolderOpen,
+  CheckCircle2,
   RotateCcw,
   Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Image,
   ManagedCategory,
@@ -79,10 +86,17 @@ import {
   validateManagedCategoryRename,
 } from "../lib/managedCategories";
 import { clearAppCache } from "../runtime/cacheCommands";
-import { backUpDatabase, restoreDatabase } from "../runtime/databaseCommands";
 import {
-  selectDatabaseBackupDestination,
-  selectDatabaseRestoreSource,
+  createBackupPackage,
+  listBackupPackages,
+  openBackupFolder,
+  previewBackupPackage,
+  restoreBackupPackage,
+  type BackupPackageInfo,
+  type BackupPackagePreview,
+  type BackupPackageRestoreResult,
+} from "../runtime/databaseCommands";
+import {
   selectExportCsvDestination,
   selectImportCsvSource,
   selectLanguageCsvExportDestination,
@@ -150,9 +164,10 @@ type BackupStatus =
 
 type RestoreStatus =
   | { state: "idle" }
-  | { state: "confirming"; sourcePath: string }
-  | { state: "pending"; sourcePath: string }
-  | { state: "success"; message: string }
+  | { state: "previewPending"; packageName: string }
+  | { state: "confirming"; preview: BackupPackagePreview }
+  | { state: "pending"; preview: BackupPackagePreview }
+  | { state: "success"; result: BackupPackageRestoreResult }
   | { state: "error"; message: string };
 
 type CacheStatus =
@@ -296,6 +311,13 @@ function SettingsPage() {
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>({
     state: "idle",
   });
+  const [backupNote, setBackupNote] = useState("");
+  const [backupPackages, setBackupPackages] = useState<BackupPackageInfo[]>([]);
+  const [backupListError, setBackupListError] = useState("");
+  const [selectedBackupPackage, setSelectedBackupPackage] = useState<string | null>(null);
+  const [backupHistoryPage, setBackupHistoryPage] = useState(1);
+  const [backupHistoryPageSize, setBackupHistoryPageSize] = useState(32);
+  const selectedBackupPackageRef = useRef<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>({
     state: "idle",
   });
@@ -328,14 +350,18 @@ function SettingsPage() {
     useState<CategoryStatus>({ state: "idle" });
   const isBackupPending = backupStatus.state === "pending";
   const isRestorePending = restoreStatus.state === "pending";
+  const isPreviewPending = restoreStatus.state === "previewPending";
+  const isBackupOperationPending =
+    isBackupPending ||
+    isPreviewPending ||
+    isRestorePending ||
+    restoreStatus.state === "confirming";
   const isCachePending = cacheStatus.state === "pending";
   const isMediaRootPending = mediaRootStatus.state === "pending";
   const isExportPending = exportStatus.state === "pending";
   const isImportPending = importStatus.state === "pending";
   const isImportApplyPending = importApplyStatus.state === "pending";
-  const canBackUpDatabase = isDesktopRuntime && !isBackupPending && !isRestorePending;
-  const canRestoreDatabase =
-    isDesktopRuntime && !isBackupPending && !isRestorePending;
+  const canBackUpDatabase = isDesktopRuntime && !isBackupOperationPending;
   const canClearCache =
     isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
   const canExportCsv =
@@ -424,6 +450,23 @@ function SettingsPage() {
   }, []);
 
   useEffect(() => {
+    selectedBackupPackageRef.current = selectedBackupPackage;
+  }, [selectedBackupPackage]);
+
+  useEffect(() => {
+    const pageCount = Math.max(1, Math.ceil(backupPackages.length / backupHistoryPageSize));
+    setBackupHistoryPage((current) => Math.min(current, pageCount));
+  }, [backupPackages.length, backupHistoryPageSize]);
+
+  useEffect(() => {
+    if (!isDesktopRuntime) {
+      setBackupPackages([]);
+      return;
+    }
+    void refreshBackupPackages();
+  }, [isDesktopRuntime]);
+
+  useEffect(() => {
     setSelectedMediaRoot((current) => {
       if (current && hasMediaRoot(mediaRoots, current)) {
         return mediaRoots.find(
@@ -474,6 +517,27 @@ function SettingsPage() {
     };
   }, [isDesktopRuntime]);
 
+  async function refreshBackupPackages() {
+    try {
+      const packages = await listBackupPackages();
+      const restorePackages = packages.filter(
+        (backupPackage) => backupPackage.manifest.backupType !== "safety",
+      );
+      setBackupPackages(restorePackages);
+      setBackupListError("");
+      setSelectedBackupPackage((current) =>
+        current &&
+        restorePackages.some((backupPackage) => backupPackage.packageName === current)
+          ? current
+          : null,
+      );
+      return restorePackages;
+    } catch (error) {
+      setBackupListError(t("settings.backup.error.list"));
+      return [];
+    }
+  }
+
   async function handleBackupData() {
     if (!canBackUpDatabase) {
       return;
@@ -482,63 +546,60 @@ function SettingsPage() {
     setBackupStatus({ state: "pending" });
 
     try {
-      const destinationPath = await selectDatabaseBackupDestination();
-
-      if (!destinationPath) {
-        setBackupStatus({ state: "idle" });
-        return;
-      }
-
-      const result = await backUpDatabase(destinationPath);
-      if (!result.success) {
-        setBackupStatus({
-          state: "error",
-          message: "Backup did not complete. No database backup was created.",
-        });
-        return;
-      }
-
+      const note = backupNote.trim();
+      await createBackupPackage("manual", note || undefined);
+      setBackupNote("");
       setBackupStatus({
         state: "success",
-        message: `Backup created at ${result.destinationPath}`,
+        message: t("settings.backup.status.created"),
       });
+      await refreshBackupPackages();
     } catch (error) {
+      const message = runtimeErrorMessage(error, t("settings.backup.error.generic"));
       setBackupStatus({
         state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-            : "Backup failed. The database was not backed up.",
+        message: /already exists for this second|already exists.*second/i.test(message)
+          ? t("settings.backup.error.tooSoon")
+          : t("settings.backup.error.generic"),
       });
     }
   }
 
-  async function handleRestoreData() {
-    if (!canRestoreDatabase) {
+  async function handleOpenBackupFolder() {
+    if (!isDesktopRuntime || isBackupOperationPending) {
       return;
     }
-
     try {
-      const sourcePath = await selectDatabaseRestoreSource();
-
-      if (!sourcePath) {
-        setRestoreStatus({ state: "idle" });
-        return;
-      }
-
-      setRestoreStatus({ state: "confirming", sourcePath });
+      await openBackupFolder();
     } catch (error) {
-      setRestoreStatus({
+      setBackupStatus({
         state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "Restore failed before a source file was selected.",
+        message: t("settings.backup.error.openFolder"),
       });
+    }
+  }
+
+  async function handleRestoreHistoryPackage(packageName: string) {
+    if (!isDesktopRuntime || isBackupOperationPending) {
+      return;
+    }
+    selectedBackupPackageRef.current = packageName;
+    setSelectedBackupPackage(packageName);
+    setRestoreStatus({ state: "previewPending", packageName });
+    try {
+      const preview = await previewBackupPackage(packageName);
+      setRestoreStatus(
+        selectedBackupPackageRef.current === packageName
+          ? { state: "confirming", preview }
+          : { state: "idle" },
+      );
+    } catch (error) {
+      if (selectedBackupPackageRef.current === packageName) {
+        setRestoreStatus({
+          state: "error",
+          message: t("settings.backup.error.preview"),
+        });
+      }
     }
   }
 
@@ -547,35 +608,24 @@ function SettingsPage() {
       return;
     }
 
-    const { sourcePath } = restoreStatus;
-    setRestoreStatus({ state: "pending", sourcePath });
+    const { preview } = restoreStatus;
+    if (preview.packageName !== selectedBackupPackageRef.current) {
+      setRestoreStatus({ state: "idle" });
+      return;
+    }
+    setRestoreStatus({ state: "pending", preview });
 
     try {
-      const result = await restoreDatabase(sourcePath);
-      if (!result.success) {
-        setRestoreStatus({
-          state: "error",
-          message: "Restore did not complete. The current database was not replaced.",
-        });
-        return;
-      }
-
-      const restartMessage = result.restartRequired
-        ? " Restart Sakurava to use the restored database."
-        : "";
-      setRestoreStatus({
-        state: "success",
-        message: `Restored database from ${result.sourcePath}. Safety backup: ${result.safetyBackupPath}.${restartMessage}`,
-      });
+      const result = await restoreBackupPackage(preview.packageName);
+      setRestoreStatus({ state: "success", result });
+      await refreshBackupPackages();
     } catch (error) {
       setRestoreStatus({
         state: "error",
         message:
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "Restore failed. The current database was not replaced.",
+          runtimeErrorCode(error) === "restore_rollback_failed"
+            ? t("settings.backup.error.restoreRollback")
+            : t("settings.backup.error.restore"),
       });
     }
   }
@@ -1193,6 +1243,11 @@ function SettingsPage() {
           mediaRootStatus,
           backupStatus,
           restoreStatus,
+          backupNote,
+          backupPackages,
+          backupListError,
+          backupHistoryPage,
+          backupHistoryPageSize,
           importStatus,
           importApplyStatus,
           exportStatus,
@@ -1200,12 +1255,12 @@ function SettingsPage() {
           isMediaRootPending,
           isBackupPending,
           isRestorePending,
+          isBackupOperationPending,
           isImportPending,
           isExportPending,
           isCachePending,
           canAddMediaRoot,
           canBackUpDatabase,
-          canRestoreDatabase,
           canImportCsv,
           canExportCsv,
           canClearCache,
@@ -1229,7 +1284,12 @@ function SettingsPage() {
           handleRemoveMediaRoot,
           setSelectedMediaRoot,
           handleBackupData,
-          handleRestoreData,
+          setBackupNote,
+          handleOpenBackupFolder,
+          refreshBackupPackages,
+          setBackupHistoryPage,
+          setBackupHistoryPageSize,
+          handleRestoreHistoryPackage,
           setRestoreStatus,
           handleConfirmRestore,
           handleImportCsvPreview,
@@ -1254,12 +1314,14 @@ function SettingsPanelCard({
   children,
   onReset,
   showReset = true,
+  headerAction,
 }: {
   title: string;
   icon: LucideIcon;
   children: ReactNode;
   onReset?: () => void;
   showReset?: boolean;
+  headerAction?: ReactNode;
 }) {
   const Icon = icon;
 
@@ -1270,6 +1332,7 @@ function SettingsPanelCard({
           <Icon size={18} />
         </span>
         <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+        {headerAction ? <div className="ml-auto">{headerAction}</div> : null}
       </div>
       <div className="px-4 pb-10 pt-3">{children}</div>
       {showReset ? (
@@ -1554,6 +1617,11 @@ function SettingsSection({
     mediaRootStatus,
     backupStatus,
     restoreStatus,
+    backupNote,
+    backupPackages,
+    backupListError,
+    backupHistoryPage,
+    backupHistoryPageSize,
     importStatus,
     importApplyStatus,
     exportStatus,
@@ -1561,12 +1629,12 @@ function SettingsSection({
     isMediaRootPending,
     isBackupPending,
     isRestorePending,
+    isBackupOperationPending,
     isImportPending,
     isExportPending,
     isCachePending,
     canAddMediaRoot,
     canBackUpDatabase,
-    canRestoreDatabase,
     canImportCsv,
     canExportCsv,
     canClearCache,
@@ -1590,7 +1658,12 @@ function SettingsSection({
     handleRemoveMediaRoot,
     setSelectedMediaRoot,
     handleBackupData,
-    handleRestoreData,
+    setBackupNote,
+    handleOpenBackupFolder,
+    refreshBackupPackages,
+    setBackupHistoryPage,
+    setBackupHistoryPageSize,
+    handleRestoreHistoryPackage,
     setRestoreStatus,
     handleConfirmRestore,
     handleImportCsvPreview,
@@ -1965,41 +2038,133 @@ function SettingsSection({
         </ControlRow>
       </SettingsPanelCard>
 
-      <SettingsPanelCard title={t("settings.backup.title")} icon={ShieldCheck}>
-        <ControlRow label={t("settings.backup.lastBackup")}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-slate-500">{t("common.notAvailable")}</span>
-            <ShellButton
-              label={isBackupPending ? "Backing up..." : "Backup Now"}
-              ariaLabel={isBackupPending ? "Backing Up..." : "Backup Database"}
-              disabled={!canBackUpDatabase}
-              onClick={handleBackupData}
-            />
-          </div>
-        </ControlRow>
-        <ControlRow label={t("settings.backup.location")}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-slate-500">{t("settings.overview.notConfigured")}</span>
-            <ShellButton
-              label={isRestorePending ? "Restoring..." : "Restore Backup..."}
-              ariaLabel={isRestorePending ? "Restoring..." : "Restore Database"}
-              disabled={!canRestoreDatabase}
-              onClick={handleRestoreData}
-            />
-          </div>
-        </ControlRow>
-        <p className="mt-2 text-xs font-medium text-slate-500">
-          Database backups do not include original media files.
-        </p>
-        <SettingsStatusMessage status={backupStatus} kind="backup" />
-        {restoreStatus.state === "confirming" && (
-          <RestoreConfirmPanel
-            restoreStatus={restoreStatus}
-            onCancelRestore={() => setRestoreStatus({ state: "idle" })}
-            onConfirmRestore={handleConfirmRestore}
+      <SettingsPanelCard
+        title={t("settings.backup.title")}
+        icon={ShieldCheck}
+        showReset={false}
+        headerAction={
+          <button
+            type="button"
+            disabled={!canBackUpDatabase}
+            onClick={handleBackupData}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:bg-slate-300"
+          >
+            <Plus size={16} aria-hidden="true" />
+            {isBackupPending
+              ? t("settings.backup.backingUp")
+              : t("settings.backup.backupNow")}
+          </button>
+        }
+      >
+        <div className="grid gap-3 lg:grid-cols-3">
+          <BackupSummaryCard
+            icon={CalendarDays}
+            label={t("settings.backup.lastBackup")}
+            value={
+              backupPackages[0]
+                ? formatBackupCreatedAt(backupPackages[0].manifest.createdAt)
+                : t("common.notAvailable")
+            }
+            badge={
+              backupPackages[0] ? t("settings.backup.status.success") : undefined
+            }
           />
-        )}
-        <SettingsStatusMessage status={restoreStatus} kind="restore" />
+          <BackupSummaryCard
+            icon={FolderOpen}
+            label={t("settings.backup.location.title")}
+            value={t("settings.backup.location.default")}
+            action={
+              <button
+                type="button"
+                disabled={!isDesktopRuntime || isBackupOperationPending}
+                onClick={handleOpenBackupFolder}
+                className="mt-1 text-xs font-semibold text-sakura-600 hover:text-sakura-700 disabled:text-slate-400"
+              >
+                {t("settings.backup.openFolderShort")}
+              </button>
+            }
+          />
+          <BackupSummaryCard
+            icon={Package}
+            label={t("settings.backup.packageCount")}
+            value={t(
+              backupPackages.length === 1
+                ? "settings.backup.packageCountValue.one"
+                : "settings.backup.packageCountValue.other",
+              { count: backupPackages.length },
+            )}
+          />
+        </div>
+        <label className="mt-3 flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
+          <span className="sr-only">{t("settings.backup.note.label")}</span>
+          <FilePenLine size={17} className="shrink-0 text-slate-400" aria-hidden="true" />
+          <input
+            value={backupNote}
+            maxLength={255}
+            onChange={(event) => setBackupNote(event.target.value)}
+            aria-label={t("settings.backup.note.label")}
+            placeholder={t("settings.backup.note.placeholderFinal")}
+            disabled={isBackupOperationPending}
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
+          />
+          <span className="shrink-0 text-xs font-medium text-slate-400">
+            {backupNote.length}/255
+          </span>
+        </label>
+        <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)] md:items-center">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-label={t("settings.backup.automatic.title")}
+              aria-checked="false"
+              disabled
+              className="relative h-6 w-11 shrink-0 rounded-full bg-slate-200 opacity-70"
+            >
+              <span className="absolute left-1 top-1 size-4 rounded-full bg-white shadow-sm" />
+            </button>
+            <div>
+              <p className="text-sm font-semibold text-slate-700">
+                {t("settings.backup.automatic.title")}
+              </p>
+              <p className="text-xs font-medium text-slate-500">
+                {t("settings.backup.automatic.helper")}
+              </p>
+            </div>
+          </div>
+          <label className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 text-xs font-semibold text-slate-500">
+            {t("settings.backup.automatic.frequency")}
+            <select
+              aria-label={t("settings.backup.automatic.frequency")}
+              disabled
+              defaultValue="daily"
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600"
+            >
+              <option value="daily">{t("settings.backup.automatic.daily")}</option>
+              <option value="weekly">{t("settings.backup.automatic.weekly")}</option>
+              <option value="monthly">{t("settings.backup.automatic.monthly")}</option>
+            </select>
+          </label>
+        </div>
+        <SettingsStatusMessage status={backupStatus} kind="backup" />
+        {backupListError ? (
+          <p role="alert" className="text-sm font-semibold text-rose-600">
+            {backupListError}
+          </p>
+        ) : null}
+        <BackupHistoryPanel
+          packages={backupPackages}
+          page={backupHistoryPage}
+          pageSize={backupHistoryPageSize}
+          busy={isBackupOperationPending}
+          restoreStatus={restoreStatus}
+          onRefresh={() => void refreshBackupPackages()}
+          onPageChange={setBackupHistoryPage}
+          onPageSizeChange={setBackupHistoryPageSize}
+          onRestore={handleRestoreHistoryPackage}
+          onCancelRestore={() => setRestoreStatus({ state: "idle" })}
+          onConfirmRestore={handleConfirmRestore}
+        />
       </SettingsPanelCard>
 
       <SettingsPanelCard title={t("settings.importExport.title")} icon={FileArchive}>
@@ -2794,6 +2959,376 @@ function ImportMetric({ label, value }: { label: string; value: number }) {
   );
 }
 
+function BackupSummaryCard({
+  icon,
+  label,
+  value,
+  badge,
+  action,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  badge?: string;
+  action?: ReactNode;
+}) {
+  const Icon = icon;
+  return (
+    <div className="flex min-h-28 gap-3 rounded-xl border border-slate-200 bg-white p-4">
+      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
+        <Icon size={19} aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-slate-500">{label}</p>
+        <p className="mt-1 break-words text-sm font-semibold text-slate-900">{value}</p>
+        {badge ? (
+          <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+            <CheckCircle2 size={13} aria-hidden="true" />
+            {badge}
+          </span>
+        ) : null}
+        {action}
+      </div>
+    </div>
+  );
+}
+
+function BackupHistoryPanel({
+  packages,
+  page,
+  pageSize,
+  busy,
+  restoreStatus,
+  onRefresh,
+  onPageChange,
+  onPageSizeChange,
+  onRestore,
+  onCancelRestore,
+  onConfirmRestore,
+}: {
+  packages: BackupPackageInfo[];
+  page: number;
+  pageSize: number;
+  busy: boolean;
+  restoreStatus: RestoreStatus;
+  onRefresh: () => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onRestore: (packageName: string) => void;
+  onCancelRestore: () => void;
+  onConfirmRestore: () => void;
+}) {
+  const t = useTranslation();
+  const pageCount = Math.max(1, Math.ceil(packages.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * pageSize;
+  const visiblePackages = packages.slice(startIndex, startIndex + pageSize);
+  const showingStart = packages.length === 0 ? 0 : startIndex + 1;
+  const showingEnd = Math.min(startIndex + visiblePackages.length, packages.length);
+
+  return (
+    <section
+      aria-label={t("settings.backup.history.title")}
+      className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white"
+    >
+      <header className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+        <h3 className="text-sm font-semibold text-slate-900">
+          {t("settings.backup.history.title")}
+        </h3>
+        <button
+          type="button"
+          aria-label={t("settings.backup.history.refresh")}
+          disabled={busy}
+          onClick={onRefresh}
+          className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-sakura-200 hover:text-sakura-600 disabled:text-slate-300"
+        >
+          <RefreshCw size={15} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="max-h-[30rem] overflow-auto">
+        <table className="min-w-[780px] w-full border-collapse text-left">
+          <thead className="sticky top-0 z-10 bg-slate-50">
+            <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-4 py-3">{t("settings.backup.history.dateTime")}</th>
+              <th className="px-3 py-3">{t("settings.backup.history.type")}</th>
+              <th className="px-3 py-3">{t("settings.backup.history.status")}</th>
+              <th className="px-3 py-3">{t("settings.backup.history.note")}</th>
+              <th className="px-3 py-3">{t("settings.backup.history.actions")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visiblePackages.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm font-medium text-slate-400">
+                  {t("settings.backup.list.empty")}
+                </td>
+              </tr>
+            ) : (
+              visiblePackages.map((backupPackage) => (
+                <tr
+                  key={backupPackage.packageName}
+                  className="border-b border-slate-100 text-sm text-slate-600 last:border-b-0"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-700">
+                    {formatBackupCreatedAt(backupPackage.manifest.createdAt)}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${
+                      backupPackage.manifest.backupType === "automatic"
+                        ? "bg-violet-50 text-violet-600"
+                        : "bg-sakura-50 text-sakura-600"
+                    }`}>
+                      {t(
+                        backupPackage.manifest.backupType === "automatic"
+                          ? "settings.backup.type.auto"
+                          : "settings.backup.type.manual",
+                      )}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle2 size={13} aria-hidden="true" />
+                      {t("settings.backup.status.success")}
+                    </span>
+                  </td>
+                  <td className="max-w-52 truncate px-3 py-3" title={backupPackage.manifest.note}>
+                    {backupPackage.manifest.note || t("common.none")}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => onRestore(backupPackage.packageName)}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 disabled:text-slate-300"
+                      >
+                        <RotateCcw size={13} aria-hidden="true" />
+                        {t("settings.backup.history.restore")}
+                        <span className="sr-only">{backupPackage.packageName}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-400"
+                      >
+                        <Download size={13} aria-hidden="true" />
+                        {t("settings.backup.history.download")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-400"
+                      >
+                        <Trash2 size={13} aria-hidden="true" />
+                        {t("settings.backup.history.delete")}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <footer className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-xs font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>
+            {t("settings.backup.history.showing", {
+              start: String(showingStart),
+              end: String(showingEnd),
+              total: String(packages.length),
+            })}
+          </span>
+          <label className="flex items-center gap-2">
+            {t("settings.backup.history.pageSize")}
+            <select
+              aria-label={t("settings.backup.history.pageSize")}
+              value={pageSize}
+              onChange={(event) => {
+                onPageSizeChange(Number(event.target.value));
+                onPageChange(1);
+              }}
+              className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600"
+            >
+              {[16, 32, 64].map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+            {t("settings.backup.history.perPage")}
+          </label>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => onPageChange(currentPage - 1)}
+            className="h-8 rounded-lg border border-slate-200 px-3 disabled:text-slate-300"
+          >
+            {t("common.previous")}
+          </button>
+          {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
+            <button
+              key={pageNumber}
+              type="button"
+              aria-current={pageNumber === currentPage ? "page" : undefined}
+              onClick={() => onPageChange(pageNumber)}
+              className={`size-8 rounded-lg border text-xs font-semibold ${
+                pageNumber === currentPage
+                  ? "border-sakura-400 bg-sakura-500 text-white"
+                  : "border-slate-200 text-slate-600"
+              }`}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={currentPage >= pageCount}
+            onClick={() => onPageChange(currentPage + 1)}
+            className="h-8 rounded-lg border border-slate-200 px-3 disabled:text-slate-300"
+          >
+            {t("common.next")}
+          </button>
+        </div>
+      </footer>
+      <div className="space-y-3 px-4 pb-4">
+        {restoreStatus.state === "previewPending" ? (
+          <p role="status" className="text-sm font-semibold text-slate-600">
+            {t("settings.backup.validating")}
+          </p>
+        ) : null}
+        {(restoreStatus.state === "confirming" || restoreStatus.state === "pending") ? (
+          <BackupPreviewPanel preview={restoreStatus.preview} />
+        ) : null}
+        {restoreStatus.state === "confirming" ? (
+          <RestoreConfirmPanel
+            restoreStatus={restoreStatus}
+            onCancelRestore={onCancelRestore}
+            onConfirmRestore={onConfirmRestore}
+          />
+        ) : null}
+        {restoreStatus.state === "pending" ? (
+          <p role="status" className="text-sm font-semibold text-slate-600">
+            {t("settings.backup.restoring")}
+          </p>
+        ) : restoreStatus.state === "error" ? (
+          <p role="alert" className="text-sm font-semibold text-rose-600">
+            {restoreStatus.message}
+          </p>
+        ) : restoreStatus.state === "success" ? (
+          <RestoreResultPanel result={restoreStatus.result} />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function BackupPreviewPanel({ preview }: { preview: BackupPackagePreview }) {
+  const t = useTranslation();
+  const counts = preview.database.counts;
+  return (
+    <section
+      aria-label={t("settings.backup.preview.title")}
+      className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+    >
+      <h3 className="text-sm font-semibold text-slate-800">
+        {t("settings.backup.preview.title")}
+      </h3>
+      <p className="mt-1 break-all text-xs font-medium text-slate-500">
+        {preview.packageName}
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <BackupPreviewMetric label={t("common.videos")} value={counts.videos} />
+        <BackupPreviewMetric label={t("common.images")} value={counts.images} />
+        <BackupPreviewMetric label={t("common.performers")} value={counts.performers} />
+        <BackupPreviewMetric label={t("common.categories")} value={counts.categories} />
+        <BackupPreviewMetric label={t("settings.backup.preview.glossary")} value={counts.glossary} />
+        <BackupPreviewMetric label={t("settings.backup.preview.credits")} value={counts.credits} />
+      </div>
+      <div className="mt-3 space-y-1 text-xs font-medium text-slate-600">
+        <p>{t("settings.backup.preview.databaseIncluded")}</p>
+        <p>
+          {t("settings.backup.preview.createdAt", {
+            createdAt: preview.manifest.createdAt,
+          })}
+        </p>
+        <p>
+          {t("settings.backup.preview.type", {
+            type: t(
+              preview.manifest.backupType === "automatic"
+                ? "settings.backup.type.automatic"
+                : "settings.backup.type.manual",
+            ),
+          })}
+        </p>
+        {preview.manifest.note ? (
+          <p>{t("settings.backup.preview.note", { note: preview.manifest.note })}</p>
+        ) : null}
+      </div>
+      {preview.warnings.map((warning) => (
+        <p key={warning} className="mt-2 text-xs font-semibold text-amber-700">
+          {warning}
+        </p>
+      ))}
+      {preview.errors.map((error) => (
+        <p key={error} role="alert" className="mt-2 text-xs font-semibold text-rose-600">
+          {error}
+        </p>
+      ))}
+    </section>
+  );
+}
+
+function BackupPreviewMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function RestoreResultPanel({ result }: { result: BackupPackageRestoreResult }) {
+  const t = useTranslation();
+  return (
+    <section
+      aria-label={t("settings.backup.result.title")}
+      className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-slate-700"
+    >
+      <h3 className="font-semibold">{t("settings.backup.result.title")}</h3>
+      <p className="mt-2 break-all">
+        {t("settings.backup.result.restored", {
+          packageName: result.restoredPackageName,
+        })}
+      </p>
+      <p className="mt-1 break-all">
+        {t("settings.backup.safetyPackageCreated", {
+          packageName: result.safetyPackageName,
+        })}
+      </p>
+      {result.rollbackAttempted ? (
+        <p className="mt-1">
+          {t("settings.backup.result.rollback", {
+            status: result.rollbackSucceeded
+              ? t("settings.backup.result.rollbackSucceeded")
+              : t("settings.backup.result.rollbackFailed"),
+          })}
+        </p>
+      ) : null}
+      {result.warnings.map((warning) => (
+        <p key={warning} className="mt-2 text-xs font-semibold text-amber-700">
+          {warning}
+        </p>
+      ))}
+      {result.errors.map((error) => (
+        <p key={error} role="alert" className="mt-2 text-xs font-semibold text-rose-600">
+          {error}
+        </p>
+      ))}
+    </section>
+  );
+}
+
 function RestoreConfirmPanel({
   restoreStatus,
   onCancelRestore,
@@ -2807,13 +3342,15 @@ function RestoreConfirmPanel({
   return (
     <div className="rounded-lg bg-rose-50 px-3 py-3">
       <div className="space-y-2 text-sm leading-6 text-slate-600">
-        <p className="font-semibold text-slate-800">{t("settings.restore.confirm")}</p>
-        <p>{t("settings.restore.replaceDatabase")}</p>
-        <p>{t("settings.restore.recordsOnly")}</p>
-        <p>{t("settings.restore.mediaUnaffected")}</p>
-        <p>A safety backup will be created first.</p>
+        <p className="font-semibold text-slate-800">{t("settings.backup.restoreConfirm.title")}</p>
+        <p>{t("settings.backup.restoreConfirm.replaceDatabase")}</p>
+        <p>{t("settings.backup.restoreConfirm.safetyPackage")}</p>
+        <p>{t("settings.backup.restoreConfirm.mediaUnaffected")}</p>
+        <p>{t("settings.backup.restoreConfirm.missingMedia")}</p>
         <p className="break-all font-medium text-slate-500">
-          Source: {restoreStatus.sourcePath}
+          {t("settings.backup.restoreConfirm.package", {
+            packageName: restoreStatus.preview.packageName,
+          })}
         </p>
       </div>
       <div className="mt-3 flex flex-wrap gap-3">
@@ -2822,14 +3359,14 @@ function RestoreConfirmPanel({
           onClick={onCancelRestore}
           className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
-          Cancel
+          {t("settings.backup.restoreConfirm.cancel")}
         </button>
         <button
           type="button"
           onClick={onConfirmRestore}
           className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-600 hover:bg-rose-100"
         >
-          Restore database
+          {t("settings.backup.restoreConfirm.confirm")}
         </button>
       </div>
     </div>
@@ -2969,7 +3506,7 @@ function SettingsCard({
           <div className="space-y-2 text-sm leading-6 text-slate-600">
             <p>A safety backup will be created first.</p>
             <p className="break-all font-medium text-slate-500">
-              Source: {restoreStatus.sourcePath}
+              Package: {restoreStatus.preview.packageName}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -3756,9 +4293,52 @@ function SettingsStatusMessage({
       role={isError ? "alert" : "status"}
       className={messageClassName}
     >
-      {status.state === "pending" ? pendingMessage : status.message}
+      {status.state === "pending"
+        ? pendingMessage
+        : "message" in status
+          ? status.message
+          : null}
     </p>
   );
+}
+
+function runtimeErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === "string" && error) {
+    return error;
+  }
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message
+  ) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function runtimeErrorCode(error: unknown) {
+  return error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string"
+    ? error.code
+    : "";
+}
+
+function formatBackupCreatedAt(value: string) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(timestamp);
 }
 
 function SettingsInfoRow({ row }: { row: SettingsRow }) {
