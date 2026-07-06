@@ -123,6 +123,15 @@ import {
   type CatalogPreferenceToggles,
 } from "../lib/catalogPreferences";
 import { clearSessionFilterState } from "../lib/sessionFilterState";
+import {
+  AUTOMATIC_BACKUP_RESULT_EVENT,
+  AUTOMATIC_BACKUP_SETTINGS_EVENT,
+  loadBackupRecoverySettings,
+  setBackupUiOperationPending,
+  updateAutomaticBackupSettings,
+  type AutomaticBackupFrequency,
+  type AutomaticBackupResultDetail,
+} from "../lib/automaticBackup";
 import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
 import {
   createManagedCategory,
@@ -157,6 +166,12 @@ type SettingsAction = {
 };
 
 type BackupStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "success"; message: string }
+  | { state: "error"; message: string };
+
+type AutomaticBackupStatus =
   | { state: "idle" }
   | { state: "pending" }
   | { state: "success"; message: string }
@@ -317,6 +332,11 @@ function SettingsPage() {
   const [selectedBackupPackage, setSelectedBackupPackage] = useState<string | null>(null);
   const [backupHistoryPage, setBackupHistoryPage] = useState(1);
   const [backupHistoryPageSize, setBackupHistoryPageSize] = useState(32);
+  const [backupRecoverySettings, setBackupRecoverySettings] = useState(
+    () => loadBackupRecoverySettings(),
+  );
+  const [automaticBackupStatus, setAutomaticBackupStatus] =
+    useState<AutomaticBackupStatus>({ state: "idle" });
   const selectedBackupPackageRef = useRef<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>({
     state: "idle",
@@ -465,6 +485,74 @@ function SettingsPage() {
     }
     void refreshBackupPackages();
   }, [isDesktopRuntime]);
+
+  useEffect(() => {
+    setBackupUiOperationPending(isBackupOperationPending);
+    return () => {
+      setBackupUiOperationPending(false);
+    };
+  }, [isBackupOperationPending]);
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setBackupRecoverySettings(loadBackupRecoverySettings());
+    };
+    const handleAutomaticBackupResult = (event: Event) => {
+      const detail = (event as CustomEvent<AutomaticBackupResultDetail>).detail;
+      if (detail.state === "pending") {
+        setAutomaticBackupStatus({ state: "pending" });
+        return;
+      }
+      if (detail.state === "success") {
+        setBackupRecoverySettings(loadBackupRecoverySettings());
+        setAutomaticBackupStatus({
+          state: "success",
+          message: t("settings.backup.automatic.success"),
+        });
+        void refreshBackupPackages();
+        return;
+      }
+      setAutomaticBackupStatus({
+        state: "error",
+        message: t("settings.backup.automatic.retry"),
+      });
+    };
+
+    window.addEventListener(
+      AUTOMATIC_BACKUP_SETTINGS_EVENT,
+      handleSettingsChange,
+    );
+    window.addEventListener(
+      AUTOMATIC_BACKUP_RESULT_EVENT,
+      handleAutomaticBackupResult,
+    );
+    return () => {
+      window.removeEventListener(
+        AUTOMATIC_BACKUP_SETTINGS_EVENT,
+        handleSettingsChange,
+      );
+      window.removeEventListener(
+        AUTOMATIC_BACKUP_RESULT_EVENT,
+        handleAutomaticBackupResult,
+      );
+    };
+  }, [t]);
+
+  function handleAutomaticBackupEnabled(enabled: boolean) {
+    const next = updateAutomaticBackupSettings({ enabled });
+    setBackupRecoverySettings(next);
+    if (!enabled) {
+      setAutomaticBackupStatus({ state: "idle" });
+    }
+  }
+
+  function handleAutomaticBackupFrequency(
+    frequency: AutomaticBackupFrequency,
+  ) {
+    setBackupRecoverySettings(
+      updateAutomaticBackupSettings({ frequency }),
+    );
+  }
 
   useEffect(() => {
     setSelectedMediaRoot((current) => {
@@ -1248,6 +1336,8 @@ function SettingsPage() {
           backupListError,
           backupHistoryPage,
           backupHistoryPageSize,
+          backupRecoverySettings,
+          automaticBackupStatus,
           importStatus,
           importApplyStatus,
           exportStatus,
@@ -1286,6 +1376,8 @@ function SettingsPage() {
           handleBackupData,
           setBackupNote,
           handleOpenBackupFolder,
+          handleAutomaticBackupEnabled,
+          handleAutomaticBackupFrequency,
           refreshBackupPackages,
           setBackupHistoryPage,
           setBackupHistoryPageSize,
@@ -1622,6 +1714,8 @@ function SettingsSection({
     backupListError,
     backupHistoryPage,
     backupHistoryPageSize,
+    backupRecoverySettings,
+    automaticBackupStatus,
     importStatus,
     importApplyStatus,
     exportStatus,
@@ -1660,6 +1754,8 @@ function SettingsSection({
     handleBackupData,
     setBackupNote,
     handleOpenBackupFolder,
+    handleAutomaticBackupEnabled,
+    handleAutomaticBackupFrequency,
     refreshBackupPackages,
     setBackupHistoryPage,
     setBackupHistoryPageSize,
@@ -2117,18 +2213,46 @@ function SettingsSection({
               type="button"
               role="switch"
               aria-label={t("settings.backup.automatic.title")}
-              aria-checked="false"
-              disabled
-              className="relative h-6 w-11 shrink-0 rounded-full bg-slate-200 opacity-70"
+              aria-checked={backupRecoverySettings.automaticBackup.enabled}
+              onClick={() =>
+                handleAutomaticBackupEnabled(
+                  !backupRecoverySettings.automaticBackup.enabled,
+                )
+              }
+              className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                backupRecoverySettings.automaticBackup.enabled
+                  ? "bg-sakura-500"
+                  : "bg-slate-200"
+              }`}
             >
-              <span className="absolute left-1 top-1 size-4 rounded-full bg-white shadow-sm" />
+              <span
+                className={`absolute top-1 size-4 rounded-full bg-white shadow-sm transition ${
+                  backupRecoverySettings.automaticBackup.enabled
+                    ? "left-6"
+                    : "left-1"
+                }`}
+              />
             </button>
             <div>
               <p className="text-sm font-semibold text-slate-700">
                 {t("settings.backup.automatic.title")}
               </p>
               <p className="text-xs font-medium text-slate-500">
-                {t("settings.backup.automatic.helper")}
+                {automaticBackupStatus.state === "pending"
+                  ? t("settings.backup.automatic.running")
+                  : automaticBackupStatus.state === "error"
+                    ? automaticBackupStatus.message
+                    : backupRecoverySettings.automaticBackup
+                          .lastSuccessfulAutomaticBackupAt
+                      ? t("settings.backup.automatic.lastSuccess", {
+                          createdAt: formatBackupCreatedAt(
+                            backupRecoverySettings.automaticBackup
+                              .lastSuccessfulAutomaticBackupAt,
+                          ),
+                        })
+                      : backupRecoverySettings.automaticBackup.enabled
+                        ? t("settings.backup.automatic.enabled")
+                        : t("settings.backup.automatic.disabled")}
               </p>
             </div>
           </div>
@@ -2136,8 +2260,13 @@ function SettingsSection({
             {t("settings.backup.automatic.frequency")}
             <select
               aria-label={t("settings.backup.automatic.frequency")}
-              disabled
-              defaultValue="daily"
+              disabled={!backupRecoverySettings.automaticBackup.enabled}
+              value={backupRecoverySettings.automaticBackup.frequency}
+              onChange={(event) =>
+                handleAutomaticBackupFrequency(
+                  event.target.value as AutomaticBackupFrequency,
+                )
+              }
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600"
             >
               <option value="daily">{t("settings.backup.automatic.daily")}</option>

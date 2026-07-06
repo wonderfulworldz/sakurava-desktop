@@ -38,6 +38,11 @@ import {
   restoreStoredMediaAssetRoots,
 } from "./runtime/mediaAssetScope";
 import { isTauriRuntimeAvailable } from "./runtime/tauriClient";
+import {
+  AUTOMATIC_BACKUP_CHECK_INTERVAL_MS,
+  AUTOMATIC_BACKUP_SETTINGS_EVENT,
+  runAutomaticBackupIfDue,
+} from "./lib/automaticBackup";
 
 function App() {
   const isImageViewerWindow =
@@ -70,6 +75,32 @@ function App() {
       setMediaAssetScopeReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (isImageViewerWindow || !isTauriRuntimeAvailable()) {
+      return;
+    }
+
+    const checkDueBackup = () => {
+      void runAutomaticBackupIfDue();
+    };
+    checkDueBackup();
+    window.addEventListener(
+      AUTOMATIC_BACKUP_SETTINGS_EVENT,
+      checkDueBackup,
+    );
+    const intervalId = window.setInterval(
+      checkDueBackup,
+      AUTOMATIC_BACKUP_CHECK_INTERVAL_MS,
+    );
+    return () => {
+      window.removeEventListener(
+        AUTOMATIC_BACKUP_SETTINGS_EVENT,
+        checkDueBackup,
+      );
+      window.clearInterval(intervalId);
+    };
+  }, [isImageViewerWindow]);
 
   if (isImageViewerWindow) {
     return (

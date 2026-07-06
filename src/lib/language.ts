@@ -817,7 +817,15 @@ const englishDictionary: TranslationDictionary = {
   "settings.backup.automatic.frequency": "Frequency",
   "settings.backup.automatic.daily": "Daily",
   "settings.backup.automatic.weekly": "Weekly",
-  "settings.backup.automatic.monthly": "Monthly",
+    "settings.backup.automatic.monthly": "Monthly",
+    "settings.backup.automatic.disabled": "Disabled",
+    "settings.backup.automatic.enabled": "Waiting for the next scheduled check",
+    "settings.backup.automatic.running": "Creating automatic backup...",
+    "settings.backup.automatic.success": "Automatic backup created.",
+    "settings.backup.automatic.retry":
+      "Automatic backup could not run. It will retry at the next check.",
+    "settings.backup.automatic.lastSuccess":
+      "Last automatic backup: {createdAt}",
   "settings.backup.history.title": "Backup History",
   "settings.backup.history.refresh": "Refresh backup history",
   "settings.backup.history.dateTime": "Date & Time",

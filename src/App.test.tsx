@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, vi } from "vitest";
 import App from "./App";
@@ -34,6 +35,12 @@ import {
 import { languageOverridesStorageKey } from "./lib/languageOverrides";
 import { rankPickerSearchResults } from "./lib/relatedPicker";
 import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
+import {
+  BACKUP_RECOVERY_STORAGE_KEY,
+  defaultBackupRecoverySettings,
+  loadBackupRecoverySettings,
+  resetAutomaticBackupRuntimeStateForTests,
+} from "./lib/automaticBackup";
 import tailwindConfig from "../tailwind.config";
 
 const dialogMocks = vi.hoisted(() => ({
@@ -304,6 +311,7 @@ describe("App", () => {
     delete window.__TAURI_INTERNALS__;
     delete (window as Partial<Window>).__TAURI_EVENT_PLUGIN_INTERNALS__;
     window.localStorage.clear();
+    resetAutomaticBackupRuntimeStateForTests();
     clearAllSessionFilterStateForTests();
     delete document.documentElement.dataset.theme;
     delete document.documentElement.dataset.themePreference;
@@ -5575,7 +5583,7 @@ describe("App", () => {
     );
   });
 
-  it("renders the approved backup summary, automated shell, history columns, and safe restore flow", async () => {
+  it("renders the approved backup summary, automated controls, history columns, and safe restore flow", async () => {
     window.history.pushState({}, "", "/settings");
     const packageName = "sakurava-backup-20260706-120000-manual";
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
@@ -5603,7 +5611,7 @@ describe("App", () => {
     expect(screen.queryByText(`C:/App/backups/${packageName}`)).not.toBeInTheDocument();
     expect(screen.queryByText("Original media files are not included.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Rotation/)).not.toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Automated Backup" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Automated Backup" })).toBeEnabled();
     expect(screen.getByRole("combobox", { name: "Frequency" })).toBeDisabled();
     expect(screen.getByRole("option", { name: "Daily" })).toBeInTheDocument();
 
@@ -5640,6 +5648,267 @@ describe("App", () => {
       expect.anything(),
       undefined,
     );
+  });
+
+  it("persists functional automatic backup toggle and frequency controls", async () => {
+    window.history.pushState({}, "", "/settings");
+    const stored = defaultBackupRecoverySettings();
+    stored.automaticBackup.lastSuccessfulAutomaticBackupAt =
+      new Date().toISOString();
+    window.localStorage.setItem(
+      BACKUP_RECOVERY_STORAGE_KEY,
+      JSON.stringify(stored),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (
+        ["video_list", "image_list", "performer_list", "backup_package_list"].includes(
+          command,
+        )
+      ) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    const toggle = screen.getByRole("switch", { name: "Automated Backup" });
+    const frequency = screen.getByRole("combobox", { name: "Frequency" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(frequency).toBeDisabled();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(frequency).toBeEnabled();
+    fireEvent.change(frequency, { target: { value: "weekly" } });
+
+    expect(loadBackupRecoverySettings().automaticBackup).toMatchObject({
+      enabled: true,
+      frequency: "weekly",
+    });
+    expect(
+      invoke.mock.calls.filter(
+        ([command]) => command === "backup_package_create",
+      ),
+    ).toHaveLength(0);
+    expect(screen.queryByText(/Rotation/)).not.toBeInTheDocument();
+  });
+
+  it("creates at most one due app-start automatic backup in StrictMode and records success", async () => {
+    const stored = defaultBackupRecoverySettings();
+    stored.automaticBackup.enabled = true;
+    stored.automaticBackup.frequency = "daily";
+    window.localStorage.setItem(
+      BACKUP_RECOVERY_STORAGE_KEY,
+      JSON.stringify(stored),
+    );
+    const automaticPackage = testBackupPackage(
+      "sakurava-backup-20260706-130000-automatic",
+      "automatic",
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "backup_package_create") return automaticPackage;
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+
+    await waitFor(() =>
+      expect(
+        invoke.mock.calls.filter(
+          ([command]) => command === "backup_package_create",
+        ),
+      ).toHaveLength(1),
+    );
+    expect(invoke).toHaveBeenCalledWith(
+      "backup_package_create",
+      { backupType: "automatic", note: null },
+      undefined,
+    );
+    await waitFor(() => {
+      expect(
+        loadBackupRecoverySettings().automaticBackup
+          .lastAutomaticBackupPackageName,
+      ).toBe(automaticPackage.packageName);
+    });
+    expect(
+      loadBackupRecoverySettings().automaticBackup
+        .lastSuccessfulAutomaticBackupAt,
+    ).toBeTruthy();
+    expect(
+      invoke.mock.calls.some(
+        ([command]) => command === "backup_package_rotate_automatic",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not run app-start automatic backup while disabled or not due", async () => {
+    const stored = defaultBackupRecoverySettings();
+    stored.automaticBackup.enabled = true;
+    stored.automaticBackup.lastSuccessfulAutomaticBackupAt =
+      new Date().toISOString();
+    window.localStorage.setItem(
+      BACKUP_RECOVERY_STORAGE_KEY,
+      JSON.stringify(stored),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      invoke.mock.calls.filter(
+        ([command]) => command === "backup_package_create",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("runs one automatic backup when the in-app interval reaches the due time", async () => {
+    vi.useFakeTimers();
+    const now = new Date("2026-07-06T12:00:00.000Z");
+    vi.setSystemTime(now);
+    const stored = defaultBackupRecoverySettings();
+    stored.automaticBackup.enabled = true;
+    stored.automaticBackup.lastSuccessfulAutomaticBackupAt = new Date(
+      now.getTime() - 24 * 60 * 60 * 1000 + 5 * 60 * 1000,
+    ).toISOString();
+    window.localStorage.setItem(
+      BACKUP_RECOVERY_STORAGE_KEY,
+      JSON.stringify(stored),
+    );
+    const automaticPackage = testBackupPackage(
+      "sakurava-backup-20260706-121500-automatic",
+      "automatic",
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "backup_package_create") return automaticPackage;
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    expect(
+      invoke.mock.calls.filter(
+        ([command]) => command === "backup_package_create",
+      ),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+    });
+    expect(
+      invoke.mock.calls.filter(
+        ([command]) => command === "backup_package_create",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("keeps the last automatic success unchanged after a failed due backup", async () => {
+    const previousSuccess = "2026-01-01T00:00:00.000Z";
+    const stored = defaultBackupRecoverySettings();
+    stored.automaticBackup.enabled = true;
+    stored.automaticBackup.lastSuccessfulAutomaticBackupAt = previousSuccess;
+    stored.automaticBackup.lastAutomaticBackupPackageName = "previous-auto";
+    window.localStorage.setItem(
+      BACKUP_RECOVERY_STORAGE_KEY,
+      JSON.stringify(stored),
+    );
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "backup_package_create") {
+        throw new Error("backup operation busy");
+      }
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        "backup_package_create",
+        { backupType: "automatic", note: null },
+        undefined,
+      ),
+    );
+    expect(
+      loadBackupRecoverySettings().automaticBackup
+        .lastSuccessfulAutomaticBackupAt,
+    ).toBe(previousSuccess);
+    expect(
+      loadBackupRecoverySettings().automaticBackup
+        .lastAutomaticBackupPackageName,
+    ).toBe("previous-auto");
+  });
+
+  it("refreshes Backup History with an Auto row after automatic backup succeeds", async () => {
+    window.history.pushState({}, "", "/settings");
+    const stored = defaultBackupRecoverySettings();
+    stored.automaticBackup.enabled = true;
+    window.localStorage.setItem(
+      BACKUP_RECOVERY_STORAGE_KEY,
+      JSON.stringify(stored),
+    );
+    const automaticPackage = testBackupPackage(
+      "sakurava-backup-20260706-140000-automatic",
+      "automatic",
+    );
+    let created = false;
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "backup_package_create") {
+        created = true;
+        return automaticPackage;
+      }
+      if (command === "backup_package_list") {
+        return created ? [automaticPackage] : [];
+      }
+      if (["video_list", "image_list", "performer_list"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+
+    const history = screen.getByRole("region", { name: "Backup History" });
+    expect(await within(history).findByText("Auto")).toBeInTheDocument();
+    expect(
+      within(history).getByText(automaticPackage.packageName),
+    ).toBeInTheDocument();
   });
 
   it("cancels restore confirmation without calling the restore command", async () => {
@@ -14523,7 +14792,7 @@ describe("App", () => {
       screen.getByRole("button", { name: "Add Folder" }),
     );
 
-    expect(screen.getByRole("dialog", { name: "Replace Gallery Path?" }))
+    expect(await screen.findByRole("dialog", { name: "Replace Gallery Path?" }))
       .toBeInTheDocument();
     confirmDialog("Replace");
     expect(
