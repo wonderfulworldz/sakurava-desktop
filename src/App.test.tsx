@@ -294,12 +294,13 @@ async function clickHistoryAction(
   packageName: string,
   action: "Restore" | "Download" | "Delete",
 ) {
-  const buttons = await screen.findAllByRole("button", {
-    name: new RegExp(`^${action}`),
+  let button: HTMLElement | undefined;
+  await waitFor(() => {
+    button = screen
+      .getAllByRole("button", { name: new RegExp(`^${action}`) })
+      .find((candidate) => candidate.textContent?.includes(packageName));
+    expect(button).toBeDefined();
   });
-  const button = buttons.find((candidate) =>
-    candidate.textContent?.includes(packageName),
-  );
   if (!button) {
     throw new Error(`${action} action not found for ${packageName}`);
   }
@@ -5659,6 +5660,174 @@ describe("App", () => {
     expect(invoke).not.toHaveBeenCalledWith(
       "backup_package_restore",
       expect.anything(),
+      undefined,
+    );
+  });
+
+  it("renders Restore from Backup and handles a cancelled backend picker without error", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) {
+        return [];
+      }
+      if (command === "backup_package_import_selected") {
+        return { cancelled: true, imported: false, packageName: null };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore from Backup..." }),
+    );
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        "backup_package_import_selected",
+        {},
+        undefined,
+      ),
+    );
+    expect(
+      screen.queryByText(/Backup could not be imported/),
+    ).not.toBeInTheDocument();
+    expect(
+      invoke.mock.calls.some(([command]) => command === "backup_package_preview"),
+    ).toBe(false);
+    expect(
+      invoke.mock.calls.some(([command]) => command === "backup_package_restore"),
+    ).toBe(false);
+    expect(dialogMocks.open).not.toHaveBeenCalled();
+  });
+
+  it("shows friendly selected-package validation errors without exposing runtime details", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list", "backup_package_list"].includes(command)) {
+        return [];
+      }
+      if (command === "backup_package_import_selected") {
+        throw {
+          code: "invalid_selected_package",
+          message: "D:/External/private/broken-package is missing manifest.json",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore from Backup..." }),
+    );
+
+    expect(
+      await screen.findByText(
+        "This backup could not be used. Please choose a valid Sakurava backup package.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/D:\/External\/private/)).not.toBeInTheDocument();
+  });
+
+  it("imports a selected package, refreshes history, previews it, and requires confirmation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "selected-import-manual";
+    let imported = false;
+    let listCalls = 0;
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") {
+        listCalls += 1;
+        return imported ? [testBackupPackage(packageName)] : [];
+      }
+      if (command === "backup_package_import_selected") {
+        imported = true;
+        return { cancelled: false, imported: true, packageName };
+      }
+      if (command === "backup_package_preview") {
+        expect(args.packageName).toBe(packageName);
+        return testBackupPreview(packageName);
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore from Backup..." }),
+    );
+
+    expect(await screen.findByText("Confirm package restore")).toBeInTheDocument();
+    expect(listCalls).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(packageName).length).toBeGreaterThan(0);
+    expect(invoke).toHaveBeenCalledWith(
+      "backup_package_preview",
+      { packageName },
+      undefined,
+    );
+    expect(
+      invoke.mock.calls.some(([command]) => command === "backup_package_restore"),
+    ).toBe(false);
+    expect(screen.queryByText(/D:\/External/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(
+      invoke.mock.calls.some(([command]) => command === "backup_package_restore"),
+    ).toBe(false);
+  });
+
+  it("confirms restore of an imported package using packageName only", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "selected-import-confirm-manual";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      if (command === "backup_package_import_selected") {
+        return { cancelled: false, imported: true, packageName };
+      }
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      if (command === "backup_package_restore") {
+        return {
+          restoredPackageName: packageName,
+          safetyPackageName: "selected-import-safety",
+          restoredAt: "2026-07-06T13:00:00Z",
+          databaseRestored: true,
+          rollbackAttempted: false,
+          rollbackSucceeded: false,
+          warnings: [],
+          errors: [],
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = {
+      invoke: invoke as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore from Backup..." }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Confirm Restore" }),
+    );
+
+    expect(await screen.findByText(`Restored package: ${packageName}`)).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "backup_package_restore",
+      { packageName },
+      undefined,
+    );
+    expect(invoke).not.toHaveBeenCalledWith(
+      "backup_package_restore",
+      expect.objectContaining({ sourcePath: expect.anything() }),
       undefined,
     );
   });

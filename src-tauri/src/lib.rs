@@ -27,6 +27,7 @@ pub fn run() {
             commands::backup_package_rotate_automatic,
             commands::backup_package_delete,
             commands::backup_package_export,
+            commands::backup_package_import_selected,
             commands::backup_folder_open,
             commands::clear_app_cache,
             commands::export_csv_write,

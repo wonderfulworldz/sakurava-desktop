@@ -3,6 +3,7 @@ import {
   createBackupPackage,
   deleteBackupPackage,
   exportBackupPackage,
+  importSelectedBackupPackage,
   listBackupPackages,
   openBackupFolder,
   previewBackupPackage,
@@ -163,5 +164,32 @@ describe("backup package runtime wrappers", () => {
       packageName: "sakurava-backup-20260706-120000-manual",
       destinationRoot: "D:/Exports",
     });
+  });
+
+  it("imports a selected package through a backend-owned picker without path arguments", async () => {
+    const result = {
+      cancelled: false,
+      imported: true,
+      packageName: "imported-backup-manual",
+    };
+    tauriMocks.invoke.mockResolvedValue(result);
+
+    await expect(importSelectedBackupPackage()).resolves.toEqual(result);
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "backup_package_import_selected",
+      undefined,
+    );
+    expect(tauriMocks.invoke).not.toHaveBeenCalledWith(
+      "backup_package_restore",
+      expect.anything(),
+    );
+  });
+
+  it("returns a cancelled selected-package import safely", async () => {
+    const result = { cancelled: true, imported: false, packageName: null };
+    tauriMocks.invoke.mockResolvedValue(result);
+
+    await expect(importSelectedBackupPackage()).resolves.toEqual(result);
   });
 });
