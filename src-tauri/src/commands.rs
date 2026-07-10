@@ -6,7 +6,8 @@ use std::{fs, io};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{Scopes, State};
+use tauri::{AppHandle, Scopes, State};
+use tauri_plugin_dialog::DialogExt;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
@@ -33,13 +34,14 @@ use windows::{
 
 use crate::database::{
     backup_runtime_database, clear_app_generated_cache, create_backup_package,
-    delete_backup_package, export_backup_package, list_backup_packages,
-    open_default_backup_folder, preview_backup_package, restore_backup_package,
-    restore_runtime_database, rotate_automatic_backup_packages, BackupFolderOpenResult,
-    BackupPackageDeleteResult, BackupPackageExportResult, BackupPackageInfo,
-    BackupPackagePreview, BackupPackagePreviewError, BackupPackageRestoreError,
-    BackupPackageRestoreResult, BackupPackageRotationResult, BackupPackageType,
-    ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase,
+    delete_backup_package, export_backup_package, import_selected_backup_package,
+    list_backup_packages, open_default_backup_folder, preview_backup_package,
+    restore_backup_package, restore_runtime_database, rotate_automatic_backup_packages,
+    BackupFolderOpenResult, BackupPackageDeleteResult, BackupPackageExportResult,
+    BackupPackageImportError, BackupPackageImportResult, BackupPackageInfo, BackupPackagePreview,
+    BackupPackagePreviewError, BackupPackageRestoreError, BackupPackageRestoreResult,
+    BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
+    DatabaseRestoreResult, RuntimeDatabase,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -621,6 +623,27 @@ pub fn backup_package_export(
     destination_root: String,
 ) -> Result<BackupPackageExportResult, String> {
     export_backup_package(&database, &package_name, destination_root)
+}
+
+#[tauri::command]
+pub async fn backup_package_import_selected(
+    app: AppHandle,
+    database: State<'_, RuntimeDatabase>,
+) -> Result<BackupPackageImportResult, BackupPackageImportError> {
+    let selected = app
+        .dialog()
+        .file()
+        .set_title("Restore from Sakurava Backup")
+        .blocking_pick_folder();
+    let selected_path = selected
+        .map(|path| {
+            path.into_path().map_err(|error| BackupPackageImportError {
+                code: "invalid_selected_package".to_string(),
+                message: format!("Unable to read selected backup package path: {error}"),
+            })
+        })
+        .transpose()?;
+    import_selected_backup_package(&database, selected_path)
 }
 
 #[tauri::command]

@@ -90,6 +90,7 @@ import {
   createBackupPackage,
   deleteBackupPackage,
   exportBackupPackage,
+  importSelectedBackupPackage,
   listBackupPackages,
   openBackupFolder,
   previewBackupPackage,
@@ -190,6 +191,7 @@ type BackupPackageManagementStatus =
 
 type RestoreStatus =
   | { state: "idle" }
+  | { state: "importPending" }
   | { state: "previewPending"; packageName: string }
   | { state: "confirming"; preview: BackupPackagePreview }
   | { state: "pending"; preview: BackupPackagePreview }
@@ -384,8 +386,10 @@ function SettingsPage() {
   const isBackupPending = backupStatus.state === "pending";
   const isRestorePending = restoreStatus.state === "pending";
   const isPreviewPending = restoreStatus.state === "previewPending";
+  const isSelectedImportPending = restoreStatus.state === "importPending";
   const isBackupOperationPending =
     isBackupPending ||
+    isSelectedImportPending ||
     isPreviewPending ||
     isRestorePending ||
     restoreStatus.state === "confirming";
@@ -754,10 +758,7 @@ function SettingsPage() {
     }
   }
 
-  async function handleRestoreHistoryPackage(packageName: string) {
-    if (!isDesktopRuntime || isBackupOperationPending) {
-      return;
-    }
+  async function startRestorePreview(packageName: string) {
     selectedBackupPackageRef.current = packageName;
     setSelectedBackupPackage(packageName);
     setRestoreStatus({ state: "previewPending", packageName });
@@ -775,6 +776,44 @@ function SettingsPage() {
           message: t("settings.backup.error.preview"),
         });
       }
+    }
+  }
+
+  async function handleRestoreHistoryPackage(packageName: string) {
+    if (!isDesktopRuntime || isBackupOperationPending) {
+      return;
+    }
+    await startRestorePreview(packageName);
+  }
+
+  async function handleImportSelectedBackupPackage() {
+    if (!isDesktopRuntime || isBackupOperationPending) {
+      return;
+    }
+    setRestoreStatus({ state: "importPending" });
+    try {
+      const result = await importSelectedBackupPackage();
+      if (result.cancelled) {
+        setRestoreStatus({ state: "idle" });
+        return;
+      }
+      if (!result.imported || !result.packageName) {
+        setRestoreStatus({
+          state: "error",
+          message: t("settings.backup.importSelected.error.generic"),
+        });
+        return;
+      }
+      await refreshBackupPackages();
+      await startRestorePreview(result.packageName);
+    } catch (error) {
+      setRestoreStatus({
+        state: "error",
+        message:
+          runtimeErrorCode(error) === "invalid_selected_package"
+            ? t("settings.backup.importSelected.error.invalid")
+            : t("settings.backup.importSelected.error.generic"),
+      });
     }
   }
 
@@ -1432,6 +1471,7 @@ function SettingsPage() {
           cacheStatus,
           isMediaRootPending,
           isBackupPending,
+          isSelectedImportPending,
           isRestorePending,
           isBackupOperationPending,
           isImportPending,
@@ -1462,6 +1502,7 @@ function SettingsPage() {
           handleRemoveMediaRoot,
           setSelectedMediaRoot,
           handleBackupData,
+          handleImportSelectedBackupPackage,
           setBackupNote,
           handleOpenBackupFolder,
           handleAutomaticBackupEnabled,
@@ -1815,6 +1856,7 @@ function SettingsSection({
     cacheStatus,
     isMediaRootPending,
     isBackupPending,
+    isSelectedImportPending,
     isRestorePending,
     isBackupOperationPending,
     isImportPending,
@@ -1845,6 +1887,7 @@ function SettingsSection({
     handleRemoveMediaRoot,
     setSelectedMediaRoot,
     handleBackupData,
+    handleImportSelectedBackupPackage,
     setBackupNote,
     handleOpenBackupFolder,
     handleAutomaticBackupEnabled,
@@ -2236,17 +2279,30 @@ function SettingsSection({
         icon={ShieldCheck}
         showReset={false}
         headerAction={
-          <button
-            type="button"
-            disabled={!canBackUpDatabase}
-            onClick={handleBackupData}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:bg-slate-300"
-          >
-            <Plus size={16} aria-hidden="true" />
-            {isBackupPending
-              ? t("settings.backup.backingUp")
-              : t("settings.backup.backupNow")}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled={!isDesktopRuntime || isBackupOperationPending}
+              onClick={handleImportSelectedBackupPackage}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-sakura-200 bg-white px-4 text-sm font-semibold text-sakura-600 transition hover:bg-sakura-50 disabled:border-slate-200 disabled:text-slate-300"
+            >
+              <RotateCcw size={15} aria-hidden="true" />
+              {isSelectedImportPending
+                ? t("settings.backup.importSelected.importing")
+                : t("settings.backup.importSelected.action")}
+            </button>
+            <button
+              type="button"
+              disabled={!canBackUpDatabase}
+              onClick={handleBackupData}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:bg-slate-300"
+            >
+              <Plus size={16} aria-hidden="true" />
+              {isBackupPending
+                ? t("settings.backup.backingUp")
+                : t("settings.backup.backupNow")}
+            </button>
+          </div>
         }
       >
         <div className="grid gap-3 lg:grid-cols-3">
@@ -3467,6 +3523,11 @@ function BackupHistoryPanel({
         {restoreStatus.state === "previewPending" ? (
           <p role="status" className="text-sm font-semibold text-slate-600">
             {t("settings.backup.validating")}
+          </p>
+        ) : null}
+        {restoreStatus.state === "importPending" ? (
+          <p role="status" className="text-sm font-semibold text-slate-600">
+            {t("settings.backup.importSelected.importing")}
           </p>
         ) : null}
         {(restoreStatus.state === "confirming" || restoreStatus.state === "pending") ? (

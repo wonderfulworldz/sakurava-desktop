@@ -110,6 +110,17 @@ export type BackupPackageExportResult = {
   exportedPath: string;
 };
 
+export type BackupPackageImportResult = {
+  cancelled: boolean;
+  imported: boolean;
+  packageName: string | null;
+};
+
+export type BackupPackageImportError = {
+  code: string;
+  message: string;
+};
+
 export function backUpDatabase(destinationPath: string) {
   return invokeTauriCommand<DatabaseBackupResult>("database_backup", {
     destinationPath,
@@ -174,5 +185,11 @@ export function exportBackupPackage(
   return invokeTauriCommand<BackupPackageExportResult>(
     "backup_package_export",
     { packageName, destinationRoot },
+  );
+}
+
+export function importSelectedBackupPackage() {
+  return invokeTauriCommand<BackupPackageImportResult>(
+    "backup_package_import_selected",
   );
 }

@@ -848,6 +848,12 @@ const englishDictionary: TranslationDictionary = {
   "settings.backup.management.deleteSuccess": "Backup deleted.",
   "settings.backup.management.deleteError":
     "Backup could not be deleted. Please try again.",
+  "settings.backup.importSelected.action": "Restore from Backup...",
+  "settings.backup.importSelected.importing": "Importing backup...",
+  "settings.backup.importSelected.error.invalid":
+    "This backup could not be used. Please choose a valid Sakurava backup package.",
+  "settings.backup.importSelected.error.generic":
+    "Backup could not be imported. Please try again.",
   "settings.backup.history.showing": "Showing {start}-{end} of {total}",
   "settings.backup.history.pageSize": "Page size",
   "settings.backup.history.perPage": "per page",
