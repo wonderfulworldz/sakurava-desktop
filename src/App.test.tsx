@@ -290,21 +290,20 @@ async function clickHistoryRestore(packageName: string) {
   await clickHistoryAction(packageName, "Restore");
 }
 
+async function confirmPackageRestore() {
+  const dialog = await screen.findByRole("dialog", { name: "Restore this backup?" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Restore Backup" }));
+}
+
 async function clickHistoryAction(
   packageName: string,
   action: "Restore" | "Download" | "Delete",
 ) {
-  let button: HTMLElement | undefined;
-  await waitFor(() => {
-    button = screen
-      .getAllByRole("button", { name: new RegExp(`^${action}`) })
-      .find((candidate) => candidate.textContent?.includes(packageName));
-    expect(button).toBeDefined();
+  const moreButton = await screen.findByRole("button", {
+    name: `More backup actions ${packageName}`,
   });
-  if (!button) {
-    throw new Error(`${action} action not found for ${packageName}`);
-  }
-  fireEvent.click(button);
+  fireEvent.click(moreButton);
+  fireEvent.click(await screen.findByRole("menuitem", { name: action }));
 }
 
 describe("App", () => {
@@ -1058,7 +1057,7 @@ describe("App", () => {
 
   it("truncates long Glossary table values without widening columns", async () => {
     window.history.pushState({}, "", "/glossary");
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "glossary_list") {
         return [
           persistedGlossaryEntry({
@@ -5396,7 +5395,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
-    await screen.findByText("Backup created.");
+    await screen.findByText("Backup created");
     expect(dialogMocks.save).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_create",
@@ -5465,7 +5464,7 @@ describe("App", () => {
     expect(screen.getByText("18/255")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
-    await screen.findByText("Backup created.");
+    await screen.findByText("Backup created");
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_create",
       { backupType: "manual", note: "Before cleanup" },
@@ -5515,7 +5514,7 @@ describe("App", () => {
         database: { file: "sakurava.sqlite" },
       },
     });
-    await screen.findByText("Backup created.");
+    await screen.findByText("Backup created");
     expect(
       invoke.mock.calls.filter(([command]) => command === "backup_package_create"),
     ).toHaveLength(1);
@@ -5537,9 +5536,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Backup package creation failed.",
-    );
+    expect(await screen.findByText("Backup could not be created")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Now" })).toBeEnabled();
   });
 
@@ -5559,9 +5556,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await screen.findByText(
       "A backup was just created. Please wait a moment before creating another one.",
-    );
+    )).toBeInTheDocument();
     expect(screen.queryByText(/already exists for this second/i)).not.toBeInTheDocument();
   });
 
@@ -5619,49 +5616,122 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Backup & Recovery" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Now" })).toBeEnabled();
-    expect(screen.getAllByText("Last Backup").length).toBeGreaterThan(0);
+    const statusCard = screen.getByText("Backup Status").closest("div")?.parentElement?.parentElement;
+    expect(statusCard).not.toBeNull();
+    expect(within(statusCard as HTMLElement).getByRole("button", { name: "Backup Now" })).toBeEnabled();
+    expect(within(statusCard as HTMLElement).getByRole("button", { name: "Restore from Backup..." })).toBeEnabled();
     expect(screen.getByText("Sakurava backup folder")).toBeInTheDocument();
-    expect(await screen.findByText("1 package")).toBeInTheDocument();
+    expect(await screen.findByText(/Last backup:/)).toBeInTheDocument();
     expect(screen.queryByText(`C:/App/backups/${packageName}`)).not.toBeInTheDocument();
     expect(screen.queryByText("Original media files are not included.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Rotation/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Backup Preview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Restore Summary" })).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Automated Backup" })).toBeEnabled();
     expect(screen.getByRole("combobox", { name: "Frequency" })).toBeDisabled();
     expect(screen.getByRole("option", { name: "Daily" })).toBeInTheDocument();
 
     const history = screen.getByRole("region", { name: "Backup History" });
-    for (const heading of ["Date & Time", "Type", "Status", "Note", "Actions"]) {
+    for (const heading of ["Date & Time", "Size", "Type", "Status", "Actions"]) {
       expect(within(history).getByRole("columnheader", { name: heading })).toBeInTheDocument();
     }
-    expect(within(history).getByRole("button", { name: /^Restore/ })).toBeEnabled();
-    expect(within(history).getByRole("button", { name: /^Download/ })).toBeEnabled();
-    expect(within(history).getByRole("button", { name: /^Delete/ })).toBeEnabled();
+    expect(within(history).getByRole("button", { name: `View backup ${packageName}` })).toBeEnabled();
+    expect(within(history).getByRole("button", { name: `More backup actions ${packageName}` })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Preview Backup" })).not.toBeInTheDocument();
     expect(
       screen.queryByText("sakurava-backup-20260706-110000-safety"),
     ).not.toBeInTheDocument();
 
     await clickHistoryRestore(packageName);
-    expect(await screen.findByText("Confirm package restore")).toBeInTheDocument();
+    const importedPreview = await screen.findByRole("region", { name: "Backup Preview" });
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_preview",
       { packageName },
       undefined,
     );
     expect(
-      screen.getByText(/current Sakurava database will be replaced/i),
+      screen.getByText(/Current catalog and app data will be replaced/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/safety package of the current database/i),
+      screen.getByText(/safety backup will be created first/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/cannot recover missing external media files/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Original media files will not be changed/i)).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "backup_package_restore",
       expect.anything(),
       undefined,
     );
+  });
+
+  it("selects a history row into a focused preview and invalidates it when selection changes", async () => {
+    window.history.pushState({}, "", "/settings");
+    const first = "preview-first-manual";
+    const second = "preview-second-automatic";
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(first), testBackupPackage(second, "automatic")];
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `View backup ${first}` }));
+    const firstPreview = await screen.findByRole("region", { name: "Backup Preview" });
+    expect(firstPreview).toHaveTextContent(first);
+    expect(firstPreview).toHaveTextContent("Manual");
+    expect(within(firstPreview).getByRole("button", { name: "Download" })).toBeEnabled();
+    expect(within(firstPreview).getByRole("button", { name: "Delete Backup" })).toBeEnabled();
+    expect(within(firstPreview).getByRole("button", { name: "Restore Backup" })).toBeEnabled();
+    expect(screen.queryByRole("dialog", { name: "Restore this backup?" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: `View backup ${second}` }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "Backup Preview" })).toHaveTextContent(second));
+    expect(screen.getByRole("region", { name: "Backup Preview" })).not.toHaveTextContent(first);
+  });
+
+  it("renders Backup History actions in a floating menu that closes safely", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "floating-menu-manual";
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [testBackupPackage(packageName)];
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+    render(<App />);
+
+    const history = await screen.findByRole("region", { name: "Backup History" });
+    fireEvent.click(screen.getByRole("button", { name: `More backup actions ${packageName}` }));
+    const menu = await screen.findByRole("menu", { name: "Actions" });
+    expect(history).not.toContainElement(menu);
+    expect(within(menu).getByRole("menuitem", { name: "Restore" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Download" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Actions" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: `More backup actions ${packageName}` }));
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menu", { name: "Actions" })).not.toBeInTheDocument();
+  });
+
+  it("shows a dismissible toast when a manual backup succeeds", async () => {
+    window.history.pushState({}, "", "/settings");
+    const packageName = "toast-created-manual";
+    const invoke = vi.fn(async (command: string) => {
+      if (["video_list", "image_list", "performer_list"].includes(command)) return [];
+      if (command === "backup_package_list") return [];
+      if (command === "backup_package_create") return testBackupPackage(packageName);
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Backup Now" }));
+    expect(await screen.findByText("Backup created")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close notification" }));
+    expect(screen.queryByText("Backup created")).not.toBeInTheDocument();
   });
 
   it("renders Restore from Backup and handles a cancelled backend picker without error", async () => {
@@ -5764,7 +5834,7 @@ describe("App", () => {
       screen.getByRole("button", { name: "Restore from Backup..." }),
     );
 
-    expect(await screen.findByText("Confirm package restore")).toBeInTheDocument();
+    const importedPreview = await screen.findByRole("region", { name: "Backup Preview" });
     expect(listCalls).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(packageName).length).toBeGreaterThan(0);
     expect(invoke).toHaveBeenCalledWith(
@@ -5777,7 +5847,9 @@ describe("App", () => {
     ).toBe(false);
     expect(screen.queryByText(/D:\/External/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(within(importedPreview).getByRole("button", { name: "Restore Backup" }));
+    const restoreDialog = await screen.findByRole("dialog", { name: "Restore this backup?" });
+    fireEvent.click(within(restoreDialog).getByRole("button", { name: "Cancel" }));
     expect(
       invoke.mock.calls.some(([command]) => command === "backup_package_restore"),
     ).toBe(false);
@@ -5815,11 +5887,13 @@ describe("App", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Restore from Backup..." }),
     );
+    const preview = await screen.findByRole("region", { name: "Backup Preview" });
+    fireEvent.click(within(preview).getByRole("button", { name: "Restore Backup" }));
     fireEvent.click(
-      await screen.findByRole("button", { name: "Confirm Restore" }),
+      within(await screen.findByRole("dialog", { name: "Restore this backup?" })).getByRole("button", { name: "Restore Backup" }),
     );
 
-    expect(await screen.findByText(`Restored package: ${packageName}`)).toBeInTheDocument();
+    expect(await screen.findByText(packageName)).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
       { packageName },
@@ -5841,7 +5915,7 @@ describe("App", () => {
       BACKUP_RECOVERY_STORAGE_KEY,
       JSON.stringify(stored),
     );
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (
         ["video_list", "image_list", "performer_list", "backup_package_list"].includes(
           command,
@@ -6067,7 +6141,7 @@ describe("App", () => {
       "automatic",
     );
     let created = false;
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "backup_package_create") {
         created = true;
         return automaticPackage;
@@ -6075,6 +6149,7 @@ describe("App", () => {
       if (command === "backup_package_list") {
         return created ? [automaticPackage] : [];
       }
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
       if (["video_list", "image_list", "performer_list"].includes(command)) {
         return [];
       }
@@ -6087,10 +6162,10 @@ describe("App", () => {
     render(<App />);
 
     const history = screen.getByRole("region", { name: "Backup History" });
-    expect(await within(history).findByText("Auto")).toBeInTheDocument();
+    expect(await within(history).findByText("Automatic")).toBeInTheDocument();
     expect(
-      within(history).getAllByText(automaticPackage.packageName).length,
-    ).toBeGreaterThan(0);
+      within(history).getByRole("button", { name: `View backup ${automaticPackage.packageName}` }),
+    ).toBeInTheDocument();
   });
 
   it("cancels restore confirmation without calling the restore command", async () => {
@@ -6109,10 +6184,10 @@ describe("App", () => {
     render(<App />);
 
     await clickHistoryRestore(packageName);
-    await screen.findByText("Confirm package restore");
+    await screen.findByText("Restore this backup?");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.queryByText("Confirm package restore")).not.toBeInTheDocument();
+    expect(screen.queryByText("Restore this backup?")).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "backup_package_restore",
       expect.anything(),
@@ -6152,11 +6227,14 @@ describe("App", () => {
     render(<App />);
 
     await clickHistoryRestore(packageName);
-    await screen.findByText("Confirm package restore");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Restore" }));
+    await screen.findByText("Restore this backup?");
+    await confirmPackageRestore();
 
-    expect(await screen.findByText(`Restored package: ${packageName}`)).toBeInTheDocument();
-    expect(screen.getByText(`Safety package created: ${safetyPackageName}`)).toBeInTheDocument();
+    const summary = await screen.findByRole("region", { name: "Restore Summary" });
+    expect(summary).toHaveTextContent(packageName);
+    expect(summary).toHaveTextContent(safetyPackageName);
+    expect(summary).toHaveTextContent("Your data was restored successfully.");
+    expect(screen.queryByRole("region", { name: "Backup Preview" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Rollback:/)).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
@@ -6164,6 +6242,8 @@ describe("App", () => {
       undefined,
     );
     expect(listCalls).toBeGreaterThanOrEqual(2);
+    fireEvent.click(within(summary).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("region", { name: "Restore Summary" })).not.toBeInTheDocument();
   });
 
   it("paginates backup history while keeping package actions bounded to visible rows", async () => {
@@ -6185,14 +6265,12 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Showing 1-32 of 35")).toBeInTheDocument();
-    expect(screen.getAllByText("history-package-01").length).toBeGreaterThan(0);
-    expect(screen.queryAllByText("history-package-35")).toHaveLength(0);
-    expect(screen.getAllByRole("button", { name: /^Download/ })[0]).toBeEnabled();
-    expect(screen.getAllByRole("button", { name: /^Delete/ })[0]).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(screen.getByRole("button", { name: "View backup history-package-01" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "View backup history-package-35" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Showing 33-35 of 35")).toBeInTheDocument();
-    expect(screen.getAllByText("history-package-35").length).toBeGreaterThan(0);
-    expect(screen.queryAllByText("history-package-01")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "View backup history-package-35" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "View backup history-package-01" })).not.toBeInTheDocument();
     expect(
       invoke.mock.calls.some(([command]) =>
         ["backup_package_download", "backup_package_delete"].includes(command),
@@ -6223,7 +6301,7 @@ describe("App", () => {
 
     await clickHistoryAction(packageName, "Download");
 
-    expect(await screen.findByText("Backup downloaded.")).toBeInTheDocument();
+    expect(await screen.findByText("Backup downloaded")).toBeInTheDocument();
     expect(dialogMocks.open).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Download Backup Package To",
@@ -6261,9 +6339,7 @@ describe("App", () => {
     await clickHistoryAction(packageName, "Download");
 
     expect(
-      await screen.findByText(
-        "Backup could not be downloaded. Please try again.",
-      ),
+      await screen.findByText("Backup could not be downloaded"),
     ).toBeInTheDocument();
     expect(screen.queryByText("internal copy failure")).not.toBeInTheDocument();
   });
@@ -6273,12 +6349,13 @@ describe("App", () => {
     const packageName = "delete-package-manual";
     let deleted = false;
     let listCalls = 0;
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (["video_list", "image_list", "performer_list"].includes(command)) return [];
       if (command === "backup_package_list") {
         listCalls += 1;
         return deleted ? [] : [testBackupPackage(packageName, "manual", "Before cleanup")];
       }
+      if (command === "backup_package_preview") return testBackupPreview(args.packageName);
       if (command === "backup_package_delete") {
         deleted = true;
         return { packageName, deleted: true };
@@ -6290,14 +6367,15 @@ describe("App", () => {
     };
     render(<App />);
 
-    await clickHistoryAction(packageName, "Delete");
+    fireEvent.click(await screen.findByRole("button", { name: `View backup ${packageName}` }));
+    const selectedPreview = await screen.findByRole("region", { name: "Backup Preview" });
+    fireEvent.click(within(selectedPreview).getByRole("button", { name: "Delete Backup" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Delete this backup?",
     });
     expect(dialog).toHaveTextContent(
-      "This removes the backup package from Sakurava's backup folder. Your current library will not be changed.",
+      "This backup will be permanently removed. Your current catalog will not be changed.",
     );
-    expect(dialog).toHaveTextContent("Manual");
     expect(dialog).toHaveTextContent("Before cleanup");
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(
@@ -6305,11 +6383,10 @@ describe("App", () => {
     ).toHaveLength(0);
 
     await clickHistoryAction(packageName, "Delete");
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Delete Backup" }),
-    );
+    const confirmDeleteDialog = await screen.findByRole("dialog", { name: "Delete this backup?" });
+    fireEvent.click(within(confirmDeleteDialog).getByRole("button", { name: "Delete Backup" }));
 
-    expect(await screen.findByText("Backup deleted.")).toBeInTheDocument();
+    expect(await screen.findByText("Backup deleted")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_delete",
       { packageName },
@@ -6317,6 +6394,7 @@ describe("App", () => {
     );
     expect(listCalls).toBeGreaterThanOrEqual(2);
     expect(screen.queryAllByText(packageName)).toHaveLength(0);
+    expect(screen.queryByRole("region", { name: "Backup Preview" })).not.toBeInTheDocument();
   });
 
   it("shows a friendly error and keeps the package after delete failure", async () => {
@@ -6341,10 +6419,10 @@ describe("App", () => {
     );
 
     expect(
-      await screen.findByText("Backup could not be deleted. Please try again."),
+      await screen.findByText("Backup could not be deleted"),
     ).toBeInTheDocument();
     expect(screen.queryByText("internal delete failure")).not.toBeInTheDocument();
-    expect(screen.getAllByText(packageName).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: `View backup ${packageName}` })).toBeInTheDocument();
   });
 
   it("prevents duplicate restore submits while pending", async () => {
@@ -6367,7 +6445,7 @@ describe("App", () => {
     render(<App />);
 
     await clickHistoryRestore(packageName);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm Restore" }));
+    await confirmPackageRestore();
 
     expect(await screen.findByText("Restoring backup package...")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Now" })).toBeDisabled();
@@ -6385,7 +6463,7 @@ describe("App", () => {
       warnings: [],
       errors: [],
     });
-    await screen.findByText(`Restored package: ${packageName}`);
+    await screen.findByText(packageName);
   });
 
   it("shows a typed runtime error when package restore fails", async () => {
@@ -6409,7 +6487,7 @@ describe("App", () => {
     render(<App />);
 
     await clickHistoryRestore(packageName);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm Restore" }));
+    await confirmPackageRestore();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Backup package restore failed.",
@@ -6446,7 +6524,7 @@ describe("App", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Backup package preview failed.",
     );
-    expect(screen.queryByText("Confirm package restore")).not.toBeInTheDocument();
+    expect(screen.queryByText("Restore this backup?")).not.toBeInTheDocument();
     expect(
       invoke.mock.calls.filter(([command]) => command === "backup_package_restore"),
     ).toHaveLength(0);
@@ -6475,19 +6553,19 @@ describe("App", () => {
     await clickHistoryRestore(packageName);
     expect(await screen.findByText("Validating backup...")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Now" })).toBeDisabled();
-    const restoreRow = screen.getAllByText(packageName)[0]?.closest("tr");
+    const restoreRow = screen.getByRole("button", { name: `View backup ${packageName}` }).closest("tr");
     expect(restoreRow).not.toBeNull();
-    const restoreButton = within(restoreRow as HTMLElement).getByRole("button", {
-      name: /^Restore/,
+    const moreButton = within(restoreRow as HTMLElement).getByRole("button", {
+      name: `More backup actions ${packageName}`,
     });
-    expect(restoreButton).toBeDisabled();
-    fireEvent.click(restoreButton);
+    expect(moreButton).toBeDisabled();
+    fireEvent.click(moreButton);
     expect(
       invoke.mock.calls.filter(([command]) => command === "backup_package_preview"),
     ).toHaveLength(1);
 
     resolvePreview(testBackupPreview(packageName));
-    expect(await screen.findByText("Confirm package restore")).toBeInTheDocument();
+    expect(await screen.findByText("Restore this backup?")).toBeInTheDocument();
   });
 
   it("requires confirmation before clearing app-generated cache", async () => {

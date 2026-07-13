@@ -27,10 +27,14 @@ import {
   CheckCircle2,
   RotateCcw,
   Search,
+  Eye,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   Image,
   ManagedCategory,
@@ -189,13 +193,20 @@ type BackupPackageManagementStatus =
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
+type BackupToast = {
+  id: number;
+  tone: "success" | "error";
+  title: string;
+  detail?: string;
+};
+
 type RestoreStatus =
   | { state: "idle" }
   | { state: "importPending" }
   | { state: "previewPending"; packageName: string }
   | { state: "confirming"; preview: BackupPackagePreview }
   | { state: "pending"; preview: BackupPackagePreview }
-  | { state: "success"; result: BackupPackageRestoreResult }
+  | { state: "success"; result: BackupPackageRestoreResult; preview: BackupPackagePreview }
   | { state: "error"; message: string };
 
 type CacheStatus =
@@ -343,6 +354,7 @@ function SettingsPage() {
   const [backupPackages, setBackupPackages] = useState<BackupPackageInfo[]>([]);
   const [backupListError, setBackupListError] = useState("");
   const [selectedBackupPackage, setSelectedBackupPackage] = useState<string | null>(null);
+  const [restoreConfirmationOpen, setRestoreConfirmationOpen] = useState(false);
   const [backupHistoryPage, setBackupHistoryPage] = useState(1);
   const [backupHistoryPageSize, setBackupHistoryPageSize] = useState(32);
   const [backupRecoverySettings, setBackupRecoverySettings] = useState(
@@ -352,6 +364,9 @@ function SettingsPage() {
     useState<AutomaticBackupStatus>({ state: "idle" });
   const [backupPackageManagementStatus, setBackupPackageManagementStatus] =
     useState<BackupPackageManagementStatus>({ state: "idle" });
+  const [backupToasts, setBackupToasts] = useState<BackupToast[]>([]);
+  const backupToastTimersRef = useRef(new Map<number, number>());
+  const backupToastIdRef = useRef(0);
   const selectedBackupPackageRef = useRef<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>({
     state: "idle",
@@ -391,8 +406,7 @@ function SettingsPage() {
     isBackupPending ||
     isSelectedImportPending ||
     isPreviewPending ||
-    isRestorePending ||
-    restoreStatus.state === "confirming";
+    isRestorePending;
   const isBackupPackageManagementPending =
     backupPackageManagementStatus.state === "downloadPending" ||
     backupPackageManagementStatus.state === "deletePending";
@@ -417,6 +431,32 @@ function SettingsPage() {
     !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const isLanguageCsvBusy = languageCsvStatus.state === "pending";
+
+  function dismissBackupToast(id: number) {
+    const timer = backupToastTimersRef.current.get(id);
+    if (timer) window.clearTimeout(timer);
+    backupToastTimersRef.current.delete(id);
+    setBackupToasts((current) => current.filter((toast) => toast.id !== id));
+  }
+
+  function showBackupToast(
+    tone: BackupToast["tone"],
+    title: string,
+    detail?: string,
+  ) {
+    const id = ++backupToastIdRef.current;
+    setBackupToasts((current) => [...current, { id, tone, title, detail }].slice(-3));
+    const timer = window.setTimeout(
+      () => dismissBackupToast(id),
+      tone === "success" ? 4500 : 9000,
+    );
+    backupToastTimersRef.current.set(id, timer);
+  }
+
+  useEffect(() => () => {
+    backupToastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    backupToastTimersRef.current.clear();
+  }, []);
 
   function handleCatalogPreferenceToggle(
     key: keyof CatalogPreferenceToggles,
@@ -664,6 +704,7 @@ function SettingsPage() {
         state: "success",
         message: t("settings.backup.status.created"),
       });
+      showBackupToast("success", t("settings.backup.toast.created"));
       await refreshBackupPackages();
     } catch (error) {
       const message = runtimeErrorMessage(error, t("settings.backup.error.generic"));
@@ -673,6 +714,7 @@ function SettingsPage() {
           ? t("settings.backup.error.tooSoon")
           : t("settings.backup.error.generic"),
       });
+      showBackupToast("error", t("settings.backup.toast.createError"));
     }
   }
 
@@ -713,11 +755,13 @@ function SettingsPage() {
         state: "success",
         message: t("settings.backup.management.downloadSuccess"),
       });
+      showBackupToast("success", t("settings.backup.toast.downloaded"));
     } catch {
       setBackupPackageManagementStatus({
         state: "error",
         message: t("settings.backup.management.downloadError"),
       });
+      showBackupToast("error", t("settings.backup.toast.downloadError"));
     }
   }
 
@@ -743,22 +787,28 @@ function SettingsPage() {
     try {
       await deleteBackupPackage(backupPackage.packageName);
       if (selectedBackupPackageRef.current === backupPackage.packageName) {
+        selectedBackupPackageRef.current = null;
+        setSelectedBackupPackage(null);
         setRestoreStatus({ state: "idle" });
+        setRestoreConfirmationOpen(false);
       }
       await refreshBackupPackages();
       setBackupPackageManagementStatus({
         state: "success",
         message: t("settings.backup.management.deleteSuccess"),
       });
+      showBackupToast("success", t("settings.backup.toast.deleted"));
     } catch {
       setBackupPackageManagementStatus({
         state: "error",
         message: t("settings.backup.management.deleteError"),
       });
+      showBackupToast("error", t("settings.backup.toast.deleteError"));
     }
   }
 
   async function startRestorePreview(packageName: string) {
+    setRestoreConfirmationOpen(false);
     selectedBackupPackageRef.current = packageName;
     setSelectedBackupPackage(packageName);
     setRestoreStatus({ state: "previewPending", packageName });
@@ -786,6 +836,31 @@ function SettingsPage() {
     await startRestorePreview(packageName);
   }
 
+  async function handleRequestRestoreHistoryPackage(packageName: string) {
+    if (!isDesktopRuntime || isBackupOperationPending) return;
+    if (
+      restoreStatus.state === "confirming" &&
+      restoreStatus.preview.packageName === packageName
+    ) {
+      setRestoreConfirmationOpen(true);
+      return;
+    }
+    selectedBackupPackageRef.current = packageName;
+    setSelectedBackupPackage(packageName);
+    setRestoreStatus({ state: "previewPending", packageName });
+    try {
+      const preview = await previewBackupPackage(packageName);
+      if (selectedBackupPackageRef.current === packageName) {
+        setRestoreStatus({ state: "confirming", preview });
+        setRestoreConfirmationOpen(true);
+      }
+    } catch {
+      if (selectedBackupPackageRef.current === packageName) {
+        setRestoreStatus({ state: "error", message: t("settings.backup.error.preview") });
+      }
+    }
+  }
+
   async function handleImportSelectedBackupPackage() {
     if (!isDesktopRuntime || isBackupOperationPending) {
       return;
@@ -802,8 +877,10 @@ function SettingsPage() {
           state: "error",
           message: t("settings.backup.importSelected.error.generic"),
         });
+        showBackupToast("error", t("settings.backup.toast.importError"));
         return;
       }
+      showBackupToast("success", t("settings.backup.toast.imported"));
       await refreshBackupPackages();
       await startRestorePreview(result.packageName);
     } catch (error) {
@@ -814,6 +891,7 @@ function SettingsPage() {
             ? t("settings.backup.importSelected.error.invalid")
             : t("settings.backup.importSelected.error.generic"),
       });
+      showBackupToast("error", t("settings.backup.toast.importError"));
     }
   }
 
@@ -831,7 +909,8 @@ function SettingsPage() {
 
     try {
       const result = await restoreBackupPackage(preview.packageName);
-      setRestoreStatus({ state: "success", result });
+      setRestoreStatus({ state: "success", result, preview });
+      setRestoreConfirmationOpen(false);
       await refreshBackupPackages();
     } catch (error) {
       setRestoreStatus({
@@ -842,6 +921,14 @@ function SettingsPage() {
             : t("settings.backup.error.restore"),
       });
     }
+  }
+
+  function handleDismissRestoreResult() {
+    selectedBackupPackageRef.current = null;
+    setSelectedBackupPackage(null);
+    setRestoreStatus({ state: "idle" });
+    setRestoreConfirmationOpen(false);
+    void refreshBackupPackages();
   }
 
   function handleThemeChange(theme: AppearanceTheme) {
@@ -1457,6 +1544,8 @@ function SettingsPage() {
           mediaRootStatus,
           backupStatus,
           restoreStatus,
+          selectedBackupPackage,
+          restoreConfirmationOpen,
           backupNote,
           backupPackages,
           backupListError,
@@ -1465,6 +1554,7 @@ function SettingsPage() {
           backupRecoverySettings,
           automaticBackupStatus,
           backupPackageManagementStatus,
+          backupToasts,
           importStatus,
           importApplyStatus,
           exportStatus,
@@ -1515,8 +1605,12 @@ function SettingsPage() {
           setBackupHistoryPage,
           setBackupHistoryPageSize,
           handleRestoreHistoryPackage,
+          handleRequestRestoreHistoryPackage,
           setRestoreStatus,
+          setRestoreConfirmationOpen,
           handleConfirmRestore,
+          handleDismissRestoreResult,
+          dismissBackupToast,
           handleImportCsvPreview,
           setIsExportPanelOpen,
           handleExportCsv,
@@ -1842,6 +1936,8 @@ function SettingsSection({
     mediaRootStatus,
     backupStatus,
     restoreStatus,
+    selectedBackupPackage,
+    restoreConfirmationOpen,
     backupNote,
     backupPackages,
     backupListError,
@@ -1850,6 +1946,7 @@ function SettingsSection({
     backupRecoverySettings,
     automaticBackupStatus,
     backupPackageManagementStatus,
+    backupToasts,
     importStatus,
     importApplyStatus,
     exportStatus,
@@ -1900,8 +1997,12 @@ function SettingsSection({
     setBackupHistoryPage,
     setBackupHistoryPageSize,
     handleRestoreHistoryPackage,
+    handleRequestRestoreHistoryPackage,
     setRestoreStatus,
+    setRestoreConfirmationOpen,
     handleConfirmRestore,
+    handleDismissRestoreResult,
+    dismissBackupToast,
     handleImportCsvPreview,
     setIsExportPanelOpen,
     handleExportCsv,
@@ -2278,88 +2379,42 @@ function SettingsSection({
         title={t("settings.backup.title")}
         icon={ShieldCheck}
         showReset={false}
-        headerAction={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              disabled={!isDesktopRuntime || isBackupOperationPending}
-              onClick={handleImportSelectedBackupPackage}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-sakura-200 bg-white px-4 text-sm font-semibold text-sakura-600 transition hover:bg-sakura-50 disabled:border-slate-200 disabled:text-slate-300"
-            >
-              <RotateCcw size={15} aria-hidden="true" />
-              {isSelectedImportPending
-                ? t("settings.backup.importSelected.importing")
-                : t("settings.backup.importSelected.action")}
-            </button>
-            <button
-              type="button"
-              disabled={!canBackUpDatabase}
-              onClick={handleBackupData}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:bg-slate-300"
-            >
-              <Plus size={16} aria-hidden="true" />
-              {isBackupPending
-                ? t("settings.backup.backingUp")
-                : t("settings.backup.backupNow")}
-            </button>
-          </div>
-        }
       >
-        <div className="grid gap-3 lg:grid-cols-3">
-          <BackupSummaryCard
-            icon={CalendarDays}
-            label={t("settings.backup.lastBackup")}
-            value={
-              backupPackages[0]
-                ? formatBackupCreatedAt(backupPackages[0].manifest.createdAt)
-                : t("common.notAvailable")
-            }
-            badge={
-              backupPackages[0] ? t("settings.backup.status.success") : undefined
-            }
-          />
-          <BackupSummaryCard
-            icon={FolderOpen}
-            label={t("settings.backup.location.title")}
-            value={t("settings.backup.location.default")}
-            action={
-              <button
-                type="button"
-                disabled={!isDesktopRuntime || isBackupOperationPending}
-                onClick={handleOpenBackupFolder}
-                className="mt-1 text-xs font-semibold text-sakura-600 hover:text-sakura-700 disabled:text-slate-400"
-              >
-                {t("settings.backup.openFolderShort")}
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <span className="inline-flex size-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <CheckCircle2 size={25} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-slate-500">{t("settings.backup.status.title")}</p>
+                <p className="mt-1 text-base font-semibold text-slate-900">
+                  {backupPackages[0]
+                    ? t("settings.backup.lastBackupValue", { createdAt: formatBackupCreatedAt(backupPackages[0].manifest.createdAt) })
+                    : t("settings.backup.lastBackupValue", { createdAt: t("common.notAvailable") })}
+                </p>
+                {backupPackages[0] ? <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"><CheckCircle2 size={12} aria-hidden="true" />{t("settings.backup.status.success")}</span> : null}
+              </div>
+            </div>
+            <div className="flex w-full flex-col gap-2 md:w-60">
+              <button type="button" disabled={!canBackUpDatabase} onClick={handleBackupData} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sakura-600 disabled:bg-slate-300">
+                <Plus size={16} aria-hidden="true" />{isBackupPending ? t("settings.backup.backingUp") : t("settings.backup.backupNow")}
               </button>
-            }
-          />
-          <BackupSummaryCard
-            icon={Package}
-            label={t("settings.backup.packageCount")}
-            value={t(
-              backupPackages.length === 1
-                ? "settings.backup.packageCountValue.one"
-                : "settings.backup.packageCountValue.other",
-              { count: backupPackages.length },
-            )}
-          />
+              <button type="button" disabled={!isDesktopRuntime || isBackupOperationPending} onClick={handleImportSelectedBackupPackage} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-sakura-200 hover:text-sakura-600 disabled:text-slate-300">
+                <RotateCcw size={15} aria-hidden="true" />{isSelectedImportPending ? t("settings.backup.importSelected.importing") : t("settings.backup.importSelected.action")}
+              </button>
+            </div>
+          </div>
+          <label className="mt-3 flex h-10 items-center gap-3 border-t border-slate-100 pt-3">
+            <span className="sr-only">{t("settings.backup.note.label")}</span><FilePenLine size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
+            <input value={backupNote} maxLength={255} onChange={(event) => setBackupNote(event.target.value)} aria-label={t("settings.backup.note.label")} placeholder={t("settings.backup.note.placeholderFinal")} disabled={isBackupOperationPending} className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400" />
+            <span className="text-xs font-medium text-slate-400">{backupNote.length}/255</span>
+          </label>
         </div>
-        <label className="mt-3 flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 focus-within:border-sakura-300 focus-within:ring-4 focus-within:ring-sakura-100">
-          <span className="sr-only">{t("settings.backup.note.label")}</span>
-          <FilePenLine size={17} className="shrink-0 text-slate-400" aria-hidden="true" />
-          <input
-            value={backupNote}
-            maxLength={255}
-            onChange={(event) => setBackupNote(event.target.value)}
-            aria-label={t("settings.backup.note.label")}
-            placeholder={t("settings.backup.note.placeholderFinal")}
-            disabled={isBackupOperationPending}
-            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
-          />
-          <span className="shrink-0 text-xs font-medium text-slate-400">
-            {backupNote.length}/255
-          </span>
-        </label>
+        <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3"><span className="inline-flex size-10 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500"><FolderOpen size={20} aria-hidden="true" /></span><div><p className="text-xs font-semibold text-slate-500">{t("settings.backup.location.title")}</p><p className="mt-1 text-sm font-semibold text-slate-900">{t("settings.backup.location.default")}</p><button type="button" disabled={!isDesktopRuntime || isBackupOperationPending} onClick={handleOpenBackupFolder} className="mt-1 text-xs font-semibold text-sakura-600 disabled:text-slate-400">{t("settings.backup.openFolderShort")}</button></div></div>
+          <button type="button" disabled className="h-9 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-300">{t("settings.backup.location.change")}</button>
+        </div>
         <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)] md:items-center">
           <div className="flex items-center gap-3">
             <button
@@ -2428,7 +2483,7 @@ function SettingsSection({
             </select>
           </label>
         </div>
-        <SettingsStatusMessage status={backupStatus} kind="backup" />
+        {backupStatus.state === "error" ? <SettingsStatusMessage status={backupStatus} kind="backup" /> : null}
         {backupListError ? (
           <p role="alert" className="text-sm font-semibold text-rose-600">
             {backupListError}
@@ -2444,19 +2499,25 @@ function SettingsSection({
             backupPackageManagementStatus.state === "deletePending"
           }
           restoreStatus={restoreStatus}
+          selectedPackageName={selectedBackupPackage}
+          restoreConfirmationOpen={restoreConfirmationOpen}
           managementStatus={backupPackageManagementStatus}
+          toasts={backupToasts}
           onRefresh={() => void refreshBackupPackages()}
           onPageChange={setBackupHistoryPage}
           onPageSizeChange={setBackupHistoryPageSize}
-          onRestore={handleRestoreHistoryPackage}
+          onSelect={handleRestoreHistoryPackage}
+          onRestore={handleRequestRestoreHistoryPackage}
           onDownload={handleDownloadBackupPackage}
           onDelete={handleRequestDeleteBackupPackage}
           onCancelDelete={() =>
             setBackupPackageManagementStatus({ state: "idle" })
           }
           onConfirmDelete={handleConfirmDeleteBackupPackage}
-          onCancelRestore={() => setRestoreStatus({ state: "idle" })}
+          onCancelRestore={() => setRestoreConfirmationOpen(false)}
           onConfirmRestore={handleConfirmRestore}
+          onDone={handleDismissRestoreResult}
+          onDismissToast={dismissBackupToast}
         />
       </SettingsPanelCard>
 
@@ -3287,6 +3348,160 @@ function BackupSummaryCard({
 }
 
 function BackupHistoryPanel({
+  packages, page, pageSize, busy, restoreStatus, managementStatus,
+  selectedPackageName, restoreConfirmationOpen, toasts, onRefresh, onPageChange,
+  onPageSizeChange, onSelect, onRestore, onDownload, onDelete,
+  onCancelDelete, onConfirmDelete, onCancelRestore, onConfirmRestore, onDone, onDismissToast,
+}: {
+  packages: BackupPackageInfo[]; page: number; pageSize: number; busy: boolean;
+  restoreStatus: RestoreStatus; managementStatus: BackupPackageManagementStatus;
+  selectedPackageName: string | null; restoreConfirmationOpen: boolean; toasts: BackupToast[];
+  onRefresh: () => void; onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onSelect: (packageName: string) => void; onRestore: (packageName: string) => void;
+  onDownload: (backupPackage: BackupPackageInfo) => void;
+  onDelete: (backupPackage: BackupPackageInfo) => void;
+  onCancelDelete: () => void; onConfirmDelete: () => void;
+  onCancelRestore: () => void; onConfirmRestore: () => void; onDone: () => void; onDismissToast: (id: number) => void;
+}) {
+  const t = useTranslation();
+  const [openMenu, setOpenMenu] = useState<{
+    backupPackage: BackupPackageInfo;
+    left: number;
+    top: number;
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const pageCount = Math.max(1, Math.ceil(packages.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * pageSize;
+  const visiblePackages = packages.slice(startIndex, startIndex + pageSize);
+  const selectedPackage = packages.find((item) => item.packageName === selectedPackageName);
+  const preview = restoreStatus.state === "confirming" || restoreStatus.state === "pending"
+    ? restoreStatus.preview : null;
+
+  function closeMenu(restoreFocus = true) {
+    setOpenMenu(null);
+    if (restoreFocus) menuTriggerRef.current?.focus();
+  }
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && !menuTriggerRef.current?.contains(target)) {
+        closeMenu();
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    const onViewportChange = () => closeMenu(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [openMenu]);
+
+  return <>
+    <section aria-label={t("settings.backup.history.title")} className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <header className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+        <h3 className="text-sm font-semibold text-slate-900">{t("settings.backup.history.title")}</h3>
+        <button type="button" aria-label={t("settings.backup.history.refresh")} disabled={busy} onClick={onRefresh} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-sakura-600 disabled:text-slate-300"><RefreshCw size={15} aria-hidden="true" /></button>
+      </header>
+      <div className="max-h-[25rem] overflow-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left">
+          <thead className="sticky top-0 z-10 bg-slate-50"><tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <th className="w-12 px-4 py-3"><span className="sr-only">{t("settings.backup.history.selection")}</span></th>
+            <th className="px-3 py-3">{t("settings.backup.history.dateTime")}</th><th className="px-3 py-3">{t("settings.backup.history.size")}</th><th className="px-3 py-3">{t("settings.backup.history.type")}</th><th className="px-3 py-3">{t("settings.backup.history.status")}</th><th className="px-3 py-3 text-right">{t("settings.backup.history.actions")}</th>
+          </tr></thead>
+          <tbody>{visiblePackages.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-medium text-slate-400">{t("settings.backup.list.empty")}</td></tr> : visiblePackages.map((item) => {
+            const selected = item.packageName === selectedPackageName;
+            return <tr key={item.packageName} aria-selected={selected} onClick={() => !busy && onSelect(item.packageName)} className={`cursor-pointer border-b border-slate-100 text-sm last:border-b-0 ${selected ? "bg-sakura-50/70" : "text-slate-600 hover:bg-slate-50"}`}>
+              <td className="px-4 py-3"><span className={`block size-3 rounded-full border ${selected ? "border-sakura-500 bg-sakura-500 ring-2 ring-sakura-100" : "border-slate-300"}`} /></td>
+              <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-700">{formatBackupCreatedAt(item.manifest.createdAt)}</td>
+              <td className="px-3 py-3 text-slate-400">—</td>
+              <td className="px-3 py-3">{t(item.manifest.backupType === "automatic" ? "settings.backup.type.automatic" : "settings.backup.type.manual")}</td>
+              <td className="px-3 py-3"><span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle2 size={13} aria-hidden="true" />{t("settings.backup.status.success")}</span></td>
+              <td className="relative px-3 py-3" onClick={(event) => event.stopPropagation()}><div className="flex justify-end gap-1">
+                <button type="button" aria-label={`${t("settings.backup.history.view")} ${item.packageName}`} disabled={busy} onClick={() => onSelect(item.packageName)} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-sakura-600"><Eye size={15} aria-hidden="true" /></button>
+                <button type="button" aria-label={`${t("settings.backup.history.more")} ${item.packageName}`} aria-expanded={openMenu?.backupPackage.packageName === item.packageName} disabled={busy} onClick={(event) => {
+                  const trigger = event.currentTarget;
+                  if (openMenu?.backupPackage.packageName === item.packageName) {
+                    closeMenu(false);
+                    return;
+                  }
+                  const rect = trigger.getBoundingClientRect();
+                  menuTriggerRef.current = trigger;
+                  setOpenMenu({
+                    backupPackage: item,
+                    left: Math.max(8, Math.min(rect.right - 176, window.innerWidth - 184)),
+                    top: Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 148)),
+                  });
+                }} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"><MoreHorizontal size={17} aria-hidden="true" /></button>
+              </div></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+      <footer className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-xs font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap items-center gap-2"><span>{t("settings.backup.history.showing", { start: packages.length ? String(startIndex + 1) : "0", end: String(Math.min(startIndex + visiblePackages.length, packages.length)), total: String(packages.length) })}</span><label className="flex items-center gap-2">{t("settings.backup.history.pageSize")}<select aria-label={t("settings.backup.history.pageSize")} value={pageSize} onChange={(event) => { onPageSizeChange(Number(event.target.value)); onPageChange(1); }} className="h-8 rounded-lg border border-slate-200 bg-white px-2"><option value={16}>16</option><option value={32}>32</option><option value={64}>64</option></select></label></div><div className="flex items-center gap-1"><button type="button" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)} className="h-8 rounded-lg border border-slate-200 px-3 disabled:text-slate-300">{t("common.previous")}</button><span className="inline-flex size-8 items-center justify-center rounded-lg bg-sakura-500 text-white">{currentPage}</span><button type="button" disabled={currentPage >= pageCount} onClick={() => onPageChange(currentPage + 1)} className="h-8 rounded-lg border border-slate-200 px-3 disabled:text-slate-300">{t("common.next")}</button></div></footer>
+      {managementStatus.state === "error" ? <p role="alert" className="border-t border-slate-100 px-4 py-3 text-sm font-semibold text-rose-600">{managementStatus.message}</p> : null}
+      {restoreStatus.state === "previewPending" ? <p role="status" className="border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-600">{t("settings.backup.validating")}</p> : restoreStatus.state === "importPending" ? <p role="status" className="border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-600">{t("settings.backup.importSelected.importing")}</p> : restoreStatus.state === "error" ? <p role="alert" className="border-t border-slate-100 px-4 py-3 text-sm font-semibold text-rose-600">{restoreStatus.message}</p> : null}
+    </section>
+    {openMenu && typeof document !== "undefined" ? createPortal(
+      <div ref={menuRef} data-backup-actions-menu="true" role="menu" aria-label={t("settings.backup.history.actions")} className="fixed z-[110] w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl" style={{ left: openMenu.left, top: openMenu.top }}>
+        <button type="button" role="menuitem" onClick={() => { const item = openMenu.backupPackage; closeMenu(false); void onRestore(item.packageName); }} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"><RotateCcw size={14} aria-hidden="true" />{t("settings.backup.history.restore")}</button>
+        <button type="button" role="menuitem" onClick={() => { const item = openMenu.backupPackage; closeMenu(false); onDownload(item); }} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"><Download size={14} aria-hidden="true" />{t("settings.backup.history.download")}</button>
+        <button type="button" role="menuitem" onClick={() => { const item = openMenu.backupPackage; closeMenu(false); onDelete(item); }} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"><Trash2 size={14} aria-hidden="true" />{t("settings.backup.history.delete")}</button>
+      </div>,
+      document.body,
+    ) : null}
+    {preview && selectedPackage && restoreStatus.state !== "success" ? <BackupPreviewCard backupPackage={selectedPackage} preview={preview} busy={busy} onDownload={() => onDownload(selectedPackage)} onDelete={() => onDelete(selectedPackage)} onRestore={() => onRestore(selectedPackage.packageName)} /> : null}
+    {restoreStatus.state === "success" ? <RestoreSummaryCard status={restoreStatus} onDone={onDone} /> : null}
+    {(managementStatus.state === "deleteConfirm" || managementStatus.state === "deletePending") ? <BackupDeleteModal backupPackage={managementStatus.backupPackage} pending={managementStatus.state === "deletePending"} onCancel={onCancelDelete} onConfirm={onConfirmDelete} /> : null}
+  {restoreConfirmationOpen && (restoreStatus.state === "confirming" || restoreStatus.state === "pending") ? <RestoreConfirmModal preview={restoreStatus.preview} pending={restoreStatus.state === "pending"} onCancel={onCancelRestore} onConfirm={onConfirmRestore} /> : null}
+    <BackupToastViewport toasts={toasts} onDismiss={onDismissToast} />
+  </>;
+}
+
+function BackupPreviewCard({ backupPackage, preview, busy, onDownload, onDelete, onRestore }: { backupPackage: BackupPackageInfo; preview: BackupPackagePreview; busy: boolean; onDownload: () => void; onDelete: () => void; onRestore: () => void }) {
+  const t = useTranslation();
+  return <section aria-label={t("settings.backup.preview.title")} className="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h3 className="text-sm font-semibold text-slate-900">{t("settings.backup.preview.title")}</h3><dl className="mt-3 grid gap-3 text-xs sm:grid-cols-3 lg:grid-cols-6"><PreviewField label={t("settings.backup.preview.name")} value={preview.packageName} /><PreviewField label={t("settings.backup.history.dateTime")} value={formatBackupCreatedAt(preview.manifest.createdAt)} /><PreviewField label={t("settings.backup.history.size")} value="—" /><PreviewField label={t("settings.backup.history.type")} value={t(preview.manifest.backupType === "automatic" ? "settings.backup.type.automatic" : "settings.backup.type.manual")} /><PreviewField label={t("settings.backup.history.status")} value={t("settings.backup.status.success")} /><PreviewField label={t("settings.backup.history.note")} value={backupPackage.manifest.note || "—"} /></dl>{preview.warnings.length ? <p className="mt-3 text-xs font-semibold text-amber-700">{preview.warnings[0]}</p> : null}<div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" disabled={busy} onClick={onDownload} className="h-9 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-600">{t("settings.backup.history.download")}</button><button type="button" disabled={busy} onClick={onDelete} className="h-9 rounded-lg border border-rose-200 px-4 text-xs font-semibold text-rose-600">{t("settings.backup.management.deleteConfirmAction")}</button><button type="button" disabled={busy} onClick={onRestore} className="h-9 rounded-lg bg-sakura-500 px-5 text-xs font-semibold text-white disabled:bg-slate-300">{t("settings.backup.restoreAction")}</button></div></section>;
+}
+
+function PreviewField({ label, value }: { label: string; value: string }) { return <div className="min-w-0"><dt className="font-semibold text-slate-500">{label}</dt><dd className="mt-1 truncate font-semibold text-slate-800" title={value}>{value}</dd></div>; }
+
+function BackupToastViewport({ toasts, onDismiss }: { toasts: BackupToast[]; onDismiss: (id: number) => void }) {
+  const t = useTranslation();
+  if (typeof document === "undefined" || toasts.length === 0) return null;
+  return createPortal(
+    <div className="pointer-events-none fixed right-5 top-5 z-[120] flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-2">
+      {toasts.map((toast) => {
+        const isError = toast.tone === "error";
+        return <div key={toast.id} role={isError ? "alert" : "status"} aria-live={isError ? "assertive" : "polite"} className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg ${isError ? "border-rose-200 bg-white text-rose-700" : "border-emerald-200 bg-white text-emerald-700"}`}>
+          {isError ? <X size={17} className="mt-0.5 shrink-0" aria-hidden="true" /> : <CheckCircle2 size={17} className="mt-0.5 shrink-0" aria-hidden="true" />}
+          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{toast.title}</p>{toast.detail ? <p className="mt-0.5 text-xs font-medium text-slate-500">{toast.detail}</p> : null}</div>
+          <button type="button" aria-label={t("settings.backup.toast.close")} onClick={() => onDismiss(toast.id)} className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={15} aria-hidden="true" /></button>
+        </div>;
+      })}
+    </div>,
+    document.body,
+  );
+}
+
+function BackupDeleteModal({ backupPackage, pending, onCancel, onConfirm }: { backupPackage: BackupPackageInfo; pending: boolean; onCancel: () => void; onConfirm: () => void }) { const t = useTranslation(); return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label={t("settings.backup.management.deleteConfirmTitle")} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><h3 className="text-base font-semibold text-slate-900">{t("settings.backup.management.deleteConfirmTitle")}</h3><p className="mt-2 text-sm text-slate-600">{t("settings.backup.management.deleteConfirmBodyRefined")}</p><p className="mt-3 text-xs font-semibold text-slate-700">{formatBackupCreatedAt(backupPackage.manifest.createdAt)}</p>{backupPackage.manifest.note ? <p className="mt-1 truncate text-xs text-slate-500">{backupPackage.manifest.note}</p> : null}<div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={onCancel} className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600">{t("common.cancel")}</button><button type="button" disabled={pending} onClick={onConfirm} className="h-9 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white disabled:bg-rose-300">{pending ? t("settings.backup.management.deleting") : t("settings.backup.management.deleteConfirmAction")}</button></div></section></div>; }
+
+function RestoreConfirmModal({ preview, pending, onCancel, onConfirm }: { preview: BackupPackagePreview; pending: boolean; onCancel: () => void; onConfirm: () => void }) { const t = useTranslation(); return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label={t("settings.backup.restoreConfirm.title")} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><h3 className="text-base font-semibold text-slate-900">{t("settings.backup.restoreConfirm.title")}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{t("settings.backup.restoreConfirm.bodyRefined")}</p><p className="mt-2 text-xs text-slate-500">{t("settings.backup.restoreConfirm.mediaUnaffectedRefined")}</p><div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={onCancel} className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600">{t("common.cancel")}</button><button type="button" disabled={pending} onClick={onConfirm} className="h-9 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white disabled:bg-slate-300">{pending ? t("settings.backup.restoring") : t("settings.backup.restoreAction")}</button></div><span className="sr-only">{preview.packageName}</span></section></div>; }
+
+function RestoreSummaryCard({ status, onDone }: { status: Extract<RestoreStatus, { state: "success" }>; onDone: () => void }) { const t = useTranslation(); return <section aria-label={t("settings.backup.summary.title")} className="mt-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm"><h3 className="text-sm font-semibold text-slate-900">{t("settings.backup.summary.title")}</h3><dl className="mt-3 grid gap-3 text-xs sm:grid-cols-3 lg:grid-cols-6"><PreviewField label={t("settings.backup.summary.restoredBackup")} value={status.result.restoredPackageName} /><PreviewField label={t("settings.backup.summary.restoredOn")} value={formatBackupCreatedAt(status.result.restoredAt)} /><PreviewField label={t("settings.backup.history.size")} value="—" /><PreviewField label={t("settings.backup.summary.backupType")} value={t(status.preview.manifest.backupType === "automatic" ? "settings.backup.type.automatic" : "settings.backup.type.manual")} /><PreviewField label={t("settings.backup.summary.safetyBackup")} value={status.result.safetyPackageName} /><PreviewField label={t("settings.backup.summary.finalStatus")} value={t("settings.backup.status.success")} /></dl><div className="mt-4 flex items-center justify-between gap-4"><p className="text-sm font-medium text-emerald-700">{t("settings.backup.summary.success")}</p><button type="button" onClick={onDone} className="h-9 rounded-lg bg-sakura-500 px-6 text-sm font-semibold text-white">{t("common.done")}</button></div></section>; }
+
+function LegacyBackupHistoryPanel({
   packages,
   page,
   pageSize,
