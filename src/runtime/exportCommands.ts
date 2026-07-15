@@ -1,4 +1,10 @@
 import type { ExportCsvEntity } from "../lib/exportCsv";
+import type { ExportArtifact } from "../lib/exportArtifacts";
+import {
+  defaultExportFileName,
+  exportTypeCode,
+  localExportTimestamp,
+} from "../lib/exportArtifacts";
 import { invokeTauriCommand } from "./tauriClient";
 
 export type ExportCsvWriteResult = {
@@ -15,29 +21,49 @@ export function writeExportCsv(destinationPath: string, csvContent: string) {
 }
 
 export function defaultExportCsvFileName(entity: ExportCsvEntity, date = new Date()) {
-  return `skv-${exportEntityFileToken(entity)}-${localFileTimestamp(date)}.csv`;
+  return defaultExportFileName([entity], "csv", date);
 }
 
 export function exportEntityFileToken(entity: ExportCsvEntity) {
-  if (entity === "videos") {
-    return "vid";
-  }
-  if (entity === "images") {
-    return "img";
-  }
-  if (entity === "performers") {
-    return "per";
-  }
-  return "cat";
+  return exportTypeCode([entity]);
 }
 
 export function localFileTimestamp(date = new Date()) {
-  const year = String(date.getFullYear()).padStart(4, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return localExportTimestamp(date);
+}
 
-  return `${year}${day}${month}-${hours}${minutes}${seconds}`;
+export type ExportFileWriteResult = {
+  destinationPath: string;
+  displayName: string;
+  bytesWritten: number;
+  success: boolean;
+};
+
+export type ExportFileSetWriteResult = {
+  destinationPath: string;
+  displayNames: string[];
+  filesWritten: number;
+  bytesWritten: number;
+  success: boolean;
+};
+
+export function writeExportArtifact(destinationPath: string, artifact: ExportArtifact) {
+  return invokeTauriCommand<ExportFileWriteResult>("export_file_write", {
+    destinationPath,
+    bytes: Array.from(artifact.bytes),
+    expectedExtension: artifact.format,
+  });
+}
+
+export function writeExportArtifactSet(
+  destinationFolder: string,
+  artifacts: ExportArtifact[],
+) {
+  return invokeTauriCommand<ExportFileSetWriteResult>("export_file_set_write", {
+    destinationFolder,
+    files: artifacts.map((artifact) => ({
+      fileName: artifact.fileName,
+      bytes: Array.from(artifact.bytes),
+    })),
+  });
 }

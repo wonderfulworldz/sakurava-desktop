@@ -1,12 +1,21 @@
-import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type {
+  GlossaryEntry,
+  Image,
+  ManagedCategory,
+  Performer,
+  Video,
+} from "../backend/types";
+import { localDateFormatHint, normalizeImportDate } from "./importDate";
 import {
   buildCategoriesCsv,
   buildImagesCsv,
   buildPerformersCsv,
   buildVideosCsv,
+  buildGlossaryCsv,
   categoryCsvSchema,
   imageCsvSchema,
   performerCsvSchema,
+  glossaryCsvSchema,
   sakuravaRef,
   videoCsvSchema,
   type ExportCsvEntity,
@@ -14,7 +23,7 @@ import {
 
 export type ImportCsvEntity = ExportCsvEntity;
 
-export type ImportCsvAction = "Auto" | "Update" | "Add" | "Delete" | "Skip";
+export type ImportCsvAction = "Auto" | "Create" | "Update" | "Delete" | "Skip";
 export type ImportCsvDetectedResult =
   | "Added"
   | "Modified"
@@ -29,6 +38,7 @@ export type ImportCsvPreviewRow = {
   detectedResult: ImportCsvDetectedResult;
   target: string;
   changes: string[];
+  changeDetails?: Array<{ field: string; before: string; after: string }>;
   warnings: string[];
   errors: string[];
   values: Record<string, string>;
@@ -59,20 +69,28 @@ export type ImportCsvPreviewContext = {
   images: Image[];
   performers: Performer[];
   categories: ManagedCategory[];
+  glossary?: GlossaryEntry[];
 };
 
-type ParsedCsv = {
+export type ParsedCsv = {
   headers: string[];
   rows: string[][];
 };
 
+export type ImportPreviewOptions = {
+  locale?: string;
+  rowNumbers?: number[];
+  invalidDateMessage?: (field: string, format: string) => string;
+};
+
 type EntityDefinition = {
   entity: ImportCsvEntity;
-  refPrefix: "VID" | "IMG" | "PER" | "CAT";
+  refPrefix: "VID" | "IMG" | "PER" | "CAT" | "GLO";
   mainHeader: string;
+  requiredHeaders: string[];
   expectedHeaders: string[];
   buildCurrentCsv: (context: ImportCsvPreviewContext) => string;
-  records: (context: ImportCsvPreviewContext) => Array<Video | Image | Performer | ManagedCategory>;
+  records: (context: ImportCsvPreviewContext) => Array<Video | Image | Performer | ManagedCategory | GlossaryEntry>;
 };
 
 const rawTechnicalHeaders = new Set([
@@ -88,13 +106,14 @@ const rawTechnicalHeaders = new Set([
   "performerThumbnailPathsJson",
 ]);
 
-const validActions = new Set(["Auto", "Update", "Add", "Delete", "Skip"]);
+const validActions = new Set(["Auto", "Create", "Update", "Delete", "Skip"]);
 
 const entityDefinitions: EntityDefinition[] = [
   {
     entity: "videos",
     refPrefix: "VID",
     mainHeader: "Title",
+    requiredHeaders: ["Title"],
     expectedHeaders: videoCsvSchema.map((column) => column.header),
     buildCurrentCsv: (context) => buildVideosCsv(context.videos),
     records: (context) => context.videos,
@@ -103,6 +122,7 @@ const entityDefinitions: EntityDefinition[] = [
     entity: "images",
     refPrefix: "IMG",
     mainHeader: "Title",
+    requiredHeaders: ["Title"],
     expectedHeaders: imageCsvSchema.map((column) => column.header),
     buildCurrentCsv: (context) => buildImagesCsv(context.images),
     records: (context) => context.images,
@@ -111,6 +131,7 @@ const entityDefinitions: EntityDefinition[] = [
     entity: "performers",
     refPrefix: "PER",
     mainHeader: "Name",
+    requiredHeaders: ["Name"],
     expectedHeaders: performerCsvSchema.map((column) => column.header),
     buildCurrentCsv: (context) => buildPerformersCsv(context.performers),
     records: (context) => context.performers,
@@ -119,9 +140,19 @@ const entityDefinitions: EntityDefinition[] = [
     entity: "categories",
     refPrefix: "CAT",
     mainHeader: "Category Name",
+    requiredHeaders: ["Category Name"],
     expectedHeaders: categoryCsvSchema.map((column) => column.header),
     buildCurrentCsv: (context) => buildCategoriesCsv(context.categories),
     records: (context) => context.categories,
+  },
+  {
+    entity: "glossary",
+    refPrefix: "GLO",
+    mainHeader: "Term",
+    requiredHeaders: ["Term", "Definition"],
+    expectedHeaders: glossaryCsvSchema.map((column) => column.header),
+    buildCurrentCsv: (context) => buildGlossaryCsv(context.glossary ?? []),
+    records: (context) => context.glossary ?? [],
   },
 ];
 
@@ -188,11 +219,20 @@ export function parseCsv(text: string): ParsedCsv {
 export function buildImportCsvPreview(
   csvText: string,
   context: ImportCsvPreviewContext,
+  options: ImportPreviewOptions = {},
 ): ImportCsvPreview {
-  const parsed = parseCsv(csvText);
+  return buildImportTablePreview(parseCsv(csvText), context, options);
+}
+
+export function buildImportTablePreview(
+  parsed: ParsedCsv,
+  context: ImportCsvPreviewContext,
+  options: ImportPreviewOptions = {},
+): ImportCsvPreview {
   const headerErrors: string[] = [];
   const headerWarnings: string[] = [];
   const definition = detectCsvEntity(parsed.headers);
+  const locale = options.locale || "en-US";
 
   validateHeaders(parsed.headers, definition, headerErrors, headerWarnings);
 
@@ -210,12 +250,14 @@ export function buildImportCsvPreview(
   const rows = parsed.rows.map((row, index) =>
     previewRow({
       row,
-      rowNumber: index + 2,
+      rowNumber: options.rowNumbers?.[index] ?? index + 2,
       headers: parsed.headers,
       definition,
       currentRowsByRef,
       duplicateRefs,
       context,
+      locale,
+      invalidDateMessage: options.invalidDateMessage,
     }),
   );
 
@@ -282,7 +324,7 @@ function validateHeaders(
     return;
   }
 
-  for (const requiredHeader of ["Action", "Sakurava Ref", definition.mainHeader]) {
+  for (const requiredHeader of ["Action", "Sakurava Ref", ...definition.requiredHeaders]) {
     if (!headers.includes(requiredHeader)) {
       errors.push(`Missing required header: ${requiredHeader}.`);
     }
@@ -304,6 +346,8 @@ function previewRow({
   currentRowsByRef,
   duplicateRefs,
   context,
+  locale,
+  invalidDateMessage,
 }: {
   row: string[];
   rowNumber: number;
@@ -312,11 +356,14 @@ function previewRow({
   currentRowsByRef: Map<string, Record<string, string>>;
   duplicateRefs: Set<string>;
   context: ImportCsvPreviewContext;
+  locale: string;
+  invalidDateMessage?: (field: string, format: string) => string;
 }): ImportCsvPreviewRow {
   const values = rowValues(headers, row);
   const warnings: string[] = [];
   const errors: string[] = [];
   const changes: string[] = [];
+  const changeDetails: Array<{ field: string; before: string; after: string }> = [];
   const action = parseImportAction(values.Action ?? "");
   const ref = (values["Sakurava Ref"] ?? "").trim();
   const mainValue = (values[definition.mainHeader] ?? "").trim();
@@ -370,17 +417,27 @@ function previewRow({
     errors.push("Update requires a Sakurava Ref.");
   }
 
-  if (action === "Add" && ref) {
-    warnings.push("Add with Sakurava Ref may create an accidental duplicate.");
+  if (action === "Create" && ref) {
+    errors.push("Create cannot use an existing Sakurava Ref.");
   }
 
-  validateEditableFields(values, definition, warnings, errors);
+  validateEditableFields(
+    values,
+    definition,
+    warnings,
+    errors,
+    locale,
+    invalidDateMessage,
+  );
   validateCategories(values, definition, currentRowsByRef.get(ref), context, changes, warnings);
   validateRelated(values, definition, currentRowsByRef.get(ref), context, changes, warnings, errors);
+  validateGlossaryFields(values, definition, ref, context, errors);
 
   if (!ref) {
-    if (!mainValue && action !== "Add") {
-      errors.push(`${definition.mainHeader} is required for a new row.`);
+    for (const requiredHeader of definition.requiredHeaders) {
+      if (!(values[requiredHeader] ?? "").trim()) {
+        errors.push(`${requiredHeader} is required for a new row.`);
+      }
     }
 
     return {
@@ -388,7 +445,7 @@ function previewRow({
       action: action ?? "Invalid",
       detectedResult: errors.length > 0 ? "Error" : "Added",
       target: mainValue || "New row",
-      changes: action === "Add" || action === "Auto" ? ["New record"] : changes,
+      changes: action === "Create" || action === "Auto" ? ["New record"] : changes,
       warnings,
       errors,
       values,
@@ -407,6 +464,7 @@ function previewRow({
       const currentValue = normalizeCell(currentRow[header] ?? "");
       if (nextValue !== currentValue) {
         changes.push(header);
+        changeDetails.push({ field: header, before: currentValue, after: nextValue });
       }
     }
   }
@@ -418,10 +476,40 @@ function previewRow({
       errors.length > 0 ? "Error" : changes.length > 0 ? "Modified" : "Unchanged",
     target: targetText(ref, mainValue),
     changes: unique(changes),
+    changeDetails,
     warnings,
     errors,
     values,
   };
+}
+
+function validateGlossaryFields(
+  values: Record<string, string>,
+  definition: EntityDefinition,
+  recordRef: string,
+  context: ImportCsvPreviewContext,
+  errors: string[],
+) {
+  if (definition.entity !== "glossary") return;
+
+  const favorite = (values.Favorite ?? "").trim().toLowerCase();
+  if (favorite && !["true", "false", "1", "0", "yes", "no", "on", "off"].includes(favorite)) {
+    errors.push("Favorite must be Yes or No.");
+  }
+
+  const parentRef = (values["Parent Ref"] ?? "").trim();
+  if (!parentRef) return;
+  if (!/^GLO-[0-9A-Z]+$/.test(parentRef)) {
+    errors.push("Parent Ref must be a valid GLO identifier.");
+    return;
+  }
+  if (parentRef === recordRef) {
+    errors.push("A Glossary entry cannot be its own parent.");
+    return;
+  }
+  if (!(context.glossary ?? []).some((entry) => sakuravaRef("GLO", entry.id) === parentRef)) {
+    errors.push(`Glossary parent was not found: ${parentRef}.`);
+  }
 }
 
 function buildCurrentRowsByRef(
@@ -476,6 +564,8 @@ function validateEditableFields(
   definition: EntityDefinition,
   warnings: string[],
   errors: string[],
+  locale: string,
+  invalidDateMessage?: (field: string, format: string) => string,
 ) {
   for (const header of Object.keys(values)) {
     const value = values[header].trim();
@@ -483,8 +573,16 @@ function validateEditableFields(
       continue;
     }
 
-    if (header.endsWith("Date") && !isValidDateOnly(value)) {
-      errors.push(`${header} must use YYYY-MM-DD with a valid date.`);
+    if (header.endsWith("Date")) {
+      const normalized = normalizeImportDate(value, { locale });
+      if (normalized.state === "valid") {
+        values[header] = normalized.value;
+      } else if (normalized.state === "invalid") {
+        const format = localDateFormatHint(locale);
+        errors.push(invalidDateMessage
+          ? invalidDateMessage(header, format)
+          : `${header}: Enter a valid date using this computer's format: ${format}.`);
+      }
     }
 
     if (header.startsWith("Rating - ")) {
@@ -710,22 +808,6 @@ function countRows(rows: ImportCsvPreviewRow[], result: ImportCsvDetectedResult)
 
 function normalizeCell(value: string) {
   return value.trim();
-}
-
-function isValidDateOnly(value: string) {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) {
-    return false;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (year < 1 || month < 1 || month > 12 || day < 1) {
-    return false;
-  }
-
-  return day <= new Date(year, month, 0).getDate();
 }
 
 function targetText(ref: string, mainValue: string) {

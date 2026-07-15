@@ -1,9 +1,12 @@
 import type {
+  GlossaryEntry,
+  GlossaryEntryPatch,
   Image,
   ImagePatch,
   ManagedCategory,
   ManagedCategoryPatch,
   NewImage,
+  NewGlossaryEntry,
   NewManagedCategory,
   NewPerformer,
   NewVideo,
@@ -15,13 +18,14 @@ import type {
 import {
   categoryCsvSchema,
   imageCsvSchema,
+  glossaryCsvSchema,
   performerCsvSchema,
   sakuravaRef,
   videoCsvSchema,
   type CsvInternalField,
   type CsvSchemaColumn,
-  type ExportCsvEntity,
 } from "./exportCsv";
+import type { ImportCsvEntity } from "./importCsvPreview";
 import type {
   ImportCsvPreview,
   ImportCsvPreviewContext,
@@ -29,8 +33,13 @@ import type {
 } from "./importCsvPreview";
 import { storeManagedCategories } from "./managedCategories";
 
-type CatalogRecord = Video | Image | Performer | ManagedCategory;
-type CatalogPatch = VideoPatch | ImagePatch | PerformerPatch | ManagedCategoryPatch;
+type CatalogRecord = Video | Image | Performer | ManagedCategory | GlossaryEntry;
+type CatalogPatch =
+  | VideoPatch
+  | ImagePatch
+  | PerformerPatch
+  | ManagedCategoryPatch
+  | GlossaryEntryPatch;
 
 export type ImportCsvApplyStatus =
   | "applied"
@@ -50,7 +59,7 @@ export type ImportCsvApplyRowReport = {
 };
 
 export type ImportCsvApplyReport = {
-  entity: ExportCsvEntity | "unknown";
+  entity: ImportCsvEntity | "unknown";
   totalRows: number;
   appliedAdded: number;
   appliedModified: number;
@@ -79,11 +88,17 @@ export type ImportCsvApplyMutations = {
     patch: ManagedCategoryPatch,
   ) => Promise<ManagedCategory>;
   deleteManagedCategory: (key: string) => Promise<{ key: string; deleted: boolean }>;
+  createGlossaryEntry: (input: NewGlossaryEntry) => Promise<GlossaryEntry>;
+  updateGlossaryEntry: (
+    id: string,
+    patch: GlossaryEntryPatch,
+  ) => Promise<GlossaryEntry | null>;
+  deleteGlossaryEntry: (id: string) => Promise<{ id: string; deleted: boolean }>;
 };
 
 type EntityApplyDefinition = {
-  entity: ExportCsvEntity;
-  refPrefix: "VID" | "IMG" | "PER" | "CAT";
+  entity: ImportCsvEntity;
+  refPrefix: "VID" | "IMG" | "PER" | "CAT" | "GLO";
   mainHeader: string;
   schema: CsvSchemaColumn<any>[];
   records: (context: ImportCsvPreviewContext) => CatalogRecord[];
@@ -144,12 +159,23 @@ const applyDefinitions: EntityApplyDefinition[] = [
       mutations.updateManagedCategory(id, patch as ManagedCategoryPatch),
     delete: (mutations, id) => mutations.deleteManagedCategory(id),
   },
+  {
+    entity: "glossary",
+    refPrefix: "GLO",
+    mainHeader: "Term",
+    schema: glossaryCsvSchema,
+    records: (context) => context.glossary ?? [],
+    create: (mutations, input) =>
+      mutations.createGlossaryEntry(input as NewGlossaryEntry),
+    update: (mutations, id, patch) =>
+      mutations.updateGlossaryEntry(id, patch as GlossaryEntryPatch),
+    delete: (mutations, id) => mutations.deleteGlossaryEntry(id),
+  },
 ];
 
 const blockingWarningPatterns = [
   /^Unknown category:/,
   /^Unresolved related/,
-  /^Add with Sakurava Ref/,
 ];
 
 export function countApplicableImportRows(preview: ImportCsvPreview) {
@@ -181,7 +207,7 @@ export async function applyImportCsvPreview({
         0,
         "Invalid",
         "Error",
-        "Import apply requires a valid CSV preview with no header errors.",
+        "Import apply requires a valid catalog preview with no header errors.",
       ),
     ]);
   }
@@ -191,7 +217,7 @@ export async function applyImportCsvPreview({
   );
   if (!definition) {
     return reportFromRows(preview, [
-      failureRow(0, "Invalid", "Error", "Unsupported CSV entity."),
+      failureRow(0, "Invalid", "Error", "Unsupported catalog data type."),
     ]);
   }
 
@@ -250,7 +276,7 @@ async function applyCategoryRow(
     return failedRow(row, safetyIssue);
   }
   if (row.detectedResult === "Skipped") {
-    return skippedRow(row, "Skipped by CSV Action.");
+    return skippedRow(row, "Skipped by import Action.");
   }
   if (row.detectedResult === "Unchanged") {
     return unchangedRow(row, "No change.");
@@ -334,7 +360,7 @@ async function applyRow(
   }
 
   if (row.detectedResult === "Skipped") {
-    return skippedRow(row, "Skipped by CSV Action.");
+    return skippedRow(row, "Skipped by import Action.");
   }
 
   if (row.detectedResult === "Unchanged") {
@@ -428,6 +454,10 @@ function buildPatchFromRow(
   if (definition.entity === "categories" && !("name" in patch)) {
     patch.name = row.values["Category Name"]?.trim() ?? "";
   }
+  if (definition.entity === "glossary" && row.detectedResult === "Added") {
+    if (!("term" in patch)) patch.term = row.values.Term?.trim() ?? "";
+    if (!("definition" in patch)) patch.definition = row.values.Definition?.trim() ?? "";
+  }
 
   return patch;
 }
@@ -465,7 +495,16 @@ function applySimpleField({
     return;
   }
 
-  if (internalField === "categoriesJson" || internalField === "aliasesJson") {
+  if (internalField === "parentId" && definition.entity === "glossary") {
+    patch.parentId = resolveGlossaryParentId(value, context);
+    return;
+  }
+
+  if (
+    internalField === "categoriesJson" ||
+    internalField === "aliasesJson" ||
+    internalField === "synonymsJson"
+  ) {
     patch[internalField] = JSON.stringify(parseSemicolonList(value));
     return;
   }
@@ -486,6 +525,11 @@ function applySimpleField({
     internalField === "showInPerformers"
   ) {
     patch[internalField] = parseBooleanCsvCell(value);
+    return;
+  }
+
+  if (internalField === "favorite" && definition.entity === "glossary") {
+    patch.favorite = parseBooleanCsvCell(value, false);
     return;
   }
 
@@ -640,6 +684,19 @@ function resolveParentCategoryKey(
   return matches[0].key;
 }
 
+function resolveGlossaryParentId(
+  parentRef: string,
+  context: ImportCsvPreviewContext,
+) {
+  const ref = parentRef.trim();
+  if (!ref) return "";
+  const match = (context.glossary ?? []).find(
+    (entry) => sakuravaRef("GLO", entry.id) === ref,
+  );
+  if (!match) throw new Error(`Glossary parent was not found: ${ref}.`);
+  return match.id;
+}
+
 function rowSafetyIssue(row: ImportCsvPreviewRow) {
   if (row.errors.length > 0 || row.action === "Invalid") {
     return row.errors[0] ?? "Row has validation errors.";
@@ -713,10 +770,10 @@ function parseJsonObject(value: string) {
   return {};
 }
 
-function parseBooleanCsvCell(value: string) {
+function parseBooleanCsvCell(value: string, defaultValue = true) {
   const normalized = value.trim().toLowerCase();
   if (!normalized) {
-    return true;
+    return defaultValue;
   }
   return !["false", "0", "no", "off"].includes(normalized);
 }
