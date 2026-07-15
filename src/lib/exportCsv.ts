@@ -6,11 +6,33 @@ import {
   parseRelatedPerformerArray,
   parseTextLabelArray,
 } from "../backend/json";
-import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type {
+  GlossaryEntry,
+  Image,
+  ManagedCategory,
+  Performer,
+  Video,
+} from "../backend/types";
 
-export type ExportCsvEntity = "videos" | "images" | "performers" | "categories";
+export type ExportCsvEntity =
+  | "videos"
+  | "images"
+  | "performers"
+  | "categories"
+  | "glossary";
+export type ExportFormat = "csv" | "xlsx";
+export type ExportValueType =
+  | "text"
+  | "date"
+  | "date-time"
+  | "number"
+  | "boolean"
+  | "identifier"
+  | "list/reference";
 
-type CsvCell = string | number | boolean | null | undefined;
+export const EXPORT_ACTIONS = ["Auto", "Create", "Update", "Delete", "Skip"] as const;
+
+export type CsvCell = string | number | boolean | Date | null | undefined;
 
 export type CsvInternalField =
   | "bulkAction"
@@ -22,14 +44,24 @@ export type CsvInternalField =
   | keyof Image
   | keyof Performer
   | keyof ManagedCategory
+  | keyof GlossaryEntry
   | `${"ratingJson"}.${string}`
   | `${"galleryImagePathsJson"}.${number}`
   | `${"performerThumbnailPathsJson"}.${number}`;
 
 export type CsvSchemaColumn<TRecord> = {
+  key: string;
   header: string;
   internalField: CsvInternalField;
+  required: boolean;
+  editable: boolean;
+  valueType: ExportValueType;
   value: (record: TRecord) => CsvCell;
+  example?: CsvCell;
+};
+
+export type ExportSerializationOptions = {
+  locale?: string;
 };
 
 type RatingColumn = {
@@ -37,7 +69,7 @@ type RatingColumn = {
   key: string;
 };
 
-type SakuravaRefPrefix = "VID" | "IMG" | "PER" | "CAT";
+type SakuravaRefPrefix = "VID" | "IMG" | "PER" | "CAT" | "GLO";
 type CategoryCsvRecord = ManagedCategory & { parentCategoryName: string };
 
 const BULK_EDIT_ACTION_DEFAULT = "Auto";
@@ -177,9 +209,14 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
   actionColumn(),
   refColumn("CAT", "key"),
   {
+    key: "parentCategoryName",
     header: "Parent Category",
     internalField: "parentCategoryName",
+    required: false,
+    editable: true,
+    valueType: "list/reference",
     value: (record) => record.parentCategoryName,
+    example: "Genre",
   },
   textColumn("Category Name", "name"),
   textColumn("Description", "description"),
@@ -188,15 +225,47 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
   textColumn("Show in Images", "showInImages"),
   textColumn("Show in Performers", "showInPerformers"),
   {
+    key: "visibility",
     header: "Visibility",
     internalField: "visibility",
+    required: false,
+    editable: true,
+    valueType: "text",
     value: () => "",
   },
   {
+    key: "notes",
     header: "Notes",
     internalField: "notes",
+    required: false,
+    editable: true,
+    valueType: "text",
     value: () => "",
   },
+];
+
+export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
+  actionColumn(),
+  refColumn("GLO", "id"),
+  textColumn("Term", "term"),
+  textColumn("Definition", "definition"),
+  listColumn("Synonyms", "synonymsJson", (record) =>
+    parseTextLabelArray(record.synonymsJson),
+  ),
+  textColumn("Category", "category"),
+  {
+    key: "parentId",
+    header: "Parent Ref",
+    internalField: "parentId",
+    required: false,
+    editable: true,
+    valueType: "list/reference",
+    value: (record) => record.parentId ? sakuravaRef("GLO", record.parentId) : "",
+  },
+  textColumn("Thumbnail Path", "thumbnailPath"),
+  textColumn("Favorite", "favorite"),
+  textColumn("Source Title", "sourceTitle"),
+  textColumn("Source URL", "sourceUrl"),
 ];
 
 export function escapeCsvValue(value: CsvCell) {
@@ -215,28 +284,34 @@ export function escapeCsvValue(value: CsvCell) {
 export function buildCsv<TRecord>(
   columns: CsvSchemaColumn<TRecord>[],
   records: TRecord[],
+  options: ExportSerializationOptions = {},
 ) {
   return [
     columns.map((column) => escapeCsvValue(column.header)).join(","),
     ...records.map((record) =>
-      columns.map((column) => escapeCsvValue(column.value(record))).join(","),
+      columns.map((column) => escapeCsvValue(
+        serializeExportCell(column.value(record), column.valueType, options),
+      )).join(","),
     ),
   ].join("\r\n");
 }
 
-export function buildVideosCsv(videos: Video[]) {
-  return buildCsv(videoCsvSchema, videos);
+export function buildVideosCsv(videos: Video[], options?: ExportSerializationOptions) {
+  return buildCsv(videoCsvSchema, videos, options);
 }
 
-export function buildImagesCsv(images: Image[]) {
-  return buildCsv(imageCsvSchema, images);
+export function buildImagesCsv(images: Image[], options?: ExportSerializationOptions) {
+  return buildCsv(imageCsvSchema, images, options);
 }
 
-export function buildPerformersCsv(performers: Performer[]) {
-  return buildCsv(performerCsvSchema, performers);
+export function buildPerformersCsv(performers: Performer[], options?: ExportSerializationOptions) {
+  return buildCsv(performerCsvSchema, performers, options);
 }
 
-export function buildCategoriesCsv(categories: ManagedCategory[]) {
+export function buildCategoriesCsv(
+  categories: ManagedCategory[],
+  options?: ExportSerializationOptions,
+) {
   const categoryNameByKey = new Map(
     categories.map((category) => [category.key, category.name]),
   );
@@ -247,23 +322,58 @@ export function buildCategoriesCsv(categories: ManagedCategory[]) {
       : "",
   }));
 
-  return buildCsv(categoryCsvSchema, rows);
+  return buildCsv(categoryCsvSchema, rows, options);
 }
 
-export function buildEntityCsv(entity: ExportCsvEntity, records: unknown[]) {
+export function buildGlossaryCsv(
+  entries: GlossaryEntry[],
+  options?: ExportSerializationOptions,
+) {
+  return buildCsv(glossaryCsvSchema, entries, options);
+}
+
+export function buildEntityCsv(
+  entity: ExportCsvEntity,
+  records: unknown[],
+  options?: ExportSerializationOptions,
+) {
   if (entity === "videos") {
-    return buildVideosCsv(records as Video[]);
+    return buildVideosCsv(records as Video[], options);
   }
 
   if (entity === "images") {
-    return buildImagesCsv(records as Image[]);
+    return buildImagesCsv(records as Image[], options);
   }
 
   if (entity === "performers") {
-    return buildPerformersCsv(records as Performer[]);
+    return buildPerformersCsv(records as Performer[], options);
   }
 
-  return buildCategoriesCsv(records as ManagedCategory[]);
+  if (entity === "glossary") {
+    return buildGlossaryCsv(records as GlossaryEntry[], options);
+  }
+
+  return buildCategoriesCsv(records as ManagedCategory[], options);
+}
+
+export function exportSchemaFor(entity: ExportCsvEntity): CsvSchemaColumn<any>[] {
+  if (entity === "videos") return videoCsvSchema;
+  if (entity === "images") return imageCsvSchema;
+  if (entity === "performers") return performerCsvSchema;
+  if (entity === "glossary") return glossaryCsvSchema;
+  return categoryCsvSchema;
+}
+
+export function exportRowsFor(entity: ExportCsvEntity, records: unknown[]) {
+  if (entity !== "categories") return records;
+  const categories = records as ManagedCategory[];
+  const categoryNameByKey = new Map(categories.map((category) => [category.key, category.name]));
+  return categories.map((category) => ({
+    ...category,
+    parentCategoryName: category.parentKey
+      ? (categoryNameByKey.get(category.parentKey) ?? "")
+      : "",
+  }));
 }
 
 export function exportEntityLabel(entity: ExportCsvEntity) {
@@ -279,7 +389,11 @@ export function exportEntityLabel(entity: ExportCsvEntity) {
     return "Performers";
   }
 
-  return "Categories";
+  if (entity === "glossary") {
+    return "Glossary";
+  }
+
+  return "Managed Categories";
 }
 
 export function sakuravaRef(prefix: SakuravaRefPrefix, sourceId: string) {
@@ -293,9 +407,14 @@ export function sakuravaRef(prefix: SakuravaRefPrefix, sourceId: string) {
 
 function actionColumn<TRecord>(): CsvSchemaColumn<TRecord> {
   return {
+    key: "action",
     header: "Action",
     internalField: "bulkAction",
+    required: true,
+    editable: true,
+    valueType: "text",
     value: () => BULK_EDIT_ACTION_DEFAULT,
+    example: "Auto",
   };
 }
 
@@ -304,8 +423,12 @@ function refColumn<TRecord>(
   sourceField: keyof TRecord & string,
 ): CsvSchemaColumn<TRecord> {
   return {
+    key: "identifier",
     header: "Sakurava Ref",
     internalField: "sakuravaRef",
+    required: false,
+    editable: false,
+    valueType: "identifier",
     value: (record) =>
       sakuravaRef(
         prefix,
@@ -319,8 +442,22 @@ function textColumn<TRecord>(
   internalField: CsvInternalField,
 ): CsvSchemaColumn<TRecord> {
   return {
+    key: String(internalField),
     header,
     internalField,
+    required:
+      header === "Title" ||
+      header === "Name" ||
+      header === "Category Name" ||
+      header === "Term" ||
+      header === "Definition",
+    editable: true,
+    valueType: (typeof internalField === "string" && internalField.startsWith("showIn"))
+      || internalField === "favorite"
+      ? "boolean"
+      : header.startsWith("Rating - ") || header.includes("(cm)") || header.includes("(kg)")
+        ? "number"
+        : "text",
     value: (record) => (record as Record<string, CsvCell>)[internalField],
   };
 }
@@ -330,12 +467,13 @@ function dateColumn<TRecord>(
   internalField: CsvInternalField,
 ): CsvSchemaColumn<TRecord> {
   return {
+    key: String(internalField),
     header,
     internalField,
-    value: (record) =>
-      normalizeDateOnlyForCsv(
-        (record as Record<string, CsvCell>)[internalField],
-      ),
+    required: false,
+    editable: true,
+    valueType: "date",
+    value: (record) => (record as Record<string, CsvCell>)[internalField],
   };
 }
 
@@ -345,8 +483,12 @@ function listColumn<TRecord>(
   getValues: (record: TRecord) => string[],
 ): CsvSchemaColumn<TRecord> {
   return {
+    key: String(internalField),
     header,
     internalField,
+    required: false,
+    editable: true,
+    valueType: "list/reference",
     value: (record) => joinReadableList(getValues(record)),
   };
 }
@@ -355,8 +497,12 @@ function ratingColumns<TRecord>(
   columns: RatingColumn[],
 ): CsvSchemaColumn<TRecord>[] {
   return columns.map((column) => ({
+    key: `rating.${column.key}`,
     header: column.header,
     internalField: `ratingJson.${column.key}`,
+    required: false,
+    editable: true,
+    valueType: "number" as const,
     value: (record) =>
       ratingCellValue(
         parseRatingObject((record as { ratingJson?: string }).ratingJson),
@@ -373,8 +519,12 @@ function pathColumns<TRecord>(
   getValues: (record: TRecord) => string[],
 ) {
   return Array.from({ length: PATH_SLOT_COUNT }, (_, index) => ({
+    key: `${internalFieldPrefix}.${index + 1}`,
     header: `${headerPrefix} ${index + 1}`,
     internalField: `${internalFieldPrefix}.${index + 1}` as CsvInternalField,
+    required: false,
+    editable: true,
+    valueType: "text" as const,
     value: (record: TRecord) => getValues(record)[index] ?? "",
   }));
 }
@@ -451,6 +601,81 @@ export function normalizeDateOnlyForCsv(value: CsvCell) {
   }
 
   return text;
+}
+
+export function serializeExportCell(
+  value: CsvCell,
+  valueType: ExportValueType,
+  options: ExportSerializationOptions = {},
+): CsvCell {
+  if (valueType !== "date" && valueType !== "date-time") return value;
+  if (!options.locale) return normalizeDateOnlyForCsv(value);
+  const date = parseExportDate(value, valueType === "date-time", options.locale);
+  if (!date) return value == null ? "" : String(value);
+  return valueType === "date-time"
+    ? new Intl.DateTimeFormat(options.locale, {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(date)
+    : new Intl.DateTimeFormat(options.locale, {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+      }).format(date);
+}
+
+export function parseExportDate(
+  value: CsvCell,
+  includeTime = false,
+  locale?: string,
+): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (value == null || String(value).trim() === "") return null;
+  const text = String(value).trim();
+  const ymd = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](.*))?$/);
+  if (ymd && isValidDateParts(Number(ymd[1]), Number(ymd[2]), Number(ymd[3]))) {
+    if (includeTime && ymd[4]) {
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+  }
+
+  if (locale) {
+    const localDate = parseLocaleNumericDate(text, locale);
+    if (localDate) return localDate;
+  }
+
+  const normalized = normalizeDateOnlyForCsv(text);
+  const normalizedMatch = String(normalized).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return normalizedMatch
+    ? new Date(Number(normalizedMatch[1]), Number(normalizedMatch[2]) - 1, Number(normalizedMatch[3]))
+    : null;
+}
+
+function parseLocaleNumericDate(value: string, locale: string) {
+  const match = value.match(/^(\d{1,4})\D(\d{1,2})\D(\d{1,4})$/);
+  if (!match) return null;
+
+  const order = new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date(2006, 10, 22))
+    .map((part) => part.type)
+    .filter((part): part is "year" | "month" | "day" =>
+      part === "year" || part === "month" || part === "day",
+    );
+  if (order.length !== 3) return null;
+
+  const values = Object.fromEntries(
+    order.map((part, index) => [part, Number(match[index + 1])]),
+  ) as Record<"year" | "month" | "day", number>;
+  if (!isValidDateParts(values.year, values.month, values.day)) return null;
+  return new Date(values.year, values.month - 1, values.day);
 }
 
 function isValidDateParts(year: number, month: number, day: number) {

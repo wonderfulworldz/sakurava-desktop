@@ -1,5 +1,6 @@
 import { isTauriRuntimeAvailable } from "./tauriClient";
-import type { ExportCsvEntity } from "../lib/exportCsv";
+import type { ExportCsvEntity, ExportFormat } from "../lib/exportCsv";
+import { defaultExportFileName } from "../lib/exportArtifacts";
 import { defaultExportCsvFileName, localFileTimestamp } from "./exportCommands";
 import { defaultLanguageCsvFileName } from "../lib/languageCsv";
 import type { LanguageCode } from "../lib/language";
@@ -63,6 +64,30 @@ export async function selectExportCsvDestination(entity: ExportCsvEntity) {
   });
 }
 
+export async function selectCatalogExportDestination(
+  dataTypes: ExportCsvEntity[],
+  format: ExportFormat,
+  date = new Date(),
+) {
+  if (!isTauriRuntimeAvailable()) return null;
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: `Export Sakurava ${format === "xlsx" ? "Excel Workbook" : "CSV"}`,
+    defaultPath: defaultExportFileName(dataTypes, format, date),
+    filters: [{
+      name: format === "xlsx" ? "Excel Workbook" : "CSV",
+      extensions: [format],
+    }],
+  });
+}
+
+export async function selectCatalogCsvExportFolder() {
+  return selectLocalPath({
+    title: "Export Sakurava CSV Files To Folder",
+    directory: true,
+  });
+}
+
 export async function selectImportCsvSource() {
   if (!isTauriRuntimeAvailable()) {
     return null;
@@ -81,6 +106,22 @@ export async function selectImportCsvSource() {
     ],
   });
 
+  return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
+}
+
+export async function selectImportCatalogSource() {
+  if (!isTauriRuntimeAvailable()) return null;
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selectedPath = await open({
+    title: "Import Sakurava Catalog",
+    multiple: false,
+    directory: false,
+    filters: [
+      { name: "Sakurava Catalog", extensions: ["xlsx", "csv"] },
+      { name: "Excel Workbook", extensions: ["xlsx"] },
+      { name: "CSV", extensions: ["csv"] },
+    ],
+  });
   return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
 }
 

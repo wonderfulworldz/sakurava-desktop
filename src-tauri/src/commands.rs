@@ -521,11 +521,48 @@ pub struct ExportCsvWriteResult {
     pub success: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportFileWriteResult {
+    pub destination_path: String,
+    pub display_name: String,
+    pub bytes_written: usize,
+    pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportFileInput {
+    pub file_name: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportFileSetWriteResult {
+    pub destination_path: String,
+    pub display_names: Vec<String>,
+    pub files_written: usize,
+    pub bytes_written: usize,
+    pub success: bool,
+}
+
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportCsvReadResult {
     pub source_path: String,
     pub csv_content: String,
+    pub bytes_read: usize,
+    pub success: bool,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCatalogFileReadResult {
+    pub source_path: String,
+    pub display_name: String,
+    pub format: String,
+    pub bytes: Vec<u8>,
     pub bytes_read: usize,
     pub success: bool,
 }
@@ -667,8 +704,32 @@ pub fn export_csv_write(
 }
 
 #[tauri::command]
+pub fn export_file_write(
+    destination_path: String,
+    bytes: Vec<u8>,
+    expected_extension: String,
+) -> Result<ExportFileWriteResult, String> {
+    write_export_file(&destination_path, &bytes, &expected_extension)
+}
+
+#[tauri::command]
+pub fn export_file_set_write(
+    destination_folder: String,
+    files: Vec<ExportFileInput>,
+) -> Result<ExportFileSetWriteResult, String> {
+    write_export_file_set(&destination_folder, files)
+}
+
+#[tauri::command]
 pub fn import_csv_read(source_path: String) -> Result<ImportCsvReadResult, String> {
     read_import_csv_file(&source_path)
+}
+
+#[tauri::command]
+pub fn import_catalog_file_read(
+    source_path: String,
+) -> Result<ImportCatalogFileReadResult, String> {
+    read_import_catalog_file(&source_path)
 }
 
 #[tauri::command]
@@ -2788,6 +2849,133 @@ fn write_export_csv_file(
     })
 }
 
+fn write_export_file(
+    destination_path: &str,
+    bytes: &[u8],
+    expected_extension: &str,
+) -> Result<ExportFileWriteResult, String> {
+    let destination_path = validate_export_file_destination(destination_path, expected_extension)?;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&destination_path)
+        .map_err(|error| match error.kind() {
+            io::ErrorKind::AlreadyExists => {
+                "Export file already exists; choose a new filename".to_string()
+            }
+            _ => format!("Export file could not be created: {error}"),
+        })?;
+    std::io::Write::write_all(&mut file, bytes)
+        .map_err(|error| format!("Export file could not be written: {error}"))?;
+    let display_name = destination_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Sakurava export")
+        .to_string();
+    Ok(ExportFileWriteResult {
+        destination_path: destination_path.display().to_string(),
+        display_name,
+        bytes_written: bytes.len(),
+        success: true,
+    })
+}
+
+fn write_export_file_set(
+    destination_folder: &str,
+    files: Vec<ExportFileInput>,
+) -> Result<ExportFileSetWriteResult, String> {
+    let folder = PathBuf::from(destination_folder.trim());
+    if destination_folder.trim().is_empty() || !folder.is_dir() {
+        return Err("Export destination must be an existing folder".to_string());
+    }
+    if files.is_empty() {
+        return Err("At least one CSV export file is required".to_string());
+    }
+
+    let mut destinations = Vec::with_capacity(files.len());
+    for input in &files {
+        validate_export_file_name(&input.file_name, "csv")?;
+        let destination = folder.join(&input.file_name);
+        if destination.exists() {
+            return Err(format!("Export file already exists: {}", input.file_name));
+        }
+        destinations.push(destination);
+    }
+
+    let mut created = Vec::new();
+    let mut bytes_written = 0usize;
+    for (input, destination) in files.iter().zip(destinations.iter()) {
+        let write_result = (|| -> Result<(), String> {
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(destination)
+                .map_err(|error| format!("Export file could not be created: {error}"))?;
+            std::io::Write::write_all(&mut file, &input.bytes)
+                .map_err(|error| format!("Export file could not be written: {error}"))
+        })();
+        if let Err(error) = write_result {
+            for created_path in &created {
+                let _ = fs::remove_file(created_path);
+            }
+            return Err(error);
+        }
+        created.push(destination.clone());
+        bytes_written += input.bytes.len();
+    }
+
+    Ok(ExportFileSetWriteResult {
+        destination_path: folder.display().to_string(),
+        display_names: files.iter().map(|file| file.file_name.clone()).collect(),
+        files_written: files.len(),
+        bytes_written,
+        success: true,
+    })
+}
+
+fn validate_export_file_destination(
+    destination_path: &str,
+    expected_extension: &str,
+) -> Result<PathBuf, String> {
+    let trimmed = destination_path.trim();
+    if trimmed.is_empty() {
+        return Err("Export destination path is required".to_string());
+    }
+    if expected_extension != "csv" && expected_extension != "xlsx" {
+        return Err("Export format must be csv or xlsx".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    if path.exists() && path.is_dir() {
+        return Err("Export destination must be a file path".to_string());
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    if !extension.eq_ignore_ascii_case(expected_extension) {
+        return Err(format!("Export destination must use .{expected_extension}"));
+    }
+    Ok(path)
+}
+
+fn validate_export_file_name(file_name: &str, expected_extension: &str) -> Result<(), String> {
+    let path = Path::new(file_name);
+    if file_name.trim().is_empty()
+        || path.file_name().and_then(|name| name.to_str()) != Some(file_name)
+        || path.components().count() != 1
+    {
+        return Err("Export filename must not contain a path".to_string());
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    if !extension.eq_ignore_ascii_case(expected_extension) {
+        return Err(format!("Export filename must use .{expected_extension}"));
+    }
+    Ok(())
+}
+
 fn read_import_csv_file(source_path: &str) -> Result<ImportCsvReadResult, String> {
     let source_path = validate_import_csv_source(source_path)?;
     let csv_content = fs::read_to_string(&source_path)
@@ -2797,6 +2985,30 @@ fn read_import_csv_file(source_path: &str) -> Result<ImportCsvReadResult, String
         source_path: source_path.display().to_string(),
         bytes_read: csv_content.len(),
         csv_content,
+        success: true,
+    })
+}
+
+fn read_import_catalog_file(source_path: &str) -> Result<ImportCatalogFileReadResult, String> {
+    let source_path = validate_import_catalog_source(source_path)?;
+    let bytes = fs::read(&source_path)
+        .map_err(|error| format!("Import file could not be read: {error}"))?;
+    let display_name = source_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Sakurava import")
+        .to_string();
+    let format = source_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    Ok(ImportCatalogFileReadResult {
+        source_path: source_path.display().to_string(),
+        display_name,
+        format,
+        bytes_read: bytes.len(),
+        bytes,
         success: true,
     })
 }
@@ -2840,6 +3052,30 @@ fn validate_import_csv_source(source_path: &str) -> Result<PathBuf, String> {
         return Err("Import source must be a CSV file".to_string());
     }
 
+    Ok(path)
+}
+
+fn validate_import_catalog_source(source_path: &str) -> Result<PathBuf, String> {
+    let trimmed = source_path.trim();
+    if trimmed.is_empty() {
+        return Err("Import source path is required".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    let metadata = fs::metadata(&path).map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => "Import source file does not exist".to_string(),
+        io::ErrorKind::PermissionDenied => "Import source file is inaccessible".to_string(),
+        _ => "Import source file could not be checked".to_string(),
+    })?;
+    if !metadata.is_file() {
+        return Err("Import source must be a CSV or XLSX file path".to_string());
+    }
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default();
+    if !extension.eq_ignore_ascii_case("csv") && !extension.eq_ignore_ascii_case("xlsx") {
+        return Err("Import source must be a CSV or XLSX file".to_string());
+    }
     Ok(path)
 }
 
@@ -4985,6 +5221,94 @@ mod tests {
     }
 
     #[test]
+    fn export_file_write_validates_extension_and_never_overwrites() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-export-safe-write-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create export folder");
+        let destination = temp_root.join("skv-vid.xlsx");
+
+        assert_eq!(
+            write_export_file(
+                temp_root.join("wrong.csv").to_string_lossy().as_ref(),
+                b"xlsx",
+                "xlsx",
+            )
+            .expect_err("wrong extension should fail"),
+            "Export destination must use .xlsx"
+        );
+
+        let result = write_export_file(destination.to_string_lossy().as_ref(), b"first", "xlsx")
+            .expect("write new export");
+        assert_eq!(result.display_name, "skv-vid.xlsx");
+        assert_eq!(std::fs::read(&destination).expect("read export"), b"first");
+        assert_eq!(
+            write_export_file(destination.to_string_lossy().as_ref(), b"second", "xlsx",)
+                .expect_err("existing export must not be overwritten"),
+            "Export file already exists; choose a new filename"
+        );
+        assert_eq!(
+            std::fs::read(&destination).expect("read original"),
+            b"first"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn export_file_set_writes_same_folder_and_rejects_paths_or_conflicts() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sakurava-export-set-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create export folder");
+
+        assert_eq!(
+            write_export_file_set(
+                temp_root.to_string_lossy().as_ref(),
+                vec![ExportFileInput {
+                    file_name: "../unsafe.csv".to_string(),
+                    bytes: vec![1],
+                }],
+            )
+            .expect_err("path filename should fail"),
+            "Export filename must not contain a path"
+        );
+
+        let files = vec![
+            ExportFileInput {
+                file_name: "skv-vid.csv".to_string(),
+                bytes: b"videos".to_vec(),
+            },
+            ExportFileInput {
+                file_name: "skv-img.csv".to_string(),
+                bytes: b"images".to_vec(),
+            },
+        ];
+        let result = write_export_file_set(temp_root.to_string_lossy().as_ref(), files)
+            .expect("write export set");
+        assert_eq!(result.files_written, 2);
+        assert_eq!(result.display_names, vec!["skv-vid.csv", "skv-img.csv"]);
+        assert!(temp_root.join("skv-vid.csv").is_file());
+        assert!(temp_root.join("skv-img.csv").is_file());
+
+        assert_eq!(
+            write_export_file_set(
+                temp_root.to_string_lossy().as_ref(),
+                vec![ExportFileInput {
+                    file_name: "skv-vid.csv".to_string(),
+                    bytes: vec![2],
+                }],
+            )
+            .expect_err("existing file should fail"),
+            "Export file already exists: skv-vid.csv"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
     fn import_csv_read_rejects_empty_path() {
         assert_eq!(
             read_import_csv_file("   ").expect_err("empty import path should fail"),
@@ -5047,6 +5371,32 @@ mod tests {
         assert_eq!(result.bytes_read, content.len());
         assert_eq!(result.csv_content, content);
 
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn import_catalog_read_accepts_csv_and_xlsx_bytes_only() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-import-catalog-read-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create import folder");
+        let xlsx = temp_root.join("catalog.xlsx");
+        std::fs::write(&xlsx, [80u8, 75, 3, 4]).expect("write xlsx bytes");
+        let result =
+            read_import_catalog_file(xlsx.to_string_lossy().as_ref()).expect("read xlsx bytes");
+        assert_eq!(result.display_name, "catalog.xlsx");
+        assert_eq!(result.format, "xlsx");
+        assert_eq!(result.bytes, vec![80, 75, 3, 4]);
+
+        let unsupported = temp_root.join("catalog.ods");
+        std::fs::write(&unsupported, b"no").expect("write unsupported file");
+        assert_eq!(
+            read_import_catalog_file(unsupported.to_string_lossy().as_ref())
+                .expect_err("unsupported extension should fail"),
+            "Import source must be a CSV or XLSX file"
+        );
         let _ = std::fs::remove_dir_all(temp_root);
     }
 

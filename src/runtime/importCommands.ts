@@ -12,3 +12,18 @@ export function readImportCsv(sourcePath: string) {
     sourcePath,
   });
 }
+
+export type ImportCatalogFileReadResult = {
+  sourcePath: string;
+  displayName: string;
+  format: "csv" | "xlsx";
+  bytes: number[];
+  bytesRead: number;
+  success: boolean;
+};
+
+export function readImportCatalogFile(sourcePath: string) {
+  return invokeTauriCommand<ImportCatalogFileReadResult>("import_catalog_file_read", {
+    sourcePath,
+  });
+}

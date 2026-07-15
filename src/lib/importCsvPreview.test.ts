@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
 import {
   buildImportCsvPreview,
   parseCsv,
@@ -7,6 +7,7 @@ import {
 } from "./importCsvPreview";
 import {
   buildImagesCsv,
+  buildGlossaryCsv,
   buildPerformersCsv,
   buildVideosCsv,
   sakuravaRef,
@@ -54,7 +55,7 @@ describe("import CSV preview", () => {
     expect(parseImportAction("")).toBe("Auto");
     expect(parseImportAction("auto")).toBe("Auto");
     expect(parseImportAction("Update")).toBe("Update");
-    expect(parseImportAction("Add")).toBe("Add");
+    expect(parseImportAction("Create")).toBe("Create");
     expect(parseImportAction("Delete")).toBe("Delete");
     expect(parseImportAction("Skip")).toBe("Skip");
     expect(parseImportAction("Bogus")).toBeNull();
@@ -68,28 +69,29 @@ describe("import CSV preview", () => {
     expect(row.errors.join(" ")).toContain("Unknown Action");
   });
 
-  it("accepts YYYY-MM-DD date values and blocks slash date formats clearly", () => {
+  it("accepts stable and local dates and blocks impossible dates with local guidance", () => {
     const valid = buildImportCsvPreview(
-      withVideoRow({ Action: "Add", Title: "Valid Date", "Release Date": "2026-05-20" }),
+      withVideoRow({ Action: "Create", Title: "Valid Date", "Release Date": "2026-05-20" }),
       context(),
     );
-    const invalid = buildImportCsvPreview(
-      withVideoRow({ Action: "Add", Title: "Invalid Date", "Release Date": "5/20/2026" }),
+    const local = buildImportCsvPreview(
+      withVideoRow({ Action: "Create", Title: "Local Date", "Release Date": "20/5/2026" }),
       context(),
+      { locale: "en-GB" },
     );
     const impossible = buildImportCsvPreview(
-      withVideoRow({ Action: "Add", Title: "Impossible Date", "Release Date": "2026-02-30" }),
+      withVideoRow({ Action: "Create", Title: "Impossible Date", "Release Date": "29/02/2025" }),
       context(),
+      { locale: "en-GB" },
     );
 
     expect(valid.rows[0].errors).toEqual([]);
-    expect(invalid.rows[0].detectedResult).toBe("Error");
-    expect(invalid.rows[0].errors).toContain(
-      "Release Date must use YYYY-MM-DD with a valid date.",
-    );
+    expect(local.rows[0].errors).toEqual([]);
+    expect(local.rows[0].values["Release Date"]).toBe("2026-05-20");
     expect(impossible.rows[0].errors).toContain(
-      "Release Date must use YYYY-MM-DD with a valid date.",
+      "Release Date: Enter a valid date using this computer's format: DD/MM/YYYY.",
     );
+    expect(impossible.rows[0].errors.join(" ")).not.toContain("must use YYYY-MM-DD");
   });
 
   it("blocks Delete without Sakurava Ref", () => {
@@ -233,12 +235,47 @@ describe("import CSV preview", () => {
     buildImportCsvPreview(withVideoRow({ Title: "New Video" }), context());
     expect(update).not.toHaveBeenCalled();
   });
+
+  it("round-trips Glossary CSV and resolves every approved action", () => {
+    const updateTarget = glossary({ id: "glossary-update", term: "Alpha", definition: "Old" });
+    const unchangedTarget = glossary({ id: "glossary-same", term: "Beta", definition: "Same" });
+    const deleteTarget = glossary({ id: "glossary-delete", term: "Gamma", definition: "Delete" });
+    const exported = buildGlossaryCsv([unchangedTarget]);
+    expect(buildImportCsvPreview(exported, context({ glossary: [unchangedTarget] })).summary.entity).toBe("glossary");
+
+    const csv = [
+      buildGlossaryCsv([]),
+      glossaryRow({ Action: "Auto", Term: "Created", Definition: "New definition" }),
+      glossaryRow({ Action: "Auto", "Sakurava Ref": sakuravaRef("GLO", updateTarget.id), Term: "Alpha", Definition: "Changed", Favorite: "false" }),
+      buildGlossaryCsv([unchangedTarget]).split("\r\n")[1],
+      glossaryRow({ Action: "Delete", "Sakurava Ref": sakuravaRef("GLO", deleteTarget.id), Term: "Gamma", Definition: "Delete" }),
+      glossaryRow({ Action: "Skip", Term: "Ignored", Definition: "Ignored" }),
+      glossaryRow({ Action: "Auto", "Sakurava Ref": "GLO-UNKNOWN", Term: "Unknown", Definition: "Unknown" }),
+      glossaryRow({ Action: "Replace", Term: "Bad action", Definition: "Bad action" }),
+    ].join("\r\n");
+    const preview = buildImportCsvPreview(csv, context({
+      glossary: [updateTarget, unchangedTarget, deleteTarget],
+    }));
+
+    expect(preview.rows.map((row) => row.detectedResult)).toEqual([
+      "Added", "Modified", "Unchanged", "Deleted", "Skipped", "Error", "Error",
+    ]);
+    expect(preview.rows[1].changeDetails).toEqual([
+      { field: "Definition", before: "Old", after: "Changed" },
+    ]);
+    expect(preview.rows[5].errors.join(" ")).toContain("Sakurava Ref was not found");
+    expect(preview.rows[6].errors.join(" ")).toContain("Unknown Action");
+  });
 });
 
 function withVideoRow(overrides: Record<string, string>) {
   const headers = buildVideosCsv([]).split(",");
   const row = headers.map((header) => overrides[header] ?? "");
   return `${headers.join(",")}\r\n${row.join(",")}`;
+}
+
+function glossaryRow(overrides: Record<string, string>) {
+  return buildGlossaryCsv([]).split(",").map((header) => overrides[header] ?? "").join(",");
 }
 
 function context(overrides: Partial<ReturnType<typeof contextBase>> = {}) {
@@ -254,6 +291,15 @@ function contextBase() {
     images: [] as Image[],
     performers: [] as Performer[],
     categories: [] as ManagedCategory[],
+    glossary: [] as GlossaryEntry[],
+  };
+}
+
+function glossary(overrides: Partial<GlossaryEntry> = {}): GlossaryEntry {
+  return {
+    id: "glossary-1", term: "Term", definition: "Definition", synonymsJson: "[]",
+    category: "", parentId: "", thumbnailPath: "", favorite: false,
+    sourceTitle: "", sourceUrl: "", createdAt: 1, updatedAt: 1, ...overrides,
   };
 }
 

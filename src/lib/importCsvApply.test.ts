@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
-import { buildVideosCsv, sakuravaRef } from "./exportCsv";
+import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
+import { buildGlossaryCsv, buildVideosCsv, sakuravaRef } from "./exportCsv";
 import { applyImportCsvPreview } from "./importCsvApply";
 import { buildImportCsvPreview } from "./importCsvPreview";
 
@@ -12,7 +12,7 @@ describe("import CSV apply", () => {
   it("requires confirmation before applying rows", async () => {
     const mutations = mutationMocks();
     const preview = buildImportCsvPreview(
-      withVideoRow({ Action: "Add", Title: "New Video" }),
+      withVideoRow({ Action: "Create", Title: "New Video" }),
       context({ categories: [category({ name: "Favorite" })] }),
     );
 
@@ -25,6 +25,33 @@ describe("import CSV apply", () => {
 
     expect(report.failed).toBe(1);
     expect(mutations.createVideo).not.toHaveBeenCalled();
+  });
+
+  it("applies Glossary create, update, delete, skip, and no-change rows through existing CRUD", async () => {
+    const updateTarget = glossaryEntry({ id: "glossary-update", term: "Alpha", definition: "Old" });
+    const deleteTarget = glossaryEntry({ id: "glossary-delete", term: "Delete", definition: "Delete" });
+    const unchangedTarget = glossaryEntry({ id: "glossary-same", term: "Same", definition: "Same" });
+    const csv = [
+      buildGlossaryCsv([]),
+      glossaryRow({ Action: "Auto", Term: "Created", Definition: "Created definition" }),
+      glossaryRow({ Action: "Auto", "Sakurava Ref": sakuravaRef("GLO", updateTarget.id), Term: "Alpha", Definition: "Changed" }),
+      glossaryRow({ Action: "Delete", "Sakurava Ref": sakuravaRef("GLO", deleteTarget.id), Term: "Delete", Definition: "Delete" }),
+      glossaryRow({ Action: "Skip", Term: "Ignored", Definition: "Ignored" }),
+      buildGlossaryCsv([unchangedTarget]).split("\r\n")[1],
+    ].join("\r\n");
+    const currentContext = context({ glossary: [updateTarget, deleteTarget, unchangedTarget] });
+    const mutations = mutationMocks();
+    const report = await applyImportCsvPreview({
+      preview: buildImportCsvPreview(csv, currentContext),
+      context: currentContext,
+      mutations,
+      confirmed: true,
+    });
+
+    expect(report).toMatchObject({ appliedAdded: 1, appliedModified: 1, appliedDeleted: 1, skipped: 1, unchanged: 1 });
+    expect(mutations.createGlossaryEntry).toHaveBeenCalledWith(expect.objectContaining({ term: "Created", definition: "Created definition" }));
+    expect(mutations.updateGlossaryEntry).toHaveBeenCalledWith(updateTarget.id, expect.objectContaining({ definition: "Changed" }));
+    expect(mutations.deleteGlossaryEntry).toHaveBeenCalledWith(deleteTarget.id);
   });
 
   it("adds, modifies, deletes, skips, and leaves unchanged rows safely", async () => {
@@ -65,7 +92,7 @@ describe("import CSV apply", () => {
         "",
         "Changed notes",
       ].join(","),
-      videoRow({ Action: "Add", Title: "New Video", Categories: "Favorite" }),
+      videoRow({ Action: "Create", Title: "New Video", Categories: "Favorite" }),
       videoRow({
         Action: "Delete",
         "Sakurava Ref": sakuravaRef("VID", deleteTarget.id),
@@ -199,7 +226,7 @@ describe("import CSV apply", () => {
     const mutations = mutationMocks();
     const unlink = vi.fn();
     const preview = buildImportCsvPreview(
-      withVideoRow({ Action: "Add", Title: "Path Text", "Media Path": "D:/media/file.mp4" }),
+      withVideoRow({ Action: "Create", Title: "Path Text", "Media Path": "D:/media/file.mp4" }),
       context(),
     );
 
@@ -221,9 +248,9 @@ describe("import CSV apply", () => {
     const preview = buildImportCsvPreview(
       [
         categoryHeader(),
-        categoryRow({ Action: "Add", "Category Name": "Genre" }),
+        categoryRow({ Action: "Create", "Category Name": "Genre" }),
         categoryRow({
-          Action: "Add",
+          Action: "Create",
           "Parent Category": "Genre",
           "Category Name": "Drama",
           Description: "Child",
@@ -259,12 +286,12 @@ describe("import CSV apply", () => {
       [
         categoryHeader(),
         categoryRow({
-          Action: "Add",
+          Action: "Create",
           "Parent Category": "Format",
           "Category Name": "Short",
         }),
         categoryRow({
-          Action: "Add",
+          Action: "Create",
           "Parent Category": "Missing",
           "Category Name": "Blocked Child",
         }),
@@ -297,7 +324,7 @@ describe("import CSV apply", () => {
     });
     const preview = buildImportCsvPreview(
       withCategoryRow({
-        Action: "Add",
+        Action: "Create",
         "Parent Category": "Child",
         "Category Name": "Grandchild",
       }),
@@ -390,6 +417,9 @@ function mutationMocks() {
       categoryByName({ key, ...patch }),
     ),
     deleteManagedCategory: vi.fn(async (key) => ({ key, deleted: true })),
+    createGlossaryEntry: vi.fn(async (input) => glossaryEntry(input)),
+    updateGlossaryEntry: vi.fn(async (id, patch) => glossaryEntry({ id, ...patch })),
+    deleteGlossaryEntry: vi.fn(async (id) => ({ id, deleted: true })),
   };
 }
 
@@ -429,6 +459,29 @@ function contextBase() {
     images: [] as Image[],
     performers: [] as Performer[],
     categories: [] as ManagedCategory[],
+    glossary: [] as GlossaryEntry[],
+  };
+}
+
+function glossaryRow(overrides: Record<string, string>) {
+  return buildGlossaryCsv([]).split(",").map((header) => overrides[header] ?? "").join(",");
+}
+
+function glossaryEntry(overrides: Partial<GlossaryEntry> = {}): GlossaryEntry {
+  return {
+    id: "glossary-1",
+    term: "Term",
+    definition: "Definition",
+    synonymsJson: "[]",
+    category: "",
+    parentId: "",
+    thumbnailPath: "",
+    favorite: false,
+    sourceTitle: "",
+    sourceUrl: "",
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
   };
 }
 

@@ -24,6 +24,7 @@ import {
   CalendarDays,
   Package,
   FolderOpen,
+  Check,
   CheckCircle2,
   RotateCcw,
   Search,
@@ -63,15 +64,22 @@ import {
 } from "../lib/appearanceTheme";
 import { useLanguage, useTranslation } from "../lib/LanguageContext";
 import {
-  buildEntityCsv,
   exportEntityLabel,
   type ExportCsvEntity,
+  type ExportFormat,
 } from "../lib/exportCsv";
+import { exportSelectionSummary } from "../lib/exportArtifacts";
+import type { ExportDataSelection } from "../lib/exportWorkbook";
 import { normalizeLanguageCode, type LanguageCode } from "../lib/language";
 import {
-  buildImportCsvPreview,
   type ImportCsvPreview,
 } from "../lib/importCsvPreview";
+import {
+  buildCsvCatalogPreview,
+  buildXlsxCatalogPreview,
+  type ImportCatalogPreview,
+  type ImportCatalogRow,
+} from "../lib/importCatalog";
 import {
   applyImportCsvPreview,
   countApplicableImportRows,
@@ -106,13 +114,22 @@ import {
 import {
   selectBackupPackageExportDestination,
   selectExportCsvDestination,
-  selectImportCsvSource,
+  selectImportCatalogSource,
   selectLanguageCsvExportDestination,
   selectLanguageCsvImportSource,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
-import { writeExportCsv } from "../runtime/exportCommands";
-import { readImportCsv } from "../runtime/importCommands";
+import {
+  writeExportCsv,
+} from "../runtime/exportCommands";
+import { isTemplateExport, runCatalogExport } from "../runtime/catalogExport";
+import { readImportCatalogFile, readImportCsv } from "../runtime/importCommands";
+import {
+  createGlossaryEntry,
+  deleteGlossaryEntry,
+  listGlossaryEntries,
+  updateGlossaryEntry,
+} from "../runtime/glossaryCommands";
 import {
   applyCustomLanguageCsvPreview,
   buildLanguageExportCsv,
@@ -230,23 +247,45 @@ type CategoryStatus =
 
 type ExportStatus =
   | { state: "idle" }
-  | { state: "pending"; entity: ExportCsvEntity }
+  | { state: "pending"; label: string; format: ExportFormat }
   | { state: "success"; message: string }
   | { state: "error"; message: string };
 
 type ImportStatus =
   | { state: "idle" }
   | { state: "pending" }
-  | { state: "preview"; sourcePath: string; preview: ImportCsvPreview }
+  | {
+      state: "preview";
+      displayName: string;
+      format: "csv" | "xlsx";
+      preview: ImportCatalogPreview;
+    }
   | { state: "error"; message: string };
 type ImportApplyStatus =
   | { state: "idle" }
-  | { state: "confirming"; preview: ImportCsvPreview }
+  | { state: "confirming"; preview: ImportCatalogPreview }
   | { state: "pending" }
   | { state: "report"; report: ImportCsvApplyReport }
   | { state: "error"; message: string };
-type ImportPreviewRow = ImportCsvPreview["rows"][number];
-type ImportPreviewRowStatus = "Ready" | "Warning" | "Error" | "Blocked" | "Skipped";
+type ImportPreviewRow = ImportCatalogRow;
+type ImportPreviewRowStatus = "Ready" | "No Changes" | "Skipped" | "Needs Review";
+
+function combineImportApplyReports(reports: ImportCsvApplyReport[]): ImportCsvApplyReport {
+  if (reports.length === 1) return reports[0];
+  return {
+    entity: "unknown",
+    totalRows: reports.reduce((total, report) => total + report.totalRows, 0),
+    appliedAdded: reports.reduce((total, report) => total + report.appliedAdded, 0),
+    appliedModified: reports.reduce((total, report) => total + report.appliedModified, 0),
+    appliedDeleted: reports.reduce((total, report) => total + report.appliedDeleted, 0),
+    unchanged: reports.reduce((total, report) => total + report.unchanged, 0),
+    skipped: reports.reduce((total, report) => total + report.skipped, 0),
+    failed: reports.reduce((total, report) => total + report.failed, 0),
+    warnings: reports.reduce((total, report) => total + report.warnings, 0),
+    errors: reports.reduce((total, report) => total + report.errors, 0),
+    rows: reports.flatMap((report) => report.rows),
+  };
+}
 
 type LanguageCsvStatus =
   | { state: "idle" }
@@ -379,7 +418,6 @@ function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<ExportStatus>({
     state: "idle",
   });
-  const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
   const [languageCsvStatus, setLanguageCsvStatus] = useState<LanguageCsvStatus>({
     state: "idle",
   });
@@ -1108,84 +1146,135 @@ function SettingsPage() {
     }
   }
 
-  async function handleExportCsv(entity: ExportCsvEntity) {
+  async function loadExportSelection(entity: ExportCsvEntity): Promise<ExportDataSelection> {
+    const records =
+      entity === "videos"
+        ? await listVideos()
+        : entity === "images"
+          ? await listImages()
+          : entity === "performers"
+          ? await listPerformers()
+            : entity === "categories"
+              ? await listManagedCategories()
+              : await listGlossaryEntries();
+    return { dataType: entity, records };
+  }
+
+  async function loadExportCounts(): Promise<Partial<Record<ExportCsvEntity, number>>> {
+    const entities: ExportCsvEntity[] = ["videos", "images", "performers", "categories", "glossary"];
+    const selections = await Promise.all(entities.map(loadExportSelection));
+    return Object.fromEntries(
+      selections.map((selection) => [selection.dataType, selection.records.length]),
+    );
+  }
+
+  async function handleCatalogExport(
+    format: ExportFormat,
+    entities: ExportCsvEntity[],
+    template = false,
+  ) {
     if (!canExportCsv) {
       return;
     }
 
-    setExportStatus({ state: "pending", entity });
+    const label = entities.length === 1 ? exportEntityLabel(entities[0]) : "selected data types";
+    setExportStatus({ state: "pending", label, format });
 
     try {
-      const destinationPath = await selectExportCsvDestination(entity);
-      if (!destinationPath) {
+      const operationDate = new Date();
+      const selections = template
+        ? entities.map((dataType) => ({ dataType, records: [] }))
+        : await Promise.all(entities.map(loadExportSelection));
+      const emptySelections = template
+        ? []
+        : selections.filter((selection) => selection.records.length === 0);
+      if (emptySelections.length > 0) {
+        showBackupToast(
+          "error",
+          "No records to export",
+          `${emptySelections.map((selection) => exportEntityLabel(selection.dataType)).join(", ")} has no catalog records. Turn on Export as template to create an empty template.`,
+        );
         setExportStatus({ state: "idle" });
         return;
       }
-
-      const records =
-        entity === "videos"
-          ? await listVideos()
-          : entity === "images"
-            ? await listImages()
-            : entity === "performers"
-              ? await listPerformers()
-              : await listManagedCategories();
-      const csvContent = buildEntityCsv(entity, records);
-      const result = await writeExportCsv(destinationPath, csvContent);
-
-      setExportStatus({
-        state: "success",
-        message: `${exportEntityLabel(entity)} CSV exported to ${result.destinationPath}. ${records.length} record${
-          records.length === 1 ? "" : "s"
-        } exported. Media files were not copied.`,
-      });
+      const locale = navigator.language || "en-US";
+      const result = await runCatalogExport({ format, selections, locale, date: operationDate, template });
+      if (result.cancelled) {
+        setExportStatus({ state: "idle" });
+        return;
+      }
+      if (result.errors.length > 0) {
+        showBackupToast("error", "Export could not be completed", result.errors.join(" "));
+        setExportStatus({ state: "idle" });
+        return;
+      }
+      const message = result.exportedFileCount === 1
+        ? `${result.displayNames[0]}. ${exportSelectionSummary(selections)}.`
+        : `${result.exportedFileCount} ${format.toUpperCase()} files. ${exportSelectionSummary(selections)}.`;
+      showBackupToast(
+        "success",
+        template || isTemplateExport(selections) ? "Template downloaded" : "Export completed",
+        message,
+      );
+      setExportStatus({ state: "idle" });
     } catch (error) {
-      setExportStatus({
-        state: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "CSV export failed. Database records and media files were not changed.",
-      });
+      showBackupToast(
+        "error",
+        "Export could not be completed",
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Database records and media files were not changed.",
+      );
+      setExportStatus({ state: "idle" });
     }
   }
 
-  async function handleImportCsvPreview() {
+  async function handleImportCatalogPreview(): Promise<boolean> {
     if (!canImportCsv) {
-      return;
+      return false;
     }
 
-    setImportStatus({ state: "pending" });
-    setImportApplyStatus({ state: "idle" });
-
     try {
-      const sourcePath = await selectImportCsvSource();
+      const sourcePath = await selectImportCatalogSource();
       if (!sourcePath) {
-        setImportStatus({ state: "idle" });
-        return;
+        return false;
       }
 
-      const [csvResult, videos, images, performers, categories] =
+      setImportStatus({ state: "pending" });
+      setImportApplyStatus({ state: "idle" });
+
+      const [fileResult, videos, images, performers, categories, glossary] =
         await Promise.all([
-          readImportCsv(sourcePath),
+          readImportCatalogFile(sourcePath),
           listVideos(),
           listImages(),
           listPerformers(),
           listManagedCategories(),
+          listGlossaryEntries(),
         ]);
+
+      const context = { videos, images, performers, categories, glossary };
+      const bytes = new Uint8Array(fileResult.bytes);
+      const locale = navigator.language || "en-US";
+      const messages = {
+        invalidDate: (field: string, format: string) =>
+          t("settings.importExport.invalidDate", { field, format }),
+        invalidWorkbook: t("settings.importExport.invalidWorkbook"),
+        invalidSheet: t("settings.importExport.invalidSheet"),
+      };
+      const preview = fileResult.format === "xlsx"
+        ? await buildXlsxCatalogPreview(bytes, context, locale, messages)
+        : buildCsvCatalogPreview(new TextDecoder().decode(bytes), context, locale, messages);
 
       setImportStatus({
         state: "preview",
-        sourcePath: csvResult.sourcePath,
-        preview: buildImportCsvPreview(csvResult.csvContent, {
-          videos,
-          images,
-          performers,
-          categories,
-        }),
+        displayName: fileResult.displayName,
+        format: fileResult.format,
+        preview,
       });
+      return true;
     } catch (error) {
       setImportStatus({
         state: "error",
@@ -1194,33 +1283,37 @@ function SettingsPage() {
             ? error.message
             : typeof error === "string"
               ? error
-              : "CSV import preview failed. Database records and media files were not changed.",
+              : "Catalog import preview failed. Database records and media files were not changed.",
       });
+      return true;
     }
   }
 
-  function handleRequestImportApply(preview: ImportCsvPreview) {
-    if (countApplicableImportRows(preview) === 0) {
+  function handleRequestImportApply(preview: ImportCatalogPreview) {
+    const applicableRows = preview.sections.reduce(
+      (total, section) => total + countApplicableImportRows(section.preview),
+      0,
+    );
+    if (preview.summary.blocked || applicableRows === 0) {
       return;
     }
     setImportApplyStatus({ state: "confirming", preview });
   }
 
-  async function handleConfirmImportApply(preview: ImportCsvPreview) {
+  async function handleConfirmImportApply(preview: ImportCatalogPreview) {
+    if (preview.summary.blocked) return;
     setImportApplyStatus({ state: "pending" });
 
     try {
-      const [videos, images, performers, categories] = await Promise.all([
+      const [videos, images, performers, categories, glossary] = await Promise.all([
         listVideos(),
         listImages(),
         listPerformers(),
         listManagedCategories(),
+        listGlossaryEntries(),
       ]);
-      const report = await applyImportCsvPreview({
-        preview,
-        context: { videos, images, performers, categories },
-        confirmed: true,
-        mutations: {
+      const context = { videos, images, performers, categories, glossary };
+      const mutations = {
           createVideo,
           updateVideo,
           deleteVideo,
@@ -1233,10 +1326,29 @@ function SettingsPage() {
           createManagedCategory,
           updateManagedCategory,
           deleteManagedCategory: deleteManagedCategoryRecord,
-        },
-      });
+          createGlossaryEntry,
+          updateGlossaryEntry,
+          deleteGlossaryEntry,
+      };
+      const reports: ImportCsvApplyReport[] = [];
+      for (const section of preview.sections) {
+        reports.push(await applyImportCsvPreview({
+          preview: section.preview,
+          context,
+          confirmed: true,
+          mutations,
+        }));
+      }
+      const report = combineImportApplyReports(reports);
 
       setImportApplyStatus({ state: "report", report });
+      showBackupToast(
+        report.failed > 0 || report.errors > 0 ? "error" : "success",
+        report.failed > 0 || report.errors > 0
+          ? "Import completed with issues"
+          : "Import completed",
+        `${report.appliedAdded + report.appliedModified + report.appliedDeleted} row changes applied.`,
+      );
       await loadCategoryData();
     } catch (error) {
       setImportApplyStatus({
@@ -1572,7 +1684,6 @@ function SettingsPage() {
           canImportCsv,
           canExportCsv,
           canClearCache,
-          isExportPanelOpen,
           handleThemeChange,
           handleAccentChange,
           handleDensityChange,
@@ -1611,9 +1722,10 @@ function SettingsPage() {
           handleConfirmRestore,
           handleDismissRestoreResult,
           dismissBackupToast,
-          handleImportCsvPreview,
-          setIsExportPanelOpen,
-          handleExportCsv,
+          handleImportCatalogPreview,
+          setImportStatus,
+          loadExportCounts,
+          handleCatalogExport,
           handleRequestImportApply,
           setImportApplyStatus,
           handleConfirmImportApply,
@@ -1964,7 +2076,6 @@ function SettingsSection({
     canImportCsv,
     canExportCsv,
     canClearCache,
-    isExportPanelOpen,
     handleThemeChange,
     handleAccentChange,
     handleDensityChange,
@@ -2003,9 +2114,10 @@ function SettingsSection({
     handleConfirmRestore,
     handleDismissRestoreResult,
     dismissBackupToast,
-    handleImportCsvPreview,
-    setIsExportPanelOpen,
-    handleExportCsv,
+    handleImportCatalogPreview,
+    setImportStatus,
+    loadExportCounts,
+    handleCatalogExport,
     handleRequestImportApply,
     setImportApplyStatus,
     handleConfirmImportApply,
@@ -2521,53 +2633,25 @@ function SettingsSection({
         />
       </SettingsPanelCard>
 
-      <SettingsPanelCard title={t("settings.importExport.title")} icon={FileArchive}>
-        <ControlRow label={t("settings.importExport.importCatalog")}>
-          <div className="flex justify-end">
-            <ShellButton
-              label={isImportPending ? "Reading CSV..." : "Import CSV..."}
-              ariaLabel="Import Data"
-              disabled={!canImportCsv}
-              onClick={handleImportCsvPreview}
-            />
-          </div>
-        </ControlRow>
-        <ControlRow label={t("settings.importExport.exportCatalog")}>
-          <div className="flex justify-end">
-            <ShellButton
-              label={isExportPending ? "Exporting CSV..." : "Export CSV..."}
-              ariaLabel="Export Data"
-              disabled={!canExportCsv}
-              onClick={() => setIsExportPanelOpen((open: boolean) => !open)}
-            />
-          </div>
-        </ControlRow>
-        <ControlRow label={t("settings.importExport.preview")}>
-          <ShellToggle label={t("settings.importExport.preview")} checked />
-        </ControlRow>
-        {isExportPanelOpen && (
-          <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
-            {(["videos", "images", "performers", "categories"] as ExportCsvEntity[]).map((entity) => (
-              <button
-                key={entity}
-                type="button"
-                disabled={!canExportCsv}
-                onClick={() => handleExportCsv(entity)}
-                className={exportButtonClassName(canExportCsv)}
-              >
-                Export {exportEntityLabel(entity)} CSV
-              </button>
-            ))}
-          </div>
-        )}
-        <ImportPreviewPanel
+      <SettingsPanelCard title={t("settings.importExport.title")} icon={FileArchive} showReset={false}>
+        <ImportExportPanel
           importStatus={importStatus}
           importApplyStatus={importApplyStatus}
+          isImportPending={isImportPending}
+          isExportPending={isExportPending}
+          canImport={canImportCsv}
+          canExport={canExportCsv}
+          onChooseImport={handleImportCatalogPreview}
+          onResetImport={() => {
+            setImportStatus({ state: "idle" });
+            setImportApplyStatus({ state: "idle" });
+          }}
+          onLoadExportCounts={loadExportCounts}
+          onExport={handleCatalogExport}
           onRequestApply={handleRequestImportApply}
           onCancelApply={() => setImportApplyStatus({ state: "idle" })}
           onConfirmApply={handleConfirmImportApply}
         />
-        <SettingsStatusMessage status={exportStatus} kind="export" />
       </SettingsPanelCard>
 
       <SettingsPanelCard title={t("settings.performance.title")} icon={HardDrive}>
@@ -2875,18 +2959,308 @@ function ActionTile({
   );
 }
 
-function ImportPreviewPanel({
+function ImportExportPanel({
   importStatus,
   importApplyStatus,
+  isImportPending,
+  isExportPending,
+  canImport,
+  canExport,
+  onChooseImport,
+  onResetImport,
+  onLoadExportCounts,
+  onExport,
   onRequestApply,
   onCancelApply,
   onConfirmApply,
 }: {
   importStatus: ImportStatus;
   importApplyStatus: ImportApplyStatus;
-  onRequestApply: (preview: ImportCsvPreview) => void;
+  isImportPending: boolean;
+  isExportPending: boolean;
+  canImport: boolean;
+  canExport: boolean;
+  onChooseImport: () => Promise<boolean>;
+  onResetImport: () => void;
+  onLoadExportCounts: () => Promise<Partial<Record<ExportCsvEntity, number>>>;
+  onExport: (
+    format: ExportFormat,
+    dataTypes: ExportCsvEntity[],
+    template?: boolean,
+  ) => void;
+  onRequestApply: (preview: ImportCatalogPreview) => void;
   onCancelApply: () => void;
-  onConfirmApply: (preview: ImportCsvPreview) => void;
+  onConfirmApply: (preview: ImportCatalogPreview) => void;
+}) {
+  const t = useTranslation();
+  const [mode, setMode] = useState<"idle" | "import" | "export">("idle");
+  const importRequestId = useRef(0);
+  const [selectedDataTypes, setSelectedDataTypes] = useState<ExportCsvEntity[]>([
+    "videos", "images", "performers",
+  ]);
+  const [format, setFormat] = useState<ExportFormat>("xlsx");
+  const [exportTemplate, setExportTemplate] = useState(false);
+  const [exportCounts, setExportCounts] = useState<Partial<Record<ExportCsvEntity, number>> | null>(null);
+
+  async function activateImport() {
+    const requestId = ++importRequestId.current;
+    const preserveCurrentPreview = mode === "import" && importStatus.state === "preview";
+    setMode("import");
+    const selected = await onChooseImport();
+    if (!selected && importRequestId.current === requestId) {
+      setMode((current) => current === "import" && !preserveCurrentPreview ? "idle" : current);
+    }
+  }
+
+  function activateExport() {
+    importRequestId.current += 1;
+    setMode("export");
+    onResetImport();
+    void onLoadExportCounts()
+      .then(setExportCounts)
+      .catch(() => setExportCounts(null));
+  }
+
+  function cancelCurrentMode() {
+    importRequestId.current += 1;
+    if (mode === "import") {
+      onResetImport();
+    }
+    setMode("idle");
+  }
+
+  function toggleDataType(dataType: ExportCsvEntity) {
+    setSelectedDataTypes((current) =>
+      current.includes(dataType)
+        ? current.filter((candidate) => candidate !== dataType)
+        : [...current, dataType],
+    );
+  }
+
+  const selectedRecordCount = exportCounts
+    ? selectedDataTypes.reduce((total, dataType) => total + (exportCounts[dataType] ?? 0), 0)
+    : null;
+  const emptySelectedDataTypes = exportCounts
+    ? selectedDataTypes.filter((dataType) => exportCounts[dataType] === 0)
+    : [];
+
+  return (
+    <div data-testid="import-export-panel">
+      <div className="space-y-1 pb-3">
+        <ImportExportActionRow
+          label={t("settings.importExport.importCatalog")}
+          buttonLabel={isImportPending ? t("settings.importExport.reading") : t("settings.importExport.importCatalog")}
+          active={mode === "import"}
+          disabled={!canImport}
+          icon={FileInput}
+          onClick={activateImport}
+        />
+        <ImportExportActionRow
+          label={t("settings.importExport.exportCatalog")}
+          buttonLabel={isExportPending ? t("settings.importExport.exporting") : t("settings.importExport.exportCatalog")}
+          active={mode === "export"}
+          disabled={!canExport}
+          icon={Download}
+          onClick={activateExport}
+        />
+      </div>
+
+      {mode === "import" ? (
+        <CompactImportPreviewPanel
+          importStatus={importStatus}
+          importApplyStatus={importApplyStatus}
+          onChangeFile={() => void activateImport()}
+          onCancel={cancelCurrentMode}
+          onRequestApply={onRequestApply}
+          onCancelApply={onCancelApply}
+          onConfirmApply={onConfirmApply}
+        />
+      ) : mode === "export" ? (
+        <div aria-label={t("settings.importExport.exportMode")} className="pt-5">
+          <h3 className="text-sm font-semibold text-slate-900">{t("settings.importExport.selectSections")}</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {(["videos", "images", "performers", "categories", "glossary"] as ExportCsvEntity[]).map((dataType) => (
+              <ExportSelectionCard key={dataType} dataType={dataType} selected={selectedDataTypes.includes(dataType)} onToggle={() => toggleDataType(dataType)} />
+            ))}
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold text-slate-900">{t("settings.importExport.chooseFormat")}</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <ExportFormatCard format="xlsx" selected={format === "xlsx"} badge={t("settings.importExport.recommended")} onSelect={() => setFormat("xlsx")} />
+            <ExportFormatCard format="csv" selected={format === "csv"} badge={t("settings.importExport.compatibility")} onSelect={() => setFormat("csv")} />
+          </div>
+
+          <div className="mt-4">
+            <SakuravaCheckbox
+              label={t("settings.importExport.exportAsTemplate")}
+              checked={exportTemplate}
+              onChange={setExportTemplate}
+              icon={FileText}
+              variant="row"
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-sakura-100 bg-sakura-50/40 px-4 py-3 text-sm text-slate-600">
+            <FileText className="text-sakura-500" size={19} />
+            <span className="font-semibold text-slate-900">{t("settings.importExport.summary")}</span>
+            <span>{t("settings.importExport.sectionsSelected", { count: String(selectedDataTypes.length) })}</span>
+            <span aria-hidden="true" className="size-1 rounded-full bg-slate-300" />
+            <span>{t("settings.importExport.formatSummary", { format: format.toUpperCase() })}</span>
+            {exportTemplate ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.templateLabel")}</span></> : selectedRecordCount !== null ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.recordsSelected", { count: String(selectedRecordCount) })}</span></> : null}
+          </div>
+
+          {!exportTemplate && emptySelectedDataTypes.length > 0 ? <p role="status" className="mt-2 text-xs font-semibold text-amber-700">{t("settings.importExport.emptySections", { sections: emptySelectedDataTypes.map((dataType) => dataType === "categories" ? "Categories" : exportEntityLabel(dataType)).join(", ") })}</p> : null}
+
+          <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4">
+            <button type="button" onClick={cancelCurrentMode} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">{t("common.cancel")}</button>
+            <button type="button" disabled={selectedDataTypes.length === 0 || (!exportTemplate && emptySelectedDataTypes.length > 0) || !canExport} onClick={() => onExport(format, selectedDataTypes, exportTemplate)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-200 disabled:text-slate-400">
+              {t("settings.importExport.exportSelected")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportExportActionRow({ label, buttonLabel, active, disabled, icon: Icon, onClick }: { label: string; buttonLabel: string; active: boolean; disabled: boolean; icon: LucideIcon; onClick: () => void }) {
+  return <div className="flex min-h-16 items-center justify-between gap-4 py-2"><span className="text-sm font-semibold text-slate-800">{label}</span><button type="button" aria-pressed={active} disabled={disabled} onClick={onClick} className={`inline-flex h-10 w-56 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition ${active ? "border-sakura-500 bg-sakura-500 text-white shadow-sm hover:bg-sakura-600" : "border-slate-200 bg-white text-slate-600 hover:border-sakura-200 hover:bg-sakura-50"} disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}><Icon size={17} />{buttonLabel}</button></div>;
+}
+
+function ExportSelectionCard({ dataType, selected, onToggle }: { dataType: ExportCsvEntity; selected: boolean; onToggle: () => void }) {
+  const Icon = dataType === "videos" ? Video : dataType === "images" ? ImageIcon : dataType === "performers" ? UserRound : dataType === "glossary" ? FileText : Tag;
+  const label = dataType === "categories" ? "Categories" : exportEntityLabel(dataType);
+  return <SakuravaCheckbox label={label} checked={selected} onChange={onToggle} icon={Icon} variant="card" />;
+}
+
+function SakuravaCheckbox({
+  label,
+  checked,
+  onChange,
+  icon: Icon,
+  variant,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  icon: LucideIcon;
+  variant: "card" | "row";
+}) {
+  return (
+    <label data-sakurava-checkbox="true" className={`group flex cursor-pointer items-center gap-3 rounded-xl border text-left transition hover:border-sakura-300 ${variant === "card" ? "min-h-16 px-3" : "h-11 px-4"} ${checked ? "border-sakura-300 bg-sakura-50/60 text-sakura-600" : "border-slate-200 bg-white text-slate-600"}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="peer sr-only"
+      />
+      <span aria-hidden="true" className={`flex shrink-0 items-center justify-center rounded-lg ${variant === "card" ? "size-9 bg-white" : "size-7 bg-slate-50"}`}><Icon size={variant === "card" ? 19 : 17} /></span>
+      <span className="text-sm font-semibold text-slate-900">{label}</span>
+      <span aria-hidden="true" className={`ml-auto flex size-4 shrink-0 items-center justify-center rounded border transition peer-focus-visible:ring-2 peer-focus-visible:ring-sakura-300 peer-focus-visible:ring-offset-2 ${checked ? "border-sakura-500 bg-sakura-500 text-white" : "border-slate-300 bg-white group-hover:border-sakura-400"}`}>{checked ? <Check size={12} strokeWidth={3} /> : null}</span>
+    </label>
+  );
+}
+
+function ExportFormatCard({ format, selected, badge, onSelect }: { format: ExportFormat; selected: boolean; badge: string; onSelect: () => void }) {
+  return <label className={`group flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 text-left transition hover:border-sakura-300 ${selected ? "border-sakura-300 bg-sakura-50/50" : "border-slate-200 bg-white"}`}><input type="radio" name="catalog-export-format" value={format} checked={selected} onChange={onSelect} className="peer sr-only" /><span aria-hidden="true" className={`flex size-5 items-center justify-center rounded-full border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-sakura-300 peer-focus-visible:ring-offset-2 ${selected ? "border-sakura-500" : "border-slate-300"}`}>{selected ? <span className="size-2.5 rounded-full bg-sakura-500" /> : null}</span><span className="font-semibold text-slate-900">{format.toUpperCase()}</span><span className={`ml-auto rounded-full px-2.5 py-1 text-xs font-semibold ${format === "xlsx" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-sky-50 text-sky-700 ring-1 ring-sky-200"}`}>{badge}</span></label>;
+}
+
+function CompactImportPreviewPanel({
+  importStatus,
+  importApplyStatus,
+  onChangeFile,
+  onCancel,
+  onRequestApply,
+  onCancelApply,
+  onConfirmApply,
+}: {
+  importStatus: ImportStatus;
+  importApplyStatus: ImportApplyStatus;
+  onChangeFile: () => void;
+  onCancel: () => void;
+  onRequestApply: (preview: ImportCatalogPreview) => void;
+  onCancelApply: () => void;
+  onConfirmApply: (preview: ImportCatalogPreview) => void;
+}) {
+  const t = useTranslation();
+  const [filter, setFilter] = useState<"all" | "create" | "update" | "delete" | "skip" | "error">("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(32);
+
+  useEffect(() => setPage(1), [filter, search, importStatus, pageSize]);
+  if (importStatus.state === "idle") return null;
+  if (importStatus.state === "pending") return <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">{t("settings.importExport.reading")}</p>;
+  if (importStatus.state === "error") return <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{importStatus.message}</p>;
+
+  const { preview } = importStatus;
+  const lowerSearch = search.trim().toLowerCase();
+  const filteredRows = preview.rows.filter((row) => {
+    const filterMatch = filter === "all"
+      || (filter === "create" && row.detectedResult === "Added")
+      || (filter === "update" && row.detectedResult === "Modified")
+      || (filter === "delete" && row.detectedResult === "Deleted")
+      || (filter === "skip" && (row.detectedResult === "Skipped" || row.detectedResult === "Unchanged"))
+      || (filter === "error" && getImportRowStatus(row) === "Needs Review");
+    const searchMatch = !lowerSearch || `${row.dataType} ${row.target} ${row.action} ${row.errors.join(" ")} ${row.warnings.join(" ")}`.toLowerCase().includes(lowerSearch);
+    return filterMatch && searchMatch;
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
+  const applicableRows = preview.sections.reduce((total, section) => total + countApplicableImportRows(section.preview), 0);
+  const needsAttentionRows = preview.rows.filter((row) => getImportRowStatus(row) === "Needs Review");
+  const canApply = !preview.summary.blocked && needsAttentionRows.length === 0 && applicableRows > 0 && importApplyStatus.state !== "pending";
+  const needsReview = preview.summary.blocked || preview.headerErrors.length > 0 || needsAttentionRows.length > 0;
+  const counts = { all: preview.summary.totalRows, create: preview.summary.create, update: preview.summary.update, delete: preview.summary.delete, skip: preview.summary.skip, error: needsAttentionRows.length };
+
+  return <div aria-label={t("settings.import.preview")} className="pt-5">
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
+      <span className="flex size-11 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500"><FileText size={21} /></span>
+      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{importStatus.displayName}</p><p className="mt-1 text-xs font-medium text-slate-500">{importStatus.format.toUpperCase()} <span className="px-1.5">•</span> {preview.summary.totalRows} {t("settings.importExport.rows")}</p></div>
+      <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${needsReview ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}>{needsReview ? t("settings.importExport.needsReview") : t("settings.importExport.ready")}</span>
+      <span className="h-9 w-px bg-slate-200" /><button type="button" onClick={onChangeFile} className="text-sm font-semibold text-sakura-600 hover:text-sakura-700">{t("settings.importExport.changeFile")}</button>
+    </div>
+
+    <div aria-label={t("settings.importExport.summary")} className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+      <span className="font-semibold text-slate-900">{preview.summary.totalRows} {t("settings.importExport.rows")}</span>
+      <span>{preview.summary.create} {t("settings.importExport.filter.create").toLowerCase()}</span>
+      <span>{preview.summary.update} {t("settings.importExport.filter.update").toLowerCase()}</span>
+      <span>{preview.summary.delete} {t("settings.importExport.filter.delete").toLowerCase()}</span>
+      <span>{preview.summary.skip} {t("settings.importExport.filter.skip").toLowerCase()}</span>
+      <span className={preview.summary.blocked ? "text-rose-700" : "text-emerald-700"}>{preview.summary.blocked ? t("settings.importExport.needsReview") : t("settings.importExport.ready")}</span>
+    </div>
+
+    {(preview.headerErrors.length > 0 || preview.headerWarnings.length > 0) ? <div className="mt-3 grid gap-1 text-xs font-semibold">{preview.headerErrors.map((message) => <p key={message} className="text-rose-700">{message}</p>)}{preview.headerWarnings.map((message) => <p key={message} className="text-amber-700">{message}</p>)}</div> : null}
+
+    <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div role="tablist" aria-label={t("settings.importExport.filters")} className="flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">{(["all", "create", "update", "delete", "skip", "error"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={filter === value} onClick={() => setFilter(value)} className={`px-3 py-2 text-xs font-semibold ${filter === value ? "bg-sakura-50 text-sakura-600" : "text-slate-600 hover:bg-slate-50"}`}>{t(`settings.importExport.filter.${value}`)} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px]">{counts[value]}</span></button>)}</div>
+      <label className="relative block lg:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("settings.importExport.searchRows")} aria-label={t("settings.importExport.searchRows")} className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-sakura-300" /></label>
+    </div>
+
+    <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+      <div className="max-h-[23rem] overflow-auto"><table className="w-full table-fixed text-left text-xs"><thead className="sticky top-0 z-10 bg-slate-50 text-slate-600"><tr>{["row", "section", "record", "action", "details", "status"].map((key) => <th key={key} className={`px-3 py-3 font-semibold ${key === "row" ? "w-14" : key === "section" ? "w-28" : key === "action" ? "w-24" : key === "status" ? "w-28" : key === "record" ? "w-56" : ""}`}>{t(`settings.importExport.table.${key}`)}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{pageRows.map((row) => <tr key={`${row.sheetName}-${row.rowNumber}`}><td className="px-3 py-3 font-semibold text-slate-600">{row.rowNumber}</td><td className="px-3 py-3 text-slate-600">{row.dataType === "categories" ? "Categories" : exportEntityLabel(row.dataType)}</td><td className="px-3 py-3"><span className="block truncate font-medium text-slate-800" title={row.target}>{row.target}</span></td><td className="px-3 py-3 text-slate-600">{row.action}</td><td className="px-3 py-3"><span className="block truncate text-slate-600" title={getImportRowDetails(row, t)}>{getImportRowDetails(row, t)}</span></td><td className="px-3 py-3"><ImportStatusBadge status={getImportRowStatus(row)} /></td></tr>)}</tbody></table></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs font-medium text-slate-500"><span>{filteredRows.length === 0 ? "0" : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filteredRows.length)}`} {t("settings.importExport.of")} {filteredRows.length}</span><div className="flex items-center gap-2"><label className="flex items-center gap-2">{t("settings.backup.history.pageSize")}<select aria-label={t("settings.backup.history.pageSize")} value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600"><option value={32}>32</option><option value={64}>64</option><option value={128}>128</option><option value={256}>256</option></select></label><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:text-slate-300">{t("common.previous")}</button><span className="flex size-8 items-center justify-center rounded-lg bg-sakura-500 font-semibold text-white">{page}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:text-slate-300">{t("common.next")}</button></div></div>
+    </div>
+
+    {importApplyStatus.state === "confirming" ? <ImportApplyConfirmPanel preview={importApplyStatus.preview} onCancelApply={onCancelApply} onConfirmApply={() => onConfirmApply(importApplyStatus.preview)} /> : null}
+    {importApplyStatus.state === "report" ? <ImportApplyReportPanel report={importApplyStatus.report} /> : null}
+    {importApplyStatus.state === "error" ? <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{importApplyStatus.message}</p> : null}
+    <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4"><button type="button" onClick={onCancel} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600">{t("common.cancel")}</button><button type="button" disabled={!canApply} onClick={() => onRequestApply(preview)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400">{t("settings.importExport.applyImport")}</button></div>
+  </div>;
+}
+
+function LegacyImportPreviewPanel({
+  importStatus,
+  importApplyStatus,
+  onRequestApply,
+  onCancelApply,
+  onConfirmApply,
+}: {
+  importStatus: any;
+  importApplyStatus: any;
+  onRequestApply: (preview: any) => void;
+  onCancelApply: () => void;
+  onConfirmApply: (preview: any) => void;
 }) {
   const t = useTranslation();
   if (importStatus.state === "idle") {
@@ -2967,12 +3341,12 @@ function ImportPreviewPanel({
 
       {(preview.headerErrors.length > 0 || preview.headerWarnings.length > 0) && (
         <div className="grid gap-2 border-b border-slate-200 px-3 py-3">
-          {preview.headerErrors.map((message) => (
+          {preview.headerErrors.map((message: string) => (
             <p key={message} className="text-xs font-semibold text-rose-700">
               {message}
             </p>
           ))}
-          {preview.headerWarnings.map((message) => (
+          {preview.headerWarnings.map((message: string) => (
             <p key={message} className="text-xs font-semibold text-amber-700">
               {message}
             </p>
@@ -3012,7 +3386,7 @@ function ImportPreviewPanel({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
-            {preview.rows.map((row) => (
+            {preview.rows.map((row: any) => (
               <tr key={row.rowNumber} className="align-top">
                 <td className="w-14 px-2 py-2 font-semibold">{row.rowNumber}</td>
                 <td className="w-20 px-2 py-2">{row.action}</td>
@@ -3093,47 +3467,43 @@ function ImportApplyConfirmPanel({
   onCancelApply,
   onConfirmApply,
 }: {
-  preview: ImportCsvPreview;
+  preview: ImportCsvPreview | ImportCatalogPreview;
   onCancelApply: () => void;
   onConfirmApply: () => void;
 }) {
   const t = useTranslation();
-  return (
-    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
-      <p className="text-sm font-semibold text-slate-900">{t("settings.import.confirmApply")}</p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-        Database records will be changed. Create a Backup Database before applying imports.
-      </p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-        Delete removes catalog records only. Original media files are not deleted.
-      </p>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <ImportMetric label={t("import.added")} value={preview.summary.added} />
-        <ImportMetric label={t("import.modified")} value={preview.summary.modified} />
-        <ImportMetric label={t("import.deleted")} value={preview.summary.deleted} />
-        <ImportMetric label={t("import.skipped")} value={preview.summary.skipped} />
-        <ImportMetric label={t("import.errors")} value={preview.summary.errors} />
-      </div>
-      <p className="mt-3 text-xs font-semibold text-slate-600">
-        Valid rows will be applied. Error, blocked, ambiguous, unknown category, and unresolved related rows will be skipped and reported.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={onCancelApply}
-          className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onConfirmApply}
-          className="h-9 rounded-lg border border-sakura-200 bg-white px-4 text-sm font-semibold text-sakura-600 hover:bg-sakura-50"
-        >
-          Apply Valid Rows
-        </button>
-      </div>
-    </div>
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const summary = "create" in preview.summary
+    ? {
+        added: preview.summary.create,
+        modified: preview.summary.update,
+        deleted: preview.summary.delete,
+        skipped: preview.summary.skip,
+        errors: preview.summary.needsAttention,
+      }
+    : preview.summary;
+
+  function confirmOnce() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    onConfirmApply();
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 p-4" role="presentation">
+      <section role="dialog" aria-modal="true" aria-label={t("settings.import.confirmApply")} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+        <h3 className="text-base font-semibold text-slate-900">{t("settings.import.confirmApply")}</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{t("settings.import.confirmApplyBody")}</p>
+        {summary.deleted > 0 ? <p className="mt-3 text-xs leading-5 text-amber-700">{t("settings.import.confirmApplyDelete", { count: String(summary.deleted) })}</p> : null}
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" disabled={submitting} onClick={onCancelApply} className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:text-slate-300">{t("common.cancel")}</button>
+          <button type="button" disabled={submitting} onClick={confirmOnce} className="h-9 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-300">{t("settings.import.confirmApplyAction")}</button>
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
@@ -3209,53 +3579,102 @@ function ImportApplyReportPanel({ report }: { report: ImportCsvApplyReport }) {
 }
 
 function getImportRowChangeSummary(row: ImportPreviewRow) {
+  return getImportRowDetails(row);
+}
+
+function getImportRowDetails(
+  row: ImportPreviewRow,
+  t?: (key: string, replacements?: Record<string, string>) => string,
+) {
   if (row.detectedResult === "Deleted" || row.action === "Delete") {
-    return "Will delete catalog record only";
-  }
-  if (row.detectedResult === "Added") {
-    return "Will create record";
-  }
-  if (row.detectedResult === "Modified") {
-    return `${row.changes.length} field${row.changes.length === 1 ? "" : "s"} changed`;
-  }
-  if (row.detectedResult === "Unchanged") {
-    return "No change";
-  }
-  if (row.detectedResult === "Skipped") {
-    return "Skipped";
+    return t?.("settings.importExport.details.delete") ?? "Record will be deleted";
   }
   if (row.errors.length > 0) {
-    return row.errors[0];
+    return friendlyImportIssue(row.errors[0], t);
   }
   if (row.warnings.length > 0) {
-    return row.warnings[0];
+    return friendlyImportIssue(row.warnings[0], t);
   }
-  return "Review required";
+  if (row.detectedResult === "Added") {
+    return t?.("settings.importExport.details.create") ?? "New record will be created";
+  }
+  if (row.detectedResult === "Modified") {
+    const detail = row.changeDetails?.length === 1 ? row.changeDetails[0] : undefined;
+    if (detail && canShowImportValueChange(detail)) {
+      return t?.("settings.importExport.details.changeValue", {
+        field: humanizeImportField(detail.field),
+        before: detail.before,
+        after: detail.after,
+      }) ?? `${humanizeImportField(detail.field)} changes from “${detail.before}” to “${detail.after}”`;
+    }
+    if (row.changes.length === 1) return t?.("settings.importExport.details.updateField", { field: humanizeImportField(row.changes[0]) }) ?? `${humanizeImportField(row.changes[0])} will be updated`;
+    return t?.("settings.importExport.details.updateFields", { count: String(row.changes.length) }) ?? `${row.changes.length} fields will change`;
+  }
+  if (row.detectedResult === "Unchanged") {
+    return t?.("settings.importExport.details.noChanges") ?? "No changes";
+  }
+  if (row.detectedResult === "Skipped") {
+    return t?.("settings.importExport.details.skip") ?? "Row will be skipped";
+  }
+  return t?.("settings.importExport.details.review") ?? "Review this row";
+}
+
+function canShowImportValueChange(detail: { field: string; before: string; after: string }) {
+  if (/path|url|definition|notes?/i.test(detail.field)) return false;
+  return detail.before.length <= 40 && detail.after.length <= 40;
 }
 
 function getImportRowChangeTitle(row: ImportPreviewRow) {
   if (row.detectedResult === "Deleted" || row.action === "Delete") {
     return "Will delete catalog record only. Original media files are not deleted.";
   }
-  if (row.changes.length > 0) {
-    return row.changes.join(", ");
-  }
   return getImportRowChangeSummary(row);
+}
+
+function humanizeImportField(field: string) {
+  return field
+    .replace(/^Categories [+-].*$/, "Categories")
+    .replace(/^Related (Videos|Images|Performers) [+-].*$/, "Related records");
+}
+
+function friendlyImportIssue(
+  message: string,
+  t?: (key: string, replacements?: Record<string, string>) => string,
+) {
+  const category = message.match(/^Unknown category:\s*(.+?)\.?$/i);
+  if (category) return `Category “${category[1]}” is not available`;
+  if (/valid date|date format/i.test(message)) return t?.("settings.importExport.details.invalidDate") ?? "Date is not valid for this computer";
+  if (/^Unknown Action:/i.test(message)) return "Choose Auto, Create, Update, Delete, or Skip";
+  if (/Sakurava Ref was not found/i.test(message)) return t?.("settings.importExport.details.idNotFound") ?? "Record ID was not found";
+  if (/Duplicate Sakurava Ref/i.test(message)) return "This Sakurava record appears more than once";
+  if (/must start with/i.test(message)) return "The Sakurava record reference is not valid";
+  if (/must be a number|must be numeric/i.test(message)) return "Enter a valid number";
+  if (/required header/i.test(message)) return "A required column is missing";
+  const required = message.match(/^(.+?) is required for a new row\.?$/i);
+  if (required) return t?.("settings.importExport.details.requiredMissing", { field: humanizeImportField(required[1]).toLowerCase() }) ?? `Required ${humanizeImportField(required[1]).toLowerCase()} is missing`;
+  if (/Favorite must use/i.test(message)) return t?.("settings.importExport.details.invalidFavorite") ?? "Favorite must be Yes or No";
+  if (/Parent Ref must be/i.test(message)) return t?.("settings.importExport.details.invalidParentId") ?? "Parent Glossary ID is not valid";
+  if (/Glossary entry cannot be its own parent/i.test(message)) return t?.("settings.importExport.details.selfParent") ?? "A Glossary record cannot be its own parent";
+  if (/Glossary parent was not found/i.test(message)) return t?.("settings.importExport.details.parentNotFound") ?? "Parent Glossary record was not found";
+  return message;
 }
 
 function getImportRowStatus(row: ImportPreviewRow): ImportPreviewRowStatus {
   if (row.detectedResult === "Skipped") {
     return "Skipped";
   }
-  if (row.errors.length > 0) {
-    return row.errors.some((error) => error.toLowerCase().includes("ambiguous"))
-      ? "Blocked"
-      : "Error";
+  if (row.detectedResult === "Unchanged") {
+    return "No Changes";
   }
-  if (row.warnings.length > 0) {
-    return "Warning";
+  if (row.errors.length > 0 || row.warnings.some(isBlockingImportWarning)) {
+    return "Needs Review";
   }
   return "Ready";
+}
+
+function isBlockingImportWarning(message: string) {
+  return /^Unknown category:/i.test(message)
+    || /^Unresolved related (reference|value):/i.test(message);
 }
 
 function ImportRowDetail({ row }: { row: ImportPreviewRow }) {
@@ -3286,12 +3705,11 @@ function ImportRowDetail({ row }: { row: ImportPreviewRow }) {
 }
 
 function ImportStatusBadge({ status }: { status: ImportPreviewRowStatus }) {
+  const t = useTranslation();
   const toneClass =
     status === "Ready"
       ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : status === "Warning"
-        ? "bg-amber-50 text-amber-700 ring-amber-200"
-        : status === "Skipped"
+      : status === "No Changes" || status === "Skipped"
           ? "bg-slate-100 text-slate-600 ring-slate-200"
           : "bg-rose-50 text-rose-700 ring-rose-200";
 
@@ -3299,7 +3717,13 @@ function ImportStatusBadge({ status }: { status: ImportPreviewRowStatus }) {
     <span
       className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${toneClass}`}
     >
-      {status}
+      {status === "Ready"
+        ? t("settings.importExport.ready")
+        : status === "No Changes"
+          ? t("settings.importExport.noChanges")
+          : status === "Skipped"
+            ? t("settings.importExport.skipped")
+            : t("settings.importExport.needsReview")}
     </span>
   );
 }
@@ -4891,9 +5315,9 @@ function SettingsStatusMessage({
           : kind === "mediaRoot"
             ? t("settings.libraryMedia.pending")
             : kind === "export"
-              ? `Exporting ${
-                  "entity" in status ? exportEntityLabel(status.entity) : "data"
-                } CSV...`
+              ? `Exporting ${"label" in status ? status.label : "data"} ${
+                  "format" in status ? status.format.toUpperCase() : ""
+                }...`
               : "Updating category data...";
   const messageClassName =
     kind === "category"
