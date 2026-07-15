@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readImportCatalogFile } from "./importCommands";
+import { applyImportCatalogPlan, readImportCatalogFile } from "./importCommands";
 
 describe("catalog import runtime wrapper", () => {
   afterEach(() => {
     delete (globalThis as any).__TAURI_INTERNALS__;
+  });
+
+  it("sends the immutable operation plan to one atomic runtime command", async () => {
+    const invoke = vi.fn().mockResolvedValue({ transactionStatus: "committed" });
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke };
+    const plan = { contractVersion: 1, operationFingerprint: "skv1-test", operations: [] } as any;
+    await applyImportCatalogPlan(plan);
+    expect(invoke).toHaveBeenCalledWith("import_catalog_apply", { plan }, undefined);
   });
 
   it("reads trusted CSV/XLSX bytes through the catalog command", async () => {

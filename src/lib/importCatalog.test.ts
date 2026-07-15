@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { GlossaryEntry, Video } from "../backend/types";
 import { buildCsvCatalogPreview, buildXlsxCatalogPreview } from "./importCatalog";
-import { buildGlossaryCsv, buildVideosCsv } from "./exportCsv";
+import { buildGlossaryCsv, buildVideosCsv, sakuravaRef } from "./exportCsv";
 import { buildXlsxWorkbook, EXPORT_CONTRACT_VERSION } from "./exportWorkbook";
+import { SAKURAVA_METADATA_SHEET } from "./importExportContract";
 
 describe("catalog CSV/XLSX import preview", () => {
   it("keeps existing CSV import behavior and accepts local dates", () => {
@@ -130,6 +131,139 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.sections[0]).toMatchObject({ dataType: "glossary", sheetName: "Data" });
     expect(preview.rows[0]).toMatchObject({ dataType: "glossary", detectedResult: "Added" });
     expect(preview.rows.every((row) => row.sheetName !== "Examples")).toBe(true);
+  });
+
+  it("blocks unsupported metadata versions, duplicate data sheets, and formula errors", async () => {
+    const built = await buildXlsxWorkbook({
+      selections: [{ dataType: "videos", records: [video()] }],
+      locale: "en-US",
+      generatedAt: new Date("2026-07-15T01:02:03Z"),
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    const metadata = JSON.parse(String(workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value));
+    metadata.contractVersion = 99;
+    workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value = JSON.stringify(metadata);
+    workbook.getWorksheet("Videos")!.getCell("D2").value = { formula: "1/0", error: "#DIV/0!" } as any;
+    const duplicate = workbook.addWorksheet("Data");
+    duplicate.addRow(buildVideosCsv([]).split(","));
+    const preview = await buildXlsxCatalogPreview(
+      new Uint8Array(await workbook.xlsx.writeBuffer()), context(), "en-US",
+    );
+    expect(preview.headerErrors.join(" ")).toContain("contract version is not supported");
+    expect(preview.headerErrors.join(" ")).toContain("Duplicate Videos worksheets");
+    expect(preview.headerErrors.join(" ")).toContain("unreadable formula or error cell");
+    expect(preview.summary.blocked).toBe(true);
+  });
+
+  it("reports missing, exposed, and data-sheet metadata collisions deterministically", async () => {
+    const built = await buildXlsxWorkbook({
+      selections: [{ dataType: "videos", records: [] }],
+      locale: "en-US",
+      generatedAt: new Date("2026-07-15T01:02:03Z"),
+    });
+    const ExcelJS = await import("exceljs");
+
+    const missing = new ExcelJS.Workbook();
+    await missing.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    missing.removeWorksheet(missing.getWorksheet(SAKURAVA_METADATA_SHEET)!.id);
+    const missingPreview = await buildXlsxCatalogPreview(
+      new Uint8Array(await missing.xlsx.writeBuffer()), context(), "en-US",
+    );
+    expect(missingPreview.summary.blocked).toBe(false);
+    expect(missingPreview.headerWarnings).toContain(
+      "Sakurava workbook metadata is missing; only explicitly named legacy data sheets can be validated.",
+    );
+
+    const exposed = new ExcelJS.Workbook();
+    await exposed.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    exposed.getWorksheet(SAKURAVA_METADATA_SHEET)!.state = "visible";
+    const exposedPreview = await buildXlsxCatalogPreview(
+      new Uint8Array(await exposed.xlsx.writeBuffer()), context(), "en-US",
+    );
+    expect(exposedPreview.headerErrors).toContain(
+      "Sakurava workbook metadata sheet visibility was modified.",
+    );
+
+    const collision = new ExcelJS.Workbook();
+    collision.addWorksheet(SAKURAVA_METADATA_SHEET).addRow(buildVideosCsv([]).split(","));
+    collision.addWorksheet("Videos").addRow(buildVideosCsv([]).split(","));
+    const collisionPreview = await buildXlsxCatalogPreview(
+      new Uint8Array(await collision.xlsx.writeBuffer()), context(), "en-US",
+    );
+    expect(collisionPreview.headerErrors).toContain("Sakurava workbook metadata is malformed.");
+    expect(collisionPreview.rows).toHaveLength(0);
+  });
+
+  it("blocks duplicate and unsupported CSV headers while retaining exact-header compatibility", () => {
+    const compatible = buildVideosCsv([]);
+    expect(buildCsvCatalogPreview(compatible, context(), "en-US").summary.blocked).toBe(false);
+    const duplicate = compatible.replace("Title,", "Title,Title,");
+    expect(buildCsvCatalogPreview(duplicate, context(), "en-US").headerErrors.join(" "))
+      .toContain("Duplicate headers");
+    const unsupported = compatible.replace("Notes", "Notes,Unexpected");
+    expect(buildCsvCatalogPreview(unsupported, context(), "en-US").headerErrors.join(" "))
+      .toContain("Unsupported headers");
+  });
+
+  it("resolves same-file Glossary parent references and blocks cycles", () => {
+    const headers = buildGlossaryCsv([]).split(",");
+    const row = (ref: string, term: string, parent: string) => headers.map((header) => ({
+      Action: "Auto", "Sakurava Ref": ref, Term: term, Definition: `${term} definition`, "Parent Ref": parent,
+    })[header] ?? "").join(",");
+    const valid = buildCsvCatalogPreview([
+      headers.join(","),
+      row("GLO-NEW-PARENT", "Parent", ""),
+      row("GLO-NEW-CHILD", "Child", "GLO-NEW-PARENT"),
+    ].join("\r\n"), context(), "en-US");
+    expect(valid.summary.blocked).toBe(false);
+    expect(valid.rows.map((item) => item.detectedResult)).toEqual(["Added", "Added"]);
+
+    const circular = buildCsvCatalogPreview([
+      headers.join(","),
+      row("GLO-NEW-A", "A", "GLO-NEW-B"),
+      row("GLO-NEW-B", "B", "GLO-NEW-A"),
+    ].join("\r\n"), context(), "en-US");
+    expect(circular.summary.blocked).toBe(true);
+    expect(circular.rows.some((item) => item.errors.join(" ").includes("circular"))).toBe(true);
+  });
+
+  it("reserves unique GLO-NEW identifiers and blocks permanent or duplicate collisions", () => {
+    const headers = buildGlossaryCsv([]).split(",");
+    const row = (ref: string, term: string) => headers.map((header) => ({
+      Action: "Auto", "Sakurava Ref": ref, Term: term, Definition: `${term} definition`,
+    })[header] ?? "").join(",");
+    const existing = glossary({ id: "GLO-NEW-RESERVED", term: "Existing permanent" });
+    const exportedPermanentRef = buildGlossaryCsv([existing]).split("\r\n")[1].split(",")[1];
+    expect(exportedPermanentRef).toBe(sakuravaRef("GLO", existing.id));
+    expect(exportedPermanentRef).not.toMatch(/^GLO-NEW-/);
+    const permanentCollision = buildCsvCatalogPreview([
+      headers.join(","),
+      row("GLO-NEW-RESERVED", "New row"),
+    ].join("\r\n"), { ...context(), glossary: [existing] }, "en-US");
+    expect(permanentCollision.summary.blocked).toBe(true);
+    expect(permanentCollision.rows[0].errors).toContain(
+      "Temporary Glossary identifier conflicts with an existing permanent record.",
+    );
+
+    const duplicate = buildCsvCatalogPreview([
+      headers.join(","),
+      row("GLO-NEW-DUPLICATE", "First"),
+      row("GLO-NEW-DUPLICATE", "Second"),
+    ].join("\r\n"), context(), "en-US");
+    expect(duplicate.summary.blocked).toBe(true);
+    expect(duplicate.rows.every((item) => item.errors.some((error) => error.includes("Duplicate Sakurava Ref"))))
+      .toBe(true);
+  });
+
+  it("blocks deleting a Glossary parent while a child remains", () => {
+    const parent = glossary({ id: "glossary-parent", term: "Parent" });
+    const child = glossary({ id: "glossary-child", term: "Child", parentId: parent.id });
+    const csv = buildGlossaryCsv([parent]).replace("\r\nAuto,", "\r\nDelete,");
+    const preview = buildCsvCatalogPreview(csv, { ...context(), glossary: [parent, child] }, "en-US");
+    expect(preview.summary.blocked).toBe(true);
+    expect(preview.rows[0].errors).toContain("Glossary record cannot be deleted while child records use it.");
   });
 });
 

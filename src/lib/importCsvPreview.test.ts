@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type { Credit, GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
 import {
   buildImportCsvPreview,
   parseCsv,
@@ -7,11 +7,13 @@ import {
 } from "./importCsvPreview";
 import {
   buildImagesCsv,
+  buildCategoriesCsv,
   buildGlossaryCsv,
   buildPerformersCsv,
   buildVideosCsv,
   sakuravaRef,
 } from "./exportCsv";
+import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 
 describe("import CSV preview", () => {
   it("parses commas, quotes, escaped quotes, newlines, and empty cells", () => {
@@ -153,7 +155,7 @@ describe("import CSV preview", () => {
     expect(row.warnings.join(" ")).toContain("Original media files are not deleted");
   });
 
-  it("detects category additions/removals, unknown categories, and empty category warning", () => {
+  it("detects category additions/removals and leaves blank Update cells unchanged", () => {
     const existing = video({
       id: "video-1",
       categoriesJson: JSON.stringify(["Favorite", "Genre > Drama"]),
@@ -180,9 +182,8 @@ describe("import CSV preview", () => {
       withVideoRow({ "Sakurava Ref": ref, Title: existing.title, Categories: "" }),
       context({ videos: [existing] }),
     );
-    expect(empty.rows[0].warnings).toContain(
-      "This will remove all categories from this record if applied.",
-    );
+    expect(empty.rows[0].detectedResult).toBe("Unchanged");
+    expect(empty.rows[0].changes).not.toContain("Categories");
   });
 
   it("detects related additions/removals, unresolved warnings, and ambiguous display errors", () => {
@@ -228,6 +229,64 @@ describe("import CSV preview", () => {
     expect(ambiguous.rows[0].errors.join(" ")).toContain(
       "Ambiguous related display name",
     );
+  });
+
+  it("blocks an ambiguous visible identifier collision in the current catalog", () => {
+    const first = video({ id: "record-1pvu", title: "First collision" });
+    const second = video({ id: "record-g3ea", title: "Second collision" });
+    expect(sakuravaRef("VID", first.id)).toBe("VID-0IY2FJF");
+    expect(sakuravaRef("VID", second.id)).toBe("VID-0IY2FJF");
+
+    const preview = buildImportCsvPreview(
+      buildVideosCsv([first]),
+      context({ videos: [first, second] }),
+    );
+
+    expect(preview.summary.blocked).toBe(true);
+    expect(preview.headerErrors).toContain(
+      "The catalog contains a conflicting Sakurava identifier: VID-0IY2FJF.",
+    );
+  });
+
+  it("uses an explicit marker to clear only nullable editable fields", () => {
+    const existing = video({ id: "video-clear", title: "Keep title", notes: "Remove me" });
+    const ref = sakuravaRef("VID", existing.id);
+    const clear = buildImportCsvPreview(
+      withVideoRow({ "Sakurava Ref": ref, Title: "", Notes: SAKURAVA_CLEAR_VALUE }),
+      context({ videos: [existing] }),
+    );
+    expect(clear.rows[0].detectedResult).toBe("Modified");
+    expect(clear.rows[0].clearedFields).toEqual(["Notes"]);
+    expect(clear.rows[0].changeDetails).toContainEqual({
+      field: "Notes", before: "Remove me", after: "", cleared: true,
+    });
+
+    const required = buildImportCsvPreview(
+      withVideoRow({ "Sakurava Ref": ref, Title: SAKURAVA_CLEAR_VALUE }),
+      context({ videos: [existing] }),
+    );
+    expect(required.rows[0].errors).toContain("Title cannot be cleared.");
+
+    const literal = buildImportCsvPreview(
+      withVideoRow({ "Sakurava Ref": ref, Title: "", Notes: "[[SAKURAVA:CLEAR:v1]] extra" }),
+      context({ videos: [existing] }),
+    );
+    expect(literal.rows[0].errors).toEqual([]);
+    expect(literal.rows[0].clearedFields).toEqual([]);
+  });
+
+  it("blocks Managed Category delete while records, credits, or child categories use it", () => {
+    const parent = category({ key: "cat-parent", name: "Parent" });
+    const child = category({ key: "cat-child", name: "Child", parentKey: parent.key });
+    const csv = buildCategoriesCsv([parent]).replace("\r\nAuto,", "\r\nDelete,");
+    const preview = buildImportCsvPreview(csv, context({
+      videos: [video({ categoriesJson: '["Parent"]' })],
+      categories: [parent, child],
+      credits: [{ creditTypeCategoryId: parent.key, roleImportanceCategoryId: null } as any],
+    }));
+    expect(preview.rows[0].errors).toContain("Category cannot be deleted while it has child categories.");
+    expect(preview.rows[0].errors).toContain("Category cannot be deleted while catalog records use it.");
+    expect(preview.summary.blocked).toBe(true);
   });
 
   it("preview does not call mutation functions", () => {
@@ -292,6 +351,7 @@ function contextBase() {
     performers: [] as Performer[],
     categories: [] as ManagedCategory[],
     glossary: [] as GlossaryEntry[],
+    credits: [] as Credit[],
   };
 }
 

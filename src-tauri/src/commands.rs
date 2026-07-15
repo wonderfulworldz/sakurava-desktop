@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, io};
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, DropBehavior, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Scopes, State};
@@ -34,14 +34,14 @@ use windows::{
 
 use crate::database::{
     backup_runtime_database, clear_app_generated_cache, create_backup_package,
-    delete_backup_package, export_backup_package, import_selected_backup_package,
-    list_backup_packages, open_default_backup_folder, preview_backup_package,
-    restore_backup_package, restore_runtime_database, rotate_automatic_backup_packages,
-    BackupFolderOpenResult, BackupPackageDeleteResult, BackupPackageExportResult,
-    BackupPackageImportError, BackupPackageImportResult, BackupPackageInfo, BackupPackagePreview,
-    BackupPackagePreviewError, BackupPackageRestoreError, BackupPackageRestoreResult,
-    BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
-    DatabaseRestoreResult, RuntimeDatabase,
+    create_import_safety_backup_package, delete_backup_package, export_backup_package,
+    import_selected_backup_package, list_backup_packages, open_default_backup_folder,
+    preview_backup_package, restore_backup_package, restore_runtime_database,
+    rotate_automatic_backup_packages, BackupFolderOpenResult, BackupPackageDeleteResult,
+    BackupPackageExportResult, BackupPackageImportError, BackupPackageImportResult,
+    BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError, BackupPackageRestoreError,
+    BackupPackageRestoreResult, BackupPackageRotationResult, BackupPackageType, ClearCacheResult,
+    DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -567,6 +567,50 @@ pub struct ImportCatalogFileReadResult {
     pub success: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCatalogApplyPlan {
+    pub contract_version: u32,
+    pub source_fingerprint: String,
+    pub operation_fingerprint: String,
+    pub catalog_snapshot: Value,
+    pub operations: Vec<ImportCatalogPlanOperation>,
+    pub skipped_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCatalogPlanOperation {
+    pub source_row_number: usize,
+    pub section: String,
+    pub action: String,
+    pub stable_record_identifier: String,
+    pub record_id: Option<String>,
+    pub temporary_identifier: Option<String>,
+    pub current_record: Option<Value>,
+    pub proposed_values: Value,
+    pub field_differences: Vec<Value>,
+    pub cleared_fields: Vec<String>,
+    pub warnings: Vec<String>,
+    pub blocking_issues: Vec<String>,
+    pub dependency_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCatalogApplyResult {
+    pub transaction_status: String,
+    pub backup_package_name: Option<String>,
+    pub created_count: usize,
+    pub updated_count: usize,
+    pub cleared_field_count: usize,
+    pub deleted_count: usize,
+    pub skipped_count: usize,
+    pub failure_stage: Option<String>,
+    pub message: String,
+    pub rollback_completed: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GalleryFolderImagesResult {
@@ -730,6 +774,14 @@ pub fn import_catalog_file_read(
     source_path: String,
 ) -> Result<ImportCatalogFileReadResult, String> {
     read_import_catalog_file(&source_path)
+}
+
+#[tauri::command]
+pub fn import_catalog_apply(
+    database: State<'_, RuntimeDatabase>,
+    plan: ImportCatalogApplyPlan,
+) -> ImportCatalogApplyResult {
+    apply_import_catalog_plan(&database, plan)
 }
 
 #[tauri::command]
@@ -3011,6 +3063,904 @@ fn read_import_catalog_file(source_path: &str) -> Result<ImportCatalogFileReadRe
         bytes,
         success: true,
     })
+}
+
+fn apply_import_catalog_plan(
+    database: &RuntimeDatabase,
+    plan: ImportCatalogApplyPlan,
+) -> ImportCatalogApplyResult {
+    if plan.contract_version != 1 {
+        return import_apply_failure(
+            "blocked",
+            "validation",
+            "This import contract version is not supported.",
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
+    if !valid_import_fingerprint(&plan.source_fingerprint, "skvf1-") {
+        return import_apply_failure(
+            "blocked",
+            "validation",
+            "The selected import file fingerprint is not valid.",
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
+    if plan.operations.iter().any(|operation| {
+        !operation.blocking_issues.is_empty()
+            || operation.warnings.iter().any(|warning| {
+                warning.starts_with("Unknown category:")
+                    || warning.starts_with("Unresolved related reference:")
+                    || warning.starts_with("Unresolved related value:")
+            })
+            || !matches!(
+                operation.section.as_str(),
+                "videos" | "images" | "performers" | "categories" | "glossary"
+            )
+            || !matches!(operation.action.as_str(), "create" | "update" | "delete")
+    }) {
+        return import_apply_failure(
+            "blocked",
+            "validation",
+            "The import plan contains unsupported or unresolved operations.",
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
+    if import_plan_fingerprint(&plan) != plan.operation_fingerprint {
+        return import_apply_failure(
+            "blocked",
+            "validation",
+            "The reviewed import plan changed. Review the file again before applying it.",
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
+
+    let _package_operation = match database.lock_package_operation() {
+        Ok(operation) => operation,
+        Err(_) => {
+            return import_apply_failure(
+                "blocked",
+                "backup",
+                "A safety backup cannot start while another backup operation is running.",
+                false,
+                None,
+                plan.skipped_count,
+            )
+        }
+    };
+    let connection = database.connection();
+    let mut connection = match connection.lock() {
+        Ok(connection) => connection,
+        Err(_) => {
+            return import_apply_failure(
+                "blocked",
+                "validation",
+                "The catalog is temporarily unavailable.",
+                false,
+                None,
+                plan.skipped_count,
+            )
+        }
+    };
+
+    let current_snapshot = match import_catalog_snapshot(&connection) {
+        Ok(snapshot) => snapshot,
+        Err(_) => {
+            return import_apply_failure(
+                "blocked",
+                "validation",
+                "Sakurava could not revalidate the catalog.",
+                false,
+                None,
+                plan.skipped_count,
+            )
+        }
+    };
+    let planned_revalidation = match import_revalidation_snapshot(&plan, &plan.catalog_snapshot) {
+        Ok(snapshot) => snapshot,
+        Err(_) => {
+            return import_apply_failure(
+                "blocked",
+                "validation",
+                "The reviewed import dependencies are not valid.",
+                false,
+                None,
+                plan.skipped_count,
+            )
+        }
+    };
+    let current_revalidation = match import_revalidation_snapshot(&plan, &current_snapshot) {
+        Ok(snapshot) => snapshot,
+        Err(_) => {
+            return import_apply_failure(
+                "blocked",
+                "validation",
+                "Sakurava could not revalidate the affected catalog dependencies.",
+                false,
+                None,
+                plan.skipped_count,
+            )
+        }
+    };
+    if canonical_json(&current_revalidation) != canonical_json(&planned_revalidation) {
+        return import_apply_failure(
+            "blocked",
+            "stalePreview",
+            "The catalog changed after this Preview was created. Review the file again before applying it.",
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
+    if validate_import_plan_targets(&plan, &current_snapshot).is_err() {
+        return import_apply_failure(
+            "blocked",
+            "validation",
+            "The reviewed import operations no longer match the catalog Preview.",
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
+
+    let backup = match create_import_safety_backup_package(database, &connection) {
+        Ok(backup) => backup,
+        Err(_) => return import_apply_failure(
+            "blocked",
+            "backup",
+            "Sakurava could not create the required safety backup. No catalog changes were made.",
+            false,
+            None,
+            plan.skipped_count,
+        ),
+    };
+    let backup_name = Some(backup.package_name.clone());
+    let mut transaction = match connection.transaction() {
+        Ok(transaction) => transaction,
+        Err(_) => {
+            return import_apply_failure(
+                "blocked",
+                "apply",
+                "Sakurava could not start the catalog transaction. No changes were made.",
+                false,
+                backup_name,
+                plan.skipped_count,
+            )
+        }
+    };
+
+    let apply_result = apply_import_operations(&transaction, &plan.operations);
+    let (created, updated, cleared, deleted) = match apply_result {
+        Ok(counts) => counts,
+        Err(_) => {
+            let rollback_completed = transaction.rollback().is_ok();
+            return import_apply_failure(
+                "rolledBack",
+                "apply",
+                "The import could not be applied. Sakurava cancelled all changes from this import.",
+                rollback_completed,
+                backup_name,
+                plan.skipped_count,
+            );
+        }
+    };
+    if transaction.execute_batch("COMMIT").is_err() {
+        let rollback_completed = transaction.execute_batch("ROLLBACK").is_ok();
+        transaction.set_drop_behavior(DropBehavior::Ignore);
+        return import_apply_failure(
+            "rolledBack",
+            "commit",
+            "The import could not be finalized. Sakurava did not report partial success.",
+            rollback_completed,
+            backup_name,
+            plan.skipped_count,
+        );
+    }
+    transaction.set_drop_behavior(DropBehavior::Ignore);
+
+    ImportCatalogApplyResult {
+        transaction_status: "committed".to_string(),
+        backup_package_name: backup_name,
+        created_count: created,
+        updated_count: updated,
+        cleared_field_count: cleared,
+        deleted_count: deleted,
+        skipped_count: plan.skipped_count,
+        failure_stage: None,
+        message: "Catalog import applied successfully.".to_string(),
+        rollback_completed: false,
+    }
+}
+
+fn apply_import_operations(
+    connection: &Connection,
+    operations: &[ImportCatalogPlanOperation],
+) -> Result<(usize, usize, usize, usize), String> {
+    let mut created = 0usize;
+    let mut updated = 0usize;
+    let mut cleared = 0usize;
+    let mut deleted = 0usize;
+    let mut generated_ids = std::collections::HashMap::<String, String>::new();
+    let mut creates = operations
+        .iter()
+        .filter(|operation| operation.action == "create")
+        .cloned()
+        .collect::<Vec<_>>();
+    creates.sort_by_key(|operation| operation.source_row_number);
+
+    for operation in creates
+        .iter()
+        .filter(|operation| operation.section != "glossary")
+    {
+        apply_import_create(connection, operation, &generated_ids)?;
+        created += 1;
+        cleared += operation.cleared_fields.len();
+    }
+
+    let mut glossary_creates = creates
+        .into_iter()
+        .filter(|operation| operation.section == "glossary")
+        .collect::<Vec<_>>();
+    while !glossary_creates.is_empty() {
+        let mut progressed = false;
+        let mut remaining = Vec::new();
+        for operation in glossary_creates {
+            if operation
+                .dependency_refs
+                .iter()
+                .any(|dependency| !generated_ids.contains_key(dependency))
+            {
+                remaining.push(operation);
+                continue;
+            }
+            let created_id = apply_import_create(connection, &operation, &generated_ids)?;
+            if let (Some(temporary), Some(id)) = (&operation.temporary_identifier, created_id) {
+                generated_ids.insert(temporary.clone(), id);
+            }
+            created += 1;
+            cleared += operation.cleared_fields.len();
+            progressed = true;
+        }
+        if !progressed {
+            return Err("Glossary creation dependencies could not be resolved.".to_string());
+        }
+        glossary_creates = remaining;
+    }
+
+    let mut updates = operations
+        .iter()
+        .filter(|operation| operation.action == "update")
+        .collect::<Vec<_>>();
+    updates.sort_by_key(|operation| operation.source_row_number);
+    for operation in updates {
+        apply_import_update(connection, operation, &generated_ids)?;
+        updated += 1;
+        cleared += operation.cleared_fields.len();
+    }
+
+    let mut deletes = operations
+        .iter()
+        .filter(|operation| operation.action == "delete")
+        .collect::<Vec<_>>();
+    deletes.sort_by(|left, right| {
+        let left_depth = if left.section == "glossary" {
+            glossary_depth(connection, left.record_id.as_deref().unwrap_or_default()).unwrap_or(0)
+        } else {
+            0
+        };
+        let right_depth = if right.section == "glossary" {
+            glossary_depth(connection, right.record_id.as_deref().unwrap_or_default()).unwrap_or(0)
+        } else {
+            0
+        };
+        right_depth
+            .cmp(&left_depth)
+            .then(left.source_row_number.cmp(&right.source_row_number))
+    });
+    for operation in deletes {
+        apply_import_delete(connection, operation)?;
+        deleted += 1;
+    }
+    Ok((created, updated, cleared, deleted))
+}
+
+fn apply_import_create(
+    connection: &Connection,
+    operation: &ImportCatalogPlanOperation,
+    generated_ids: &std::collections::HashMap<String, String>,
+) -> Result<Option<String>, String> {
+    let proposed = resolve_import_dependencies(operation.proposed_values.clone(), generated_ids)?;
+    match operation.section.as_str() {
+        "videos" => Ok(Some(
+            create_video(connection, decode_import_value(proposed)?)?.id,
+        )),
+        "images" => Ok(Some(
+            create_image(connection, decode_import_value(proposed)?)?.id,
+        )),
+        "performers" => Ok(Some(
+            create_performer(connection, decode_import_value(proposed)?)?.id,
+        )),
+        "categories" => Ok(Some(
+            create_managed_category(connection, decode_import_value(proposed)?)?.key,
+        )),
+        "glossary" => Ok(Some(
+            create_glossary_entry(connection, decode_import_value(proposed)?)?.id,
+        )),
+        _ => Err("Unsupported import section.".to_string()),
+    }
+}
+
+fn apply_import_update(
+    connection: &Connection,
+    operation: &ImportCatalogPlanOperation,
+    generated_ids: &std::collections::HashMap<String, String>,
+) -> Result<(), String> {
+    let id = operation
+        .record_id
+        .as_deref()
+        .ok_or_else(|| "Update record was not resolved.".to_string())?;
+    let proposed = resolve_import_dependencies(operation.proposed_values.clone(), generated_ids)?;
+    match operation.section.as_str() {
+        "videos" => update_video(connection, id, decode_import_value(proposed)?)?
+            .map(|_| ())
+            .ok_or_else(|| "Video changed after Preview.".to_string()),
+        "images" => update_image(connection, id, decode_import_value(proposed)?)?
+            .map(|_| ())
+            .ok_or_else(|| "Image changed after Preview.".to_string()),
+        "performers" => {
+            let mut patch: PerformerPatch = decode_import_value(proposed.clone())?;
+            if proposed.get("heightCm") == Some(&Value::Null) {
+                patch.height_cm = Some(None);
+            }
+            if proposed.get("weightKg") == Some(&Value::Null) {
+                patch.weight_kg = Some(None);
+            }
+            update_performer(connection, id, patch)?
+                .map(|_| ())
+                .ok_or_else(|| "Performer changed after Preview.".to_string())
+        }
+        "categories" => {
+            let mut patch: ManagedCategoryPatch = decode_import_value(proposed.clone())?;
+            if proposed.get("parentKey") == Some(&Value::Null) {
+                patch.parent_key = Some(None);
+            }
+            update_managed_category(connection, id, patch)?
+                .map(|_| ())
+                .ok_or_else(|| "Category changed after Preview.".to_string())
+        }
+        "glossary" => update_glossary_entry(connection, id, decode_import_value(proposed)?)?
+            .map(|_| ())
+            .ok_or_else(|| "Glossary record changed after Preview.".to_string()),
+        _ => Err("Unsupported import section.".to_string()),
+    }
+}
+
+fn apply_import_delete(
+    connection: &Connection,
+    operation: &ImportCatalogPlanOperation,
+) -> Result<(), String> {
+    let id = operation
+        .record_id
+        .clone()
+        .ok_or_else(|| "Delete record was not resolved.".to_string())?;
+    match operation.section.as_str() {
+        "videos" | "images" | "performers" => delete_row(connection, &operation.section, id)
+            .and_then(|result| {
+                if result.deleted {
+                    Ok(())
+                } else {
+                    Err("Delete target changed after Preview.".to_string())
+                }
+            }),
+        "categories" => delete_managed_category_if_unused(connection, id).and_then(|result| {
+            if result.deleted {
+                Ok(())
+            } else {
+                Err("Category delete target changed after Preview.".to_string())
+            }
+        }),
+        "glossary" => {
+            if glossary_child_count(connection, &id)? > 0 {
+                return Err("Glossary record still has child records.".to_string());
+            }
+            let deleted = connection
+                .execute("DELETE FROM glossary_entries WHERE id = ?1", [&id])
+                .map_err(database_error)?
+                > 0;
+            if deleted {
+                Ok(())
+            } else {
+                Err("Glossary delete target changed after Preview.".to_string())
+            }
+        }
+        _ => Err("Unsupported import section.".to_string()),
+    }
+}
+
+fn resolve_import_dependencies(
+    mut proposed: Value,
+    generated_ids: &std::collections::HashMap<String, String>,
+) -> Result<Value, String> {
+    if let Some(parent) = proposed
+        .get("parentId")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("GLO-NEW-"))
+    {
+        let resolved = generated_ids
+            .get(parent)
+            .ok_or_else(|| "Glossary parent dependency was not created.".to_string())?
+            .clone();
+        proposed["parentId"] = Value::String(resolved);
+    }
+    Ok(proposed)
+}
+
+fn decode_import_value<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, String> {
+    serde_json::from_value(value)
+        .map_err(|_| "Imported values do not match the supported catalog contract.".to_string())
+}
+
+fn glossary_depth(connection: &Connection, id: &str) -> Result<usize, String> {
+    let mut depth = 0usize;
+    let mut current = id.to_string();
+    let mut seen = std::collections::HashSet::new();
+    while !current.is_empty() && seen.insert(current.clone()) {
+        let Some(entry) = get_glossary_entry(connection, &current)? else {
+            break;
+        };
+        current = entry.parent_id;
+        depth += 1;
+    }
+    Ok(depth)
+}
+
+fn import_catalog_snapshot(connection: &Connection) -> Result<Value, String> {
+    let mut videos = list_videos(connection)?;
+    let mut images = list_images(connection)?;
+    let mut performers = list_performers(connection)?;
+    let mut categories = list_managed_categories(connection)?;
+    let mut glossary = list_glossary_entries(connection)?;
+    let mut credits = list_credits(connection)?;
+    videos.sort_by(|left, right| left.id.cmp(&right.id));
+    images.sort_by(|left, right| left.id.cmp(&right.id));
+    performers.sort_by(|left, right| left.id.cmp(&right.id));
+    categories.sort_by(|left, right| left.key.cmp(&right.key));
+    glossary.sort_by(|left, right| left.id.cmp(&right.id));
+    credits.sort_by(|left, right| left.id.cmp(&right.id));
+    Ok(
+        json!({ "videos": videos, "images": images, "performers": performers, "categories": categories, "glossary": glossary, "credits": credits }),
+    )
+}
+
+fn import_revalidation_snapshot(
+    plan: &ImportCatalogApplyPlan,
+    snapshot: &Value,
+) -> Result<Value, String> {
+    const SECTIONS: [&str; 6] = [
+        "videos",
+        "images",
+        "performers",
+        "categories",
+        "glossary",
+        "credits",
+    ];
+    let mut included =
+        std::collections::BTreeMap::<String, std::collections::BTreeSet<String>>::new();
+    for section in SECTIONS {
+        included.insert(section.to_string(), std::collections::BTreeSet::new());
+        snapshot_records(snapshot, section)?;
+    }
+
+    for operation in &plan.operations {
+        if let Some(id) = operation.record_id.as_deref() {
+            include_snapshot_id(&mut included, &operation.section, id);
+        }
+        collect_import_record_references(&operation.proposed_values, snapshot, &mut included)?;
+        if let Some(current) = operation.current_record.as_ref() {
+            collect_import_record_references(current, snapshot, &mut included)?;
+        }
+
+        if operation.section == "categories" {
+            collect_category_operation_dependencies(operation, snapshot, &mut included)?;
+        }
+    }
+
+    expand_glossary_relationship_scope(snapshot, &mut included)?;
+
+    let mut scoped = serde_json::Map::new();
+    for section in SECTIONS {
+        let ids = included
+            .get(section)
+            .ok_or_else(|| "Import revalidation scope is incomplete.".to_string())?;
+        let records = snapshot_records(snapshot, section)?
+            .iter()
+            .filter(|record| {
+                snapshot_record_id(section, record)
+                    .map(|id| ids.contains(id))
+                    .unwrap_or(false)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        scoped.insert(section.to_string(), Value::Array(records));
+    }
+    Ok(Value::Object(scoped))
+}
+
+fn snapshot_records<'a>(snapshot: &'a Value, section: &str) -> Result<&'a Vec<Value>, String> {
+    snapshot
+        .get(section)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("Snapshot section is missing: {section}."))
+}
+
+fn snapshot_record_id<'a>(section: &str, record: &'a Value) -> Option<&'a str> {
+    record
+        .get(if section == "categories" { "key" } else { "id" })
+        .and_then(Value::as_str)
+}
+
+fn include_snapshot_id(
+    included: &mut std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+    section: &str,
+    id: &str,
+) {
+    if let Some(ids) = included.get_mut(section) {
+        if !id.trim().is_empty() {
+            ids.insert(id.to_string());
+        }
+    }
+}
+
+fn collect_import_record_references(
+    record: &Value,
+    snapshot: &Value,
+    included: &mut std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+) -> Result<(), String> {
+    for (field, section) in [
+        ("relatedPerformersJson", "performers"),
+        ("relatedImagesJson", "images"),
+        ("relatedVideosJson", "videos"),
+    ] {
+        let Some(text) = record.get(field).and_then(Value::as_str) else {
+            continue;
+        };
+        let Ok(references) = serde_json::from_str::<Value>(text) else {
+            continue;
+        };
+        if let Some(references) = references.as_array() {
+            for reference in references {
+                if let Some(id) = reference.get("recordId").and_then(Value::as_str) {
+                    include_snapshot_id(included, section, id);
+                }
+            }
+        }
+    }
+
+    if let Some(text) = record.get("categoriesJson").and_then(Value::as_str) {
+        if let Ok(labels) = serde_json::from_str::<Vec<String>>(text) {
+            for category in snapshot_records(snapshot, "categories")? {
+                let name = category
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if labels.iter().any(|label| label.eq_ignore_ascii_case(name)) {
+                    if let Some(id) = snapshot_record_id("categories", category) {
+                        include_snapshot_id(included, "categories", id);
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(parent_key) = record.get("parentKey").and_then(Value::as_str) {
+        include_snapshot_id(included, "categories", parent_key);
+    }
+    if let Some(parent_id) = record
+        .get("parentId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.starts_with("GLO-NEW-"))
+    {
+        include_snapshot_id(included, "glossary", parent_id);
+    }
+    Ok(())
+}
+
+fn collect_category_operation_dependencies(
+    operation: &ImportCatalogPlanOperation,
+    snapshot: &Value,
+    included: &mut std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+) -> Result<(), String> {
+    let desired_name = operation
+        .proposed_values
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            operation
+                .current_record
+                .as_ref()
+                .and_then(|record| record.get("name"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or_default();
+    for category in snapshot_records(snapshot, "categories")? {
+        if category
+            .get("name")
+            .and_then(Value::as_str)
+            .map(|name| name.eq_ignore_ascii_case(desired_name))
+            .unwrap_or(false)
+        {
+            if let Some(id) = snapshot_record_id("categories", category) {
+                include_snapshot_id(included, "categories", id);
+            }
+        }
+    }
+
+    let Some(target_key) = operation.record_id.as_deref() else {
+        return Ok(());
+    };
+    for category in snapshot_records(snapshot, "categories")? {
+        if category.get("parentKey").and_then(Value::as_str) == Some(target_key) {
+            if let Some(id) = snapshot_record_id("categories", category) {
+                include_snapshot_id(included, "categories", id);
+            }
+        }
+    }
+    if operation.action != "delete" {
+        return Ok(());
+    }
+
+    let target_name = operation
+        .current_record
+        .as_ref()
+        .and_then(|record| record.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    for section in ["videos", "images", "performers"] {
+        for record in snapshot_records(snapshot, section)? {
+            let uses_target = record
+                .get("categoriesJson")
+                .and_then(Value::as_str)
+                .and_then(|text| serde_json::from_str::<Vec<String>>(text).ok())
+                .map(|labels| {
+                    labels
+                        .iter()
+                        .any(|label| label.eq_ignore_ascii_case(target_name))
+                })
+                .unwrap_or(false);
+            if uses_target {
+                if let Some(id) = snapshot_record_id(section, record) {
+                    include_snapshot_id(included, section, id);
+                }
+            }
+        }
+    }
+    for credit in snapshot_records(snapshot, "credits")? {
+        let uses_target = credit.get("creditTypeCategoryId").and_then(Value::as_str)
+            == Some(target_key)
+            || credit
+                .get("roleImportanceCategoryId")
+                .and_then(Value::as_str)
+                == Some(target_key);
+        if uses_target {
+            if let Some(id) = snapshot_record_id("credits", credit) {
+                include_snapshot_id(included, "credits", id);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn expand_glossary_relationship_scope(
+    snapshot: &Value,
+    included: &mut std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+) -> Result<(), String> {
+    loop {
+        let before = included.get("glossary").map_or(0, |ids| ids.len());
+        let current_ids = included.get("glossary").cloned().unwrap_or_default();
+        for entry in snapshot_records(snapshot, "glossary")? {
+            let id = snapshot_record_id("glossary", entry).unwrap_or_default();
+            let parent_id = entry
+                .get("parentId")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if current_ids.contains(id) || current_ids.contains(parent_id) {
+                include_snapshot_id(included, "glossary", id);
+                include_snapshot_id(included, "glossary", parent_id);
+            }
+        }
+        if included.get("glossary").map_or(0, |ids| ids.len()) == before {
+            return Ok(());
+        }
+    }
+}
+
+fn validate_import_plan_targets(
+    plan: &ImportCatalogApplyPlan,
+    snapshot: &Value,
+) -> Result<(), String> {
+    let mut affected = std::collections::HashSet::<(String, String)>::new();
+    let mut temporary = std::collections::HashSet::<String>::new();
+    let permanent_glossary_ids = snapshot_records(snapshot, "glossary")?
+        .iter()
+        .filter_map(|record| snapshot_record_id("glossary", record))
+        .collect::<std::collections::HashSet<_>>();
+    for operation in &plan.operations {
+        if operation.action != "create" && operation.temporary_identifier.is_some() {
+            return Err("Only Glossary Create may use a temporary identifier.".to_string());
+        }
+        if operation.action == "create" {
+            if operation.record_id.is_some()
+                || operation.current_record.is_some()
+                || operation.proposed_values.get("id").is_some()
+                || operation.proposed_values.get("key").is_some()
+            {
+                return Err("Create operation contains an existing target.".to_string());
+            }
+            if let Some(identifier) = &operation.temporary_identifier {
+                if operation.section != "glossary"
+                    || !valid_temporary_glossary_identifier(identifier)
+                    || operation.stable_record_identifier != *identifier
+                    || permanent_glossary_ids.contains(identifier.as_str())
+                    || !temporary.insert(identifier.clone())
+                {
+                    return Err("Temporary identifier is invalid or duplicated.".to_string());
+                }
+            } else if operation.stable_record_identifier.starts_with("GLO-NEW-") {
+                return Err("Temporary Glossary identifier was not declared.".to_string());
+            }
+            continue;
+        }
+        let id = operation
+            .record_id
+            .as_ref()
+            .ok_or_else(|| "Existing operation has no target.".to_string())?;
+        if !affected.insert((operation.section.clone(), id.clone())) {
+            return Err(
+                "A catalog record appears more than once in the operation plan.".to_string(),
+            );
+        }
+        let records = snapshot
+            .get(&operation.section)
+            .and_then(Value::as_array)
+            .ok_or_else(|| "Snapshot section is missing.".to_string())?;
+        let record = records
+            .iter()
+            .find(|record| {
+                record
+                    .get(if operation.section == "categories" {
+                        "key"
+                    } else {
+                        "id"
+                    })
+                    .and_then(Value::as_str)
+                    == Some(id.as_str())
+            })
+            .ok_or_else(|| "Operation target is missing from the snapshot.".to_string())?;
+        if operation.current_record.as_ref().map(canonical_json) != Some(canonical_json(record)) {
+            return Err("Operation target snapshot does not match.".to_string());
+        }
+    }
+    for operation in &plan.operations {
+        let proposed_temporary_parent = operation
+            .proposed_values
+            .get("parentId")
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("GLO-NEW-"));
+        let dependency_declaration_matches = match proposed_temporary_parent {
+            Some(parent) => {
+                operation.dependency_refs.len() == 1 && operation.dependency_refs[0] == parent
+            }
+            None => operation.dependency_refs.is_empty(),
+        };
+        if !dependency_declaration_matches {
+            return Err(
+                "Operation dependency declarations do not match the proposed parent.".to_string(),
+            );
+        }
+        if operation
+            .dependency_refs
+            .iter()
+            .any(|dependency| !temporary.contains(dependency))
+        {
+            return Err("Operation dependency is unresolved.".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn valid_temporary_glossary_identifier(value: &str) -> bool {
+    let Some(suffix) = value.strip_prefix("GLO-NEW-") else {
+        return false;
+    };
+    !suffix.is_empty()
+        && suffix.len() <= 64
+        && suffix.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        })
+}
+
+fn import_plan_fingerprint(plan: &ImportCatalogApplyPlan) -> String {
+    let mut value = serde_json::to_value(plan).unwrap_or(Value::Null);
+    if let Some(object) = value.as_object_mut() {
+        object.remove("operationFingerprint");
+    }
+    fingerprint_value(&value)
+}
+
+fn valid_import_fingerprint(value: &str, prefix: &str) -> bool {
+    value.len() == prefix.len() + 8
+        && value.starts_with(prefix)
+        && value[prefix.len()..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+fn fingerprint_value(value: &Value) -> String {
+    let mut hash = 0x811c9dc5u32;
+    for byte in canonical_json(value).as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(0x01000193);
+    }
+    format!("skv1-{hash:08x}")
+}
+
+fn canonical_json(value: &Value) -> String {
+    match value {
+        Value::Array(values) => format!(
+            "[{}]",
+            values
+                .iter()
+                .map(canonical_json)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        Value::Object(values) => {
+            let mut entries = values.iter().collect::<Vec<_>>();
+            entries.sort_by(|left, right| left.0.cmp(right.0));
+            format!(
+                "{{{}}}",
+                entries
+                    .into_iter()
+                    .map(|(key, value)| format!(
+                        "{}:{}",
+                        serde_json::to_string(key).unwrap_or_default(),
+                        canonical_json(value)
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+        }
+        _ => serde_json::to_string(value).unwrap_or_else(|_| "null".to_string()),
+    }
+}
+
+fn import_apply_failure(
+    status: &str,
+    stage: &str,
+    message: &str,
+    rollback_completed: bool,
+    backup_package_name: Option<String>,
+    skipped_count: usize,
+) -> ImportCatalogApplyResult {
+    ImportCatalogApplyResult {
+        transaction_status: status.to_string(),
+        backup_package_name,
+        created_count: 0,
+        updated_count: 0,
+        cleared_field_count: 0,
+        deleted_count: 0,
+        skipped_count,
+        failure_stage: Some(stage.to_string()),
+        message: message.to_string(),
+        rollback_completed,
+    }
 }
 
 fn validate_export_csv_destination(destination_path: &str) -> Result<PathBuf, String> {
@@ -5423,6 +6373,587 @@ mod tests {
             notes: None,
             favorite: None,
         }
+    }
+
+    fn import_test_database(name: &str) -> (PathBuf, RuntimeDatabase) {
+        let root = std::env::temp_dir().join(format!(
+            "sakurava-import-{name}-{}-{}",
+            std::process::id(),
+            ID_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let database = crate::database::prepare_database(root.join("app.sakurava.desktop"))
+            .expect("import test database");
+        (root, database)
+    }
+
+    fn plan_operation(
+        section: &str,
+        action: &str,
+        row: usize,
+        proposed: Value,
+    ) -> ImportCatalogPlanOperation {
+        ImportCatalogPlanOperation {
+            source_row_number: row,
+            section: section.to_string(),
+            action: action.to_string(),
+            stable_record_identifier: String::new(),
+            record_id: None,
+            temporary_identifier: None,
+            current_record: None,
+            proposed_values: proposed,
+            field_differences: Vec::new(),
+            cleared_fields: Vec::new(),
+            warnings: Vec::new(),
+            blocking_issues: Vec::new(),
+            dependency_refs: Vec::new(),
+        }
+    }
+
+    fn signed_import_plan(
+        database: &RuntimeDatabase,
+        operations: Vec<ImportCatalogPlanOperation>,
+    ) -> ImportCatalogApplyPlan {
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        let snapshot = import_catalog_snapshot(&connection).expect("snapshot");
+        drop(connection);
+        let mut plan = ImportCatalogApplyPlan {
+            contract_version: 1,
+            source_fingerprint: "skvf1-00000000".to_string(),
+            operation_fingerprint: String::new(),
+            catalog_snapshot: snapshot,
+            operations,
+            skipped_count: 0,
+        };
+        plan.operation_fingerprint = import_plan_fingerprint(&plan);
+        plan
+    }
+
+    #[test]
+    fn import_apply_allows_unrelated_video_and_credit_changes_after_preview() {
+        let (root, database) = import_test_database("unrelated-change");
+        let affected = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_video(
+                &connection,
+                VideoInput {
+                    title: "Affected before".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("affected video")
+        };
+        let mut update =
+            plan_operation("videos", "update", 2, json!({ "title": "Affected after" }));
+        update.record_id = Some(affected.id.clone());
+        update.current_record = Some(serde_json::to_value(&affected).expect("affected value"));
+        let plan = signed_import_plan(&database, vec![update]);
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_video(
+                &connection,
+                VideoInput {
+                    title: "Unrelated video".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("unrelated video");
+            create_credit(
+                &connection,
+                CreditInput {
+                    work_type: "video".to_string(),
+                    work_id: "unrelated-work".to_string(),
+                    performer_id: "unrelated-performer".to_string(),
+                    character_name: None,
+                    character_original_name: None,
+                    credited_as: None,
+                    credited_as_mode: None,
+                    credit_type_category_id: None,
+                    role_importance_category_id: None,
+                    character_mode: None,
+                    character_id: None,
+                    billing_order: None,
+                    note: None,
+                },
+            )
+            .expect("unrelated credit");
+        }
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.updated_count, 1);
+        assert!(result.backup_package_name.is_some());
+        let connection = database.connection();
+        let updated = get_video(&connection.lock().expect("database lock"), &affected.id)
+            .expect("video query")
+            .expect("affected video");
+        assert_eq!(updated.title, "Affected after");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_rejects_an_affected_record_change_before_backup() {
+        let (root, database) = import_test_database("affected-change");
+        let affected = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_video(
+                &connection,
+                VideoInput {
+                    title: "Preview title".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("affected video")
+        };
+        let mut update =
+            plan_operation("videos", "update", 2, json!({ "title": "Imported title" }));
+        update.record_id = Some(affected.id.clone());
+        update.current_record = Some(serde_json::to_value(&affected).expect("affected value"));
+        let plan = signed_import_plan(&database, vec![update]);
+        {
+            let connection = database.connection();
+            connection
+                .lock()
+                .expect("database lock")
+                .execute(
+                    "UPDATE videos SET title = 'Changed elsewhere' WHERE id = ?1",
+                    [&affected.id],
+                )
+                .expect("external update");
+        }
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("stalePreview"));
+        assert!(result.backup_package_name.is_none());
+        let backup_folder = root.join("app.sakurava.desktop").join("backups");
+        assert!(
+            !backup_folder.exists()
+                || fs::read_dir(backup_folder)
+                    .expect("backup folder")
+                    .next()
+                    .is_none()
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_treats_new_category_credit_usage_as_stale_reference_state() {
+        let (root, database) = import_test_database("stale-credit-reference");
+        let category = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_managed_category(
+                &connection,
+                ManagedCategoryInput {
+                    key: Some("cat-import".to_string()),
+                    name: "Import Category".to_string(),
+                    parent_key: None,
+                    description: None,
+                    thumbnail_path: None,
+                    show_in_videos: None,
+                    show_in_images: None,
+                    show_in_performers: None,
+                    show_in_credits: Some(true),
+                },
+            )
+            .expect("category")
+        };
+        let mut delete = plan_operation("categories", "delete", 2, json!({}));
+        delete.record_id = Some(category.key.clone());
+        delete.current_record = Some(serde_json::to_value(&category).expect("category value"));
+        let plan = signed_import_plan(&database, vec![delete]);
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_credit(
+                &connection,
+                CreditInput {
+                    work_type: "video".to_string(),
+                    work_id: "video-placeholder".to_string(),
+                    performer_id: "performer-placeholder".to_string(),
+                    character_name: None,
+                    character_original_name: None,
+                    credited_as: None,
+                    credited_as_mode: None,
+                    credit_type_category_id: Some(category.key.clone()),
+                    role_importance_category_id: None,
+                    character_mode: None,
+                    character_id: None,
+                    billing_order: None,
+                    note: None,
+                },
+            )
+            .expect("credit");
+        }
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.failure_stage.as_deref(), Some("stalePreview"));
+        assert!(result.backup_package_name.is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_treats_a_deleted_preview_target_as_stale_before_backup() {
+        let (root, database) = import_test_database("stale-deleted-target");
+        let video = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_video(
+                &connection,
+                VideoInput {
+                    title: "Preview target".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("video")
+        };
+        let mut update = plan_operation("videos", "update", 2, json!({ "title": "Changed" }));
+        update.record_id = Some(video.id.clone());
+        update.current_record = Some(serde_json::to_value(&video).expect("video value"));
+        let plan = signed_import_plan(&database, vec![update]);
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            delete_row(&connection, "videos", video.id).expect("delete elsewhere");
+        }
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("stalePreview"));
+        assert!(result.backup_package_name.is_none());
+        let backup_folder = root.join("app.sakurava.desktop").join("backups");
+        assert!(
+            !backup_folder.exists()
+                || fs::read_dir(backup_folder)
+                    .expect("backup folder")
+                    .next()
+                    .is_none()
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_treats_a_changed_existing_glossary_parent_as_stale() {
+        let (root, database) = import_test_database("stale-glossary-parent");
+        let parent = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    term: "Existing parent".to_string(),
+                    definition: "Preview definition".to_string(),
+                    synonyms_json: None,
+                    category: None,
+                    parent_id: None,
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect("parent")
+        };
+        let child = plan_operation(
+            "glossary",
+            "create",
+            2,
+            json!({
+                "term": "New child",
+                "definition": "Child definition",
+                "parentId": parent.id.clone()
+            }),
+        );
+        let plan = signed_import_plan(&database, vec![child]);
+        {
+            let connection = database.connection();
+            connection
+                .lock()
+                .expect("database lock")
+                .execute(
+                    "UPDATE glossary_entries SET definition = 'Changed elsewhere' WHERE id = ?1",
+                    [&parent.id],
+                )
+                .expect("external parent update");
+        }
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("stalePreview"));
+        assert!(result.backup_package_name.is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_rolls_back_every_operation_when_one_create_fails() {
+        let (root, database) = import_test_database("rollback");
+        let plan = signed_import_plan(
+            &database,
+            vec![
+                plan_operation("videos", "create", 2, json!({ "title": "Created first" })),
+                plan_operation("videos", "create", 3, json!({ "title": "" })),
+            ],
+        );
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "rolledBack");
+        assert!(result.rollback_completed);
+        assert_eq!(result.created_count, 0);
+        let connection = database.connection();
+        assert!(list_videos(&connection.lock().expect("database lock"))
+            .expect("videos")
+            .is_empty());
+        assert!(result.backup_package_name.is_some());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_backup_failure_prevents_transaction_start() {
+        let (root, database) = import_test_database("backup-blocked");
+        let plan = signed_import_plan(
+            &database,
+            vec![plan_operation(
+                "videos",
+                "create",
+                2,
+                json!({ "title": "Not created" }),
+            )],
+        );
+        let package_operation = database.lock_package_operation().expect("package lock");
+        let result = apply_import_catalog_plan(&database, plan);
+        drop(package_operation);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("backup"));
+        let connection = database.connection();
+        assert!(list_videos(&connection.lock().expect("database lock"))
+            .expect("videos")
+            .is_empty());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_rejects_a_changed_source_fingerprint_before_backup() {
+        let (root, database) = import_test_database("source-fingerprint");
+        let mut plan = signed_import_plan(
+            &database,
+            vec![plan_operation(
+                "videos",
+                "create",
+                2,
+                json!({ "title": "Not created" }),
+            )],
+        );
+        plan.source_fingerprint = "skvf1-11111111".to_string();
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("validation"));
+        assert!(result.backup_package_name.is_none());
+        let connection = database.connection();
+        assert!(list_videos(&connection.lock().expect("database lock"))
+            .expect("videos")
+            .is_empty());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_rolls_back_explicit_clear_when_a_later_update_fails() {
+        let (root, database) = import_test_database("clear-rollback");
+        let (first, second) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let first = create_video(
+                &connection,
+                VideoInput {
+                    title: "First".to_string(),
+                    notes: Some("Keep note".to_string()),
+                    ..empty_video_input()
+                },
+            )
+            .expect("first");
+            let second = create_video(
+                &connection,
+                VideoInput {
+                    title: "Second".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("second");
+            (first, second)
+        };
+        let mut clear = plan_operation("videos", "update", 2, json!({ "notes": "" }));
+        clear.record_id = Some(first.id.clone());
+        clear.current_record = Some(serde_json::to_value(&first).expect("first value"));
+        clear.cleared_fields = vec!["Notes".to_string()];
+        let mut invalid = plan_operation("videos", "update", 3, json!({ "title": "" }));
+        invalid.record_id = Some(second.id.clone());
+        invalid.current_record = Some(serde_json::to_value(&second).expect("second value"));
+        let plan = signed_import_plan(&database, vec![clear, invalid]);
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "rolledBack");
+        let connection = database.connection();
+        let restored = get_video(&connection.lock().expect("database lock"), &first.id)
+            .expect("video")
+            .expect("first exists");
+        assert_eq!(restored.notes, "Keep note");
+        assert_eq!(result.cleared_field_count, 0);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_rolls_back_earlier_creates_when_delete_validation_fails() {
+        let (root, database) = import_test_database("delete-rollback");
+        let parent = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let parent = create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    term: "Protected parent".to_string(),
+                    definition: "Parent definition".to_string(),
+                    synonyms_json: None,
+                    category: None,
+                    parent_id: None,
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect("parent");
+            create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    term: "Existing child".to_string(),
+                    definition: "Child definition".to_string(),
+                    synonyms_json: None,
+                    category: None,
+                    parent_id: Some(parent.id.clone()),
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect("child");
+            parent
+        };
+        let create = plan_operation("videos", "create", 2, json!({ "title": "Must roll back" }));
+        let mut delete = plan_operation("glossary", "delete", 3, json!({}));
+        delete.record_id = Some(parent.id.clone());
+        delete.current_record = Some(serde_json::to_value(&parent).expect("parent value"));
+        let plan = signed_import_plan(&database, vec![create, delete]);
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "rolledBack");
+        assert_eq!(result.failure_stage.as_deref(), Some("apply"));
+        assert!(result.rollback_completed);
+        assert_eq!(result.created_count, 0);
+        assert_eq!(result.deleted_count, 0);
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert!(list_videos(&connection).expect("videos").is_empty());
+        assert!(get_glossary_entry(&connection, &parent.id)
+            .expect("parent query")
+            .is_some());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_creates_same_file_glossary_dependencies_in_one_transaction() {
+        let (root, database) = import_test_database("glossary-dependency");
+        let mut parent = plan_operation(
+            "glossary",
+            "create",
+            2,
+            json!({ "term": "Parent", "definition": "Parent definition", "parentId": "" }),
+        );
+        parent.temporary_identifier = Some("GLO-NEW-PARENT".to_string());
+        parent.stable_record_identifier = "GLO-NEW-PARENT".to_string();
+        let mut child = plan_operation(
+            "glossary",
+            "create",
+            3,
+            json!({ "term": "Child", "definition": "Child definition", "parentId": "GLO-NEW-PARENT" }),
+        );
+        child.temporary_identifier = Some("GLO-NEW-CHILD".to_string());
+        child.stable_record_identifier = "GLO-NEW-CHILD".to_string();
+        child.dependency_refs = vec!["GLO-NEW-PARENT".to_string()];
+        let plan = signed_import_plan(&database, vec![child, parent]);
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.created_count, 2);
+        let backup_name = result
+            .backup_package_name
+            .as_deref()
+            .expect("safety backup");
+        let backup_preview = preview_backup_package(&database, backup_name)
+            .expect("existing Backup & Recovery reader accepts import safety package");
+        assert_eq!(backup_preview.package_name, backup_name);
+        let connection = database.connection();
+        let entries =
+            list_glossary_entries(&connection.lock().expect("database lock")).expect("glossary");
+        let parent = entries
+            .iter()
+            .find(|entry| entry.term == "Parent")
+            .expect("parent");
+        let child = entries
+            .iter()
+            .find(|entry| entry.term == "Child")
+            .expect("child");
+        assert_eq!(child.parent_id, parent.id);
+        assert!(!parent.id.starts_with("GLO-NEW-"));
+        assert!(!child.id.starts_with("GLO-NEW-"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_blocks_temporary_glossary_identifier_collision_before_backup() {
+        let (root, database) = import_test_database("glossary-temp-collision");
+        {
+            let connection = database.connection();
+            connection
+                .lock()
+                .expect("database lock")
+                .execute(
+                    "INSERT INTO glossary_entries (
+                        id, term, definition, synonyms_json, category, parent_id,
+                        thumbnail_path, favorite, source_title, source_url, created_at, updated_at
+                    ) VALUES (?1, 'Permanent', 'Permanent definition', '[]', '', '', '', 0, '', '', 1, 1)",
+                    ["GLO-NEW-COLLISION"],
+                )
+                .expect("permanent collision fixture");
+        }
+        let mut create = plan_operation(
+            "glossary",
+            "create",
+            2,
+            json!({ "term": "New", "definition": "New definition", "parentId": "" }),
+        );
+        create.stable_record_identifier = "GLO-NEW-COLLISION".to_string();
+        create.temporary_identifier = Some("GLO-NEW-COLLISION".to_string());
+        let plan = signed_import_plan(&database, vec![create]);
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("validation"));
+        assert!(result.backup_package_name.is_none());
+        let connection = database.connection();
+        let entries = list_glossary_entries(&connection.lock().expect("database lock"))
+            .expect("glossary entries");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "GLO-NEW-COLLISION");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_fingerprint_matches_the_frontend_utf8_contract() {
+        assert_eq!(
+            fingerprint_value(&json!({ "b": [1, true, null], "a": "é" })),
+            "skv1-d6f5215a"
+        );
     }
 
     fn empty_image_input() -> ImageInput {

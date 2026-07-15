@@ -130,8 +130,7 @@ describe("import CSV apply", () => {
         title: "Changed",
         mediaPath: "D:/media/changed.mp4",
         notes: "Changed notes",
-        categoriesJson: "[]",
-        ratingJson: '{"story":4}',
+        ratingJson: '{"story":4,"rewatch":5}',
         relatedPerformersJson:
           '[{"performerId":"performer-2","nameSnapshot":"Performer Two"}]',
       }),
@@ -184,7 +183,7 @@ describe("import CSV apply", () => {
     expect(mutations.deleteVideo).not.toHaveBeenCalled();
   });
 
-  it("applies empty category and related cells as explicit removals", async () => {
+  it("leaves empty Update category and related cells unchanged", async () => {
     const existing = video({
       id: "video-1",
       title: "Original",
@@ -212,14 +211,8 @@ describe("import CSV apply", () => {
       confirmed: true,
     });
 
-    expect(report.appliedModified).toBe(1);
-    expect(mutations.updateVideo).toHaveBeenCalledWith(
-      existing.id,
-      expect.objectContaining({
-        categoriesJson: "[]",
-        relatedPerformersJson: "[]",
-      }),
-    );
+    expect(report.unchanged).toBe(1);
+    expect(mutations.updateVideo).not.toHaveBeenCalled();
   });
 
   it("does not touch source media files", async () => {
@@ -243,7 +236,7 @@ describe("import CSV apply", () => {
     );
   });
 
-  it("adds root and child categories in parent-first order and syncs managed storage", async () => {
+  it("does not infer a same-file category parent from a display name", async () => {
     const mutations = mutationMocks();
     const preview = buildImportCsvPreview(
       [
@@ -266,17 +259,17 @@ describe("import CSV apply", () => {
       confirmed: true,
     });
 
-    expect(report.appliedAdded).toBe(2);
+    expect(report.appliedAdded).toBe(1);
+    expect(report.failed).toBe(1);
     expect(mutations.createManagedCategory).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ name: "Genre", parentKey: null }),
     );
-    expect(mutations.createManagedCategory).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ name: "Drama", parentKey: "cat-genre" }),
-    );
+    expect(mutations.createManagedCategory).toHaveBeenCalledTimes(1);
+    expect(report.rows.find((row) => row.target.includes("Drama"))?.message)
+      .toContain("Parent Category was not found");
     expect(window.localStorage.getItem("sakurava.managedCategories.v1"))
-      .toBe('["Genre","Drama"]');
+      .toBe('["Genre"]');
   });
 
   it("applies child category when parent exists and blocks missing parent", async () => {
@@ -312,7 +305,7 @@ describe("import CSV apply", () => {
       expect.objectContaining({ name: "Short", parentKey: "cat_format" }),
     );
     expect(report.rows.find((row) => row.target.includes("Blocked Child"))?.message)
-      .toContain("Parent Category could not be found");
+      .toContain("Parent Category was not found");
   });
 
   it("blocks child-of-child category hierarchy", async () => {
@@ -387,7 +380,7 @@ describe("import CSV apply", () => {
     expect(window.localStorage.getItem("sakurava.managedCategories.v1"))
       .toBe('["Used"]');
     expect(report.rows.find((row) => row.target.includes("Used"))?.message)
-      .toContain("still used by records");
+      .toContain("catalog records use it");
   });
 });
 

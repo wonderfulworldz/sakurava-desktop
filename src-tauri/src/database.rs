@@ -414,7 +414,7 @@ impl RuntimeDatabase {
         Arc::clone(&self.connection)
     }
 
-    fn lock_package_operation(&self) -> Result<MutexGuard<'_, ()>, String> {
+    pub(crate) fn lock_package_operation(&self) -> Result<MutexGuard<'_, ()>, String> {
         match self.package_operation.try_lock() {
             Ok(guard) => Ok(guard),
             Err(TryLockError::WouldBlock) => {
@@ -935,8 +935,9 @@ where
         )
     })?;
 
+    let safety_reason = format!("restoring {package_name}");
     let safety_package =
-        create_safety_backup_package(database, &connection, package_name, SystemTime::now())
+        create_safety_backup_package(database, &connection, &safety_reason, SystemTime::now())
             .map_err(|message| {
                 BackupPackageRestoreError::new(
                     "safety_package_failed",
@@ -1016,7 +1017,7 @@ where
 fn create_safety_backup_package(
     database: &RuntimeDatabase,
     connection: &Connection,
-    restored_package_name: &str,
+    reason: &str,
     created_at: SystemTime,
 ) -> Result<BackupPackageInfo, String> {
     let backup_folder = ensure_default_backup_folder(database)?;
@@ -1047,7 +1048,7 @@ fn create_safety_backup_package(
             version: BACKUP_FORMAT_VERSION,
             created_at: backup_created_at(created_at)?,
             backup_type: BackupPackageType::Safety,
-            note: format!("Safety backup before restoring {restored_package_name}"),
+            note: format!("Safety backup before {reason}"),
             includes: BackupPackageIncludes {
                 database: true,
                 original_media: false,
@@ -1075,6 +1076,13 @@ fn create_safety_backup_package(
         let _ = fs::remove_dir_all(&staging_path);
     }
     result
+}
+
+pub(crate) fn create_import_safety_backup_package(
+    database: &RuntimeDatabase,
+    connection: &Connection,
+) -> Result<BackupPackageInfo, String> {
+    create_safety_backup_package(database, connection, "catalog import", SystemTime::now())
 }
 
 fn validate_restored_connection(connection: &Connection) -> Result<(), String> {
