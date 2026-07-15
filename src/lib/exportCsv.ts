@@ -55,6 +55,7 @@ export type CsvSchemaColumn<TRecord> = {
   internalField: CsvInternalField;
   required: boolean;
   editable: boolean;
+  clearable: boolean;
   valueType: ExportValueType;
   value: (record: TRecord) => CsvCell;
   example?: CsvCell;
@@ -214,6 +215,7 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
     internalField: "parentCategoryName",
     required: false,
     editable: true,
+    clearable: true,
     valueType: "list/reference",
     value: (record) => record.parentCategoryName,
     example: "Genre",
@@ -230,6 +232,7 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
     internalField: "visibility",
     required: false,
     editable: true,
+    clearable: false,
     valueType: "text",
     value: () => "",
   },
@@ -239,6 +242,7 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
     internalField: "notes",
     required: false,
     editable: true,
+    clearable: false,
     valueType: "text",
     value: () => "",
   },
@@ -259,6 +263,7 @@ export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
     internalField: "parentId",
     required: false,
     editable: true,
+    clearable: true,
     valueType: "list/reference",
     value: (record) => record.parentId ? sakuravaRef("GLO", record.parentId) : "",
   },
@@ -412,6 +417,7 @@ function actionColumn<TRecord>(): CsvSchemaColumn<TRecord> {
     internalField: "bulkAction",
     required: true,
     editable: true,
+    clearable: false,
     valueType: "text",
     value: () => BULK_EDIT_ACTION_DEFAULT,
     example: "Auto",
@@ -428,6 +434,7 @@ function refColumn<TRecord>(
     internalField: "sakuravaRef",
     required: false,
     editable: false,
+    clearable: false,
     valueType: "identifier",
     value: (record) =>
       sakuravaRef(
@@ -452,6 +459,15 @@ function textColumn<TRecord>(
       header === "Term" ||
       header === "Definition",
     editable: true,
+    clearable: !(
+      header === "Title" ||
+      header === "Name" ||
+      header === "Category Name" ||
+      header === "Term" ||
+      header === "Definition" ||
+      (typeof internalField === "string" && internalField.startsWith("showIn")) ||
+      internalField === "favorite"
+    ),
     valueType: (typeof internalField === "string" && internalField.startsWith("showIn"))
       || internalField === "favorite"
       ? "boolean"
@@ -472,6 +488,7 @@ function dateColumn<TRecord>(
     internalField,
     required: false,
     editable: true,
+    clearable: true,
     valueType: "date",
     value: (record) => (record as Record<string, CsvCell>)[internalField],
   };
@@ -488,6 +505,7 @@ function listColumn<TRecord>(
     internalField,
     required: false,
     editable: true,
+    clearable: true,
     valueType: "list/reference",
     value: (record) => joinReadableList(getValues(record)),
   };
@@ -502,6 +520,7 @@ function ratingColumns<TRecord>(
     internalField: `ratingJson.${column.key}`,
     required: false,
     editable: true,
+    clearable: true,
     valueType: "number" as const,
     value: (record) =>
       ratingCellValue(
@@ -524,6 +543,7 @@ function pathColumns<TRecord>(
     internalField: `${internalFieldPrefix}.${index + 1}` as CsvInternalField,
     required: false,
     editable: true,
+    clearable: true,
     valueType: "text" as const,
     value: (record: TRecord) => getValues(record)[index] ?? "",
   }));

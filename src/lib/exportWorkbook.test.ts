@@ -5,6 +5,11 @@ import {
   excelDateNumberFormat,
   excelDateTimeNumberFormat,
 } from "./exportWorkbook";
+import {
+  buildWorkbookMetadata,
+  SAKURAVA_METADATA_SHEET,
+  stableContractJson,
+} from "./importExportContract";
 
 describe("XLSX export and templates", () => {
   it("builds a single-type workbook with Instructions and the correct data sheet", async () => {
@@ -13,7 +18,8 @@ describe("XLSX export and templates", () => {
       locale: "en-GB",
     });
     const workbook = await parseWorkbook(result.bytes);
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["Instructions", "Videos"]);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["__SakuravaMetadata", "Instructions", "Videos"]);
+    expect(workbook.getWorksheet("__SakuravaMetadata")!.state).toBe("veryHidden");
     const sheet = workbook.getWorksheet("Videos")!;
     expect(sheet.rowCount).toBe(2);
     expect(sheet.getRow(1).values).toEqual(expect.arrayContaining(["Action", "Sakurava Ref", "Title"]));
@@ -33,10 +39,38 @@ describe("XLSX export and templates", () => {
     });
     const workbook = await parseWorkbook(result.bytes);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
-      "Instructions", "Videos", "Performers",
+      "__SakuravaMetadata", "Instructions", "Videos", "Performers",
     ]);
     expect(workbook.getWorksheet("Images")).toBeUndefined();
     expect(workbook.getWorksheet("Managed Categories")).toBeUndefined();
+  });
+
+  it("preserves deterministic very-hidden metadata through edit and save/read-back", async () => {
+    const generatedAt = new Date("2026-07-15T01:02:03.000Z");
+    const result = await buildXlsxWorkbook({
+      selections: [{ dataType: "videos", records: [video()] }],
+      locale: "en-US",
+      generatedAt,
+    });
+    const workbook = await parseWorkbook(result.bytes);
+    const expectedMetadata = stableContractJson(buildWorkbookMetadata({
+      dataTypes: ["videos"],
+      generatedAt,
+      template: false,
+    }));
+    expect(workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
+    expect(workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value)
+      .toBe(expectedMetadata);
+
+    workbook.getWorksheet("Videos")!.getCell("D2").value = "User-edited title";
+    const reloaded = await parseWorkbook(
+      new Uint8Array(await workbook.xlsx.writeBuffer()),
+    );
+    expect(reloaded.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
+    expect(reloaded.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value)
+      .toBe(expectedMetadata);
+    expect(reloaded.getWorksheet("Videos")!.getCell("D2").value)
+      .toBe("User-edited title");
   });
 
   it("builds a Glossary worksheet through the shared workbook contract", async () => {
@@ -61,7 +95,7 @@ describe("XLSX export and templates", () => {
     });
     const workbook = await parseWorkbook(result.bytes);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
-      "Instructions", "Data", "Examples",
+      "__SakuravaMetadata", "Instructions", "Data", "Examples",
     ]);
     expect(workbook.getWorksheet("Data")!.rowCount).toBe(1);
     const examples = workbook.getWorksheet("Examples")!;

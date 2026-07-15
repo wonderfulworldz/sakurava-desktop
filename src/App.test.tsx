@@ -3944,6 +3944,7 @@ describe("App", () => {
       if (command === "glossary_list") {
         return [];
       }
+      if (command === "credit_list") return [];
       if (command === "import_catalog_file_read") {
         expect(args.sourcePath).toBe(sourcePath);
         return {
@@ -4025,7 +4026,7 @@ describe("App", () => {
     const bytes = Array.from(new Uint8Array(await workbook.xlsx.writeBuffer()));
     const sourcePath = "D:/Imports/sakurava-catalog.xlsx";
     const invoke = vi.fn(async (command: string) => {
-      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list"].includes(command)) return [];
+      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) return [];
       if (command === "import_catalog_file_read") {
         return { sourcePath, displayName: "sakurava-catalog.xlsx", format: "xlsx", bytes, bytesRead: bytes.length, success: true };
       }
@@ -4068,6 +4069,7 @@ describe("App", () => {
     const invoke = vi.fn(async (command: string) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
       if (command === "glossary_list") return [existing];
+      if (command === "credit_list") return [];
       if (command === "import_catalog_file_read") return {
         sourcePath,
         displayName: "skv-glo-20261507-100000.csv",
@@ -4122,6 +4124,7 @@ describe("App", () => {
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
       if (command === "glossary_list") return [updateTarget, deleteTarget, sameTarget];
+      if (command === "credit_list") return [];
       if (command === "import_catalog_file_read") return {
         sourcePath,
         displayName: "skv-glo-20261507-110000.csv",
@@ -4130,9 +4133,18 @@ describe("App", () => {
         bytesRead: csvContent.length,
         success: true,
       };
-      if (command === "glossary_create") return persistedGlossaryEntry({ id: "glossary-created", ...args.input });
-      if (command === "glossary_update") return { ...updateTarget, ...args.patch };
-      if (command === "glossary_delete") return { id: args.id, deleted: true };
+      if (command === "import_catalog_apply") {
+        expect(args.plan.operations.map((operation: any) => operation.action))
+          .toEqual(["create", "update", "delete"]);
+        expect(args.plan.operations.every((operation: any) => operation.section === "glossary"))
+          .toBe(true);
+        return {
+          transactionStatus: "committed", backupPackageName: "sakurava-backup-import-safety",
+          createdCount: 1, updatedCount: 1, clearedFieldCount: 0,
+          deletedCount: 1, skippedCount: 2, failureStage: null,
+          message: "Catalog import applied successfully.", rollbackCompleted: false,
+        };
+      }
       throw new Error(`Unexpected command ${command}`);
     });
     window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
@@ -4147,14 +4159,9 @@ describe("App", () => {
       .toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply Import" }));
 
-    expect(await screen.findByRole("region", { name: "Import apply report" })).toBeInTheDocument();
-    expect(invoke.mock.calls.filter(([command]) => command === "glossary_create")).toHaveLength(1);
-    expect(invoke.mock.calls.filter(([command]) => command === "glossary_update")).toHaveLength(1);
-    expect(invoke.mock.calls.filter(([command]) => command === "glossary_delete")).toHaveLength(1);
-    expect(invoke).toHaveBeenCalledWith("glossary_update", expect.objectContaining({
-      id: updateTarget.id,
-      patch: expect.objectContaining({ definition: "Changed" }),
-    }), undefined);
+    expect(await screen.findByText("3 catalog changes applied together.")).toBeInTheDocument();
+    expect(invoke.mock.calls.filter(([command]) => command === "import_catalog_apply")).toHaveLength(1);
+    expect(invoke).not.toHaveBeenCalledWith("glossary_create", expect.anything(), undefined);
   });
 
   it("disables Apply Import when a local date is impossible", async () => {
@@ -4165,7 +4172,7 @@ describe("App", () => {
       "Create,,,Impossible Date,,2/30/2026,,,,,,,,,,,,,,",
     ].join("\r\n");
     const invoke = vi.fn(async (command: string) => {
-      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list"].includes(command)) return [];
+      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) return [];
       if (command === "import_catalog_file_read") return {
         sourcePath, displayName: "invalid-date.csv", format: "csv",
         bytes: Array.from(new TextEncoder().encode(csvContent)), bytesRead: csvContent.length, success: true,
@@ -4189,6 +4196,10 @@ describe("App", () => {
       "Action,Sakurava Ref,Code,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
       "Create,,,New Applied Video,,,,,Favorite,,,,,,4,D:/media/new.mp4,,,,Created from CSV",
     ].join("\r\n");
+    let resolveApply!: (value: Record<string, unknown>) => void;
+    const applyPromise = new Promise<Record<string, unknown>>((resolve) => {
+      resolveApply = resolve;
+    });
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [];
@@ -4202,6 +4213,9 @@ describe("App", () => {
       if (command === "glossary_list") {
         return [];
       }
+      if (command === "credit_list") {
+        return [];
+      }
       if (command === "import_catalog_file_read") {
         return {
           sourcePath,
@@ -4212,8 +4226,8 @@ describe("App", () => {
           success: true,
         };
       }
-      if (command === "video_create") {
-        expect(args.input).toEqual(
+      if (command === "import_catalog_apply") {
+        expect(args.plan.operations[0].proposedValues).toEqual(
           expect.objectContaining({
             title: "New Applied Video",
             categoriesJson: '["Favorite"]',
@@ -4222,7 +4236,7 @@ describe("App", () => {
             notes: "Created from CSV",
           }),
         );
-        return persistedVideo({ id: "video_created", ...args.input });
+        return applyPromise;
       }
 
       throw new Error(`Unexpected command ${command}`);
@@ -4245,9 +4259,9 @@ describe("App", () => {
     expect(confirmDialog).toBeInTheDocument();
     expect(within(confirmDialog).getByText(/reviewed changes will be applied to your catalog/i))
       .toBeInTheDocument();
-    expect(within(confirmDialog).queryByText(/Original media files/)).not.toBeInTheDocument();
+    expect(within(confirmDialog).getByText(/Original media files will not be changed/)).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
-      "video_create",
+      "import_catalog_apply",
       expect.anything(),
       undefined,
     );
@@ -4256,17 +4270,34 @@ describe("App", () => {
     fireEvent.click(confirmApplyButton);
     fireEvent.click(confirmApplyButton);
 
-    expect(await screen.findByRole("region", { name: "Import apply report" }))
-      .toBeInTheDocument();
-    expect(screen.getByText("Import apply completed.")).toBeInTheDocument();
-    expect(screen.getByText("Original media files were not modified or deleted."))
+    await waitFor(() => {
+      expect(invoke.mock.calls.filter(([command]) => command === "import_catalog_apply"))
+        .toHaveLength(1);
+    });
+    expect(screen.getByRole("button", { name: "Import Catalog" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export Catalog" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Change File" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Cancel" })
+      .every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+
+    await act(async () => {
+      resolveApply({
+        transactionStatus: "committed", backupPackageName: "sakurava-backup-import-safety",
+        createdCount: 1, updatedCount: 0, clearedFieldCount: 0,
+        deletedCount: 0, skippedCount: 0, failureStage: null,
+        message: "Catalog import applied successfully.", rollbackCompleted: false,
+      });
+      await applyPromise;
+    });
+
+    expect(await screen.findByText("1 catalog changes applied together."))
       .toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
-      "video_create",
+      "import_catalog_apply",
       expect.anything(),
       undefined,
     );
-    expect(invoke.mock.calls.filter(([command]) => command === "video_create"))
+    expect(invoke.mock.calls.filter(([command]) => command === "import_catalog_apply"))
       .toHaveLength(1);
     expect(invoke).not.toHaveBeenCalledWith(
       "video_delete",
@@ -4296,6 +4327,9 @@ describe("App", () => {
       if (command === "glossary_list") {
         return [];
       }
+      if (command === "credit_list") {
+        return [];
+      }
       if (command === "import_catalog_file_read") {
         return {
           sourcePath,
@@ -4306,20 +4340,14 @@ describe("App", () => {
           success: true,
         };
       }
-      if (command === "managed_category_delete") {
-        categories = categories.filter((category) => category.key !== args.key);
-        return { key: args.key, deleted: true };
-      }
-      if (command === "managed_category_create") {
-        const created = managedCategoryFixture({
-          key: "cat_new",
-          name: args.input.name,
-          parentKey: args.input.parentKey ?? null,
-          description: args.input.description ?? "",
-          thumbnailPath: args.input.thumbnailPath ?? "",
-        });
-        categories = [...categories, created];
-        return created;
+      if (command === "import_catalog_apply") {
+        categories = [managedCategoryFixture({ key: "cat_new", name: "New Category", description: "Imported" })];
+        return {
+          transactionStatus: "committed", backupPackageName: "sakurava-backup-import-safety",
+          createdCount: 1, updatedCount: 0, clearedFieldCount: 0,
+          deletedCount: 1, skippedCount: 0, failureStage: null,
+          message: "Catalog import applied successfully.", rollbackCompleted: false,
+        };
       }
 
       throw new Error(`Unexpected command ${command}`);
@@ -4339,7 +4367,7 @@ describe("App", () => {
     expect(within(categoryImportDialog).getByText("1 records will be deleted. Original media files will not be changed."))
       .toBeInTheDocument();
     fireEvent.click(within(categoryImportDialog).getByRole("button", { name: "Apply Import" }));
-    expect(await screen.findByRole("region", { name: "Import apply report" }))
+    expect(await screen.findByText("2 catalog changes applied together."))
       .toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));

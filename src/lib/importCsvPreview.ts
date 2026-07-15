@@ -1,5 +1,6 @@
 import type {
   GlossaryEntry,
+  Credit,
   Image,
   ManagedCategory,
   Performer,
@@ -20,6 +21,7 @@ import {
   videoCsvSchema,
   type ExportCsvEntity,
 } from "./exportCsv";
+import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 
 export type ImportCsvEntity = ExportCsvEntity;
 
@@ -38,7 +40,8 @@ export type ImportCsvPreviewRow = {
   detectedResult: ImportCsvDetectedResult;
   target: string;
   changes: string[];
-  changeDetails?: Array<{ field: string; before: string; after: string }>;
+  changeDetails?: Array<{ field: string; before: string; after: string; cleared?: boolean }>;
+  clearedFields?: string[];
   warnings: string[];
   errors: string[];
   values: Record<string, string>;
@@ -70,6 +73,7 @@ export type ImportCsvPreviewContext = {
   performers: Performer[];
   categories: ManagedCategory[];
   glossary?: GlossaryEntry[];
+  credits?: Credit[];
 };
 
 export type ParsedCsv = {
@@ -245,7 +249,7 @@ export function buildImportTablePreview(
     };
   }
 
-  const currentRowsByRef = buildCurrentRowsByRef(definition, context);
+  const currentRowsByRef = buildCurrentRowsByRef(definition, context, headerErrors);
   const duplicateRefs = findDuplicateRefs(parsed.headers, parsed.rows);
   const rows = parsed.rows.map((row, index) =>
     previewRow({
@@ -308,6 +312,13 @@ function validateHeaders(
     return;
   }
 
+  const duplicateHeaders = headers.filter(
+    (header, index) => header && headers.indexOf(header) !== index,
+  );
+  if (duplicateHeaders.length > 0) {
+    errors.push(`Duplicate headers are not allowed: ${unique(duplicateHeaders).join(", ")}.`);
+  }
+
   const technicalHeaders = headers.filter((header) => rawTechnicalHeaders.has(header));
   if (technicalHeaders.length > 0) {
     errors.push(
@@ -322,6 +333,14 @@ function validateHeaders(
   if (!definition) {
     errors.push("CSV headers do not match a Sakurava Bulk Manual Edit CSV type.");
     return;
+  }
+
+
+  const unsupportedHeaders = headers.filter(
+    (header) => header && !definition.expectedHeaders.includes(header),
+  );
+  if (unsupportedHeaders.length > 0) {
+    errors.push(`Unsupported headers are not allowed: ${unsupportedHeaders.join(", ")}.`);
   }
 
   for (const requiredHeader of ["Action", "Sakurava Ref", ...definition.requiredHeaders]) {
@@ -363,7 +382,8 @@ function previewRow({
   const warnings: string[] = [];
   const errors: string[] = [];
   const changes: string[] = [];
-  const changeDetails: Array<{ field: string; before: string; after: string }> = [];
+  const changeDetails: Array<{ field: string; before: string; after: string; cleared?: boolean }> = [];
+  const clearedFields: string[] = [];
   const action = parseImportAction(values.Action ?? "");
   const ref = (values["Sakurava Ref"] ?? "").trim();
   const mainValue = (values[definition.mainHeader] ?? "").trim();
@@ -372,6 +392,7 @@ function previewRow({
     errors.push(`Unknown Action: ${values.Action}.`);
   }
 
+  const temporaryRef = definition.entity === "glossary" && isTemporaryGlossaryRef(ref);
   if (ref && !ref.startsWith(`${definition.refPrefix}-`)) {
     errors.push(`Sakurava Ref must start with ${definition.refPrefix}-.`);
   }
@@ -396,8 +417,11 @@ function previewRow({
   if (action === "Delete") {
     if (!ref) {
       errors.push("Delete requires a Sakurava Ref.");
-    } else if (!currentRowsByRef.has(ref)) {
+    } else if (temporaryRef || !currentRowsByRef.has(ref)) {
       errors.push(`Sakurava Ref was not found: ${ref}.`);
+    }
+    if (definition.entity === "categories" && ref) {
+      validateCategoryDelete(ref, context, errors);
     }
     warnings.push("Will delete catalog record only. Original media files are not deleted.");
 
@@ -417,8 +441,12 @@ function previewRow({
     errors.push("Update requires a Sakurava Ref.");
   }
 
-  if (action === "Create" && ref) {
+  if (action === "Create" && ref && !temporaryRef) {
     errors.push("Create cannot use an existing Sakurava Ref.");
+  }
+
+  if (temporaryRef && action === "Update") {
+    errors.push("Update cannot use a new temporary Glossary identifier.");
   }
 
   validateEditableFields(
@@ -431,9 +459,13 @@ function previewRow({
   );
   validateCategories(values, definition, currentRowsByRef.get(ref), context, changes, warnings);
   validateRelated(values, definition, currentRowsByRef.get(ref), context, changes, warnings, errors);
+  validateManagedCategoryParent(values, definition, context, errors);
   validateGlossaryFields(values, definition, ref, context, errors);
 
-  if (!ref) {
+  if (!ref || temporaryRef) {
+    if (Object.values(values).some((value) => value.trim() === SAKURAVA_CLEAR_VALUE)) {
+      errors.push("The clear marker can only be used when updating an existing record.");
+    }
     for (const requiredHeader of definition.requiredHeaders) {
       if (!(values[requiredHeader] ?? "").trim()) {
         errors.push(`${requiredHeader} is required for a new row.`);
@@ -449,6 +481,7 @@ function previewRow({
       warnings,
       errors,
       values,
+      clearedFields,
     };
   }
 
@@ -462,6 +495,24 @@ function previewRow({
       }
       const nextValue = normalizeCell(values[header] ?? "");
       const currentValue = normalizeCell(currentRow[header] ?? "");
+      if (!nextValue) {
+        continue;
+      }
+      if (nextValue === SAKURAVA_CLEAR_VALUE) {
+        const column = definition.expectedHeaders.includes(header)
+          ? schemaForDefinition(definition).find((candidate) => candidate.header === header)
+          : undefined;
+        if (!column?.clearable) {
+          errors.push(`${header} cannot be cleared.`);
+          continue;
+        }
+        if (currentValue) {
+          changes.push(header);
+          clearedFields.push(header);
+          changeDetails.push({ field: header, before: currentValue, after: "", cleared: true });
+        }
+        continue;
+      }
       if (nextValue !== currentValue) {
         changes.push(header);
         changeDetails.push({ field: header, before: currentValue, after: nextValue });
@@ -480,7 +531,57 @@ function previewRow({
     warnings,
     errors,
     values,
+    clearedFields,
   };
+}
+
+function validateManagedCategoryParent(
+  values: Record<string, string>,
+  definition: EntityDefinition,
+  context: ImportCsvPreviewContext,
+  errors: string[],
+) {
+  if (definition.entity !== "categories") return;
+  const parent = (values["Parent Category"] ?? "").trim();
+  if (!parent || parent === SAKURAVA_CLEAR_VALUE) return;
+  if (!context.categories.some((category) => category.name === parent)) {
+    errors.push(`Parent Category was not found: ${parent}.`);
+  }
+}
+
+export function isBlockingImportPreviewWarning(message: string) {
+  return /^Unknown category:/i.test(message) || /^Unresolved related (reference|value):/i.test(message);
+}
+
+function validateCategoryDelete(
+  ref: string,
+  context: ImportCsvPreviewContext,
+  errors: string[],
+) {
+  const category = context.categories.find(
+    (candidate) => sakuravaRef("CAT", candidate.key) === ref,
+  );
+  if (!category) return;
+  if (context.categories.some((candidate) => candidate.parentKey === category.key)) {
+    errors.push("Category cannot be deleted while it has child categories.");
+  }
+  const usedByRecord = [...context.videos, ...context.images, ...context.performers]
+    .some((record) => {
+      try {
+        const labels = JSON.parse(record.categoriesJson) as unknown;
+        return Array.isArray(labels) && labels.some(
+          (label) => typeof label === "string" && label.trim().toLowerCase() === category.name.trim().toLowerCase(),
+        );
+      } catch {
+        return false;
+      }
+    });
+  const usedByCredit = (context.credits ?? []).some(
+    (credit) => credit.creditTypeCategoryId === category.key || credit.roleImportanceCategoryId === category.key,
+  );
+  if (usedByRecord || usedByCredit) {
+    errors.push("Category cannot be deleted while catalog records use it.");
+  }
 }
 
 function validateGlossaryFields(
@@ -499,6 +600,11 @@ function validateGlossaryFields(
 
   const parentRef = (values["Parent Ref"] ?? "").trim();
   if (!parentRef) return;
+  if (parentRef === SAKURAVA_CLEAR_VALUE) return;
+  if (isTemporaryGlossaryRef(parentRef)) {
+    if (parentRef === recordRef) errors.push("A Glossary entry cannot be its own parent.");
+    return;
+  }
   if (!/^GLO-[0-9A-Z]+$/.test(parentRef)) {
     errors.push("Parent Ref must be a valid GLO identifier.");
     return;
@@ -515,17 +621,26 @@ function validateGlossaryFields(
 function buildCurrentRowsByRef(
   definition: EntityDefinition,
   context: ImportCsvPreviewContext,
+  headerErrors: string[],
 ) {
   const csv = definition.buildCurrentCsv(context);
   const parsed = parseCsv(csv);
   const rowsByRef = new Map<string, Record<string, string>>();
+  const ambiguousRefs = new Set<string>();
 
   for (const row of parsed.rows) {
     const values = rowValues(parsed.headers, row);
     const ref = values["Sakurava Ref"]?.trim();
-    if (ref) {
-      rowsByRef.set(ref, values);
+    if (!ref || ambiguousRefs.has(ref)) {
+      continue;
     }
+    if (rowsByRef.has(ref)) {
+      rowsByRef.delete(ref);
+      ambiguousRefs.add(ref);
+      headerErrors.push(`The catalog contains a conflicting Sakurava identifier: ${ref}.`);
+      continue;
+    }
+    rowsByRef.set(ref, values);
   }
 
   return rowsByRef;
@@ -573,6 +688,12 @@ function validateEditableFields(
       continue;
     }
 
+    if (value === SAKURAVA_CLEAR_VALUE) {
+      const column = schemaForDefinition(definition).find((candidate) => candidate.header === header);
+      if (!column?.clearable) errors.push(`${header} cannot be cleared.`);
+      continue;
+    }
+
     if (header.endsWith("Date")) {
       const normalized = normalizeImportDate(value, { locale });
       if (normalized.state === "valid") {
@@ -612,6 +733,18 @@ function validateEditableFields(
   }
 }
 
+function schemaForDefinition(definition: EntityDefinition) {
+  if (definition.entity === "videos") return videoCsvSchema;
+  if (definition.entity === "images") return imageCsvSchema;
+  if (definition.entity === "performers") return performerCsvSchema;
+  if (definition.entity === "categories") return categoryCsvSchema;
+  return glossaryCsvSchema;
+}
+
+export function isTemporaryGlossaryRef(value: string) {
+  return /^GLO-NEW-[A-Z0-9][A-Z0-9_-]{0,63}$/.test(value.trim());
+}
+
 function validateCategories(
   values: Record<string, string>,
   definition: EntityDefinition,
@@ -621,6 +754,10 @@ function validateCategories(
   warnings: string[],
 ) {
   if (definition.entity === "categories" || !("Categories" in values)) {
+    return;
+  }
+
+  if (currentRow && (!values.Categories.trim() || values.Categories.trim() === SAKURAVA_CLEAR_VALUE)) {
     return;
   }
 
@@ -662,6 +799,9 @@ function validateRelated(
   );
 
   for (const header of relatedHeaders) {
+    if (currentRow && (!values[header].trim() || values[header].trim() === SAKURAVA_CLEAR_VALUE)) {
+      continue;
+    }
     const nextItems = parseSemicolonList(values[header]);
     const currentItems = parseSemicolonList(currentRow?.[header] ?? "");
     const added = nextItems.filter((item) => !currentItems.includes(item));
@@ -721,7 +861,7 @@ function validateRelatedItem(
     (record) => record.label === display,
   );
   if (matches.length === 1) {
-    warnings.push(`Resolved related value by exact display name: ${display}.`);
+    errors.push(`Related value requires a stable Sakurava Ref: ${display}.`);
   } else if (matches.length > 1) {
     errors.push(`Ambiguous related display name: ${display}.`);
   } else {
@@ -798,7 +938,9 @@ function summarizeRows(
     skipped: countRows(rows, "Skipped"),
     warnings: rows.reduce((total, row) => total + row.warnings.length, 0),
     errors: headerErrors.length + rows.reduce((total, row) => total + row.errors.length, 0),
-    blocked: headerErrors.length > 0 || rows.some((row) => row.errors.length > 0),
+    blocked: headerErrors.length > 0 || rows.some(
+      (row) => row.errors.length > 0 || row.warnings.some(isBlockingImportPreviewWarning),
+    ),
   };
 }
 

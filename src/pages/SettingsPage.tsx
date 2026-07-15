@@ -81,10 +81,13 @@ import {
   type ImportCatalogRow,
 } from "../lib/importCatalog";
 import {
-  applyImportCsvPreview,
   countApplicableImportRows,
   type ImportCsvApplyReport,
 } from "../lib/importCsvApply";
+import {
+  buildImportOperationPlan,
+  type ImportOperationPlan,
+} from "../lib/importOperationPlan";
 import {
   buildCategoryDeletePreview,
   buildCategoryRenamePreview,
@@ -98,6 +101,7 @@ import {
   validateManagedCategoryRename,
 } from "../lib/managedCategories";
 import { clearAppCache } from "../runtime/cacheCommands";
+import { listCredits } from "../runtime/creditCommands";
 import {
   createBackupPackage,
   deleteBackupPackage,
@@ -123,13 +127,12 @@ import {
   writeExportCsv,
 } from "../runtime/exportCommands";
 import { isTemplateExport, runCatalogExport } from "../runtime/catalogExport";
-import { readImportCatalogFile, readImportCsv } from "../runtime/importCommands";
 import {
-  createGlossaryEntry,
-  deleteGlossaryEntry,
-  listGlossaryEntries,
-  updateGlossaryEntry,
-} from "../runtime/glossaryCommands";
+  applyImportCatalogPlan,
+  readImportCatalogFile,
+  readImportCsv,
+} from "../runtime/importCommands";
+import { listGlossaryEntries } from "../runtime/glossaryCommands";
 import {
   applyCustomLanguageCsvPreview,
   buildLanguageExportCsv,
@@ -157,26 +160,18 @@ import {
   type AutomaticBackupFrequency,
   type AutomaticBackupResultDetail,
 } from "../lib/automaticBackup";
-import { createImage, deleteImage, listImages, updateImage } from "../runtime/imageCommands";
+import { listImages, updateImage } from "../runtime/imageCommands";
 import {
-  createManagedCategory,
-  deleteManagedCategory as deleteManagedCategoryRecord,
   listManagedCategories,
-  updateManagedCategory,
 } from "../runtime/managedCategoryCommands";
 import {
   allowMediaAssetRoot,
   getStoredMediaAssetRoots,
   storeMediaAssetRoots,
 } from "../runtime/mediaAssetScope";
-import {
-  createPerformer,
-  deletePerformer,
-  listPerformers,
-  updatePerformer,
-} from "../runtime/performerCommands";
+import { listPerformers, updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import { createVideo, deleteVideo, listVideos, updateVideo } from "../runtime/videoCommands";
+import { listVideos, updateVideo } from "../runtime/videoCommands";
 
 type SettingsRow = {
   label: string;
@@ -259,13 +254,13 @@ type ImportStatus =
       displayName: string;
       format: "csv" | "xlsx";
       preview: ImportCatalogPreview;
+      plan: ImportOperationPlan | null;
     }
   | { state: "error"; message: string };
 type ImportApplyStatus =
   | { state: "idle" }
-  | { state: "confirming"; preview: ImportCatalogPreview }
+  | { state: "confirming"; preview: ImportCatalogPreview; plan: ImportOperationPlan }
   | { state: "pending" }
-  | { state: "report"; report: ImportCsvApplyReport }
   | { state: "error"; message: string };
 type ImportPreviewRow = ImportCatalogRow;
 type ImportPreviewRowStatus = "Ready" | "No Changes" | "Skipped" | "Needs Review";
@@ -460,7 +455,7 @@ function SettingsPage() {
   const canClearCache =
     isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
   const canExportCsv =
-    isDesktopRuntime && !isExportPending && !isBackupPending && !isRestorePending;
+    isDesktopRuntime && !isExportPending && !isImportApplyPending && !isBackupPending && !isRestorePending;
   const canImportCsv =
     isDesktopRuntime &&
     !isImportPending &&
@@ -1245,7 +1240,7 @@ function SettingsPage() {
       setImportStatus({ state: "pending" });
       setImportApplyStatus({ state: "idle" });
 
-      const [fileResult, videos, images, performers, categories, glossary] =
+      const [fileResult, videos, images, performers, categories, glossary, credits] =
         await Promise.all([
           readImportCatalogFile(sourcePath),
           listVideos(),
@@ -1253,9 +1248,10 @@ function SettingsPage() {
           listPerformers(),
           listManagedCategories(),
           listGlossaryEntries(),
+          listCredits(),
         ]);
 
-      const context = { videos, images, performers, categories, glossary };
+      const context = { videos, images, performers, categories, glossary, credits };
       const bytes = new Uint8Array(fileResult.bytes);
       const locale = navigator.language || "en-US";
       const messages = {
@@ -1267,12 +1263,16 @@ function SettingsPage() {
       const preview = fileResult.format === "xlsx"
         ? await buildXlsxCatalogPreview(bytes, context, locale, messages)
         : buildCsvCatalogPreview(new TextDecoder().decode(bytes), context, locale, messages);
+      const plan = preview.summary.blocked
+        ? null
+        : buildImportOperationPlan(preview, context, bytes);
 
       setImportStatus({
         state: "preview",
         displayName: fileResult.displayName,
         format: fileResult.format,
         preview,
+        plan,
       });
       return true;
     } catch (error) {
@@ -1294,61 +1294,36 @@ function SettingsPage() {
       (total, section) => total + countApplicableImportRows(section.preview),
       0,
     );
-    if (preview.summary.blocked || applicableRows === 0) {
+    if (
+      preview.summary.blocked ||
+      applicableRows === 0 ||
+      importStatus.state !== "preview" ||
+      !importStatus.plan
+    ) {
       return;
     }
-    setImportApplyStatus({ state: "confirming", preview });
+    setImportApplyStatus({ state: "confirming", preview, plan: importStatus.plan });
   }
 
   async function handleConfirmImportApply(preview: ImportCatalogPreview) {
-    if (preview.summary.blocked) return;
+    if (preview.summary.blocked || importApplyStatus.state !== "confirming") return;
+    const plan = importApplyStatus.plan;
     setImportApplyStatus({ state: "pending" });
 
     try {
-      const [videos, images, performers, categories, glossary] = await Promise.all([
-        listVideos(),
-        listImages(),
-        listPerformers(),
-        listManagedCategories(),
-        listGlossaryEntries(),
-      ]);
-      const context = { videos, images, performers, categories, glossary };
-      const mutations = {
-          createVideo,
-          updateVideo,
-          deleteVideo,
-          createImage,
-          updateImage,
-          deleteImage,
-          createPerformer,
-          updatePerformer,
-          deletePerformer,
-          createManagedCategory,
-          updateManagedCategory,
-          deleteManagedCategory: deleteManagedCategoryRecord,
-          createGlossaryEntry,
-          updateGlossaryEntry,
-          deleteGlossaryEntry,
-      };
-      const reports: ImportCsvApplyReport[] = [];
-      for (const section of preview.sections) {
-        reports.push(await applyImportCsvPreview({
-          preview: section.preview,
-          context,
-          confirmed: true,
-          mutations,
-        }));
+      const result = await applyImportCatalogPlan(plan);
+      if (result.transactionStatus !== "committed") {
+        setImportApplyStatus({ state: "error", message: result.message });
+        showBackupToast("error", "Import was not applied", result.message);
+        return;
       }
-      const report = combineImportApplyReports(reports);
-
-      setImportApplyStatus({ state: "report", report });
       showBackupToast(
-        report.failed > 0 || report.errors > 0 ? "error" : "success",
-        report.failed > 0 || report.errors > 0
-          ? "Import completed with issues"
-          : "Import completed",
-        `${report.appliedAdded + report.appliedModified + report.appliedDeleted} row changes applied.`,
+        "success",
+        "Import completed",
+        `${result.createdCount + result.updatedCount + result.deletedCount} catalog changes applied together.`,
       );
+      setImportApplyStatus({ state: "idle" });
+      setImportStatus({ state: "idle" });
       await loadCategoryData();
     } catch (error) {
       setImportApplyStatus({
@@ -3209,7 +3184,8 @@ function CompactImportPreviewPanel({
   const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
   const applicableRows = preview.sections.reduce((total, section) => total + countApplicableImportRows(section.preview), 0);
   const needsAttentionRows = preview.rows.filter((row) => getImportRowStatus(row) === "Needs Review");
-  const canApply = !preview.summary.blocked && needsAttentionRows.length === 0 && applicableRows > 0 && importApplyStatus.state !== "pending";
+  const isApplyPending = importApplyStatus.state === "pending";
+  const canApply = !preview.summary.blocked && needsAttentionRows.length === 0 && applicableRows > 0 && !isApplyPending;
   const needsReview = preview.summary.blocked || preview.headerErrors.length > 0 || needsAttentionRows.length > 0;
   const counts = { all: preview.summary.totalRows, create: preview.summary.create, update: preview.summary.update, delete: preview.summary.delete, skip: preview.summary.skip, error: needsAttentionRows.length };
 
@@ -3218,7 +3194,7 @@ function CompactImportPreviewPanel({
       <span className="flex size-11 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500"><FileText size={21} /></span>
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{importStatus.displayName}</p><p className="mt-1 text-xs font-medium text-slate-500">{importStatus.format.toUpperCase()} <span className="px-1.5">•</span> {preview.summary.totalRows} {t("settings.importExport.rows")}</p></div>
       <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${needsReview ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}>{needsReview ? t("settings.importExport.needsReview") : t("settings.importExport.ready")}</span>
-      <span className="h-9 w-px bg-slate-200" /><button type="button" onClick={onChangeFile} className="text-sm font-semibold text-sakura-600 hover:text-sakura-700">{t("settings.importExport.changeFile")}</button>
+      <span className="h-9 w-px bg-slate-200" /><button type="button" disabled={isApplyPending} onClick={onChangeFile} className="text-sm font-semibold text-sakura-600 hover:text-sakura-700 disabled:text-slate-300">{t("settings.importExport.changeFile")}</button>
     </div>
 
     <div aria-label={t("settings.importExport.summary")} className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
@@ -3243,9 +3219,8 @@ function CompactImportPreviewPanel({
     </div>
 
     {importApplyStatus.state === "confirming" ? <ImportApplyConfirmPanel preview={importApplyStatus.preview} onCancelApply={onCancelApply} onConfirmApply={() => onConfirmApply(importApplyStatus.preview)} /> : null}
-    {importApplyStatus.state === "report" ? <ImportApplyReportPanel report={importApplyStatus.report} /> : null}
     {importApplyStatus.state === "error" ? <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{importApplyStatus.message}</p> : null}
-    <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4"><button type="button" onClick={onCancel} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600">{t("common.cancel")}</button><button type="button" disabled={!canApply} onClick={() => onRequestApply(preview)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400">{t("settings.importExport.applyImport")}</button></div>
+    <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4"><button type="button" disabled={isApplyPending} onClick={onCancel} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 disabled:bg-slate-100 disabled:text-slate-300">{t("common.cancel")}</button><button type="button" disabled={!canApply} onClick={() => onRequestApply(preview)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400">{t("settings.importExport.applyImport")}</button></div>
   </div>;
 }
 
@@ -3454,9 +3429,6 @@ function LegacyImportPreviewPanel({
             {importApplyStatus.message}
           </p>
         )}
-        {importApplyStatus.state === "report" && (
-          <ImportApplyReportPanel report={importApplyStatus.report} />
-        )}
       </div>
     </div>
   );
@@ -3496,6 +3468,7 @@ function ImportApplyConfirmPanel({
       <section role="dialog" aria-modal="true" aria-label={t("settings.import.confirmApply")} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
         <h3 className="text-base font-semibold text-slate-900">{t("settings.import.confirmApply")}</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">{t("settings.import.confirmApplyBody")}</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">{t("settings.import.confirmApplySafety")}</p>
         {summary.deleted > 0 ? <p className="mt-3 text-xs leading-5 text-amber-700">{t("settings.import.confirmApplyDelete", { count: String(summary.deleted) })}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" disabled={submitting} onClick={onCancelApply} className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:text-slate-300">{t("common.cancel")}</button>
@@ -3600,6 +3573,11 @@ function getImportRowDetails(
   }
   if (row.detectedResult === "Modified") {
     const detail = row.changeDetails?.length === 1 ? row.changeDetails[0] : undefined;
+    if (detail?.cleared) {
+      return t?.("settings.importExport.details.clearValue", {
+        field: humanizeImportField(detail.field),
+      }) ?? `${humanizeImportField(detail.field)} will be cleared`;
+    }
     if (detail && canShowImportValueChange(detail)) {
       return t?.("settings.importExport.details.changeValue", {
         field: humanizeImportField(detail.field),

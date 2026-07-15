@@ -32,8 +32,10 @@ import type {
   ImportCsvPreviewRow,
 } from "./importCsvPreview";
 import { storeManagedCategories } from "./managedCategories";
+import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 
-type CatalogRecord = Video | Image | Performer | ManagedCategory | GlossaryEntry;
+export type ImportCatalogRecord = Video | Image | Performer | ManagedCategory | GlossaryEntry;
+type CatalogRecord = ImportCatalogRecord;
 type CatalogPatch =
   | VideoPatch
   | ImagePatch
@@ -462,6 +464,32 @@ function buildPatchFromRow(
   return patch;
 }
 
+export function buildNormalizedImportPatch(
+  entity: ImportCsvEntity,
+  row: ImportCsvPreviewRow,
+  context: ImportCsvPreviewContext,
+) {
+  const definition = applyDefinitions.find((candidate) => candidate.entity === entity);
+  if (!definition) throw new Error("Unsupported catalog data type.");
+  const ref = (row.values["Sakurava Ref"] ?? "").trim();
+  const existing = definition.records(context).find(
+    (record) => sakuravaRef(definition.refPrefix, recordKey(record)) === ref,
+  );
+  return buildPatchFromRow(row, definition, context, existing);
+}
+
+export function resolveImportRecord(
+  entity: ImportCsvEntity,
+  ref: string,
+  context: ImportCsvPreviewContext,
+) {
+  const definition = applyDefinitions.find((candidate) => candidate.entity === entity);
+  if (!definition) return undefined;
+  return definition.records(context).find(
+    (record) => sakuravaRef(definition.refPrefix, recordKey(record)) === ref,
+  );
+}
+
 function applySimpleField({
   patch,
   header,
@@ -491,12 +519,12 @@ function applySimpleField({
   }
 
   if (internalField === "parentCategoryName") {
-    patch.parentKey = resolveParentCategoryKey(value, context);
+    patch.parentKey = resolveParentCategoryKey(clearValue(value), context);
     return;
   }
 
   if (internalField === "parentId" && definition.entity === "glossary") {
-    patch.parentId = resolveGlossaryParentId(value, context);
+    patch.parentId = resolveGlossaryParentId(clearValue(value), context);
     return;
   }
 
@@ -505,17 +533,18 @@ function applySimpleField({
     internalField === "aliasesJson" ||
     internalField === "synonymsJson"
   ) {
-    patch[internalField] = JSON.stringify(parseSemicolonList(value));
+    patch[internalField] = JSON.stringify(parseSemicolonList(clearValue(value)));
     return;
   }
 
   if (isRelatedField(internalField)) {
-    patch[internalField] = JSON.stringify(resolveRelatedList(header, value, context));
+    patch[internalField] = JSON.stringify(resolveRelatedList(header, clearValue(value), context));
     return;
   }
 
   if (internalField === "heightCm" || internalField === "weightKg") {
-    patch[internalField] = value.trim() ? Number(value) : null;
+    const normalized = clearValue(value);
+    patch[internalField] = normalized.trim() ? Number(normalized) : null;
     return;
   }
 
@@ -533,7 +562,7 @@ function applySimpleField({
     return;
   }
 
-  patch[internalField] = value;
+  patch[internalField] = clearValue(value);
 }
 
 function applyRatingFields(
@@ -566,7 +595,7 @@ function applyRatingFields(
       continue;
     }
     const key = column.internalField.replace("ratingJson.", "");
-    const value = row.values[column.header].trim();
+    const value = clearValue(row.values[column.header]).trim();
     if (!value) {
       delete base[key];
     } else {
@@ -598,7 +627,7 @@ function applyPathArrayFields(
   ) {
     patch.galleryImagePathsJson = JSON.stringify(
       galleryHeaders
-        .map((column) => row.values[column.header]?.trim() ?? "")
+        .map((column) => clearValue(row.values[column.header] ?? "").trim())
         .filter(Boolean),
     );
   }
@@ -612,7 +641,7 @@ function applyPathArrayFields(
   ) {
     patch.performerThumbnailPathsJson = JSON.stringify(
       thumbnailHeaders
-        .map((column) => row.values[column.header]?.trim() ?? "")
+        .map((column) => clearValue(row.values[column.header] ?? "").trim())
         .filter(Boolean),
     );
   }
@@ -690,11 +719,16 @@ function resolveGlossaryParentId(
 ) {
   const ref = parentRef.trim();
   if (!ref) return "";
+  if (/^GLO-NEW-/.test(ref)) return ref;
   const match = (context.glossary ?? []).find(
     (entry) => sakuravaRef("GLO", entry.id) === ref,
   );
   if (!match) throw new Error(`Glossary parent was not found: ${ref}.`);
   return match.id;
+}
+
+function clearValue(value: string | undefined) {
+  return (value ?? "").trim() === SAKURAVA_CLEAR_VALUE ? "" : (value ?? "");
 }
 
 function rowSafetyIssue(row: ImportCsvPreviewRow) {

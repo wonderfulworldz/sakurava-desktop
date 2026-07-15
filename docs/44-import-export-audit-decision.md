@@ -1,17 +1,18 @@
 # Import / Export Final Product and Format Decision
 
-Status: Batch 41.8.0 final decision. This is a documentation-only batch.
+Status: Batch 41.8.2 implemented integrity and safety decision. Batch 41.8.1 is merged.
 
 ## 1. Executive summary
 
-Sakurava currently has a functional CSV bulk-edit workflow for Videos, Images,
-Performers, and Managed Categories. It is not a visual shell: it exports,
-previews, validates, confirms, and applies individual CSV rows
-(src/pages/SettingsPage.tsx: handleExportCsv, handleImportCsvPreview, and
-handleConfirmImportApply; src/lib/exportCsv.ts; src/lib/importCsvPreview.ts;
-src/lib/importCsvApply.ts).
+Sakurava now has a shared XLSX/CSV bulk-edit workflow for Videos, Images,
+Performers, Managed Categories, and Glossary. It exports a canonical field
+contract, validates a normalized immutable operation plan, confirms it, and
+applies the whole plan through one safety-backed transaction
+(src/pages/SettingsPage.tsx: handleImportCatalogPreview and
+handleConfirmImportApply; src/lib/importOperationPlan.ts;
+src-tauri/src/commands.rs: import_catalog_apply).
 
-The approved future product is one Import / Export system with two equivalent
+The approved product is one Import / Export system with two equivalent
 file representations:
 
 - **XLSX Recommended** — the primary human bulk-edit format.
@@ -21,55 +22,108 @@ They use the same data fields, actions, validation, Preview outcomes, and CRUD
 apply behavior. A **data type** means one supported record grouping, such as
 Videos; this document avoids the ambiguous user-facing term “domain.”
 
-The initial data types are Videos, Images, Performers, and Managed Categories.
+The supported data types are Videos, Images, Performers, Managed Categories,
+and Glossary.
 The workflow supports Create, Read/Preview, Update, and explicit Delete. Before
-any mutation it must validate, show a summary-first Preview, obtain explicit
-confirmation, automatically create a safety backup, revalidate stale Preview
-state, and apply atomically. **Atomic** (or transactional) means all approved
+any mutation it validates, shows a summary-first Preview, obtains explicit
+confirmation, revalidates stale Preview state, automatically creates a safety
+backup, and applies atomically. **Atomic** (or transactional) means all approved
 changes succeed together, or none are committed; users must never be left with
 a half-imported file.
 
 This is Import / Export, not Backup / Recovery. It must not replace the live
 database or reuse backup_package_restore as an import operation.
 
+### Implemented 41.8.2 safety boundary
+
+**Versioned XLSX contract:** `src/lib/importExportContract.ts` defines
+application ID `app.sakurava.desktop`, import contract version `1`, export
+format version `1`, and workbook type. `buildXlsxWorkbook` writes these fields,
+the generation timestamp, and included data types as deterministic JSON in the
+very-hidden `__SakuravaMetadata` sheet. `buildXlsxCatalogPreview` validates that
+metadata, declared/actual sheets, duplicate sheets, and malformed/formula-error
+cells before Preview. Tests verify the very-hidden sheet and deterministic
+version survive ExcelJS write, user edits to Data, save, and read-back. Missing
+metadata produces an explicit legacy-sheet warning; malformed, exposed, or
+unsupported metadata blocks Apply (`src/lib/exportWorkbook.ts`;
+`src/lib/importCatalog.ts`).
+
+**CSV compatibility policy:** CSV remains an ordinary UTF-8 table without a
+nonstandard comment preamble. Import infers the version-1 compatibility
+contract only from one supported canonical header set; a filename is never
+sufficient proof. Missing required, duplicate, renamed/unsupported headers and
+duplicate record identifiers block Apply. Missing optional headers warn
+(`validateHeaders` and `findDuplicateRefs` in
+`src/lib/importCsvPreview.ts`).
+
+**Explicit clear decision:** the exact case-sensitive token is
+`[[SAKURAVA:CLEAR:v1]]`. It is namespaced and versioned to avoid reasonable
+user-data collisions. Blank Update cells mean unchanged. The exact token clears
+only a nullable editable field marked `clearable` by the canonical contract;
+required fields, Action, and Sakurava Ref reject it. Near-marker literal text is
+preserved. Preview records “value will be cleared,” and Apply receives the same
+normalized empty/null operation (`CsvSchemaColumn.clearable`, `previewRow`, and
+`buildNormalizedImportPatch`).
+
+**Immutable Preview plan and stale protection:** `buildImportOperationPlan`
+stores source row, section, resolved action, stable identifier, current record,
+normalized proposed values, field differences, clear fields, warnings/issues,
+dependencies, the trusted catalog context, a source-file fingerprint, and a
+deterministic operation fingerprint (`src/lib/importOperationPlan.ts`).
+Immediately before mutation, `apply_import_catalog_plan` verifies both signed
+fingerprints and re-reads the catalog under the database lock. Stale comparison
+projects only affected records, referenced records, connected Glossary
+parents/children, and records or Credits that determine category Delete
+eligibility. Unrelated catalog and Credit changes do not invalidate Preview.
+Relevant changes return `stalePreview` and create neither a backup nor a
+mutation (`import_revalidation_snapshot` in `src-tauri/src/commands.rs`).
+
+**Safety backup, atomic Apply, and rollback:** the runtime reuses the existing
+Safety package writer through `create_import_safety_backup_package`; it does not
+reuse Restore as Import (`src-tauri/src/database.rs`). Only after revalidation
+and successful backup does the runtime open one SQLite transaction. All creates,
+updates, explicit clears, and deletes commit together; any failure rolls back
+and reports zero applied counts. `ImportCatalogApplyResult` returns
+committed/blocked/rolled-back status, a safe backup package name, exact counts,
+failure stage, user message, and rollback state without SQL, paths, or stack
+traces (`src-tauri/src/commands.rs`; `src/runtime/importCommands.ts`).
+
+**Same-file Glossary parents:** new Glossary rows may declare a unique temporary
+identifier shaped `GLO-NEW-...`, and another row may use it in Parent Ref.
+Preview blocks missing, duplicate, self, circular, and delete-conflicting
+parents. The uppercase namespace is reserved for temporary Create references,
+cannot collide with an existing permanent ID, is never emitted by export, and
+is never persisted. Apply topologically creates parents and substitutes
+generated permanent database IDs before children. Names never determine identity
+(`validateGlossaryDependencies`; `apply_import_operations`). Other catalog
+relationships still require existing stable identifiers.
+
 ## 2. Existing and verified repository behavior
 
 ### Current UI and frontend
 
-Settings has a separate Import / Export card. Import CSV opens a file picker and
-produces a preview; Export CSV progressively reveals buttons for Videos, Images,
-Performers, and Categories (src/pages/SettingsPage.tsx: Import / Export
-SettingsPanelCard and ImportPreviewPanel). The checked Preview Before Apply
-switch is visual-only: it has no state or handler, while preview itself is
-already mandatory (src/pages/SettingsPage.tsx: ShellToggle beside
-settings.importExport.preview).
+Settings has a compact Idle/Import/Export card. Import accepts trusted CSV/XLSX
+selection, then shows file metadata and the bounded summary Preview. Export
+selects any of the five supported data types, XLSX/CSV, and data/template mode
+(`ImportExportPanel` and `CompactImportPreviewPanel` in
+`src/pages/SettingsPage.tsx`). Preview is mandatory and no empty table is shown
+before file selection.
 
-The current frontend exports all records of one type at a time. It reads one
-CSV, lists current records, detects the entity from headers, builds a preview,
-and invokes ordinary create/update/delete wrappers on confirmation
-(src/pages/SettingsPage.tsx: handleExportCsv, handleImportCsvPreview, and
-handleConfirmImportApply).
-
-Existing CSV actions are Auto, Update, Add, Delete, and Skip, with blank
-interpreted as Auto (src/lib/importCsvPreview.ts: parseImportAction). The
-approved name is now **Create**, replacing the future product/UI use of Add;
-existing code remains an audit finding, not a changed runtime contract.
+The frontend loads one catalog snapshot while parsing, builds one normalized
+plan, and retains that exact plan through confirmation. It no longer invokes
+ordinary row-by-row CRUD wrappers (`handleImportCatalogPreview`,
+`handleRequestImportApply`, and `handleConfirmImportApply`). Actions are Auto,
+Create, Update, Delete, and Skip; blank Action is Auto
+(`parseImportAction` in `src/lib/importCsvPreview.ts`).
 
 ### Current runtime and filesystem behavior
 
-writeExportCsv invokes Rust export_csv_write with a destination path and CSV
-text; readImportCsv invokes import_csv_read with a source path
-(src/runtime/exportCommands.ts; src/runtime/importCommands.ts;
-src-tauri/src/commands.rs: export_csv_write and import_csv_read).
-
-The Tauri dialog helpers choose CSV paths through the save/open dialogs
-(src/runtime/dialogCommands.ts: selectExportCsvDestination and
-selectImportCsvSource). Rust import checks that an existing path is a CSV file
-and reads UTF-8 text. Rust export rejects an empty path or directory and writes
-with fs::write; it does not prevent overwrite or prove that a supplied path came
-from a picker (src-tauri/src/commands.rs: read_import_csv_file,
-validate_import_csv_source, write_export_csv_file, and
-validate_export_csv_destination).
+Trusted Tauri dialogs select CSV/XLSX sources and single-file or folder export
+destinations. `import_catalog_file_read` accepts only existing `.csv`/`.xlsx`
+files chosen by the picker; export writers validate extensions and reject
+existing destinations rather than silently overwrite
+(`src/runtime/dialogCommands.ts`; `src/runtime/catalogExport.ts`;
+`src-tauri/src/commands.rs`: import/export validation helpers).
 
 ### Current validation, matching, and apply behavior
 
@@ -86,33 +140,31 @@ validateEditableFields, validateCategories, and validateRelated).
 Unknown/ambiguous related references and unknown categories are prevented from
 apply (src/lib/importCsvApply.ts: blockingWarningPatterns and rowSafetyIssue).
 
-Updates are partial patches, so fields not represented by a changed CSV header
-are preserved (src/lib/importCsvApply.ts: buildPatchFromRow). However, current
-empty editable cells can be applied as empty values for a changed row. That is
-existing behavior and is superseded by the approved future clear policy below.
-
-Current apply is not atomic: applyImportCsvPreview loops through rows, performs
-one normal mutation at a time, catches row failures, and reports the mixture.
-Category rows are similarly applied parent-first (src/lib/importCsvApply.ts:
-applyImportCsvPreview, applyRow, and applyCategoryRows). The UI only advises the
-user to create a backup; it does not create one automatically
-(src/pages/SettingsPage.tsx: ImportApplyConfirmPanel, near “Create a Backup
-Database before applying imports”).
+Updates are partial patches: blank cells and absent optional headers preserve
+current fields; the exact clear token is the only clearing instruction
+(`previewRow` and `buildNormalizedImportPatch`). Apply is atomic and uses the
+existing Safety package system before opening its transaction
+(`apply_import_catalog_plan` and `create_import_safety_backup_package`).
 
 ### Existing tests
 
-- src/lib/exportCsv.test.ts covers four entity schemas, escaping, friendly
+- src/lib/exportCsv.test.ts covers five entity schemas, escaping, friendly
   headers, refs, dates, lists, paths, related values, and categories.
 - src/lib/importCsvPreview.test.ts covers parsing, headers, actions,
   date/rating validation, classifications, categories, relations, and
   non-mutating preview.
 - src/lib/importCsvApply.test.ts covers confirmation, row outcomes, blocked
-  rows, removal behavior, no media mutation, and Managed Category hierarchy.
-- src/App.test.tsx covers progressive disclosure, Video preview/apply/report,
-  category consistency, and Video/Category export.
+  rows, removal behavior, no media mutation, and Managed Category hierarchy
+  constraints.
+- src/lib/importCatalog.test.ts and src/lib/importOperationPlan.test.ts cover
+  XLSX metadata/sheets/cells, CSV compatibility, Glossary dependencies, clears,
+  and deterministic plans.
+- src/App.test.tsx covers the Idle/Import/Export workflow, Preview controls,
+  confirmation, and supported exports.
 - src/runtime/exportCommands.test.ts covers current local timestamp naming.
-- src-tauri/src/commands.rs tests near export_csv_write_* and import_csv_read_*
-  cover filesystem validation and read/write behavior.
+- src-tauri/src/commands.rs tests prove stale Preview creates no backup,
+  operation failure rolls back earlier changes, and same-file Glossary
+  parent/child creation commits together.
 
 ## 3. Import / Export boundary
 
@@ -124,7 +176,7 @@ Catalog CSV is record exchange. Prior architecture explicitly separates them
 (docs/43-settings-architecture-decision.md: Import rules and risk table;
 docs/40-import-export-bulk-data-plan.md: boundary and safety sections).
 
-### Approved future product decision
+### Approved and implemented product boundary
 
 Import / Export is selected record exchange and migration. It may create,
 update, or explicitly delete supported records, but it must never directly
@@ -145,16 +197,16 @@ columns, identifiers, actions, and values Sakurava reads and writes. A
 | Compatibility format | **CSV Compatibility** |
 | Meaning | Same fields, Action behavior, validation, Preview results, and CRUD apply for both formats |
 | Unsupported in Batch 41.8 | ODS, legacy XLS, HTML tables, JSON exchange, ZIP/archive formats, and other formats |
-| Data types | Videos, Images, Performers, Managed Categories |
+| Data types | Videos, Images, Performers, Managed Categories, Glossary |
 | Record Categories | Embedded record fields where currently applicable; categoriesJson remains the storage model |
 | Required contract metadata | Explicit format/version marker appropriate to the representation |
 | Required headers/fields | Missing required headers are blocking errors |
 | Optional headers/fields | Missing optional headers are tolerated with clear warnings where appropriate |
 
-Current CSV has an implicit Sakurava contract through its locked headers but no
-explicit format/version marker (src/lib/exportCsv.ts: schemas;
-src/lib/importCsvPreview.ts: detectCsvEntity). The explicit marker is an
-approved future requirement, not current behavior.
+CSV deliberately uses version-1 compatibility inference through its exact
+locked headers rather than a nonstandard preamble. XLSX carries the explicit
+machine-readable metadata marker (`src/lib/importExportContract.ts`;
+`src/lib/importCatalog.ts: readWorkbookMetadata`).
 
 ### File naming
 
@@ -173,11 +225,10 @@ skv-per-20261407-053825.xlsx
 ~~~
 
 Type codes are vid Videos, img Images, per Performers, cat Managed Categories,
-and all multiple/all supported data types. Timestamp components use the local
-date and time of the computer performing the export. Existing CSV naming already
-follows the YYYYDDMM-HHmmss local timestamp pattern
-(src/runtime/exportCommands.ts: defaultExportCsvFileName and
-localFileTimestamp); XLSX and multi-type naming are approved future behavior.
+glo Glossary, and all multiple/all supported data types. Timestamp components
+use the local date and time of the computer performing the export. XLSX and CSV,
+including multi-file CSV, use one operation timestamp
+(`src/lib/exportArtifacts.ts`; `src/runtime/catalogExport.ts`).
 
 ## 5. Approved XLSX design
 
@@ -196,7 +247,8 @@ For an empty single-type template, the workbook contains:
    importer.
 
 For multi-type XLSX export, produce one skv-all workbook with an Instructions
-sheet and separate Videos, Images, Performers, and Managed Categories sheets.
+sheet and separate Videos, Images, Performers, Managed Categories, and Glossary
+sheets.
 Real Data sheets never contain dummy records.
 
 If a selected data type has no records, do not present normal data export.
@@ -223,16 +275,19 @@ Template rather than a normal data export.
 | Images | CSV import/export | XLSX and CSV | Stable text identifier; Record Categories; related Performers and Videos |
 | Performers | CSV import/export | XLSX and CSV | Stable text identifier; manual aliases; Record Categories; related Videos and Images |
 | Managed Categories | CSV import/export | XLSX and CSV | Stable text identifier; parent/category metadata |
+| Glossary | XLSX/CSV import/export | XLSX and CSV | Stable GLO identifier; dependency-aware parent references |
 | Record Categories | Embedded fields | Embedded fields only | Text labels in categoriesJson; not a separate data type |
 
 A **stable identifier** is an opaque text value used to identify an existing
 record across an export/import cycle. Names are labels for people; they are not
 identity. A matching title, performer name, or category name must not
-automatically merge or overwrite a record. The current short hashed Sakurava Ref
-is the verified baseline; the final contract must provide stable text
-identifiers with collision detection and versioned semantics.
+automatically merge or overwrite a record. Contract version 1 retains the short
+hashed Sakurava Ref baseline and blocks duplicate/colliding visible identifiers
+both in the source file and in the current catalog (`findDuplicateRefs`;
+`buildCurrentRowsByRef`). A different identifier representation would require a
+later contract version to preserve round trips.
 
-Deferred data types are Glossary, Credits/roles, Settings/preferences,
+Deferred data types are Credits/roles, Settings/preferences,
 media-root configuration, original media files, and app-managed assets. Credits
 and roles remain deferred because their multiple-row identity and
 work/performer dependencies require a dedicated design
@@ -240,8 +295,8 @@ work/performer dependencies require a dedicated design
 
 Imported/exported data must not cause arbitrary local path mutation. No media
 file, cover/gallery/thumbnail byte, cache, or app-managed asset is copied,
-moved, renamed, rewritten, or deleted. Path text may be represented only under
-the future contract’s validated policy; it never grants filesystem authority.
+moved, renamed, rewritten, or deleted. Path text is represented only under the
+versioned contract’s validated policy; it never grants filesystem authority.
 This finalizes the portable path safety decision while leaving exact column
 presentation to implementation.
 
@@ -287,9 +342,9 @@ same computer.
 
 Plain-language rule: Sakurava and Excel on the same computer should read dates
 using the same local format. Cross-device locale handling is an edge case, not
-the initial product priority. This replaces the current CSV-only strict
-YYYY-MM-DD import validation (src/lib/importCsvPreview.ts: isValidDateOnly),
-which remains existing behavior until Batch 41.8.2 changes the parser.
+the initial product priority. `src/lib/importDate.ts` now normalizes local
+numeric dates, valid XLSX date cells and serials, and the stable YYYY-MM-DD
+fallback without a UTC calendar-day shift.
 
 ## 10. Approved update and clear policy
 
@@ -297,10 +352,9 @@ For Update, an empty editable cell means **leave the current value unchanged**.
 It must never silently erase existing data. Clearing an existing value requires
 an explicit clear instruction. This behavior is approved.
 
-The exact clear marker or spreadsheet control syntax is a **deferred
-implementation detail** for Batch 41.8.2. It must be shared by XLSX and CSV,
-explained in Instructions/How to Edit, previewed as a clear, and tested. The
-current empty-cell apply behavior is not approval for the future contract.
+The exact clear marker is implemented as `[[SAKURAVA:CLEAR:v1]]` and shared by
+XLSX and CSV. It is explained in XLSX Instructions, previewed as a field clear,
+and tested. Blank Update cells remain unchanged.
 
 ## 11. Approved import flow and safety
 
@@ -308,7 +362,7 @@ The required flow is:
 
 ~~~
 choose file → validate → summary Preview → review issues/changes
-→ explicit confirmation → automatic safety backup → revalidate → apply → result
+→ explicit confirmation → revalidate → automatic safety backup → apply → result
 ~~~
 
 Preview is read-only. It must show a summary first:
@@ -326,23 +380,25 @@ The initial review must not show a full raw table by default. Its levels are:
 2. Review Issues or Review Changes table.
 3. Selected-record field comparison and optional original source row.
 
-The main review table focuses on Status, Record, Action, Changes, and Issue.
+The main review table focuses on Row, Section, Record, Action, Details, and
+Status.
 Raw CSV/XLSX content is secondary detail. If blocking issues exist, Needs
 Attention opens or is prioritized and final apply is disabled.
 
-Automatic safety backup is mandatory before every mutating import. Apply must
-run inside one database transaction with in-transaction revalidation of
-identifiers, relationships, category constraints, and Preview freshness. If any
-approved operation fails, cancel/roll back all operations from that import and
+Automatic safety backup is mandatory before every mutating import. Preview
+freshness and affected references are revalidated under the database lock
+before backup. Apply then runs inside one database transaction, where existing
+CRUD constraints revalidate identifiers, relationships, and delete eligibility.
+If any approved operation fails, cancel/roll back all operations from that import and
 report the cause. The safety backup supports recovery but is not an alternate
-apply path. The existing frontend per-row partial-success behavior is therefore
-not the approved final implementation.
+apply path. The former frontend per-row partial-success path remains only as a
+legacy unit-tested helper and is no longer called by Settings Apply.
 
 ## 12. Approved export and import UX
 
 ### Export
 
-The future UI lets the user select one or more supported data types, choose
+The UI lets the user select one or more supported data types, choose
 **XLSX Recommended** or **CSV Compatibility**, then use one primary Export
 action and one trusted destination picker. It does not add unnecessary
 format/scope wizard steps.
@@ -362,27 +418,16 @@ before file selection. The UI then presents summary first, detailed tables on
 request or when issues need attention, Download Template, and How to Edit
 guidance.
 
-## 13. Existing safety mechanisms and final gaps
+## 13. Existing safety mechanisms and remaining hardening
 
-Existing mechanisms include picker use, CSV file checks, preview before apply,
-confirmation, validation, row reports, partial patches, explicit Delete,
-category deletion checks, and no media-byte operations
-(src/runtime/dialogCommands.ts; src/lib/importCsvPreview.ts;
-src/lib/importCsvApply.ts).
+Implemented mechanisms include trusted selection, XLSX/CSV contract validation,
+locale date parsing, summary Preview, immutable operation plans, explicit clear,
+stale revalidation, automatic Safety packages, atomic apply/rollback, structured
+results, no-silent-overwrite export, explicit Delete, hierarchy checks, and no
+media-byte operations. Remaining hardening is larger-file bounds, broader real
+Excel/locale fixtures, and selected-row field comparison presentation.
 
-Approved implementation must close these gaps:
-
-1. XLSX support and a shared XLSX/CSV normalized model.
-2. Explicit format/version metadata and stable identifier collision handling.
-3. Local-format date/time/number parsing.
-4. Summary-first Preview and stale-Preview revalidation.
-5. Explicit clear behavior.
-6. Automatic safety backup.
-7. A purpose-built runtime apply contract with atomic transaction and rollback.
-8. No-silent-overwrite export write behavior and validated picker authority.
-9. Bounded parsing, structured errors, and comprehensive round-trip coverage.
-
-No schema or migration is required for the initial four data types. No new
+No schema or migration is required for the five supported data types. No new
 schema is authorized by this decision.
 
 ## 14. Final Batch 41.8 sequence
@@ -395,58 +440,37 @@ Required tests: git diff --check and document whitespace review. Non-goals:
 production code, runtime contracts, schema/migrations, dependencies, or
 Backup/Recovery changes.
 
-### 41.8.1 — XLSX/CSV Export Contract and Templates
+### 41.8.1 — XLSX/CSV Catalog Workflows
 
-Purpose: build a single export contract represented as XLSX Recommended and CSV
-Compatibility. Exact scope: format/version markers, file naming, one/multi-type
-exports, empty templates, XLSX Instructions/Data/Examples sheets, CSV templates,
-field mappings, and trusted destinations. Risk: medium. Required tests: contract
-snapshots, filenames, empty/template behavior, all type/sheet/folder layouts,
-local formatting, and no overwrite/path mutation. Non-goals: import parsing,
-apply, media bytes, extra formats, schema/migrations.
+Purpose: build the shared XLSX Recommended/CSV Compatibility catalog workflow.
+Exact scope: canonical fields, file naming, one/multi-type exports, templates,
+trusted destinations, locale-aware CSV/XLSX parsing, five-data-type Preview,
+and the compact Idle/Import/Export UI. Risk: medium/high. Required tests:
+contract parity, filenames, sheets/folders, templates, locale parsing, Preview
+actions, workflow states, and no overwrite/path mutation. Non-goals: immutable
+operation plans, stale revalidation, automatic import safety backup, atomic
+apply, media bytes, extra formats, or schema/migrations.
 
-### 41.8.2 — XLSX/CSV Parser and Summary Preview
+### 41.8.2 — Import Integrity and Safety
 
-Purpose: normalize both representations into one validation and summary-preview
-pipeline. Exact scope: format/version detection, locale-aware values with
-YYYY-MM-DD fallback, required/optional headers, stable identifiers, Action
-classification, explicit-clear marker, limits, issues, changes, and stale token.
-Risk: high. Required tests: both formats produce identical normalized outcomes;
-invalid/version/locale/duplicate/conflict/clear cases; all four data types;
-Preview non-mutation; accessibility state coverage. Non-goals: mutations,
-safety-backup creation, media operations, schema/migrations.
+Purpose: make Preview and Apply one deterministic safety boundary. Exact scope:
+versioned XLSX metadata, exact-header CSV compatibility, explicit clear,
+immutable normalized operation and source-file fingerprints, same-file Glossary
+dependencies, dependency-scoped stale revalidation, automatic Safety package,
+one SQLite transaction, rollback, and structured results. Risk: high. Required tests: corrupt contracts/headers/cells,
+clear semantics, dependency graphs, stale state, backup ordering, commit and
+rollback, exact counts, and all five data types. Non-goals: schema changes,
+media transfer, Backup/Restore redesign, or additional formats.
 
-### 41.8.3 — CRUD Import Apply and Safety
+### 41.8.3 — Import Review and Round-trip Hardening
 
-Purpose: apply approved Create/Update/Delete operations safely. Exact scope:
-automatic safety backup, revalidation, one reviewed runtime command,
-transactional apply/rollback, structured results, and explicit Delete
-confirmation. Risk: high. Required tests: transaction success, failure-after-N
-rollback, safety-backup failure, stale conflicts, category/relationship
-constraints, no path/media mutation, and UI contract tests. Non-goals: database
-replacement, Backup restore reuse, extra data types/formats, migrations.
-
-### 41.8.4 — Import / Export Product UI
-
-Purpose: implement the approved compact, summary-first UI. Exact scope: file
-drop/choose, type detection, Recommended/Compatibility chooser, template/How to
-Edit, progressive review, issues/changes/field detail, confirmations, and
-friendly localized result states. Risk: medium. Required tests: state
-transitions, cancellation, issue prioritization, apply disabled, delete
-highlighting, accessibility, and all type/format user flows. Non-goals: new
-runtime semantics, visual polish unrelated to usability/accessibility, extra
-formats/data types.
-
-### 41.8.5 — Excel and CSV Round-trip Hardening
-
-Purpose: prove same-computer Excel/CSV reliability and defensive behavior.
-Exact scope: round-trip fixtures, regional date/time/decimal cases, workbook
-protection/validation behavior where supported, compatibility/error messages,
-large-file bounds, and regression hardening. Risk: medium/high. Required tests:
-Windows locale-aware fixtures, XLSX/CSV parity, cross-type workbooks, empty
-templates, explicit clears, conflict/rollback, and path/media safety. Non-goals:
-cross-device locale guarantees, ODS/XLS/HTML, archive dependencies, new data
-types, or schema changes.
+Purpose: harden review detail and real Excel/CSV round trips around the completed
+safety core. Exact scope: selected-row before/after comparison, expanded locale
+fixtures, compatibility fixtures from released 41.8.1 exports, accessible
+failure/re-review affordances, and disposable-catalog manual verification. Risk:
+medium. Required tests: XLSX/CSV parity, locale/date/decimal edge cases, clear
+display, stale re-review, and structured failure copy. Non-goals: a second
+apply/backup system, new formats, schema changes, or media transfer.
 
 ## 15. Resolved decisions and deferred implementation details
 
@@ -466,21 +490,20 @@ types, or schema changes.
 
 ### Deferred implementation details
 
-- Exact clear-value marker/control shared by XLSX and CSV.
-- Exact XLSX library/dependency selection.
-- Precise locale helper implementation.
-- UI visual details reserved for Batch 41.8.4.
+- Broader cross-device locale/Excel compatibility fixtures.
+- Selected-row comparison presentation and final visual details.
+- Any temporary-reference model beyond Glossary requires a separate
+  relationship decision.
 
 ## 16. Explicit non-goals
 
-- No production behavior change in Batch 41.8.0.
-- No runtime contract change, schema/migration, or dependency in this batch.
+- No schema/migration or new dependency in Batch 41.8.2.
 - No Backup/Recovery semantic change or database replacement through Import.
 - No ODS, legacy XLS, HTML table, JSON exchange, ZIP/archive, or additional
   format work for Batch 41.8.
 - No media copy, move, rename, rewrite, deletion, cache exchange, or arbitrary
   filesystem mutation from imported values.
-- No Glossary, Credits/roles, Settings/preferences, media-root configuration,
+- No Credits/roles, Settings/preferences, media-root configuration,
   original media files, or app-managed asset import/export.
 - No unrelated Settings, Batch 39, or Batch 40 changes.
 - No commit or amend.

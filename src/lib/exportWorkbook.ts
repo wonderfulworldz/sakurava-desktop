@@ -9,6 +9,12 @@ import {
   type CsvSchemaColumn,
   type ExportCsvEntity,
 } from "./exportCsv";
+import {
+  buildWorkbookMetadata,
+  SAKURAVA_CLEAR_VALUE,
+  SAKURAVA_METADATA_SHEET,
+  stableContractJson,
+} from "./importExportContract";
 
 export const EXPORT_CONTRACT_VERSION = "sakurava-bulk-edit-v1";
 
@@ -22,6 +28,7 @@ export type XlsxBuildOptions = {
   locale: string;
   timeZone?: string;
   template?: boolean;
+  generatedAt?: Date;
 };
 
 export type XlsxBuildResult = {
@@ -39,7 +46,10 @@ export async function buildXlsxWorkbook(
   workbook.company = "Sakurava";
   workbook.subject = "Sakurava bulk-edit export";
   workbook.description = `${EXPORT_CONTRACT_VERSION}; locale=${options.locale}; dataTypes=${options.selections.map((selection) => selection.dataType).join(",")}`;
-  workbook.created = new Date();
+  const generatedAt = options.generatedAt ?? new Date();
+  workbook.created = generatedAt;
+
+  addMetadataSheet(workbook, options, generatedAt);
 
   addInstructionsSheet(workbook, options);
   const isSingleTemplate = options.template === true && options.selections.length === 1;
@@ -60,9 +70,23 @@ export async function buildXlsxWorkbook(
   const buffer = await workbook.xlsx.writeBuffer();
   return {
     bytes: new Uint8Array(buffer),
-    sheetNames: workbook.worksheets.map((worksheet) => worksheet.name),
+    sheetNames: workbook.worksheets
+      .filter((worksheet) => worksheet.name !== SAKURAVA_METADATA_SHEET)
+      .map((worksheet) => worksheet.name),
     template: options.template === true,
   };
+}
+
+function addMetadataSheet(workbook: Workbook, options: XlsxBuildOptions, generatedAt: Date) {
+  const metadata = buildWorkbookMetadata({
+    dataTypes: options.selections.map((selection) => selection.dataType),
+    generatedAt,
+    template: options.template === true,
+  });
+  const worksheet = workbook.addWorksheet(SAKURAVA_METADATA_SHEET);
+  worksheet.state = "veryHidden";
+  worksheet.getCell("A1").value = stableContractJson(metadata);
+  worksheet.getCell("A1").numFmt = "@";
 }
 
 function addInstructionsSheet(workbook: Workbook, options: XlsxBuildOptions) {
@@ -83,9 +107,9 @@ function addInstructionsSheet(workbook: Workbook, options: XlsxBuildOptions) {
   worksheet.addRow(["Required fields", requiredFieldSummary(options.selections)]);
   worksheet.addRow(["Optional fields", "May be left empty when creating a record."]);
   worksheet.addRow(["Empty cells", "For future Update import, an empty cell leaves the current value unchanged."]);
-  worksheet.addRow(["Clear existing value", "An explicit clear control is planned for Batch 41.8.2; no marker is defined yet."]);
+  worksheet.addRow(["Clear existing value", `Enter ${SAKURAVA_CLEAR_VALUE} in a nullable editable field. Blank Update cells remain unchanged.`]);
   worksheet.addRow(["Identifiers", "Sakurava Ref is text and read-only. Do not edit it manually."]);
-  worksheet.addRow(["Import availability", "XLSX import parsing and Preview are planned for Batch 41.8.2."]);
+  worksheet.addRow(["Import safety", "Sakurava validates and previews this file before applying it. Examples are never imported."]);
   worksheet.addRow(["Examples", "Example sheets are guidance only and will never be imported as real data."]);
 
   const titleRow = worksheet.getRow(1);

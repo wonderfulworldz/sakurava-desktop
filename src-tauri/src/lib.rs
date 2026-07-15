@@ -35,6 +35,7 @@ pub fn run() {
             commands::export_file_set_write,
             commands::import_csv_read,
             commands::import_catalog_file_read,
+            commands::import_catalog_apply,
             commands::media_asset_allow_root,
             commands::path_status_check,
             commands::media_metadata_probe,

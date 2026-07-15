@@ -988,6 +988,8 @@ const englishDictionary: TranslationDictionary = {
   "settings.importExport.preview": "Preview Before Apply",
   "settings.import.confirmApply": "Apply this import?",
   "settings.import.confirmApplyBody": "The reviewed changes will be applied to your catalog.",
+  "settings.import.confirmApplySafety": "Sakurava will create a safety backup first, then apply every approved change together. Original media files will not be changed.",
+  "settings.importExport.details.clearValue": "{field} will be cleared",
   "settings.import.confirmApplyDelete": "{count} records will be deleted. Original media files will not be changed.",
   "settings.import.confirmApplyAction": "Apply Import",
   "settings.import.applyReport": "Import apply report",
