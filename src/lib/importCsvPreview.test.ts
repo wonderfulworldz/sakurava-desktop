@@ -128,6 +128,105 @@ describe("import CSV preview", () => {
     expect(unchangedPreview.rows[0].detectedResult).toBe("Unchanged");
   });
 
+  it("resolves formatted, canonical, and lowercase contract-v3 references", () => {
+    const existing = video({ id: "video-hidden-51", sakuravaRef: "V26070051", title: "Spook Shack" });
+    for (const reference of ["V2607-0051", "V26070051", "v2607-0051", "v26070051"]) {
+      const preview = buildImportCsvPreview(
+        withVideoRow({ Action: "Auto", "Sakurava Ref": reference, Title: "Spook Shack Updated" }),
+        context({ videos: [existing] }),
+      );
+      expect(preview.rows[0].errors).toEqual([]);
+      expect(preview.rows[0].detectedResult).toBe("Modified");
+      expect(preview.rows[0].target).toBe("Spook Shack Updated");
+    }
+  });
+
+  it("round-trips formatted, canonical, and lowercase v3 identities for all sections", () => {
+    const cases = [
+      {
+        formatted: "V2607-0051", canonical: "V26070051", label: "Spook Shack",
+        csv: buildVideosCsv([video({ id: "video-hidden", sakuravaRef: "V26070051", title: "Spook Shack" })]),
+        catalog: context({ videos: [video({ id: "video-hidden", sakuravaRef: "V26070051", title: "Spook Shack" })] }),
+      },
+      {
+        formatted: "I2607-0018", canonical: "I26070018", label: "Gallery Set",
+        csv: buildImagesCsv([image({ id: "image-hidden", sakuravaRef: "I26070018", title: "Gallery Set" })]),
+        catalog: context({ images: [image({ id: "image-hidden", sakuravaRef: "I26070018", title: "Gallery Set" })] }),
+      },
+      {
+        formatted: "P2607-0007", canonical: "P26070007", label: "Fictional Performer",
+        csv: buildPerformersCsv([performer({ id: "performer-hidden", sakuravaRef: "P26070007", name: "Fictional Performer" })]),
+        catalog: context({ performers: [performer({ id: "performer-hidden", sakuravaRef: "P26070007", name: "Fictional Performer" })] }),
+      },
+      {
+        formatted: "C2607-0021", canonical: "C26070021", label: "Drama",
+        csv: buildCategoriesCsv([category({ key: "category-hidden", sakuravaRef: "C26070021", name: "Drama" })]),
+        catalog: context({ categories: [category({ key: "category-hidden", sakuravaRef: "C26070021", name: "Drama" })] }),
+      },
+      {
+        formatted: "G2607-0104", canonical: "G26070104", label: "Citation",
+        csv: buildGlossaryCsv([glossary({ id: "glossary-hidden", sakuravaRef: "G26070104", term: "Citation" })]),
+        catalog: context({ glossary: [glossary({ id: "glossary-hidden", sakuravaRef: "G26070104", term: "Citation" })] }),
+      },
+    ];
+
+    for (const item of cases) {
+      for (const identity of [item.formatted, item.canonical, item.formatted.toLowerCase()]) {
+        const preview = buildImportCsvPreview(item.csv.replace(item.formatted, identity), item.catalog);
+        expect(preview.rows[0].errors).toEqual([]);
+        expect(preview.rows[0].detectedResult).toBe("Unchanged");
+        expect(preview.rows[0].target).toBe(item.label);
+        expect(preview.rows[0].target).not.toContain(item.formatted);
+        expect(preview.rows[0].target).not.toContain("hidden");
+      }
+    }
+  });
+
+  it("distinguishes malformed current references from unknown valid references", () => {
+    const existing = video({ id: "video-hidden-51", sakuravaRef: "V26070051" });
+    const malformed = buildImportCsvPreview(
+      withVideoRow({ "Sakurava Ref": "V2607-051", Title: "Video" }),
+      context({ videos: [existing] }),
+    );
+    const unknown = buildImportCsvPreview(
+      withVideoRow({ "Sakurava Ref": "V2607-9999", Title: "Video" }),
+      context({ videos: [existing] }),
+    );
+    expect(malformed.rows[0].errors.join(" ")).toContain("not valid for Videos");
+    expect(unknown.rows[0].errors.join(" ")).toContain("was not found");
+  });
+
+  it("resolves current relationship references and never falls back to display names", () => {
+    const related = performer({ id: "performer-hidden", sakuravaRef: "P26070007", name: "Same Name" });
+    const currentRef = buildImportCsvPreview(
+      withVideoRow({ Action: "Create", Title: "Related", "Related Performers": "P2607-0007 | Same Name" }),
+      context({ performers: [related] }),
+    );
+    const displayOnly = buildImportCsvPreview(
+      withVideoRow({ Action: "Create", Title: "Related", "Related Performers": "Same Name" }),
+      context({ performers: [related] }),
+    );
+    expect(currentRef.rows[0].errors).toEqual([]);
+    expect(currentRef.rows[0].warnings).toEqual([]);
+    expect(displayOnly.rows[0].warnings.join(" ")).toContain("Unresolved related reference");
+  });
+
+  it("resolves public Category references to stored labels without display-name identity fallback", () => {
+    const managed = category({ key: "category-hidden", sakuravaRef: "C26070004", name: "Drama" });
+    const valid = buildImportCsvPreview(
+      withVideoRow({ Action: "Create", Title: "Categorized", Categories: "C2607-0004 | Drama" }),
+      context({ categories: [managed] }),
+    );
+    const unknownRefWithMatchingDisplay = buildImportCsvPreview(
+      withVideoRow({ Action: "Create", Title: "Categorized", Categories: "C2607-9999 | Drama" }),
+      context({ categories: [managed] }),
+    );
+    expect(valid.rows[0].errors).toEqual([]);
+    expect(valid.rows[0].warnings).toEqual([]);
+    expect(valid.rows[0].values.Categories).toBe("Drama");
+    expect(unknownRefWithMatchingDisplay.rows[0].warnings.join(" ")).toContain("Unknown category");
+  });
+
   it("canonicalizes equivalent booleans, enums, dates, numbers, and references before comparison", () => {
     const related = performer({ id: "performer-related", name: "Canonical Performer" });
     const existing = video({
@@ -218,7 +317,7 @@ describe("import CSV preview", () => {
     expect(empty.rows[0].changes).not.toContain("Categories");
   });
 
-  it("detects related additions/removals, unresolved warnings, and ambiguous display errors", () => {
+  it("detects related additions/removals and never resolves display names", () => {
     const performerA = performer({ id: "performer-1", name: "Performer A" });
     const duplicateA = performer({ id: "performer-2", name: "Performer A" });
     const performerB = performer({ id: "performer-3", name: "Performer B" });
@@ -248,7 +347,7 @@ describe("import CSV preview", () => {
       }),
       context({ videos: [existing], performers: [performerA] }),
     );
-    expect(unresolved.rows[0].warnings.join(" ")).toContain("Unresolved related value");
+    expect(unresolved.rows[0].warnings.join(" ")).toContain("Unresolved related reference");
 
     const ambiguous = buildImportCsvPreview(
       withVideoRow({
@@ -258,9 +357,7 @@ describe("import CSV preview", () => {
       }),
       context({ videos: [existing], performers: [performerA, duplicateA] }),
     );
-    expect(ambiguous.rows[0].errors.join(" ")).toContain(
-      "Ambiguous related display name",
-    );
+    expect(ambiguous.rows[0].warnings.join(" ")).toContain("Unresolved related reference");
   });
 
   it("blocks an ambiguous visible identifier collision in the current catalog", () => {

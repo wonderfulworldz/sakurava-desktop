@@ -4,6 +4,7 @@ import type {
   NewGlossaryEntry,
 } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
+import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
 
 export { isTauriRuntimeAvailable as isGlossaryRuntimeAvailable };
 
@@ -12,7 +13,7 @@ export function listGlossaryEntries() {
 }
 
 export function createGlossaryEntry(input: NewGlossaryEntry) {
-  return invokeTauriCommand<GlossaryEntry>("glossary_create", { input });
+  return invokeTauriCommand<GlossaryEntry>("glossary_create", { input: { ...input, issuanceYymm: currentSakuravaRefYymm() } });
 }
 
 export function updateGlossaryEntry(id: string, patch: GlossaryEntryPatch) {

@@ -8,6 +8,97 @@ import {
   buildXlsxWorkbook,
   type ExportDataSelection,
 } from "./exportWorkbook";
+import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
+import { formatSakuravaRef } from "./sakuravaRef";
+
+export function prepareSelectionsWithPublicRefs(
+  selections: ExportDataSelection[],
+): ExportDataSelection[] {
+  const byType = new Map(selections.map((selection) => [selection.dataType, selection.records]));
+  const publicRefMaps = {
+    videos: recordRefMap(byType.get("videos") ?? []),
+    images: recordRefMap(byType.get("images") ?? []),
+    performers: recordRefMap(byType.get("performers") ?? []),
+  };
+  const categoryRefsByName = new Map(
+    (byType.get("categories") ?? []).flatMap((record) => {
+      const category = record as ManagedCategory;
+      return category.sakuravaRef
+        ? [[category.name.trim().toLowerCase(), category.sakuravaRef] as const]
+        : [];
+    }),
+  );
+  return selections.map((selection) => ({
+    ...selection,
+    records: selection.records.map((record) => {
+      if (selection.dataType === "videos") {
+        const video = record as Video;
+        return {
+          ...video,
+          categoriesJson: replaceCategoryLabels(video.categoriesJson, categoryRefsByName),
+          relatedPerformersJson: replaceRelationshipIds(video.relatedPerformersJson, "performerId", publicRefMaps.performers),
+          relatedImagesJson: replaceRelationshipIds(video.relatedImagesJson, "recordId", publicRefMaps.images),
+        };
+      }
+      if (selection.dataType === "images") {
+        const image = record as Image;
+        return {
+          ...image,
+          categoriesJson: replaceCategoryLabels(image.categoriesJson, categoryRefsByName),
+          relatedPerformersJson: replaceRelationshipIds(image.relatedPerformersJson, "performerId", publicRefMaps.performers),
+          relatedVideosJson: replaceRelationshipIds(image.relatedVideosJson, "recordId", publicRefMaps.videos),
+        };
+      }
+      if (selection.dataType === "performers") {
+        const performer = record as Performer;
+        return {
+          ...performer,
+          categoriesJson: replaceCategoryLabels(performer.categoriesJson, categoryRefsByName),
+          relatedVideosJson: replaceRelationshipIds(performer.relatedVideosJson, "recordId", publicRefMaps.videos),
+          relatedImagesJson: replaceRelationshipIds(performer.relatedImagesJson, "recordId", publicRefMaps.images),
+        };
+      }
+      return record;
+    }),
+  }));
+}
+
+function replaceCategoryLabels(text: string, references: Map<string, string>) {
+  try {
+    const values = JSON.parse(text) as unknown;
+    if (!Array.isArray(values)) return text;
+    return JSON.stringify(values.map((value) => {
+      if (typeof value !== "string") return value;
+      const reference = references.get(value.trim().toLowerCase());
+      return reference ? `${formatSakuravaRef(reference)} | ${value}` : value;
+    }));
+  } catch {
+    return text;
+  }
+}
+
+function recordRefMap(records: unknown[]) {
+  return new Map(records.flatMap((record) => {
+    const value = record as { id?: string; sakuravaRef?: string };
+    return value.id && value.sakuravaRef ? [[value.id, value.sakuravaRef] as const] : [];
+  }));
+}
+
+function replaceRelationshipIds(
+  text: string,
+  field: "recordId" | "performerId",
+  references: Map<string, string>,
+) {
+  try {
+    const values = JSON.parse(text) as Array<Record<string, unknown>>;
+    return JSON.stringify(values.map((value) => ({
+      ...value,
+      [field]: references.get(String(value[field] ?? "")) ?? value[field],
+    })));
+  } catch {
+    return text;
+  }
+}
 
 export type ExportArtifact = {
   dataTypes: ExportCsvEntity[];

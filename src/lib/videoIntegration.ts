@@ -39,6 +39,8 @@ import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 import { buildCreditDetailItems } from "./creditDisplay";
+import { formatSakuravaRef } from "./sakuravaRef";
+import { sakuravaRef as legacySakuravaRef } from "./exportCsv";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -62,8 +64,8 @@ export function buildVideoDetailConfig(
   const baseConfig = detailConfigs.videos as VideoDetailConfig;
   return {
     ...baseConfig,
-    recordId: video.id,
-    editTo: `/videos/${video.id}/edit`,
+    recordId: video.sakuravaRef ?? video.id,
+    editTo: `/videos/${video.sakuravaRef ?? video.id}/edit`,
     coverPath: video.coverPath,
     displayTitle: video.title,
     originalTitle: video.originalTitle,
@@ -80,6 +82,7 @@ export function buildVideoDetailConfig(
       { label: "Media status", path: video.mediaPath, playable: true },
     ],
     systemInfo: [
+      { label: "Sakurava Ref", value: formatSakuravaRef(video.sakuravaRef ?? "") },
       { label: "Created in Sakurava", value: formatSystemTimestamp(video.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(video.updatedAt) },
     ],
@@ -112,7 +115,7 @@ export function buildVideoFormConfig(video: Video | null, mode: FormMode): FormC
   const values = videoToFormValues(video);
   return {
     ...formConfigs.videos,
-    editCancelTo: `/videos/${video.id}`,
+    editCancelTo: `/videos/${video.sakuravaRef ?? video.id}`,
     initialValues: {
       ...formConfigs.videos.initialValues,
       [mode]: values,
@@ -195,7 +198,9 @@ function toVideoCollectionItem(video: Video): VideoCollectionItem {
 
   return {
     kind: "videos",
-    key: video.id,
+    key: video.sakuravaRef ?? video.id,
+    sakuravaRef: video.sakuravaRef,
+    identityAliases: [video.id, legacySakuravaRef("VID", video.id)],
     title: video.title,
     originalTitle: video.originalTitle,
     code: video.code || "No code",

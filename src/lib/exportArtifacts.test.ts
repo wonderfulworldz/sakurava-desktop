@@ -6,6 +6,7 @@ import {
   defaultExportFileName,
   exportTypeCode,
   localExportTimestamp,
+  prepareSelectionsWithPublicRefs,
 } from "./exportArtifacts";
 import {
   EXPORT_ACTIONS,
@@ -109,6 +110,47 @@ describe("shared XLSX/CSV export contract", () => {
     expect(csv).toContain("Action,Sakurava Ref,Term,Definition,Parent Ref,Synonyms");
     expect(csv).toContain("Auto,GLO-");
     expect(csv).toContain("Fictional glossary definition");
+  });
+
+  it("converts current relationship keys to Sakurava Refs before export", () => {
+    const prepared = prepareSelectionsWithPublicRefs([
+      { dataType: "videos", records: [video({
+        sakuravaRef: "V26070001",
+        relatedPerformersJson: JSON.stringify([{ performerId: "performer-1", nameSnapshot: "One" }]),
+        relatedImagesJson: JSON.stringify([{ recordId: "image-1", titleSnapshot: "Image One" }]),
+        categoriesJson: JSON.stringify(["Drama"]),
+      })] },
+      { dataType: "images", records: [{
+        id: "image-1", sakuravaRef: "I26070003", categoriesJson: JSON.stringify(["Drama"]),
+        relatedVideosJson: JSON.stringify([{ recordId: "video-1", titleSnapshot: "Video" }]),
+        relatedPerformersJson: JSON.stringify([{ performerId: "performer-1", nameSnapshot: "One" }]),
+      }] },
+      { dataType: "performers", records: [{
+        id: "performer-1", sakuravaRef: "P26070007", categoriesJson: JSON.stringify(["Drama"]),
+        relatedVideosJson: JSON.stringify([{ recordId: "video-1", titleSnapshot: "Video" }]),
+        relatedImagesJson: JSON.stringify([{ recordId: "image-1", titleSnapshot: "Image One" }]),
+      }] },
+      { dataType: "categories", records: [{ key: "category-1", name: "Drama", sakuravaRef: "C26070004" }] },
+    ]);
+    const exportedVideo = prepared[0].records[0] as Video;
+    const exportedImage = prepared[1].records[0] as Image;
+    const exportedPerformer = prepared[2].records[0] as Performer;
+    expect(exportedVideo.relatedPerformersJson).toContain("P26070007");
+    expect(exportedVideo.relatedImagesJson).toContain("I26070003");
+    expect(exportedVideo.categoriesJson).toContain("C2607-0004 | Drama");
+    expect(exportedImage.relatedVideosJson).toContain("V26070001");
+    expect(exportedImage.relatedPerformersJson).toContain("P26070007");
+    expect(exportedImage.categoriesJson).toContain("C2607-0004 | Drama");
+    expect(exportedPerformer.relatedVideosJson).toContain("V26070001");
+    expect(exportedPerformer.relatedImagesJson).toContain("I26070003");
+    expect(exportedPerformer.categoriesJson).toContain("C2607-0004 | Drama");
+    const csv = buildEntityCsv("videos", [exportedVideo]);
+    expect(csv).toContain("P2607-0007 | One");
+    expect(csv).toContain("I2607-0003 | Image One");
+    expect(csv).toContain("C2607-0004 | Drama");
+    expect(csv).not.toContain("performer-1");
+    expect(csv).not.toContain("image-1");
+    expect(csv).not.toContain("category-1");
   });
 
   it("formats CSV dates for day-first and month-first locales and keeps invalid/empty values", () => {

@@ -15,13 +15,21 @@ import {
   glossaryCsvSchema,
   importSchemaFor,
   legacyImportHeadersFor,
+  exportEntityLabel,
   exportRowsFor,
   sakuravaRef,
+  sakuravaRefMatches,
   videoCsvSchema,
   type ExportCsvEntity,
   type CsvSchemaColumn,
 } from "./exportCsv";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
+import {
+  canonicalImportIdentity,
+  resolveSakuravaIdentity,
+  sakuravaIdentityLookupKeys,
+  sectionCodeForLegacyPrefix,
+} from "./sakuravaRef";
 import {
   IMPORT_MAX_CELL_CHARACTERS,
   IMPORT_MAX_FILE_BYTES,
@@ -433,8 +441,17 @@ function previewRow({
   }
 
   const temporaryRef = definition.entity === "glossary" && isTemporaryGlossaryRef(ref);
-  if (ref && !ref.startsWith(`${definition.refPrefix}-`)) {
-    errors.push(`Sakurava Ref must start with ${definition.refPrefix}-.`);
+  const identityResolution = ref && !temporaryRef
+    ? resolveSakuravaIdentity(
+        sectionCodeForLegacyPrefix(definition.refPrefix),
+        ref,
+        definition.records(context),
+      )
+    : null;
+  if (identityResolution?.status === "malformed") {
+    errors.push(`Sakurava Ref is not valid for ${exportEntityLabel(definition.entity)}.`);
+  } else if (identityResolution?.status === "ambiguous") {
+    errors.push(`Sakurava Ref resolves to more than one ${exportEntityLabel(definition.entity)} record.`);
   }
 
   if (ref && duplicateRefs.has(ref)) {
@@ -457,7 +474,7 @@ function previewRow({
   if (action === "Delete") {
     if (!ref) {
       errors.push("Delete requires a Sakurava Ref.");
-    } else if (temporaryRef || !currentRowsByRef.has(ref)) {
+    } else if (temporaryRef || !currentRowsByRef.has(canonicalImportIdentity(ref))) {
       errors.push(`Sakurava Ref was not found: ${ref}.`);
     }
     if (definition.entity === "categories" && ref) {
@@ -497,8 +514,9 @@ function previewRow({
     locale,
     invalidDateMessage,
   );
-  validateCategories(values, definition, currentRowsByRef.get(ref), context, changes, warnings);
-  validateRelated(values, definition, currentRowsByRef.get(ref), context, changes, warnings, errors);
+  const currentRow = currentRowsByRef.get(canonicalImportIdentity(ref));
+  validateCategories(values, definition, currentRow, context, changes, warnings, errors);
+  validateRelated(values, definition, currentRow, context, changes, warnings, errors);
   validateManagedCategoryParent(values, definition, context, errors);
   validateGlossaryFields(values, definition, ref, context, errors);
 
@@ -525,7 +543,6 @@ function previewRow({
     };
   }
 
-  const currentRow = currentRowsByRef.get(ref);
   if (!currentRow) {
     errors.push(`Sakurava Ref was not found: ${ref}.`);
   } else {
@@ -585,16 +602,14 @@ function validateManagedCategoryParent(
   if (definition.entity !== "categories") return;
   const parentRef = (values["Parent Ref"] ?? "").trim();
   if (parentRef && parentRef !== SAKURAVA_CLEAR_VALUE) {
-    if (!context.categories.some((category) => sakuravaRef("CAT", category.key) === parentRef)) {
+    if (!context.categories.some((category) => sakuravaRefMatches("CAT", parentRef, category))) {
       errors.push(`Parent Category reference was not found: ${parentRef}.`);
     }
     return;
   }
   const parent = (values["Parent Category"] ?? "").trim();
   if (!parent || parent === SAKURAVA_CLEAR_VALUE) return;
-  if (!context.categories.some((category) => category.name === parent)) {
-    errors.push(`Parent Category was not found: ${parent}.`);
-  }
+  errors.push("Parent Category requires a stable Parent Ref.");
 }
 
 export function isBlockingImportPreviewWarning(message: string) {
@@ -607,7 +622,7 @@ function validateCategoryDelete(
   errors: string[],
 ) {
   const category = context.categories.find(
-    (candidate) => sakuravaRef("CAT", candidate.key) === ref,
+    (candidate) => sakuravaRefMatches("CAT", ref, candidate),
   );
   if (!category) return;
   if (context.categories.some((candidate) => candidate.parentKey === category.key)) {
@@ -648,15 +663,16 @@ function validateGlossaryFields(
     if (parentRef === recordRef) errors.push("A Glossary entry cannot be its own parent.");
     return;
   }
-  if (!/^GLO-[0-9A-Z]+$/.test(parentRef)) {
+  const parentResolution = resolveSakuravaIdentity("G", parentRef, context.glossary ?? []);
+  if (parentResolution.status === "malformed") {
     errors.push("Parent Ref must be a valid GLO identifier.");
     return;
   }
-  if (parentRef === recordRef) {
+  if (canonicalImportIdentity(parentRef) === canonicalImportIdentity(recordRef)) {
     errors.push("A Glossary entry cannot be its own parent.");
     return;
   }
-  if (!(context.glossary ?? []).some((entry) => sakuravaRef("GLO", entry.id) === parentRef)) {
+  if (parentResolution.status !== "resolved") {
     errors.push(`Glossary parent was not found: ${parentRef}.`);
   }
 }
@@ -674,19 +690,27 @@ function buildCurrentRowsByRef(
   const rowsByRef = new Map<string, Record<string, string>>();
   const ambiguousRefs = new Set<string>();
 
-  for (const row of parsed.rows) {
+  const records = definition.records(context);
+  for (const [index, row] of parsed.rows.entries()) {
     const values = rowValues(parsed.headers, row);
     const ref = values["Sakurava Ref"]?.trim();
-    if (!ref || ambiguousRefs.has(ref)) {
+    if (!ref) {
       continue;
     }
-    if (rowsByRef.has(ref)) {
-      rowsByRef.delete(ref);
-      ambiguousRefs.add(ref);
-      headerErrors.push(`The catalog contains a conflicting Sakurava identifier: ${ref}.`);
-      continue;
+    const record = records[index];
+    const keys = record
+      ? sakuravaIdentityLookupKeys(sectionCodeForLegacyPrefix(definition.refPrefix), record)
+      : [canonicalImportIdentity(ref)];
+    for (const key of keys) {
+      if (ambiguousRefs.has(key)) continue;
+      if (rowsByRef.has(key)) {
+        rowsByRef.delete(key);
+        ambiguousRefs.add(key);
+        headerErrors.push(`The catalog contains a conflicting Sakurava identifier: ${ref}.`);
+        continue;
+      }
+      rowsByRef.set(key, values);
     }
-    rowsByRef.set(ref, values);
   }
 
   return rowsByRef;
@@ -701,7 +725,7 @@ function findDuplicateRefs(headers: string[], rows: string[][]) {
   }
 
   for (const row of rows) {
-    const ref = (row[refIndex] ?? "").trim();
+    const ref = canonicalImportIdentity(row[refIndex] ?? "");
     if (!ref) {
       continue;
     }
@@ -839,6 +863,7 @@ function validateCategories(
   context: ImportCsvPreviewContext,
   changes: string[],
   warnings: string[],
+  errors: string[],
 ) {
   if (definition.entity === "categories" || !("Categories" in values)) {
     return;
@@ -848,20 +873,35 @@ function validateCategories(
     return;
   }
 
-  const nextCategories = parseSemicolonList(values.Categories);
+  const nextCategories = parseSemicolonList(values.Categories).map((categoryValue) => {
+    const [possibleRef] = categoryValue.split("|");
+    const candidate = possibleRef.trim();
+    const resolution = resolveSakuravaIdentity("C", candidate, context.categories);
+    if (resolution.status === "resolved") {
+      return resolution.record.name;
+    }
+    const legacyName = context.categories.find(
+      (category) => category.name.trim().toLowerCase() === categoryValue.trim().toLowerCase(),
+    );
+    if (legacyName) {
+      return legacyName.name;
+    }
+    if (resolution.status === "malformed") {
+      errors.push(`Category Sakurava Ref is not valid: ${candidate}.`);
+    } else if (resolution.status === "ambiguous") {
+      errors.push(`Category Sakurava Ref resolves to more than one record: ${candidate}.`);
+    } else {
+      warnings.push(`Unknown category: ${categoryValue}.`);
+    }
+    return categoryValue;
+  });
+  values.Categories = nextCategories.join("; ");
   const currentCategories = parseSemicolonList(currentRow?.Categories ?? "");
-  const managedNames = new Set(context.categories.map((category) => category.name));
   const added = nextCategories.filter((category) => !currentCategories.includes(category));
   const removed = currentCategories.filter((category) => !nextCategories.includes(category));
 
   if (values.Categories.trim() === "" && currentCategories.length > 0) {
     warnings.push("This will remove all categories from this record if applied.");
-  }
-
-  for (const category of nextCategories) {
-    if (!managedNames.has(category)) {
-      warnings.push(`Unknown category: ${category}.`);
-    }
   }
 
   if (added.length > 0) {
@@ -927,14 +967,20 @@ function validateRelatedItem(
   }
 
   if (ref) {
-    const matched = relatedRecords(target, context).filter(
-      (record) => sakuravaRef(target.prefix, record.id) === ref,
+    const resolution = resolveSakuravaIdentity(
+      sectionCodeForLegacyPrefix(target.prefix),
+      ref,
+      relatedRecords(target, context),
     );
-    if (matched.length === 1) {
+    if (resolution.status === "resolved") {
       return;
     }
-    if (matched.length > 1) {
+    if (resolution.status === "ambiguous") {
       errors.push(`Ambiguous related reference: ${item}.`);
+      return;
+    }
+    if (resolution.status === "malformed") {
+      errors.push(`Related Sakurava Ref is not valid: ${item}.`);
       return;
     }
     warnings.push(`Unresolved related reference: ${item}.`);
@@ -946,16 +992,7 @@ function validateRelatedItem(
     return;
   }
 
-  const matches = relatedRecords(target, context).filter(
-    (record) => record.label === display,
-  );
-  if (matches.length === 1) {
-    errors.push(`Related value requires a stable Sakurava Ref: ${display}.`);
-  } else if (matches.length > 1) {
-    errors.push(`Ambiguous related display name: ${display}.`);
-  } else {
-    warnings.push(`Unresolved related value: ${display}.`);
-  }
+  errors.push(`Related value requires a stable Sakurava Ref: ${display}.`);
 }
 
 function relatedTarget(header: string) {
@@ -978,17 +1015,20 @@ function relatedRecords(
   if (target.kind === "performers") {
     return context.performers.map((record) => ({
       id: record.id,
+      sakuravaRef: record.sakuravaRef,
       label: record.name,
     }));
   }
   if (target.kind === "videos") {
     return context.videos.map((record) => ({
       id: record.id,
+      sakuravaRef: record.sakuravaRef,
       label: record.title,
     }));
   }
   return context.images.map((record) => ({
     id: record.id,
+    sakuravaRef: record.sakuravaRef,
     label: record.title,
   }));
 }
@@ -998,11 +1038,7 @@ function parseRelatedItem(item: string) {
   const ref = possibleRef.trim();
   const display = displayParts.join("|").trim();
 
-  if (/^(VID|IMG|PER)-[0-9A-Z]+$/.test(ref)) {
-    return { ref, display };
-  }
-
-  return { ref: "", display: item.trim() };
+  return { ref, display };
 }
 
 function parseSemicolonList(value: string) {
@@ -1043,7 +1079,7 @@ function normalizeCell(value: string) {
 
 function canonicalRelatedItem(item: string) {
   const { ref, display } = parseRelatedItem(item);
-  return ref ? ref.toUpperCase() : display;
+  return ref ? canonicalImportIdentity(ref) : display;
 }
 
 function normalizeBooleanCell(value: string) {
@@ -1070,12 +1106,13 @@ function canonicalCellForComparison(
     ) ?? normalized;
   }
   if (column?.valueType === "list/reference") {
+    const identityValues = column.header.startsWith("Related ") || column.header === "Parent Ref";
     return normalized
       .split(column.header === "Source Links" ? /\n+/ : ";")
       .map((item) => item.trim())
       .filter(Boolean)
-      .map((item) => /^(VID|IMG|PER|GLO)-[0-9A-Z-]+\s*\|/i.test(item)
-        ? item.split("|")[0].trim().toUpperCase()
+      .map((item) => identityValues
+        ? canonicalImportIdentity(item.split("|")[0])
         : item)
       .join(column.header === "Source Links" ? "\n" : "; ");
   }
@@ -1083,10 +1120,7 @@ function canonicalCellForComparison(
 }
 
 function targetText(ref: string, mainValue: string) {
-  if (ref && mainValue) {
-    return `${ref} | ${mainValue}`;
-  }
-  return ref || mainValue || "Unresolved row";
+  return mainValue || ref || "Unresolved row";
 }
 
 function unique(values: string[]) {

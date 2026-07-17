@@ -17,7 +17,7 @@ import type {
 } from "../backend/types";
 import {
   importSchemaFor,
-  sakuravaRef,
+  sakuravaRefMatches,
   type CsvInternalField,
   type CsvSchemaColumn,
 } from "./exportCsv";
@@ -29,6 +29,12 @@ import type {
 } from "./importCsvPreview";
 import { storeManagedCategories } from "./managedCategories";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
+import {
+  canonicalImportIdentity,
+  resolveSakuravaIdentity,
+  sakuravaIdentityLookupKeys,
+  sectionCodeForLegacyPrefix,
+} from "./sakuravaRef";
 
 export type ImportCatalogRecord = Video | Image | Performer | ManagedCategory | GlossaryEntry;
 type CatalogRecord = ImportCatalogRecord;
@@ -486,9 +492,12 @@ export function buildNormalizedImportPatch(
   const definition = applyDefinitions.find((candidate) => candidate.entity === entity);
   if (!definition) throw new Error("Unsupported catalog data type.");
   const ref = (row.values["Sakurava Ref"] ?? "").trim();
-  const existing = definition.records(context).find(
-    (record) => sakuravaRef(definition.refPrefix, recordKey(record)) === ref,
+  const resolution = resolveSakuravaIdentity(
+    sectionCodeForLegacyPrefix(definition.refPrefix),
+    ref,
+    definition.records(context),
   );
+  const existing = resolution.status === "resolved" ? resolution.record : undefined;
   return buildPatchFromRow(row, definition, context, existing);
 }
 
@@ -499,9 +508,12 @@ export function resolveImportRecord(
 ) {
   const definition = applyDefinitions.find((candidate) => candidate.entity === entity);
   if (!definition) return undefined;
-  return definition.records(context).find(
-    (record) => sakuravaRef(definition.refPrefix, recordKey(record)) === ref,
+  const resolution = resolveSakuravaIdentity(
+    sectionCodeForLegacyPrefix(definition.refPrefix),
+    ref,
+    definition.records(context),
   );
+  return resolution.status === "resolved" ? resolution.record : undefined;
 }
 
 function applySimpleField({
@@ -699,31 +711,22 @@ function resolveRelatedList(
   });
 }
 
-function resolveRelatedRecord<TRecord extends { id: string }>(
+function resolveRelatedRecord<TRecord extends { id: string; sakuravaRef?: string }>(
   item: string,
   prefix: "VID" | "IMG" | "PER",
   records: TRecord[],
-  labelKey: keyof TRecord & string,
+  _labelKey: keyof TRecord & string,
 ) {
-  const [possibleRef, ...displayParts] = item.split("|");
-  const ref = possibleRef.trim();
-  const display = displayParts.join("|").trim();
-
-  if (/^(VID|IMG|PER)-[0-9A-Z]+$/.test(ref)) {
-    const match = records.find((record) => sakuravaRef(prefix, record.id) === ref);
-    if (!match) {
-      throw new Error(`Unresolved related reference: ${item}.`);
-    }
-    return match;
-  }
-
-  const matches = records.filter(
-    (record) => String(record[labelKey] ?? "").trim() === (display || item.trim()),
+  const ref = item.split("|")[0].trim();
+  const resolution = resolveSakuravaIdentity(
+    sectionCodeForLegacyPrefix(prefix),
+    ref,
+    records,
   );
-  if (matches.length !== 1) {
-    throw new Error(`Unresolved related value: ${item}.`);
+  if (resolution.status !== "resolved") {
+    throw new Error(`Unresolved related reference: ${item}.`);
   }
-  return matches[0];
+  return resolution.record;
 }
 
 function resolveParentCategoryKey(
@@ -749,7 +752,7 @@ function resolveGlossaryParentId(
   if (!ref) return "";
   if (/^GLO-NEW-/.test(ref)) return ref;
   const match = (context.glossary ?? []).find(
-    (entry) => sakuravaRef("GLO", entry.id) === ref,
+    (entry) => sakuravaRefMatches("GLO", ref, entry),
   );
   if (!match) throw new Error(`Glossary parent was not found: ${ref}.`);
   return match.id;
@@ -781,16 +784,18 @@ function isApplicablePreviewRow(row: ImportCsvPreviewRow) {
 
 function buildRecordsByRef(definition: EntityApplyDefinition, context: ImportCsvPreviewContext) {
   return new Map(
-    definition.records(context).map((record) => [
-      sakuravaRef(definition.refPrefix, recordKey(record)),
-      record,
-    ]),
+    definition.records(context).flatMap((record) =>
+      sakuravaIdentityLookupKeys(sectionCodeForLegacyPrefix(definition.refPrefix), record)
+        .map((key) => [key, record] as const),
+    ),
   );
 }
 
 function buildCategoryRecordsByRef(categories: ManagedCategory[]) {
   return new Map<string, CatalogRecord>(
-    categories.map((category) => [sakuravaRef("CAT", category.key), category]),
+    categories.flatMap((category) =>
+      sakuravaIdentityLookupKeys("C", category).map((key) => [key, category] as const),
+    ),
   );
 }
 
@@ -798,7 +803,7 @@ function resolveRecord(
   row: ImportCsvPreviewRow,
   recordsByRef: Map<string, CatalogRecord>,
 ) {
-  return recordsByRef.get((row.values["Sakurava Ref"] ?? "").trim());
+  return recordsByRef.get(canonicalImportIdentity(row.values["Sakurava Ref"] ?? ""));
 }
 
 function recordKey(record: CatalogRecord) {
@@ -849,7 +854,7 @@ function resolveParentCategoryRef(
   const ref = parentCategoryRef.trim();
   if (!ref) return null;
   const matches = context.categories.filter(
-    (category) => sakuravaRef("CAT", category.key) === ref,
+    (category) => sakuravaRefMatches("CAT", ref, category),
   );
   if (matches.length !== 1) {
     throw new Error(`Parent Category reference is unresolved: ${ref}.`);
@@ -889,7 +894,7 @@ function categoryName(row: ImportCsvPreviewRow) {
 }
 
 function categoryParentName(row: ImportCsvPreviewRow) {
-  return (row.values["Parent Ref"] ?? row.values["Parent Category"] ?? "").trim();
+  return (row.values["Parent Ref"] ?? "").trim();
 }
 
 function resolveCategoryTarget(
@@ -904,25 +909,7 @@ function resolveCategoryTarget(
   if (row.action !== "Update") {
     return undefined;
   }
-
-  const name = categoryName(row).toLowerCase();
-  const parentName = categoryParentName(row).toLowerCase();
-  const matches = categories.filter((category) => {
-    if (category.name.trim().toLowerCase() !== name) {
-      return false;
-    }
-    const parent = category.parentKey
-      ? categories.find((candidate) => candidate.key === category.parentKey)
-      : null;
-    return (parent?.name.trim().toLowerCase() ?? "") === parentName;
-  });
-  if (matches.length === 1) {
-    return matches[0];
-  }
-  if (matches.length > 1) {
-    throw new Error(`Category is ambiguous: ${categoryName(row)}.`);
-  }
-  throw new Error(`Category could not be found: ${categoryName(row)}.`);
+  throw new Error("Category Update requires a resolvable Sakurava Ref.");
 }
 
 function resolveCategoryParentKey(
@@ -938,18 +925,11 @@ function resolveCategoryParentKey(
     return null;
   }
 
-  const matches = parentName.startsWith("CAT-")
-    ? categories.filter((category) => sakuravaRef("CAT", category.key) === parentName)
-    : categories.filter(
-        (category) => category.name.trim().toLowerCase() === parentName.toLowerCase(),
-      );
-  if (matches.length === 0) {
+  const resolution = resolveSakuravaIdentity("C", parentName, categories);
+  if (resolution.status !== "resolved") {
     throw new Error(`Parent Category could not be found: ${parentName}.`);
   }
-  if (matches.length > 1) {
-    throw new Error(`Parent Category is ambiguous: ${parentName}.`);
-  }
-  const parent = matches[0];
+  const parent = resolution.record;
   if (parent.parentKey) {
     throw new Error("Only root categories can be selected as Parent Category.");
   }
@@ -1050,22 +1030,12 @@ function resolveCategoryTargetIfPresent(
 ) {
   const ref = (row.values["Sakurava Ref"] ?? "").trim();
   if (ref) {
-    return categories.find((category) => sakuravaRef("CAT", category.key) === ref);
+    return categories.find((category) => sakuravaRefMatches("CAT", ref, category));
   }
   if (row.action !== "Update") {
     return undefined;
   }
-  const name = categoryName(row).toLowerCase();
-  const parentName = categoryParentName(row).toLowerCase();
-  return categories.find((category) => {
-    if (category.name.trim().toLowerCase() !== name) {
-      return false;
-    }
-    const parent = category.parentKey
-      ? categories.find((candidate) => candidate.key === category.parentKey)
-      : null;
-    return (parent?.name.trim().toLowerCase() ?? "") === parentName;
-  });
+  return undefined;
 }
 
 function reportFromRows(

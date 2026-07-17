@@ -45,6 +45,8 @@ import { listPerformers } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { useTranslation } from "../lib/LanguageContext";
 import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
+import { formatSakuravaRef } from "../lib/sakuravaRef";
+import { sakuravaRef as legacySakuravaRef } from "../lib/exportCsv";
 import { listVideos } from "../runtime/videoCommands";
 import { listCredits } from "../runtime/creditCommands";
 import ConfirmDialog from "./ConfirmDialog";
@@ -371,7 +373,10 @@ function CategoryManagementPanel() {
 
         return [
           row.category.name,
+          row.category.sakuravaRef ?? "",
+          formatSakuravaRef(row.category.sakuravaRef ?? ""),
           row.category.key,
+          legacySakuravaRef("CAT", row.category.key),
           row.category.description,
           row.parent?.name ?? "No Parent Selected",
         ].some(

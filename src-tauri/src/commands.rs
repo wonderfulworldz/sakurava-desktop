@@ -33,15 +33,18 @@ use windows::{
 };
 
 use crate::database::{
-    backup_runtime_database, clear_app_generated_cache, create_backup_package,
-    create_import_safety_backup_package, delete_backup_package, export_backup_package,
-    import_selected_backup_package, list_backup_packages, open_default_backup_folder,
-    preview_backup_package, restore_backup_package, restore_runtime_database,
-    rotate_automatic_backup_packages, BackupFolderOpenResult, BackupPackageDeleteResult,
-    BackupPackageExportResult, BackupPackageImportError, BackupPackageImportResult,
-    BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError, BackupPackageRestoreError,
-    BackupPackageRestoreResult, BackupPackageRotationResult, BackupPackageType, ClearCacheResult,
-    DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase,
+    allocate_sakurava_ref, backup_runtime_database, clear_app_generated_cache,
+    create_backup_package, create_import_safety_backup_package, delete_backup_package,
+    export_backup_package, import_selected_backup_package, list_backup_packages,
+    migrate_sakurava_refs, open_default_backup_folder, preview_backup_package,
+    register_current_sakurava_ref_alias, require_migrated_sakurava_refs, resolve_sakurava_ref,
+    restore_backup_package, restore_backup_package_with_sakurava_refs, restore_runtime_database,
+    rotate_automatic_backup_packages, sakurava_ref_migration_status, BackupFolderOpenResult,
+    BackupPackageDeleteResult, BackupPackageExportResult, BackupPackageImportError,
+    BackupPackageImportResult, BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError,
+    BackupPackageRestoreError, BackupPackageRestoreResult, BackupPackageRotationResult,
+    BackupPackageType, ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult,
+    RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -50,6 +53,7 @@ static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 #[serde(rename_all = "camelCase")]
 pub struct Video {
     pub id: String,
+    pub sakurava_ref: String,
     pub title: String,
     pub original_title: String,
     pub code: String,
@@ -77,6 +81,7 @@ pub struct Video {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoInput {
+    pub issuance_yymm: Option<String>,
     pub title: String,
     pub original_title: Option<String>,
     pub code: Option<String>,
@@ -128,6 +133,7 @@ pub struct VideoPatch {
 #[serde(rename_all = "camelCase")]
 pub struct Image {
     pub id: String,
+    pub sakurava_ref: String,
     pub title: String,
     pub original_title: String,
     pub code: String,
@@ -156,6 +162,7 @@ pub struct Image {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageInput {
+    pub issuance_yymm: Option<String>,
     pub title: String,
     pub original_title: Option<String>,
     pub code: Option<String>,
@@ -209,6 +216,7 @@ pub struct ImagePatch {
 #[serde(rename_all = "camelCase")]
 pub struct Performer {
     pub id: String,
+    pub sakurava_ref: String,
     pub name: String,
     pub original_name: String,
     pub aliases_json: String,
@@ -242,6 +250,7 @@ pub struct Performer {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PerformerInput {
+    pub issuance_yymm: Option<String>,
     pub name: String,
     pub original_name: Option<String>,
     pub aliases_json: Option<String>,
@@ -312,6 +321,7 @@ pub struct DeleteResult {
 #[serde(rename_all = "camelCase")]
 pub struct GlossaryEntry {
     pub id: String,
+    pub sakurava_ref: String,
     pub term: String,
     pub definition: String,
     pub synonyms_json: String,
@@ -328,6 +338,7 @@ pub struct GlossaryEntry {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GlossaryEntryInput {
+    pub issuance_yymm: Option<String>,
     pub term: String,
     pub definition: String,
     pub synonyms_json: Option<String>,
@@ -357,6 +368,7 @@ pub struct GlossaryEntryPatch {
 #[serde(rename_all = "camelCase")]
 pub struct ManagedCategory {
     pub key: String,
+    pub sakurava_ref: String,
     pub name: String,
     pub parent_key: Option<String>,
     pub description: String,
@@ -372,6 +384,7 @@ pub struct ManagedCategory {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManagedCategoryInput {
+    pub issuance_yymm: Option<String>,
     pub key: Option<String>,
     pub name: String,
     pub parent_key: Option<String>,
@@ -571,6 +584,7 @@ pub struct ImportCatalogFileReadResult {
 #[serde(rename_all = "camelCase")]
 pub struct ImportCatalogApplyPlan {
     pub contract_version: u32,
+    pub issuance_yymm: String,
     pub source_fingerprint: String,
     pub operation_fingerprint: String,
     pub catalog_snapshot: Value,
@@ -678,8 +692,28 @@ pub fn backup_package_preview(
 pub fn backup_package_restore(
     database: State<'_, RuntimeDatabase>,
     package_name: String,
+    migration_yymm: Option<String>,
 ) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError> {
-    restore_backup_package(&database, &package_name)
+    if let Some(migration_yymm) = migration_yymm {
+        restore_backup_package_with_sakurava_refs(&database, &package_name, &migration_yymm)
+    } else {
+        restore_backup_package(&database, &package_name)
+    }
+}
+
+#[tauri::command]
+pub fn sakurava_ref_migration_get_status(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<SakuravaRefMigrationStatus, String> {
+    sakurava_ref_migration_status(&database)
+}
+
+#[tauri::command]
+pub fn sakurava_ref_migration_apply(
+    database: State<'_, RuntimeDatabase>,
+    migration_yymm: String,
+) -> Result<SakuravaRefMigrationResult, String> {
+    migrate_sakurava_refs(&database, &migration_yymm)
 }
 
 #[tauri::command]
@@ -806,7 +840,10 @@ pub fn video_create(
     database: State<'_, RuntimeDatabase>,
     input: VideoInput,
 ) -> Result<Video, String> {
-    with_connection(&database, |connection| create_video(connection, input))
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        create_video(connection, input)
+    })
 }
 
 #[tauri::command]
@@ -819,7 +856,11 @@ pub fn video_get(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<Option<Video>, String> {
-    with_connection(&database, |connection| get_video(connection, &id))
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
+        get_video(connection, &id)
+    })
 }
 
 #[tauri::command]
@@ -828,7 +869,11 @@ pub fn video_update(
     id: String,
     patch: VideoPatch,
 ) -> Result<Option<Video>, String> {
-    with_connection(&database, |connection| update_video(connection, &id, patch))
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
+        update_video(connection, &id, patch)
+    })
 }
 
 #[tauri::command]
@@ -836,7 +881,10 @@ pub fn video_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
-    with_connection(&database, |connection| delete_row(connection, "videos", id))
+    with_connection(&database, |connection| {
+        let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
+        delete_row(connection, "videos", id)
+    })
 }
 
 #[tauri::command]
@@ -844,7 +892,10 @@ pub fn image_create(
     database: State<'_, RuntimeDatabase>,
     input: ImageInput,
 ) -> Result<Image, String> {
-    with_connection(&database, |connection| create_image(connection, input))
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        create_image(connection, input)
+    })
 }
 
 #[tauri::command]
@@ -857,7 +908,11 @@ pub fn image_get(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<Option<Image>, String> {
-    with_connection(&database, |connection| get_image(connection, &id))
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
+        get_image(connection, &id)
+    })
 }
 
 #[tauri::command]
@@ -866,7 +921,11 @@ pub fn image_update(
     id: String,
     patch: ImagePatch,
 ) -> Result<Option<Image>, String> {
-    with_connection(&database, |connection| update_image(connection, &id, patch))
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
+        update_image(connection, &id, patch)
+    })
 }
 
 #[tauri::command]
@@ -874,7 +933,10 @@ pub fn image_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
-    with_connection(&database, |connection| delete_row(connection, "images", id))
+    with_connection(&database, |connection| {
+        let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
+        delete_row(connection, "images", id)
+    })
 }
 
 #[tauri::command]
@@ -882,7 +944,10 @@ pub fn performer_create(
     database: State<'_, RuntimeDatabase>,
     input: PerformerInput,
 ) -> Result<Performer, String> {
-    with_connection(&database, |connection| create_performer(connection, input))
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        create_performer(connection, input)
+    })
 }
 
 #[tauri::command]
@@ -895,7 +960,11 @@ pub fn performer_get(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<Option<Performer>, String> {
-    with_connection(&database, |connection| get_performer(connection, &id))
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
+        get_performer(connection, &id)
+    })
 }
 
 #[tauri::command]
@@ -905,6 +974,8 @@ pub fn performer_update(
     patch: PerformerPatch,
 ) -> Result<Option<Performer>, String> {
     with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
         update_performer(connection, &id, patch)
     })
 }
@@ -915,6 +986,7 @@ pub fn performer_delete(
     id: String,
 ) -> Result<DeleteResult, String> {
     with_connection(&database, |connection| {
+        let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
         delete_row(connection, "performers", id)
     })
 }
@@ -924,7 +996,8 @@ pub fn managed_category_create(
     database: State<'_, RuntimeDatabase>,
     input: ManagedCategoryInput,
 ) -> Result<ManagedCategory, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
         create_managed_category(connection, input)
     })
 }
@@ -942,6 +1015,8 @@ pub fn managed_category_get(
     key: String,
 ) -> Result<Option<ManagedCategory>, String> {
     with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
         get_managed_category(connection, &key)
     })
 }
@@ -953,6 +1028,8 @@ pub fn managed_category_update(
     patch: ManagedCategoryPatch,
 ) -> Result<Option<ManagedCategory>, String> {
     with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
         update_managed_category(connection, &key, patch)
     })
 }
@@ -963,6 +1040,7 @@ pub fn managed_category_delete(
     key: String,
 ) -> Result<ManagedCategoryDeleteResult, String> {
     with_connection(&database, |connection| {
+        let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
         delete_managed_category_if_unused(connection, key)
     })
 }
@@ -972,7 +1050,8 @@ pub fn glossary_create(
     database: State<'_, RuntimeDatabase>,
     input: GlossaryEntryInput,
 ) -> Result<GlossaryEntry, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
         create_glossary_entry(connection, input)
     })
 }
@@ -989,6 +1068,8 @@ pub fn glossary_update(
     patch: GlossaryEntryPatch,
 ) -> Result<Option<GlossaryEntry>, String> {
     with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "G", "glossary_entries", "id", &id)?;
         update_glossary_entry(connection, &id, patch)
     })
 }
@@ -999,6 +1080,8 @@ pub fn glossary_delete(
     id: String,
 ) -> Result<DeleteResult, String> {
     with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "G", "glossary_entries", "id", &id)?;
         let Some(_) = get_glossary_entry(connection, &id)? else {
             return Err("Glossary entry was not found".to_string());
         };
@@ -1161,11 +1244,57 @@ fn with_connection<T>(
     action(&connection)
 }
 
+fn with_creation_transaction<T>(
+    database: &RuntimeDatabase,
+    action: impl FnOnce(&Connection) -> Result<T, String>,
+) -> Result<T, String> {
+    let connection = database.connection();
+    let mut connection = connection
+        .lock()
+        .map_err(|_| "Database connection is unavailable".to_string())?;
+    let transaction = connection
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(database_error)?;
+    let result = action(&transaction)?;
+    transaction.commit().map_err(database_error)?;
+    Ok(result)
+}
+
+fn resolve_identity_or_technical(
+    connection: &Connection,
+    section_code: &str,
+    table: &str,
+    key_column: &str,
+    identity: &str,
+) -> Result<String, String> {
+    if let Some(key) = resolve_sakurava_ref(connection, section_code, identity)? {
+        return Ok(key);
+    }
+    let exists: Option<String> = connection
+        .query_row(
+            &format!("SELECT {key_column} FROM {table} WHERE {key_column} = ?1"),
+            [identity],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(database_error)?;
+    exists.ok_or_else(|| "Sakurava Ref was not found.".to_string())
+}
+
 fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, String> {
     let title = require_text(input.title, "Video title is required")?;
+    let sakurava_ref = allocate_sakurava_ref(
+        connection,
+        "V",
+        input
+            .issuance_yymm
+            .as_deref()
+            .ok_or("Issuance month is required")?,
+    )?;
     let timestamp = current_timestamp();
     let video = Video {
         id: new_id("video"),
+        sakurava_ref,
         title,
         original_title: default_text(input.original_title),
         code: default_text(input.code),
@@ -1193,13 +1322,14 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
     connection
         .execute(
             "INSERT INTO videos (
-                id, title, originalTitle, code, censorship, availability, releaseDate,
+                id, sakuravaRef, title, originalTitle, code, censorship, availability, releaseDate,
                 durationMinutes, resolution, fileSizeBytes, fileType,
                 publisherLabel, coverPath, mediaPath, categoriesJson,
                 relatedPerformersJson, relatedImagesJson, source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
             params![
                 video.id,
+                video.sakurava_ref,
                 video.title,
                 video.original_title,
                 video.code,
@@ -1225,6 +1355,7 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
             ],
         )
         .map_err(database_error)?;
+    register_current_sakurava_ref_alias(connection, "V", &video.sakurava_ref)?;
 
     get_video(connection, &video.id)?.ok_or_else(|| "Created video could not be read".to_string())
 }
@@ -1343,9 +1474,18 @@ fn update_video(
 
 fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, String> {
     let title = require_text(input.title, "Image title is required")?;
+    let sakurava_ref = allocate_sakurava_ref(
+        connection,
+        "I",
+        input
+            .issuance_yymm
+            .as_deref()
+            .ok_or("Issuance month is required")?,
+    )?;
     let timestamp = current_timestamp();
     let image = Image {
         id: new_id("image"),
+        sakurava_ref,
         title,
         original_title: default_text(input.original_title),
         code: default_text(input.code),
@@ -1376,14 +1516,15 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
     connection
         .execute(
             "INSERT INTO images (
-                id, title, originalTitle, code, censorship, availability, releaseDate,
+                id, sakuravaRef, title, originalTitle, code, censorship, availability, releaseDate,
                 publisherLabel, coverPath, folderPath, imageCount, galleryImagePathsJson,
                 mainResolution, totalFileSizeBytes, mainFileType,
                 categoriesJson, relatedPerformersJson, relatedVideosJson,
                 source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
             params![
                 image.id,
+                image.sakurava_ref,
                 image.title,
                 image.original_title,
                 image.code,
@@ -1410,6 +1551,7 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
             ],
         )
         .map_err(database_error)?;
+    register_current_sakurava_ref_alias(connection, "I", &image.sakurava_ref)?;
 
     get_image(connection, &image.id)?.ok_or_else(|| "Created image could not be read".to_string())
 }
@@ -1533,9 +1675,18 @@ fn update_image(
 
 fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Performer, String> {
     let name = require_text(input.name, "Performer name is required")?;
+    let sakurava_ref = allocate_sakurava_ref(
+        connection,
+        "P",
+        input
+            .issuance_yymm
+            .as_deref()
+            .ok_or("Issuance month is required")?,
+    )?;
     let timestamp = current_timestamp();
     let performer = Performer {
         id: new_id("performer"),
+        sakurava_ref,
         name,
         original_name: default_text(input.original_name),
         aliases_json: normalize_string_array_json(input.aliases_json),
@@ -1571,15 +1722,16 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
     connection
         .execute(
             "INSERT INTO performers (
-                id, name, originalName, aliasesJson, status, debutDate, retiredDate,
+                id, sakuravaRef, name, originalName, aliasesJson, status, debutDate, retiredDate,
                 birthDate, gender, birthplace, nationality, bloodType, heightCm, weightKg,
                 measurements, cupSize, coverPath, performerThumbnailPathsJson,
                 filmographyCount, pictorialsCount, relatedVideosJson,
                 relatedImagesJson, source_links_json, categoriesJson, ratingJson,
                 notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)",
             params![
                 performer.id,
+                performer.sakurava_ref,
                 performer.name,
                 performer.original_name,
                 performer.aliases_json,
@@ -1611,6 +1763,7 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
             ],
         )
         .map_err(database_error)?;
+    register_current_sakurava_ref_alias(connection, "P", &performer.sakurava_ref)?;
 
     get_performer(connection, &performer.id)?
         .ok_or_else(|| "Created performer could not be read".to_string())
@@ -1759,6 +1912,14 @@ fn create_managed_category(
     input: ManagedCategoryInput,
 ) -> Result<ManagedCategory, String> {
     let name = require_text(input.name, "Category name is required")?;
+    let sakurava_ref = allocate_sakurava_ref(
+        connection,
+        "C",
+        input
+            .issuance_yymm
+            .as_deref()
+            .ok_or("Issuance month is required")?,
+    )?;
     ensure_unique_managed_category_name(connection, &name, None)?;
     let parent_key = normalize_parent_key(input.parent_key);
     if let Some(parent_key) = &parent_key {
@@ -1772,6 +1933,7 @@ fn create_managed_category(
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| build_managed_category_key(&name)),
+        sakurava_ref,
         name,
         parent_key,
         description: default_text(input.description)
@@ -1790,11 +1952,12 @@ fn create_managed_category(
     connection
         .execute(
             "INSERT INTO managedCategories (
-                key, name, parentKey, description, thumbnailPath,
+                key, sakuravaRef, name, parentKey, description, thumbnailPath,
                 showInVideos, showInImages, showInPerformers, showInCredits, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 category.key,
+                category.sakurava_ref,
                 category.name,
                 category.parent_key,
                 category.description,
@@ -1808,6 +1971,7 @@ fn create_managed_category(
             ],
         )
         .map_err(database_error)?;
+    register_current_sakurava_ref_alias(connection, "C", &category.sakurava_ref)?;
 
     get_managed_category(connection, &category.key)?
         .ok_or_else(|| "Created category could not be read".to_string())
@@ -1959,11 +2123,20 @@ fn create_glossary_entry(
 ) -> Result<GlossaryEntry, String> {
     let term = require_text(input.term, "Glossary term is required")?;
     let definition = require_text(input.definition, "Glossary definition is required")?;
+    let sakurava_ref = allocate_sakurava_ref(
+        connection,
+        "G",
+        input
+            .issuance_yymm
+            .as_deref()
+            .ok_or("Issuance month is required")?,
+    )?;
     let source_url = normalize_source_url(input.source_url)?;
     let parent_id = normalize_glossary_parent_id(connection, "", input.parent_id)?;
     let timestamp = current_timestamp_i64();
     let entry = GlossaryEntry {
         id: new_id("glossary"),
+        sakurava_ref,
         term,
         definition,
         synonyms_json: normalize_string_array_json(input.synonyms_json),
@@ -1980,12 +2153,13 @@ fn create_glossary_entry(
     connection
         .execute(
             "INSERT INTO glossary_entries (
-                id, term, definition, synonyms_json, category, parent_id,
+                id, sakuravaRef, term, definition, synonyms_json, category, parent_id,
                 thumbnail_path, favorite, source_title, source_url,
                 created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 entry.id,
+                entry.sakurava_ref,
                 entry.term,
                 entry.definition,
                 entry.synonyms_json,
@@ -2000,6 +2174,7 @@ fn create_glossary_entry(
             ],
         )
         .map_err(database_error)?;
+    register_current_sakurava_ref_alias(connection, "G", &entry.sakurava_ref)?;
 
     get_glossary_entry(connection, &entry.id)?
         .ok_or_else(|| "Created glossary entry could not be read".to_string())
@@ -3077,7 +3252,7 @@ fn apply_import_catalog_plan(
     database: &RuntimeDatabase,
     plan: ImportCatalogApplyPlan,
 ) -> ImportCatalogApplyResult {
-    if plan.contract_version != 1 && plan.contract_version != 2 {
+    if !matches!(plan.contract_version, 1 | 2 | 3) {
         return import_apply_failure(
             "blocked",
             "validation",
@@ -3157,6 +3332,17 @@ fn apply_import_catalog_plan(
             )
         }
     };
+
+    if let Err(message) = require_migrated_sakurava_refs(&connection) {
+        return import_apply_failure(
+            "blocked",
+            "validation",
+            &message,
+            false,
+            None,
+            plan.skipped_count,
+        );
+    }
 
     let current_snapshot = match import_catalog_snapshot(&connection) {
         Ok(snapshot) => snapshot,
@@ -3244,7 +3430,7 @@ fn apply_import_catalog_plan(
         }
     };
 
-    let apply_result = apply_import_operations(&transaction, &plan.operations);
+    let apply_result = apply_import_operations(&transaction, &plan.operations, &plan.issuance_yymm);
     let (created, updated, cleared, deleted) = match apply_result {
         Ok(counts) => counts,
         Err(_) => {
@@ -3290,6 +3476,7 @@ fn apply_import_catalog_plan(
 fn apply_import_operations(
     connection: &Connection,
     operations: &[ImportCatalogPlanOperation],
+    issuance_yymm: &str,
 ) -> Result<(usize, usize, usize, usize), String> {
     let mut created = 0usize;
     let mut updated = 0usize;
@@ -3307,7 +3494,7 @@ fn apply_import_operations(
         .iter()
         .filter(|operation| operation.section != "glossary")
     {
-        apply_import_create(connection, operation, &generated_ids)?;
+        apply_import_create(connection, operation, &generated_ids, issuance_yymm)?;
         created += 1;
         cleared += operation.cleared_fields.len();
     }
@@ -3328,7 +3515,8 @@ fn apply_import_operations(
                 remaining.push(operation);
                 continue;
             }
-            let created_id = apply_import_create(connection, &operation, &generated_ids)?;
+            let created_id =
+                apply_import_create(connection, &operation, &generated_ids, issuance_yymm)?;
             if let (Some(temporary), Some(id)) = (&operation.temporary_identifier, created_id) {
                 generated_ids.insert(temporary.clone(), id);
             }
@@ -3383,8 +3571,17 @@ fn apply_import_create(
     connection: &Connection,
     operation: &ImportCatalogPlanOperation,
     generated_ids: &std::collections::HashMap<String, String>,
+    issuance_yymm: &str,
 ) -> Result<Option<String>, String> {
-    let proposed = resolve_import_dependencies(operation.proposed_values.clone(), generated_ids)?;
+    let mut proposed =
+        resolve_import_dependencies(operation.proposed_values.clone(), generated_ids)?;
+    proposed
+        .as_object_mut()
+        .ok_or_else(|| "Import Create values are invalid.".to_string())?
+        .insert(
+            "issuanceYymm".to_string(),
+            Value::String(issuance_yymm.to_string()),
+        );
     match operation.section.as_str() {
         "videos" => Ok(Some(
             create_video(connection, decode_import_value(proposed)?)?.id,
@@ -4185,6 +4382,7 @@ fn is_filesystem_root(path: &Path) -> bool {
 fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
     Ok(Video {
         id: row.get("id")?,
+        sakurava_ref: row.get("sakuravaRef")?,
         title: row.get("title")?,
         original_title: row.get("originalTitle")?,
         code: row.get("code")?,
@@ -4213,6 +4411,7 @@ fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
 fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
     Ok(Image {
         id: row.get("id")?,
+        sakurava_ref: row.get("sakuravaRef")?,
         title: row.get("title")?,
         original_title: row.get("originalTitle")?,
         code: row.get("code")?,
@@ -4242,6 +4441,7 @@ fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
 fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
     Ok(Performer {
         id: row.get("id")?,
+        sakurava_ref: row.get("sakuravaRef")?,
         name: row.get("name")?,
         original_name: row.get("originalName")?,
         aliases_json: row.get("aliasesJson")?,
@@ -4276,6 +4476,7 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
 fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ManagedCategory> {
     Ok(ManagedCategory {
         key: row.get("key")?,
+        sakurava_ref: row.get("sakuravaRef")?,
         name: row.get("name")?,
         parent_key: row.get("parentKey")?,
         description: row.get("description")?,
@@ -4292,6 +4493,7 @@ fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Manage
 fn glossary_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<GlossaryEntry> {
     Ok(GlossaryEntry {
         id: row.get("id")?,
+        sakurava_ref: row.get("sakuravaRef")?,
         term: row.get("term")?,
         definition: row.get("definition")?,
         synonyms_json: row.get("synonyms_json")?,
@@ -4899,6 +5101,7 @@ mod tests {
         let created = create_glossary_entry(
             &connection,
             GlossaryEntryInput {
+                issuance_yymm: Some("2607".to_string()),
                 term: "  Source Citation  ".to_string(),
                 definition: "  Stores a source title and URL as text.  ".to_string(),
                 synonyms_json: Some(
@@ -4915,6 +5118,7 @@ mod tests {
         .expect("create glossary");
 
         assert!(created.id.starts_with("glossary_"));
+        assert_eq!(created.sakurava_ref, "G26070001");
         assert_eq!(created.term, "Source Citation");
         assert_eq!(created.definition, "Stores a source title and URL as text.");
         assert_eq!(
@@ -4995,6 +5199,7 @@ mod tests {
             create_glossary_entry(
                 &connection,
                 GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     term: " ".to_string(),
                     definition: "Definition".to_string(),
                     synonyms_json: None,
@@ -5014,6 +5219,7 @@ mod tests {
             create_glossary_entry(
                 &connection,
                 GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     term: "Term".to_string(),
                     definition: " ".to_string(),
                     synonyms_json: None,
@@ -5033,6 +5239,7 @@ mod tests {
             create_glossary_entry(
                 &connection,
                 GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     term: "Term".to_string(),
                     definition: "Definition".to_string(),
                     synonyms_json: Some("{bad json".to_string()),
@@ -5051,6 +5258,7 @@ mod tests {
         let created = create_glossary_entry(
             &connection,
             GlossaryEntryInput {
+                issuance_yymm: Some("2607".to_string()),
                 term: "Term".to_string(),
                 definition: "Definition".to_string(),
                 synonyms_json: Some("{bad json".to_string()),
@@ -5072,6 +5280,7 @@ mod tests {
         let parent = create_glossary_entry(
             &connection,
             GlossaryEntryInput {
+                issuance_yymm: Some("2607".to_string()),
                 term: "Parent Term".to_string(),
                 definition: "Parent definition".to_string(),
                 synonyms_json: None,
@@ -5088,6 +5297,7 @@ mod tests {
         let child = create_glossary_entry(
             &connection,
             GlossaryEntryInput {
+                issuance_yymm: Some("2607".to_string()),
                 term: "Child Term".to_string(),
                 definition: "Child definition".to_string(),
                 synonyms_json: None,
@@ -5133,6 +5343,7 @@ mod tests {
         let created = create_video(
             &connection,
             VideoInput {
+                issuance_yymm: Some("2607".to_string()),
                 title: " Video Title ".to_string(),
                 original_title: None,
                 code: Some("ABC-123".to_string()),
@@ -5164,6 +5375,7 @@ mod tests {
         .expect("create video");
 
         assert_eq!(created.title, "Video Title");
+        assert_eq!(created.sakurava_ref, "V26070001");
         assert_eq!(created.categories_json, r#"["Drama","Action"]"#);
         assert_eq!(
             created.related_performers_json,
@@ -5249,6 +5461,7 @@ mod tests {
         let created = create_image(
             &connection,
             ImageInput {
+                issuance_yymm: Some("2607".to_string()),
                 title: "Image Title".to_string(),
                 original_title: None,
                 code: None,
@@ -5302,6 +5515,7 @@ mod tests {
             r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#
         );
         assert_eq!(created.rating_json, r#"{"score":5}"#);
+        assert_eq!(created.sakurava_ref, "I26070001");
         assert!(!created.favorite);
         assert!(!created.created_at.is_empty());
 
@@ -5428,6 +5642,7 @@ mod tests {
         let created = create_performer(
             &connection,
             PerformerInput {
+                issuance_yymm: Some("2607".to_string()),
                 name: "Performer Name".to_string(),
                 original_name: None,
                 aliases_json: Some(r#"["Alias A","Alias B"]"#.to_string()),
@@ -5486,6 +5701,7 @@ mod tests {
             r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#
         );
         assert_eq!(created.debut_date, "2020-01-02");
+        assert_eq!(created.sakurava_ref, "P26070001");
         assert_eq!(created.gender, "Woman");
         assert_eq!(created.birthplace, "Tokyo");
         assert_eq!(created.height_cm, Some(160));
@@ -5929,6 +6145,7 @@ mod tests {
         let created = create_managed_category(
             &connection,
             ManagedCategoryInput {
+                issuance_yymm: Some("2607".to_string()),
                 key: Some("cat-credit-type-voice".to_string()),
                 name: "Voice".to_string(),
                 parent_key: None,
@@ -6004,6 +6221,7 @@ mod tests {
         let character_only = create_managed_category(
             &connection,
             ManagedCategoryInput {
+                issuance_yymm: Some("2607".to_string()),
                 key: Some("cat-character-text".to_string()),
                 name: "Character Text".to_string(),
                 parent_key: None,
@@ -6031,6 +6249,7 @@ mod tests {
         let role_category = create_managed_category(
             &connection,
             ManagedCategoryInput {
+                issuance_yymm: Some("2607".to_string()),
                 key: Some("cat-role-main".to_string()),
                 name: "Main".to_string(),
                 parent_key: None,
@@ -6375,6 +6594,7 @@ mod tests {
 
     fn empty_video_input() -> VideoInput {
         VideoInput {
+            issuance_yymm: Some("2607".to_string()),
             title: " ".to_string(),
             original_title: None,
             code: None,
@@ -6444,6 +6664,7 @@ mod tests {
         drop(connection);
         let mut plan = ImportCatalogApplyPlan {
             contract_version: 1,
+            issuance_yymm: "2607".to_string(),
             source_fingerprint: "skvf1-00000000".to_string(),
             operation_fingerprint: String::new(),
             catalog_snapshot: snapshot,
@@ -6477,7 +6698,7 @@ mod tests {
         {
             let connection = database.connection();
             let connection = connection.lock().expect("database lock");
-            create_video(
+            let unrelated_video = create_video(
                 &connection,
                 VideoInput {
                     title: "Unrelated video".to_string(),
@@ -6485,12 +6706,20 @@ mod tests {
                 },
             )
             .expect("unrelated video");
+            let unrelated_performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Unrelated performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("unrelated performer");
             create_credit(
                 &connection,
                 CreditInput {
                     work_type: "video".to_string(),
-                    work_id: "unrelated-work".to_string(),
-                    performer_id: "unrelated-performer".to_string(),
+                    work_id: unrelated_video.id,
+                    performer_id: unrelated_performer.id,
                     character_name: None,
                     character_original_name: None,
                     credited_as: None,
@@ -6573,6 +6802,7 @@ mod tests {
             create_managed_category(
                 &connection,
                 ManagedCategoryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     key: Some("cat-import".to_string()),
                     name: "Import Category".to_string(),
                     parent_key: None,
@@ -6593,12 +6823,28 @@ mod tests {
         {
             let connection = database.connection();
             let connection = connection.lock().expect("database lock");
+            let work = create_video(
+                &connection,
+                VideoInput {
+                    title: "Credit work".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("credit work");
+            let performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Credit performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("credit performer");
             create_credit(
                 &connection,
                 CreditInput {
                     work_type: "video".to_string(),
-                    work_id: "video-placeholder".to_string(),
-                    performer_id: "performer-placeholder".to_string(),
+                    work_id: work.id,
+                    performer_id: performer.id,
                     character_name: None,
                     character_original_name: None,
                     credited_as: None,
@@ -6668,6 +6914,7 @@ mod tests {
             create_glossary_entry(
                 &connection,
                 GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     term: "Existing parent".to_string(),
                     definition: "Preview definition".to_string(),
                     synonyms_json: None,
@@ -6835,6 +7082,7 @@ mod tests {
             let parent = create_glossary_entry(
                 &connection,
                 GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     term: "Protected parent".to_string(),
                     definition: "Parent definition".to_string(),
                     synonyms_json: None,
@@ -6850,6 +7098,7 @@ mod tests {
             create_glossary_entry(
                 &connection,
                 GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
                     term: "Existing child".to_string(),
                     definition: "Child definition".to_string(),
                     synonyms_json: None,
@@ -6982,6 +7231,7 @@ mod tests {
 
     fn empty_image_input() -> ImageInput {
         ImageInput {
+            issuance_yymm: Some("2607".to_string()),
             title: " ".to_string(),
             original_title: None,
             code: None,
@@ -7008,6 +7258,7 @@ mod tests {
 
     fn empty_performer_input() -> PerformerInput {
         PerformerInput {
+            issuance_yymm: Some("2607".to_string()),
             name: " ".to_string(),
             original_name: None,
             aliases_json: None,

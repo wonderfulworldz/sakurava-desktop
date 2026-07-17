@@ -37,6 +37,12 @@ const calculatedHeaders = [
 ];
 
 describe("export CSV helpers", () => {
+  it("exports contract v3 Sakurava Ref as text without exposing the technical key", () => {
+    const csv = buildVideosCsv([video({ id: "video_internal_42", sakuravaRef: "V26070042" })]);
+    expect(csv).toContain("V2607-0042");
+    expect(csv).not.toContain("video_internal_42");
+  });
+
   it("escapes commas, quotes, newlines, semicolon lists, and pipe text", () => {
     expect(escapeCsvValue('Title, "quoted"\nA; B | C')).toBe(
       '"Title, ""quoted""\nA; B | C"',

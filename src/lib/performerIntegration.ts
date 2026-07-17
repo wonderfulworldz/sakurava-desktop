@@ -37,6 +37,8 @@ import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { MANAGED_CATEGORIES_STORAGE_KEY } from "./managedCategories";
 import { mergeKnownNames } from "./performerKnownNames";
+import { formatSakuravaRef } from "./sakuravaRef";
+import { sakuravaRef as legacySakuravaRef } from "./exportCsv";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -91,8 +93,8 @@ export function buildPerformerDetailConfig(
   const genderValue = detailText(performer.gender);
   return {
     ...baseConfig,
-    recordId: performer.id,
-    editTo: `/performers/${performer.id}/edit`,
+    recordId: performer.sakuravaRef ?? performer.id,
+    editTo: `/performers/${performer.sakuravaRef ?? performer.id}/edit`,
     coverPath: performer.coverPath,
     displayTitle: performer.name,
     originalTitle: performer.originalName,
@@ -126,6 +128,7 @@ export function buildPerformerDetailConfig(
     })),
     techMessage: "",
     systemInfo: [
+      { label: "Sakurava Ref", value: formatSakuravaRef(performer.sakuravaRef ?? "") },
       { label: "Created in Sakurava", value: formatSystemTimestamp(performer.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(performer.updatedAt) },
     ],
@@ -246,7 +249,7 @@ export function buildPerformerFormConfig(
   const values = performerToFormValues(performer);
   return {
     ...formConfigs.performers,
-    editCancelTo: `/performers/${performer.id}`,
+    editCancelTo: `/performers/${performer.sakuravaRef ?? performer.id}`,
     initialValues: {
       ...formConfigs.performers.initialValues,
       [mode]: values,
@@ -351,7 +354,9 @@ function toPerformerCollectionItem(
 
   return {
     kind: "performers",
-    key: performer.id,
+    key: performer.sakuravaRef ?? performer.id,
+    sakuravaRef: performer.sakuravaRef,
+    identityAliases: [performer.id, legacySakuravaRef("PER", performer.id)],
     name: performer.name,
     originalName: performer.originalName,
     aliases: formatAliases(performer.aliasesJson),

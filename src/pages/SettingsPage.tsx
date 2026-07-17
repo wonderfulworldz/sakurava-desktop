@@ -69,7 +69,7 @@ import {
   type ExportCsvEntity,
   type ExportFormat,
 } from "../lib/exportCsv";
-import { exportSelectionSummary } from "../lib/exportArtifacts";
+import { exportSelectionSummary, prepareSelectionsWithPublicRefs } from "../lib/exportArtifacts";
 import type { ExportDataSelection } from "../lib/exportWorkbook";
 import { normalizeLanguageCode, type LanguageCode } from "../lib/language";
 import {
@@ -133,6 +133,11 @@ import {
   readImportCatalogFile,
   readImportCsv,
 } from "../runtime/importCommands";
+import {
+  getSakuravaRefMigrationStatus,
+  requireMigratedSakuravaRefs,
+  type SakuravaRefMigrationStatus,
+} from "../runtime/sakuravaRefCommands";
 import { listGlossaryEntries } from "../runtime/glossaryCommands";
 import {
   applyCustomLanguageCsvPreview,
@@ -425,6 +430,8 @@ function SettingsPage() {
   const [importApplyStatus, setImportApplyStatus] = useState<ImportApplyStatus>({
     state: "idle",
   });
+  const [catalogRefStatus, setCatalogRefStatus] = useState<SakuravaRefMigrationStatus | null>(null);
+  const [catalogRefValidationFailed, setCatalogRefValidationFailed] = useState(false);
   const [categoryAudit, setCategoryAudit] =
     useState<CategoryAuditSummary>(emptyCategoryAudit);
   const [categoryRenamePreviewRecords, setCategoryRenamePreviewRecords] =
@@ -450,6 +457,7 @@ function SettingsPage() {
   const isExportPending = exportStatus.state === "pending";
   const isImportPending = importStatus.state === "pending";
   const isImportApplyPending = importApplyStatus.state === "pending";
+  const catalogRefsReady = !isDesktopRuntime || catalogRefStatus?.state === "migrated";
   const canBackUpDatabase =
     isDesktopRuntime &&
     !isBackupOperationPending &&
@@ -457,15 +465,38 @@ function SettingsPage() {
   const canClearCache =
     isDesktopRuntime && !isCachePending && !isBackupPending && !isRestorePending;
   const canExportCsv =
-    isDesktopRuntime && !isExportPending && !isImportApplyPending && !isBackupPending && !isRestorePending;
+    isDesktopRuntime && catalogRefsReady && !isExportPending && !isImportApplyPending && !isBackupPending && !isRestorePending;
   const canImportCsv =
     isDesktopRuntime &&
+    catalogRefsReady &&
     !isImportPending &&
     !isImportApplyPending &&
     !isBackupPending &&
     !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const isLanguageCsvBusy = languageCsvStatus.state === "pending";
+
+  async function refreshCatalogRefStatus() {
+    if (!isDesktopRuntime) return;
+    setCatalogRefValidationFailed(false);
+    try {
+      const status = await getSakuravaRefMigrationStatus();
+      setCatalogRefStatus({
+        ...status,
+        state: status.state ?? (status.required ? "legacy" : "migrated"),
+      });
+    } catch {
+      setCatalogRefStatus(null);
+      setCatalogRefValidationFailed(true);
+    }
+  }
+
+  useEffect(() => {
+    void refreshCatalogRefStatus();
+    const handleIdentityChange = () => void refreshCatalogRefStatus();
+    window.addEventListener("sakurava-ref-state-changed", handleIdentityChange);
+    return () => window.removeEventListener("sakurava-ref-state-changed", handleIdentityChange);
+  }, [isDesktopRuntime]);
 
   function dismissBackupToast(id: number) {
     const timer = backupToastTimersRef.current.get(id);
@@ -1178,10 +1209,16 @@ function SettingsPage() {
     setExportStatus({ state: "pending", label, format });
 
     try {
+      await requireMigratedSakuravaRefs();
       const operationDate = new Date();
       const selections = template
         ? entities.map((dataType) => ({ dataType, records: [] }))
-        : await Promise.all(entities.map(loadExportSelection));
+        : prepareSelectionsWithPublicRefs(
+            await Promise.all(
+              (["videos", "images", "performers", "categories", "glossary"] as ExportCsvEntity[])
+                .map(loadExportSelection),
+            ),
+          ).filter((selection) => entities.includes(selection.dataType));
       const emptySelections = template
         ? []
         : selections.filter((selection) => selection.records.length === 0);
@@ -1234,6 +1271,7 @@ function SettingsPage() {
     }
 
     try {
+      await requireMigratedSakuravaRefs();
       const sourcePath = await selectImportCatalogSource();
       if (!sourcePath) {
         return false;
@@ -1327,6 +1365,7 @@ function SettingsPage() {
     setImportApplyStatus({ state: "pending" });
 
     try {
+      await requireMigratedSakuravaRefs();
       const result = await applyImportCatalogPlan(plan);
       if (result.transactionStatus !== "committed") {
         setImportApplyStatus({
@@ -1678,6 +1717,10 @@ function SettingsPage() {
           canBackUpDatabase,
           canImportCsv,
           canExportCsv,
+          catalogRefsReady,
+          catalogRefStatus,
+          catalogRefValidationFailed,
+          refreshCatalogRefStatus,
           canClearCache,
           handleThemeChange,
           handleAccentChange,
@@ -1736,6 +1779,7 @@ function SettingsPage() {
 }
 
 function SettingsPanelCard({
+  id,
   title,
   icon,
   children,
@@ -1743,6 +1787,7 @@ function SettingsPanelCard({
   showReset = true,
   headerAction,
 }: {
+  id?: string;
   title: string;
   icon: LucideIcon;
   children: ReactNode;
@@ -1753,7 +1798,7 @@ function SettingsPanelCard({
   const Icon = icon;
 
   return (
-    <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section id={id} className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex h-12 items-center gap-3 border-b border-slate-200 px-4">
         <span className="inline-flex size-8 items-center justify-center rounded-lg bg-sakura-50 text-sakura-500">
           <Icon size={18} />
@@ -2071,6 +2116,10 @@ function SettingsSection({
     canBackUpDatabase,
     canImportCsv,
     canExportCsv,
+    catalogRefsReady,
+    catalogRefStatus,
+    catalogRefValidationFailed,
+    refreshCatalogRefStatus,
     canClearCache,
     handleThemeChange,
     handleAccentChange,
@@ -2485,6 +2534,7 @@ function SettingsSection({
       </SettingsPanelCard>
 
       <SettingsPanelCard
+        id="backup-recovery"
         title={t("settings.backup.title")}
         icon={ShieldCheck}
         showReset={false}
@@ -2631,7 +2681,7 @@ function SettingsSection({
       </SettingsPanelCard>
 
       <SettingsPanelCard title={t("settings.importExport.title")} icon={FileArchive} showReset={false}>
-        <ImportExportPanel
+        {catalogRefsReady ? <ImportExportPanel
           importStatus={importStatus}
           importApplyStatus={importApplyStatus}
           isImportPending={isImportPending}
@@ -2649,7 +2699,12 @@ function SettingsSection({
           onRequestApply={handleRequestImportApply}
           onCancelApply={() => setImportApplyStatus({ state: "idle" })}
           onConfirmApply={handleConfirmImportApply}
-        />
+        /> : <CatalogReferenceBoundary
+          status={catalogRefStatus}
+          validationFailed={catalogRefValidationFailed}
+          onRetry={() => void refreshCatalogRefStatus()}
+          onOpenRecovery={() => document.getElementById("backup-recovery")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />}
       </SettingsPanelCard>
 
       <SettingsPanelCard title={t("settings.performance.title")} icon={HardDrive}>
@@ -3128,6 +3183,29 @@ function ImportExportActionRow({ label, buttonLabel, active, disabled, icon: Ico
   return <div className="flex min-h-16 items-center justify-between gap-4 py-2"><span className="text-sm font-semibold text-slate-800">{label}</span><button type="button" aria-pressed={active} disabled={disabled} onClick={onClick} className={`inline-flex h-10 w-56 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition ${active ? "border-sakura-500 bg-sakura-500 text-white shadow-sm hover:bg-sakura-600" : "border-slate-200 bg-white text-slate-600 hover:border-sakura-200 hover:bg-sakura-50"} disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}><Icon size={17} />{buttonLabel}</button></div>;
 }
 
+function CatalogReferenceBoundary({
+  status,
+  validationFailed,
+  onRetry,
+  onOpenRecovery,
+}: {
+  status: SakuravaRefMigrationStatus | null;
+  validationFailed: boolean;
+  onRetry: () => void;
+  onOpenRecovery: () => void;
+}) {
+  const t = useTranslation();
+  const state = validationFailed ? "invalid" : status?.state ?? "checking";
+  if (state === "legacy") {
+    const count = Object.values(status?.counts ?? {}).reduce((sum, value) => sum + value, 0);
+    return <div role="status" className="rounded-xl border border-sakura-100 bg-sakura-50/50 px-4 py-3"><p className="text-sm font-semibold text-slate-700">{t("migration.ref.body", { count: String(count) })}</p><button type="button" onClick={() => window.dispatchEvent(new Event("sakurava-ref-upgrade-requested"))} className="mt-3 h-9 rounded-lg bg-sakura-500 px-4 text-xs font-semibold text-white hover:bg-sakura-600">{t("migration.ref.confirm")}</button></div>;
+  }
+  if (state === "checking") {
+    return <p role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">{t("migration.ref.validatingBody")}</p>;
+  }
+  return <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3"><p className="text-sm font-semibold text-rose-800">{t("migration.ref.recoveryTitle")}</p><p className="mt-1 text-xs text-rose-700">{t("migration.ref.recoveryBody")}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={onRetry} className="h-9 rounded-lg bg-sakura-500 px-4 text-xs font-semibold text-white">{t("migration.ref.retryValidation")}</button><button type="button" onClick={onOpenRecovery} className="h-9 rounded-lg border border-rose-200 bg-white px-4 text-xs font-semibold text-rose-700">{t("migration.ref.openRecovery")}</button></div></div>;
+}
+
 function ExportSelectionCard({ dataType, selected, onToggle }: { dataType: ExportCsvEntity; selected: boolean; onToggle: () => void }) {
   const t = useTranslation();
   const Icon = dataType === "videos" ? Video : dataType === "images" ? ImageIcon : dataType === "performers" ? UserRound : dataType === "glossary" ? FileText : Tag;
@@ -3246,7 +3324,7 @@ function CompactImportPreviewPanel({
       <div className="max-h-[23rem] overflow-auto">
         <table className="w-full table-fixed text-left text-xs">
           <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
-            <tr>{["row", "section", "record", "action", "details", "status"].map((key) => <th key={key} className={`px-3 py-3 font-semibold ${key === "row" ? "w-14" : key === "section" ? "w-28" : key === "action" ? "w-24" : key === "status" ? "w-28" : key === "record" ? "w-52" : ""}`}>{t(`settings.importExport.table.${key}`)}</th>)}</tr>
+            <tr>{["row", "section", "ref", "record", "action", "details", "status"].map((key) => <th key={key} className={`px-3 py-3 font-semibold ${key === "row" ? "w-14" : key === "section" ? "w-28" : key === "ref" ? "w-32" : key === "action" ? "w-24" : key === "status" ? "w-28" : key === "record" ? "w-48" : ""}`}>{t(`settings.importExport.table.${key}`)}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-100">{pageRows.map((row) => {
             const rowKey = `${row.sheetName}-${row.rowNumber}`;
@@ -3254,6 +3332,7 @@ function CompactImportPreviewPanel({
             return <tr key={rowKey} className={rowStatus === "Needs Review" ? "bg-rose-50/60" : selectedRowKey === rowKey ? "bg-sakura-50/40" : "bg-white"}>
               <td className="px-3 py-2.5 font-semibold text-slate-600">{row.rowNumber}</td>
               <td className="px-3 py-2.5 text-slate-600">{t(`settings.importExport.section.${row.dataType}`)}</td>
+              <td className="px-3 py-2.5 font-mono tabular-nums text-slate-700"><span className="block truncate" title={row.values["Sakurava Ref"] || t("settings.importExport.generatedRef")}>{row.values["Sakurava Ref"] || "—"}</span></td>
               <td className="px-3 py-2.5"><span className="block truncate font-medium text-slate-800" title={row.target}>{row.target}</span></td>
               <td className="px-3 py-2.5 text-slate-600">{row.action}</td>
               <td className="import-details-cell px-3 py-2.5">
@@ -3734,7 +3813,7 @@ function friendlyImportIssue(
   if (/^Unknown Action:/i.test(message)) return "Choose Auto, Create, Update, Delete, or Skip";
   if (/Sakurava Ref was not found/i.test(message)) return t?.("settings.importExport.details.idNotFound") ?? "Record ID was not found";
   if (/Duplicate Sakurava Ref/i.test(message)) return "This Sakurava record appears more than once";
-  if (/must start with/i.test(message)) return "The Sakurava record reference is not valid";
+  if (/must start with|Sakurava Ref is not valid/i.test(message)) return "The Sakurava record reference is not valid";
   if (/must be a number|must be numeric/i.test(message)) return "Enter a valid number";
   if (/required header/i.test(message)) return "A required column is missing";
   const required = message.match(/^(.+?) is required for a new row\.?$/i);

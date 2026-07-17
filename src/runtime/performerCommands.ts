@@ -1,5 +1,6 @@
 import type { NewPerformer, Performer, PerformerPatch } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
+import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
 
 export { isTauriRuntimeAvailable as isPerformerRuntimeAvailable };
 
@@ -12,7 +13,7 @@ export function getPerformer(id: string) {
 }
 
 export function createPerformer(input: NewPerformer) {
-  return invokeTauriCommand<Performer>("performer_create", { input });
+  return invokeTauriCommand<Performer>("performer_create", { input: { ...input, issuanceYymm: currentSakuravaRefYymm() } });
 }
 
 export function updatePerformer(id: string, patch: PerformerPatch) {

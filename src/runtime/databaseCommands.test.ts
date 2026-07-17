@@ -102,6 +102,7 @@ describe("backup package runtime wrappers", () => {
     ).resolves.toEqual(result);
     expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_restore", {
       packageName: "sakurava-backup-20260706-120000-manual",
+      migrationYymm: expect.stringMatching(/^\d{4}$/),
     });
   });
 

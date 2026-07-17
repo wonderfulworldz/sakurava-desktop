@@ -24,6 +24,8 @@ pub fn run() {
             commands::backup_package_list,
             commands::backup_package_preview,
             commands::backup_package_restore,
+            commands::sakurava_ref_migration_get_status,
+            commands::sakurava_ref_migration_apply,
             commands::backup_package_rotate_automatic,
             commands::backup_package_delete,
             commands::backup_package_export,

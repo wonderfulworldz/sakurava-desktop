@@ -4,6 +4,7 @@ import type {
   NewManagedCategory,
 } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
+import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
 
 export { isTauriRuntimeAvailable as isManagedCategoryRuntimeAvailable };
 
@@ -19,7 +20,7 @@ export function getManagedCategory(key: string) {
 
 export function createManagedCategory(input: NewManagedCategory) {
   return invokeTauriCommand<ManagedCategory>("managed_category_create", {
-    input,
+    input: { ...input, issuanceYymm: currentSakuravaRefYymm() },
   });
 }
 

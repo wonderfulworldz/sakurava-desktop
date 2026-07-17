@@ -2,6 +2,8 @@ export type CollectionKind = "videos" | "images" | "performers";
 
 type BaseCollectionItem = {
   key: string;
+  sakuravaRef?: string;
+  identityAliases?: string[];
   title: string;
   originalTitle: string;
   coverPath?: string;
@@ -37,6 +39,8 @@ export type ImageCollectionItem = BaseCollectionItem & {
 export type PerformerCollectionItem = {
   kind: "performers";
   key: string;
+  sakuravaRef?: string;
+  identityAliases?: string[];
   name: string;
   originalName: string;
   aliases: string;

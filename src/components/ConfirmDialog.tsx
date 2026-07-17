@@ -13,6 +13,7 @@ type ConfirmDialogProps = {
   pendingLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
+  hideCancel?: boolean;
 };
 
 function ConfirmDialog({
@@ -26,10 +27,12 @@ function ConfirmDialog({
   pendingLabel,
   onCancel,
   onConfirm,
+  hideCancel = false,
 }: ConfirmDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const pendingRef = useRef(pending);
@@ -45,7 +48,7 @@ function ConfirmDialog({
     returnFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    cancelButtonRef.current?.focus();
+    (hideCancel ? confirmButtonRef.current : cancelButtonRef.current)?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !pendingRef.current) {
@@ -79,7 +82,7 @@ function ConfirmDialog({
       document.removeEventListener("keydown", handleKeyDown);
       returnFocusRef.current?.focus();
     };
-  }, [open]);
+  }, [hideCancel, open]);
 
   if (!open) {
     return null;
@@ -115,7 +118,7 @@ function ConfirmDialog({
           {description}
         </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2">
-          <button
+          {!hideCancel ? <button
             ref={cancelButtonRef}
             type="button"
             onClick={onCancel}
@@ -123,8 +126,9 @@ function ConfirmDialog({
             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-sakura-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
-          </button>
+          </button> : null}
           <button
+            ref={confirmButtonRef}
             type="button"
             onClick={onConfirm}
             disabled={pending}

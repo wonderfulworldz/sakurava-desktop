@@ -88,8 +88,8 @@ describe("XLSX export and templates", () => {
     ));
     expect(multiMetadata).toMatchObject({
       applicationId: "app.sakurava.desktop",
-      contractVersion: 2,
-      exportFormatVersion: 2,
+      contractVersion: 3,
+      exportFormatVersion: 3,
       includedDataTypes: ["videos", "glossary"],
       workbookType: "catalog",
     });
@@ -105,7 +105,7 @@ describe("XLSX export and templates", () => {
       template.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value,
     ));
     expect(templateMetadata).toMatchObject({
-      contractVersion: 2,
+      contractVersion: 3,
       includedDataTypes: ["videos"],
       workbookType: "template",
     });

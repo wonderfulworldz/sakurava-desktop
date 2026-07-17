@@ -10,6 +10,8 @@ import {
   SAKURAVA_IMPORT_CONTRACT_VERSION,
   sourceFileFingerprint,
 } from "./importExportContract";
+import { canonicalImportIdentity } from "./sakuravaRef";
+import { currentSakuravaRefYymm } from "./sakuravaRef";
 
 export type ImportPlanAction = "create" | "update" | "delete";
 
@@ -48,6 +50,7 @@ export type ImportCatalogSnapshot = {
 
 export type ImportOperationPlan = {
   contractVersion: number;
+  issuanceYymm: string;
   sourceFingerprint: string;
   operationFingerprint: string;
   catalogSnapshot: ImportCatalogSnapshot;
@@ -59,6 +62,7 @@ export function buildImportOperationPlan(
   preview: ImportCatalogPreview,
   context: ImportCsvPreviewContext,
   sourceBytes: Uint8Array,
+  issuanceYymm = currentSakuravaRefYymm(),
 ): ImportOperationPlan {
   if (preview.summary.blocked) {
     throw new Error("Import operation plan requires a Preview with no blocking issues.");
@@ -70,6 +74,7 @@ export function buildImportOperationPlan(
   const catalogSnapshot = snapshotCatalog(context);
   const plan: ImportOperationPlan = {
     contractVersion: SAKURAVA_IMPORT_CONTRACT_VERSION,
+    issuanceYymm,
     sourceFingerprint,
     operationFingerprint: "",
     catalogSnapshot,
@@ -83,6 +88,7 @@ export function buildImportOperationPlan(
 export function importPlanFingerprintPayload(plan: ImportOperationPlan) {
   return {
     contractVersion: plan.contractVersion,
+    issuanceYymm: plan.issuanceYymm,
     sourceFingerprint: plan.sourceFingerprint,
     catalogSnapshot: plan.catalogSnapshot,
     operations: plan.operations.map((operation) => ({
@@ -127,7 +133,7 @@ function buildOperation(
     sourceRowNumber: row.rowNumber,
     section: row.dataType,
     action,
-    stableRecordIdentifier: ref,
+    stableRecordIdentifier: /^GLO-NEW-/.test(ref) ? ref : canonicalImportIdentity(ref),
     recordId: current ? recordKey(current) : null,
     temporaryIdentifier: action === "create" && /^GLO-NEW-/.test(ref) ? ref : null,
     currentRecord: current,

@@ -1,5 +1,6 @@
 import type { Image, ImagePatch, NewImage } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
+import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
 
 export { isTauriRuntimeAvailable as isImageRuntimeAvailable };
 
@@ -12,7 +13,7 @@ export function getImage(id: string) {
 }
 
 export function createImage(input: NewImage) {
-  return invokeTauriCommand<Image>("image_create", { input });
+  return invokeTauriCommand<Image>("image_create", { input: { ...input, issuanceYymm: currentSakuravaRefYymm() } });
 }
 
 export function updateImage(id: string, patch: ImagePatch) {

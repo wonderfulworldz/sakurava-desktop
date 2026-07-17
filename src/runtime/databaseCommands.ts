@@ -1,4 +1,5 @@
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
+import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
 
 export { isTauriRuntimeAvailable as isDatabaseRuntimeAvailable };
 
@@ -156,7 +157,7 @@ export function previewBackupPackage(packageName: string) {
 export function restoreBackupPackage(packageName: string) {
   return invokeTauriCommand<BackupPackageRestoreResult>(
     "backup_package_restore",
-    { packageName },
+    { packageName, migrationYymm: currentSakuravaRefYymm() },
   );
 }
 

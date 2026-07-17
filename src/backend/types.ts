@@ -12,6 +12,7 @@ export type CreditCharacterMode = "text" | "self" | "linked";
 
 export interface BaseCatalogRecord {
   id: EntityId;
+  sakuravaRef?: string;
   categoriesJson: JsonText;
   ratingJson: JsonText;
   sourceLinksJson: JsonText;
@@ -84,6 +85,7 @@ export interface Performer extends BaseCatalogRecord {
 
 export interface ManagedCategory {
   key: EntityId;
+  sakuravaRef?: string;
   name: string;
   parentKey: EntityId | null;
   description: string;
@@ -118,6 +120,7 @@ export interface Credit {
 
 export interface GlossaryEntry {
   id: EntityId;
+  sakuravaRef?: string;
   term: string;
   definition: string;
   synonymsJson: JsonText;
@@ -131,8 +134,8 @@ export interface GlossaryEntry {
   updatedAt: number;
 }
 
-type GeneratedFields = "id" | "createdAt" | "updatedAt";
-type ManagedCategoryGeneratedFields = "createdAt" | "updatedAt";
+type GeneratedFields = "id" | "sakuravaRef" | "createdAt" | "updatedAt";
+type ManagedCategoryGeneratedFields = "sakuravaRef" | "createdAt" | "updatedAt";
 
 export type NewVideo = Pick<Video, "title"> &
   Partial<Omit<Video, GeneratedFields | "title">>;

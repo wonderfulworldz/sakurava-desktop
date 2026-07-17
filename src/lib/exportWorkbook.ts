@@ -17,7 +17,7 @@ import {
 } from "./importExportContract";
 import { IMPORT_MAX_ROWS_PER_SECTION } from "./importLimits";
 
-export const EXPORT_CONTRACT_VERSION = "sakurava-bulk-edit-v2";
+export const EXPORT_CONTRACT_VERSION = "sakurava-bulk-edit-v3";
 
 export type ExportDataSelection = {
   dataType: ExportCsvEntity;

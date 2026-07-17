@@ -1,8 +1,8 @@
 # Import / Export Final Product and Format Decision
 
-Status: Batch 41.8.3 v2 contract, UI, and round-trip hardening implemented. The
-later public Sakurava Ref and dependency-resolution proposal is migration-bound
-and requires explicit approval before implementation.
+Status: Batch 41.8.4A public Sakurava Ref migration and contract v3 implemented.
+The dependency-resolution and unified Attention workflow remains deferred to
+Batch 41.8.4B.
 
 ## 1. Executive summary
 
@@ -53,7 +53,7 @@ unsupported metadata blocks Apply (`src/lib/exportWorkbook.ts`;
 
 **CSV compatibility policy:** CSV remains an ordinary UTF-8 table without a
 nonstandard comment preamble. Import infers the contract only from one supported
-canonical header set; a filename is never sufficient proof. Current v2 headers
+canonical header set; a filename is never sufficient proof. Current v3 headers
 exclude internal filesystem paths. Exact v1 columns remain accepted for safe
 round trips from already released exports, but new exports never emit them.
 Missing required, duplicate, renamed/unsupported headers and duplicate record
@@ -346,7 +346,7 @@ work/performer dependencies require a dedicated design
 
 Imported/exported data must not cause arbitrary local path mutation. No media
 file, cover/gallery/thumbnail byte, cache, or app-managed asset is copied,
-moved, renamed, rewritten, or deleted. Current v2 exports exclude internal path
+moved, renamed, rewritten, or deleted. Current v3 exports exclude internal path
 columns entirely. Exact v1 path columns remain readable only for compatibility
 and are treated as record text, never as filesystem authority.
 
@@ -482,7 +482,7 @@ selected page (`src/lib/importLimits.ts`; `src/lib/importCatalog.ts`;
 dynamically loaded for XLSX paths.
 
 Current XLSX single-type, multi-type, and template exports always write valid
-very-hidden v2 metadata. Missing metadata remains an explicit legacy warning;
+very-hidden v3 metadata. Missing metadata remains an explicit legacy warning;
 malformed, exposed, conflicting, or unsupported metadata blocks Apply. CSV
 supports UTF-8 with/without BOM, CRLF/LF, standard quoting, escaped quotes,
 multiline cells, trailing empty rows, leading-zero text identifiers, and the
@@ -496,10 +496,10 @@ controls, text status labels, and accessible toast roles are retained. Color is
 never the only Needs Review indicator (`SakuravaCheckbox`, `ExportFormatCard`,
 `ConfirmDialog`, and `CompactImportPreviewPanel`).
 
-No schema or migration was required for the implemented v2 Import / Export
-hardening for the five supported data types. The later meaningful public
-Sakurava Ref proposal in section 16 does require a versioned migration and is
-not implemented or authorized by that earlier conclusion.
+No schema or migration was required for the earlier v2 Import / Export
+hardening for the five supported data types. The later public Sakurava Ref
+work in section 16 is a separately authorized, versioned migration and does
+not change that historical conclusion.
 
 ## 14. Final Batch 41.8 sequence
 
@@ -573,11 +573,12 @@ system, new formats, schema changes, or media transfer.
 - Temporary same-file references exist only for Glossary. Other relationships
   must refer to existing stable identifiers.
 
-## 16. Migration-required public identity and resolution proposal
+## 16. Implemented public identity migration and deferred resolution workflow
 
-### 16.1 Existing and verified identity architecture
+### 16.1 Pre-migration identity architecture (verified baseline)
 
-The current database has one technical text primary key per record:
+Before the 41.8.4A migration, the database had one technical text primary key
+per record:
 `videos.id`, `images.id`, `performers.id`, `managedCategories.key`, and
 `glossary_entries.id`. Credits have their own `credits.id` and store work,
 Performer, and Managed Category technical keys in `workId`, `performerId`,
@@ -600,15 +601,15 @@ mechanism provides a permanent monthly business sequence or a durable no-reuse
 ledger (`src-tauri/src/commands.rs`: `new_id` and
 `build_managed_category_key`).
 
-The implemented v1/v2 spreadsheet “Sakurava Ref” is not stored. `sakuravaRef`
-derives `VID/IMG/PER/CAT/GLO-<seven-character FNV token>` from the technical
-key on demand. Preview reconstructs the same hash over the current catalog and
-blocks detected collisions. There is no persisted mapping that can issue,
-reserve, search, or prove non-reuse of `TYYMM-NNNN`
+The earlier v1/v2 spreadsheet “Sakurava Ref” was not stored. `sakuravaRef`
+derived `VID/IMG/PER/CAT/GLO-<seven-character FNV token>` from the technical
+key on demand. Preview reconstructed the same hash over the current catalog
+and blocked detected collisions. That baseline had no persisted mapping that
+could issue, reserve, search, or prove non-reuse of `TYYMM-NNNN`
 (`src/lib/exportCsv.ts`: `sakuravaRef` and `stableRefToken`;
 `src/lib/importCsvPreview.ts`: `buildCurrentRowsByRef`).
 
-### 16.2 Decision: a schema migration is required
+### 16.2 Implemented decision: hidden technical keys plus public Sakurava Ref
 
 The approved public form `TYYMM-NNNN` cannot safely be implemented by
 relabeling or repurposing the existing primary keys. It requires all of the
@@ -627,20 +628,29 @@ following durable state:
 - restore-time migration and counter reconciliation so an older Backup package
   remains usable without rewinding the no-reuse high-water mark.
 
-Introducing only the new spreadsheet columns or only formatted copy would
-expose an identity contract the database cannot yet guarantee. Therefore the
-public Ref, Import Ref, Resolution, Attention resolution UI, and risk-based
-destructive workflow are not partially exposed in this continuation.
+Batch 41.8.4A implements this migration boundary. Technical row keys remain
+unchanged and hidden; `sakuravaRef` is the immutable public business identity.
+Import Ref, Resolution, Attention resolution UI, and risk-based destructive
+workflow remain explicitly deferred to Batch 41.8.4B.
 
-### 16.3 Smallest safe migration plan requiring approval
+### 16.3 Implemented migration, allocation, alias, and Restore policy
 
-The narrowest design keeps existing SQLite primary keys as hidden row keys and
-adds a canonical business-identity layer:
+The implementation keeps existing SQLite primary keys as hidden row keys and
+adds a canonical business-identity layer (`src-tauri/src/database.rs`:
+`migrate_sakurava_refs`, `migrate_sakurava_ref_connection`,
+`allocate_sakurava_ref`, and `resolve_sakurava_ref`):
 
-1. Add a versioned migration ledger (or a formally managed `user_version`).
-2. Add nullable `sakuravaRef TEXT` columns to the five supported record tables,
-   backfill them transactionally, then enforce non-empty unique values with
-   unique indexes and runtime validation.
+The pre-migration audit on 2026-07-17 found Videos 51, Images 112,
+Performers 59, Managed Categories 53, and Glossary 3. All sections were below
+the 9,999 migration-month capacity. The audit found no missing/duplicate
+technical IDs, released v1/v2 derived-Ref collisions, broken supported JSON or
+hierarchy references, hierarchy cycles, or broken Credits references.
+
+1. `schemaMigrations` records `41.8.4A-sakurava-ref-v1` after the transaction
+   validates successfully.
+2. `sakuravaRef TEXT` is added to the five supported record tables, backfilled
+   transactionally, and protected by unique non-empty indexes plus runtime
+   validation.
 3. Add `sakuravaRefCounters(sectionCode, issuanceYymm, lastSequence)` with a
    composite primary key and a checked sequence range of 1–9999. Allocation
    runs under the same write transaction as record creation; it increments the
@@ -649,22 +659,23 @@ adds a canonical business-identity layer:
    unique section/alias constraint. Backfill both raw technical keys and exact
    v1/v2 hashed Refs. Any ambiguous hash collision blocks migration before
    mutation rather than guessing.
-5. Backfill legacy records in deterministic order. The exact legacy issuance
-   month policy must be approved: either issue all legacy Refs in the migration
-   computer's local month (and preflight the 9,999 capacity), or derive a local
-   month from a valid stored creation timestamp with a documented fallback.
-6. Keep technical row keys and physical relationships internal initially, but
-   make every application/runtime boundary accept and return canonical Refs.
+5. All legacy records use the migration computer's local `YYMM`. Each section
+   is ordered by its technical key with binary collation; this makes migration
+   repeatable but does not claim historical creation order. Capacity is checked
+   before backup or mutation and is limited to 9,999 legacy records per section.
+6. Technical row keys and physical relationships remain internal. CRUD lookup
+   accepts formatted/canonical Refs and supported legacy aliases; current
+   files, Preview, search, and visible system information use Sakurava Ref.
    Relationship serialization exposed to forms, search, Preview, and files
-   uses Refs. If physical JSON/Credit/hierarchy values must also be rewritten,
-   do that as a separately verified phase inside the same migration transaction
-   because it touches every relation listed in section 16.1.
+   resolves technical keys through the canonical Ref layer. The migration does
+   not rewrite physical JSON, Credit, or hierarchy storage because those keys
+   remain valid hidden database implementation details.
 7. Create and verify a normal Safety package before migration. Use one SQLite
    transaction for the migration/backfill; validate uniqueness, aliases,
    hierarchy, Credits, JSON relations, and counts before commit. On any failure,
    roll back and retain the safety package.
-8. Upgrade Restore so a restored legacy database is migrated and fully
-   validated before success is reported. Merge the per-section/month high-water
+8. Restore upgrades a legacy package and fully validates it before success is
+   reported. Merge the per-section/month high-water
    values from the pre-restore Safety database with the restored database using
    the maximum value, preventing an in-place restore from reissuing a Ref used
    later in the same installation. Existing directory package v1 remains
@@ -676,33 +687,76 @@ codes are V Video, I Image, P Performer, C Managed Category, G Glossary, and R
 reserved for Credits. The Ref is immutable after allocation and remains text in
 CSV/XLSX.
 
-### 16.4 Proposed v3 spreadsheet and same-file identity contract
+### 16.4 Authoritative migration state and mandatory-upgrade policy
 
-Because the structure changes, the first released public-Ref contract must be
-v3. Versions 1 and 2 remain compatibility inputs through the alias table; new
-exports use only v3. Leading columns are:
+Policy A, mandatory upgrade, is final. Ref-dependent contract-v3 Import,
+Export, Create, relationship mutation, and Apply are available only after the
+catalog passes one authoritative migration-state validator. The validator has
+three outcomes (`SakuravaRefMigrationState` and
+`sakurava_ref_migration_status_for_connection` in
+`src-tauri/src/database.rs`):
+
+- **legacy** — no completed Sakurava Ref infrastructure exists. Sakurava shows
+  **Upgrade catalog references** and does not emit or accept contract v3.
+- **migrated** — the ledger entry, all five Ref columns, valid non-empty Refs,
+  unique indexes, counters, complete unambiguous aliases, schema rules, and
+  supported relationship integrity all validate. Contract v3 is enabled.
+- **invalid** — partial or inconsistent migration evidence exists. Sakurava
+  fails closed, disables Ref-dependent workflows, and offers **Retry
+  Validation** and **Open Backup & Recovery**. It does not treat this as a
+  routine legacy upgrade or attempt silent repair.
+
+Status checks are read-only. Startup, Settings navigation, and Import/Export
+navigation never invoke migration. Only explicit confirmation of **Upgrade
+References** calls `sakurava_ref_migration_apply`; the existing verified Safety
+package is created and preview-validated before the schema/backfill
+transaction. Migration does not return early merely because one Ref column
+exists: only the authoritative `migrated` state permits an idempotent no-op.
+
+Frontend product boundaries call the same authoritative status command, while
+Rust mutation and atomic-Apply command boundaries independently require the
+migrated state. A status-command failure therefore fails closed rather than
+unlocking Ref-dependent behavior.
+
+### 16.5 Implemented contract v3 identity boundary
+
+The public-Ref contract is v3. Versions 1 and 2 remain compatibility inputs
+through raw technical and exact derived-Ref aliases; new exports use v3
+metadata and expose no technical key. Leading columns in 41.8.4A are:
 
 1. Action
 2. Sakurava Ref
-3. Import Ref
-4. Resolution
-5. required/core fields
-6. relationship fields
-7. optional/detail fields
+3. required/core fields
+4. relationship fields
+5. optional/detail fields
 
-`Import Ref` is optional package-local text such as `NEW-001`. It identifies a
-new row and same-file relationships, is unique within the import package, and
-is removed when generated permanent Refs are substituted during atomic Apply.
-It is never persisted and normal data exports leave the column blank. Duplicate
-or unresolved Import Refs become actionable Attention.
+Blank Sakurava Ref on Create is allocated during the same SQLite transaction as
+the record insert. Update/Delete resolve current Refs or supported v1/v2
+aliases. The existing reserved same-file Glossary temporary reference mechanism
+continues only as compatibility plumbing and never becomes a permanent Ref.
+Import Ref and Resolution columns are not part of 41.8.4A. The clear marker
+remains `[[SAKURAVA:CLEAR:v1]]`.
 
-Resolution accepts blank/Auto, Detach, Cascade, and
-`Replace:<Sakurava Ref>`. XLSX may provide fixed dropdown values for Auto,
-Detach, and Cascade; Replace necessarily remains validated text because its
-target is record-specific. CSV uses the identical ordered contract. The clear
-marker remains `[[SAKURAVA:CLEAR:v1]]`.
+All current workbook representations identify themselves consistently as
+`sakurava-bulk-edit-v3`: numeric metadata, machine contract identifier,
+Instructions, templates, and Examples agree. The very-hidden
+`__SakuravaMetadata` sheet remains the authoritative XLSX contract location;
+CSV retains the exact-header compatibility policy.
 
-### 16.5 Proposed Attention, dependency, and confirmation workflow
+Formatted, canonical, and case-varied current Refs are normalized by one
+frontend identity layer (`src/lib/sakuravaRef.ts`) before Preview maps,
+operation plans, Apply preparation, relationships, stale fingerprints, search,
+or new navigation links use them. The layer also supports raw legacy keys and
+exact v1/v2 derived aliases, distinguishes malformed from unknown values, and
+never uses display names as identity. Rust resolves the same public and alias
+forms to hidden technical keys. Current navigation prefers formatted Sakurava
+Refs; retained technical-key routes are hidden compatibility inputs only.
+Current relationship exports use public Refs for Video/Image/Performer links,
+Managed Category and Glossary parents, and embedded Record Categories. Record
+Category Refs are resolved back to the existing stored labels during Apply, so
+the public identity boundary does not change the `categoriesJson` schema.
+
+### 16.6 Deferred to 41.8.4B: Attention, dependency, and confirmation workflow
 
 The final structural statuses are Ready, Attention, No Change, and Skipped
 (Indonesian: Ready-equivalent product copy, Perhatian, no-change equivalent,
@@ -737,28 +791,35 @@ The final Preview columns are Row, Section, Sakurava Ref, Record, Action,
 Details, and Status. Search/copy accepts canonical or formatted Ref. Mandatory
 Attention shows Review N items rather than an unexplained disabled Apply.
 
-### 16.6 Required migration and regression tests
+### 16.7 Migration and regression verification
 
-Approval of the identity migration requires tests for deterministic local YYMM
+The identity migration verification covers deterministic local YYMM
 allocation, per-section/month sequencing, 9,999 exhaustion, no reuse after
 Delete and Restore, uniqueness, immutability, formatted/canonical lookup,
 legacy raw/hash aliases, collision rejection, transactional backfill, migration
 rollback, old Backup package restore-and-upgrade, and Safety package recovery.
-Every JSON relation, hierarchy link, Credit reference, route, CRUD command,
-Preview snapshot, stale scope, operation fingerprint, and atomic Apply path
-must be covered before v3 is emitted.
+JSON relations, hierarchy links, Credit references, CRUD resolution, Preview,
+stale scope, operation fingerprints, and atomic Apply retain their existing
+regression coverage while current files emit contract v3.
 
-Resolution tests must cover projected Delete ordering, Detach, Cascade,
+Batch 41.8.4B must add resolution tests for projected Delete ordering, Detach, Cascade,
 Replace, Skip, Credits preservation, apply-to-all stability, risk selection,
 critical acknowledgement, stale revalidation, backup-before-transaction, full
 rollback, and unchanged original media. UI tests must prove unified Attention,
 one-line statuses, Review N items, an actionable next step for every supported
 case, and consistent English/Indonesian copy.
 
+The translation architecture is frozen until Batch 41.9. Batch 41.8.4A adds
+only the minimum migration validation and recovery copy through the existing
+translation infrastructure; it does not change core languages, removability,
+fallbacks, reset behavior, or translation CSV behavior.
+
 ## 17. Explicit non-goals
 
-- No unapproved identity/schema migration or new dependency in this
-  continuation of Batch 41.8.3.
+- No replacement of hidden SQLite primary keys or physical relationship
+  storage; Sakurava Ref is an additional business-identity layer.
+- No Attention/Detach/Cascade/Replace implementation; that is Batch 41.8.4B.
+- No new dependency.
 - No Backup/Recovery semantic change or database replacement through Import.
 - No ODS, legacy XLS, HTML table, JSON exchange, ZIP/archive, or additional
   format work for Batch 41.8.

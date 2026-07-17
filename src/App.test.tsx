@@ -177,6 +177,67 @@ function confirmDialog(confirmName: string | RegExp) {
   fireEvent.click(within(dialog).getByRole("button", { name: confirmName }));
 }
 
+function withMigratedSakuravaRefs(
+  handler: (command: string, args?: Record<string, any>) => Promise<any>,
+) {
+  return vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    if (command === "sakurava_ref_migration_get_status") {
+      return {
+        state: "migrated",
+        required: false,
+        migrationId: "41.8.4A-sakurava-ref-v1",
+        counts: { videos: 0, images: 0, performers: 0, categories: 0, glossary: 0 },
+        capacityPerSectionMonth: 9999,
+        preconditionsValid: true,
+        issues: [],
+      };
+    }
+    return handler(command, args);
+  });
+}
+
+function installMigratedSakuravaRefFallbackForLegacyMocks() {
+  let internals: Window["__TAURI_INTERNALS__"];
+  Object.defineProperty(window, "__TAURI_INTERNALS__", {
+    configurable: true,
+    get: () => internals,
+    set: (value: Window["__TAURI_INTERNALS__"]) => {
+      if (!value) {
+        internals = value;
+        return;
+      }
+      const originalInvoke = value.invoke;
+      const wrappedInvoke = async (...invokeArgs: Parameters<typeof originalInvoke>) => {
+        const [command] = invokeArgs;
+        try {
+          return await originalInvoke(...invokeArgs);
+        } catch (error) {
+          if (
+            command === "sakurava_ref_migration_get_status"
+            && error instanceof Error
+            && error.message.startsWith("Unexpected command ")
+          ) {
+            return {
+              state: "migrated",
+              required: false,
+              migrationId: "41.8.4A-sakurava-ref-v1",
+              counts: { videos: 0, images: 0, performers: 0, categories: 0, glossary: 0 },
+              capacityPerSectionMonth: 9999,
+              preconditionsValid: true,
+              issues: [],
+            };
+          }
+          throw error;
+        }
+      };
+      internals = {
+        ...value,
+        invoke: wrappedInvoke as typeof originalInvoke,
+      };
+    },
+  });
+}
+
 function clickAndConfirm(
   buttonName: string | RegExp,
   confirmName: string | RegExp,
@@ -323,6 +384,7 @@ describe("App", () => {
     vi.useRealTimers();
     window.history.pushState({}, "", "/");
     delete window.__TAURI_INTERNALS__;
+    installMigratedSakuravaRefFallbackForLegacyMocks();
     delete (window as Partial<Window>).__TAURI_EVENT_PLUGIN_INTERNALS__;
     window.localStorage.clear();
     resetAutomaticBackupRuntimeStateForTests();
@@ -372,6 +434,135 @@ describe("App", () => {
     });
     dialogMocks.open.mockReset();
     dialogMocks.save.mockReset();
+  });
+
+  it("upgrades legacy catalog references through the focused verified-safety flow", async () => {
+    let migrated = false;
+    const invoke = vi.fn(async (command: string, args: Record<string, unknown> = {}) => {
+      if (command === "sakurava_ref_migration_get_status") {
+        return {
+          state: migrated ? "migrated" : "legacy",
+          required: !migrated,
+          migrationId: "41.8.4A-sakurava-ref-v1",
+          counts: { videos: 2, images: 1, performers: 1, categories: 1, glossary: 1 },
+          capacityPerSectionMonth: 9_999,
+          preconditionsValid: true,
+          issues: [],
+        };
+      }
+      if (command === "sakurava_ref_migration_apply") {
+        expect(args).toEqual({ migrationYymm: "2607" });
+        migrated = true;
+        return {
+          migrated: true,
+          migrationId: "41.8.4A-sakurava-ref-v1",
+          migrationYymm: "2607",
+          counts: { videos: 2, images: 1, performers: 1, categories: 1, glossary: 1 },
+          safetyPackageName: "sakurava-backup-ref-migration-safety",
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+
+    const dialog = await screen.findByRole("dialog", { name: "Upgrade catalog references" });
+    expect(within(dialog).getByText(/6 existing catalog records/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/verified safety backup/)).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(/SQL|schema|alias table|technical key/i);
+    expect(invoke.mock.calls.filter(([command]) => command === "sakurava_ref_migration_apply"))
+      .toHaveLength(0);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Upgrade References" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Catalog references upgraded.");
+    expect(screen.queryByRole("dialog", { name: "Upgrade catalog references" }))
+      .not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith(
+      "sakurava_ref_migration_apply",
+      { migrationYymm: "2607" },
+      undefined,
+    );
+  });
+
+  it("fails closed with recovery actions when catalog reference validation is invalid", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "sakurava_ref_migration_get_status") {
+        return {
+          state: "invalid",
+          required: false,
+          migrationId: "41.8.4A-sakurava-ref-v1",
+          counts: { videos: 1, images: 0, performers: 0, categories: 0, glossary: 0 },
+          capacityPerSectionMonth: 9_999,
+          preconditionsValid: false,
+          issues: ["Catalog reference infrastructure could not be verified."],
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+
+    const dialog = await screen.findByRole("dialog", { name: "Catalog references need recovery" });
+    expect(within(dialog).getByRole("button", { name: "Retry Validation" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Open Backup & Recovery" })).toBeInTheDocument();
+    expect(invoke.mock.calls.some(([command]) => command === "sakurava_ref_migration_apply"))
+      .toBe(false);
+  });
+
+  it("keeps startup and Settings migration checks read-only until explicit confirmation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "sakurava_ref_migration_get_status") {
+        return {
+          state: "legacy",
+          required: true,
+          migrationId: "41.8.4A-sakurava-ref-v1",
+          counts: { videos: 2, images: 1, performers: 1, categories: 1, glossary: 1 },
+          capacityPerSectionMonth: 9_999,
+          preconditionsValid: true,
+          issues: [],
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+
+    const dialog = await screen.findByRole("dialog", { name: "Upgrade catalog references" });
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(invoke.mock.calls.filter(([command]) => command === "sakurava_ref_migration_apply"))
+      .toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog", { name: "Upgrade catalog references" }))
+      .not.toBeInTheDocument();
+    expect(invoke.mock.calls.filter(([command]) => command === "sakurava_ref_migration_apply"))
+      .toHaveLength(0);
+    fireEvent.click(await screen.findByRole("button", { name: "Upgrade References" }));
+    expect(await screen.findByRole("dialog", { name: "Upgrade catalog references" }))
+      .toBeInTheDocument();
+    expect(invoke.mock.calls.filter(([command]) => command === "sakurava_ref_migration_apply"))
+      .toHaveLength(0);
+  });
+
+  it("fails closed when the migration status command itself fails", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "sakurava_ref_migration_get_status") {
+        throw new Error("status unavailable");
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+
+    const dialog = await screen.findByRole("dialog", { name: "Catalog references need recovery" });
+    expect(within(dialog).getByRole("button", { name: "Retry Validation" })).toBeInTheDocument();
+    expect(invoke.mock.calls.some(([command]) => command === "sakurava_ref_migration_apply"))
+      .toBe(false);
   });
 
   it("renders the app shell and Home page", () => {
@@ -1811,6 +2002,40 @@ describe("App", () => {
     expect(
       screen.queryByRole("button", { name: "List view" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("searches Videos by formatted, canonical, and supported legacy references", async () => {
+    window.history.pushState({}, "", "/videos");
+    const legacyId = "video_legacy_search_1";
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "video_list") {
+        return [persistedVideo({
+          id: legacyId,
+          sakuravaRef: "V26070042",
+          title: "Reference Search Target",
+        })];
+      }
+      if (command === "sakurava_ref_migration_get_status") {
+        return { required: false };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+
+    expect(await screen.findByText("Reference Search Target")).toBeInTheDocument();
+    const search = screen.getByRole("textbox", { name: "Videos search" });
+    for (const reference of [
+      "V2607-0042",
+      "V26070042",
+      legacyId,
+      sakuravaRef("VID", legacyId),
+    ]) {
+      fireEvent.change(search, { target: { value: reference } });
+      expect(screen.getByText("Reference Search Target")).toBeInTheDocument();
+    }
+    expect(screen.queryByText(legacyId)).not.toBeInTheDocument();
   });
 
   it("uses global page-size options on the Category Catalog", () => {
@@ -3843,7 +4068,7 @@ describe("App", () => {
 
   it("renders the approved Idle, Import, and Export workflow hierarchy", async () => {
     window.history.pushState({}, "", "/settings");
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list"].includes(command)) {
         return [];
       }
@@ -3855,7 +4080,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Import Catalog" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Import Catalog" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export Catalog" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Download Template" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Backup Now" })).toBeEnabled();
@@ -3922,21 +4147,23 @@ describe("App", () => {
     const sourcePath = "D:/Imports/sakurava-videos.csv";
     const existingVideo = persistedVideo({
       id: "video-import-1",
+      sakuravaRef: "V26070051",
       title: "Original Video",
       categoriesJson: '["Favorite"]',
     });
     const deleteVideo = persistedVideo({
       id: "video-import-delete",
+      sakuravaRef: "V26070052",
       title: "Delete Video",
     });
     const csvContent = [
       "Action,Sakurava Ref,Code,Title,Original Title,Release Date,Publisher / Label,Censorship,Categories,Rating - Visual,Rating - Story,Rating - Performance,Rating - Chemistry,Rating - Intensity,Rating - Rewatch,Media Path,Cover Path,Related Performers,Related Images,Notes",
-      `Auto,${sakuravaRef("VID", "video-import-1")},,Changed Video,,,,,Favorite; Unknown,,,,,,,,,,,`,
+      "Auto,V2607-0051,,Changed Video,,,,,Favorite; Unknown,,,,,,,,,,,,",
       "Create,,,New Video,,,,,Favorite,,,,,,,,,,,",
-      `Delete,${sakuravaRef("VID", "video-import-delete")},,Delete Video,,,,,,,,,,,,,,,,`,
+      "Delete,V26070052,,Delete Video,,,,,,,,,,,,,,,,",
       "Skip,,,Ignored Video,,,,,,,,,,,,,,,",
     ].join("\r\n");
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [existingVideo, deleteVideo];
       }
@@ -3971,7 +4198,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
 
     const previewRegion = await screen.findByLabelText("Import catalog preview");
     expect(previewRegion).toBeInTheDocument();
@@ -3979,7 +4206,7 @@ describe("App", () => {
     expect(previewRegion).toHaveTextContent("CSV");
     expect(screen.queryByText("Preview only. No data has been changed.")).not.toBeInTheDocument();
     const previewTable = within(previewRegion).getByRole("table");
-    for (const column of ["Row", "Section", "Record", "Action", "Details", "Status"]) {
+    for (const column of ["Row", "Section", "Sakurava Ref", "Record", "Action", "Details", "Status"]) {
       expect(within(previewTable).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
@@ -3993,6 +4220,10 @@ describe("App", () => {
     expect(within(previewTable).getByText("New Video")).toBeInTheDocument();
     expect(within(previewTable).queryByText(/Changed Video/)).not.toBeInTheDocument();
     fireEvent.change(rowSearch, { target: { value: "" } });
+    expect(within(previewTable).getByText("V2607-0051")).toBeInTheDocument();
+    expect(within(previewTable).getByText("Changed Video")).toBeInTheDocument();
+    expect(within(previewTable).queryByText("V2607-0051 | Changed Video"))
+      .not.toBeInTheDocument();
     expect(screen.getByText("New record will be created")).toBeInTheDocument();
     expect(screen.getByText("Record will be deleted")).toBeInTheDocument();
     expect(screen.getAllByText("Skipped").length).toBeGreaterThan(0);
@@ -4037,7 +4268,7 @@ describe("App", () => {
     })[header] ?? ""));
     const bytes = Array.from(new Uint8Array(await workbook.xlsx.writeBuffer()));
     const sourcePath = "D:/Imports/sakurava-catalog.xlsx";
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) return [];
       if (command === "import_catalog_file_read") {
         return { sourcePath, displayName: "sakurava-catalog.xlsx", format: "xlsx", bytes, bytesRead: bytes.length, success: true };
@@ -4048,7 +4279,7 @@ describe("App", () => {
     dialogMocks.open.mockResolvedValue(sourcePath);
 
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
 
     const preview = await screen.findByLabelText("Import catalog preview");
     expect(preview).toHaveTextContent("sakurava-catalog.xlsx");
@@ -4078,7 +4309,7 @@ describe("App", () => {
       buildGlossaryCsv([existing]),
       createRow,
     ].join("\r\n");
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
       if (command === "glossary_list") return [existing];
       if (command === "credit_list") return [];
@@ -4096,7 +4327,7 @@ describe("App", () => {
     dialogMocks.open.mockResolvedValue(sourcePath);
 
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
     const preview = await screen.findByLabelText("Import catalog preview");
     expect(within(preview).getAllByText("Glossary").length).toBeGreaterThan(0);
     expect(within(preview).getByText("No changes")).toBeInTheDocument();
@@ -4133,7 +4364,7 @@ describe("App", () => {
       makeRow({ Action: "Skip", Term: "Ignored", Definition: "Ignored", Favorite: "false" }),
       buildGlossaryCsv([sameTarget]).split("\r\n")[1],
     ].join("\r\n");
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
       if (command === "glossary_list") return [updateTarget, deleteTarget, sameTarget];
       if (command === "credit_list") return [];
@@ -4163,7 +4394,7 @@ describe("App", () => {
     dialogMocks.open.mockResolvedValue(sourcePath);
 
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
     expect(await screen.findByLabelText("Import catalog preview")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply Import" }));
     const dialog = screen.getByRole("dialog", { name: "Apply this import?" });
@@ -4188,7 +4419,7 @@ describe("App", () => {
         "Release Date": "2/30/2026",
       })[header] ?? "").join(","),
     ].join("\r\n");
-    const invoke = vi.fn(async (command: string) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) return [];
       if (command === "import_catalog_file_read") return {
         sourcePath, displayName: "invalid-date.csv", format: "csv",
@@ -4200,7 +4431,7 @@ describe("App", () => {
     dialogMocks.open.mockResolvedValue(sourcePath);
 
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
     expect(await screen.findByText("Date is not valid for this computer")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply Import" })).toBeDisabled();
     expect(screen.queryByText(/must use YYYY-MM-DD/)).not.toBeInTheDocument();
@@ -4217,7 +4448,7 @@ describe("App", () => {
     const applyPromise = new Promise<Record<string, unknown>>((resolve) => {
       resolveApply = resolve;
     });
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [];
       }
@@ -4267,7 +4498,7 @@ describe("App", () => {
 
     expect(screen.queryByRole("button", { name: "Apply Import" }))
       .not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
     expect(await screen.findByLabelText("Import catalog preview"))
       .toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply Import" }));
@@ -4334,7 +4565,7 @@ describe("App", () => {
       `Delete,${sakuravaRef("CAT", "cat_old")},,Old Category,,,,`,
       "Create,,,New Category,Imported,,,",
     ].join("\r\n");
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
       if (["video_list", "image_list", "performer_list"].includes(command)) {
         return [];
       }
@@ -4376,7 +4607,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Import Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
     expect(await screen.findByLabelText("Import catalog preview"))
       .toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply Import" }));
@@ -4404,7 +4635,7 @@ describe("App", () => {
     window.history.pushState({}, "", "/settings");
     const destinationPath = "D:/Exports/sakurava-videos.csv";
     let exportedCsvContent = "";
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [
           persistedVideo({
@@ -4421,7 +4652,12 @@ describe("App", () => {
           }),
         ];
       }
-      if (command === "image_list" || command === "performer_list") {
+      if (
+        command === "image_list" ||
+        command === "performer_list" ||
+        command === "managed_category_list" ||
+        command === "glossary_list"
+      ) {
         return [];
       }
       if (command === "export_file_write") {
@@ -4445,7 +4681,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Export Catalog" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Images" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Performers" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Categories" }));
@@ -4508,8 +4744,13 @@ describe("App", () => {
   it("exports Categories CSV as a read-only data operation", async () => {
     window.history.pushState({}, "", "/settings");
     const destinationPath = "D:/Exports/sakurava-categories.csv";
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
+      if (
+        command === "video_list" ||
+        command === "image_list" ||
+        command === "performer_list" ||
+        command === "glossary_list"
+      ) {
         return [];
       }
       if (command === "managed_category_list") {
@@ -4555,7 +4796,7 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Export Catalog" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Videos" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Images" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Performers" }));
@@ -4577,9 +4818,17 @@ describe("App", () => {
   it("exports Glossary CSV through the shared catalog export flow", async () => {
     window.history.pushState({}, "", "/settings");
     const destinationPath = "D:/Exports/sakurava-glossary.csv";
-    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
       if (command === "glossary_list") {
         return [persistedGlossaryEntry({ term: "Citation", definition: "A source reference.", synonymsJson: '["Source"]' })];
+      }
+      if (
+        command === "video_list" ||
+        command === "image_list" ||
+        command === "performer_list" ||
+        command === "managed_category_list"
+      ) {
+        return [];
       }
       if (command === "export_file_write") {
         expect(args.destinationPath).toBe(destinationPath);
@@ -4596,7 +4845,7 @@ describe("App", () => {
     dialogMocks.save.mockResolvedValue(destinationPath);
 
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Export Catalog" }));
     for (const section of ["Videos", "Images", "Performers"]) {
       fireEvent.click(screen.getByRole("checkbox", { name: section }));
     }
@@ -6226,7 +6475,7 @@ describe("App", () => {
     expect(await screen.findByText(packageName)).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
-      { packageName },
+      { packageName, migrationYymm: "2607" },
       undefined,
     );
     expect(invoke).not.toHaveBeenCalledWith(
@@ -6568,7 +6817,7 @@ describe("App", () => {
     expect(screen.queryByText(/Rollback:/)).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
-      { packageName },
+      { packageName, migrationYymm: "2607" },
       undefined,
     );
     expect(listCalls).toBeGreaterThanOrEqual(2);
@@ -6824,7 +7073,7 @@ describe("App", () => {
     );
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
-      { packageName },
+      { packageName, migrationYymm: "2607" },
       undefined,
     );
   });
@@ -14483,7 +14732,7 @@ describe("App", () => {
 
     expect(await status.findByText("Cover status")).toBeInTheDocument();
     expect(status.getByText("Gallery status")).toBeInTheDocument();
-    await waitFor(() => expect(status.getAllByText("N/A")).toHaveLength(2));
+    await waitFor(() => expect(status.getAllByText("N/A")).toHaveLength(3));
     expect(status.queryByText("Not set")).not.toBeInTheDocument();
     expect(status.queryByText("Folder status")).not.toBeInTheDocument();
     expect(status.queryByText("Missing")).not.toBeInTheDocument();
