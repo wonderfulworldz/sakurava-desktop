@@ -16,12 +16,8 @@ import type {
   VideoPatch,
 } from "../backend/types";
 import {
-  categoryCsvSchema,
-  imageCsvSchema,
-  glossaryCsvSchema,
-  performerCsvSchema,
+  importSchemaFor,
   sakuravaRef,
-  videoCsvSchema,
   type CsvInternalField,
   type CsvSchemaColumn,
 } from "./exportCsv";
@@ -122,7 +118,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
     entity: "videos",
     refPrefix: "VID",
     mainHeader: "Title",
-    schema: videoCsvSchema,
+    schema: importSchemaFor("videos"),
     records: (context) => context.videos,
     create: (mutations, input) => mutations.createVideo(input as NewVideo),
     update: (mutations, id, patch) => mutations.updateVideo(id, patch as VideoPatch),
@@ -132,7 +128,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
     entity: "images",
     refPrefix: "IMG",
     mainHeader: "Title",
-    schema: imageCsvSchema,
+    schema: importSchemaFor("images"),
     records: (context) => context.images,
     create: (mutations, input) => mutations.createImage(input as NewImage),
     update: (mutations, id, patch) => mutations.updateImage(id, patch as ImagePatch),
@@ -142,7 +138,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
     entity: "performers",
     refPrefix: "PER",
     mainHeader: "Name",
-    schema: performerCsvSchema,
+    schema: importSchemaFor("performers"),
     records: (context) => context.performers,
     create: (mutations, input) => mutations.createPerformer(input as NewPerformer),
     update: (mutations, id, patch) =>
@@ -153,7 +149,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
     entity: "categories",
     refPrefix: "CAT",
     mainHeader: "Category Name",
-    schema: categoryCsvSchema,
+    schema: importSchemaFor("categories"),
     records: (context) => context.categories,
     create: (mutations, input) =>
       mutations.createManagedCategory(input as NewManagedCategory),
@@ -165,7 +161,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
     entity: "glossary",
     refPrefix: "GLO",
     mainHeader: "Term",
-    schema: glossaryCsvSchema,
+    schema: importSchemaFor("glossary"),
     records: (context) => context.glossary ?? [],
     create: (mutations, input) =>
       mutations.createGlossaryEntry(input as NewGlossaryEntry),
@@ -312,6 +308,10 @@ async function applyCategoryRow(
       showInImages: parseBooleanCsvCell(row.values["Show in Images"] ?? "true"),
       showInPerformers: parseBooleanCsvCell(
         row.values["Show in Performers"] ?? "true",
+      ),
+      showInCredits: parseBooleanCsvCell(
+        row.values["Show in Credits"] ?? "false",
+        false,
       ),
     };
 
@@ -460,6 +460,20 @@ function buildPatchFromRow(
     if (!("term" in patch)) patch.term = row.values.Term?.trim() ?? "";
     if (!("definition" in patch)) patch.definition = row.values.Definition?.trim() ?? "";
   }
+  if (definition.entity === "performers") {
+    const performer = existing && "debutDate" in existing ? existing : undefined;
+    const debutDate = String(patch.debutDate ?? performer?.debutDate ?? "");
+    const retiredDate = String(patch.retiredDate ?? performer?.retiredDate ?? "");
+    if (row.detectedResult === "Added" || "debutDate" in patch || "retiredDate" in patch) {
+      patch.status = retiredDate ? "Retired" : debutDate ? "Active" : "Unknown";
+    }
+    if ("relatedVideosJson" in patch) {
+      patch.filmographyCount = parseJsonArrayLength(patch.relatedVideosJson);
+    }
+    if ("relatedImagesJson" in patch) {
+      patch.pictorialsCount = parseJsonArrayLength(patch.relatedImagesJson);
+    }
+  }
 
   return patch;
 }
@@ -523,6 +537,11 @@ function applySimpleField({
     return;
   }
 
+  if (internalField === "parentCategoryRef") {
+    patch.parentKey = resolveParentCategoryRef(clearValue(value), context);
+    return;
+  }
+
   if (internalField === "parentId" && definition.entity === "glossary") {
     patch.parentId = resolveGlossaryParentId(clearValue(value), context);
     return;
@@ -537,12 +556,24 @@ function applySimpleField({
     return;
   }
 
+  if (internalField === "sourceLinksJson") {
+    patch.sourceLinksJson = JSON.stringify(parseSourceLinks(clearValue(value)));
+    return;
+  }
+
   if (isRelatedField(internalField)) {
     patch[internalField] = JSON.stringify(resolveRelatedList(header, clearValue(value), context));
     return;
   }
 
-  if (internalField === "heightCm" || internalField === "weightKg") {
+  if (
+    internalField === "heightCm" ||
+    internalField === "weightKg" ||
+    internalField === "durationMinutes" ||
+    internalField === "fileSizeBytes" ||
+    internalField === "imageCount" ||
+    internalField === "totalFileSizeBytes"
+  ) {
     const normalized = clearValue(value);
     patch[internalField] = normalized.trim() ? Number(normalized) : null;
     return;
@@ -551,14 +582,11 @@ function applySimpleField({
   if (
     internalField === "showInVideos" ||
     internalField === "showInImages" ||
-    internalField === "showInPerformers"
+    internalField === "showInPerformers" ||
+    internalField === "showInCredits" ||
+    internalField === "favorite"
   ) {
-    patch[internalField] = parseBooleanCsvCell(value);
-    return;
-  }
-
-  if (internalField === "favorite" && definition.entity === "glossary") {
-    patch.favorite = parseBooleanCsvCell(value, false);
+    patch[internalField] = parseBooleanCsvCell(value, false);
     return;
   }
 
@@ -809,7 +837,51 @@ function parseBooleanCsvCell(value: string, defaultValue = true) {
   if (!normalized) {
     return defaultValue;
   }
-  return !["false", "0", "no", "off"].includes(normalized);
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
+  return defaultValue;
+}
+
+function resolveParentCategoryRef(
+  parentCategoryRef: string,
+  context: ImportCsvPreviewContext,
+) {
+  const ref = parentCategoryRef.trim();
+  if (!ref) return null;
+  const matches = context.categories.filter(
+    (category) => sakuravaRef("CAT", category.key) === ref,
+  );
+  if (matches.length !== 1) {
+    throw new Error(`Parent Category reference is unresolved: ${ref}.`);
+  }
+  return matches[0].key;
+}
+
+function parseSourceLinks(value: string) {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const divider = line.indexOf(" | ");
+      return divider < 0
+        ? { title: "", url: line }
+        : {
+            title: line.slice(0, divider).trim(),
+            url: line.slice(divider + 3).trim(),
+          };
+    });
+}
+
+function parseJsonArrayLength(value: unknown) {
+  if (typeof value !== "string") return 0;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function categoryName(row: ImportCsvPreviewRow) {
@@ -817,7 +889,7 @@ function categoryName(row: ImportCsvPreviewRow) {
 }
 
 function categoryParentName(row: ImportCsvPreviewRow) {
-  return (row.values["Parent Category"] ?? "").trim();
+  return (row.values["Parent Ref"] ?? row.values["Parent Category"] ?? "").trim();
 }
 
 function resolveCategoryTarget(
@@ -866,9 +938,11 @@ function resolveCategoryParentKey(
     return null;
   }
 
-  const matches = categories.filter(
-    (category) => category.name.trim().toLowerCase() === parentName.toLowerCase(),
-  );
+  const matches = parentName.startsWith("CAT-")
+    ? categories.filter((category) => sakuravaRef("CAT", category.key) === parentName)
+    : categories.filter(
+        (category) => category.name.trim().toLowerCase() === parentName.toLowerCase(),
+      );
   if (matches.length === 0) {
     throw new Error(`Parent Category could not be found: ${parentName}.`);
   }
@@ -954,7 +1028,10 @@ function updateCategorySnapshot(
     showInPerformers: parseBooleanCsvCell(
       row.values["Show in Performers"] ?? "true",
     ),
-    showInCredits: existing?.showInCredits ?? false,
+    showInCredits: parseBooleanCsvCell(
+      row.values["Show in Credits"] ?? String(existing?.showInCredits ?? false),
+      existing?.showInCredits ?? false,
+    ),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

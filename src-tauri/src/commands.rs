@@ -581,6 +581,7 @@ pub struct ImportCatalogApplyPlan {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportCatalogPlanOperation {
+    pub source_identity: String,
     pub source_row_number: usize,
     pub section: String,
     pub action: String,
@@ -3043,6 +3044,13 @@ fn read_import_csv_file(source_path: &str) -> Result<ImportCsvReadResult, String
 
 fn read_import_catalog_file(source_path: &str) -> Result<ImportCatalogFileReadResult, String> {
     let source_path = validate_import_catalog_source(source_path)?;
+    const MAX_IMPORT_FILE_BYTES: u64 = 25 * 1024 * 1024;
+    let file_size = fs::metadata(&source_path)
+        .map_err(|_| "Import file details could not be read.".to_string())?
+        .len();
+    if file_size > MAX_IMPORT_FILE_BYTES {
+        return Err("Choose a Sakurava import file no larger than 25 MB.".to_string());
+    }
     let bytes = fs::read(&source_path)
         .map_err(|error| format!("Import file could not be read: {error}"))?;
     let display_name = source_path
@@ -3069,7 +3077,7 @@ fn apply_import_catalog_plan(
     database: &RuntimeDatabase,
     plan: ImportCatalogApplyPlan,
 ) -> ImportCatalogApplyResult {
-    if plan.contract_version != 1 {
+    if plan.contract_version != 1 && plan.contract_version != 2 {
         return import_apply_failure(
             "blocked",
             "validation",
@@ -3787,11 +3795,17 @@ fn validate_import_plan_targets(
 ) -> Result<(), String> {
     let mut affected = std::collections::HashSet::<(String, String)>::new();
     let mut temporary = std::collections::HashSet::<String>::new();
+    let mut source_identities = std::collections::HashSet::<String>::new();
     let permanent_glossary_ids = snapshot_records(snapshot, "glossary")?
         .iter()
         .filter_map(|record| snapshot_record_id("glossary", record))
         .collect::<std::collections::HashSet<_>>();
     for operation in &plan.operations {
+        if operation.source_identity.trim().is_empty()
+            || !source_identities.insert(operation.source_identity.clone())
+        {
+            return Err("Import operation source identity is missing or duplicated.".to_string());
+        }
         if operation.action != "create" && operation.temporary_identifier.is_some() {
             return Err("Only Glossary Create may use a temporary identifier.".to_string());
         }
@@ -3890,6 +3904,15 @@ fn import_plan_fingerprint(plan: &ImportCatalogApplyPlan) -> String {
     let mut value = serde_json::to_value(plan).unwrap_or(Value::Null);
     if let Some(object) = value.as_object_mut() {
         object.remove("operationFingerprint");
+        if let Some(operations) = object.get_mut("operations").and_then(Value::as_array_mut) {
+            for operation in operations {
+                if let Some(operation) = operation.as_object_mut() {
+                    operation.remove("fieldDifferences");
+                    operation.remove("warnings");
+                    operation.remove("blockingIssues");
+                }
+            }
+        }
     }
     fingerprint_value(&value)
 }
@@ -6394,6 +6417,7 @@ mod tests {
         proposed: Value,
     ) -> ImportCatalogPlanOperation {
         ImportCatalogPlanOperation {
+            source_identity: format!("test:{section}:{row}"),
             source_row_number: row,
             section: section.to_string(),
             action: action.to_string(),

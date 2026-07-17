@@ -3337,19 +3337,19 @@ describe("App", () => {
   it.each([
     {
       path: "/videos",
-      region: "Videos filters",
+      region: "Video filters",
       option: "Availability: Dimiliki",
       expected: "Ketersediaan: Dimiliki",
     },
     {
       path: "/images",
-      region: "Images filters",
+      region: "Gambar filters",
       option: "Image Count: Banyak",
       expected: "Jumlah Gambar: Banyak",
     },
     {
       path: "/performers",
-      region: "Performers filters",
+      region: "Performer filters",
       option: "Availability: Aktif",
       expected: "Ketersediaan: Aktif",
     },
@@ -3425,7 +3425,7 @@ describe("App", () => {
       .getAllByRole("heading", { name: "Language" })[0]
       .closest("section") as HTMLElement;
     expect(languageCard).toBeInTheDocument();
-    expect(within(languageCard).getByText("English, Japanese"))
+    expect(within(languageCard).getByText("English, Indonesian, Japanese"))
       .toBeInTheDocument();
     expect(within(languageCard).getByRole("button", { name: "Manage..." }))
       .toBeEnabled();
@@ -3804,7 +3804,11 @@ describe("App", () => {
 
   it("resets only Appearance preferences", () => {
     window.history.pushState({}, "", "/settings");
-    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem(
+      customLanguagesStorageKey,
+      JSON.stringify([{ code: "ja", label: "Japanese", baseLanguage: "en" }]),
+    );
+    window.localStorage.setItem(languageStorageKey, "ja");
     window.localStorage.setItem("unrelated.settings.value", "preserved");
     render(<App />);
 
@@ -3824,7 +3828,7 @@ describe("App", () => {
       "comfortable",
     );
     expect(window.localStorage.getItem(appearanceUiScaleStorageKey)).toBe("100");
-    expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("ja");
     expect(window.localStorage.getItem("unrelated.settings.value")).toBe(
       "preserved",
     );
@@ -3871,10 +3875,11 @@ describe("App", () => {
       expect(checkbox.closest("label")).toHaveAttribute("data-sakurava-checkbox", "true");
     }
     const glossaryCheckbox = screen.getByRole("checkbox", { name: "Glossary" });
+    expect(glossaryCheckbox).toBeChecked();
+    fireEvent.click(glossaryCheckbox.closest("label")!);
     expect(glossaryCheckbox).not.toBeChecked();
     fireEvent.click(glossaryCheckbox.closest("label")!);
     expect(glossaryCheckbox).toBeChecked();
-    fireEvent.click(glossaryCheckbox.closest("label")!);
     const templateCheckbox = screen.getByRole("checkbox", { name: "Export as template" });
     expect(templateCheckbox).not.toBeChecked();
     expect(templateCheckbox.closest("label")).toHaveAttribute("data-sakurava-checkbox", "true");
@@ -3884,12 +3889,12 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: /XLSX/ })).toBeChecked();
     expect(screen.getByText("Recommended")).toBeInTheDocument();
     expect(screen.getByText("Compatibility")).toBeInTheDocument();
-    expect(screen.getByText("3 sections selected")).toBeInTheDocument();
+    expect(screen.getByText("5 sections selected")).toBeInTheDocument();
     const csvRadio = screen.getByRole("radio", { name: /CSV/ });
     fireEvent.click(csvRadio.closest("label")!);
     expect(csvRadio).toBeChecked();
     expect(screen.getByText("Format: CSV")).toBeInTheDocument();
-    for (const section of ["Videos", "Images", "Performers"]) {
+    for (const section of ["Videos", "Images", "Performers", "Categories", "Glossary"]) {
       fireEvent.click(screen.getByRole("checkbox", { name: section }));
     }
     expect(screen.getByRole("button", { name: "Export Selected" })).toBeDisabled();
@@ -3901,7 +3906,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
     expect(screen.getByText("Select sections to export")).toBeInTheDocument();
-    for (const section of ["Videos", "Images", "Performers"]) {
+    for (const section of ["Videos", "Images", "Performers", "Categories", "Glossary"]) {
       expect(screen.getByRole("checkbox", { name: section })).not.toBeChecked();
     }
     dialogMocks.open.mockResolvedValue(null);
@@ -3982,6 +3987,7 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: /Update/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Delete/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Skip/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /All/ }));
     const rowSearch = screen.getByRole("searchbox", { name: "Search rows" });
     fireEvent.change(rowSearch, { target: { value: "New Video" } });
     expect(within(previewTable).getByText("New Video")).toBeInTheDocument();
@@ -4021,8 +4027,14 @@ describe("App", () => {
     workbook.addWorksheet("Instructions").addRow(["Guidance only"]);
     workbook.addWorksheet("Examples").addRow(["Never import"]);
     const videos = workbook.addWorksheet("Videos");
-    videos.addRow(buildVideosCsv([]).split(","));
-    videos.addRow(["Create", "", "V-001", "XLSX Preview", "", new Date(2026, 6, 14)]);
+    const videoHeaders = buildVideosCsv([]).split(",");
+    videos.addRow(videoHeaders);
+    videos.addRow(videoHeaders.map((header) => ({
+      Action: "Create",
+      Title: "XLSX Preview",
+      Code: "V-001",
+      "Release Date": new Date(2026, 6, 14),
+    })[header] ?? ""));
     const bytes = Array.from(new Uint8Array(await workbook.xlsx.writeBuffer()));
     const sourcePath = "D:/Imports/sakurava-catalog.xlsx";
     const invoke = vi.fn(async (command: string) => {
@@ -4167,9 +4179,14 @@ describe("App", () => {
   it("disables Apply Import when a local date is impossible", async () => {
     window.history.pushState({}, "", "/settings");
     const sourcePath = "D:/Imports/invalid-date.csv";
+    const headers = buildVideosCsv([]).split(",");
     const csvContent = [
-      buildVideosCsv([]),
-      "Create,,,Impossible Date,,2/30/2026,,,,,,,,,,,,,,",
+      headers.join(","),
+      headers.map((header) => ({
+        Action: "Create",
+        Title: "Impossible Date",
+        "Release Date": "2/30/2026",
+      })[header] ?? "").join(","),
     ].join("\r\n");
     const invoke = vi.fn(async (command: string) => {
       if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) return [];
@@ -4386,6 +4403,7 @@ describe("App", () => {
   it("exports Videos CSV as a read-only data operation", async () => {
     window.history.pushState({}, "", "/settings");
     const destinationPath = "D:/Exports/sakurava-videos.csv";
+    let exportedCsvContent = "";
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
       if (command === "video_list") {
         return [
@@ -4408,26 +4426,8 @@ describe("App", () => {
       }
       if (command === "export_file_write") {
         expect(args.destinationPath).toBe(destinationPath);
-        const csvContent = new TextDecoder().decode(new Uint8Array(args.bytes));
+        exportedCsvContent = new TextDecoder().decode(new Uint8Array(args.bytes));
         expect(args.expectedExtension).toBe("csv");
-        expect(csvContent).toContain(
-          "Action,Sakurava Ref,Code,Title,Original Title,Release Date,Publisher / Label",
-        );
-        expect(csvContent).toContain("V-EXPORT-001");
-        expect(csvContent).toContain("5/20/2026");
-        expect(csvContent).toContain("Auto,VID-");
-        expect(csvContent).not.toContain("sakuravaUpdateKey");
-        expect(csvContent).not.toContain("video-export-1");
-        expect(csvContent).not.toContain("ratingJson");
-        expect(csvContent).not.toContain("categoriesJson");
-        expect(csvContent).toContain('"Video, ""Export"""');
-        expect(csvContent).toContain("Drama; Favorite");
-        expect(csvContent).toContain(",,5,,,,");
-        expect(csvContent).toMatch(/PER-[0-9A-Z]{7} \| Performer One/);
-        expect(csvContent).toContain("D:/Videos/export.mp4");
-        expect(csvContent).not.toContain("Duration");
-        expect(csvContent).not.toContain("Availability");
-        expect(csvContent).not.toContain("mediaBinary");
         return {
           destinationPath: args.destinationPath,
           displayName: "sakurava-videos.csv",
@@ -4448,6 +4448,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Images" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Performers" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Categories" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Glossary" }));
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 
@@ -4455,6 +4457,24 @@ describe("App", () => {
       "sakurava-videos.csv. Videos: 1.",
       { exact: false },
     );
+    expect(exportedCsvContent).toContain(
+      "Action,Sakurava Ref,Title,Original Title,Code,Categories,Related Performers,Related Images",
+    );
+    expect(exportedCsvContent).toContain("V-EXPORT-001");
+    expect(exportedCsvContent).toContain("5/20/2026");
+    expect(exportedCsvContent).toContain("Auto,VID-");
+    expect(exportedCsvContent).not.toContain("sakuravaUpdateKey");
+    expect(exportedCsvContent).not.toContain("video-export-1");
+    expect(exportedCsvContent).not.toContain("ratingJson");
+    expect(exportedCsvContent).not.toContain("categoriesJson");
+    expect(exportedCsvContent).toContain('"Video, ""Export"""');
+    expect(exportedCsvContent).toContain("Drama; Favorite");
+    expect(exportedCsvContent).toContain(",5,");
+    expect(exportedCsvContent).toMatch(/PER-[0-9A-Z]{7} \| Performer One/);
+    expect(exportedCsvContent).not.toContain("D:/Videos/export.mp4");
+    expect(exportedCsvContent).toContain("Duration (minutes)");
+    expect(exportedCsvContent).toContain("Availability");
+    expect(exportedCsvContent).not.toContain("mediaBinary");
     expect(dialogMocks.save).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultPath: expect.stringMatching(
@@ -4511,10 +4531,11 @@ describe("App", () => {
         expect(args.destinationPath).toBe(destinationPath);
         const csvContent = new TextDecoder().decode(new Uint8Array(args.bytes));
         expect(csvContent).toContain(
-          "Action,Sakurava Ref,Parent Category,Category Name,Description,Thumbnail Path,Show in Videos,Show in Images,Show in Performers,Visibility,Notes",
+          "Action,Sakurava Ref,Category Name,Parent Ref,Description,Show in Videos,Show in Images,Show in Performers,Show in Credits",
         );
         expect(csvContent).toContain("Auto,CAT-");
-        expect(csvContent).toContain(",Genre,Drama,");
+        expect(csvContent).toMatch(/Auto,CAT-[0-9A-Z]{7},Drama,CAT-[0-9A-Z]{7},/);
+        expect(csvContent).not.toContain("D:/Thumbs/drama.jpg");
         expect(csvContent).not.toContain("cat_parent");
         expect(csvContent).not.toContain("cat_child");
         return {
@@ -4538,7 +4559,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Videos" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Images" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Performers" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Categories" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Glossary" }));
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 
@@ -4563,9 +4584,10 @@ describe("App", () => {
       if (command === "export_file_write") {
         expect(args.destinationPath).toBe(destinationPath);
         const csvContent = new TextDecoder().decode(new Uint8Array(args.bytes));
-        expect(csvContent).toContain("Action,Sakurava Ref,Term,Definition,Synonyms");
+        expect(csvContent).toContain("Action,Sakurava Ref,Term,Definition,Parent Ref,Synonyms");
         expect(csvContent).toContain("Auto,GLO-");
-        expect(csvContent).toContain("Citation,A source reference.,Source");
+        expect(csvContent).toContain("Citation,A source reference.");
+        expect(csvContent).toContain(",Source,");
         return { destinationPath, displayName: "sakurava-glossary.csv", bytesWritten: args.bytes.length, success: true };
       }
       throw new Error(`Unexpected command ${command}`);
@@ -4578,7 +4600,7 @@ describe("App", () => {
     for (const section of ["Videos", "Images", "Performers"]) {
       fireEvent.click(screen.getByRole("checkbox", { name: section }));
     }
-    fireEvent.click(screen.getByRole("checkbox", { name: "Glossary" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Categories" }));
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 

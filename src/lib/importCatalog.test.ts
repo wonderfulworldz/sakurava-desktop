@@ -25,7 +25,12 @@ describe("catalog CSV/XLSX import preview", () => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
     const data = workbook.getWorksheet("Data")!;
-    data.addRow(["Create", "", "V-001", "New Video", "", new Date(2026, 6, 14)]);
+    data.addRow(workbookRow(data, {
+      Action: "Create",
+      Code: "V-001",
+      Title: "New Video",
+      "Release Date": new Date(2026, 6, 14),
+    }));
     const preview = await buildXlsxCatalogPreview(
       new Uint8Array(await workbook.xlsx.writeBuffer()),
       context(),
@@ -87,7 +92,7 @@ describe("catalog CSV/XLSX import preview", () => {
   });
 
   it("makes unsupported Actions blocking", async () => {
-    const bytes = await videoWorkbookRow(["Bogus", "", "", "Bad Action"]);
+    const bytes = await videoWorkbookRow({ Action: "Bogus", Title: "Bad Action" });
     const preview = await buildXlsxCatalogPreview(bytes, context(), "en-US");
     expect(preview.rows[0].errors).toContain("Unknown Action: Bogus.");
     expect(preview.summary.blocked).toBe(true);
@@ -268,22 +273,39 @@ describe("catalog CSV/XLSX import preview", () => {
 });
 
 async function numericDateWorkbook(numberFormat: string) {
-  const bytes = await videoWorkbookRow(["Create", "", "V-001", "Numeric Date", "", 46205]);
+  const bytes = await videoWorkbookRow({
+    Action: "Create",
+    Code: "V-001",
+    Title: "Numeric Date",
+    "Release Date": 46205,
+  });
   const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes as unknown as ArrayBuffer);
-  workbook.getWorksheet("Videos")!.getCell("F2").numFmt = numberFormat;
+  const sheet = workbook.getWorksheet("Videos")!;
+  const releaseDateColumn = (sheet.getRow(1).values as unknown[])
+    .findIndex((value) => value === "Release Date");
+  sheet.getCell(2, releaseDateColumn).numFmt = numberFormat;
   return new Uint8Array(await workbook.xlsx.writeBuffer());
 }
 
-async function videoWorkbookRow(row: Array<string | number>) {
+async function videoWorkbookRow(overrides: Record<string, string | number | Date>) {
   const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   workbook.description = `${EXPORT_CONTRACT_VERSION}; dataTypes=videos`;
   const sheet = workbook.addWorksheet("Videos");
   sheet.addRow(buildVideosCsv([]).split(","));
-  sheet.addRow(row);
+  sheet.addRow(workbookRow(sheet, overrides));
   return new Uint8Array(await workbook.xlsx.writeBuffer());
+}
+
+function workbookRow(
+  sheet: import("exceljs").Worksheet,
+  overrides: Record<string, string | number | Date>,
+) {
+  return (sheet.getRow(1).values as unknown[])
+    .slice(1)
+    .map((header) => overrides[String(header)] ?? "");
 }
 
 function context() {

@@ -25,7 +25,7 @@ describe("XLSX export and templates", () => {
     expect(sheet.getRow(1).values).toEqual(expect.arrayContaining(["Action", "Sakurava Ref", "Title"]));
     expect(sheet.getCell("A2").value).toBe("Auto");
     expect(sheet.getCell("B2").numFmt).toBe("@");
-    expect(sheet.getCell("F2").value).toBeInstanceOf(Date);
+    expect(sheet.getCell(2, columnNumber(sheet, "Release Date")).value).toBeInstanceOf(Date);
     expect(sheet.getCell("A2").dataValidation.formulae?.[0]).toContain("Create");
   });
 
@@ -62,15 +62,54 @@ describe("XLSX export and templates", () => {
     expect(workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value)
       .toBe(expectedMetadata);
 
-    workbook.getWorksheet("Videos")!.getCell("D2").value = "User-edited title";
+    workbook.getWorksheet("Videos")!.getCell(2, columnNumber(workbook.getWorksheet("Videos")!, "Title")).value = "User-edited title";
     const reloaded = await parseWorkbook(
       new Uint8Array(await workbook.xlsx.writeBuffer()),
     );
     expect(reloaded.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
     expect(reloaded.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value)
       .toBe(expectedMetadata);
-    expect(reloaded.getWorksheet("Videos")!.getCell("D2").value)
+    expect(reloaded.getWorksheet("Videos")!.getCell(2, columnNumber(reloaded.getWorksheet("Videos")!, "Title")).value)
       .toBe("User-edited title");
+  });
+
+  it("writes current metadata for multi-type and template workbooks", async () => {
+    const generatedAt = new Date("2026-07-15T01:02:03.000Z");
+    const multi = await parseWorkbook((await buildXlsxWorkbook({
+      selections: [
+        { dataType: "videos", records: [video()] },
+        { dataType: "glossary", records: [glossary()] },
+      ],
+      locale: "en-US",
+      generatedAt,
+    })).bytes);
+    const multiMetadata = JSON.parse(String(
+      multi.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value,
+    ));
+    expect(multiMetadata).toMatchObject({
+      applicationId: "app.sakurava.desktop",
+      contractVersion: 2,
+      exportFormatVersion: 2,
+      includedDataTypes: ["videos", "glossary"],
+      workbookType: "catalog",
+    });
+    expect(multi.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
+
+    const template = await parseWorkbook((await buildXlsxWorkbook({
+      selections: [{ dataType: "videos", records: [] }],
+      locale: "en-US",
+      generatedAt,
+      template: true,
+    })).bytes);
+    const templateMetadata = JSON.parse(String(
+      template.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value,
+    ));
+    expect(templateMetadata).toMatchObject({
+      contractVersion: 2,
+      includedDataTypes: ["videos"],
+      workbookType: "template",
+    });
+    expect(template.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
   });
 
   it("builds a Glossary worksheet through the shared workbook contract", async () => {
@@ -114,8 +153,9 @@ describe("XLSX export and templates", () => {
     });
     const workbook = await parseWorkbook(result.bytes);
     const sheet = workbook.getWorksheet("Videos")!;
-    expect(sheet.getCell("F2").value).toBe("");
-    expect(sheet.getCell("F3").value).toBe("invalid");
+    const releaseDateColumn = columnNumber(sheet, "Release Date");
+    expect(sheet.getCell(2, releaseDateColumn).value).toBe("");
+    expect(sheet.getCell(3, releaseDateColumn).value).toBe("invalid");
   });
 
   it("derives local Excel date and time formats for day/month and 12/24-hour locales", () => {
@@ -131,6 +171,13 @@ async function parseWorkbook(bytes: Uint8Array) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes as unknown as ArrayBuffer);
   return workbook;
+}
+
+function columnNumber(sheet: import("exceljs").Worksheet, header: string) {
+  const values = sheet.getRow(1).values as unknown[];
+  const index = values.findIndex((value) => value === header);
+  if (index < 1) throw new Error(`Missing header: ${header}`);
+  return index;
 }
 
 function video(overrides: Partial<Video> = {}): Video {

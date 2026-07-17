@@ -36,6 +36,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import ConfirmDialog from "../components/ConfirmDialog";
 import type {
   Image,
   ManagedCategory,
@@ -251,6 +252,7 @@ type ImportStatus =
   | { state: "pending" }
   | {
       state: "preview";
+      sourcePath: string;
       displayName: string;
       format: "csv" | "xlsx";
       preview: ImportCatalogPreview;
@@ -261,7 +263,7 @@ type ImportApplyStatus =
   | { state: "idle" }
   | { state: "confirming"; preview: ImportCatalogPreview; plan: ImportOperationPlan }
   | { state: "pending" }
-  | { state: "error"; message: string };
+  | { state: "error"; message: string; failureStage?: string };
 type ImportPreviewRow = ImportCatalogRow;
 type ImportPreviewRowStatus = "Ready" | "No Changes" | "Skipped" | "Needs Review";
 
@@ -1236,44 +1238,7 @@ function SettingsPage() {
       if (!sourcePath) {
         return false;
       }
-
-      setImportStatus({ state: "pending" });
-      setImportApplyStatus({ state: "idle" });
-
-      const [fileResult, videos, images, performers, categories, glossary, credits] =
-        await Promise.all([
-          readImportCatalogFile(sourcePath),
-          listVideos(),
-          listImages(),
-          listPerformers(),
-          listManagedCategories(),
-          listGlossaryEntries(),
-          listCredits(),
-        ]);
-
-      const context = { videos, images, performers, categories, glossary, credits };
-      const bytes = new Uint8Array(fileResult.bytes);
-      const locale = navigator.language || "en-US";
-      const messages = {
-        invalidDate: (field: string, format: string) =>
-          t("settings.importExport.invalidDate", { field, format }),
-        invalidWorkbook: t("settings.importExport.invalidWorkbook"),
-        invalidSheet: t("settings.importExport.invalidSheet"),
-      };
-      const preview = fileResult.format === "xlsx"
-        ? await buildXlsxCatalogPreview(bytes, context, locale, messages)
-        : buildCsvCatalogPreview(new TextDecoder().decode(bytes), context, locale, messages);
-      const plan = preview.summary.blocked
-        ? null
-        : buildImportOperationPlan(preview, context, bytes);
-
-      setImportStatus({
-        state: "preview",
-        displayName: fileResult.displayName,
-        format: fileResult.format,
-        preview,
-        plan,
-      });
+      await previewCatalogImportSource(sourcePath);
       return true;
     } catch (error) {
       setImportStatus({
@@ -1286,6 +1251,57 @@ function SettingsPage() {
               : "Catalog import preview failed. Database records and media files were not changed.",
       });
       return true;
+    }
+  }
+
+  async function previewCatalogImportSource(sourcePath: string) {
+    setImportStatus({ state: "pending" });
+    setImportApplyStatus({ state: "idle" });
+    const [fileResult, videos, images, performers, categories, glossary, credits] =
+      await Promise.all([
+        readImportCatalogFile(sourcePath),
+        listVideos(),
+        listImages(),
+        listPerformers(),
+        listManagedCategories(),
+        listGlossaryEntries(),
+        listCredits(),
+      ]);
+    const context = { videos, images, performers, categories, glossary, credits };
+    const bytes = new Uint8Array(fileResult.bytes);
+    const locale = navigator.language || "en-US";
+    const messages = {
+      invalidDate: (field: string, format: string) =>
+        t("settings.importExport.invalidDate", { field, format }),
+      invalidWorkbook: t("settings.importExport.invalidWorkbook"),
+      invalidSheet: t("settings.importExport.invalidSheet"),
+    };
+    const preview = fileResult.format === "xlsx"
+      ? await buildXlsxCatalogPreview(bytes, context, locale, messages)
+      : buildCsvCatalogPreview(new TextDecoder().decode(bytes), context, locale, messages);
+    const plan = preview.summary.blocked
+      ? null
+      : buildImportOperationPlan(preview, context, bytes);
+    setImportStatus({
+      state: "preview",
+      sourcePath: fileResult.sourcePath,
+      displayName: fileResult.displayName,
+      format: fileResult.format,
+      preview,
+      plan,
+    });
+  }
+
+  async function handleReviewImportCatalogPreview() {
+    if (importStatus.state !== "preview" || isImportApplyPending) return;
+    const sourcePath = importStatus.sourcePath;
+    try {
+      await previewCatalogImportSource(sourcePath);
+    } catch (error) {
+      setImportStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : "Catalog import Preview could not be rebuilt.",
+      });
     }
   }
 
@@ -1313,7 +1329,11 @@ function SettingsPage() {
     try {
       const result = await applyImportCatalogPlan(plan);
       if (result.transactionStatus !== "committed") {
-        setImportApplyStatus({ state: "error", message: result.message });
+        setImportApplyStatus({
+          state: "error",
+          message: result.message,
+          failureStage: result.failureStage ?? undefined,
+        });
         showBackupToast("error", "Import was not applied", result.message);
         return;
       }
@@ -1698,6 +1718,7 @@ function SettingsPage() {
           handleDismissRestoreResult,
           dismissBackupToast,
           handleImportCatalogPreview,
+          handleReviewImportCatalogPreview,
           setImportStatus,
           loadExportCounts,
           handleCatalogExport,
@@ -2090,6 +2111,7 @@ function SettingsSection({
     handleDismissRestoreResult,
     dismissBackupToast,
     handleImportCatalogPreview,
+    handleReviewImportCatalogPreview,
     setImportStatus,
     loadExportCounts,
     handleCatalogExport,
@@ -2617,6 +2639,7 @@ function SettingsSection({
           canImport={canImportCsv}
           canExport={canExportCsv}
           onChooseImport={handleImportCatalogPreview}
+          onReviewImport={handleReviewImportCatalogPreview}
           onResetImport={() => {
             setImportStatus({ state: "idle" });
             setImportApplyStatus({ state: "idle" });
@@ -2942,6 +2965,7 @@ function ImportExportPanel({
   canImport,
   canExport,
   onChooseImport,
+  onReviewImport,
   onResetImport,
   onLoadExportCounts,
   onExport,
@@ -2956,6 +2980,7 @@ function ImportExportPanel({
   canImport: boolean;
   canExport: boolean;
   onChooseImport: () => Promise<boolean>;
+  onReviewImport: () => void;
   onResetImport: () => void;
   onLoadExportCounts: () => Promise<Partial<Record<ExportCsvEntity, number>>>;
   onExport: (
@@ -2971,7 +2996,7 @@ function ImportExportPanel({
   const [mode, setMode] = useState<"idle" | "import" | "export">("idle");
   const importRequestId = useRef(0);
   const [selectedDataTypes, setSelectedDataTypes] = useState<ExportCsvEntity[]>([
-    "videos", "images", "performers",
+    "videos", "images", "performers", "categories", "glossary",
   ]);
   const [format, setFormat] = useState<ExportFormat>("xlsx");
   const [exportTemplate, setExportTemplate] = useState(false);
@@ -3045,6 +3070,7 @@ function ImportExportPanel({
           importStatus={importStatus}
           importApplyStatus={importApplyStatus}
           onChangeFile={() => void activateImport()}
+          onReviewAgain={onReviewImport}
           onCancel={cancelCurrentMode}
           onRequestApply={onRequestApply}
           onCancelApply={onCancelApply}
@@ -3084,7 +3110,7 @@ function ImportExportPanel({
             {exportTemplate ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.templateLabel")}</span></> : selectedRecordCount !== null ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.recordsSelected", { count: String(selectedRecordCount) })}</span></> : null}
           </div>
 
-          {!exportTemplate && emptySelectedDataTypes.length > 0 ? <p role="status" className="mt-2 text-xs font-semibold text-amber-700">{t("settings.importExport.emptySections", { sections: emptySelectedDataTypes.map((dataType) => dataType === "categories" ? "Categories" : exportEntityLabel(dataType)).join(", ") })}</p> : null}
+          {!exportTemplate && emptySelectedDataTypes.length > 0 ? <p role="status" className="mt-2 text-xs font-semibold text-amber-700">{t("settings.importExport.emptySections", { sections: emptySelectedDataTypes.map((dataType) => t(`settings.importExport.section.${dataType}`)).join(", ") })}</p> : null}
 
           <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4">
             <button type="button" onClick={cancelCurrentMode} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">{t("common.cancel")}</button>
@@ -3103,8 +3129,9 @@ function ImportExportActionRow({ label, buttonLabel, active, disabled, icon: Ico
 }
 
 function ExportSelectionCard({ dataType, selected, onToggle }: { dataType: ExportCsvEntity; selected: boolean; onToggle: () => void }) {
+  const t = useTranslation();
   const Icon = dataType === "videos" ? Video : dataType === "images" ? ImageIcon : dataType === "performers" ? UserRound : dataType === "glossary" ? FileText : Tag;
-  const label = dataType === "categories" ? "Categories" : exportEntityLabel(dataType);
+  const label = t(`settings.importExport.section.${dataType}`);
   return <SakuravaCheckbox label={label} checked={selected} onChange={onToggle} icon={Icon} variant="card" />;
 }
 
@@ -3144,6 +3171,7 @@ function CompactImportPreviewPanel({
   importStatus,
   importApplyStatus,
   onChangeFile,
+  onReviewAgain,
   onCancel,
   onRequestApply,
   onCancelApply,
@@ -3152,6 +3180,7 @@ function CompactImportPreviewPanel({
   importStatus: ImportStatus;
   importApplyStatus: ImportApplyStatus;
   onChangeFile: () => void;
+  onReviewAgain: () => void;
   onCancel: () => void;
   onRequestApply: (preview: ImportCatalogPreview) => void;
   onCancelApply: () => void;
@@ -3162,8 +3191,14 @@ function CompactImportPreviewPanel({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(32);
+  const [selectedRowKey, setSelectedRowKey] = useState("");
 
   useEffect(() => setPage(1), [filter, search, importStatus, pageSize]);
+  useEffect(() => {
+    if (importStatus.state !== "preview") return;
+    setFilter(importStatus.preview.summary.blocked ? "error" : "all");
+    setSelectedRowKey("");
+  }, [importStatus]);
   if (importStatus.state === "idle") return null;
   if (importStatus.state === "pending") return <p role="status" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">{t("settings.importExport.reading")}</p>;
   if (importStatus.state === "error") return <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{importStatus.message}</p>;
@@ -3188,6 +3223,9 @@ function CompactImportPreviewPanel({
   const canApply = !preview.summary.blocked && needsAttentionRows.length === 0 && applicableRows > 0 && !isApplyPending;
   const needsReview = preview.summary.blocked || preview.headerErrors.length > 0 || needsAttentionRows.length > 0;
   const counts = { all: preview.summary.totalRows, create: preview.summary.create, update: preview.summary.update, delete: preview.summary.delete, skip: preview.summary.skip, error: needsAttentionRows.length };
+  const selectedRow = preview.rows.find(
+    (row) => `${row.sheetName}-${row.rowNumber}` === selectedRowKey,
+  );
 
   return <div aria-label={t("settings.import.preview")} className="pt-5">
     <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
@@ -3197,30 +3235,44 @@ function CompactImportPreviewPanel({
       <span className="h-9 w-px bg-slate-200" /><button type="button" disabled={isApplyPending} onClick={onChangeFile} className="text-sm font-semibold text-sakura-600 hover:text-sakura-700 disabled:text-slate-300">{t("settings.importExport.changeFile")}</button>
     </div>
 
-    <div aria-label={t("settings.importExport.summary")} className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
-      <span className="font-semibold text-slate-900">{preview.summary.totalRows} {t("settings.importExport.rows")}</span>
-      <span>{preview.summary.create} {t("settings.importExport.filter.create").toLowerCase()}</span>
-      <span>{preview.summary.update} {t("settings.importExport.filter.update").toLowerCase()}</span>
-      <span>{preview.summary.delete} {t("settings.importExport.filter.delete").toLowerCase()}</span>
-      <span>{preview.summary.skip} {t("settings.importExport.filter.skip").toLowerCase()}</span>
-      <span className={preview.summary.blocked ? "text-rose-700" : "text-emerald-700"}>{preview.summary.blocked ? t("settings.importExport.needsReview") : t("settings.importExport.ready")}</span>
-    </div>
-
     {(preview.headerErrors.length > 0 || preview.headerWarnings.length > 0) ? <div className="mt-3 grid gap-1 text-xs font-semibold">{preview.headerErrors.map((message) => <p key={message} className="text-rose-700">{message}</p>)}{preview.headerWarnings.map((message) => <p key={message} className="text-amber-700">{message}</p>)}</div> : null}
 
     <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div role="tablist" aria-label={t("settings.importExport.filters")} className="flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">{(["all", "create", "update", "delete", "skip", "error"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={filter === value} onClick={() => setFilter(value)} className={`px-3 py-2 text-xs font-semibold ${filter === value ? "bg-sakura-50 text-sakura-600" : "text-slate-600 hover:bg-slate-50"}`}>{t(`settings.importExport.filter.${value}`)} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px]">{counts[value]}</span></button>)}</div>
+      <div role="tablist" aria-label={t("settings.importExport.filters")} className="flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">{(["all", "create", "update", "delete", "skip", "error"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={filter === value} onClick={() => setFilter(value)} className={`px-3 py-2 text-xs font-semibold ${filter === value ? value === "error" && counts.error > 0 ? "bg-rose-100 text-rose-700" : "bg-sakura-50 text-sakura-600" : value === "error" && counts.error > 0 ? "bg-rose-50 text-rose-700 hover:bg-rose-100" : "text-slate-600 hover:bg-slate-50"}`}>{t(`settings.importExport.filter.${value}`)} <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${value === "error" && counts.error > 0 ? "bg-rose-200/70" : "bg-slate-100"}`}>{counts[value]}</span></button>)}</div>
       <label className="relative block lg:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("settings.importExport.searchRows")} aria-label={t("settings.importExport.searchRows")} className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-sakura-300" /></label>
     </div>
 
     <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-      <div className="max-h-[23rem] overflow-auto"><table className="w-full table-fixed text-left text-xs"><thead className="sticky top-0 z-10 bg-slate-50 text-slate-600"><tr>{["row", "section", "record", "action", "details", "status"].map((key) => <th key={key} className={`px-3 py-3 font-semibold ${key === "row" ? "w-14" : key === "section" ? "w-28" : key === "action" ? "w-24" : key === "status" ? "w-28" : key === "record" ? "w-56" : ""}`}>{t(`settings.importExport.table.${key}`)}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{pageRows.map((row) => <tr key={`${row.sheetName}-${row.rowNumber}`}><td className="px-3 py-3 font-semibold text-slate-600">{row.rowNumber}</td><td className="px-3 py-3 text-slate-600">{row.dataType === "categories" ? "Categories" : exportEntityLabel(row.dataType)}</td><td className="px-3 py-3"><span className="block truncate font-medium text-slate-800" title={row.target}>{row.target}</span></td><td className="px-3 py-3 text-slate-600">{row.action}</td><td className="px-3 py-3"><span className="block truncate text-slate-600" title={getImportRowDetails(row, t)}>{getImportRowDetails(row, t)}</span></td><td className="px-3 py-3"><ImportStatusBadge status={getImportRowStatus(row)} /></td></tr>)}</tbody></table></div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs font-medium text-slate-500"><span>{filteredRows.length === 0 ? "0" : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filteredRows.length)}`} {t("settings.importExport.of")} {filteredRows.length}</span><div className="flex items-center gap-2"><label className="flex items-center gap-2">{t("settings.backup.history.pageSize")}<select aria-label={t("settings.backup.history.pageSize")} value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600"><option value={32}>32</option><option value={64}>64</option><option value={128}>128</option><option value={256}>256</option></select></label><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:text-slate-300">{t("common.previous")}</button><span className="flex size-8 items-center justify-center rounded-lg bg-sakura-500 font-semibold text-white">{page}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:text-slate-300">{t("common.next")}</button></div></div>
+      <div className="max-h-[23rem] overflow-auto">
+        <table className="w-full table-fixed text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
+            <tr>{["row", "section", "record", "action", "details", "status"].map((key) => <th key={key} className={`px-3 py-3 font-semibold ${key === "row" ? "w-14" : key === "section" ? "w-28" : key === "action" ? "w-24" : key === "status" ? "w-28" : key === "record" ? "w-52" : ""}`}>{t(`settings.importExport.table.${key}`)}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">{pageRows.map((row) => {
+            const rowKey = `${row.sheetName}-${row.rowNumber}`;
+            const rowStatus = getImportRowStatus(row);
+            return <tr key={rowKey} className={rowStatus === "Needs Review" ? "bg-rose-50/60" : selectedRowKey === rowKey ? "bg-sakura-50/40" : "bg-white"}>
+              <td className="px-3 py-2.5 font-semibold text-slate-600">{row.rowNumber}</td>
+              <td className="px-3 py-2.5 text-slate-600">{t(`settings.importExport.section.${row.dataType}`)}</td>
+              <td className="px-3 py-2.5"><span className="block truncate font-medium text-slate-800" title={row.target}>{row.target}</span></td>
+              <td className="px-3 py-2.5 text-slate-600">{row.action}</td>
+              <td className="import-details-cell px-3 py-2.5">
+                <button type="button" aria-expanded={selectedRowKey === rowKey} onClick={() => setSelectedRowKey((current) => current === rowKey ? "" : rowKey)} className="block w-full truncate text-left text-slate-600 outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-sakura-300" title={getImportRowDetailsTitle(row, t)}>
+                  <span className="import-details-responsive" data-summary-narrow={getImportRowDetails(row, t, 1)} data-summary-medium={getImportRowDetails(row, t, 2)} data-summary-wide={getImportRowDetails(row, t, 3)}>{getImportRowDetails(row, t, 3)}</span>
+                </button>
+              </td>
+              <td className="px-3 py-2.5"><ImportStatusBadge status={rowStatus} /></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+      {selectedRow ? <ImportRowComparisonDetail row={selectedRow} /> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs font-medium text-slate-500"><div className="flex flex-wrap items-center gap-3"><span>{t("settings.importExport.showing", { start: filteredRows.length === 0 ? "0" : String((page - 1) * pageSize + 1), end: String(Math.min(page * pageSize, filteredRows.length)), total: String(filteredRows.length) })}</span><label className="flex items-center gap-2">{t("settings.backup.history.pageSize")}<select aria-label={t("settings.backup.history.pageSize")} value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600"><option value={32}>32</option><option value={64}>64</option><option value={128}>128</option><option value={256}>256</option></select></label></div><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:text-slate-300">{t("common.previous")}</button><span className="flex size-8 items-center justify-center rounded-lg bg-sakura-500 font-semibold text-white">{page}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:text-slate-300">{t("common.next")}</button></div></div>
     </div>
 
     {importApplyStatus.state === "confirming" ? <ImportApplyConfirmPanel preview={importApplyStatus.preview} onCancelApply={onCancelApply} onConfirmApply={() => onConfirmApply(importApplyStatus.preview)} /> : null}
-    {importApplyStatus.state === "error" ? <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{importApplyStatus.message}</p> : null}
-    <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4"><button type="button" disabled={isApplyPending} onClick={onCancel} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 disabled:bg-slate-100 disabled:text-slate-300">{t("common.cancel")}</button><button type="button" disabled={!canApply} onClick={() => onRequestApply(preview)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400">{t("settings.importExport.applyImport")}</button></div>
+    {importApplyStatus.state === "error" ? <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"><span>{importApplyStatus.message}</span>{importApplyStatus.failureStage === "stalePreview" ? <button type="button" onClick={onReviewAgain} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100">{t("settings.importExport.reviewAgain")}</button> : null}</div> : null}
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">{needsAttentionRows.length > 0 ? <p role="status" className="text-xs font-semibold text-rose-700">{t("settings.importExport.rowsNeedReview", { count: String(needsAttentionRows.length) })}</p> : <span />}<div className="flex gap-3"><button type="button" disabled={isApplyPending} onClick={onCancel} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 disabled:bg-slate-100 disabled:text-slate-300">{t("common.cancel")}</button><button type="button" disabled={!canApply} onClick={() => onRequestApply(preview)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400">{t("settings.importExport.applyImport")}</button></div></div>
   </div>;
 }
 
@@ -3464,18 +3516,16 @@ function ImportApplyConfirmPanel({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 p-4" role="presentation">
-      <section role="dialog" aria-modal="true" aria-label={t("settings.import.confirmApply")} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
-        <h3 className="text-base font-semibold text-slate-900">{t("settings.import.confirmApply")}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{t("settings.import.confirmApplyBody")}</p>
-        <p className="mt-2 text-xs leading-5 text-slate-500">{t("settings.import.confirmApplySafety")}</p>
-        {summary.deleted > 0 ? <p className="mt-3 text-xs leading-5 text-amber-700">{t("settings.import.confirmApplyDelete", { count: String(summary.deleted) })}</p> : null}
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" disabled={submitting} onClick={onCancelApply} className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:text-slate-300">{t("common.cancel")}</button>
-          <button type="button" disabled={submitting} onClick={confirmOnce} className="h-9 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-300">{t("settings.import.confirmApplyAction")}</button>
-        </div>
-      </section>
-    </div>,
+    <ConfirmDialog
+      open
+      title={t("settings.import.confirmApply")}
+      description={<><p>{t("settings.import.confirmApplyBody")}</p><p className="mt-2 text-xs text-slate-500">{t("settings.import.confirmApplySafety")}</p>{summary.deleted > 0 ? <p className="mt-3 text-xs text-amber-700">{t("settings.import.confirmApplyDelete", { count: String(summary.deleted) })}</p> : null}</>}
+      confirmLabel={t("settings.import.confirmApplyAction")}
+      cancelLabel={t("common.cancel")}
+      pending={submitting}
+      onCancel={onCancelApply}
+      onConfirm={confirmOnce}
+    />,
     document.body,
   );
 }
@@ -3555,9 +3605,14 @@ function getImportRowChangeSummary(row: ImportPreviewRow) {
   return getImportRowDetails(row);
 }
 
+function getImportRowChangeTitle(row: ImportPreviewRow) {
+  return getImportRowDetailsTitle(row);
+}
+
 function getImportRowDetails(
   row: ImportPreviewRow,
   t?: (key: string, replacements?: Record<string, string>) => string,
+  maxFieldLabels = 3,
 ) {
   if (row.detectedResult === "Deleted" || row.action === "Delete") {
     return t?.("settings.importExport.details.delete") ?? "Record will be deleted";
@@ -3575,18 +3630,25 @@ function getImportRowDetails(
     const detail = row.changeDetails?.length === 1 ? row.changeDetails[0] : undefined;
     if (detail?.cleared) {
       return t?.("settings.importExport.details.clearValue", {
-        field: humanizeImportField(detail.field),
-      }) ?? `${humanizeImportField(detail.field)} will be cleared`;
+        field: humanizeImportField(detail.field, t),
+      }) ?? `${humanizeImportField(detail.field, t)} will be cleared`;
     }
     if (detail && canShowImportValueChange(detail)) {
       return t?.("settings.importExport.details.changeValue", {
-        field: humanizeImportField(detail.field),
+        field: humanizeImportField(detail.field, t),
         before: detail.before,
         after: detail.after,
-      }) ?? `${humanizeImportField(detail.field)} changes from “${detail.before}” to “${detail.after}”`;
+      }) ?? `${humanizeImportField(detail.field, t)} changes from “${detail.before}” to “${detail.after}”`;
     }
-    if (row.changes.length === 1) return t?.("settings.importExport.details.updateField", { field: humanizeImportField(row.changes[0]) }) ?? `${humanizeImportField(row.changes[0])} will be updated`;
-    return t?.("settings.importExport.details.updateFields", { count: String(row.changes.length) }) ?? `${row.changes.length} fields will change`;
+    const fields = importChangedFieldLabels(row, t);
+    if (fields.length === 1) return t?.("settings.importExport.details.updateField", { field: fields[0] }) ?? `${fields[0]} will be updated`;
+    const visible = fields.slice(0, maxFieldLabels);
+    const remaining = Math.max(0, fields.length - visible.length);
+    const fieldSummary = `${visible.join(", ")}${remaining > 0 ? `, … +${remaining}` : ""}`;
+    return t?.("settings.importExport.details.updateFieldsNamed", {
+      count: String(fields.length),
+      fields: fieldSummary,
+    }) ?? `${fields.length} fields (${fieldSummary}) will change`;
   }
   if (row.detectedResult === "Unchanged") {
     return t?.("settings.importExport.details.noChanges") ?? "No changes";
@@ -3602,18 +3664,65 @@ function canShowImportValueChange(detail: { field: string; before: string; after
   return detail.before.length <= 40 && detail.after.length <= 40;
 }
 
-function getImportRowChangeTitle(row: ImportPreviewRow) {
+function getImportRowDetailsTitle(
+  row: ImportPreviewRow,
+  t?: (key: string, replacements?: Record<string, string>) => string,
+) {
   if (row.detectedResult === "Deleted" || row.action === "Delete") {
     return "Will delete catalog record only. Original media files are not deleted.";
   }
-  return getImportRowChangeSummary(row);
+  if (row.changeDetails?.length) {
+    return row.changeDetails.map((detail) => detail.cleared
+      ? `${humanizeImportField(detail.field, t)}: ${t?.("settings.importExport.details.cleared") ?? "Cleared"}`
+      : `${humanizeImportField(detail.field, t)}: ${detail.before || "—"} → ${detail.after || "—"}`)
+      .join("; ");
+  }
+  return getImportRowDetails(row, t, Number.MAX_SAFE_INTEGER);
 }
 
-function humanizeImportField(field: string) {
-  return field
+function importChangedFieldLabels(
+  row: ImportPreviewRow,
+  t?: (key: string, replacements?: Record<string, string>) => string,
+) {
+  const source = row.changeDetails?.length
+    ? row.changeDetails.map((detail) => detail.field)
+    : row.changes;
+  return Array.from(new Set(source.map((field) => humanizeImportField(field, t))));
+}
+
+function humanizeImportField(
+  field: string,
+  t?: (key: string, replacements?: Record<string, string>) => string,
+) {
+  const normalized = field
     .replace(/^Categories [+-].*$/, "Categories")
     .replace(/^Related (Videos|Images|Performers) [+-].*$/, "Related records");
+  const key = importFieldTranslationKeys[normalized];
+  return key && t ? t(key) : normalized;
 }
+
+const importFieldTranslationKeys: Record<string, string> = {
+  Title: "settings.importExport.field.title",
+  "Original Title": "settings.importExport.field.originalTitle",
+  Code: "settings.importExport.field.code",
+  Name: "settings.importExport.field.name",
+  "Original Name": "settings.importExport.field.originalName",
+  Term: "settings.importExport.field.term",
+  Definition: "settings.importExport.field.definition",
+  "Category Name": "settings.importExport.field.categoryName",
+  Categories: "settings.importExport.field.categories",
+  "Related records": "settings.importExport.field.relatedRecords",
+  Favorite: "settings.importExport.field.favorite",
+  Availability: "settings.importExport.field.availability",
+  Censorship: "settings.importExport.field.censorship",
+  "Release Date": "settings.importExport.field.releaseDate",
+  "Birth Date": "settings.importExport.field.birthDate",
+  "Debut Date": "settings.importExport.field.debutDate",
+  "Retired Date": "settings.importExport.field.retiredDate",
+  Description: "settings.importExport.field.description",
+  Notes: "settings.importExport.field.notes",
+  "Source Links": "settings.importExport.field.sourceLinks",
+};
 
 function friendlyImportIssue(
   message: string,
@@ -3630,7 +3739,7 @@ function friendlyImportIssue(
   if (/required header/i.test(message)) return "A required column is missing";
   const required = message.match(/^(.+?) is required for a new row\.?$/i);
   if (required) return t?.("settings.importExport.details.requiredMissing", { field: humanizeImportField(required[1]).toLowerCase() }) ?? `Required ${humanizeImportField(required[1]).toLowerCase()} is missing`;
-  if (/Favorite must use/i.test(message)) return t?.("settings.importExport.details.invalidFavorite") ?? "Favorite must be Yes or No";
+  if (/Favorite must/i.test(message)) return t?.("settings.importExport.details.invalidFavorite") ?? "Favorite must be true or false";
   if (/Parent Ref must be/i.test(message)) return t?.("settings.importExport.details.invalidParentId") ?? "Parent Glossary ID is not valid";
   if (/Glossary entry cannot be its own parent/i.test(message)) return t?.("settings.importExport.details.selfParent") ?? "A Glossary record cannot be its own parent";
   if (/Glossary parent was not found/i.test(message)) return t?.("settings.importExport.details.parentNotFound") ?? "Parent Glossary record was not found";
@@ -3653,6 +3762,51 @@ function getImportRowStatus(row: ImportPreviewRow): ImportPreviewRowStatus {
 function isBlockingImportWarning(message: string) {
   return /^Unknown category:/i.test(message)
     || /^Unresolved related (reference|value):/i.test(message);
+}
+
+function ImportRowComparisonDetail({ row }: { row: ImportPreviewRow }) {
+  const t = useTranslation();
+  const comparisons = row.changeDetails ?? [];
+  return (
+    <section
+      aria-label={t("settings.importExport.rowDetails")}
+      className="border-t border-slate-200 bg-slate-50/70 px-4 py-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="truncate text-xs font-semibold text-slate-800" title={row.target}>
+          {row.target}
+        </h4>
+        <span className="text-[11px] font-semibold text-slate-500">
+          {t("settings.importExport.rowNumber", { row: String(row.rowNumber) })}
+        </span>
+      </div>
+      {comparisons.length > 0 ? (
+        <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {comparisons.map((detail) => (
+            <div key={`${detail.field}-${detail.before}-${detail.after}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <dt className="text-[11px] font-semibold text-slate-500">
+                {humanizeImportField(detail.field, t)}
+              </dt>
+              <dd className="mt-1 break-words text-xs text-slate-700">
+                {detail.cleared
+                  ? t("settings.importExport.details.valueWillBeCleared")
+                  : <><span>{detail.before || "—"}</span><span aria-hidden="true" className="px-1.5 text-slate-400">→</span><span>{detail.after || "—"}</span></>}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-2 text-xs text-slate-600">{getImportRowDetails(row, t)}</p>
+      )}
+      {[...row.errors, ...row.warnings].length > 0 ? (
+        <ul className="mt-3 space-y-1 text-xs text-rose-700">
+          {[...row.errors, ...row.warnings].map((message) => (
+            <li key={message}>{friendlyImportIssue(message, t)}</li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
 }
 
 function ImportRowDetail({ row }: { row: ImportPreviewRow }) {

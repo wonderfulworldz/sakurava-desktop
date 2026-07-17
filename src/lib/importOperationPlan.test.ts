@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Video } from "../backend/types";
 import { buildCsvCatalogPreview } from "./importCatalog";
-import { buildVideosCsv, sakuravaRef } from "./exportCsv";
+import {
+  buildCategoriesCsv,
+  buildGlossaryCsv,
+  buildImagesCsv,
+  buildPerformersCsv,
+  buildVideosCsv,
+  sakuravaRef,
+} from "./exportCsv";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 import { buildImportOperationPlan } from "./importOperationPlan";
 import { parseCsv } from "./importCsvPreview";
@@ -41,7 +48,82 @@ describe("immutable import operation plan", () => {
     expect(changedSourcePlan.sourceFingerprint).not.toBe(plan.sourceFingerprint);
     expect(changedSourcePlan.operationFingerprint).not.toBe(plan.operationFingerprint);
   });
+
+  it.each([
+    ["videos", buildVideosCsv([]), { Title: "New Video" }],
+    ["images", buildImagesCsv([]), { Title: "New Image" }],
+    ["performers", buildPerformersCsv([]), { Name: "New Performer" }],
+    ["categories", buildCategoriesCsv([]), { "Category Name": "New Category" }],
+    ["glossary", buildGlossaryCsv([]), { Term: "New Term", Definition: "New definition" }],
+  ] as const)("uses deterministic source identity for blank-ID %s Creates", (_, header, values) => {
+    const csv = csvWithRow(header, { Action: "Auto", ...values });
+    const context = emptyContext();
+    const bytes = new TextEncoder().encode(csv);
+    const first = buildImportOperationPlan(
+      buildCsvCatalogPreview(csv, context, "en-US"),
+      context,
+      bytes,
+    );
+    const second = buildImportOperationPlan(
+      buildCsvCatalogPreview(csv, context, "en-US"),
+      context,
+      bytes,
+    );
+
+    expect(first.operations).toHaveLength(1);
+    expect(first.operations[0]).toMatchObject({
+      action: "create",
+      stableRecordIdentifier: "",
+      recordId: null,
+      temporaryIdentifier: null,
+    });
+    expect(second.operations[0].sourceIdentity).toBe(first.operations[0].sourceIdentity);
+    expect(second.operationFingerprint).toBe(first.operationFingerprint);
+  });
+
+  it("keeps same-file Glossary parent and child fingerprints stable", () => {
+    const header = buildGlossaryCsv([]);
+    const csv = [
+      header,
+      csvRow(header, {
+        Action: "Create",
+        "Sakurava Ref": "GLO-NEW-PARENT",
+        Term: "Parent",
+        Definition: "Parent definition",
+      }),
+      csvRow(header, {
+        Action: "Create",
+        "Sakurava Ref": "GLO-NEW-CHILD",
+        Term: "Child",
+        Definition: "Child definition",
+        "Parent Ref": "GLO-NEW-PARENT",
+      }),
+    ].join("\r\n");
+    const context = emptyContext();
+    const bytes = new TextEncoder().encode(csv);
+    const preview = buildCsvCatalogPreview(csv, context, "en-US");
+    const first = buildImportOperationPlan(preview, context, bytes);
+    const second = buildImportOperationPlan(preview, context, bytes);
+
+    expect(first.operationFingerprint).toBe(second.operationFingerprint);
+    expect(first.operations[1].dependencyRefs).toEqual(["GLO-NEW-PARENT"]);
+    expect(first.operations.map((operation) => operation.temporaryIdentifier))
+      .toEqual(["GLO-NEW-PARENT", "GLO-NEW-CHILD"]);
+    expect(first.operations.every((operation) => operation.proposedValues.id == null)).toBe(true);
+  });
 });
+
+function emptyContext() {
+  return { videos: [], images: [], performers: [], categories: [], glossary: [], credits: [] };
+}
+
+function csvWithRow(header: string, values: Record<string, string>) {
+  return `${header}\r\n${csvRow(header, values)}`;
+}
+
+function csvRow(header: string, values: Record<string, string>) {
+  return header.split(",").map((column) => values[column] ?? "").join(",");
+}
 
 function video(overrides: Partial<Video> = {}): Video {
   return {

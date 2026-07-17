@@ -8,20 +8,27 @@ import type {
 } from "../backend/types";
 import { localDateFormatHint, normalizeImportDate } from "./importDate";
 import {
-  buildCategoriesCsv,
-  buildImagesCsv,
-  buildPerformersCsv,
-  buildVideosCsv,
-  buildGlossaryCsv,
+  buildCsv,
   categoryCsvSchema,
   imageCsvSchema,
   performerCsvSchema,
   glossaryCsvSchema,
+  importSchemaFor,
+  legacyImportHeadersFor,
+  exportRowsFor,
   sakuravaRef,
   videoCsvSchema,
   type ExportCsvEntity,
+  type CsvSchemaColumn,
 } from "./exportCsv";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
+import {
+  IMPORT_MAX_CELL_CHARACTERS,
+  IMPORT_MAX_FILE_BYTES,
+  IMPORT_MAX_ROWS_PER_SECTION,
+  IMPORT_MAX_TOTAL_ROWS,
+  importLimitMessage,
+} from "./importLimits";
 
 export type ImportCsvEntity = ExportCsvEntity;
 
@@ -79,12 +86,14 @@ export type ImportCsvPreviewContext = {
 export type ParsedCsv = {
   headers: string[];
   rows: string[][];
+  errors?: string[];
 };
 
 export type ImportPreviewOptions = {
   locale?: string;
   rowNumbers?: number[];
   invalidDateMessage?: (field: string, format: string) => string;
+  allowLegacyColumns?: boolean;
 };
 
 type EntityDefinition = {
@@ -93,7 +102,6 @@ type EntityDefinition = {
   mainHeader: string;
   requiredHeaders: string[];
   expectedHeaders: string[];
-  buildCurrentCsv: (context: ImportCsvPreviewContext) => string;
   records: (context: ImportCsvPreviewContext) => Array<Video | Image | Performer | ManagedCategory | GlossaryEntry>;
 };
 
@@ -119,7 +127,6 @@ const entityDefinitions: EntityDefinition[] = [
     mainHeader: "Title",
     requiredHeaders: ["Title"],
     expectedHeaders: videoCsvSchema.map((column) => column.header),
-    buildCurrentCsv: (context) => buildVideosCsv(context.videos),
     records: (context) => context.videos,
   },
   {
@@ -128,7 +135,6 @@ const entityDefinitions: EntityDefinition[] = [
     mainHeader: "Title",
     requiredHeaders: ["Title"],
     expectedHeaders: imageCsvSchema.map((column) => column.header),
-    buildCurrentCsv: (context) => buildImagesCsv(context.images),
     records: (context) => context.images,
   },
   {
@@ -137,7 +143,6 @@ const entityDefinitions: EntityDefinition[] = [
     mainHeader: "Name",
     requiredHeaders: ["Name"],
     expectedHeaders: performerCsvSchema.map((column) => column.header),
-    buildCurrentCsv: (context) => buildPerformersCsv(context.performers),
     records: (context) => context.performers,
   },
   {
@@ -146,7 +151,6 @@ const entityDefinitions: EntityDefinition[] = [
     mainHeader: "Category Name",
     requiredHeaders: ["Category Name"],
     expectedHeaders: categoryCsvSchema.map((column) => column.header),
-    buildCurrentCsv: (context) => buildCategoriesCsv(context.categories),
     records: (context) => context.categories,
   },
   {
@@ -155,12 +159,12 @@ const entityDefinitions: EntityDefinition[] = [
     mainHeader: "Term",
     requiredHeaders: ["Term", "Definition"],
     expectedHeaders: glossaryCsvSchema.map((column) => column.header),
-    buildCurrentCsv: (context) => buildGlossaryCsv(context.glossary ?? []),
     records: (context) => context.glossary ?? [],
   },
 ];
 
 export function parseCsv(text: string): ParsedCsv {
+  const errors: string[] = [];
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -206,6 +210,9 @@ export function parseCsv(text: string): ParsedCsv {
   }
 
   row.push(cell);
+  if (inQuotes) {
+    errors.push("CSV contains an unclosed quoted value.");
+  }
   if (row.some((value) => value.length > 0) || rows.length === 0) {
     rows.push(row);
   }
@@ -217,6 +224,7 @@ export function parseCsv(text: string): ParsedCsv {
     rows: dataRows.filter((dataRow) =>
       dataRow.some((value) => value.trim().length > 0),
     ),
+    errors,
   };
 }
 
@@ -225,6 +233,14 @@ export function buildImportCsvPreview(
   context: ImportCsvPreviewContext,
   options: ImportPreviewOptions = {},
 ): ImportCsvPreview {
+  if (new TextEncoder().encode(csvText).byteLength > IMPORT_MAX_FILE_BYTES) {
+    return {
+      summary: summarizeRows("unknown", [], [importLimitMessage("file")]),
+      rows: [],
+      headerErrors: [importLimitMessage("file")],
+      headerWarnings: [],
+    };
+  }
   return buildImportTablePreview(parseCsv(csvText), context, options);
 }
 
@@ -238,7 +254,23 @@ export function buildImportTablePreview(
   const definition = detectCsvEntity(parsed.headers);
   const locale = options.locale || "en-US";
 
-  validateHeaders(parsed.headers, definition, headerErrors, headerWarnings);
+  headerErrors.push(...(parsed.errors ?? []));
+  if (parsed.rows.length > IMPORT_MAX_ROWS_PER_SECTION) {
+    headerErrors.push(importLimitMessage("sectionRows"));
+  }
+  if (parsed.rows.length > IMPORT_MAX_TOTAL_ROWS) {
+    headerErrors.push(importLimitMessage("totalRows"));
+  }
+  if ([...parsed.headers, ...parsed.rows.flat()].some((value) => value.length > IMPORT_MAX_CELL_CHARACTERS)) {
+    headerErrors.push(importLimitMessage("cell"));
+  }
+  validateHeaders(
+    parsed.headers,
+    definition,
+    headerErrors,
+    headerWarnings,
+    options.allowLegacyColumns !== false,
+  );
 
   if (!definition || headerErrors.length > 0) {
     return {
@@ -306,6 +338,7 @@ function validateHeaders(
   definition: EntityDefinition | null,
   errors: string[],
   warnings: string[],
+  allowLegacyColumns: boolean,
 ) {
   if (headers.length === 0) {
     errors.push("CSV file is empty.");
@@ -336,8 +369,11 @@ function validateHeaders(
   }
 
 
+  const allowedHeaders = allowLegacyColumns
+    ? new Set(importSchemaFor(definition.entity).map((column) => column.header))
+    : new Set(definition.expectedHeaders);
   const unsupportedHeaders = headers.filter(
-    (header) => header && !definition.expectedHeaders.includes(header),
+    (header) => header && !allowedHeaders.has(header),
   );
   if (unsupportedHeaders.length > 0) {
     errors.push(`Unsupported headers are not allowed: ${unsupportedHeaders.join(", ")}.`);
@@ -354,6 +390,10 @@ function validateHeaders(
   );
   if (missingExpectedHeaders.length > 0) {
     warnings.push(`Missing expected headers: ${missingExpectedHeaders.join(", ")}.`);
+  }
+  const legacyHeaders = headers.filter((header) => legacyImportHeadersFor(definition.entity).includes(header));
+  if (legacyHeaders.length > 0) {
+    warnings.push("This file uses compatibility columns from Sakurava contract version 1.");
   }
 }
 
@@ -493,8 +533,9 @@ function previewRow({
       if (header === "Action" || header === "Sakurava Ref") {
         continue;
       }
-      const nextValue = normalizeCell(values[header] ?? "");
-      const currentValue = normalizeCell(currentRow[header] ?? "");
+      const column = schemaForDefinition(definition).find((candidate) => candidate.header === header);
+      const nextValue = canonicalCellForComparison(column, values[header] ?? "");
+      const currentValue = canonicalCellForComparison(column, currentRow[header] ?? "");
       if (!nextValue) {
         continue;
       }
@@ -542,6 +583,13 @@ function validateManagedCategoryParent(
   errors: string[],
 ) {
   if (definition.entity !== "categories") return;
+  const parentRef = (values["Parent Ref"] ?? "").trim();
+  if (parentRef && parentRef !== SAKURAVA_CLEAR_VALUE) {
+    if (!context.categories.some((category) => sakuravaRef("CAT", category.key) === parentRef)) {
+      errors.push(`Parent Category reference was not found: ${parentRef}.`);
+    }
+    return;
+  }
   const parent = (values["Parent Category"] ?? "").trim();
   if (!parent || parent === SAKURAVA_CLEAR_VALUE) return;
   if (!context.categories.some((category) => category.name === parent)) {
@@ -593,11 +641,6 @@ function validateGlossaryFields(
 ) {
   if (definition.entity !== "glossary") return;
 
-  const favorite = (values.Favorite ?? "").trim().toLowerCase();
-  if (favorite && !["true", "false", "1", "0", "yes", "no", "on", "off"].includes(favorite)) {
-    errors.push("Favorite must be Yes or No.");
-  }
-
   const parentRef = (values["Parent Ref"] ?? "").trim();
   if (!parentRef) return;
   if (parentRef === SAKURAVA_CLEAR_VALUE) return;
@@ -623,7 +666,10 @@ function buildCurrentRowsByRef(
   context: ImportCsvPreviewContext,
   headerErrors: string[],
 ) {
-  const csv = definition.buildCurrentCsv(context);
+  const csv = buildCsv(
+    importSchemaFor(definition.entity),
+    exportRowsFor(definition.entity, definition.records(context)),
+  );
   const parsed = parseCsv(csv);
   const rowsByRef = new Map<string, Record<string, string>>();
   const ambiguousRefs = new Set<string>();
@@ -682,8 +728,11 @@ function validateEditableFields(
   locale: string,
   invalidDateMessage?: (field: string, format: string) => string,
 ) {
+  const schema = schemaForDefinition(definition);
   for (const header of Object.keys(values)) {
-    const value = values[header].trim();
+    const column = schema.find((candidate) => candidate.header === header);
+    const value = normalizeCell(values[header]);
+    values[header] = value;
     if (!value) {
       continue;
     }
@@ -706,15 +755,46 @@ function validateEditableFields(
       }
     }
 
+    if (column?.valueType === "boolean") {
+      const normalized = normalizeBooleanCell(value);
+      if (normalized === null) {
+        errors.push(`${header} must be true or false.`);
+      } else {
+        values[header] = normalized;
+      }
+    }
+
+    if (column?.valueType === "number") {
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) {
+        errors.push(`${header} must be numeric.`);
+      } else if (!header.startsWith("Rating - ")) {
+        if (!Number.isInteger(numberValue) || numberValue < 0) {
+          errors.push(`${header} must be a whole number of zero or more.`);
+        } else {
+          values[header] = String(numberValue);
+        }
+      }
+    }
+
+    if (column?.allowedValues?.length && column.valueType !== "boolean") {
+      const canonical = column.allowedValues.find(
+        (candidate) => candidate.toLowerCase() === value.toLowerCase(),
+      );
+      if (!canonical) {
+        errors.push(`${header} is not a supported value.`);
+      } else {
+        values[header] = canonical;
+      }
+    }
+
     if (header.startsWith("Rating - ")) {
       const rating = Number(value);
       if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
         errors.push(`${header} must be a number from 0 to 5.`);
+      } else {
+        values[header] = String(rating);
       }
-    }
-
-    if ((header === "Height (cm)" || header === "Weight (kg)") && Number.isNaN(Number(value))) {
-      errors.push(`${header} must be numeric.`);
     }
 
     if (
@@ -723,6 +803,17 @@ function validateEditableFields(
       !/^\d+\s*\/\s*\d+\s*\/\s*\d+(\s*cm)?$/i.test(value)
     ) {
       warnings.push("Measurements should use 90 / 60 / 90 cm style.");
+    }
+
+    if (header === "Source Links") {
+      for (const line of value.replace(/\r\n?/g, "\n").split(/\n+/).map((item) => item.trim()).filter(Boolean)) {
+        const divider = line.indexOf(" | ");
+        const url = (divider < 0 ? line : line.slice(divider + 3)).trim();
+        if (!/^https?:\/\/\S+$/i.test(url)) {
+          errors.push("Source Links must use one valid http or https URL per line.");
+          break;
+        }
+      }
     }
 
     if (header.includes("Path") || header.startsWith("Gallery Image") || header.startsWith("Mini Thumbnail")) {
@@ -734,11 +825,7 @@ function validateEditableFields(
 }
 
 function schemaForDefinition(definition: EntityDefinition) {
-  if (definition.entity === "videos") return videoCsvSchema;
-  if (definition.entity === "images") return imageCsvSchema;
-  if (definition.entity === "performers") return performerCsvSchema;
-  if (definition.entity === "categories") return categoryCsvSchema;
-  return glossaryCsvSchema;
+  return importSchemaFor(definition.entity);
 }
 
 export function isTemporaryGlossaryRef(value: string) {
@@ -804,8 +891,10 @@ function validateRelated(
     }
     const nextItems = parseSemicolonList(values[header]);
     const currentItems = parseSemicolonList(currentRow?.[header] ?? "");
-    const added = nextItems.filter((item) => !currentItems.includes(item));
-    const removed = currentItems.filter((item) => !nextItems.includes(item));
+    const nextIdentities = nextItems.map(canonicalRelatedItem);
+    const currentIdentities = currentItems.map(canonicalRelatedItem);
+    const added = nextItems.filter((_, index) => !currentIdentities.includes(nextIdentities[index]));
+    const removed = currentItems.filter((_, index) => !nextIdentities.includes(currentIdentities[index]));
 
     if (values[header].trim() === "" && currentItems.length > 0) {
       warnings.push("This will remove all related items from this record if applied.");
@@ -949,7 +1038,48 @@ function countRows(rows: ImportCsvPreviewRow[], result: ImportCsvDetectedResult)
 }
 
 function normalizeCell(value: string) {
-  return value.trim();
+  return value.replace(/\r\n?/g, "\n").trim();
+}
+
+function canonicalRelatedItem(item: string) {
+  const { ref, display } = parseRelatedItem(item);
+  return ref ? ref.toUpperCase() : display;
+}
+
+function normalizeBooleanCell(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") return "true";
+  if (normalized === "false" || normalized === "0") return "false";
+  return null;
+}
+
+function canonicalCellForComparison(
+  column: CsvSchemaColumn<any> | undefined,
+  value: string,
+) {
+  const normalized = normalizeCell(value);
+  if (!normalized || normalized === SAKURAVA_CLEAR_VALUE) return normalized;
+  if (column?.valueType === "boolean") return normalizeBooleanCell(normalized) ?? normalized;
+  if (column?.valueType === "number") {
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? String(numeric) : normalized;
+  }
+  if (column?.allowedValues?.length) {
+    return column.allowedValues.find(
+      (candidate) => candidate.toLowerCase() === normalized.toLowerCase(),
+    ) ?? normalized;
+  }
+  if (column?.valueType === "list/reference") {
+    return normalized
+      .split(column.header === "Source Links" ? /\n+/ : ";")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => /^(VID|IMG|PER|GLO)-[0-9A-Z-]+\s*\|/i.test(item)
+        ? item.split("|")[0].trim().toUpperCase()
+        : item)
+      .join(column.header === "Source Links" ? "\n" : "; ");
+  }
+  return normalized;
 }
 
 function targetText(ref: string, mainValue: string) {

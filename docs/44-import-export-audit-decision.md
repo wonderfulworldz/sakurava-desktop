@@ -1,6 +1,8 @@
 # Import / Export Final Product and Format Decision
 
-Status: Batch 41.8.2 implemented integrity and safety decision. Batch 41.8.1 is merged.
+Status: Batch 41.8.3 v2 contract, UI, and round-trip hardening implemented. The
+later public Sakurava Ref and dependency-resolution proposal is migration-bound
+and requires explicit approval before implementation.
 
 ## 1. Executive summary
 
@@ -34,11 +36,12 @@ a half-imported file.
 This is Import / Export, not Backup / Recovery. It must not replace the live
 database or reuse backup_package_restore as an import operation.
 
-### Implemented 41.8.2 safety boundary
+### Implemented 41.8.2 safety boundary and 41.8.3 final hardening
 
 **Versioned XLSX contract:** `src/lib/importExportContract.ts` defines
-application ID `app.sakurava.desktop`, import contract version `1`, export
-format version `1`, and workbook type. `buildXlsxWorkbook` writes these fields,
+application ID `app.sakurava.desktop`, current import contract version `2`,
+current export format version `2`, and workbook type. Versions 1 and 2 remain
+accepted on import. `buildXlsxWorkbook` writes these fields,
 the generation timestamp, and included data types as deterministic JSON in the
 very-hidden `__SakuravaMetadata` sheet. `buildXlsxCatalogPreview` validates that
 metadata, declared/actual sheets, duplicate sheets, and malformed/formula-error
@@ -49,12 +52,14 @@ unsupported metadata blocks Apply (`src/lib/exportWorkbook.ts`;
 `src/lib/importCatalog.ts`).
 
 **CSV compatibility policy:** CSV remains an ordinary UTF-8 table without a
-nonstandard comment preamble. Import infers the version-1 compatibility
-contract only from one supported canonical header set; a filename is never
-sufficient proof. Missing required, duplicate, renamed/unsupported headers and
-duplicate record identifiers block Apply. Missing optional headers warn
-(`validateHeaders` and `findDuplicateRefs` in
-`src/lib/importCsvPreview.ts`).
+nonstandard comment preamble. Import infers the contract only from one supported
+canonical header set; a filename is never sufficient proof. Current v2 headers
+exclude internal filesystem paths. Exact v1 columns remain accepted for safe
+round trips from already released exports, but new exports never emit them.
+Missing required, duplicate, renamed/unsupported headers and duplicate record
+identifiers block Apply. Missing optional headers warn (`validateHeaders` and
+`findDuplicateRefs` in `src/lib/importCsvPreview.ts`; `importSchemaFor` in
+`src/lib/exportCsv.ts`).
 
 **Explicit clear decision:** the exact case-sensitive token is
 `[[SAKURAVA:CLEAR:v1]]`. It is namespaced and versioned to avoid reasonable
@@ -97,6 +102,19 @@ is never persisted. Apply topologically creates parents and substitutes
 generated permanent database IDs before children. Names never determine identity
 (`validateGlossaryDependencies`; `apply_import_operations`). Other catalog
 relationships still require existing stable identifiers.
+
+**Deterministic plans and canonical values:** blank-ID Creates now receive a
+source identity derived only from source fingerprint, section, sheet/file, and
+row. Fingerprints exclude translated Details, warnings, runtime timestamps,
+field presentation order, and generated permanent IDs. JavaScript contract keys
+use the same code-unit ordering as Rust, removing the cross-language false
+“reviewed import plan changed” result. Boolean case, supported enum case,
+equivalent numeric/date forms, normalized line endings, and stable relationship
+references are canonicalized before comparison, difference generation,
+fingerprinting, and Apply (`canonicalCellForComparison` in
+`src/lib/importCsvPreview.ts`; `importPlanFingerprintPayload` in
+`src/lib/importOperationPlan.ts`; `import_plan_fingerprint` in
+`src-tauri/src/commands.rs`).
 
 ## 2. Existing and verified repository behavior
 
@@ -203,8 +221,9 @@ columns, identifiers, actions, and values Sakurava reads and writes. A
 | Required headers/fields | Missing required headers are blocking errors |
 | Optional headers/fields | Missing optional headers are tolerated with clear warnings where appropriate |
 
-CSV deliberately uses version-1 compatibility inference through its exact
-locked headers rather than a nonstandard preamble. XLSX carries the explicit
+CSV deliberately uses exact canonical-header compatibility inference rather
+than a nonstandard preamble. v1 and v2 header sets remain distinguishable and
+supported. XLSX carries the explicit
 machine-readable metadata marker (`src/lib/importExportContract.ts`;
 `src/lib/importCatalog.ts: readWorkbookMetadata`).
 
@@ -251,9 +270,17 @@ sheet and separate Videos, Images, Performers, Managed Categories, and Glossary
 sheets.
 Real Data sheets never contain dummy records.
 
+Current workbooks use one human-readable header row in canonical form order,
+frozen headers, filters, restrained Sakurava header styling, practical widths,
+wrapped multiline fields, text-safe identifiers/references, real date cells,
+Action validation, and safe enum/boolean dropdowns. Header notes distinguish
+required, editable, and read-only identity columns. `__SakuravaMetadata` remains
+very-hidden and Examples remain isolated (`configureDataSheet` and
+`addMetadataSheet` in `src/lib/exportWorkbook.ts`).
+
 If a selected data type has no records, do not present normal data export.
-Offer **Download Template** instead, explicitly for creating or bulk entering
-new data.
+The integrated **Export as template** option creates the template explicitly
+for new or bulk-entered data.
 
 ## 6. Approved CSV design
 
@@ -278,11 +305,35 @@ Template rather than a normal data export.
 | Glossary | XLSX/CSV import/export | XLSX and CSV | Stable GLO identifier; dependency-aware parent references |
 | Record Categories | Embedded fields | Embedded fields only | Text labels in categoriesJson; not a separate data type |
 
+### Final editable-field coverage matrix
+
+The v2 column order is Action, stable Sakurava Ref, required/core form fields,
+relationship fields, then optional/detail fields. Each field below is exported,
+parsed through the same canonical schema, included in Preview differences,
+applied by the normalized operation plan, and exported again with the same
+meaning (`src/lib/exportCsv.ts`: five `*CsvSchema` constants;
+`src/lib/importCsvPreview.ts`; `src/lib/importCsvApply.ts`;
+`src/lib/exportCsv.test.ts`: editable-field coverage test).
+
+| Data type | Persisted user-editable fields covered by v2 | Relationship representation | Explicit clear |
+| --- | --- | --- | --- |
+| Videos | Title, Original Title, Code, Favorite, Availability, Censorship, Release Date, Publisher/Label, Duration, Resolution, File Size, File Type, Source Links, six ratings, Notes | Record Categories, related Performers, related Images use labels/stable refs | Optional text/date/number/list/rating fields only; required Title and booleans reject clear |
+| Images | Title, Original Title, Code, Favorite, Availability, Censorship, Release Date, Publisher/Label, Image Count, Main Resolution, Total File Size, Main File Type, Source Links, six ratings, Notes | Record Categories, related Performers, related Videos use labels/stable refs | Optional text/date/number/list/rating fields only; required Title and booleans reject clear |
+| Performers | Name, Original Name, Aliases, Favorite, Gender, Birth/Debut/Retired Dates, Birthplace, Nationality, Blood Type, Height, Weight, Measurements, Cup Size, Source Links, six ratings, Notes | Record Categories, related Videos, related Images use labels/stable refs | Optional text/date/number/list/rating fields only; required Name and Favorite reject clear |
+| Managed Categories | Category Name, Parent Ref, Description, Show in Videos, Show in Images, Show in Performers, Show in Credits | Parent uses stable CAT Ref; display name is never identity | Parent/Description may clear; required Name and booleans reject clear |
+| Glossary | Term, Definition, Parent Ref, Synonyms, Category, Favorite, Source Title, Source URL | Existing stable GLO Ref or reserved same-file GLO-NEW reference | Optional parent/list/text fields may clear; required Term/Definition and Favorite reject clear |
+
+Generated identifiers and timestamps, Performer derived status/counts, UI-only
+state, database/runtime state, internal media/cover/folder/gallery/thumbnail
+paths, original media bytes, and computed statistics are excluded. Performer
+status is derived from persisted date fields during Apply. v1 path columns are
+accepted solely for compatibility and do not grant filesystem authority.
+
 A **stable identifier** is an opaque text value used to identify an existing
 record across an export/import cycle. Names are labels for people; they are not
 identity. A matching title, performer name, or category name must not
-automatically merge or overwrite a record. Contract version 1 retains the short
-hashed Sakurava Ref baseline and blocks duplicate/colliding visible identifiers
+automatically merge or overwrite a record. Contract versions 1 and 2 retain the
+short hashed Sakurava Ref baseline and block duplicate/colliding visible identifiers
 both in the source file and in the current catalog (`findDuplicateRefs`;
 `buildCurrentRowsByRef`). A different identifier representation would require a
 later contract version to preserve round trips.
@@ -295,10 +346,9 @@ work/performer dependencies require a dedicated design
 
 Imported/exported data must not cause arbitrary local path mutation. No media
 file, cover/gallery/thumbnail byte, cache, or app-managed asset is copied,
-moved, renamed, rewritten, or deleted. Path text is represented only under the
-versioned contract’s validated policy; it never grants filesystem authority.
-This finalizes the portable path safety decision while leaving exact column
-presentation to implementation.
+moved, renamed, rewritten, or deleted. Current v2 exports exclude internal path
+columns entirely. Exact v1 path columns remain readable only for compatibility
+and are treated as record text, never as filesystem authority.
 
 ## 8. Approved Action model and matching rules
 
@@ -311,14 +361,14 @@ highlighted in Preview and confirmation.
 | Auto + blank/missing identifier + valid data | Create | Make a new record. |
 | Auto + known identifier + changed values | Update | Change that existing record. |
 | Auto + known identifier + no changed values | Skip | Nothing needs changing. |
-| Auto + unknown supplied identifier | Needs Attention | Sakurava cannot safely decide which record you meant. |
-| Create + existing identifier | Needs Attention | Creating would duplicate an existing record. |
-| Update + unknown identifier | Needs Attention | There is no matching record to update. |
-| Delete + unknown identifier | Needs Attention | There is no matching record to delete. |
+| Auto + unknown supplied identifier | Needs Review | Sakurava cannot safely decide which record you meant. |
+| Create + existing identifier | Needs Review | Creating would duplicate an existing record. |
+| Update + unknown identifier | Needs Review | There is no matching record to update. |
+| Delete + unknown identifier | Needs Review | There is no matching record to delete. |
 | Skip | No mutation | Leave this row alone. |
 | Row absent from edited file | No mutation | Absence is never Delete. |
 
-Needs Attention is a blocking Preview status, with a technical reason and a
+Needs Review is a blocking Preview status, with a technical reason and a
 plain-language explanation. There is no silent overwrite, automatic name merge,
 or automatic related-record creation. Duplicate identifiers, ambiguous related
 references, and stale Preview conflicts block final apply. Required headers are
@@ -365,25 +415,19 @@ choose file → validate → summary Preview → review issues/changes
 → explicit confirmation → revalidate → automatic safety backup → apply → result
 ~~~
 
-Preview is read-only. It must show a summary first:
-
-- total records;
-- Create count;
-- Update count;
-- Delete count;
-- Skip count;
-- Needs Attention count.
-
-The initial review must not show a full raw table by default. Its levels are:
-
-1. Summary counts and readiness.
-2. Review Issues or Review Changes table.
-3. Selected-record field comparison and optional original source row.
+Preview is read-only. The selected-file card shows filename, format, row count,
+and Ready/Needs Review. Compact filter tabs carry the Create, Update, Delete,
+Skip/No Changes, and Needs Review counts; the former redundant metrics strip is
+removed. The bounded table is the primary review surface, and selected-row
+progressive disclosure shows the complete field list and before/after values.
 
 The main review table focuses on Row, Section, Record, Action, Details, and
-Status.
+Status. Details names useful changed fields and preserves the remaining count
+as `… +N` at narrow, medium, and wide container widths. Pagination renders only
+one page at a time with page sizes 32, 64, 128, and 256.
 Raw CSV/XLSX content is secondary detail. If blocking issues exist, Needs
-Attention opens or is prioritized and final apply is disabled.
+Review opens or is prioritized and final apply is disabled. A stale result
+offers Review Again using the already trusted selected file.
 
 Automatic safety backup is mandatory before every mutating import. Preview
 freshness and affected references are revalidated under the database lock
@@ -403,32 +447,59 @@ The UI lets the user select one or more supported data types, choose
 action and one trusted destination picker. It does not add unnecessary
 format/scope wizard steps.
 
+Videos, Images, Performers, Categories, and Glossary are all selected on the
+first Export opening in an app session. User changes are retained while the
+component remains mounted; Export as template remains off by default. No new
+persistent preference is introduced (`ImportExportPanel` in
+`src/pages/SettingsPage.tsx`).
+
 - XLSX: one type creates one workbook; multiple types create one multi-sheet
   workbook.
 - CSV: one type creates one CSV; multiple types create one folder containing
   multiple CSV files.
-- A type with no records offers Download Template, not normal data export.
+- A type with no records requires the integrated Export as template option,
+  not a misleading normal data export.
 
 ### Import
 
 The user chooses or drops an XLSX/CSV file first. Sakurava identifies its
 contained data type or workbook sheets; it does not require manual type
 selection before a valid Sakurava file is chosen. No empty Preview table appears
-before file selection. The UI then presents summary first, detailed tables on
-request or when issues need attention, Download Template, and How to Edit
-guidance.
+before file selection. The UI then presents compact filter counts, a bounded
+table, and detailed comparison only on request or when records need review.
 
-## 13. Existing safety mechanisms and remaining hardening
+## 13. Existing safety mechanisms, bounds, and compatibility
 
 Implemented mechanisms include trusted selection, XLSX/CSV contract validation,
 locale date parsing, summary Preview, immutable operation plans, explicit clear,
 stale revalidation, automatic Safety packages, atomic apply/rollback, structured
 results, no-silent-overwrite export, explicit Delete, hierarchy checks, and no
-media-byte operations. Remaining hardening is larger-file bounds, broader real
-Excel/locale fixtures, and selected-row field comparison presentation.
+media-byte operations. Input processing is bounded at 25 MiB per file, 16 XLSX
+worksheets, 25,000 rows per section, 50,000 total rows, and 32,767 characters
+per cell. Preview retains at most the total-row bound and renders only the
+selected page (`src/lib/importLimits.ts`; `src/lib/importCatalog.ts`;
+`src/lib/importCsvPreview.ts`; `src-tauri/src/commands.rs`). ExcelJS remains
+dynamically loaded for XLSX paths.
 
-No schema or migration is required for the five supported data types. No new
-schema is authorized by this decision.
+Current XLSX single-type, multi-type, and template exports always write valid
+very-hidden v2 metadata. Missing metadata remains an explicit legacy warning;
+malformed, exposed, conflicting, or unsupported metadata blocks Apply. CSV
+supports UTF-8 with/without BOM, CRLF/LF, standard quoting, escaped quotes,
+multiline cells, trailing empty rows, leading-zero text identifiers, and the
+explicit clear token. XLSX supports 1900/1904 date systems, real Date cells,
+clearly date-formatted serials, local text dates, and YYYY-MM-DD fallback.
+Formula errors and unresolved formula cells block import.
+
+Native checkbox/radio semantics, whole-card labels, visible focus treatment,
+modal focus trapping/return, safe Escape, pending-action locks, named icon
+controls, text status labels, and accessible toast roles are retained. Color is
+never the only Needs Review indicator (`SakuravaCheckbox`, `ExportFormatCard`,
+`ConfirmDialog`, and `CompactImportPreviewPanel`).
+
+No schema or migration was required for the implemented v2 Import / Export
+hardening for the five supported data types. The later meaningful public
+Sakurava Ref proposal in section 16 does require a versioned migration and is
+not implemented or authorized by that earlier conclusion.
 
 ## 14. Final Batch 41.8 sequence
 
@@ -462,15 +533,18 @@ clear semantics, dependency graphs, stale state, backup ordering, commit and
 rollback, exact counts, and all five data types. Non-goals: schema changes,
 media transfer, Backup/Restore redesign, or additional formats.
 
-### 41.8.3 — Import Review and Round-trip Hardening
+### 41.8.3 — Final Contract, UI and Round-trip Hardening
 
-Purpose: harden review detail and real Excel/CSV round trips around the completed
-safety core. Exact scope: selected-row before/after comparison, expanded locale
-fixtures, compatibility fixtures from released 41.8.1 exports, accessible
-failure/re-review affordances, and disposable-catalog manual verification. Risk:
-medium. Required tests: XLSX/CSV parity, locale/date/decimal edge cases, clear
-display, stale re-review, and structured failure copy. Non-goals: a second
-apply/backup system, new formats, schema changes, or media transfer.
+Purpose: finalize editable-field completeness, deterministic fingerprints,
+canonical comparisons, exported-file presentation, bounded parsing, and the
+compact accessible Review UI. Exact scope: v2 contract with v1 compatibility,
+all five field paths, selected-row before/after comparison, responsive Details,
+Needs Review treatment, Review Again, all-sections export default, locale and
+workbook fixtures, and explicit resource limits. Risk: medium/high. Required
+tests: XLSX/CSV parity, five blank-ID Creates, cross-language fingerprinting,
+canonical equivalence, metadata persistence, bounds, accessibility semantics,
+atomic Apply, and safety backup regressions. Non-goals: a second apply/backup
+system, new formats, schema changes, or media transfer.
 
 ## 15. Resolved decisions and deferred implementation details
 
@@ -488,16 +562,203 @@ apply/backup system, new formats, schema changes, or media transfer.
 - Initial import supports full CRUD with mandatory preview, confirmation,
   revalidation, and atomic apply.
 
-### Deferred implementation details
+### Final known limitations
 
-- Broader cross-device locale/Excel compatibility fixtures.
-- Selected-row comparison presentation and final visual details.
-- Any temporary-reference model beyond Glossary requires a separate
-  relationship decision.
+- Cross-device locale inference remains outside the primary same-computer
+  workflow; ambiguous local dates are interpreted using the importing computer.
+- Microsoft Excel and LibreOffice manual open/save smoke checks remain a release
+  verification task because automated tests use ExcelJS structural round trips.
+- CSV has no embedded metadata channel; exact headers are its compatibility
+  contract.
+- Temporary same-file references exist only for Glossary. Other relationships
+  must refer to existing stable identifiers.
 
-## 16. Explicit non-goals
+## 16. Migration-required public identity and resolution proposal
 
-- No schema/migration or new dependency in Batch 41.8.2.
+### 16.1 Existing and verified identity architecture
+
+The current database has one technical text primary key per record:
+`videos.id`, `images.id`, `performers.id`, `managedCategories.key`, and
+`glossary_entries.id`. Credits have their own `credits.id` and store work,
+Performer, and Managed Category technical keys in `workId`, `performerId`,
+`creditTypeCategoryId`, and `roleImportanceCategoryId`
+(`src-tauri/src/database.rs`: the six `CREATE_*_TABLE_SQL` constants).
+
+Videos, Images, and Performers store additional relationships in JSON using
+`performerId` or `recordId`. Managed Categories store `parentKey`; Glossary
+stores `parent_id`. Forms, routes, CRUD commands, Preview snapshots, stale
+revalidation, and atomic Apply all resolve these technical keys directly
+(`src/lib/videoIntegration.ts`; `src/lib/imageIntegration.ts`;
+`src/lib/performerIntegration.ts`; `src/pages/GlossaryPage.tsx`;
+`src-tauri/src/commands.rs`: CRUD helpers, `import_revalidation_snapshot`, and
+`apply_import_operations`).
+
+New Videos, Images, Performers, Glossary entries, and Credits receive
+`<type>_<epoch-milliseconds>_<process-counter>` from `new_id`. Managed Category
+keys are name-derived hashes from `build_managed_category_key`. Neither
+mechanism provides a permanent monthly business sequence or a durable no-reuse
+ledger (`src-tauri/src/commands.rs`: `new_id` and
+`build_managed_category_key`).
+
+The implemented v1/v2 spreadsheet “Sakurava Ref” is not stored. `sakuravaRef`
+derives `VID/IMG/PER/CAT/GLO-<seven-character FNV token>` from the technical
+key on demand. Preview reconstructs the same hash over the current catalog and
+blocks detected collisions. There is no persisted mapping that can issue,
+reserve, search, or prove non-reuse of `TYYMM-NNNN`
+(`src/lib/exportCsv.ts`: `sakuravaRef` and `stableRefToken`;
+`src/lib/importCsvPreview.ts`: `buildCurrentRowsByRef`).
+
+### 16.2 Decision: a schema migration is required
+
+The approved public form `TYYMM-NNNN` cannot safely be implemented by
+relabeling or repurposing the existing primary keys. It requires all of the
+following durable state:
+
+- one immutable canonical Sakurava Ref for every Video, Image, Performer,
+  Managed Category, and Glossary record;
+- a transactional per-section/per-issuance-month high-water counter so Delete
+  never makes a committed number available again;
+- aliases from supported raw legacy keys and v1/v2 hashed Refs to exactly one
+  canonical Sakurava Ref;
+- a schema-version marker and idempotent migration record;
+- runtime boundary mapping so routes and SQLite row keys can remain hidden
+  while forms, search, files, Preview, references, and Apply use only the
+  canonical Ref;
+- restore-time migration and counter reconciliation so an older Backup package
+  remains usable without rewinding the no-reuse high-water mark.
+
+Introducing only the new spreadsheet columns or only formatted copy would
+expose an identity contract the database cannot yet guarantee. Therefore the
+public Ref, Import Ref, Resolution, Attention resolution UI, and risk-based
+destructive workflow are not partially exposed in this continuation.
+
+### 16.3 Smallest safe migration plan requiring approval
+
+The narrowest design keeps existing SQLite primary keys as hidden row keys and
+adds a canonical business-identity layer:
+
+1. Add a versioned migration ledger (or a formally managed `user_version`).
+2. Add nullable `sakuravaRef TEXT` columns to the five supported record tables,
+   backfill them transactionally, then enforce non-empty unique values with
+   unique indexes and runtime validation.
+3. Add `sakuravaRefCounters(sectionCode, issuanceYymm, lastSequence)` with a
+   composite primary key and a checked sequence range of 1–9999. Allocation
+   runs under the same write transaction as record creation; it increments the
+   stored high-water value and never counts current records.
+4. Add `sakuravaRefAliases(sectionCode, alias, sakuravaRef, aliasKind)` with a
+   unique section/alias constraint. Backfill both raw technical keys and exact
+   v1/v2 hashed Refs. Any ambiguous hash collision blocks migration before
+   mutation rather than guessing.
+5. Backfill legacy records in deterministic order. The exact legacy issuance
+   month policy must be approved: either issue all legacy Refs in the migration
+   computer's local month (and preflight the 9,999 capacity), or derive a local
+   month from a valid stored creation timestamp with a documented fallback.
+6. Keep technical row keys and physical relationships internal initially, but
+   make every application/runtime boundary accept and return canonical Refs.
+   Relationship serialization exposed to forms, search, Preview, and files
+   uses Refs. If physical JSON/Credit/hierarchy values must also be rewritten,
+   do that as a separately verified phase inside the same migration transaction
+   because it touches every relation listed in section 16.1.
+7. Create and verify a normal Safety package before migration. Use one SQLite
+   transaction for the migration/backfill; validate uniqueness, aliases,
+   hierarchy, Credits, JSON relations, and counts before commit. On any failure,
+   roll back and retain the safety package.
+8. Upgrade Restore so a restored legacy database is migrated and fully
+   validated before success is reported. Merge the per-section/month high-water
+   values from the pre-restore Safety database with the restored database using
+   the maximum value, preventing an in-place restore from reissuing a Ref used
+   later in the same installation. Existing directory package v1 remains
+   readable; do not invent a second backup format.
+
+Canonical storage removes the hyphen (`V26070042`); UI, copy, and export render
+`V2607-0042`. Parsing and search normalize case and one optional hyphen. Section
+codes are V Video, I Image, P Performer, C Managed Category, G Glossary, and R
+reserved for Credits. The Ref is immutable after allocation and remains text in
+CSV/XLSX.
+
+### 16.4 Proposed v3 spreadsheet and same-file identity contract
+
+Because the structure changes, the first released public-Ref contract must be
+v3. Versions 1 and 2 remain compatibility inputs through the alias table; new
+exports use only v3. Leading columns are:
+
+1. Action
+2. Sakurava Ref
+3. Import Ref
+4. Resolution
+5. required/core fields
+6. relationship fields
+7. optional/detail fields
+
+`Import Ref` is optional package-local text such as `NEW-001`. It identifies a
+new row and same-file relationships, is unique within the import package, and
+is removed when generated permanent Refs are substituted during atomic Apply.
+It is never persisted and normal data exports leave the column blank. Duplicate
+or unresolved Import Refs become actionable Attention.
+
+Resolution accepts blank/Auto, Detach, Cascade, and
+`Replace:<Sakurava Ref>`. XLSX may provide fixed dropdown values for Auto,
+Detach, and Cascade; Replace necessarily remains validated text because its
+target is record-specific. CSV uses the identical ordered contract. The clear
+marker remains `[[SAKURAVA:CLEAR:v1]]`.
+
+### 16.5 Proposed Attention, dependency, and confirmation workflow
+
+The final structural statuses are Ready, Attention, No Change, and Skipped
+(Indonesian: Ready-equivalent product copy, Perhatian, no-change equivalent,
+and skipped equivalent). “Attention” is the only review term; internal severity
+or decision classifications are not additional permanent badges. Badges remain
+one line and communicate with text, not color alone.
+
+Attention must always have a next action. Mandatory decisions show
+**Review N items** and open grouped progressive disclosure. The user may choose
+Detach, Cascade, Replace, or Skip for one item or all equivalent items. The
+system then rebuilds the normalized plan, dependency order, risk, and
+fingerprint. Informational Attention does not block Apply and is summarized in
+confirmation.
+
+Delete validation uses the projected final plan: included Glossary/category
+children are ordered before parents and do not create redundant Attention.
+Detach preserves dependent catalog records and Credits while removing the
+relationship. Replace rewrites relationships before the target Delete. Cascade
+expands only eligible catalog operations; Credits are never silently deleted.
+Delete-all remains possible after all decisions resolve, final impact is shown,
+confirmation completes, the Safety package succeeds, and atomic Apply starts.
+
+Risk is computed from the final plan: Standard for ordinary Create/Update,
+Caution for Clear/Detach/parent or broad updates, High for Delete/Replace/
+Cascade, and Critical for section-wide or near-total destructive plans.
+Confirmation remains concise but includes affected counts, relationship
+changes, chosen resolution effects, automatic backup, atomicity, and the fact
+that original media is not deleted. Critical confirmation adds explicit
+acknowledgement.
+
+The final Preview columns are Row, Section, Sakurava Ref, Record, Action,
+Details, and Status. Search/copy accepts canonical or formatted Ref. Mandatory
+Attention shows Review N items rather than an unexplained disabled Apply.
+
+### 16.6 Required migration and regression tests
+
+Approval of the identity migration requires tests for deterministic local YYMM
+allocation, per-section/month sequencing, 9,999 exhaustion, no reuse after
+Delete and Restore, uniqueness, immutability, formatted/canonical lookup,
+legacy raw/hash aliases, collision rejection, transactional backfill, migration
+rollback, old Backup package restore-and-upgrade, and Safety package recovery.
+Every JSON relation, hierarchy link, Credit reference, route, CRUD command,
+Preview snapshot, stale scope, operation fingerprint, and atomic Apply path
+must be covered before v3 is emitted.
+
+Resolution tests must cover projected Delete ordering, Detach, Cascade,
+Replace, Skip, Credits preservation, apply-to-all stability, risk selection,
+critical acknowledgement, stale revalidation, backup-before-transaction, full
+rollback, and unchanged original media. UI tests must prove unified Attention,
+one-line statuses, Review N items, an actionable next step for every supported
+case, and consistent English/Indonesian copy.
+
+## 17. Explicit non-goals
+
+- No unapproved identity/schema migration or new dependency in this
+  continuation of Batch 41.8.3.
 - No Backup/Recovery semantic change or database replacement through Import.
 - No ODS, legacy XLS, HTML table, JSON exchange, ZIP/archive, or additional
   format work for Batch 41.8.
