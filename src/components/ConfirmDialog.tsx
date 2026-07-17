@@ -10,6 +10,7 @@ type ConfirmDialogProps = {
   cancelLabel?: string;
   variant?: ConfirmDialogVariant;
   pending?: boolean;
+  confirmDisabled?: boolean;
   pendingLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -24,6 +25,7 @@ function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "default",
   pending = false,
+  confirmDisabled = false,
   pendingLabel,
   onCancel,
   onConfirm,
@@ -131,7 +133,7 @@ function ConfirmDialog({
             ref={confirmButtonRef}
             type="button"
             onClick={onConfirm}
-            disabled={pending}
+            disabled={pending || confirmDisabled}
             className={`inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${confirmClass}`}
           >
             {pending ? pendingLabel ?? confirmLabel : confirmLabel}

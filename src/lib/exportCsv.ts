@@ -45,6 +45,8 @@ export type CsvCell = string | number | boolean | Date | null | undefined;
 export type CsvInternalField =
   | "bulkAction"
   | "sakuravaRef"
+  | "importRef"
+  | "importResolution"
   | "parentCategoryName"
   | "parentCategoryRef"
   | "visibility"
@@ -520,6 +522,21 @@ function refColumn<TRecord>(
           ?? (record as Record<string, CsvCell>)[sourceField]
           ?? "",
       )),
+  };
+}
+
+/** File-local identity for new rows. It is intentionally blank in exports. */
+function importRefColumn<TRecord>(): CsvSchemaColumn<TRecord> {
+  return {
+    key: "importRef",
+    header: "Import Ref",
+    internalField: "importRef",
+    required: false,
+    editable: true,
+    clearable: false,
+    valueType: "identifier",
+    value: () => "",
+    example: "NEW-001",
   };
 }
 

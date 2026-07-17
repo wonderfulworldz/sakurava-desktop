@@ -1,11 +1,92 @@
 import { describe, expect, it } from "vitest";
-import type { GlossaryEntry, Video } from "../backend/types";
+import type { Credit, GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
 import { buildCsvCatalogPreview, buildXlsxCatalogPreview } from "./importCatalog";
-import { buildGlossaryCsv, buildVideosCsv, sakuravaRef } from "./exportCsv";
+import { buildCategoriesCsv, buildGlossaryCsv, buildVideosCsv, sakuravaRef } from "./exportCsv";
 import { buildXlsxWorkbook, EXPORT_CONTRACT_VERSION } from "./exportWorkbook";
 import { SAKURAVA_METADATA_SHEET } from "./importExportContract";
+import { buildImportOperationPlan } from "./importOperationPlan";
 
 describe("catalog CSV/XLSX import preview", () => {
+  it("builds the deterministic 278/273/5 Delete-all Preview plan", async () => {
+    const categories = Array.from({ length: 5 }, (_, index) => managedCategory({
+      key: `category-${index + 1}`,
+      sakuravaRef: `C2607000${index + 1}`,
+      name: index === 0 ? "Credit category" : `Category ${index + 1}`,
+      // Category 1 remains referenced by the Credit-protected Video while
+      // Category 2 is deleted. This matches the parent-cleanup shape that
+      // previously emitted a duplicate child update plus Delete operation.
+      parentKey: index === 1 ? "category-1" : null,
+    }));
+    const videos = Array.from({ length: 100 }, (_, index) => video({
+      id: `video-${index + 1}`,
+      sakuravaRef: `V2607${String(index + 1).padStart(4, "0")}`,
+      categoriesJson: index === 0 ? '["Credit category"]' : "[]",
+    }));
+    const images = Array.from({ length: 100 }, (_, index) => image({
+      id: `image-${index + 1}`,
+      sakuravaRef: `I2607${String(index + 1).padStart(4, "0")}`,
+    }));
+    // The Credit-protected Video survives while this related Image is deleted.
+    // The full plan must emit a cleanup update before final Rust validation.
+    videos[0].relatedImagesJson = JSON.stringify([
+      { recordId: images[1].id, titleSnapshot: images[1].title },
+    ]);
+    const performers = Array.from({ length: 70 }, (_, index) => performer({
+      id: `performer-${index + 1}`,
+      sakuravaRef: `P2607${String(index + 1).padStart(4, "0")}`,
+    }));
+    const glossary = Array.from({ length: 3 }, (_, index) => makeGlossary({
+      id: `glossary-${index + 1}`,
+      sakuravaRef: `G2607${String(index + 1).padStart(4, "0")}`,
+    }));
+    const credits: Credit[] = [
+      credit({ id: "credit-video-performer-1", workType: "video", workId: videos[0].id, performerId: performers[0].id }),
+      credit({ id: "credit-image-performer-2", workType: "image", workId: images[0].id, performerId: performers[1].id }),
+      credit({ id: "credit-video-performer-3", workType: "video", workId: videos[0].id, performerId: performers[2].id }),
+    ];
+    const context = { videos, images, performers, categories, glossary, credits };
+    const initial = await buildXlsxWorkbook({
+      selections: [
+        { dataType: "videos", records: videos },
+        { dataType: "images", records: images },
+        { dataType: "performers", records: performers },
+        { dataType: "categories", records: categories },
+        { dataType: "glossary", records: glossary },
+      ],
+      locale: "en-US",
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(initial.bytes as unknown as ArrayBuffer);
+    for (const sheet of workbook.worksheets) {
+      const actionColumn = (sheet.getRow(1).values as unknown[]).findIndex((value) => value === "Action");
+      if (actionColumn < 1) continue;
+      for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
+        sheet.getCell(rowNumber, actionColumn).value = "Delete";
+      }
+    }
+    const bytes = new Uint8Array(await workbook.xlsx.writeBuffer());
+    const preview = await buildXlsxCatalogPreview(bytes, context, "en-US");
+    const plan = buildImportOperationPlan(preview, context, bytes);
+
+    expect(preview.rows).toHaveLength(278);
+    expect(preview.rows.filter((row) => row.detectedResult === "Deleted")).toHaveLength(273);
+    expect(preview.rows.filter((row) => row.detectedResult === "Error")).toHaveLength(5);
+    expect(preview.rows.filter((row) => row.warnings.length > 0)).toHaveLength(5);
+    expect(plan.operations.filter((operation) => operation.action === "delete")).toHaveLength(273);
+    expect(plan.operations.filter((operation) => operation.sourceIdentity.startsWith("cleanup:"))).toHaveLength(1);
+    const protectedVideoCleanup = plan.operations.find((operation) =>
+      operation.sourceIdentity === `cleanup:videos:${videos[0].id}:update`,
+    );
+    expect(protectedVideoCleanup?.proposedValues.categoriesJson).toBe("[]");
+    expect(protectedVideoCleanup?.proposedValues.relatedImagesJson).toBe("[]");
+    expect(plan.skippedCount).toBe(5);
+    const targetedRecords = plan.operations
+      .filter((operation) => operation.action !== "create" && operation.recordId)
+      .map((operation) => `${operation.section}:${operation.recordId}`);
+    expect(new Set(targetedRecords)).toHaveLength(targetedRecords.length);
+  });
+
   it("keeps existing CSV import behavior and accepts local dates", () => {
     const csv = buildVideosCsv([video({ releaseDate: "2026-07-14" })], { locale: "en-GB" });
     const preview = buildCsvCatalogPreview(csv, { ...context(), videos: [video()] }, "en-GB");
@@ -67,7 +148,7 @@ describe("catalog CSV/XLSX import preview", () => {
 
     const ordinaryNumber = await numericDateWorkbook("0");
     const invalid = await buildXlsxCatalogPreview(ordinaryNumber, context(), "en-US");
-    expect(invalid.rows[0].errors[0]).toContain("Enter a valid date");
+    expect(invalid.rows[0].warnings[0]).toContain("Release Date is invalid");
   });
 
   it("ignores unknown sheets when a supported sheet exists and blocks arbitrary workbooks", async () => {
@@ -91,11 +172,11 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(blocked.headerErrors.join(" ")).toContain("No supported Sakurava data worksheets");
   });
 
-  it("makes unsupported Actions blocking", async () => {
+  it("keeps an unsupported Action as a non-blocking row warning", async () => {
     const bytes = await videoWorkbookRow({ Action: "Bogus", Title: "Bad Action" });
     const preview = await buildXlsxCatalogPreview(bytes, context(), "en-US");
-    expect(preview.rows[0].errors).toContain("Unknown Action: Bogus.");
-    expect(preview.summary.blocked).toBe(true);
+    expect(preview.rows[0].warnings.join(" ")).toContain("Action is not supported");
+    expect(preview.summary.blocked).toBe(false);
   });
 
   it("parses exported Glossary worksheets and ignores Instructions", async () => {
@@ -253,7 +334,7 @@ describe("catalog CSV/XLSX import preview", () => {
       row("GLO-NEW-A", "A", "GLO-NEW-B"),
       row("GLO-NEW-B", "B", "GLO-NEW-A"),
     ].join("\r\n"), context(), "en-US");
-    expect(circular.summary.blocked).toBe(true);
+    expect(circular.summary.blocked).toBe(false);
     expect(circular.rows.some((item) => item.errors.join(" ").includes("circular"))).toBe(true);
   });
 
@@ -270,7 +351,7 @@ describe("catalog CSV/XLSX import preview", () => {
       headers.join(","),
       row("GLO-NEW-RESERVED", "New row"),
     ].join("\r\n"), { ...context(), glossary: [existing] }, "en-US");
-    expect(permanentCollision.summary.blocked).toBe(true);
+    expect(permanentCollision.summary.blocked).toBe(false);
     expect(permanentCollision.rows[0].errors).toContain(
       "Temporary Glossary identifier conflicts with an existing permanent record.",
     );
@@ -280,18 +361,172 @@ describe("catalog CSV/XLSX import preview", () => {
       row("GLO-NEW-DUPLICATE", "First"),
       row("GLO-NEW-DUPLICATE", "Second"),
     ].join("\r\n"), context(), "en-US");
-    expect(duplicate.summary.blocked).toBe(true);
-    expect(duplicate.rows.every((item) => item.errors.some((error) => error.includes("Duplicate Sakurava Ref"))))
+    expect(duplicate.summary.blocked).toBe(false);
+    expect(duplicate.rows.every((item) => item.detectedResult === "Error"))
       .toBe(true);
   });
 
-  it("blocks deleting a Glossary parent while a child remains", () => {
+  it("automatically clears a surviving Glossary child parent relationship", () => {
     const parent = glossary({ id: "glossary-parent", term: "Parent" });
     const child = glossary({ id: "glossary-child", term: "Child", parentId: parent.id });
     const csv = buildGlossaryCsv([parent]).replace("\r\nAuto,", "\r\nDelete,");
     const preview = buildCsvCatalogPreview(csv, { ...context(), glossary: [parent, child] }, "en-US");
-    expect(preview.summary.blocked).toBe(true);
-    expect(preview.rows[0].errors).toContain("Glossary record cannot be deleted while child records use it.");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.rows[0].errors).toEqual([]);
+    expect(preview.rows[0].dependencyPlan).toMatchObject({
+      requiresDecision: false,
+      detail: "1 child terms remain",
+    });
+  });
+
+  it("plans Glossary descendants before their deleted parent", () => {
+    const parent = glossary({ id: "glossary-parent", term: "Parent" });
+    const child = glossary({ id: "glossary-child", term: "Child", parentId: parent.id });
+    const csv = buildGlossaryCsv([parent, child]).split("\r\nAuto,").join("\r\nDelete,");
+    const preview = buildCsvCatalogPreview(csv, { ...context(), glossary: [parent, child] }, "en-US");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.rows.map((row) => row.dependencyPlan?.requiresDecision)).toEqual([false, false]);
+    expect(preview.rows[0].dependencyPlan?.detail).toBe("1 child terms will be deleted first");
+    const plan = buildImportOperationPlan(
+      preview,
+      { ...context(), glossary: [parent, child] },
+      new TextEncoder().encode(csv),
+    );
+    expect(plan.operations.map((operation) => operation.recordId)).toEqual([child.id, parent.id]);
+  });
+
+  it.each([
+    ["videos", "Video"],
+    ["images", "Image"],
+    ["performers", "Performer"],
+  ] as const)("makes a Category Ready when its %s dependency is also deleted", async (entity, label) => {
+    const category = managedCategory({ key: `category-${entity}`, name: `${label} Category` });
+    const records = entity === "videos"
+      ? { videos: [video({ categoriesJson: JSON.stringify([category.name]) })] }
+      : entity === "images"
+        ? { images: [image({ categoriesJson: JSON.stringify([category.name]) })] }
+        : { performers: [performer({ categoriesJson: JSON.stringify([category.name]) })] };
+    const built = await buildXlsxWorkbook({
+      selections: [
+        { dataType: entity, records: records[entity] as never[] },
+        { dataType: "categories", records: [category] },
+      ],
+      locale: "en-US",
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    workbook.getWorksheet(entity === "videos" ? "Videos" : entity === "images" ? "Images" : "Performers")!.getCell(2, 1).value = "Delete";
+    workbook.getWorksheet("Managed Categories")!.getCell(2, 1).value = "Delete";
+    const preview = await buildXlsxCatalogPreview(
+      new Uint8Array(await workbook.xlsx.writeBuffer()),
+      { ...context(), ...records, categories: [category] },
+      "en-US",
+    );
+    const categoryRow = preview.rows.find((row) => row.dataType === "categories")!;
+    expect(preview.summary.blocked).toBe(false);
+    expect(categoryRow.dependencyPlan).toMatchObject({ requiresDecision: false, detail: "Used only by records that are also being deleted" });
+  });
+
+  it("automatically clears a surviving Credit Category reference", () => {
+    const category = managedCategory({ key: "category-credit", name: "Credit Category" });
+    const csv = buildCategoriesCsv([category]).replace("\r\nAuto,", "\r\nDelete,");
+    const preview = buildCsvCatalogPreview(csv, {
+      ...context(),
+      categories: [category],
+      credits: [{ creditTypeCategoryId: category.key, roleImportanceCategoryId: null } as never],
+    }, "en-US");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.rows[0].dependencyPlan).toMatchObject({ requiresDecision: false, detail: "Used by 1 Credits that will be preserved" });
+  });
+
+  it("plans automatic Category cleanup updates that preserve Credits", () => {
+    const category = managedCategory({ key: "category-resolution", name: "Resolution Category" });
+    const record = video({ categoriesJson: JSON.stringify([category.name]) });
+    const credit = { id: "credit-resolution", creditTypeCategoryId: category.key, roleImportanceCategoryId: null } as never;
+    const csv = buildCategoriesCsv([category]).replace("\r\nAuto,", "\r\nDelete,");
+    const contextValue = { ...context(), categories: [category], videos: [record], credits: [credit] };
+    const preview = buildCsvCatalogPreview(csv, contextValue, "en-US");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.automaticCleanupOperations?.map((operation) => operation.section).sort()).toEqual(["credits", "videos"]);
+    expect(preview.automaticCleanupOperations?.every((operation) => operation.action === "update")).toBe(true);
+    const plan = buildImportOperationPlan(
+      preview,
+      contextValue,
+      new TextEncoder().encode(csv),
+    );
+    expect(plan.skippedCount).toBe(0);
+    expect(plan.operations.every((operation) => operation.sourceRowNumber >= 0)).toBe(true);
+  });
+
+  it("cleans a preserved Credit work's Category before deleting that Category", async () => {
+    const category = managedCategory({ key: "category-preserved-work", name: "Preserved Work Category" });
+    const record = video({ id: "video-preserved-work", categoriesJson: JSON.stringify([category.name]) });
+    const built = await buildXlsxWorkbook({
+      selections: [
+        { dataType: "videos", records: [record] },
+        { dataType: "categories", records: [category] },
+      ],
+      locale: "en-US",
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    workbook.getWorksheet("Videos")!.getCell(2, 1).value = "Delete";
+    workbook.getWorksheet("Managed Categories")!.getCell(2, 1).value = "Delete";
+    const contextValue = {
+      ...context(),
+      videos: [record],
+      categories: [category],
+      credits: [{ workType: "video", workId: record.id, performerId: "preserved-performer" } as never],
+    };
+    const preview = await buildXlsxCatalogPreview(
+      new Uint8Array(await workbook.xlsx.writeBuffer()),
+      contextValue,
+      "en-US",
+    );
+    const videoRow = preview.rows.find((row) => row.dataType === "videos")!;
+    const categoryRow = preview.rows.find((row) => row.dataType === "categories")!;
+
+    expect(videoRow.detectedResult).toBe("Error");
+    expect(categoryRow.detectedResult).toBe("Deleted");
+    expect(preview.automaticCleanupOperations).toContainEqual(expect.objectContaining({
+      section: "videos",
+      recordId: record.id,
+      proposedValues: { categoriesJson: "[]" },
+    }));
+  });
+
+  it("clears surviving Category parent relationships without replacement decisions", () => {
+    const category = managedCategory({ key: "category-invalid-replacement", name: "Replace me" });
+    const child = managedCategory({ key: "category-child", name: "Child", parentKey: category.key });
+    const csv = buildCategoriesCsv([category]).replace("\r\nAuto,", "\r\nDelete,");
+    const contextValue = { ...context(), categories: [category, child] };
+    const preview = buildCsvCatalogPreview(csv, contextValue, "en-US");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.automaticCleanupOperations?.some((operation) => operation.section === "categories")).toBe(true);
+  });
+
+  it("does not expose obsolete Skip as an executable operation", () => {
+    const parent = glossary({ id: "glossary-skip-parent", term: "Parent" });
+    const child = glossary({ id: "glossary-skip-child", term: "Child", parentId: parent.id });
+    const csv = buildGlossaryCsv([parent]).replace("\r\nAuto,", "\r\nDelete,");
+    const preview = buildCsvCatalogPreview(csv, { ...context(), glossary: [parent, child] }, "en-US");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.rows[0].detectedResult).toBe("Deleted");
+  });
+
+  it("does not apply a Video Delete when a Credit work relationship cannot be cleared", () => {
+    const record = video({ id: "video-credit", sakuravaRef: "V26070001", title: "Credited Video" });
+    const csv = buildVideosCsv([record]).replace("\r\nAuto,", "\r\nDelete,");
+    const preview = buildCsvCatalogPreview(csv, {
+      ...context(),
+      videos: [record],
+      credits: [{ workType: "video", workId: record.id, performerId: "performer-credit" } as never],
+    }, "en-US");
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.rows[0].detectedResult).toBe("Error");
+    expect(preview.rows[0].warnings.join(" ")).toContain("cannot be cleared safely");
   });
 });
 
@@ -351,5 +586,39 @@ function glossary(overrides: Partial<GlossaryEntry> = {}): GlossaryEntry {
     id: "glossary-1", term: "Term", definition: "Definition", synonymsJson: "[]",
     category: "", parentId: "", thumbnailPath: "", favorite: false,
     sourceTitle: "", sourceUrl: "", createdAt: 1, updatedAt: 1, ...overrides,
+  };
+}
+
+function makeGlossary(overrides: Partial<GlossaryEntry> = {}): GlossaryEntry {
+  return glossary(overrides);
+}
+
+function credit(overrides: Partial<Credit> = {}): Credit {
+  return {
+    id: "credit-1", workType: "video", workId: "video-1", performerId: "performer-1",
+    characterName: "", characterOriginalName: null, creditedAs: null, creditedAsMode: "auto",
+    creditTypeCategoryId: null, roleImportanceCategoryId: null, characterMode: "text",
+    characterId: null, billingOrder: null, note: null, legacySourceKey: null,
+    createdAt: "", updatedAt: "", ...overrides,
+  };
+}
+
+function managedCategory(overrides: Partial<ManagedCategory> = {}): ManagedCategory {
+  return {
+    key: "category-1", name: "Category", parentKey: null, description: "", thumbnailPath: "",
+    showInVideos: true, showInImages: true, showInPerformers: true, showInCredits: true,
+    createdAt: "", updatedAt: "", ...overrides,
+  };
+}
+
+function image(overrides: Partial<Image> = {}): Image {
+  return {
+    id: "image-1", title: "Image", originalTitle: "", code: "", censorship: "", availability: "", releaseDate: "", publisherLabel: "", coverPath: "", folderPath: "", imageCount: null, mainResolution: "", totalFileSizeBytes: null, mainFileType: "", galleryImagePathsJson: "[]", relatedPerformersJson: "[]", relatedVideosJson: "[]", categoriesJson: "[]", sourceLinksJson: "[]", ratingJson: "{}", notes: "", favorite: false, createdAt: "", updatedAt: "", ...overrides,
+  };
+}
+
+function performer(overrides: Partial<Performer> = {}): Performer {
+  return {
+    id: "performer-1", name: "Performer", originalName: "", aliasesJson: "[]", status: "", debutDate: "", retiredDate: "", birthDate: "", gender: "", birthplace: "", nationality: "", bloodType: "", heightCm: null, weightKg: null, measurements: "", cupSize: "", coverPath: "", performerThumbnailPathsJson: "[]", filmographyCount: null, pictorialsCount: null, relatedVideosJson: "[]", relatedImagesJson: "[]", categoriesJson: "[]", sourceLinksJson: "[]", ratingJson: "{}", notes: "", favorite: false, createdAt: "", updatedAt: "", ...overrides,
   };
 }

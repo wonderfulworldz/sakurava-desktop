@@ -698,3 +698,4 @@ Acceptance criteria:
 - No schema, database, migration, Tauri, or runtime change is implied.
 - Credits/Roles/Known Names and Source Links behavior remain unchanged.
 - No commit is created before user review.
+> Import/Export product decisions and the implementation map are authoritative in [44-import-export-decision-lock-and-code-map.md](44-import-export-decision-lock-and-code-map.md). This pointer does not change Settings architecture or runtime behavior.

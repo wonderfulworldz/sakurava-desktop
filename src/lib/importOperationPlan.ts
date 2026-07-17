@@ -1,4 +1,4 @@
-import type { ImportCatalogPreview, ImportCatalogRow } from "./importCatalog";
+import type { ImportCatalogPreview, ImportCatalogRow, ImportCleanupOperation } from "./importCatalog";
 import {
   buildNormalizedImportPatch,
   resolveImportRecord,
@@ -25,12 +25,12 @@ export type ImportFieldDifference = {
 export type ImportPlanOperation = {
   sourceIdentity: string;
   sourceRowNumber: number;
-  section: ImportCsvEntity;
+  section: ImportCsvEntity | "credits";
   action: ImportPlanAction;
   stableRecordIdentifier: string;
   recordId: string | null;
   temporaryIdentifier: string | null;
-  currentRecord: ImportCatalogRecord | null;
+  currentRecord: ImportCatalogRecord | Record<string, unknown> | null;
   proposedValues: Record<string, unknown>;
   fieldDifferences: ImportFieldDifference[];
   clearedFields: string[];
@@ -58,19 +58,51 @@ export type ImportOperationPlan = {
   skippedCount: number;
 };
 
+export class ImportPlanContractError extends Error {
+  readonly field: string;
+  readonly expectedFingerprint?: string;
+  readonly actualFingerprint?: string;
+
+  constructor(
+    field: string,
+    diagnostics?: { expectedFingerprint?: string; actualFingerprint?: string },
+  ) {
+    super("The import plan could not be processed.");
+    this.name = "ImportPlanContractError";
+    this.field = field;
+    this.expectedFingerprint = diagnostics?.expectedFingerprint;
+    this.actualFingerprint = diagnostics?.actualFingerprint;
+  }
+}
+
 export function buildImportOperationPlan(
   preview: ImportCatalogPreview,
   context: ImportCsvPreviewContext,
   sourceBytes: Uint8Array,
   issuanceYymm = currentSakuravaRefYymm(),
 ): ImportOperationPlan {
-  if (preview.summary.blocked) {
-    throw new Error("Import operation plan requires a Preview with no blocking issues.");
+  if (preview.headerErrors.length > 0) {
+    throw new Error("Import operation plan requires an interpretable file.");
   }
   const sourceFingerprint = sourceFileFingerprint(sourceBytes);
-  const operations = preview.rows
+  const operations: ImportPlanOperation[] = preview.rows
     .filter((row) => ["Added", "Modified", "Deleted"].includes(row.detectedResult))
+    .slice()
+    .sort((left, right) => {
+      const leftOrder = left.detectedResult === "Deleted" ? left.dependencyPlan?.deleteOrder ?? 0 : -1;
+      const rightOrder = right.detectedResult === "Deleted" ? right.dependencyPlan?.deleteOrder ?? 0 : -1;
+      return leftOrder - rightOrder
+        || left.dataType.localeCompare(right.dataType)
+        || left.sheetName.localeCompare(right.sheetName)
+        || left.rowNumber - right.rowNumber;
+    })
     .map((row) => buildOperation(row, context, sourceFingerprint));
+  // Cleanup updates are semantically independent from their discovery order.
+  // Canonicalize them before serializing so map/list iteration in Preview can
+  // never change the immutable plan fingerprint or runtime payload.
+  for (const cleanup of [...(preview.automaticCleanupOperations ?? [])].sort(compareCleanupOperations)) {
+    operations.push(buildCleanupOperation(cleanup));
+  }
   const catalogSnapshot = snapshotCatalog(context);
   const plan: ImportOperationPlan = {
     contractVersion: SAKURAVA_IMPORT_CONTRACT_VERSION,
@@ -79,11 +111,80 @@ export function buildImportOperationPlan(
     operationFingerprint: "",
     catalogSnapshot,
     operations,
-    skippedCount: preview.rows.length - operations.length,
+    // Automatic cleanup operations are not spreadsheet rows. They must never
+    // reduce the number of row operations that were omitted from the plan.
+    skippedCount: preview.rows.filter(
+      (row) => !["Added", "Modified", "Deleted"].includes(row.detectedResult),
+    ).length,
   };
+  assertImportOperationPlanContract(plan);
   plan.operationFingerprint = operationFingerprint(importPlanFingerprintPayload(plan));
   return plan;
 }
+
+export function assertImportOperationPlanContract(plan: ImportOperationPlan) {
+  if (!Number.isSafeInteger(plan.skippedCount) || plan.skippedCount < 0) {
+    throw new ImportPlanContractError("skippedCount");
+  }
+  const targetedRecords = new Map<string, number>();
+  for (const [index, operation] of plan.operations.entries()) {
+    if (!Number.isSafeInteger(operation.sourceRowNumber) || operation.sourceRowNumber < 0) {
+      throw new ImportPlanContractError(`operations[${index}].sourceRowNumber`);
+    }
+    if (operation.action === "create" || !operation.recordId) continue;
+    const target = `${operation.section}:${operation.recordId}`;
+    const firstIndex = targetedRecords.get(target);
+    if (firstIndex !== undefined) {
+      throw new ImportPlanContractError(
+        `operations[${index}] duplicates ${target} from operations[${firstIndex}]`,
+      );
+    }
+    targetedRecords.set(target, index);
+  }
+}
+
+/**
+ * Confirms that the in-memory plan has not been changed after Preview. This
+ * deliberately validates only the immutable plan; catalog staleness is
+ * revalidated by Rust against the live database immediately before backup.
+ */
+export function assertImportOperationPlanIntegrity(plan: ImportOperationPlan) {
+  assertImportOperationPlanContract(plan);
+  const actualFingerprint = operationFingerprint(importPlanFingerprintPayload(plan));
+  if (actualFingerprint !== plan.operationFingerprint) {
+    throw new ImportPlanContractError("operationFingerprint", {
+      expectedFingerprint: plan.operationFingerprint,
+      actualFingerprint,
+    });
+  }
+}
+
+function compareCleanupOperations(left: ImportCleanupOperation, right: ImportCleanupOperation) {
+  return left.section.localeCompare(right.section)
+    || left.recordId.localeCompare(right.recordId)
+    || left.action.localeCompare(right.action)
+    || left.sourceIdentity.localeCompare(right.sourceIdentity);
+}
+
+function buildCleanupOperation(operation: ImportCleanupOperation): ImportPlanOperation {
+  return {
+    sourceIdentity: operation.sourceIdentity,
+    sourceRowNumber: 0,
+    section: operation.section,
+    action: operation.action,
+    stableRecordIdentifier: operation.recordId,
+    recordId: operation.recordId,
+    temporaryIdentifier: null,
+    currentRecord: operation.currentRecord as Record<string, unknown>,
+    proposedValues: operation.proposedValues,
+    fieldDifferences: [],
+    clearedFields: [],
+    warnings: [],
+    blockingIssues: [],
+    dependencyRefs: [],
+  };
+}
+
 
 export function importPlanFingerprintPayload(plan: ImportOperationPlan) {
   return {

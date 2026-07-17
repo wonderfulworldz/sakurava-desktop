@@ -10,7 +10,8 @@ import {
   sakuravaRef,
 } from "./exportCsv";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
-import { buildImportOperationPlan } from "./importOperationPlan";
+import { operationFingerprint } from "./importExportContract";
+import { assertImportOperationPlanIntegrity, buildImportOperationPlan } from "./importOperationPlan";
 import { parseCsv } from "./importCsvPreview";
 
 describe("immutable import operation plan", () => {
@@ -81,7 +82,7 @@ describe("immutable import operation plan", () => {
     expect(second.operationFingerprint).toBe(first.operationFingerprint);
   });
 
-  it("keeps same-file Glossary parent and child fingerprints stable", () => {
+  it("does not use a temporary same-file Glossary identity as a relationship", () => {
     const header = buildGlossaryCsv([]);
     const csv = [
       header,
@@ -106,10 +107,82 @@ describe("immutable import operation plan", () => {
     const second = buildImportOperationPlan(preview, context, bytes);
 
     expect(first.operationFingerprint).toBe(second.operationFingerprint);
-    expect(first.operations[1].dependencyRefs).toEqual(["GLO-NEW-PARENT"]);
-    expect(first.operations.map((operation) => operation.temporaryIdentifier))
-      .toEqual(["GLO-NEW-PARENT", "GLO-NEW-CHILD"]);
-    expect(first.operations.every((operation) => operation.proposedValues.id == null)).toBe(true);
+    expect(first.operations).toHaveLength(1);
+    expect(preview.rows[1].detectedResult).toBe("Error");
+    expect(preview.rows[1].warnings.join(" ")).toContain("will be ignored");
+  });
+
+  it("serializes a Delete with no editable spreadsheet payload", () => {
+    const existing = video({ id: "video-delete", sakuravaRef: "V26070001" });
+    const header = buildVideosCsv([]);
+    const csv = [
+      header,
+      csvRow(header, {
+        Action: "Delete",
+        "Sakurava Ref": "V2607-0001",
+        Title: "",
+        "Duration (minutes)": "-25",
+      }),
+    ].join("\r\n");
+    const context = { ...emptyContext(), videos: [existing] };
+    const plan = buildImportOperationPlan(
+      buildCsvCatalogPreview(csv, context, "en-US"),
+      context,
+      new TextEncoder().encode(csv),
+    );
+
+    expect(plan.operations).toHaveLength(1);
+    expect(plan.operations[0]).toMatchObject({
+      action: "delete",
+      recordId: existing.id,
+      proposedValues: {},
+    });
+    expect(plan.operations[0].sourceRowNumber).toBe(2);
+  });
+
+  it("canonicalizes automatic cleanup operations and rejects a mutated stored plan", () => {
+    const context = emptyContext();
+    const preview = {
+      headerErrors: [],
+      rows: [],
+      automaticCleanupOperations: [
+        {
+          sourceIdentity: "cleanup:videos:video-b:update",
+          section: "videos",
+          action: "update",
+          recordId: "video-b",
+          currentRecord: { id: "video-b" },
+          proposedValues: { categoriesJson: "[]" },
+          detail: "Category relationship will be cleared",
+        },
+        {
+          sourceIdentity: "cleanup:categories:category-a:update",
+          section: "categories",
+          action: "update",
+          recordId: "category-a",
+          currentRecord: { key: "category-a" },
+          proposedValues: { parentKey: null },
+          detail: "Child Category parent relationship will be cleared",
+        },
+      ],
+    } as any;
+    const plan = buildImportOperationPlan(preview, context, new Uint8Array([1]));
+
+    expect(plan.operations.map((operation) => operation.sourceIdentity)).toEqual([
+      "cleanup:categories:category-a:update",
+      "cleanup:videos:video-b:update",
+    ]);
+    expect(() => assertImportOperationPlanIntegrity(plan)).not.toThrow();
+
+    plan.operations[0].proposedValues.parentKey = "changed-after-preview";
+    expect(() => assertImportOperationPlanIntegrity(plan))
+      .toThrowError("The import plan could not be processed.");
+  });
+
+  it("uses JSON transport semantics for undefined Preview values", () => {
+    expect(operationFingerprint({ record: { id: "video", optional: undefined } }))
+      .toBe(operationFingerprint({ record: { id: "video" } }));
+    expect(operationFingerprint([undefined])).toBe(operationFingerprint([null]));
   });
 });
 

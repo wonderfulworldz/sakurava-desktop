@@ -3,6 +3,7 @@ import {
   exportEntityLabel,
   exportSchemaFor,
   sakuravaRef,
+  sakuravaRefMatches,
 } from "./exportCsv";
 import {
   buildImportCsvPreview,
@@ -32,6 +33,7 @@ import {
   IMPORT_MAX_WORKSHEETS,
   importLimitMessage,
 } from "./importLimits";
+import { canonicalImportIdentity } from "./sakuravaRef";
 
 export type ImportCatalogFormat = "csv" | "xlsx";
 
@@ -61,7 +63,20 @@ export type ImportCatalogPreview = {
     needsAttention: number;
     blocked: boolean;
   };
+  /** Deterministic relationship updates required before safe deletion. */
+  automaticCleanupOperations?: ImportCleanupOperation[];
 };
+
+export type ImportCleanupOperation = {
+  sourceIdentity: string;
+  section: ImportCsvEntity | "credits";
+  action: "update" | "delete";
+  recordId: string;
+  currentRecord: object;
+  proposedValues: Record<string, unknown>;
+  detail: string;
+};
+
 
 export type ImportCatalogMessages = {
   invalidDate?: (field: string, format: string) => string;
@@ -386,6 +401,7 @@ function catalogPreview(
   context: ImportCsvPreviewContext,
 ): ImportCatalogPreview {
   validateGlossaryDependencies(sections, context);
+  const automaticCleanupOperations = applyProjectedDeletePlanning(sections, context);
   const rows = sections.flatMap((section) =>
     section.preview.rows.map((row) => ({
       ...row,
@@ -401,9 +417,7 @@ function catalogPreview(
     ...headerWarnings,
     ...sections.flatMap((section) => section.preview.headerWarnings),
   ];
-  const needsAttention = rows.filter(
-    (row) => row.errors.length > 0 || row.warnings.some(isBlockingImportPreviewWarning),
-  ).length;
+  const needsAttention = rows.filter((row) => row.warnings.length > 0 || row.errors.length > 0).length;
   return {
     format,
     sections,
@@ -419,8 +433,9 @@ function catalogPreview(
         row.detectedResult === "Skipped" || row.detectedResult === "Unchanged",
       ).length,
       needsAttention,
-      blocked: allHeaderErrors.length > 0 || needsAttention > 0,
+      blocked: allHeaderErrors.length > 0,
     },
+    automaticCleanupOperations,
   };
 }
 
@@ -433,7 +448,6 @@ function validateGlossaryDependencies(
     .flatMap((section) => section.preview.rows);
   if (!rows.length) return;
   const byRef = new Map(rows.map((row) => [(row.values["Sakurava Ref"] ?? "").trim(), row]));
-  const deleting = new Set(rows.filter((row) => row.detectedResult === "Deleted").map((row) => (row.values["Sakurava Ref"] ?? "").trim()));
   const permanentIds = new Set((context.glossary ?? []).map((entry) => entry.id));
 
   for (const row of rows) {
@@ -441,9 +455,6 @@ function validateGlossaryDependencies(
     const parent = (row.values["Parent Ref"] ?? "").trim();
     if (isTemporaryGlossaryRef(ref) && permanentIds.has(ref)) {
       addRowError(row, "Temporary Glossary identifier conflicts with an existing permanent record.");
-    }
-    if (parent && deleting.has(parent)) {
-      addRowError(row, "A Glossary parent scheduled for deletion cannot receive a child.");
     }
     if (!isTemporaryGlossaryRef(parent)) continue;
     if (parent === ref) addRowError(row, "A Glossary entry cannot be its own parent.");
@@ -465,12 +476,6 @@ function validateGlossaryDependencies(
       parents.set(ref, importedParent === SAKURAVA_CLEAR_VALUE ? "" : importedParent);
     }
   }
-  for (const deletedRef of deleting) {
-    if (Array.from(parents.values()).includes(deletedRef)) {
-      const row = byRef.get(deletedRef);
-      if (row) addRowError(row, "Glossary record cannot be deleted while child records use it.");
-    }
-  }
   for (const [start, row] of byRef) {
     const path = new Set<string>();
     let current = start;
@@ -483,6 +488,381 @@ function validateGlossaryDependencies(
       current = parents.get(current) ?? "";
     }
   }
+}
+
+/**
+ * Builds deterministic cleanup updates outside catalog rows. The immutable
+ * import plan consumes them before the associated Delete operations.
+ */
+function addCategoryCleanupOperations(
+  row: ImportCsvPreviewRow,
+  context: ImportCsvPreviewContext,
+  operations: ImportCleanupOperation[],
+  deleted: Map<ImportCsvEntity, Set<string>>,
+) {
+  const category = context.categories.find((candidate) => sakuravaRefMatches("CAT", row.values["Sakurava Ref"] ?? "", candidate));
+  if (!category) return;
+  const dependents = [
+    ...context.videos.map((record) => ({ section: "videos" as const, record })),
+    ...context.images.map((record) => ({ section: "images" as const, record })),
+    ...context.performers.map((record) => ({ section: "performers" as const, record })),
+  ].filter(({ section, record }) =>
+    !isDeleted(section, record, deleted)
+      && parseCategories(record.categoriesJson).some((name) => name.toLowerCase() === category.name.toLowerCase()),
+  );
+  const children = context.categories.filter((candidate) =>
+    candidate.parentKey === category.key && !isDeleted("categories", candidate, deleted),
+  );
+  for (const { section, record } of dependents) {
+    const values = parseCategories(record.categoriesJson).filter((name) => name.toLowerCase() !== category.name.toLowerCase());
+    addCleanupOperation(operations, section, "update", record.id, record, { categoriesJson: JSON.stringify(values) }, "Category relationship will be cleared");
+  }
+  for (const child of children) addCleanupOperation(operations, "categories", "update", child.key, child, { parentKey: null }, "Child Category parent relationship will be cleared");
+  for (const credit of context.credits ?? []) {
+    const proposed: Record<string, unknown> = {};
+    if (credit.creditTypeCategoryId === category.key) proposed.creditTypeCategoryId = null;
+    if (credit.roleImportanceCategoryId === category.key) proposed.roleImportanceCategoryId = null;
+    if (Object.keys(proposed).length) addCleanupOperation(operations, "credits", "update", credit.id, credit, proposed, "Credit Category relationship will be cleared");
+  }
+}
+
+function addGlossaryCleanupOperations(
+  row: ImportCsvPreviewRow,
+  context: ImportCsvPreviewContext,
+  operations: ImportCleanupOperation[],
+  deleted: Map<ImportCsvEntity, Set<string>>,
+) {
+  const entry = (context.glossary ?? []).find((candidate) => sakuravaRefMatches("GLO", row.values["Sakurava Ref"] ?? "", candidate));
+  if (!entry) return;
+  const descendants = (context.glossary ?? []).filter((candidate) =>
+    candidate.parentId === entry.id && !isDeleted("glossary", candidate, deleted),
+  );
+  for (const child of descendants) addCleanupOperation(operations, "glossary", "update", child.id, child, { parentId: null }, "Glossary parent relationship will be cleared");
+}
+
+/**
+ * Removes only links owned by records that survive the package.  Delete-all
+ * must not leave a protected Video, Image, or Performer pointing at a record
+ * that the same immutable plan removes.
+ */
+function addSurvivingRelationshipCleanupOperations(
+  context: ImportCsvPreviewContext,
+  operations: ImportCleanupOperation[],
+  deleted: Map<ImportCsvEntity, Set<string>>,
+) {
+  const sources: Array<{
+    section: "videos" | "images" | "performers";
+    record: { id: string } & Record<string, unknown>;
+  }> = [
+    ...context.videos.map((record) => ({ section: "videos" as const, record: record as unknown as { id: string } & Record<string, unknown> })),
+    ...context.images.map((record) => ({ section: "images" as const, record: record as unknown as { id: string } & Record<string, unknown> })),
+    ...context.performers.map((record) => ({ section: "performers" as const, record: record as unknown as { id: string } & Record<string, unknown> })),
+  ];
+  const relationships = [
+    { section: "videos" as const, field: "relatedPerformersJson", target: "performers" as const, idField: "performerId" },
+    { section: "videos" as const, field: "relatedImagesJson", target: "images" as const, idField: "recordId" },
+    { section: "images" as const, field: "relatedPerformersJson", target: "performers" as const, idField: "performerId" },
+    { section: "images" as const, field: "relatedVideosJson", target: "videos" as const, idField: "recordId" },
+    { section: "performers" as const, field: "relatedVideosJson", target: "videos" as const, idField: "recordId" },
+    { section: "performers" as const, field: "relatedImagesJson", target: "images" as const, idField: "recordId" },
+  ];
+
+  for (const { section, record } of sources) {
+    if (isDeleted(section, record, deleted)) continue;
+    for (const relationship of relationships) {
+      if (relationship.section !== section) continue;
+      const nextValue = removeDeletedRelationshipTargets(
+        record[relationship.field],
+        relationship.idField,
+        relationship.target,
+        context,
+        deleted,
+      );
+      if (!nextValue) continue;
+      addCleanupOperation(
+        operations,
+        section,
+        "update",
+        record.id,
+        record,
+        { [relationship.field]: nextValue },
+        "Related catalog relationship will be cleared",
+      );
+    }
+  }
+}
+
+function removeDeletedRelationshipTargets(
+  rawValue: unknown,
+  idField: string,
+  target: "videos" | "images" | "performers",
+  context: ImportCsvPreviewContext,
+  deleted: Map<ImportCsvEntity, Set<string>>,
+) {
+  if (typeof rawValue !== "string") return null;
+  try {
+    const values = JSON.parse(rawValue) as unknown;
+    if (!Array.isArray(values)) return null;
+    const remaining = values.filter((value) => {
+      if (!value || typeof value !== "object") return true;
+      const targetId = (value as Record<string, unknown>)[idField];
+      if (typeof targetId !== "string") return true;
+      const targetRecord = recordsForEntity(target, context).find((record) => record.id === targetId);
+      return !targetRecord || !isDeleted(target, targetRecord, deleted);
+    });
+    return remaining.length === values.length ? null : JSON.stringify(remaining);
+  } catch {
+    // Existing malformed relationship JSON is still rejected by the
+    // authoritative validator; automatic cleanup must not conceal corruption.
+    return null;
+  }
+}
+
+function addCleanupOperation(operations: ImportCleanupOperation[], section: ImportCleanupOperation["section"], action: ImportCleanupOperation["action"], recordId: string, currentRecord: object, proposedValues: Record<string, unknown>, detail: string) {
+  const sourceIdentity = `cleanup:${section}:${recordId}:${action}`;
+  const existing = operations.find((operation) => operation.sourceIdentity === sourceIdentity);
+  if (!existing) {
+    operations.push({ sourceIdentity, section, action, recordId, currentRecord, proposedValues, detail });
+    return;
+  }
+  if (typeof proposedValues.categoriesJson === "string") {
+    if (typeof existing.proposedValues.categoriesJson === "string") {
+      const remaining = new Set(parseCategories(proposedValues.categoriesJson).map((value) => value.toLocaleLowerCase()));
+      existing.proposedValues.categoriesJson = JSON.stringify(
+        parseCategories(existing.proposedValues.categoriesJson)
+          .filter((value) => remaining.has(value.toLocaleLowerCase())),
+      );
+    } else {
+      existing.proposedValues.categoriesJson = proposedValues.categoriesJson;
+    }
+  }
+  for (const [key, value] of Object.entries(proposedValues)) {
+    if (key !== "categoriesJson") existing.proposedValues[key] = value;
+  }
+}
+
+/**
+ * Delete safety is evaluated against the catalog that will exist after the
+ * whole package is applied.  Per-row validation cannot do this: a Category
+ * that is used today is safe to remove when every record using it is also a
+ * Delete operation in this package.
+ */
+function applyProjectedDeletePlanning(
+  sections: ImportCatalogSection[],
+  context: ImportCsvPreviewContext,
+): ImportCleanupOperation[] {
+  const cleanupOperations: ImportCleanupOperation[] = [];
+  const sectionRows = new Map<ImportCsvEntity, ImportCsvPreviewRow[]>();
+  for (const section of sections) {
+    sectionRows.set(section.dataType, section.preview.rows);
+  }
+  const deleted = new Map<ImportCsvEntity, Set<string>>();
+  for (const entity of ["videos", "images", "performers", "categories", "glossary"] as const) {
+    const refs = new Set<string>();
+    for (const row of sectionRows.get(entity) ?? []) {
+      if (row.detectedResult === "Deleted" && row.errors.length === 0) {
+        refs.add((row.values["Sakurava Ref"] ?? "").trim());
+      }
+    }
+    deleted.set(entity, refs);
+  }
+
+  const deleteRank = new Map<ImportCsvPreviewRow, number>();
+  for (const entity of ["videos", "images", "performers"] as const) {
+    for (const row of sectionRows.get(entity) ?? []) {
+      if (row.detectedResult !== "Deleted") continue;
+      const record = recordsForEntity(entity, context).find((candidate) =>
+        sakuravaRefMatches(entity === "videos" ? "VID" : entity === "images" ? "IMG" : "PER", row.values["Sakurava Ref"] ?? "", candidate),
+      );
+      const survivingCredits = record
+        ? (context.credits ?? []).filter((credit) => creditUsesRecord(credit, entity, record.id))
+        : [];
+      if (survivingCredits.length > 0) {
+        row.detectedResult = "Error";
+        row.warnings.push(`${survivingCredits.length} Credit references cannot be cleared safely. This row will not be applied.`);
+        deleted.get(entity)?.delete((row.values["Sakurava Ref"] ?? "").trim());
+      }
+      deleteRank.set(row, 10);
+    }
+  }
+
+  // Credit-protected rows have now been removed from the Delete set. Clear
+  // only their links to records that the same package still deletes.
+  addSurvivingRelationshipCleanupOperations(context, cleanupOperations, deleted);
+
+  const categoryRows = sectionRows.get("categories") ?? [];
+  for (const row of categoryRows) {
+    if (row.detectedResult !== "Deleted") continue;
+    const category = context.categories.find((candidate) => sakuravaRefMatches("CAT", row.values["Sakurava Ref"] ?? "", candidate));
+    if (!category) continue;
+    const deletedCategories = deleted.get("categories")!;
+    const survivingChildren = context.categories.filter((candidate) =>
+      candidate.parentKey === category.key && !isDeleted("categories", candidate, deleted),
+    );
+    const survivingRecords = [
+      ...context.videos.map((record) => ({ entity: "videos" as const, record })),
+      ...context.images.map((record) => ({ entity: "images" as const, record })),
+      ...context.performers.map((record) => ({ entity: "performers" as const, record })),
+    ].filter(({ entity, record }) => recordStillUsesCategory(entity, record, category, sectionRows, deleted));
+    const survivingCredits = (context.credits ?? []).filter((credit) =>
+      credit.creditTypeCategoryId === category.key || credit.roleImportanceCategoryId === category.key,
+    );
+    const deletedChildren = context.categories.filter((candidate) =>
+      candidate.parentKey === category.key && isDeleted("categories", candidate, deleted),
+    );
+
+    const detail = survivingCredits.length > 0
+      ? `Used by ${survivingCredits.length} Credits that will be preserved`
+      : survivingChildren.length > 0
+        ? `${survivingChildren.length} child Categories remain`
+        : survivingRecords.length > 0
+          ? `${survivingRecords.length} dependent records are not included in Delete`
+          : deletedChildren.length > 0
+            ? `${deletedChildren.length} child Categories will be deleted first`
+            : "Used only by records that are also being deleted";
+    if (survivingCredits.length > 0 || survivingChildren.length > 0 || survivingRecords.length > 0) {
+      addCategoryCleanupOperations(row, context, cleanupOperations, deleted);
+    }
+    row.dependencyPlan = {
+      requiresDecision: false,
+      detail,
+      deleteOrder: categoryDeleteDepth(category, context.categories, deletedCategories, new Set()),
+    };
+    deleteRank.set(row, 100 + row.dependencyPlan.deleteOrder);
+  }
+
+  const glossaryRows = sectionRows.get("glossary") ?? [];
+  for (const row of glossaryRows) {
+    if (row.detectedResult !== "Deleted") continue;
+    const entry = (context.glossary ?? []).find((candidate) => sakuravaRefMatches("GLO", row.values["Sakurava Ref"] ?? "", candidate));
+    if (!entry) continue;
+    const deletedGlossary = deleted.get("glossary")!;
+    const hierarchyBroken = glossaryHierarchyHasCycle(entry.id, context.glossary ?? []);
+    const survivingChildren = (context.glossary ?? []).filter((candidate) =>
+      candidate.parentId === entry.id && !isDeleted("glossary", candidate, deleted),
+    );
+    const deletedChildren = (context.glossary ?? []).filter((candidate) =>
+      candidate.parentId === entry.id && isDeleted("glossary", candidate, deleted),
+    );
+    const detail = hierarchyBroken
+      ? "Glossary hierarchy needs repair before deletion"
+      : survivingChildren.length > 0
+        ? `${survivingChildren.length} child terms remain`
+        : deletedChildren.length > 0
+          ? `${deletedChildren.length} child terms will be deleted first`
+          : "Record will be deleted";
+    row.dependencyPlan = {
+      requiresDecision: false,
+      detail,
+      deleteOrder: glossaryDeleteDepth(entry.id, context.glossary ?? [], deletedGlossary, new Set()),
+    };
+    deleteRank.set(row, 200 + row.dependencyPlan.deleteOrder);
+    if (!hierarchyBroken && survivingChildren.length > 0) {
+      addGlossaryCleanupOperations(row, context, cleanupOperations, deleted);
+    }
+    if (hierarchyBroken) {
+      row.detectedResult = "Error";
+      row.warnings.push("Glossary hierarchy is invalid. This row will not be applied.");
+    }
+  }
+
+  // This rank is consumed by the immutable operation plan; the preview itself
+  // intentionally keeps spreadsheet/source row order.
+  for (const section of sections) {
+    for (const row of section.preview.rows) {
+      if (row.detectedResult === "Deleted" && !row.dependencyPlan) {
+        row.dependencyPlan = { requiresDecision: false, detail: "Record will be deleted", deleteOrder: deleteRank.get(row) ?? 10 };
+      }
+    }
+  }
+  return cleanupOperations;
+}
+
+function recordsForEntity(
+  entity: "videos" | "images" | "performers",
+  context: ImportCsvPreviewContext,
+) {
+  return entity === "videos" ? context.videos : entity === "images" ? context.images : context.performers;
+}
+
+function creditUsesRecord(
+  credit: NonNullable<ImportCsvPreviewContext["credits"]>[number],
+  entity: "videos" | "images" | "performers",
+  recordId: string,
+) {
+  return entity === "performers"
+    ? credit.performerId === recordId
+    : credit.workType === (entity === "videos" ? "video" : "image") && credit.workId === recordId;
+}
+
+function isDeleted(
+  entity: ImportCsvEntity,
+  record: { id?: string; key?: string; sakuravaRef?: string },
+  deleted: Map<ImportCsvEntity, Set<string>>,
+) {
+  const prefix = entity === "videos" ? "VID" : entity === "images" ? "IMG" : entity === "performers" ? "PER" : entity === "categories" ? "CAT" : "GLO";
+  return Array.from(deleted.get(entity) ?? []).some((ref) => sakuravaRefMatches(prefix, ref, record));
+}
+
+function recordStillUsesCategory(
+  entity: "videos" | "images" | "performers",
+  record: { id: string; sakuravaRef?: string; categoriesJson: string },
+  category: { name: string },
+  sectionRows: Map<ImportCsvEntity, ImportCsvPreviewRow[]>,
+  deleted: Map<ImportCsvEntity, Set<string>>,
+) {
+  if (isDeleted(entity, record, deleted)) return false;
+  const row = (sectionRows.get(entity) ?? []).find((candidate) => sakuravaRefMatches(entity === "videos" ? "VID" : entity === "images" ? "IMG" : "PER", candidate.values["Sakurava Ref"] ?? "", record));
+  const value = row && row.detectedResult === "Modified" ? row.values.Categories : undefined;
+  if (value !== undefined && value.trim()) {
+    if (value === SAKURAVA_CLEAR_VALUE) return false;
+    return parseCategories(value).some((name) => name.toLocaleLowerCase() === category.name.trim().toLocaleLowerCase());
+  }
+  return parseCategories(record.categoriesJson).some((name) => name.toLocaleLowerCase() === category.name.trim().toLocaleLowerCase());
+}
+
+function parseCategories(value: string) {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string").map((item) => item.trim());
+  } catch {
+    // Imported categories use semicolon-separated text; stored values use JSON.
+  }
+  return value.split(";").map((item) => item.trim()).filter(Boolean);
+}
+
+function categoryDeleteDepth(
+  category: { key: string },
+  categories: ImportCsvPreviewContext["categories"],
+  deleted: Set<string>,
+  seen: Set<string>,
+): number {
+  if (seen.has(category.key)) return 0;
+  seen.add(category.key);
+  return Math.max(0, ...categories.filter((candidate) => candidate.parentKey === category.key && isDeleted("categories", candidate, new Map([["categories", deleted]]))).map((child) => 1 + categoryDeleteDepth(child, categories, deleted, new Set(seen))));
+}
+
+function glossaryDeleteDepth(
+  id: string,
+  glossary: NonNullable<ImportCsvPreviewContext["glossary"]>,
+  deleted: Set<string>,
+  seen: Set<string>,
+): number {
+  if (seen.has(id)) return 0;
+  seen.add(id);
+  return Math.max(0, ...glossary.filter((candidate) => candidate.parentId === id && isDeleted("glossary", candidate, new Map([["glossary", deleted]]))).map((child) => 1 + glossaryDeleteDepth(child.id, glossary, deleted, new Set(seen))));
+}
+
+function glossaryHierarchyHasCycle(startId: string, glossary: NonNullable<ImportCsvPreviewContext["glossary"]>) {
+  const byId = new Map(glossary.map((entry) => [entry.id, entry]));
+  const seen = new Set<string>();
+  let current = byId.get(startId);
+  while (current?.parentId) {
+    if (seen.has(current.id)) return true;
+    seen.add(current.id);
+    current = byId.get(current.parentId);
+  }
+  return false;
 }
 
 function addRowError(row: ImportCsvPreviewRow, message: string) {

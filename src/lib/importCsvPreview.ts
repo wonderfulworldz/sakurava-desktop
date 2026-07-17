@@ -6,7 +6,7 @@ import type {
   Performer,
   Video,
 } from "../backend/types";
-import { localDateFormatHint, normalizeImportDate } from "./importDate";
+import { normalizeImportDate } from "./importDate";
 import {
   buildCsv,
   categoryCsvSchema,
@@ -40,7 +40,7 @@ import {
 
 export type ImportCsvEntity = ExportCsvEntity;
 
-export type ImportCsvAction = "Auto" | "Create" | "Update" | "Delete" | "Skip";
+export type ImportCsvAction = "Auto" | "Add" | "Update" | "Delete";
 export type ImportCsvDetectedResult =
   | "Added"
   | "Modified"
@@ -60,6 +60,16 @@ export type ImportCsvPreviewRow = {
   warnings: string[];
   errors: string[];
   values: Record<string, string>;
+  /**
+   * Catalog-level projected-state planning annotates destructive rows here.
+   * Keeping this on the canonical Preview row means the table and operation
+   * plan describe the same dependency assessment.
+   */
+  dependencyPlan?: {
+    requiresDecision: boolean;
+    detail: string;
+    deleteOrder: number;
+  };
 };
 
 export type ImportCsvPreviewSummary = {
@@ -126,7 +136,7 @@ const rawTechnicalHeaders = new Set([
   "performerThumbnailPathsJson",
 ]);
 
-const validActions = new Set(["Auto", "Create", "Update", "Delete", "Skip"]);
+const validActions = new Set(["Auto", "Add", "Update", "Delete"]);
 
 const entityDefinitions: EntityDefinition[] = [
   {
@@ -319,6 +329,9 @@ export function parseImportAction(value: string): ImportCsvAction | null {
     return "Auto";
   }
 
+  // Create remains a compatibility input for older workbooks. Public current
+  // exports and Preview use Add.
+  if (normalized.toLowerCase() === "create") return "Add";
   const match = Array.from(validActions).find(
     (action) => action.toLowerCase() === normalized.toLowerCase(),
   );
@@ -380,6 +393,10 @@ function validateHeaders(
   const allowedHeaders = allowLegacyColumns
     ? new Set(importSchemaFor(definition.entity).map((column) => column.header))
     : new Set(definition.expectedHeaders);
+  // C2 no longer exports package-local identity/decision columns. Older
+  // workbooks can retain them; they are safely ignored during Preview.
+  allowedHeaders.add("Import Ref");
+  allowedHeaders.add("Import Resolution");
   const unsupportedHeaders = headers.filter(
     (header) => header && !allowedHeaders.has(header),
   );
@@ -433,11 +450,13 @@ function previewRow({
   const changeDetails: Array<{ field: string; before: string; after: string; cleared?: boolean }> = [];
   const clearedFields: string[] = [];
   const action = parseImportAction(values.Action ?? "");
-  const ref = (values["Sakurava Ref"] ?? "").trim();
+  let ref = (values["Sakurava Ref"] ?? "").trim();
   const mainValue = (values[definition.mainHeader] ?? "").trim();
+  let identityIsUsable = true;
 
   if (!action) {
-    errors.push(`Unknown Action: ${values.Action}.`);
+    warnings.push("Action is not supported. This row will not be applied.");
+    identityIsUsable = false;
   }
 
   const temporaryRef = definition.entity === "glossary" && isTemporaryGlossaryRef(ref);
@@ -449,43 +468,28 @@ function previewRow({
       )
     : null;
   if (identityResolution?.status === "malformed") {
-    errors.push(`Sakurava Ref is not valid for ${exportEntityLabel(definition.entity)}.`);
+    warnings.push(`Sakurava Ref is not valid for ${exportEntityLabel(definition.entity)}. This row will not be applied.`);
+    identityIsUsable = false;
   } else if (identityResolution?.status === "ambiguous") {
-    errors.push(`Sakurava Ref resolves to more than one ${exportEntityLabel(definition.entity)} record.`);
+    warnings.push(`Sakurava Ref resolves to more than one ${exportEntityLabel(definition.entity)} record. This row will not be applied.`);
+    identityIsUsable = false;
   }
 
   if (ref && duplicateRefs.has(ref)) {
-    errors.push(`Duplicate Sakurava Ref in CSV: ${ref}.`);
-  }
-
-  if (action === "Skip") {
-    return {
-      rowNumber,
-      action,
-      detectedResult: "Skipped",
-      target: targetText(ref, mainValue),
-      changes: [],
-      warnings,
-      errors,
-      values,
-    };
+    warnings.push(`Duplicate Sakurava Ref in CSV: ${ref}. This row will not be applied.`);
+    identityIsUsable = false;
   }
 
   if (action === "Delete") {
-    if (!ref) {
-      errors.push("Delete requires a Sakurava Ref.");
+    if (!ref || !identityIsUsable) {
+      warnings.push("Delete requires a valid Sakurava Ref. This row will not be applied.");
     } else if (temporaryRef || !currentRowsByRef.has(canonicalImportIdentity(ref))) {
-      errors.push(`Sakurava Ref was not found: ${ref}.`);
+      warnings.push(`Sakurava Ref was not found. This row will not be applied.`);
     }
-    if (definition.entity === "categories" && ref) {
-      validateCategoryDelete(ref, context, errors);
-    }
-    warnings.push("Will delete catalog record only. Original media files are not deleted.");
-
     return {
       rowNumber,
       action,
-      detectedResult: errors.length > 0 ? "Error" : "Deleted",
+      detectedResult: !ref || !identityIsUsable || temporaryRef || !currentRowsByRef.has(canonicalImportIdentity(ref)) ? "Error" : "Deleted",
       target: targetText(ref, mainValue),
       changes: ["Delete"],
       warnings,
@@ -494,18 +498,18 @@ function previewRow({
     };
   }
 
-  if (action === "Update" && !ref) {
-    errors.push("Update requires a Sakurava Ref.");
+  if (action === "Add" && ref) {
+    warnings.push("The entered Sakurava Ref will be ignored. A new Ref will be assigned.");
+    values["Sakurava Ref"] = "";
+    ref = "";
   }
 
-  if (action === "Create" && ref && !temporaryRef) {
-    errors.push("Create cannot use an existing Sakurava Ref.");
+  if (action === "Update" && (!ref || !identityIsUsable || temporaryRef)) {
+    warnings.push("Update requires a valid Sakurava Ref. This row will not be applied.");
+    return rowNotApplied(rowNumber, action, ref, mainValue, warnings, values);
   }
 
-  if (temporaryRef && action === "Update") {
-    errors.push("Update cannot use a new temporary Glossary identifier.");
-  }
-
+  const isAdd = !ref || temporaryRef;
   validateEditableFields(
     values,
     definition,
@@ -513,29 +517,26 @@ function previewRow({
     errors,
     locale,
     invalidDateMessage,
+    isAdd ? "add" : "update",
   );
   const currentRow = currentRowsByRef.get(canonicalImportIdentity(ref));
   validateCategories(values, definition, currentRow, context, changes, warnings, errors);
   validateRelated(values, definition, currentRow, context, changes, warnings, errors);
-  validateManagedCategoryParent(values, definition, context, errors);
-  validateGlossaryFields(values, definition, ref, context, errors);
+  validateManagedCategoryParent(values, definition, context, warnings);
+  validateGlossaryFields(values, definition, ref, context, warnings);
 
   if (!ref || temporaryRef) {
     if (Object.values(values).some((value) => value.trim() === SAKURAVA_CLEAR_VALUE)) {
-      errors.push("The clear marker can only be used when updating an existing record.");
+      warnings.push("The clear marker is only supported for an existing record. This row will not be applied.");
     }
-    for (const requiredHeader of definition.requiredHeaders) {
-      if (!(values[requiredHeader] ?? "").trim()) {
-        errors.push(`${requiredHeader} is required for a new row.`);
-      }
-    }
+    applyRequiredAddDefaults(values, definition, warnings);
 
     return {
       rowNumber,
       action: action ?? "Invalid",
-      detectedResult: errors.length > 0 ? "Error" : "Added",
+      detectedResult: !action || warnings.some((message) => message.endsWith("This row will not be applied.")) ? "Error" : "Added",
       target: mainValue || "New row",
-      changes: action === "Create" || action === "Auto" ? ["New record"] : changes,
+      changes: action === "Add" || action === "Auto" ? ["New record"] : changes,
       warnings,
       errors,
       values,
@@ -543,11 +544,12 @@ function previewRow({
     };
   }
 
-  if (!currentRow) {
-    errors.push(`Sakurava Ref was not found: ${ref}.`);
+  if (!currentRow || !identityIsUsable) {
+    warnings.push("Sakurava Ref was not found. This row will not be applied.");
+    return rowNotApplied(rowNumber, action ?? "Invalid", ref, mainValue, warnings, values);
   } else {
     for (const header of headers) {
-      if (header === "Action" || header === "Sakurava Ref") {
+      if (header === "Action" || header === "Sakurava Ref" || header === "Import Ref" || header === "Import Resolution") {
         continue;
       }
       const column = schemaForDefinition(definition).find((candidate) => candidate.header === header);
@@ -561,7 +563,7 @@ function previewRow({
           ? schemaForDefinition(definition).find((candidate) => candidate.header === header)
           : undefined;
         if (!column?.clearable) {
-          errors.push(`${header} cannot be cleared.`);
+          warnings.push(`${header} cannot be cleared. The current value will be preserved.`);
           continue;
         }
         if (currentValue) {
@@ -582,7 +584,7 @@ function previewRow({
     rowNumber,
     action: action ?? "Invalid",
     detectedResult:
-      errors.length > 0 ? "Error" : changes.length > 0 ? "Modified" : "Unchanged",
+      changes.length > 0 ? "Modified" : "Unchanged",
     target: targetText(ref, mainValue),
     changes: unique(changes),
     changeDetails,
@@ -597,54 +599,47 @@ function validateManagedCategoryParent(
   values: Record<string, string>,
   definition: EntityDefinition,
   context: ImportCsvPreviewContext,
-  errors: string[],
+  warnings: string[],
 ) {
   if (definition.entity !== "categories") return;
   const parentRef = (values["Parent Ref"] ?? "").trim();
   if (parentRef && parentRef !== SAKURAVA_CLEAR_VALUE) {
     if (!context.categories.some((category) => sakuravaRefMatches("CAT", parentRef, category))) {
-      errors.push(`Parent Category reference was not found: ${parentRef}.`);
+      warnings.push("Parent Category Ref was not found. The parent relationship will be empty.");
+      values["Parent Ref"] = "";
     }
     return;
   }
   const parent = (values["Parent Category"] ?? "").trim();
   if (!parent || parent === SAKURAVA_CLEAR_VALUE) return;
-  errors.push("Parent Category requires a stable Parent Ref.");
+  warnings.push("Parent Category requires a stable Parent Ref. The parent relationship will be empty.");
+  values["Parent Category"] = "";
 }
 
-export function isBlockingImportPreviewWarning(message: string) {
-  return /^Unknown category:/i.test(message) || /^Unresolved related (reference|value):/i.test(message);
-}
-
-function validateCategoryDelete(
+function rowNotApplied(
+  rowNumber: number,
+  action: ImportCsvPreviewRow["action"],
   ref: string,
-  context: ImportCsvPreviewContext,
-  errors: string[],
-) {
-  const category = context.categories.find(
-    (candidate) => sakuravaRefMatches("CAT", ref, candidate),
-  );
-  if (!category) return;
-  if (context.categories.some((candidate) => candidate.parentKey === category.key)) {
-    errors.push("Category cannot be deleted while it has child categories.");
-  }
-  const usedByRecord = [...context.videos, ...context.images, ...context.performers]
-    .some((record) => {
-      try {
-        const labels = JSON.parse(record.categoriesJson) as unknown;
-        return Array.isArray(labels) && labels.some(
-          (label) => typeof label === "string" && label.trim().toLowerCase() === category.name.trim().toLowerCase(),
-        );
-      } catch {
-        return false;
-      }
-    });
-  const usedByCredit = (context.credits ?? []).some(
-    (credit) => credit.creditTypeCategoryId === category.key || credit.roleImportanceCategoryId === category.key,
-  );
-  if (usedByRecord || usedByCredit) {
-    errors.push("Category cannot be deleted while catalog records use it.");
-  }
+  mainValue: string,
+  warnings: string[],
+  values: Record<string, string>,
+): ImportCsvPreviewRow {
+  return {
+    rowNumber,
+    action,
+    detectedResult: "Error",
+    target: targetText(ref, mainValue),
+    changes: [],
+    warnings,
+    errors: [],
+    values,
+  };
+}
+
+export function isBlockingImportPreviewWarning(_message: string) {
+  // C3: record-level warnings are intentionally non-blocking. Only malformed
+  // file structure is represented by headerErrors.
+  return false;
 }
 
 function validateGlossaryFields(
@@ -652,7 +647,7 @@ function validateGlossaryFields(
   definition: EntityDefinition,
   recordRef: string,
   context: ImportCsvPreviewContext,
-  errors: string[],
+  warnings: string[],
 ) {
   if (definition.entity !== "glossary") return;
 
@@ -660,20 +655,26 @@ function validateGlossaryFields(
   if (!parentRef) return;
   if (parentRef === SAKURAVA_CLEAR_VALUE) return;
   if (isTemporaryGlossaryRef(parentRef)) {
-    if (parentRef === recordRef) errors.push("A Glossary entry cannot be its own parent.");
+    if (parentRef === recordRef) {
+      warnings.push("A Glossary entry cannot be its own parent. The parent relationship will be empty.");
+      values["Parent Ref"] = "";
+    }
     return;
   }
   const parentResolution = resolveSakuravaIdentity("G", parentRef, context.glossary ?? []);
   if (parentResolution.status === "malformed") {
-    errors.push("Parent Ref must be a valid GLO identifier.");
+    warnings.push("Parent Ref is not valid. The parent relationship will be empty.");
+    values["Parent Ref"] = "";
     return;
   }
   if (canonicalImportIdentity(parentRef) === canonicalImportIdentity(recordRef)) {
-    errors.push("A Glossary entry cannot be its own parent.");
+    warnings.push("A Glossary entry cannot be its own parent. The parent relationship will be empty.");
+    values["Parent Ref"] = "";
     return;
   }
   if (parentResolution.status !== "resolved") {
-    errors.push(`Glossary parent was not found: ${parentRef}.`);
+    warnings.push("Glossary parent Ref was not found. The parent relationship will be empty.");
+    values["Parent Ref"] = "";
   }
 }
 
@@ -751,6 +752,7 @@ function validateEditableFields(
   errors: string[],
   locale: string,
   invalidDateMessage?: (field: string, format: string) => string,
+  mode: "add" | "update" = "add",
 ) {
   const schema = schemaForDefinition(definition);
   for (const header of Object.keys(values)) {
@@ -763,7 +765,10 @@ function validateEditableFields(
 
     if (value === SAKURAVA_CLEAR_VALUE) {
       const column = schemaForDefinition(definition).find((candidate) => candidate.header === header);
-      if (!column?.clearable) errors.push(`${header} cannot be cleared.`);
+      if (!column?.clearable) {
+        warnings.push(`${header} cannot be cleared. The current value will be preserved.`);
+        values[header] = "";
+      }
       continue;
     }
 
@@ -772,17 +777,20 @@ function validateEditableFields(
       if (normalized.state === "valid") {
         values[header] = normalized.value;
       } else if (normalized.state === "invalid") {
-        const format = localDateFormatHint(locale);
-        errors.push(invalidDateMessage
-          ? invalidDateMessage(header, format)
-          : `${header}: Enter a valid date using this computer's format: ${format}.`);
+        warnings.push(mode === "update"
+          ? `${header} is invalid. The existing value will be preserved.`
+          : `${header} is invalid and will be left empty.`);
+        values[header] = "";
       }
     }
 
     if (column?.valueType === "boolean") {
       const normalized = normalizeBooleanCell(value);
       if (normalized === null) {
-        errors.push(`${header} must be true or false.`);
+        warnings.push(mode === "update"
+          ? `${header} is invalid. The existing value will be preserved.`
+          : `${header} is invalid and will use the default value false.`);
+        values[header] = "false";
       } else {
         values[header] = normalized;
       }
@@ -791,10 +799,14 @@ function validateEditableFields(
     if (column?.valueType === "number") {
       const numberValue = Number(value);
       if (!Number.isFinite(numberValue)) {
-        errors.push(`${header} must be numeric.`);
+        warnings.push(mode === "update"
+          ? `${header} is invalid. The existing value will be preserved.`
+          : `${header} is invalid and will be left empty.`);
+        values[header] = "";
       } else if (!header.startsWith("Rating - ")) {
         if (!Number.isInteger(numberValue) || numberValue < 0) {
-          errors.push(`${header} must be a whole number of zero or more.`);
+          warnings.push(`${header} is invalid and will use the default value 0.`);
+          values[header] = "0";
         } else {
           values[header] = String(numberValue);
         }
@@ -806,7 +818,10 @@ function validateEditableFields(
         (candidate) => candidate.toLowerCase() === value.toLowerCase(),
       );
       if (!canonical) {
-        errors.push(`${header} is not a supported value.`);
+        warnings.push(mode === "update"
+          ? `${header} is not supported. The existing value will be preserved.`
+          : `${header} is not supported and will be left empty.`);
+        values[header] = "";
       } else {
         values[header] = canonical;
       }
@@ -815,7 +830,10 @@ function validateEditableFields(
     if (header.startsWith("Rating - ")) {
       const rating = Number(value);
       if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
-        errors.push(`${header} must be a number from 0 to 5.`);
+        warnings.push(mode === "update"
+          ? `${header} is invalid. The existing value will be preserved.`
+          : `${header} is invalid and will be left empty.`);
+        values[header] = "";
       } else {
         values[header] = String(rating);
       }
@@ -834,7 +852,8 @@ function validateEditableFields(
         const divider = line.indexOf(" | ");
         const url = (divider < 0 ? line : line.slice(divider + 3)).trim();
         if (!/^https?:\/\/\S+$/i.test(url)) {
-          errors.push("Source Links must use one valid http or https URL per line.");
+          warnings.push("Source Links are invalid and will be left empty.");
+          values[header] = "";
           break;
         }
       }
@@ -842,9 +861,43 @@ function validateEditableFields(
 
     if (header.includes("Path") || header.startsWith("Gallery Image") || header.startsWith("Mini Thumbnail")) {
       if (/[\u0000-\u001F]/.test(value)) {
-        errors.push(`${header} contains unsupported control characters.`);
+        warnings.push(`${header} contains unsupported characters and will be left empty.`);
+        values[header] = "";
       }
     }
+  }
+}
+
+function applyRequiredAddDefaults(
+  values: Record<string, string>,
+  definition: EntityDefinition,
+  warnings: string[],
+) {
+  const schema = schemaForDefinition(definition);
+  for (const header of definition.requiredHeaders) {
+    if ((values[header] ?? "").trim()) continue;
+    const column = schema.find((candidate) => candidate.header === header);
+    if (column?.allowedValues?.[0]) {
+      values[header] = column.allowedValues[0];
+      warnings.push(`${header} was invalid and will use the default value ${column.allowedValues[0]}.`);
+      continue;
+    }
+    if (column?.valueType === "text") {
+      values[header] = "N/A";
+      warnings.push(`${header} was empty and will use N/A.`);
+      continue;
+    }
+    if (column?.valueType === "number") {
+      values[header] = "0";
+      warnings.push(`${header} was invalid and will use 0.`);
+      continue;
+    }
+    if (column?.valueType === "boolean") {
+      values[header] = "false";
+      warnings.push(`${header} was invalid and will use the default value false.`);
+      continue;
+    }
+    warnings.push(`${header} is required for a new row. This row will not be applied.`);
   }
 }
 
@@ -887,13 +940,13 @@ function validateCategories(
       return legacyName.name;
     }
     if (resolution.status === "malformed") {
-      errors.push(`Category Sakurava Ref is not valid: ${candidate}.`);
+      warnings.push("Category Ref was not found. Category will be empty.");
     } else if (resolution.status === "ambiguous") {
-      errors.push(`Category Sakurava Ref resolves to more than one record: ${candidate}.`);
+      warnings.push("Category Ref is ambiguous. Category will be empty.");
     } else {
-      warnings.push(`Unknown category: ${categoryValue}.`);
+      warnings.push("Category Ref was not found. Category will be empty.");
     }
-    return categoryValue;
+    return "";
   });
   values.Categories = nextCategories.join("; ");
   const currentCategories = parseSemicolonList(currentRow?.Categories ?? "");
@@ -919,7 +972,7 @@ function validateRelated(
   context: ImportCsvPreviewContext,
   changes: string[],
   warnings: string[],
-  errors: string[],
+  _errors: string[],
 ) {
   const relatedHeaders = Object.keys(values).filter((header) =>
     header.startsWith("Related "),
@@ -940,9 +993,10 @@ function validateRelated(
       warnings.push("This will remove all related items from this record if applied.");
     }
 
-    for (const item of nextItems) {
-      validateRelatedItem(header, item, context, warnings, errors);
-    }
+    const validItems = nextItems.filter((item) =>
+      validateRelatedItem(header, item, context, warnings),
+    );
+    values[header] = validItems.join("; ");
 
     if (added.length > 0) {
       changes.push(`${header} +${added.join("; ")}`);
@@ -958,12 +1012,11 @@ function validateRelatedItem(
   item: string,
   context: ImportCsvPreviewContext,
   warnings: string[],
-  errors: string[],
-) {
+) : boolean {
   const { ref, display } = parseRelatedItem(item);
   const target = relatedTarget(header);
   if (!target) {
-    return;
+    return true;
   }
 
   if (ref) {
@@ -973,26 +1026,27 @@ function validateRelatedItem(
       relatedRecords(target, context),
     );
     if (resolution.status === "resolved") {
-      return;
+      return true;
     }
     if (resolution.status === "ambiguous") {
-      errors.push(`Ambiguous related reference: ${item}.`);
-      return;
+      warnings.push("A related Ref is ambiguous and will be cleared.");
+      return false;
     }
     if (resolution.status === "malformed") {
-      errors.push(`Related Sakurava Ref is not valid: ${item}.`);
-      return;
+      warnings.push("A related Ref is not valid and will be cleared.");
+      return false;
     }
-    warnings.push(`Unresolved related reference: ${item}.`);
-    return;
+    warnings.push("A related Ref was not found and will be cleared.");
+    return false;
   }
 
   if (!display) {
-    warnings.push(`Unresolved related value: ${item}.`);
-    return;
+    warnings.push("A related value is missing a Sakurava Ref and will be cleared.");
+    return false;
   }
 
-  errors.push(`Related value requires a stable Sakurava Ref: ${display}.`);
+  warnings.push("A related value is missing a Sakurava Ref and will be cleared.");
+  return false;
 }
 
 function relatedTarget(header: string) {
@@ -1063,9 +1117,9 @@ function summarizeRows(
     skipped: countRows(rows, "Skipped"),
     warnings: rows.reduce((total, row) => total + row.warnings.length, 0),
     errors: headerErrors.length + rows.reduce((total, row) => total + row.errors.length, 0),
-    blocked: headerErrors.length > 0 || rows.some(
-      (row) => row.errors.length > 0 || row.warnings.some(isBlockingImportPreviewWarning),
-    ),
+    // Only an uninterpretable file blocks Apply. Row warnings are handled as
+    // safe fallbacks or row-not-applied outcomes.
+    blocked: headerErrors.length > 0,
   };
 }
 
