@@ -43,6 +43,28 @@ describe("import CSV preview", () => {
     ).toBe("performers");
   });
 
+  it("does not export package-local Import Ref or Import Resolution columns", () => {
+    for (const csv of [
+      buildVideosCsv([]),
+      buildImagesCsv([]),
+      buildPerformersCsv([]),
+      buildCategoriesCsv([]),
+      buildGlossaryCsv([]),
+    ]) {
+      const headers = parseCsv(csv).headers;
+      expect(headers).not.toContain("Import Ref");
+      expect(headers).not.toContain("Import Resolution");
+    }
+  });
+
+  it("safely ignores an obsolete Import Resolution column", () => {
+    const csv = `${buildVideosCsv([])},Import Resolution\r\n`;
+    const preview = buildImportCsvPreview(csv, context());
+
+    expect(preview.summary.blocked).toBe(false);
+    expect(preview.headerErrors).toEqual([]);
+  });
+
   it("rejects old technical JSON headers", () => {
     const preview = buildImportCsvPreview(
       "sakuravaUpdateKey,title,categoriesJson,ratingJson\r\nvideo:1,Old,[],{}",
@@ -57,21 +79,22 @@ describe("import CSV preview", () => {
     expect(parseImportAction("")).toBe("Auto");
     expect(parseImportAction("auto")).toBe("Auto");
     expect(parseImportAction("Update")).toBe("Update");
-    expect(parseImportAction("Create")).toBe("Create");
+    expect(parseImportAction("Add")).toBe("Add");
+    expect(parseImportAction("Create")).toBe("Add");
     expect(parseImportAction("Delete")).toBe("Delete");
-    expect(parseImportAction("Skip")).toBe("Skip");
+    expect(parseImportAction("Skip")).toBeNull();
     expect(parseImportAction("Bogus")).toBeNull();
   });
 
-  it("reports unknown Action as a row error", () => {
+  it("reports an unknown Action as a non-blocking row warning", () => {
     const csv = withVideoRow({ Action: "Bogus", Title: "Video" });
     const row = buildImportCsvPreview(csv, context()).rows[0];
 
     expect(row.detectedResult).toBe("Error");
-    expect(row.errors.join(" ")).toContain("Unknown Action");
+    expect(row.warnings.join(" ")).toContain("Action is not supported");
   });
 
-  it("accepts stable and local dates and blocks impossible dates with local guidance", () => {
+  it("accepts stable and local dates and clears an impossible optional date", () => {
     const valid = buildImportCsvPreview(
       withVideoRow({ Action: "Create", Title: "Valid Date", "Release Date": "2026-05-20" }),
       context(),
@@ -90,18 +113,16 @@ describe("import CSV preview", () => {
     expect(valid.rows[0].errors).toEqual([]);
     expect(local.rows[0].errors).toEqual([]);
     expect(local.rows[0].values["Release Date"]).toBe("2026-05-20");
-    expect(impossible.rows[0].errors).toContain(
-      "Release Date: Enter a valid date using this computer's format: DD/MM/YYYY.",
-    );
-    expect(impossible.rows[0].errors.join(" ")).not.toContain("must use YYYY-MM-DD");
+    expect(impossible.rows[0].warnings).toContain("Release Date is invalid and will be left empty.");
+    expect(impossible.rows[0].values["Release Date"]).toBe("");
   });
 
-  it("blocks Delete without Sakurava Ref", () => {
+  it("does not apply Delete without a Sakurava Ref", () => {
     const csv = withVideoRow({ Action: "Delete", Title: "Video" });
     const row = buildImportCsvPreview(csv, context()).rows[0];
 
     expect(row.detectedResult).toBe("Error");
-    expect(row.errors).toContain("Delete requires a Sakurava Ref.");
+    expect(row.warnings.join(" ")).toContain("Delete requires a valid Sakurava Ref");
   });
 
   it("marks existing changed rows as Modified and unchanged rows as Unchanged", () => {
@@ -192,8 +213,8 @@ describe("import CSV preview", () => {
       withVideoRow({ "Sakurava Ref": "V2607-9999", Title: "Video" }),
       context({ videos: [existing] }),
     );
-    expect(malformed.rows[0].errors.join(" ")).toContain("not valid for Videos");
-    expect(unknown.rows[0].errors.join(" ")).toContain("was not found");
+    expect(malformed.rows[0].warnings.join(" ")).toContain("not valid for Videos");
+    expect(unknown.rows[0].warnings.join(" ")).toContain("was not found");
   });
 
   it("resolves current relationship references and never falls back to display names", () => {
@@ -208,7 +229,7 @@ describe("import CSV preview", () => {
     );
     expect(currentRef.rows[0].errors).toEqual([]);
     expect(currentRef.rows[0].warnings).toEqual([]);
-    expect(displayOnly.rows[0].warnings.join(" ")).toContain("Unresolved related reference");
+    expect(displayOnly.rows[0].warnings.join(" ")).toContain("related Ref was not found");
   });
 
   it("resolves public Category references to stored labels without display-name identity fallback", () => {
@@ -224,7 +245,7 @@ describe("import CSV preview", () => {
     expect(valid.rows[0].errors).toEqual([]);
     expect(valid.rows[0].warnings).toEqual([]);
     expect(valid.rows[0].values.Categories).toBe("Drama");
-    expect(unknownRefWithMatchingDisplay.rows[0].warnings.join(" ")).toContain("Unknown category");
+    expect(unknownRefWithMatchingDisplay.rows[0].warnings.join(" ")).toContain("Category Ref was not found");
   });
 
   it("canonicalizes equivalent booleans, enums, dates, numbers, and references before comparison", () => {
@@ -259,7 +280,7 @@ describe("import CSV preview", () => {
     expect(preview.rows[0].changeDetails).toEqual([]);
   });
 
-  it("marks blank ref with main field as Added and Skip as Skipped", () => {
+  it("marks blank ref with main field as Added and rejects obsolete Skip", () => {
     const added = buildImportCsvPreview(
       withVideoRow({ Action: "Auto", Title: "New Video" }),
       context(),
@@ -270,20 +291,36 @@ describe("import CSV preview", () => {
     );
 
     expect(added.rows[0].detectedResult).toBe("Added");
-    expect(skipped.rows[0].detectedResult).toBe("Skipped");
+    expect(skipped.rows[0].detectedResult).toBe("Error");
   });
 
-  it("marks Delete preview only and includes catalog delete warning", () => {
+  it("validates Delete by identity only and does not count ignored payload values as warnings", () => {
     const existing = video({ id: "video-1", title: "Delete Me" });
     const csv = withVideoRow({
       Action: "Delete",
       "Sakurava Ref": sakuravaRef("VID", existing.id),
-      Title: "Delete Me",
+      Title: "",
+      "Release Date": "2/30/2026",
+      "Duration (minutes)": "not-a-number",
     });
-    const row = buildImportCsvPreview(csv, context({ videos: [existing] })).rows[0];
+    const preview = buildImportCsvPreview(csv, context({ videos: [existing] }));
+    const row = preview.rows[0];
 
     expect(row.detectedResult).toBe("Deleted");
-    expect(row.warnings.join(" ")).toContain("Original media files are not deleted");
+    expect(row.warnings).toEqual([]);
+    expect(preview.summary.warnings).toBe(0);
+  });
+
+  it("uses N/A for an empty required Add text value", () => {
+    const csv = [
+      buildGlossaryCsv([]),
+      glossaryRow({ Action: "Add", Term: "New term", Definition: "" }),
+    ].join("\r\n");
+    const row = buildImportCsvPreview(csv, context()).rows[0];
+
+    expect(row.detectedResult).toBe("Added");
+    expect(row.values.Definition).toBe("N/A");
+    expect(row.warnings).toContain("Definition was empty and will use N/A.");
   });
 
   it("detects category additions/removals and leaves blank Update cells unchanged", () => {
@@ -305,9 +342,9 @@ describe("import CSV preview", () => {
       }),
     );
 
-    expect(preview.rows[0].changes.join(" ")).toContain("Categories +Unknown");
+    expect(preview.rows[0].changes.join(" ")).not.toContain("Categories +Unknown");
     expect(preview.rows[0].changes.join(" ")).toContain("Categories -Genre > Drama");
-    expect(preview.rows[0].warnings).toContain("Unknown category: Unknown.");
+    expect(preview.rows[0].warnings).toContain("Category Ref was not found. Category will be empty.");
 
     const empty = buildImportCsvPreview(
       withVideoRow({ "Sakurava Ref": ref, Title: existing.title, Categories: "" }),
@@ -347,7 +384,7 @@ describe("import CSV preview", () => {
       }),
       context({ videos: [existing], performers: [performerA] }),
     );
-    expect(unresolved.rows[0].warnings.join(" ")).toContain("Unresolved related reference");
+    expect(unresolved.rows[0].warnings.join(" ")).toContain("related Ref was not found");
 
     const ambiguous = buildImportCsvPreview(
       withVideoRow({
@@ -357,7 +394,7 @@ describe("import CSV preview", () => {
       }),
       context({ videos: [existing], performers: [performerA, duplicateA] }),
     );
-    expect(ambiguous.rows[0].warnings.join(" ")).toContain("Unresolved related reference");
+    expect(ambiguous.rows[0].warnings.join(" ")).toContain("related Ref was not found");
   });
 
   it("blocks an ambiguous visible identifier collision in the current catalog", () => {
@@ -394,7 +431,7 @@ describe("import CSV preview", () => {
       withVideoRow({ "Sakurava Ref": ref, Title: SAKURAVA_CLEAR_VALUE }),
       context({ videos: [existing] }),
     );
-    expect(required.rows[0].errors).toContain("Title cannot be cleared.");
+    expect(required.rows[0].warnings).toContain("Title cannot be cleared. The current value will be preserved.");
 
     const literal = buildImportCsvPreview(
       withVideoRow({ "Sakurava Ref": ref, Title: "", Notes: "[[SAKURAVA:CLEAR:v1]] extra" }),
@@ -404,7 +441,7 @@ describe("import CSV preview", () => {
     expect(literal.rows[0].clearedFields).toEqual([]);
   });
 
-  it("blocks Managed Category delete while records, credits, or child categories use it", () => {
+  it("leaves Managed Category dependency planning to the complete catalog Preview", () => {
     const parent = category({ key: "cat-parent", name: "Parent" });
     const child = category({ key: "cat-child", name: "Child", parentKey: parent.key });
     const csv = buildCategoriesCsv([parent]).replace("\r\nAuto,", "\r\nDelete,");
@@ -413,9 +450,8 @@ describe("import CSV preview", () => {
       categories: [parent, child],
       credits: [{ creditTypeCategoryId: parent.key, roleImportanceCategoryId: null } as any],
     }));
-    expect(preview.rows[0].errors).toContain("Category cannot be deleted while it has child categories.");
-    expect(preview.rows[0].errors).toContain("Category cannot be deleted while catalog records use it.");
-    expect(preview.summary.blocked).toBe(true);
+    expect(preview.rows[0].errors).toEqual([]);
+    expect(preview.summary.blocked).toBe(false);
   });
 
   it("preview does not call mutation functions", () => {
@@ -446,13 +482,13 @@ describe("import CSV preview", () => {
     }));
 
     expect(preview.rows.map((row) => row.detectedResult)).toEqual([
-      "Added", "Modified", "Unchanged", "Deleted", "Skipped", "Error", "Error",
+      "Added", "Modified", "Unchanged", "Deleted", "Error", "Error", "Error",
     ]);
     expect(preview.rows[1].changeDetails).toEqual([
       { field: "Definition", before: "Old", after: "Changed" },
     ]);
-    expect(preview.rows[5].errors.join(" ")).toContain("Sakurava Ref was not found");
-    expect(preview.rows[6].errors.join(" ")).toContain("Unknown Action");
+    expect(preview.rows[5].warnings.join(" ")).toContain("Sakurava Ref was not found");
+    expect(preview.rows[6].warnings.join(" ")).toContain("Action is not supported");
   });
 });
 

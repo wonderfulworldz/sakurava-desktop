@@ -430,7 +430,7 @@ function buildPatchFromRow(
   const schemaByHeader = new Map(definition.schema.map((column) => [column.header, column]));
 
   for (const [header, column] of schemaByHeader) {
-    if (!headers.has(header) || header === "Action" || header === "Sakurava Ref") {
+    if (!headers.has(header) || header === "Action" || header === "Sakurava Ref" || header === "Import Ref" || header === "Import Resolution") {
       continue;
     }
     if (row.detectedResult !== "Added" && !changedHeaders.has(header)) {
@@ -535,6 +535,8 @@ function applySimpleField({
   if (
     internalField === "bulkAction" ||
     internalField === "sakuravaRef" ||
+    internalField === "importRef" ||
+    internalField === "importResolution" ||
     internalField === "visibility" ||
     internalField === "categoryNotes" ||
     internalField.startsWith("ratingJson.") ||

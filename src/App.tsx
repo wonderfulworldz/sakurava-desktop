@@ -70,6 +70,7 @@ function App() {
   const [refMigrationValidationFailed, setRefMigrationValidationFailed] = useState(false);
   const [refRecoveryViewAllowed, setRefRecoveryViewAllowed] = useState(false);
   const [refUpgradePromptDismissed, setRefUpgradePromptDismissed] = useState(false);
+  const [databaseEpoch, setDatabaseEpoch] = useState(0);
 
   useEffect(() => {
     applyAppearanceTheme(appearanceTheme);
@@ -172,7 +173,17 @@ function App() {
     <MediaAssetScopeReadyContext.Provider value={mediaAssetScopeReady}>
       <LanguageProvider>
         <BrowserRouter>
-          <Routes>
+          <RestoreLifecycleReset
+            onRestored={async () => {
+              setRefMigrationStatus(null);
+              setRefMigrationFailed(false);
+              setRefMigrationValidationFailed(false);
+              setRefRecoveryViewAllowed(false);
+              await refreshRefMigrationStatus();
+              setDatabaseEpoch((current) => current + 1);
+            }}
+          />
+          <Routes key={databaseEpoch}>
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
               <Route
@@ -236,6 +247,23 @@ function App() {
       </LanguageProvider>
     </MediaAssetScopeReadyContext.Provider>
   );
+}
+
+/**
+ * Restore changes the database underneath every loaded catalog page.  Do not
+ * retain any page/provider state from the old database: refresh the one
+ * authoritative status and remount the route tree at Overview.
+ */
+function RestoreLifecycleReset({ onRestored }: { onRestored: () => Promise<void> }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const handleRestored = () => {
+      void onRestored().finally(() => navigate("/", { replace: true }));
+    };
+    window.addEventListener("sakurava-database-restored", handleRestored);
+    return () => window.removeEventListener("sakurava-database-restored", handleRestored);
+  }, [navigate, onRestored]);
+  return null;
 }
 
 function SakuravaRefMigrationDialog({

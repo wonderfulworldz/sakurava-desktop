@@ -13,4 +13,15 @@ describe("import/export contract fingerprint", () => {
     expect(sourceFileFingerprint(new TextEncoder().encode("é")))
       .toBe("skvf1-1e9de8c1");
   });
+
+  it("matches JSON transport when Preview objects contain undefined values", () => {
+    const previewPlanPayload = {
+      catalogSnapshot: { videos: [{ id: "video-1", optional: undefined }] },
+      operations: [{ proposedValues: { title: "Updated", optional: undefined } }],
+    };
+    const transportedPayload = JSON.parse(JSON.stringify(previewPlanPayload));
+
+    expect(stableContractJson(previewPlanPayload)).toBe(stableContractJson(transportedPayload));
+    expect(operationFingerprint(previewPlanPayload)).toBe(operationFingerprint(transportedPayload));
+  });
 });

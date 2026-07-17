@@ -48,6 +48,8 @@ use crate::database::{
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+const IMPORT_PLAN_PROCESSING_FAILURE: &str =
+    "The import plan could not be processed. No catalog changes were saved. Preview the file again before retrying.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -622,6 +624,9 @@ pub struct ImportCatalogApplyResult {
     pub deleted_count: usize,
     pub skipped_count: usize,
     pub failure_stage: Option<String>,
+    /// Development-facing gate identifier. The frontend intentionally renders
+    /// only the concise `message` and never exposes this implementation detail.
+    pub failure_code: Option<String>,
     pub message: String,
     pub rollback_completed: bool,
 }
@@ -3281,7 +3286,7 @@ fn apply_import_catalog_plan(
             })
             || !matches!(
                 operation.section.as_str(),
-                "videos" | "images" | "performers" | "categories" | "glossary"
+                "videos" | "images" | "performers" | "categories" | "glossary" | "credits"
             )
             || !matches!(operation.action.as_str(), "create" | "update" | "delete")
     }) {
@@ -3295,10 +3300,18 @@ fn apply_import_catalog_plan(
         );
     }
     if import_plan_fingerprint(&plan) != plan.operation_fingerprint {
-        return import_apply_failure(
+        eprintln!(
+            "Sakurava import apply blocked: gate=PLAN_FINGERPRINT_MISMATCH expected={} actual={} operations={} skipped={}",
+            plan.operation_fingerprint,
+            import_plan_fingerprint(&plan),
+            plan.operations.len(),
+            plan.skipped_count,
+        );
+        return import_apply_failure_with_code(
             "blocked",
             "validation",
-            "The reviewed import plan changed. Review the file again before applying it.",
+            "PLAN_FINGERPRINT_MISMATCH",
+            IMPORT_PLAN_PROCESSING_FAILURE,
             false,
             None,
             plan.skipped_count,
@@ -3359,15 +3372,19 @@ fn apply_import_catalog_plan(
     };
     let planned_revalidation = match import_revalidation_snapshot(&plan, &plan.catalog_snapshot) {
         Ok(snapshot) => snapshot,
-        Err(_) => {
-            return import_apply_failure(
+        Err(error) => {
+            eprintln!(
+                "Sakurava import apply blocked: gate=PLAN_REVALIDATION_INVALID detail={error}"
+            );
+            return import_apply_failure_with_code(
                 "blocked",
                 "validation",
-                "The reviewed import dependencies are not valid.",
+                "PLAN_REVALIDATION_INVALID",
+                IMPORT_PLAN_PROCESSING_FAILURE,
                 false,
                 None,
                 plan.skipped_count,
-            )
+            );
         }
     };
     let current_revalidation = match import_revalidation_snapshot(&plan, &current_snapshot) {
@@ -3387,17 +3404,23 @@ fn apply_import_catalog_plan(
         return import_apply_failure(
             "blocked",
             "stalePreview",
-            "The catalog changed after this Preview was created. Review the file again before applying it.",
+            "The catalog changed after this Preview. Preview the file again before applying.",
             false,
             None,
             plan.skipped_count,
         );
     }
-    if validate_import_plan_targets(&plan, &current_snapshot).is_err() {
-        return import_apply_failure(
+    // The live catalog was already compared with the Preview snapshot above.
+    // Validate operation targets against the immutable Preview snapshot here,
+    // rather than re-comparing full transport-shaped records from a fresh
+    // query. That keeps plan integrity distinct from catalog staleness.
+    if let Err(message) = validate_import_plan_targets(&plan, &plan.catalog_snapshot) {
+        eprintln!("Sakurava import plan integrity validation failed before backup: {message}");
+        return import_apply_failure_with_code(
             "blocked",
             "validation",
-            "The reviewed import operations no longer match the catalog Preview.",
+            "PLAN_TARGET_INVALID",
+            IMPORT_PLAN_PROCESSING_FAILURE,
             false,
             None,
             plan.skipped_count,
@@ -3445,6 +3468,22 @@ fn apply_import_catalog_plan(
             );
         }
     };
+    // Do not commit an operation that leaves a catalog which the authoritative
+    // migration-state validator would reject after restart.  This covers both
+    // the valid empty migrated catalog and any surviving relationship (for
+    // example a Credit) that still points at a deleted record.
+    if let Err(error) = require_migrated_sakurava_refs(&transaction) {
+        eprintln!("Sakurava import final integrity validation failed before commit: {error}");
+        let rollback_completed = transaction.rollback().is_ok();
+        return import_apply_failure(
+            "rolledBack",
+            "validation",
+            "The import would leave invalid catalog references. Sakurava cancelled all changes from this import.",
+            rollback_completed,
+            backup_name,
+            plan.skipped_count,
+        );
+    }
     if transaction.execute_batch("COMMIT").is_err() {
         let rollback_completed = transaction.execute_batch("ROLLBACK").is_ok();
         transaction.set_drop_behavior(DropBehavior::Ignore);
@@ -3468,6 +3507,7 @@ fn apply_import_catalog_plan(
         deleted_count: deleted,
         skipped_count: plan.skipped_count,
         failure_stage: None,
+        failure_code: None,
         message: "Catalog import applied successfully.".to_string(),
         rollback_completed: false,
     }
@@ -3546,18 +3586,13 @@ fn apply_import_operations(
         .filter(|operation| operation.action == "delete")
         .collect::<Vec<_>>();
     deletes.sort_by(|left, right| {
-        let left_depth = if left.section == "glossary" {
-            glossary_depth(connection, left.record_id.as_deref().unwrap_or_default()).unwrap_or(0)
-        } else {
-            0
-        };
-        let right_depth = if right.section == "glossary" {
-            glossary_depth(connection, right.record_id.as_deref().unwrap_or_default()).unwrap_or(0)
-        } else {
-            0
-        };
-        right_depth
-            .cmp(&left_depth)
+        let left_phase = delete_phase(&left.section);
+        let right_phase = delete_phase(&right.section);
+        let left_depth = delete_hierarchy_depth(connection, left).unwrap_or(0);
+        let right_depth = delete_hierarchy_depth(connection, right).unwrap_or(0);
+        left_phase
+            .cmp(&right_phase)
+            .then(right_depth.cmp(&left_depth))
             .then(left.source_row_number.cmp(&right.source_row_number))
     });
     for operation in deletes {
@@ -3565,6 +3600,28 @@ fn apply_import_operations(
         deleted += 1;
     }
     Ok((created, updated, cleared, deleted))
+}
+
+fn delete_phase(section: &str) -> usize {
+    match section {
+        // A Category may be used by these records, so they must leave first.
+        "videos" | "images" | "performers" => 0,
+        "glossary" => 1,
+        "categories" => 2,
+        _ => 3,
+    }
+}
+
+fn delete_hierarchy_depth(
+    connection: &Connection,
+    operation: &ImportCatalogPlanOperation,
+) -> Result<usize, String> {
+    let id = operation.record_id.as_deref().unwrap_or_default();
+    match operation.section.as_str() {
+        "glossary" => glossary_depth(connection, id),
+        "categories" => managed_category_depth(connection, id),
+        _ => Ok(0),
+    }
 }
 
 fn apply_import_create(
@@ -3643,6 +3700,9 @@ fn apply_import_update(
         "glossary" => update_glossary_entry(connection, id, decode_import_value(proposed)?)?
             .map(|_| ())
             .ok_or_else(|| "Glossary record changed after Preview.".to_string()),
+        "credits" => update_credit(connection, id, decode_import_value(proposed)?)?
+            .map(|_| ())
+            .ok_or_else(|| "Credit changed after Preview.".to_string()),
         _ => Err("Unsupported import section.".to_string()),
     }
 }
@@ -3721,6 +3781,25 @@ fn glossary_depth(connection: &Connection, id: &str) -> Result<usize, String> {
             break;
         };
         current = entry.parent_id;
+        depth += 1;
+    }
+    Ok(depth)
+}
+
+fn managed_category_depth(connection: &Connection, id: &str) -> Result<usize, String> {
+    let categories = list_managed_categories(connection)?;
+    let by_key = categories
+        .iter()
+        .map(|category| (category.key.as_str(), category))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut depth = 0usize;
+    let mut current = id;
+    let mut seen = std::collections::HashSet::new();
+    while !current.is_empty() && seen.insert(current.to_string()) {
+        let Some(category) = by_key.get(current) else {
+            break;
+        };
+        current = category.parent_key.as_deref().unwrap_or_default();
         depth += 1;
     }
     Ok(depth)
@@ -3990,14 +4069,14 @@ fn validate_import_plan_targets(
     plan: &ImportCatalogApplyPlan,
     snapshot: &Value,
 ) -> Result<(), String> {
-    let mut affected = std::collections::HashSet::<(String, String)>::new();
+    let mut affected = std::collections::HashMap::<(String, String), usize>::new();
     let mut temporary = std::collections::HashSet::<String>::new();
     let mut source_identities = std::collections::HashSet::<String>::new();
     let permanent_glossary_ids = snapshot_records(snapshot, "glossary")?
         .iter()
         .filter_map(|record| snapshot_record_id("glossary", record))
         .collect::<std::collections::HashSet<_>>();
-    for operation in &plan.operations {
+    for (operation_index, operation) in plan.operations.iter().enumerate() {
         if operation.source_identity.trim().is_empty()
             || !source_identities.insert(operation.source_identity.clone())
         {
@@ -4032,10 +4111,12 @@ fn validate_import_plan_targets(
             .record_id
             .as_ref()
             .ok_or_else(|| "Existing operation has no target.".to_string())?;
-        if !affected.insert((operation.section.clone(), id.clone())) {
-            return Err(
-                "A catalog record appears more than once in the operation plan.".to_string(),
-            );
+        let target = (operation.section.clone(), id.clone());
+        if let Some(first_operation_index) = affected.insert(target.clone(), operation_index) {
+            return Err(format!(
+                "A catalog record appears more than once in the operation plan: section={} record={} firstOperation={} duplicateOperation={}.",
+                target.0, target.1, first_operation_index, operation_index,
+            ));
         }
         let records = snapshot
             .get(&operation.section)
@@ -4169,6 +4250,28 @@ fn import_apply_failure(
     backup_package_name: Option<String>,
     skipped_count: usize,
 ) -> ImportCatalogApplyResult {
+    let failure_code = import_apply_failure_code(stage, message, rollback_completed);
+    import_apply_failure_with_code(
+        status,
+        stage,
+        failure_code,
+        message,
+        rollback_completed,
+        backup_package_name,
+        skipped_count,
+    )
+}
+
+fn import_apply_failure_with_code(
+    status: &str,
+    stage: &str,
+    failure_code: &str,
+    message: &str,
+    rollback_completed: bool,
+    backup_package_name: Option<String>,
+    skipped_count: usize,
+) -> ImportCatalogApplyResult {
+    eprintln!("Sakurava import apply blocked: gate={failure_code} stage={stage}");
     ImportCatalogApplyResult {
         transaction_status: status.to_string(),
         backup_package_name,
@@ -4178,8 +4281,39 @@ fn import_apply_failure(
         deleted_count: 0,
         skipped_count,
         failure_stage: Some(stage.to_string()),
+        failure_code: Some(failure_code.to_string()),
         message: message.to_string(),
         rollback_completed,
+    }
+}
+
+fn import_apply_failure_code(stage: &str, message: &str, rollback_completed: bool) -> &'static str {
+    match message {
+        "This import contract version is not supported."
+        | "The selected import file fingerprint is not valid."
+        | "The import plan contains unsupported or unresolved operations." => "PLAN_STRUCTURE_INVALID",
+        IMPORT_PLAN_PROCESSING_FAILURE => {
+            "PLAN_FINGERPRINT_MISMATCH"
+        }
+        "A safety backup cannot start while another backup operation is running." => "PACKAGE_OPERATION_BUSY",
+        "The catalog is temporarily unavailable." => "DATABASE_UNAVAILABLE",
+        "Sakurava could not revalidate the catalog."
+        | "Sakurava could not revalidate the affected catalog dependencies." => "CATALOG_SNAPSHOT_INVALID",
+        "The catalog changed after this Preview. Preview the file again before applying." => "CATALOG_STALE",
+        "Sakurava could not create the required safety backup. No catalog changes were made." => "BACKUP_CREATE_FAILED",
+        "Sakurava could not start the catalog transaction. No changes were made." => "TRANSACTION_START_FAILED",
+        "The import could not be applied. Sakurava cancelled all changes from this import."
+        | "The import could not be applied. No catalog changes were saved." => {
+            if rollback_completed { "TRANSACTION_FAILED" } else { "ROLLBACK_FAILED" }
+        }
+        "The import would leave invalid catalog references. Sakurava cancelled all changes from this import." => {
+            if rollback_completed { "FINAL_INTEGRITY_FAILED" } else { "ROLLBACK_FAILED" }
+        }
+        "The import could not be finalized. Sakurava did not report partial success." => {
+            if rollback_completed { "COMMIT_FAILED" } else { "ROLLBACK_FAILED" }
+        }
+        _ if stage == "validation" => "MIGRATION_STATE_INVALID",
+        _ => "IMPORT_RUNTIME_FAILED",
     }
 }
 
@@ -5076,7 +5210,7 @@ fn database_error(error: rusqlite::Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::database::initialize_schema;
+    use crate::database::{initialize_schema, open_runtime_database, SakuravaRefMigrationState};
 
     fn test_connection() -> Connection {
         let connection = Connection::open_in_memory().expect("in-memory database");
@@ -6781,6 +6915,11 @@ mod tests {
         let result = apply_import_catalog_plan(&database, plan);
         assert_eq!(result.transaction_status, "blocked");
         assert_eq!(result.failure_stage.as_deref(), Some("stalePreview"));
+        assert_eq!(result.failure_code.as_deref(), Some("CATALOG_STALE"));
+        assert_eq!(
+            result.message,
+            "The catalog changed after this Preview. Preview the file again before applying."
+        );
         assert!(result.backup_package_name.is_none());
         let backup_folder = root.join("app.sakurava.desktop").join("backups");
         assert!(
@@ -6790,6 +6929,40 @@ mod tests {
                     .next()
                     .is_none()
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_validates_operation_targets_against_the_immutable_preview_snapshot() {
+        let (root, database) = import_test_database("plan-integrity-snapshot");
+        let video = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let created = create_video(
+                &connection,
+                VideoInput {
+                    title: "Preview title".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("video");
+            created
+        };
+        let mut update =
+            plan_operation("videos", "update", 2, json!({ "title": "Imported title" }));
+        update.record_id = Some(video.id.clone());
+        update.current_record = Some(serde_json::to_value(&video).expect("video value"));
+        let mut plan = signed_import_plan(&database, vec![update]);
+        plan.operations[0].current_record =
+            Some(json!({ "id": video.id, "title": "mutated plan" }));
+        plan.operation_fingerprint = import_plan_fingerprint(&plan);
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "blocked");
+        assert_eq!(result.failure_stage.as_deref(), Some("validation"));
+        assert_eq!(result.failure_code.as_deref(), Some("PLAN_TARGET_INVALID"));
+        assert_eq!(result.message, IMPORT_PLAN_PROCESSING_FAILURE);
+        assert!(result.backup_package_name.is_none());
         let _ = fs::remove_dir_all(root);
     }
 
@@ -7074,6 +7247,556 @@ mod tests {
     }
 
     #[test]
+    fn import_apply_rolls_back_when_a_delete_would_leave_a_dangling_credit() {
+        let (root, database) = import_test_database("credit-post-condition");
+        let (video, performer) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let video = create_video(
+                &connection,
+                VideoInput {
+                    title: "Credited work".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("video");
+            let performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Credited performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("performer");
+            create_credit(&connection, credit_input("video", &video.id, &performer.id))
+                .expect("credit");
+            (video, performer)
+        };
+        let mut delete = plan_operation("videos", "delete", 2, json!({}));
+        delete.record_id = Some(video.id.clone());
+        delete.current_record = Some(serde_json::to_value(&video).expect("video value"));
+        let result =
+            apply_import_catalog_plan(&database, signed_import_plan(&database, vec![delete]));
+
+        assert_eq!(result.transaction_status, "rolledBack");
+        assert_eq!(result.failure_stage.as_deref(), Some("validation"));
+        assert!(result.rollback_completed);
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert!(get_video(&connection, &video.id)
+            .expect("video query")
+            .is_some());
+        assert!(get_performer(&connection, &performer.id)
+            .expect("performer query")
+            .is_some());
+        assert_eq!(list_credits(&connection).expect("credits").len(), 1);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_preserves_credit_work_and_clears_its_deleted_category() {
+        let (root, database) = import_test_database("credit-preserved-category-cleanup");
+        let (video, performer, category, credit) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let category = create_managed_category(
+                &connection,
+                ManagedCategoryInput {
+                    issuance_yymm: Some("2607".to_string()),
+                    key: Some("credit-preserved-category".to_string()),
+                    name: "Credit preserved category".to_string(),
+                    parent_key: None,
+                    description: None,
+                    thumbnail_path: None,
+                    show_in_videos: None,
+                    show_in_images: None,
+                    show_in_performers: None,
+                    show_in_credits: None,
+                },
+            )
+            .expect("category");
+            let video = create_video(
+                &connection,
+                VideoInput {
+                    title: "Credited work".to_string(),
+                    categories_json: Some("[\"Credit preserved category\"]".to_string()),
+                    ..empty_video_input()
+                },
+            )
+            .expect("video");
+            let performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Credited performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("performer");
+            let credit =
+                create_credit(&connection, credit_input("video", &video.id, &performer.id))
+                    .expect("credit");
+            (video, performer, category, credit)
+        };
+
+        let mut cleanup = plan_operation("videos", "update", 0, json!({ "categoriesJson": "[]" }));
+        cleanup.source_identity = "cleanup:videos:credit-preserved-category".to_string();
+        cleanup.record_id = Some(video.id.clone());
+        cleanup.current_record = Some(serde_json::to_value(&video).expect("video value"));
+        let mut delete_category = plan_operation("categories", "delete", 2, json!({}));
+        delete_category.record_id = Some(category.key.clone());
+        delete_category.current_record =
+            Some(serde_json::to_value(&category).expect("category value"));
+
+        let result = apply_import_catalog_plan(
+            &database,
+            signed_import_plan(&database, vec![cleanup, delete_category]),
+        );
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.deleted_count, 1);
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        let preserved = get_video(&connection, &video.id)
+            .expect("video query")
+            .expect("preserved video");
+        assert_eq!(preserved.categories_json, "[]");
+        assert!(get_managed_category(&connection, &category.key)
+            .expect("category query")
+            .is_none());
+        assert_eq!(
+            get_credit(&connection, &credit.id).expect("credit query"),
+            Some(credit)
+        );
+        assert!(get_performer(&connection, &performer.id)
+            .expect("performer query")
+            .is_some());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn valid_delete_all_leaves_empty_migrated_catalog_and_all_creates_available() {
+        let (root, database) = import_test_database("delete-all-empty");
+        let (video, image, performer, category, glossary) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let video = create_video(
+                &connection,
+                VideoInput {
+                    title: "Delete video".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("video");
+            let image = create_image(
+                &connection,
+                ImageInput {
+                    title: "Delete image".to_string(),
+                    ..empty_image_input()
+                },
+            )
+            .expect("image");
+            let performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Delete performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("performer");
+            let category = create_managed_category(
+                &connection,
+                ManagedCategoryInput {
+                    issuance_yymm: Some("2607".to_string()),
+                    key: Some("delete-category".to_string()),
+                    name: "Delete category".to_string(),
+                    parent_key: None,
+                    description: None,
+                    thumbnail_path: None,
+                    show_in_videos: None,
+                    show_in_images: None,
+                    show_in_performers: None,
+                    show_in_credits: None,
+                },
+            )
+            .expect("category");
+            let glossary = create_glossary_entry(
+                &connection,
+                GlossaryEntryInput {
+                    issuance_yymm: Some("2607".to_string()),
+                    term: "Delete term".to_string(),
+                    definition: "Delete definition".to_string(),
+                    synonyms_json: None,
+                    category: None,
+                    parent_id: None,
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                },
+            )
+            .expect("glossary");
+            (video, image, performer, category, glossary)
+        };
+        let mut operations = Vec::new();
+        for (section, row, id, value) in [
+            (
+                "videos",
+                2,
+                video.id.clone(),
+                serde_json::to_value(&video).expect("video value"),
+            ),
+            (
+                "images",
+                3,
+                image.id.clone(),
+                serde_json::to_value(&image).expect("image value"),
+            ),
+            (
+                "performers",
+                4,
+                performer.id.clone(),
+                serde_json::to_value(&performer).expect("performer value"),
+            ),
+            (
+                "categories",
+                5,
+                category.key.clone(),
+                serde_json::to_value(&category).expect("category value"),
+            ),
+            (
+                "glossary",
+                6,
+                glossary.id.clone(),
+                serde_json::to_value(&glossary).expect("glossary value"),
+            ),
+        ] {
+            let mut operation = plan_operation(section, "delete", row, json!({}));
+            operation.record_id = Some(id);
+            operation.current_record = Some(value);
+            operations.push(operation);
+        }
+        let result =
+            apply_import_catalog_plan(&database, signed_import_plan(&database, operations));
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.deleted_count, 5);
+
+        let reopened_paths = database.paths.clone();
+        drop(database);
+        let reopened = open_runtime_database(reopened_paths).expect("reopen empty catalog");
+        assert_eq!(
+            sakurava_ref_migration_status(&reopened)
+                .expect("migrated status")
+                .state,
+            SakuravaRefMigrationState::Migrated
+        );
+        let connection = reopened.connection();
+        let connection = connection.lock().expect("database lock");
+        assert!(list_videos(&connection).expect("videos").is_empty());
+        assert!(list_images(&connection).expect("images").is_empty());
+        assert!(list_performers(&connection).expect("performers").is_empty());
+        assert!(list_managed_categories(&connection)
+            .expect("categories")
+            .is_empty());
+        assert!(list_glossary_entries(&connection)
+            .expect("glossary")
+            .is_empty());
+        let next_video = create_video(
+            &connection,
+            VideoInput {
+                title: "New video".to_string(),
+                ..empty_video_input()
+            },
+        )
+        .expect("new video");
+        let next_image = create_image(
+            &connection,
+            ImageInput {
+                title: "New image".to_string(),
+                ..empty_image_input()
+            },
+        )
+        .expect("new image");
+        let next_performer = create_performer(
+            &connection,
+            PerformerInput {
+                name: "New performer".to_string(),
+                ..empty_performer_input()
+            },
+        )
+        .expect("new performer");
+        let next_category = create_managed_category(
+            &connection,
+            ManagedCategoryInput {
+                issuance_yymm: Some("2607".to_string()),
+                key: Some("new-category".to_string()),
+                name: "New category".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: None,
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: None,
+            },
+        )
+        .expect("new category");
+        let next_glossary = create_glossary_entry(
+            &connection,
+            GlossaryEntryInput {
+                issuance_yymm: Some("2607".to_string()),
+                term: "New term".to_string(),
+                definition: "New definition".to_string(),
+                synonyms_json: None,
+                category: None,
+                parent_id: None,
+                thumbnail_path: None,
+                favorite: None,
+                source_title: None,
+                source_url: None,
+            },
+        )
+        .expect("new glossary");
+        assert_eq!(next_video.sakurava_ref, "V26070002");
+        assert_eq!(next_image.sakurava_ref, "I26070002");
+        assert_eq!(next_performer.sakurava_ref, "P26070002");
+        assert_eq!(next_category.sakurava_ref, "C26070002");
+        assert_eq!(next_glossary.sakurava_ref, "G26070002");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_delete_all_fixture_commits_273_safe_deletes_and_preserves_five_credit_targets()
+    {
+        let (root, database) = import_test_database("delete-all-278-credit-protected");
+        let (protected_video, protected_image, protected_performers, cleanup_category) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let cleanup_category = create_managed_category(
+                &connection,
+                ManagedCategoryInput {
+                    issuance_yymm: Some("2607".to_string()),
+                    key: Some("credit-protected-category".to_string()),
+                    name: "Credit protected category".to_string(),
+                    parent_key: None,
+                    description: None,
+                    thumbnail_path: None,
+                    show_in_videos: None,
+                    show_in_images: None,
+                    show_in_performers: None,
+                    show_in_credits: None,
+                },
+            )
+            .expect("cleanup category");
+            let protected_video = create_video(
+                &connection,
+                VideoInput {
+                    title: "Protected video".to_string(),
+                    categories_json: Some("[\"Credit protected category\"]".to_string()),
+                    ..empty_video_input()
+                },
+            )
+            .expect("protected video");
+            let protected_image = create_image(
+                &connection,
+                ImageInput {
+                    title: "Protected image".to_string(),
+                    ..empty_image_input()
+                },
+            )
+            .expect("protected image");
+            let protected_performers = (0..3)
+                .map(|index| {
+                    create_performer(
+                        &connection,
+                        PerformerInput {
+                            name: format!("Protected performer {index}"),
+                            ..empty_performer_input()
+                        },
+                    )
+                    .expect("protected performer")
+                })
+                .collect::<Vec<_>>();
+            create_credit(
+                &connection,
+                credit_input("video", &protected_video.id, &protected_performers[0].id),
+            )
+            .expect("video credit one");
+            create_credit(
+                &connection,
+                credit_input("image", &protected_image.id, &protected_performers[1].id),
+            )
+            .expect("image credit");
+            create_credit(
+                &connection,
+                credit_input("video", &protected_video.id, &protected_performers[2].id),
+            )
+            .expect("video credit two");
+            (
+                protected_video,
+                protected_image,
+                protected_performers,
+                cleanup_category,
+            )
+        };
+
+        let mut operations = Vec::new();
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            for index in 0..99 {
+                let record = create_video(
+                    &connection,
+                    VideoInput {
+                        title: format!("Delete video {index}"),
+                        ..empty_video_input()
+                    },
+                )
+                .expect("video");
+                let mut operation = plan_operation("videos", "delete", index + 2, json!({}));
+                operation.record_id = Some(record.id.clone());
+                operation.current_record = Some(serde_json::to_value(record).expect("video value"));
+                operations.push(operation);
+            }
+            for index in 0..99 {
+                let record = create_image(
+                    &connection,
+                    ImageInput {
+                        title: format!("Delete image {index}"),
+                        ..empty_image_input()
+                    },
+                )
+                .expect("image");
+                let mut operation = plan_operation("images", "delete", index + 102, json!({}));
+                operation.record_id = Some(record.id.clone());
+                operation.current_record = Some(serde_json::to_value(record).expect("image value"));
+                operations.push(operation);
+            }
+            for index in 0..67 {
+                let record = create_performer(
+                    &connection,
+                    PerformerInput {
+                        name: format!("Delete performer {index}"),
+                        ..empty_performer_input()
+                    },
+                )
+                .expect("performer");
+                let mut operation = plan_operation("performers", "delete", index + 202, json!({}));
+                operation.record_id = Some(record.id.clone());
+                operation.current_record =
+                    Some(serde_json::to_value(record).expect("performer value"));
+                operations.push(operation);
+            }
+            for index in 0..4 {
+                let record = create_managed_category(
+                    &connection,
+                    ManagedCategoryInput {
+                        issuance_yymm: Some("2607".to_string()),
+                        key: Some(format!("delete-category-{index}")),
+                        name: format!("Delete category {index}"),
+                        parent_key: None,
+                        description: None,
+                        thumbnail_path: None,
+                        show_in_videos: None,
+                        show_in_images: None,
+                        show_in_performers: None,
+                        show_in_credits: None,
+                    },
+                )
+                .expect("category");
+                let mut operation = plan_operation("categories", "delete", index + 269, json!({}));
+                operation.record_id = Some(record.key.clone());
+                operation.current_record =
+                    Some(serde_json::to_value(record).expect("category value"));
+                operations.push(operation);
+            }
+            for index in 0..3 {
+                let record = create_glossary_entry(
+                    &connection,
+                    GlossaryEntryInput {
+                        issuance_yymm: Some("2607".to_string()),
+                        term: format!("Delete glossary {index}"),
+                        definition: "Definition".to_string(),
+                        synonyms_json: None,
+                        category: None,
+                        parent_id: None,
+                        thumbnail_path: None,
+                        favorite: None,
+                        source_title: None,
+                        source_url: None,
+                    },
+                )
+                .expect("glossary");
+                let mut operation = plan_operation("glossary", "delete", index + 273, json!({}));
+                operation.record_id = Some(record.id.clone());
+                operation.current_record =
+                    Some(serde_json::to_value(record).expect("glossary value"));
+                operations.push(operation);
+            }
+            let mut cleanup =
+                plan_operation("videos", "update", 0, json!({ "categoriesJson": "[]" }));
+            cleanup.source_identity = "cleanup:videos:credit-protected-category:update".to_string();
+            cleanup.record_id = Some(protected_video.id.clone());
+            cleanup.current_record =
+                Some(serde_json::to_value(&protected_video).expect("protected video value"));
+            operations.push(cleanup);
+            let mut category_delete = plan_operation("categories", "delete", 278, json!({}));
+            category_delete.record_id = Some(cleanup_category.key.clone());
+            category_delete.current_record =
+                Some(serde_json::to_value(&cleanup_category).expect("cleanup category value"));
+            operations.push(category_delete);
+        }
+
+        assert_eq!(
+            operations
+                .iter()
+                .filter(|operation| operation.action == "delete")
+                .count(),
+            273
+        );
+        let result =
+            apply_import_catalog_plan(&database, signed_import_plan(&database, operations));
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.deleted_count, 273);
+        let paths = database.paths.clone();
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert_eq!(list_videos(&connection).expect("videos").len(), 1);
+        assert_eq!(list_images(&connection).expect("images").len(), 1);
+        assert_eq!(list_performers(&connection).expect("performers").len(), 3);
+        assert!(list_managed_categories(&connection)
+            .expect("categories")
+            .is_empty());
+        assert!(list_glossary_entries(&connection)
+            .expect("glossary")
+            .is_empty());
+        assert_eq!(list_credits(&connection).expect("credits").len(), 3);
+        assert_eq!(
+            get_video(&connection, &protected_video.id)
+                .expect("protected video query")
+                .expect("protected video")
+                .categories_json,
+            "[]"
+        );
+        assert!(get_image(&connection, &protected_image.id)
+            .expect("protected image query")
+            .is_some());
+        for performer in protected_performers {
+            assert!(get_performer(&connection, &performer.id)
+                .expect("protected performer query")
+                .is_some());
+        }
+        drop(connection);
+        drop(database);
+        let reopened = open_runtime_database(paths).expect("reopen catalog");
+        assert_eq!(
+            sakurava_ref_migration_status(&reopened)
+                .expect("migration status")
+                .state,
+            SakuravaRefMigrationState::Migrated
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn import_apply_rolls_back_earlier_creates_when_delete_validation_fails() {
         let (root, database) = import_test_database("delete-rollback");
         let parent = {
@@ -7227,6 +7950,33 @@ mod tests {
             fingerprint_value(&json!({ "b": [1, true, null], "a": "é" })),
             "skv1-d6f5215a"
         );
+        assert_eq!(
+            fingerprint_value(&json!({
+                "catalogSnapshot": { "videos": [{ "id": "video-1" }] },
+                "operations": [{ "proposedValues": { "title": "Updated" } }],
+            })),
+            "skv1-03789877"
+        );
+    }
+
+    #[test]
+    fn import_plan_json_payload_deserializes_with_the_transport_normalized_shape() {
+        let payload = json!({
+            "contractVersion": 3,
+            "issuanceYymm": "2607",
+            "sourceFingerprint": "skvf1-00000000",
+            "operationFingerprint": "skv1-00000000",
+            "catalogSnapshot": {
+                "videos": [{ "id": "video-1" }],
+                "images": [], "performers": [], "categories": [], "glossary": [], "credits": [],
+            },
+            "operations": [],
+            "skippedCount": 5,
+        });
+        let plan = serde_json::from_value::<ImportCatalogApplyPlan>(payload)
+            .expect("transport-normalized plan payload");
+        assert_eq!(plan.skipped_count, 5);
+        assert_eq!(plan.catalog_snapshot["videos"][0]["id"], "video-1");
     }
 
     fn empty_image_input() -> ImageInput {

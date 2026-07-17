@@ -39,9 +39,15 @@ export function buildWorkbookMetadata({
 }
 
 export function stableContractJson(value: unknown): string {
+  // Match JSON transport semantics exactly: object properties with undefined
+  // are omitted by Tauri serialization and undefined array items become null.
+  // The plan fingerprint must therefore describe the payload Rust receives,
+  // not the transient JavaScript object shape held by Preview.
+  if (value === undefined) return "null";
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableContractJson).join(",")}]`;
   return `{${Object.entries(value as Record<string, unknown>)
+    .filter(([, item]) => item !== undefined)
     .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
     .map(([key, item]) => `${JSON.stringify(key)}:${stableContractJson(item)}`)
     .join(",")}}`;

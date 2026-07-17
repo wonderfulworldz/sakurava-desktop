@@ -4206,14 +4206,18 @@ describe("App", () => {
     expect(previewRegion).toHaveTextContent("CSV");
     expect(screen.queryByText("Preview only. No data has been changed.")).not.toBeInTheDocument();
     const previewTable = within(previewRegion).getByRole("table");
-    for (const column of ["Row", "Section", "Sakurava Ref", "Record", "Action", "Details", "Status"]) {
+    for (const column of ["Row", "Section", "Sakurava Ref", "Record", "Action", "Details"]) {
       expect(within(previewTable).getByRole("columnheader", { name: column }))
         .toBeInTheDocument();
     }
-    expect(screen.getByRole("tab", { name: /Create/ })).toBeInTheDocument();
+    expect(within(previewTable).queryByRole("columnheader", { name: "Status" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Add/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Update/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Delete/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Skip/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Warning/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Skip/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Attention/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Review/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /All/ }));
     const rowSearch = screen.getByRole("searchbox", { name: "Search rows" });
     fireEvent.change(rowSearch, { target: { value: "New Video" } });
@@ -4224,15 +4228,15 @@ describe("App", () => {
     expect(within(previewTable).getByText("Changed Video")).toBeInTheDocument();
     expect(within(previewTable).queryByText("V2607-0051 | Changed Video"))
       .not.toBeInTheDocument();
-    expect(screen.getByText("New record will be created")).toBeInTheDocument();
+    expect(screen.getByText("New record will be added")).toBeInTheDocument();
     expect(screen.getByText("Record will be deleted")).toBeInTheDocument();
-    expect(screen.getAllByText("Skipped").length).toBeGreaterThan(0);
-    expect(screen.getByText("Category “Unknown” is not available")).toBeInTheDocument();
+    expect(screen.queryByText("Skipped")).not.toBeInTheDocument();
+    expect(screen.getByText("Category Ref was not found. Category will be empty.")).toBeInTheDocument();
     const importPageSize = within(previewRegion).getByLabelText("Page size");
     expect(within(importPageSize).getAllByRole("option").map((option) => option.textContent))
       .toEqual(["32", "64", "128", "256"]);
     expect(screen.getByRole("button", { name: "Apply Import" }))
-      .toBeDisabled();
+      .toBeEnabled();
     expect(invoke).not.toHaveBeenCalledWith(
       "video_update",
       expect.anything(),
@@ -4331,8 +4335,7 @@ describe("App", () => {
     const preview = await screen.findByLabelText("Import catalog preview");
     expect(within(preview).getAllByText("Glossary").length).toBeGreaterThan(0);
     expect(within(preview).getByText("No changes")).toBeInTheDocument();
-    expect(within(preview).getByText("No Changes")).toBeInTheDocument();
-    expect(within(preview).getByText("New record will be created")).toBeInTheDocument();
+    expect(within(preview).getByText("New record will be added")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
     expect(screen.getByText("Select sections to export")).toBeInTheDocument();
     expect(screen.queryByLabelText("Import catalog preview")).not.toBeInTheDocument();
@@ -4346,7 +4349,7 @@ describe("App", () => {
     expect(invoke).not.toHaveBeenCalledWith("glossary_create", expect.anything(), undefined);
   });
 
-  it("applies reviewed Glossary Create, Update, Delete, Skip, and no-change rows", async () => {
+  it("applies Glossary Add, Update, Delete, and no-change rows after acknowledgement", async () => {
     window.history.pushState({}, "", "/settings");
     const sourcePath = "D:/Imports/skv-glo-20261507-110000.csv";
     const updateTarget = persistedGlossaryEntry({ id: "glossary-update", term: "Update Term", definition: "Old" });
@@ -4397,17 +4400,21 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
     expect(await screen.findByLabelText("Import catalog preview")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply Import" }));
-    const dialog = screen.getByRole("dialog", { name: "Apply this import?" });
-    expect(within(dialog).getByText("1 records will be deleted. Original media files will not be changed."))
+    const dialog = screen.getByRole("dialog", { name: "Confirm Import" });
+    expect(within(dialog).getByText("I have reviewed the changes."))
       .toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Apply Import" }));
+    const confirmButton = within(dialog).getByRole("button", { name: "Apply Import" });
+    expect(confirmButton).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(confirmButton).toBeEnabled();
+    fireEvent.click(confirmButton);
 
-    expect(await screen.findByText("3 catalog changes applied together.")).toBeInTheDocument();
+    expect(await screen.findByText("3 catalog changes applied.")).toBeInTheDocument();
     expect(invoke.mock.calls.filter(([command]) => command === "import_catalog_apply")).toHaveLength(1);
     expect(invoke).not.toHaveBeenCalledWith("glossary_create", expect.anything(), undefined);
   });
 
-  it("disables Apply Import when a local date is impossible", async () => {
+  it("keeps Apply Import available when a local date is impossible", async () => {
     window.history.pushState({}, "", "/settings");
     const sourcePath = "D:/Imports/invalid-date.csv";
     const headers = buildVideosCsv([]).split(",");
@@ -4432,8 +4439,8 @@ describe("App", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Import Catalog" }));
-    expect(await screen.findByText("Date is not valid for this computer")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply Import" })).toBeDisabled();
+    expect(await screen.findByText("Release Date is invalid and will be left empty.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply Import" })).toBeEnabled();
     expect(screen.queryByText(/must use YYYY-MM-DD/)).not.toBeInTheDocument();
   });
 
@@ -4503,11 +4510,12 @@ describe("App", () => {
       .toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply Import" }));
 
-    const confirmDialog = screen.getByRole("dialog", { name: "Apply this import?" });
+    const confirmDialog = screen.getByRole("dialog", { name: "Confirm Import" });
     expect(confirmDialog).toBeInTheDocument();
-    expect(within(confirmDialog).getByText(/reviewed changes will be applied to your catalog/i))
+    expect(within(confirmDialog).getByText("Add"))
       .toBeInTheDocument();
-    expect(within(confirmDialog).getByText(/Original media files will not be changed/)).toBeInTheDocument();
+    expect(within(confirmDialog).getByText("A verified safety backup will be created."))
+      .toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith(
       "import_catalog_apply",
       expect.anything(),
@@ -4515,6 +4523,9 @@ describe("App", () => {
     );
 
     const confirmApplyButton = within(confirmDialog).getByRole("button", { name: "Apply Import" });
+    expect(confirmApplyButton).toBeDisabled();
+    fireEvent.click(within(confirmDialog).getByRole("checkbox"));
+    expect(confirmApplyButton).toBeEnabled();
     fireEvent.click(confirmApplyButton);
     fireEvent.click(confirmApplyButton);
 
@@ -4538,8 +4549,9 @@ describe("App", () => {
       await applyPromise;
     });
 
-    expect(await screen.findByText("1 catalog changes applied together."))
+    expect(await screen.findByText("1 catalog changes applied."))
       .toBeInTheDocument();
+    expect(screen.queryByLabelText("Import catalog preview")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
       "import_catalog_apply",
       expect.anything(),
@@ -4611,11 +4623,12 @@ describe("App", () => {
     expect(await screen.findByLabelText("Import catalog preview"))
       .toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apply Import" }));
-    const categoryImportDialog = screen.getByRole("dialog", { name: "Apply this import?" });
-    expect(within(categoryImportDialog).getByText("1 records will be deleted. Original media files will not be changed."))
+    const categoryImportDialog = screen.getByRole("dialog", { name: "Confirm Import" });
+    expect(within(categoryImportDialog).getByText("I have reviewed the changes."))
       .toBeInTheDocument();
+    fireEvent.click(within(categoryImportDialog).getByRole("checkbox"));
     fireEvent.click(within(categoryImportDialog).getByRole("button", { name: "Apply Import" }));
-    expect(await screen.findByText("2 catalog changes applied together."))
+    expect(await screen.findByText("2 catalog changes applied."))
       .toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
@@ -4804,10 +4817,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 
-    await screen.findByText(
-      "sakurava-categories.csv. Managed Categories: 2.",
-      { exact: false },
-    );
+    await waitFor(() => expect(dialogMocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      defaultPath: expect.stringMatching(/^skv-cat-\d{8}-\d{6}\.csv$/),
+    })));
     expect(invoke).not.toHaveBeenCalledWith(
       "managed_category_update",
       expect.anything(),
@@ -6472,7 +6484,11 @@ describe("App", () => {
       within(await screen.findByRole("dialog", { name: "Restore this backup?" })).getByRole("button", { name: "Restore Backup" }),
     );
 
-    expect(await screen.findByText(packageName)).toBeInTheDocument();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "backup_package_restore",
+      expect.objectContaining({ packageName }),
+      undefined,
+    ));
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
       { packageName, migrationYymm: "2607" },
@@ -6809,10 +6825,11 @@ describe("App", () => {
     await screen.findByText("Restore this backup?");
     await confirmPackageRestore();
 
-    const summary = await screen.findByRole("region", { name: "Restore Summary" });
-    expect(summary).toHaveTextContent(packageName);
-    expect(summary).toHaveTextContent(safetyPackageName);
-    expect(summary).toHaveTextContent("Your data was restored successfully.");
+    // Restore changes the database below every loaded page. The app resets to
+    // Overview instead of retaining the old Settings tree and its stale state.
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Navigate to Home" })).toHaveAttribute("aria-current", "page");
+    });
     expect(screen.queryByRole("region", { name: "Backup Preview" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Rollback:/)).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith(
@@ -6821,8 +6838,6 @@ describe("App", () => {
       undefined,
     );
     expect(listCalls).toBeGreaterThanOrEqual(2);
-    fireEvent.click(within(summary).getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("region", { name: "Restore Summary" })).not.toBeInTheDocument();
   });
 
   it("paginates backup history while keeping package actions bounded to visible rows", async () => {
@@ -7042,7 +7057,7 @@ describe("App", () => {
       warnings: [],
       errors: [],
     });
-    await screen.findByText(packageName);
+    await waitFor(() => expect(invoke.mock.calls.filter(([command]) => command === "backup_package_restore")).toHaveLength(1));
   });
 
   it("shows a typed runtime error when package restore fails", async () => {

@@ -1659,7 +1659,12 @@ pub fn restore_backup_package_with_sakurava_refs(
         |_| Ok(()),
         move |connection, safety_database_path| {
             validate_restored_connection(connection)?;
-            upgrade_restored_identity(connection, safety_database_path, &migration_yymm)
+            upgrade_restored_identity(connection, safety_database_path, &migration_yymm)?;
+            // A package is not a successful Restore until the active restored
+            // connection passes the same authoritative boundary used by the UI
+            // and catalog commands.  This keeps a failed candidate package from
+            // turning the currently usable catalog into a recovery state.
+            require_migrated_sakurava_refs(connection)
         },
         |_| Ok(()),
     )
@@ -2074,6 +2079,106 @@ fn json_relations_are_valid(
     Ok(true)
 }
 
+/// Returns the first broken relationship only for development diagnostics. The
+/// public migration-state result deliberately remains concise; this detail is
+/// used to prove the exact pending transaction invariant before changing an
+/// import plan.
+fn first_invalid_json_relation_detail(
+    connection: &Connection,
+    table: &str,
+    column: &str,
+    id_field: &str,
+    targets: &std::collections::HashSet<String>,
+    target_table: &str,
+) -> Result<Option<String>, String> {
+    let mut statement = connection
+        .prepare(&format!("SELECT id, {column} FROM {table}"))
+        .map_err(|error| error.to_string())?;
+    let values = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    for (record_id, text) in values {
+        let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&text) else {
+            return Ok(Some(format!(
+                "{table}.{column} for record {record_id} is not a JSON array"
+            )));
+        };
+        for item in items {
+            let Some(id) = item.get(id_field).and_then(Value::as_str) else {
+                continue;
+            };
+            if !id.trim().is_empty() && !targets.contains(id) {
+                return Ok(Some(format!(
+                    "{table}.{column} for record {record_id} references missing {target_table} record {id}"
+                )));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn first_invalid_relationship_detail(connection: &Connection) -> Result<Option<String>, String> {
+    use std::collections::HashSet;
+
+    let performers = collect_text_column(connection, "SELECT id FROM performers")?
+        .into_iter()
+        .collect::<HashSet<_>>();
+    let videos = collect_text_column(connection, "SELECT id FROM videos")?
+        .into_iter()
+        .collect::<HashSet<_>>();
+    let images = collect_text_column(connection, "SELECT id FROM images")?
+        .into_iter()
+        .collect::<HashSet<_>>();
+    for (table, column, id_field, targets, target_table) in [
+        (
+            "videos",
+            "relatedPerformersJson",
+            "performerId",
+            &performers,
+            "performers",
+        ),
+        ("videos", "relatedImagesJson", "recordId", &images, "images"),
+        (
+            "images",
+            "relatedPerformersJson",
+            "performerId",
+            &performers,
+            "performers",
+        ),
+        ("images", "relatedVideosJson", "recordId", &videos, "videos"),
+        (
+            "performers",
+            "relatedVideosJson",
+            "recordId",
+            &videos,
+            "videos",
+        ),
+        (
+            "performers",
+            "relatedImagesJson",
+            "recordId",
+            &images,
+            "images",
+        ),
+    ] {
+        if let Some(detail) = first_invalid_json_relation_detail(
+            connection,
+            table,
+            column,
+            id_field,
+            targets,
+            target_table,
+        )? {
+            return Ok(Some(detail));
+        }
+    }
+    Ok(None)
+}
+
 fn validate_identity_preconditions(connection: &Connection) -> Result<Vec<String>, String> {
     use std::collections::{HashMap, HashSet};
 
@@ -2447,9 +2552,41 @@ pub fn require_migrated_sakurava_refs(connection: &Connection) -> Result<(), Str
             Err("Catalog references must be upgraded before this action is available.".to_string())
         }
         SakuravaRefMigrationState::Invalid => {
+            eprintln!(
+                "Sakurava migration-state validation detail: {}",
+                sakurava_ref_migration_invalid_detail(connection),
+            );
             Err("Catalog references need recovery before this action is available.".to_string())
         }
     }
+}
+
+/// Development-only diagnostic retained behind the concise public recovery
+/// message. It identifies the first invariant that made an otherwise atomic
+/// Import transaction invalid without exposing database details in the UI.
+fn sakurava_ref_migration_invalid_detail(connection: &Connection) -> String {
+    match validate_sakurava_ref_schema(connection) {
+        Ok(()) => {}
+        Err(error) => return format!("schema: {error}"),
+    }
+    match validate_sakurava_ref_counters(connection) {
+        Ok(()) => {}
+        Err(error) => return format!("counters: {error}"),
+    }
+    match validate_sakurava_ref_aliases_complete(connection) {
+        Ok(()) => {}
+        Err(error) => return format!("aliases: {error}"),
+    }
+    match validate_identity_preconditions(connection) {
+        Ok(issues) if issues.is_empty() => {}
+        Ok(issues) => match first_invalid_relationship_detail(connection) {
+            Ok(Some(detail)) => return format!("relationships: {detail}"),
+            Ok(None) => return format!("relationships: {}", issues[0]),
+            Err(error) => return format!("relationships diagnostic: {error}"),
+        },
+        Err(error) => return format!("relationships: {error}"),
+    }
+    "required identity infrastructure is incomplete".to_string()
 }
 
 pub fn migrate_sakurava_refs(
@@ -3184,6 +3321,37 @@ mod tests {
     }
 
     #[test]
+    fn empty_migrated_catalog_keeps_its_identity_infrastructure_and_high_water() {
+        let app_dir = unique_test_dir("ref-state-empty-after-delete").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_dir);
+        let database = prepare_database(&app_dir).expect("database");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let first = allocate_sakurava_ref(&connection, "V", "2607").expect("first ref");
+            connection.execute(
+                "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('deleted-video', ?1, 'Deleted', '1', '1')",
+                [first.as_str()],
+            ).expect("video fixture");
+            register_current_sakurava_ref_alias(&connection, "V", &first).expect("current alias");
+            connection
+                .execute("DELETE FROM videos WHERE id = 'deleted-video'", [])
+                .expect("delete video");
+            assert_eq!(
+                allocate_sakurava_ref(&connection, "V", "2607").expect("next ref"),
+                "V26070002",
+            );
+        }
+        assert_eq!(
+            sakurava_ref_migration_status(&database)
+                .expect("empty status")
+                .state,
+            SakuravaRefMigrationState::Migrated,
+        );
+        let _ = fs::remove_dir_all(app_dir);
+    }
+
+    #[test]
     fn migration_status_rejects_missing_ledger_counter_alias_and_unique_index() {
         for (name, mutation) in [
             (
@@ -3313,8 +3481,10 @@ mod tests {
             let reference = allocate_sakurava_ref(&connection, "V", "2607").expect("first ref");
             connection.execute(
                 "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('video-1', ?1, 'One', '1', '1')",
-                [reference],
+                [&reference],
             ).expect("first video");
+            register_current_sakurava_ref_alias(&connection, "V", &reference)
+                .expect("current alias");
         }
         let older = create_backup_package(
             &database,
@@ -3336,6 +3506,12 @@ mod tests {
 
         restore_backup_package_with_sakurava_refs(&database, &older.package_name, "2607")
             .expect("restore older package");
+        assert_eq!(
+            sakurava_ref_migration_status(&database)
+                .expect("restored migration state")
+                .state,
+            SakuravaRefMigrationState::Migrated
+        );
         let connection = database.connection();
         let connection = connection.lock().expect("database lock");
         assert_eq!(
