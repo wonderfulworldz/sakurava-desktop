@@ -28,6 +28,8 @@ import {
   storeCatalogPreferencePage,
 } from "../lib/catalogPreferences";
 import { useTranslation } from "../lib/LanguageContext";
+import { formatSakuravaRef } from "../lib/sakuravaRef";
+import { sakuravaRef as legacySakuravaRef } from "../lib/exportCsv";
 import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
 
 type GlossarySortKey = "az" | "za" | "created-desc" | "updated-desc";
@@ -442,6 +444,10 @@ function GlossaryPage() {
       }
 
       return [
+        entry.sakuravaRef ?? "",
+        formatSakuravaRef(entry.sakuravaRef ?? ""),
+        entry.id,
+        legacySakuravaRef("GLO", entry.id),
         entry.term,
         entry.definition,
         parentPathLabel(entry, entryById),

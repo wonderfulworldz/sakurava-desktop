@@ -5,8 +5,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rusqlite::{Connection, DatabaseName, OpenFlags};
+use rusqlite::{
+    params, Connection, DatabaseName, OpenFlags, OptionalExtension, TransactionBehavior,
+};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::Manager;
 
 pub const APP_DATA_FOLDER_NAME: &str = "app.sakurava.desktop";
@@ -18,10 +21,21 @@ pub const BACKUP_FORMAT: &str = "sakurava-backup-directory";
 pub const BACKUP_FORMAT_VERSION: u32 = 1;
 pub const BACKUP_DATABASE_FILE_NAME: &str = "sakurava.sqlite";
 pub const BACKUP_MANIFEST_FILE_NAME: &str = "manifest.json";
+pub const SAKURAVA_REF_MIGRATION_ID: &str = "41.8.4A-sakurava-ref-v1";
+pub const SAKURAVA_REF_CAPACITY: i64 = 9_999;
+
+const SAKURAVA_REF_SECTIONS: [(&str, &str, &str, &str); 5] = [
+    ("V", "videos", "id", "VID"),
+    ("I", "images", "id", "IMG"),
+    ("P", "performers", "id", "PER"),
+    ("C", "managedCategories", "key", "CAT"),
+    ("G", "glossary_entries", "id", "GLO"),
+];
 
 const CREATE_VIDEOS_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS videos (
   id TEXT PRIMARY KEY NOT NULL,
+  sakuravaRef TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL,
   originalTitle TEXT NOT NULL DEFAULT '',
   code TEXT NOT NULL DEFAULT '',
@@ -50,6 +64,7 @@ CREATE TABLE IF NOT EXISTS videos (
 const CREATE_IMAGES_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS images (
   id TEXT PRIMARY KEY NOT NULL,
+  sakuravaRef TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL,
   originalTitle TEXT NOT NULL DEFAULT '',
   code TEXT NOT NULL DEFAULT '',
@@ -79,6 +94,7 @@ CREATE TABLE IF NOT EXISTS images (
 const CREATE_PERFORMERS_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS performers (
   id TEXT PRIMARY KEY NOT NULL,
+  sakuravaRef TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   originalName TEXT NOT NULL DEFAULT '',
   aliasesJson TEXT NOT NULL DEFAULT '[]',
@@ -113,6 +129,7 @@ CREATE TABLE IF NOT EXISTS performers (
 const CREATE_MANAGED_CATEGORIES_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS managedCategories (
   key TEXT PRIMARY KEY NOT NULL,
+  sakuravaRef TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   parentKey TEXT,
   description TEXT NOT NULL DEFAULT '',
@@ -131,6 +148,7 @@ CREATE TABLE IF NOT EXISTS managedCategories (
 const CREATE_GLOSSARY_ENTRIES_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS glossary_entries (
   id TEXT PRIMARY KEY NOT NULL,
+  sakuravaRef TEXT NOT NULL DEFAULT '',
   term TEXT NOT NULL,
   definition TEXT NOT NULL,
   synonyms_json TEXT NOT NULL DEFAULT '[]',
@@ -211,6 +229,60 @@ pub struct DatabaseRestoreResult {
     pub success: bool,
     pub safety_backup_path: String,
     pub restart_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SakuravaRefSectionCounts {
+    pub videos: i64,
+    pub images: i64,
+    pub performers: i64,
+    pub categories: i64,
+    pub glossary: i64,
+}
+
+impl SakuravaRefSectionCounts {
+    fn all_within_capacity(&self) -> bool {
+        [
+            self.videos,
+            self.images,
+            self.performers,
+            self.categories,
+            self.glossary,
+        ]
+        .into_iter()
+        .all(|count| count <= SAKURAVA_REF_CAPACITY)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SakuravaRefMigrationStatus {
+    pub state: SakuravaRefMigrationState,
+    pub required: bool,
+    pub migration_id: String,
+    pub counts: SakuravaRefSectionCounts,
+    pub capacity_per_section_month: i64,
+    pub preconditions_valid: bool,
+    pub issues: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum SakuravaRefMigrationState {
+    Legacy,
+    Migrated,
+    Invalid,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SakuravaRefMigrationResult {
+    pub migrated: bool,
+    pub migration_id: String,
+    pub migration_yymm: String,
+    pub counts: SakuravaRefSectionCounts,
+    pub safety_package_name: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -712,6 +784,16 @@ fn preview_backup_package_directory(
             ));
         }
     }
+    if table_has_column(&backup_connection, "videos", "sakuravaRef").map_err(|error| {
+        BackupPackagePreviewError::new("identity_schema_inspection_failed", error.to_string())
+    })? {
+        validate_sakurava_ref_schema(&backup_connection).map_err(|message| {
+            BackupPackagePreviewError::new("identity_validation_failed", message)
+        })?;
+        validate_sakurava_ref_counters(&backup_connection).map_err(|message| {
+            BackupPackagePreviewError::new("identity_counter_validation_failed", message)
+        })?;
+    }
 
     let counts = BackupPackagePreviewCounts {
         videos: count_backup_rows(&backup_connection, "videos")?,
@@ -915,7 +997,7 @@ fn restore_backup_package_with_hooks<P, F, R>(
 ) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError>
 where
     P: FnOnce(&Path) -> Result<(), String>,
-    F: FnOnce(&Connection, &Path) -> Result<(), String>,
+    F: FnOnce(&mut Connection, &Path) -> Result<(), String>,
     R: FnOnce(&Path) -> Result<(), String>,
 {
     let _operation = database.lock_package_operation().map_err(|message| {
@@ -967,7 +1049,7 @@ where
     let apply_result = connection
         .restore(DatabaseName::Main, &source_path, None::<fn(_)>)
         .map_err(|error| format!("Unable to restore package database: {error}"))
-        .and_then(|_| post_apply_check(&connection, &safety_database_path));
+        .and_then(|_| post_apply_check(&mut connection, &safety_database_path));
 
     if let Err(apply_error) = apply_result {
         let rollback_result = rollback_source_check(&safety_database_path).and_then(|_| {
@@ -1496,6 +1578,11 @@ pub fn prepare_database_paths(app_data_dir: impl AsRef<Path>) -> io::Result<Runt
 }
 
 pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
+    let database_was_fresh = connection.query_row(
+        "SELECT COUNT(*) = 0 FROM sqlite_master WHERE type = 'table' AND name = 'videos'",
+        [],
+        |row| row.get::<_, bool>(0),
+    )?;
     for statement in SCHEMA_SQL {
         connection.execute_batch(statement)?;
     }
@@ -1539,7 +1626,188 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_text_column(connection, "glossary_entries", "parent_id", "")?;
     backfill_legacy_credits(connection)?;
 
+    // Only a genuinely fresh database receives identity infrastructure here.
+    // Existing legacy or partial databases remain untouched so the
+    // authoritative validator can classify them and require an explicit
+    // upgrade or recovery flow.
+    if database_was_fresh {
+        create_sakurava_ref_support_schema(connection)?;
+        connection.execute(
+            "INSERT INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
+            params![
+                SAKURAVA_REF_MIGRATION_ID,
+                backup_created_at(SystemTime::now())
+                    .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
+            ],
+        )?;
+    }
+
     Ok(())
+}
+
+pub fn restore_backup_package_with_sakurava_refs(
+    database: &RuntimeDatabase,
+    package_name: &str,
+    migration_yymm: &str,
+) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError> {
+    let migration_yymm = validate_migration_yymm(migration_yymm).map_err(|message| {
+        BackupPackageRestoreError::new("invalid_migration_month", message, package_name)
+    })?;
+    restore_backup_package_with_hooks(
+        database,
+        package_name,
+        |_| Ok(()),
+        move |connection, safety_database_path| {
+            validate_restored_connection(connection)?;
+            upgrade_restored_identity(connection, safety_database_path, &migration_yymm)
+        },
+        |_| Ok(()),
+    )
+}
+
+fn upgrade_restored_identity(
+    connection: &mut Connection,
+    safety_database_path: &Path,
+    migration_yymm: &str,
+) -> Result<(), String> {
+    let issues = validate_identity_preconditions(connection)?;
+    if !issues.is_empty() {
+        return Err(issues[0].clone());
+    }
+
+    // The restore coordinator owns the outer rollback. A dedicated connection
+    // allows the same atomic identity migration to run against a legacy package.
+    if !table_has_column(connection, "videos", "sakuravaRef").map_err(|error| error.to_string())? {
+        migrate_sakurava_ref_connection(connection, migration_yymm)?;
+    }
+    validate_sakurava_ref_schema(connection)?;
+
+    if safety_database_path.is_file() {
+        let safety = Connection::open_with_flags(
+            safety_database_path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|error| format!("Unable to read restore safety counters: {error}"))?;
+        let counter_table_present: i64 = safety.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'sakuravaRefCounters'",
+            [], |row| row.get(0),
+        ).map_err(|error| error.to_string())?;
+        if counter_table_present == 1 {
+            let mut statement = safety
+                .prepare("SELECT sectionCode, issuanceYymm, lastSequence FROM sakuravaRefCounters")
+                .map_err(|error| error.to_string())?;
+            let counters = statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                })
+                .map_err(|error| error.to_string())?
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map_err(|error| error.to_string())?;
+            for (section, yymm, high_water) in counters {
+                connection.execute(
+                    "INSERT INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(sectionCode, issuanceYymm) DO UPDATE SET lastSequence = MAX(lastSequence, excluded.lastSequence)",
+                    params![section, yymm, high_water],
+                ).map_err(|error| format!("Unable to preserve Sakurava Ref history during Restore: {error}"))?;
+            }
+        }
+    }
+    reconcile_sakurava_ref_counters(connection)?;
+    validate_sakurava_ref_schema(connection)?;
+    Ok(())
+}
+
+fn reconcile_sakurava_ref_counters(connection: &Connection) -> Result<(), String> {
+    for (section, table, _, _) in SAKURAVA_REF_SECTIONS {
+        let mut statement = connection
+            .prepare(&format!(
+                "SELECT substr(sakuravaRef, 2, 4), MAX(CAST(substr(sakuravaRef, 6, 4) AS INTEGER))
+             FROM {table} WHERE sakuravaRef <> '' GROUP BY substr(sakuravaRef, 2, 4)"
+            ))
+            .map_err(|error| error.to_string())?;
+        let high_water = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|error| error.to_string())?;
+        for (yymm, sequence) in high_water {
+            connection.execute(
+                "INSERT INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(sectionCode, issuanceYymm) DO UPDATE SET lastSequence = MAX(lastSequence, excluded.lastSequence)",
+                params![section, yymm, sequence],
+            ).map_err(|error| format!("Unable to reconcile Sakurava Ref counters: {error}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_sakurava_ref_counters(connection: &Connection) -> Result<(), String> {
+    for (section, table, _, _) in SAKURAVA_REF_SECTIONS {
+        let mut statement = connection
+            .prepare(&format!(
+                "SELECT substr(sakuravaRef, 2, 4), MAX(CAST(substr(sakuravaRef, 6, 4) AS INTEGER))
+             FROM {table} WHERE sakuravaRef <> '' GROUP BY substr(sakuravaRef, 2, 4)"
+            ))
+            .map_err(|error| error.to_string())?;
+        let values = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|error| error.to_string())?;
+        for (yymm, used) in values {
+            let stored: Option<i64> = connection.query_row(
+                "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = ?1 AND issuanceYymm = ?2",
+                params![section, yymm], |row| row.get(0),
+            ).optional().map_err(|error| error.to_string())?;
+            if stored.is_none_or(|high_water| high_water < used) {
+                return Err(format!(
+                    "Sakurava Ref counter history is incomplete for {section}{yymm}."
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn create_sakurava_ref_support_schema(connection: &Connection) -> rusqlite::Result<()> {
+    create_sakurava_ref_ledger_tables(connection)?;
+    connection.execute_batch(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_videos_sakurava_ref ON videos(sakuravaRef) WHERE sakuravaRef <> '';
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_images_sakurava_ref ON images(sakuravaRef) WHERE sakuravaRef <> '';
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_performers_sakurava_ref ON performers(sakuravaRef) WHERE sakuravaRef <> '';
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_sakurava_ref ON managedCategories(sakuravaRef) WHERE sakuravaRef <> '';
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_glossary_sakurava_ref ON glossary_entries(sakuravaRef) WHERE sakuravaRef <> '';",
+    )
+}
+
+fn create_sakurava_ref_ledger_tables(connection: &Connection) -> rusqlite::Result<()> {
+    connection.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schemaMigrations (
+           migrationId TEXT PRIMARY KEY NOT NULL,
+           appliedAt TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS sakuravaRefCounters (
+           sectionCode TEXT NOT NULL,
+           issuanceYymm TEXT NOT NULL,
+           lastSequence INTEGER NOT NULL CHECK(lastSequence BETWEEN 0 AND 9999),
+           PRIMARY KEY(sectionCode, issuanceYymm)
+         );
+         CREATE TABLE IF NOT EXISTS sakuravaRefAliases (
+           sectionCode TEXT NOT NULL,
+           alias TEXT NOT NULL COLLATE NOCASE,
+           sakuravaRef TEXT NOT NULL,
+           aliasKind TEXT NOT NULL,
+           PRIMARY KEY(sectionCode, alias, aliasKind)
+         );",
+    )
 }
 
 fn backfill_legacy_credits(connection: &Connection) -> rusqlite::Result<()> {
@@ -1677,6 +1945,782 @@ fn table_has_column(
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
     Ok(columns.iter().any(|column| column == column_name))
+}
+
+fn sakurava_ref_counts(connection: &Connection) -> rusqlite::Result<SakuravaRefSectionCounts> {
+    Ok(SakuravaRefSectionCounts {
+        videos: connection.query_row("SELECT COUNT(*) FROM videos", [], |row| row.get(0))?,
+        images: connection.query_row("SELECT COUNT(*) FROM images", [], |row| row.get(0))?,
+        performers: connection
+            .query_row("SELECT COUNT(*) FROM performers", [], |row| row.get(0))?,
+        categories: connection.query_row("SELECT COUNT(*) FROM managedCategories", [], |row| {
+            row.get(0)
+        })?,
+        glossary: connection.query_row("SELECT COUNT(*) FROM glossary_entries", [], |row| {
+            row.get(0)
+        })?,
+    })
+}
+
+fn validate_migration_yymm(value: &str) -> Result<String, String> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 4 || !bytes.iter().all(u8::is_ascii_digit) {
+        return Err("Migration month must use YYMM.".to_string());
+    }
+    let month = value[2..4]
+        .parse::<u8>()
+        .map_err(|_| "Migration month must use YYMM.".to_string())?;
+    if !(1..=12).contains(&month) {
+        return Err("Migration month contains an invalid month.".to_string());
+    }
+    Ok(value.to_string())
+}
+
+fn legacy_ref_token(value: &str) -> String {
+    let mut hash: u32 = 0x811c9dc5;
+    for unit in value.encode_utf16() {
+        hash ^= u32::from(unit);
+        hash = hash.wrapping_mul(0x01000193);
+    }
+    let mut value = hash;
+    let mut digits = Vec::new();
+    const ALPHABET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    loop {
+        digits.push(ALPHABET[(value % 36) as usize] as char);
+        value /= 36;
+        if value == 0 {
+            break;
+        }
+    }
+    let token = digits.into_iter().rev().collect::<String>();
+    format!("{token:0>7}")
+        .chars()
+        .rev()
+        .take(7)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect()
+}
+
+fn legacy_derived_ref(prefix: &str, technical_id: &str) -> String {
+    format!("{prefix}-{}", legacy_ref_token(technical_id))
+}
+
+fn collect_text_column(connection: &Connection, sql: &str) -> Result<Vec<String>, String> {
+    let mut statement = connection.prepare(sql).map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    Ok(rows)
+}
+
+fn hierarchy_has_cycle(connection: &Connection, sql: &str) -> Result<bool, String> {
+    use std::collections::HashMap;
+    let mut statement = connection.prepare(sql).map_err(|error| error.to_string())?;
+    let parents = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<HashMap<_, _>>>()
+        .map_err(|error| error.to_string())?;
+    for start in parents.keys() {
+        let mut seen = std::collections::HashSet::new();
+        let mut current = Some(start.as_str());
+        while let Some(id) = current {
+            if !seen.insert(id.to_string()) {
+                return Ok(true);
+            }
+            current = parents
+                .get(id)
+                .and_then(|parent| parent.as_deref())
+                .filter(|parent| !parent.is_empty());
+        }
+    }
+    Ok(false)
+}
+
+fn json_relations_are_valid(
+    connection: &Connection,
+    table: &str,
+    column: &str,
+    id_field: &str,
+    targets: &std::collections::HashSet<String>,
+) -> Result<bool, String> {
+    let mut statement = connection
+        .prepare(&format!("SELECT {column} FROM {table}"))
+        .map_err(|error| error.to_string())?;
+    let values = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    for text in values {
+        let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&text) else {
+            return Ok(false);
+        };
+        for item in items {
+            let Some(id) = item.get(id_field).and_then(Value::as_str) else {
+                continue;
+            };
+            if !id.trim().is_empty() && !targets.contains(id) {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
+}
+
+fn validate_identity_preconditions(connection: &Connection) -> Result<Vec<String>, String> {
+    use std::collections::{HashMap, HashSet};
+
+    let counts = sakurava_ref_counts(connection).map_err(|error| error.to_string())?;
+    let mut issues = Vec::new();
+    for (label, count) in [
+        ("Videos", counts.videos),
+        ("Images", counts.images),
+        ("Performers", counts.performers),
+        ("Managed Categories", counts.categories),
+        ("Glossary", counts.glossary),
+    ] {
+        if count > SAKURAVA_REF_CAPACITY {
+            issues.push(format!(
+                "{label} contains {count} records; the migration-month capacity is 9,999."
+            ));
+        }
+    }
+
+    let mut ids_by_table: HashMap<&str, HashSet<String>> = HashMap::new();
+    for (_, table, key, legacy_prefix) in SAKURAVA_REF_SECTIONS {
+        let ids = collect_text_column(connection, &format!("SELECT {key} FROM {table}"))?;
+        if ids.iter().any(|id| id.trim().is_empty()) {
+            issues.push(format!(
+                "{table} contains a record without a technical identity."
+            ));
+        }
+        let unique = ids.iter().cloned().collect::<HashSet<_>>();
+        if unique.len() != ids.len() {
+            issues.push(format!("{table} contains duplicate technical identities."));
+        }
+        let mut derived = HashSet::new();
+        for id in &ids {
+            if !derived.insert(legacy_derived_ref(legacy_prefix, id)) {
+                issues.push(format!(
+                    "{table} contains a collision in its released legacy Sakurava Ref mapping."
+                ));
+                break;
+            }
+        }
+        ids_by_table.insert(table, unique);
+    }
+
+    let categories = ids_by_table
+        .get("managedCategories")
+        .cloned()
+        .unwrap_or_default();
+    let performers = ids_by_table.get("performers").cloned().unwrap_or_default();
+    let videos = ids_by_table.get("videos").cloned().unwrap_or_default();
+    let images = ids_by_table.get("images").cloned().unwrap_or_default();
+
+    let missing_category_parent: i64 = connection.query_row(
+        "SELECT COUNT(*) FROM managedCategories child LEFT JOIN managedCategories parent ON parent.key = child.parentKey WHERE child.parentKey IS NOT NULL AND trim(child.parentKey) <> '' AND parent.key IS NULL",
+        [], |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+    let missing_glossary_parent: i64 = connection.query_row(
+        "SELECT COUNT(*) FROM glossary_entries child LEFT JOIN glossary_entries parent ON parent.id = child.parent_id WHERE trim(child.parent_id) <> '' AND parent.id IS NULL",
+        [], |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+    if missing_category_parent > 0 {
+        issues.push("Managed Categories contain broken parent references.".to_string());
+    }
+    if missing_glossary_parent > 0 {
+        issues.push("Glossary contains broken parent references.".to_string());
+    }
+    if hierarchy_has_cycle(connection, "SELECT key, parentKey FROM managedCategories")? {
+        issues.push("Managed Categories contain a circular hierarchy.".to_string());
+    }
+    if hierarchy_has_cycle(
+        connection,
+        "SELECT id, NULLIF(parent_id, '') FROM glossary_entries",
+    )? {
+        issues.push("Glossary contains a circular hierarchy.".to_string());
+    }
+
+    for (table, column, id_field, targets, label) in [
+        (
+            "videos",
+            "relatedPerformersJson",
+            "performerId",
+            &performers,
+            "Video Performer",
+        ),
+        (
+            "videos",
+            "relatedImagesJson",
+            "recordId",
+            &images,
+            "Video Image",
+        ),
+        (
+            "images",
+            "relatedPerformersJson",
+            "performerId",
+            &performers,
+            "Image Performer",
+        ),
+        (
+            "images",
+            "relatedVideosJson",
+            "recordId",
+            &videos,
+            "Image Video",
+        ),
+        (
+            "performers",
+            "relatedVideosJson",
+            "recordId",
+            &videos,
+            "Performer Video",
+        ),
+        (
+            "performers",
+            "relatedImagesJson",
+            "recordId",
+            &images,
+            "Performer Image",
+        ),
+    ] {
+        if !json_relations_are_valid(connection, table, column, id_field, targets)? {
+            issues.push(format!(
+                "{label} relationships contain malformed or broken references."
+            ));
+        }
+    }
+
+    let mut credit_statement = connection.prepare(
+        "SELECT workType, workId, performerId, creditTypeCategoryId, roleImportanceCategoryId FROM credits"
+    ).map_err(|error| error.to_string())?;
+    let credits = credit_statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<String>>(4)?,
+            ))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    for (work_type, work_id, performer_id, credit_type, role_type) in credits {
+        let work_exists = match work_type.as_str() {
+            "video" => videos.contains(&work_id),
+            "image" => images.contains(&work_id),
+            _ => false,
+        };
+        if !work_exists
+            || !performers.contains(&performer_id)
+            || credit_type
+                .as_ref()
+                .is_some_and(|id| !categories.contains(id))
+            || role_type
+                .as_ref()
+                .is_some_and(|id| !categories.contains(id))
+        {
+            issues.push("Credits contain a broken catalog reference.".to_string());
+            break;
+        }
+    }
+    Ok(issues)
+}
+
+pub fn sakurava_ref_migration_status(
+    database: &RuntimeDatabase,
+) -> Result<SakuravaRefMigrationStatus, String> {
+    let connection = database.connection();
+    let connection = connection
+        .lock()
+        .map_err(|_| "Database connection is unavailable".to_string())?;
+    sakurava_ref_migration_status_for_connection(&connection)
+}
+
+fn sakurava_ref_migration_status_for_connection(
+    connection: &Connection,
+) -> Result<SakuravaRefMigrationStatus, String> {
+    let counts = sakurava_ref_counts(connection).map_err(|error| error.to_string())?;
+    let state = classify_sakurava_ref_migration_state(connection)?;
+    let issues = match state {
+        SakuravaRefMigrationState::Legacy => validate_identity_preconditions(connection)?,
+        SakuravaRefMigrationState::Migrated => Vec::new(),
+        SakuravaRefMigrationState::Invalid => {
+            vec!["Catalog reference infrastructure could not be verified.".to_string()]
+        }
+    };
+    Ok(SakuravaRefMigrationStatus {
+        state,
+        required: state == SakuravaRefMigrationState::Legacy,
+        migration_id: SAKURAVA_REF_MIGRATION_ID.to_string(),
+        counts,
+        capacity_per_section_month: SAKURAVA_REF_CAPACITY,
+        preconditions_valid: state != SakuravaRefMigrationState::Invalid && issues.is_empty(),
+        issues,
+    })
+}
+
+fn classify_sakurava_ref_migration_state(
+    connection: &Connection,
+) -> Result<SakuravaRefMigrationState, String> {
+    let ref_columns = SAKURAVA_REF_SECTIONS
+        .iter()
+        .map(|(_, table, _, _)| {
+            table_has_column(connection, table, "sakuravaRef").map_err(|error| error.to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let alias_table = sqlite_object_exists(connection, "table", "sakuravaRefAliases")?;
+    let counter_table = sqlite_object_exists(connection, "table", "sakuravaRefCounters")?;
+    let ledger_entry = if sqlite_object_exists(connection, "table", "schemaMigrations")? {
+        connection
+            .query_row(
+                "SELECT COUNT(*) FROM schemaMigrations WHERE migrationId = ?1",
+                [SAKURAVA_REF_MIGRATION_ID],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(|error| error.to_string())?
+            == 1
+    } else {
+        false
+    };
+    let index_names = [
+        "idx_videos_sakurava_ref",
+        "idx_images_sakurava_ref",
+        "idx_performers_sakurava_ref",
+        "idx_categories_sakurava_ref",
+        "idx_glossary_sakurava_ref",
+    ];
+    let any_index = index_names
+        .iter()
+        .map(|name| sqlite_object_exists(connection, "index", name))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .any(|exists| exists);
+    let has_any_identity_infrastructure = ref_columns.iter().any(|present| *present)
+        || alias_table
+        || counter_table
+        || ledger_entry
+        || any_index;
+    if !has_any_identity_infrastructure {
+        return Ok(SakuravaRefMigrationState::Legacy);
+    }
+
+    if !ref_columns.iter().all(|present| *present)
+        || !alias_table
+        || !counter_table
+        || !ledger_entry
+        || !sakurava_ref_indexes_valid(connection)?
+    {
+        return Ok(SakuravaRefMigrationState::Invalid);
+    }
+
+    if validate_sakurava_ref_schema(connection).is_err()
+        || validate_sakurava_ref_counters(connection).is_err()
+        || validate_sakurava_ref_aliases_complete(connection).is_err()
+        || !validate_identity_preconditions(connection)?.is_empty()
+    {
+        return Ok(SakuravaRefMigrationState::Invalid);
+    }
+
+    Ok(SakuravaRefMigrationState::Migrated)
+}
+
+fn sqlite_object_exists(
+    connection: &Connection,
+    object_type: &str,
+    name: &str,
+) -> Result<bool, String> {
+    connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = ?1 AND name = ?2",
+            params![object_type, name],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|count| count == 1)
+        .map_err(|error| error.to_string())
+}
+
+fn sakurava_ref_indexes_valid(connection: &Connection) -> Result<bool, String> {
+    for (name, table) in [
+        ("idx_videos_sakurava_ref", "videos"),
+        ("idx_images_sakurava_ref", "images"),
+        ("idx_performers_sakurava_ref", "performers"),
+        ("idx_categories_sakurava_ref", "managedCategories"),
+        ("idx_glossary_sakurava_ref", "glossary_entries"),
+    ] {
+        let sql: Option<String> = connection
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?1 AND tbl_name = ?2",
+                params![name, table],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let Some(sql) = sql else { return Ok(false) };
+        let normalized = sql.to_ascii_uppercase();
+        if !normalized.contains("CREATE UNIQUE INDEX") || !normalized.contains("SAKURAVAREF") {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn validate_sakurava_ref_aliases_complete(connection: &Connection) -> Result<(), String> {
+    for (section, table, key, legacy_prefix) in SAKURAVA_REF_SECTIONS {
+        let mut statement = connection
+            .prepare(&format!("SELECT {key}, sakuravaRef FROM {table}"))
+            .map_err(|error| error.to_string())?;
+        let records = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|error| error.to_string())?;
+        for (technical_id, reference) in records {
+            let current_aliases: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND alias = ?2 COLLATE NOCASE AND aliasKind = 'currentCanonicalRef' AND sakuravaRef = ?2",
+                    params![section, reference],
+                    |row| row.get(0),
+                )
+                .map_err(|error| error.to_string())?;
+            if current_aliases != 1 {
+                return Err("Catalog reference aliases are incomplete.".to_string());
+            }
+            let legacy_aliases: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND sakuravaRef = ?2 AND aliasKind = 'legacyTechnicalId'",
+                    params![section, reference],
+                    |row| row.get(0),
+                )
+                .map_err(|error| error.to_string())?;
+            // Records created after migration have no legacy identity history.
+            if legacy_aliases == 0 {
+                continue;
+            }
+            if legacy_aliases != 1 {
+                return Err("Catalog reference aliases are ambiguous.".to_string());
+            }
+            let legacy_ref = legacy_derived_ref(legacy_prefix, &technical_id);
+            for (alias, kind) in [
+                (technical_id.as_str(), "legacyTechnicalId"),
+                (legacy_ref.as_str(), "contractV1Ref"),
+                (legacy_ref.as_str(), "contractV2Ref"),
+                (reference.as_str(), "currentCanonicalRef"),
+            ] {
+                let matches: i64 = connection
+                    .query_row(
+                        "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND alias = ?2 COLLATE NOCASE AND aliasKind = ?3 AND sakuravaRef = ?4",
+                        params![section, alias, kind, reference],
+                        |row| row.get(0),
+                    )
+                    .map_err(|error| error.to_string())?;
+                if matches != 1 {
+                    return Err("Catalog reference aliases are incomplete.".to_string());
+                }
+            }
+        }
+        // Aliases are durable identity history. They may outlive a deleted
+        // record so an issued Ref remains reserved and never becomes
+        // ambiguous or reusable. Resolution still joins back to the live
+        // section table and therefore returns no record for historical aliases.
+    }
+    Ok(())
+}
+
+pub fn require_migrated_sakurava_refs(connection: &Connection) -> Result<(), String> {
+    match classify_sakurava_ref_migration_state(connection)? {
+        SakuravaRefMigrationState::Migrated => Ok(()),
+        SakuravaRefMigrationState::Legacy => {
+            Err("Catalog references must be upgraded before this action is available.".to_string())
+        }
+        SakuravaRefMigrationState::Invalid => {
+            Err("Catalog references need recovery before this action is available.".to_string())
+        }
+    }
+}
+
+pub fn migrate_sakurava_refs(
+    database: &RuntimeDatabase,
+    migration_yymm: &str,
+) -> Result<SakuravaRefMigrationResult, String> {
+    let migration_yymm = validate_migration_yymm(migration_yymm)?;
+    let _package_operation = database.lock_package_operation()?;
+    let connection = database.connection();
+    let mut connection = connection
+        .lock()
+        .map_err(|_| "Database connection is unavailable".to_string())?;
+    let counts = sakurava_ref_counts(&connection).map_err(|error| error.to_string())?;
+    match classify_sakurava_ref_migration_state(&connection)? {
+        SakuravaRefMigrationState::Migrated => {
+            return Ok(SakuravaRefMigrationResult {
+                migrated: false,
+                migration_id: SAKURAVA_REF_MIGRATION_ID.to_string(),
+                migration_yymm,
+                counts,
+                safety_package_name: String::new(),
+            });
+        }
+        SakuravaRefMigrationState::Invalid => {
+            return Err(
+                "Catalog references need recovery. No catalog changes were applied.".to_string(),
+            );
+        }
+        SakuravaRefMigrationState::Legacy => {}
+    }
+    let issues = validate_identity_preconditions(&connection)?;
+    if !counts.all_within_capacity() || !issues.is_empty() {
+        return Err(issues
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "Catalog identity migration preconditions failed.".to_string()));
+    }
+    let safety = create_safety_backup_package(
+        database,
+        &connection,
+        "catalog reference upgrade",
+        SystemTime::now(),
+    )?;
+    let safety_path = PathBuf::from(&safety.package_path);
+    preview_backup_package_directory(&safety.package_name, &safety_path).map_err(|error| {
+        format!(
+            "Unable to verify migration safety backup: {}",
+            error.message
+        )
+    })?;
+
+    migrate_sakurava_ref_connection(&mut connection, &migration_yymm)?;
+    Ok(SakuravaRefMigrationResult {
+        migrated: true,
+        migration_id: SAKURAVA_REF_MIGRATION_ID.to_string(),
+        migration_yymm,
+        counts,
+        safety_package_name: safety.package_name,
+    })
+}
+
+fn migrate_sakurava_ref_connection(
+    connection: &mut Connection,
+    migration_yymm: &str,
+) -> Result<(), String> {
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|error| format!("Unable to start catalog reference migration: {error}"))?;
+    let result = (|| -> Result<(), String> {
+        for table in [
+            "videos",
+            "images",
+            "performers",
+            "managedCategories",
+            "glossary_entries",
+        ] {
+            transaction
+                .execute_batch(&format!(
+                    "ALTER TABLE {table} ADD COLUMN sakuravaRef TEXT NOT NULL DEFAULT ''"
+                ))
+                .map_err(|error| format!("Unable to add catalog reference storage: {error}"))?;
+        }
+        create_sakurava_ref_ledger_tables(&transaction).map_err(|error| error.to_string())?;
+        for (section, table, key, legacy_prefix) in SAKURAVA_REF_SECTIONS {
+            let ids = collect_text_column(
+                &transaction,
+                &format!("SELECT {key} FROM {table} ORDER BY {key} COLLATE BINARY ASC"),
+            )?;
+            for (index, technical_id) in ids.iter().enumerate() {
+                let sequence = i64::try_from(index + 1)
+                    .map_err(|_| "Catalog reference sequence overflowed.".to_string())?;
+                let reference = format!("{section}{migration_yymm}{sequence:04}");
+                transaction
+                    .execute(
+                        &format!("UPDATE {table} SET sakuravaRef = ?1 WHERE {key} = ?2"),
+                        params![reference, technical_id],
+                    )
+                    .map_err(|error| format!("Unable to backfill catalog references: {error}"))?;
+                for (alias, kind) in [
+                    (technical_id.clone(), "legacyTechnicalId"),
+                    (
+                        legacy_derived_ref(legacy_prefix, technical_id),
+                        "contractV1Ref",
+                    ),
+                    (
+                        legacy_derived_ref(legacy_prefix, technical_id),
+                        "contractV2Ref",
+                    ),
+                    (reference.clone(), "currentCanonicalRef"),
+                ] {
+                    transaction.execute(
+                        "INSERT INTO sakuravaRefAliases (sectionCode, alias, sakuravaRef, aliasKind) VALUES (?1, ?2, ?3, ?4)",
+                        params![section, alias, reference, kind],
+                    ).map_err(|error| format!("Legacy catalog identity aliases are ambiguous: {error}"))?;
+                }
+            }
+            transaction.execute(
+                "INSERT INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES (?1, ?2, ?3)",
+                params![section, migration_yymm, ids.len() as i64],
+            ).map_err(|error| error.to_string())?;
+        }
+        create_sakurava_ref_support_schema(&transaction).map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "INSERT INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
+                params![
+                    SAKURAVA_REF_MIGRATION_ID,
+                    backup_created_at(SystemTime::now())?
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+        validate_sakurava_ref_schema(&transaction)?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let _ = transaction.rollback();
+        return Err(format!(
+            "Catalog reference upgrade was cancelled. No catalog changes were applied. {error}"
+        ));
+    }
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit catalog reference upgrade: {error}"))?;
+    Ok(())
+}
+
+pub fn validate_sakurava_ref_schema(connection: &Connection) -> Result<(), String> {
+    for (section, table, _, _) in SAKURAVA_REF_SECTIONS {
+        if !table_has_column(connection, table, "sakuravaRef").map_err(|error| error.to_string())? {
+            return Err(format!("{table} is missing Sakurava Ref storage."));
+        }
+        let invalid: i64 = connection.query_row(
+            &format!("SELECT COUNT(*) FROM {table} WHERE length(sakuravaRef) <> 9 OR substr(sakuravaRef, 1, 1) <> ?1 OR sakuravaRef GLOB '*[^A-Z0-9]*'"),
+            [section], |row| row.get(0),
+        ).map_err(|error| error.to_string())?;
+        if invalid > 0 {
+            return Err(format!("{table} contains invalid Sakurava Refs."));
+        }
+        let duplicate: i64 = connection.query_row(
+            &format!("SELECT COUNT(*) FROM (SELECT sakuravaRef FROM {table} GROUP BY sakuravaRef HAVING COUNT(*) > 1)"),
+            [], |row| row.get(0),
+        ).map_err(|error| error.to_string())?;
+        if duplicate > 0 {
+            return Err(format!("{table} contains duplicate Sakurava Refs."));
+        }
+    }
+    let ambiguous_aliases: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM (
+           SELECT sectionCode, alias FROM sakuravaRefAliases
+           GROUP BY sectionCode, alias HAVING COUNT(DISTINCT sakuravaRef) > 1
+         )",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    if ambiguous_aliases > 0 {
+        return Err("Legacy aliases contain an ambiguous Sakurava Ref mapping.".to_string());
+    }
+    Ok(())
+}
+
+pub fn allocate_sakurava_ref(
+    connection: &Connection,
+    section_code: &str,
+    issuance_yymm: &str,
+) -> Result<String, String> {
+    let yymm = validate_migration_yymm(issuance_yymm)?;
+    if !matches!(section_code, "V" | "I" | "P" | "C" | "G") {
+        return Err("Unsupported Sakurava Ref section.".to_string());
+    }
+    create_sakurava_ref_ledger_tables(connection).map_err(|error| error.to_string())?;
+    connection.execute(
+        "INSERT OR IGNORE INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES (?1, ?2, 0)",
+        params![section_code, yymm],
+    ).map_err(|error| format!("Unable to reserve a Sakurava Ref: {error}"))?;
+    let current: i64 = connection.query_row(
+        "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = ?1 AND issuanceYymm = ?2",
+        params![section_code, yymm], |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+    if current >= SAKURAVA_REF_CAPACITY {
+        return Err(format!(
+            "Sakurava Ref capacity for {section_code}{yymm} has been reached."
+        ));
+    }
+    let sequence = current + 1;
+    connection.execute(
+        "UPDATE sakuravaRefCounters SET lastSequence = ?3 WHERE sectionCode = ?1 AND issuanceYymm = ?2",
+        params![section_code, yymm, sequence],
+    ).map_err(|error| format!("Unable to reserve a Sakurava Ref: {error}"))?;
+    Ok(format!("{section_code}{yymm}{sequence:04}"))
+}
+
+pub fn register_current_sakurava_ref_alias(
+    connection: &Connection,
+    section_code: &str,
+    reference: &str,
+) -> Result<(), String> {
+    connection
+        .execute(
+            "INSERT INTO sakuravaRefAliases (sectionCode, alias, sakuravaRef, aliasKind) VALUES (?1, ?2, ?2, 'currentCanonicalRef')",
+            params![section_code, reference],
+        )
+        .map_err(|error| format!("Unable to register the Sakurava Ref: {error}"))?;
+    Ok(())
+}
+
+pub fn format_sakurava_ref(value: &str) -> Option<String> {
+    let canonical = value.trim().to_ascii_uppercase().replace('-', "");
+    if canonical.len() != 9
+        || !matches!(&canonical[0..1], "V" | "I" | "P" | "C" | "G" | "R")
+        || !canonical[1..].bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    Some(format!("{}-{}", &canonical[..5], &canonical[5..]))
+}
+
+pub fn resolve_sakurava_ref(
+    connection: &Connection,
+    section_code: &str,
+    identity: &str,
+) -> Result<Option<String>, String> {
+    let canonical_candidate = format_sakurava_ref(identity).map(|value| value.replace('-', ""));
+    let canonical = if let Some(candidate) = canonical_candidate {
+        Some(candidate)
+    } else if table_has_column(connection, "videos", "sakuravaRef")
+        .map_err(|error| error.to_string())?
+    {
+        connection.query_row(
+            "SELECT sakuravaRef FROM sakuravaRefAliases WHERE sectionCode = ?1 AND alias = ?2 COLLATE NOCASE LIMIT 1",
+            params![section_code, identity.trim()], |row| row.get(0),
+        ).optional().map_err(|error| error.to_string())?
+    } else {
+        None
+    };
+    let Some(reference) = canonical else {
+        return Ok(None);
+    };
+    let (_, table, key, _) = SAKURAVA_REF_SECTIONS
+        .iter()
+        .find(|(code, _, _, _)| *code == section_code)
+        .ok_or_else(|| "Unsupported Sakurava Ref section.".to_string())?;
+    connection
+        .query_row(
+            &format!("SELECT {key} FROM {table} WHERE sakuravaRef = ?1"),
+            [reference],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())
 }
 
 pub fn open_runtime_database(paths: RuntimeDatabasePaths) -> rusqlite::Result<RuntimeDatabase> {
@@ -1971,6 +3015,391 @@ mod tests {
         assert_eq!(DATABASE_FILE_NAME, "sakurava.sqlite");
     }
 
+    fn legacy_runtime_database(name: &str) -> (PathBuf, RuntimeDatabase) {
+        let app_data_dir = unique_test_dir(name).join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        fs::create_dir_all(&app_data_dir).expect("legacy app data");
+        let paths = runtime_database_paths(&app_data_dir);
+        let connection = Connection::open(&paths.database_file).expect("legacy database");
+        for statement in SCHEMA_SQL {
+            let legacy = statement
+                .lines()
+                .filter(|line| !line.contains("sakuravaRef"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            connection.execute_batch(&legacy).expect("legacy schema");
+        }
+        drop(connection);
+        let database = open_runtime_database(paths).expect("legacy runtime database");
+        (app_data_dir, database)
+    }
+
+    #[test]
+    fn migrates_legacy_records_after_verified_safety_backup() {
+        let (app_data_dir, database) = legacy_runtime_database("ref-migration");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            connection.execute(
+                "INSERT INTO videos (id, title, createdAt, updatedAt) VALUES ('video-b', 'B', '1', '1'), ('video-a', 'A', '1', '1')",
+                [],
+            ).expect("legacy videos");
+            connection.execute(
+                "INSERT INTO images (id, title, createdAt, updatedAt) VALUES ('image-a', 'A', '1', '1')",
+                [],
+            ).expect("legacy image");
+            connection.execute(
+                "INSERT INTO performers (id, name, createdAt, updatedAt) VALUES ('performer-a', 'A', '1', '1')",
+                [],
+            ).expect("legacy performer");
+            connection.execute(
+                "INSERT INTO managedCategories (key, name, createdAt, updatedAt) VALUES ('category-a', 'A', '1', '1')",
+                [],
+            ).expect("legacy category");
+            connection.execute(
+                "INSERT INTO glossary_entries (id, term, definition, created_at, updated_at) VALUES ('glossary-a', 'A', 'A', 1, 1)",
+                [],
+            ).expect("legacy glossary");
+        }
+
+        let status = sakurava_ref_migration_status(&database).expect("migration status");
+        assert_eq!(status.state, SakuravaRefMigrationState::Legacy);
+        assert!(status.required);
+        assert!(status.preconditions_valid);
+        assert_eq!(status.counts.videos, 2);
+
+        let result = migrate_sakurava_refs(&database, "2607").expect("reference migration");
+        assert!(result.migrated);
+        assert!(!result.safety_package_name.is_empty());
+        let preview = preview_backup_package(&database, &result.safety_package_name)
+            .expect("safety package remains readable");
+        assert_eq!(preview.database.counts.videos, 2);
+
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert_eq!(
+            collect_text_column(&connection, "SELECT sakuravaRef FROM videos ORDER BY id")
+                .expect("video refs"),
+            vec!["V26070001", "V26070002"]
+        );
+        for (table, expected) in [
+            ("images", "I26070001"),
+            ("performers", "P26070001"),
+            ("managedCategories", "C26070001"),
+            ("glossary_entries", "G26070001"),
+        ] {
+            let reference: String = connection
+                .query_row(&format!("SELECT sakuravaRef FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("section ref");
+            assert_eq!(reference, expected);
+        }
+        assert_eq!(
+            resolve_sakurava_ref(&connection, "V", "V2607-0001").expect("formatted resolver"),
+            Some("video-a".to_string())
+        );
+        assert_eq!(
+            resolve_sakurava_ref(&connection, "V", "V26070001").expect("canonical resolver"),
+            Some("video-a".to_string())
+        );
+        assert_eq!(
+            resolve_sakurava_ref(&connection, "V", "v2607-0001").expect("lowercase resolver"),
+            Some("video-a".to_string())
+        );
+        assert_eq!(
+            resolve_sakurava_ref(&connection, "V", "video-a").expect("legacy resolver"),
+            Some("video-a".to_string())
+        );
+        let released_ref = legacy_derived_ref("VID", "video-a");
+        assert_eq!(
+            resolve_sakurava_ref(&connection, "V", &released_ref).expect("v1/v2 resolver"),
+            Some("video-a".to_string())
+        );
+        let released_alias_kinds: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'V' AND alias = ?1 AND aliasKind IN ('contractV1Ref', 'contractV2Ref')",
+            [released_ref], |row| row.get(0),
+        ).expect("released alias kinds");
+        assert_eq!(released_alias_kinds, 2);
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn migration_status_is_read_only_and_classifies_complete_and_partial_states() {
+        let (legacy_dir, legacy) = legacy_runtime_database("ref-state-legacy");
+        let legacy_status = sakurava_ref_migration_status(&legacy).expect("legacy status");
+        assert_eq!(legacy_status.state, SakuravaRefMigrationState::Legacy);
+        {
+            let connection = legacy.connection();
+            let connection = connection.lock().expect("legacy lock");
+            assert!(!table_has_column(&connection, "videos", "sakuravaRef"));
+        }
+        assert!(list_backup_packages(&legacy)
+            .expect("legacy backups")
+            .is_empty());
+
+        {
+            let connection = legacy.connection();
+            let connection = connection.lock().expect("legacy lock");
+            connection
+                .execute_batch("ALTER TABLE videos ADD COLUMN sakuravaRef TEXT NOT NULL DEFAULT ''")
+                .expect("partial ref column");
+        }
+        assert_eq!(
+            sakurava_ref_migration_status(&legacy)
+                .expect("partial status")
+                .state,
+            SakuravaRefMigrationState::Invalid,
+        );
+        let partial_paths = legacy.paths.clone();
+        drop(legacy);
+        let reopened_partial =
+            open_runtime_database(partial_paths).expect("reopen partial database");
+        assert_eq!(
+            sakurava_ref_migration_status(&reopened_partial)
+                .expect("reopened partial status")
+                .state,
+            SakuravaRefMigrationState::Invalid,
+        );
+        {
+            let connection = reopened_partial.connection();
+            let connection = connection.lock().expect("partial lock");
+            assert!(
+                !sqlite_object_exists(&connection, "table", "sakuravaRefAliases")
+                    .expect("partial alias table status")
+            );
+        }
+
+        let complete_dir = unique_test_dir("ref-state-complete").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&complete_dir);
+        let complete = prepare_database(&complete_dir).expect("complete database");
+        assert_eq!(
+            sakurava_ref_migration_status(&complete)
+                .expect("complete status")
+                .state,
+            SakuravaRefMigrationState::Migrated,
+        );
+        let _ = fs::remove_dir_all(legacy_dir);
+        let _ = fs::remove_dir_all(complete_dir);
+    }
+
+    #[test]
+    fn migration_status_rejects_missing_ledger_counter_alias_and_unique_index() {
+        for (name, mutation) in [
+            (
+                "ledger",
+                "DELETE FROM schemaMigrations WHERE migrationId = '41.8.4A-sakurava-ref-v1'",
+            ),
+            ("counter", "DROP TABLE sakuravaRefCounters"),
+            ("alias", "DROP TABLE sakuravaRefAliases"),
+            ("index", "DROP INDEX idx_videos_sakurava_ref"),
+        ] {
+            let app_dir = unique_test_dir(&format!("ref-state-{name}")).join(APP_DATA_FOLDER_NAME);
+            let _ = fs::remove_dir_all(&app_dir);
+            let database = prepare_database(&app_dir).expect("database");
+            {
+                let connection = database.connection();
+                let connection = connection.lock().expect("database lock");
+                connection
+                    .execute_batch(mutation)
+                    .expect("partial mutation");
+            }
+            assert_eq!(
+                sakurava_ref_migration_status(&database)
+                    .expect("invalid status")
+                    .state,
+                SakuravaRefMigrationState::Invalid,
+                "{name} must be required",
+            );
+            let _ = fs::remove_dir_all(app_dir);
+        }
+    }
+
+    #[test]
+    fn migration_status_rejects_invalid_counter_and_malformed_ref() {
+        let counter_dir = unique_test_dir("ref-state-invalid-counter").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&counter_dir);
+        let counter_database = prepare_database(&counter_dir).expect("database");
+        {
+            let connection = counter_database.connection();
+            let connection = connection.lock().expect("database lock");
+            let reference = allocate_sakurava_ref(&connection, "V", "2607").expect("reference");
+            connection.execute(
+                "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('video-counter', ?1, 'Counter', '1', '1')",
+                [reference.as_str()],
+            ).expect("video fixture");
+            register_current_sakurava_ref_alias(&connection, "V", &reference)
+                .expect("current alias");
+            connection.execute(
+                "UPDATE sakuravaRefCounters SET lastSequence = 0 WHERE sectionCode = 'V' AND issuanceYymm = '2607'",
+                [],
+            ).expect("invalid counter fixture");
+        }
+        assert_eq!(
+            sakurava_ref_migration_status(&counter_database)
+                .expect("invalid counter status")
+                .state,
+            SakuravaRefMigrationState::Invalid,
+        );
+
+        let malformed_dir = unique_test_dir("ref-state-malformed-ref").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&malformed_dir);
+        let malformed_database = prepare_database(&malformed_dir).expect("database");
+        {
+            let connection = malformed_database.connection();
+            let connection = connection.lock().expect("database lock");
+            connection.execute(
+                "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('video-malformed', 'V26-INVALID', 'Malformed', '1', '1')",
+                [],
+            ).expect("malformed video fixture");
+            register_current_sakurava_ref_alias(&connection, "V", "V26-INVALID")
+                .expect("malformed current alias");
+        }
+        assert_eq!(
+            sakurava_ref_migration_status(&malformed_database)
+                .expect("malformed status")
+                .state,
+            SakuravaRefMigrationState::Invalid,
+        );
+
+        let _ = fs::remove_dir_all(counter_dir);
+        let _ = fs::remove_dir_all(malformed_dir);
+    }
+
+    #[test]
+    fn allocator_is_section_scoped_transactional_and_never_reuses_committed_refs() {
+        let connection = Connection::open_in_memory().expect("database");
+        initialize_schema(&connection).expect("schema");
+        let first = allocate_sakurava_ref(&connection, "V", "2607").expect("first video ref");
+        let second = allocate_sakurava_ref(&connection, "V", "2607").expect("second video ref");
+        let image = allocate_sakurava_ref(&connection, "I", "2607").expect("first image ref");
+        let next_month = allocate_sakurava_ref(&connection, "V", "2608").expect("next month ref");
+        assert_eq!(
+            (first.as_str(), second.as_str()),
+            ("V26070001", "V26070002")
+        );
+        assert_eq!(image, "I26070001");
+        assert_eq!(next_month, "V26080001");
+        let third = allocate_sakurava_ref(&connection, "V", "2607").expect("third video ref");
+        assert_eq!(third, "V26070003");
+
+        let mut connection = connection;
+        let transaction = connection.transaction().expect("transaction");
+        let rolled_back = allocate_sakurava_ref(&transaction, "G", "2607").expect("reserved ref");
+        assert_eq!(rolled_back, "G26070001");
+        transaction.rollback().expect("rollback");
+        assert_eq!(
+            allocate_sakurava_ref(&connection, "G", "2607")
+                .expect("reused uncommitted reservation"),
+            "G26070001"
+        );
+        connection.execute(
+            "INSERT INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES ('C', '2607', 9999)",
+            [],
+        ).expect("capacity fixture");
+        assert!(allocate_sakurava_ref(&connection, "C", "2607")
+            .expect_err("capacity reached")
+            .contains("capacity"));
+    }
+
+    #[test]
+    fn restoring_an_older_package_preserves_the_newer_ref_high_water() {
+        let app_data_dir = unique_test_dir("ref-restore-high-water").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let reference = allocate_sakurava_ref(&connection, "V", "2607").expect("first ref");
+            connection.execute(
+                "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('video-1', ?1, 'One', '1', '1')",
+                [reference],
+            ).expect("first video");
+        }
+        let older = create_backup_package(
+            &database,
+            BackupPackageType::Manual,
+            Some("Older identity package".to_string()),
+        )
+        .expect("older package");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            for sequence in 2..=5 {
+                let reference = allocate_sakurava_ref(&connection, "V", "2607").expect("next ref");
+                connection.execute(
+                    "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES (?1, ?2, 'Later', '1', '1')",
+                    params![format!("video-{sequence}"), reference],
+                ).expect("later video");
+            }
+        }
+
+        restore_backup_package_with_sakurava_refs(&database, &older.package_name, "2607")
+            .expect("restore older package");
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert_eq!(
+            allocate_sakurava_ref(&connection, "V", "2607").expect("post-restore ref"),
+            "V26070006"
+        );
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn runtime_connection_serializes_concurrent_ref_allocations() {
+        let app_data_dir = unique_test_dir("ref-concurrency").join(APP_DATA_FOLDER_NAME);
+        let _ = fs::remove_dir_all(&app_data_dir);
+        let database = prepare_database(&app_data_dir).expect("database");
+        let handles = (0..2)
+            .map(|index| {
+                let database = database.clone();
+                std::thread::spawn(move || {
+                    let connection = database.connection();
+                    let mut connection = connection.lock().expect("database lock");
+                    let transaction = connection.transaction().expect("transaction");
+                    let reference = allocate_sakurava_ref(&transaction, "P", "2607")
+                        .expect("concurrent ref");
+                    transaction.execute(
+                        "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt) VALUES (?1, ?2, 'Performer', '1', '1')",
+                        params![format!("performer-{index}"), reference],
+                    ).expect("performer insert");
+                    transaction.commit().expect("commit");
+                    reference
+                })
+            })
+            .collect::<Vec<_>>();
+        let mut references = handles
+            .into_iter()
+            .map(|handle| handle.join().expect("thread"))
+            .collect::<Vec<_>>();
+        references.sort();
+        assert_eq!(references, vec!["P26070001", "P26070002"]);
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn migration_capacity_failure_creates_no_backup_or_schema_change() {
+        let (app_data_dir, database) = legacy_runtime_database("ref-capacity");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            connection.execute_batch(
+                "CREATE TEMP TABLE sequence(value INTEGER PRIMARY KEY);
+                 WITH RECURSIVE n(value) AS (SELECT 1 UNION ALL SELECT value + 1 FROM n WHERE value < 10000)
+                 INSERT INTO sequence SELECT value FROM n;
+                 INSERT INTO videos (id, title, createdAt, updatedAt)
+                 SELECT printf('video-%05d', value), 'Video', '1', '1' FROM sequence;"
+            ).expect("capacity fixture");
+        }
+        let error = migrate_sakurava_refs(&database, "2607").expect_err("capacity blocks");
+        assert!(error.contains("9,999"));
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert!(!table_has_column(&connection, "videos", "sakuravaRef"));
+        assert!(!default_backup_folder(&database).exists());
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
     #[test]
     fn computes_database_file_inside_app_data_dir() {
         let app_data_dir = PathBuf::from("C:/Users/Example/AppData/Roaming/app.sakurava.desktop");
@@ -2026,6 +3455,9 @@ mod tests {
                 "images",
                 "managedCategories",
                 "performers",
+                "sakuravaRefAliases",
+                "sakuravaRefCounters",
+                "schemaMigrations",
                 "videos"
             ]
         );
@@ -2889,33 +4321,41 @@ mod tests {
         {
             let connection = database.connection();
             let connection = connection.lock().expect("database lock");
+            let image_ref =
+                allocate_sakurava_ref(&connection, "I", "0001").expect("preview image ref");
             connection
                 .execute(
-                    "INSERT INTO images (id, title, createdAt, updatedAt)
-                     VALUES ('preview_image', 'Preview Image', '1', '1')",
-                    [],
+                    "INSERT INTO images (id, sakuravaRef, title, createdAt, updatedAt)
+                     VALUES ('preview_image', ?1, 'Preview Image', '1', '1')",
+                    [image_ref],
                 )
                 .expect("insert image");
+            let performer_ref =
+                allocate_sakurava_ref(&connection, "P", "0001").expect("preview performer ref");
             connection
                 .execute(
-                    "INSERT INTO performers (id, name, createdAt, updatedAt)
-                     VALUES ('preview_performer', 'Preview Performer', '1', '1')",
-                    [],
+                    "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt)
+                     VALUES ('preview_performer', ?1, 'Preview Performer', '1', '1')",
+                    [performer_ref],
                 )
                 .expect("insert performer");
+            let category_ref =
+                allocate_sakurava_ref(&connection, "C", "0001").expect("preview category ref");
             connection
                 .execute(
-                    "INSERT INTO managedCategories (key, name, createdAt, updatedAt)
-                     VALUES ('preview_category', 'Preview Category', '1', '1')",
-                    [],
+                    "INSERT INTO managedCategories (key, sakuravaRef, name, createdAt, updatedAt)
+                     VALUES ('preview_category', ?1, 'Preview Category', '1', '1')",
+                    [category_ref],
                 )
                 .expect("insert category");
+            let glossary_ref =
+                allocate_sakurava_ref(&connection, "G", "0001").expect("preview glossary ref");
             connection
                 .execute(
                     "INSERT INTO glossary_entries
-                     (id, term, definition, created_at, updated_at)
-                     VALUES ('preview_glossary', 'Preview Term', 'Definition', 1, 1)",
-                    [],
+                     (id, sakuravaRef, term, definition, created_at, updated_at)
+                     VALUES ('preview_glossary', ?1, 'Preview Term', 'Definition', 1, 1)",
+                    [glossary_ref],
                 )
                 .expect("insert glossary");
             connection
@@ -3977,16 +5417,17 @@ mod tests {
     fn insert_video_title(database: &RuntimeDatabase, id: &str, title: &str) {
         let connection = database.connection();
         let connection = connection.lock().expect("database lock");
+        let sakurava_ref = allocate_sakurava_ref(&connection, "V", "0001").expect("test video ref");
         connection
             .execute(
                 "INSERT INTO videos (
-                    id, title, originalTitle, code, censorship, availability, releaseDate,
+                    id, sakuravaRef, title, originalTitle, code, censorship, availability, releaseDate,
                     durationMinutes, publisherLabel, coverPath, mediaPath, categoriesJson,
                     ratingJson, notes, favorite, createdAt, updatedAt
                 ) VALUES (
-                    ?1, ?2, '', '', '', '', '', NULL, '', '', '', '[]', '{}', '', 0, '1', '1'
+                    ?1, ?2, ?3, '', '', '', '', '', NULL, '', '', '', '[]', '{}', '', 0, '1', '1'
                 )",
-                [id, title],
+                params![id, sakurava_ref, title],
             )
             .expect("insert video");
     }

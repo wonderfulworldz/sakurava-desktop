@@ -1,5 +1,6 @@
 import type { NewVideo, Video, VideoPatch } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
+import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
 
 export { isTauriRuntimeAvailable as isVideoRuntimeAvailable };
 
@@ -12,7 +13,7 @@ export function getVideo(id: string) {
 }
 
 export function createVideo(input: NewVideo) {
-  return invokeTauriCommand<Video>("video_create", { input });
+  return invokeTauriCommand<Video>("video_create", { input: { ...input, issuanceYymm: currentSakuravaRefYymm() } });
 }
 
 export function updateVideo(id: string, patch: VideoPatch) {

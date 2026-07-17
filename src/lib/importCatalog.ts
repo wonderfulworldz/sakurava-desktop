@@ -451,8 +451,8 @@ function validateGlossaryDependencies(
   }
 
   const parents = new Map((context.glossary ?? []).map((entry) => [
-    sakuravaRef("GLO", entry.id),
-    entry.parentId ? sakuravaRef("GLO", entry.parentId) : "",
+    sakuravaRef("GLO", entry.sakuravaRef ?? entry.id),
+    entry.parentId ? sakuravaRef("GLO", context.glossary?.find((candidate) => candidate.id === entry.parentId)?.sakuravaRef ?? entry.parentId) : "",
   ]));
   for (const row of rows) {
     const ref = (row.values["Sakurava Ref"] ?? "").trim();

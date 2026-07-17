@@ -1,10 +1,10 @@
 import type { ExportCsvEntity } from "./exportCsv";
 
 export const SAKURAVA_APPLICATION_ID = "app.sakurava.desktop";
-export const SAKURAVA_IMPORT_CONTRACT_VERSION = 2;
-export const SAKURAVA_EXPORT_FORMAT_VERSION = 2;
-export const SAKURAVA_SUPPORTED_IMPORT_CONTRACT_VERSIONS = [1, 2] as const;
-export const SAKURAVA_SUPPORTED_EXPORT_FORMAT_VERSIONS = [1, 2] as const;
+export const SAKURAVA_IMPORT_CONTRACT_VERSION = 3;
+export const SAKURAVA_EXPORT_FORMAT_VERSION = 3;
+export const SAKURAVA_SUPPORTED_IMPORT_CONTRACT_VERSIONS = [1, 2, 3] as const;
+export const SAKURAVA_SUPPORTED_EXPORT_FORMAT_VERSIONS = [1, 2, 3] as const;
 export const SAKURAVA_METADATA_SHEET = "__SakuravaMetadata";
 export const SAKURAVA_CLEAR_VALUE = "[[SAKURAVA:CLEAR:v1]]";
 

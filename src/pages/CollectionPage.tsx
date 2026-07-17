@@ -24,6 +24,7 @@ import {
 } from "../lib/catalogPagination";
 import type { ManagedCategory } from "../backend/types";
 import type { CollectionConfig, CollectionItem } from "../lib/collectionData";
+import { formatSakuravaRef } from "../lib/sakuravaRef";
 import { useLanguage, useTranslation } from "../lib/LanguageContext";
 import {
   clearSessionFilterState,
@@ -2008,7 +2009,7 @@ function CollectionTableRow({
   onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const detailPath = `/${config.kind}/${item.key}`;
+  const detailPath = `/${config.kind}/${item.sakuravaRef ? formatSakuravaRef(item.sakuravaRef) : item.key}`;
 
   const openDetail = () => navigate(detailPath);
 
@@ -2045,7 +2046,7 @@ type CollectionCardProps = {
 };
 
 function FullCard({ config, item, onFavoriteToggle }: CollectionCardProps) {
-  const linkTo = `/${config.kind}/${item.key}`;
+  const linkTo = `/${config.kind}/${item.sakuravaRef ? formatSakuravaRef(item.sakuravaRef) : item.key}`;
   const handleFavorite = onFavoriteToggle ? () => onFavoriteToggle(item.key, item.favorite) : undefined;
 
   if (item.kind === "performers") {
@@ -2552,6 +2553,9 @@ function getSearchText(item: CollectionItem) {
     return normalizeSearchText(
       [
         item.name,
+        item.sakuravaRef,
+        item.sakuravaRef ? formatSakuravaRef(item.sakuravaRef) : "",
+        ...(item.identityAliases ?? []),
         item.originalName,
         item.aliases,
         item.status,
@@ -2565,6 +2569,9 @@ function getSearchText(item: CollectionItem) {
   }
 
   const fields = [
+    item.sakuravaRef,
+    item.sakuravaRef ? formatSakuravaRef(item.sakuravaRef) : "",
+    ...(item.identityAliases ?? []),
     item.title,
     item.originalTitle,
     item.availability,

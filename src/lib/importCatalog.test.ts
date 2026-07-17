@@ -162,6 +162,29 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.summary.blocked).toBe(true);
   });
 
+  it.each([1, 2] as const)("keeps contract v%s as an explicitly versioned compatibility input", async (version) => {
+    const built = await buildXlsxWorkbook({
+      selections: [{ dataType: "videos", records: [] }],
+      locale: "en-US",
+      generatedAt: new Date("2026-07-15T01:02:03Z"),
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    const metadataSheet = workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!;
+    const metadata = JSON.parse(String(metadataSheet.getCell("A1").value));
+    metadata.contractVersion = version;
+    metadata.exportFormatVersion = version;
+    metadataSheet.getCell("A1").value = JSON.stringify(metadata);
+    workbook.description = `sakurava-bulk-edit-v${version}; dataTypes=videos`;
+
+    const preview = await buildXlsxCatalogPreview(
+      new Uint8Array(await workbook.xlsx.writeBuffer()), context(), "en-US",
+    );
+    expect(preview.headerErrors).toEqual([]);
+    expect(preview.summary.blocked).toBe(false);
+  });
+
   it("reports missing, exposed, and data-sheet metadata collisions deterministically", async () => {
     const built = await buildXlsxWorkbook({
       selections: [{ dataType: "videos", records: [] }],

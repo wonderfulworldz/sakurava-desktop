@@ -41,6 +41,8 @@ import { formConfigs } from "./formData";
 import { createRatingSummary, getDetailRatingDimensions } from "./ratingSummary";
 import { formatFileSize, formatOptionalText } from "./mediaTechInfo";
 import { buildCreditDetailItems } from "./creditDisplay";
+import { formatSakuravaRef } from "./sakuravaRef";
+import { sakuravaRef as legacySakuravaRef } from "./exportCsv";
 
 type FormValues = Record<string, string | boolean>;
 
@@ -65,8 +67,8 @@ export function buildImageDetailConfig(
   const galleryImagePaths = parseGalleryImagePathArray(image.galleryImagePathsJson);
   return {
     ...baseConfig,
-    recordId: image.id,
-    editTo: `/images/${image.id}/edit`,
+    recordId: image.sakuravaRef ?? image.id,
+    editTo: `/images/${image.sakuravaRef ?? image.id}/edit`,
     coverPath: image.coverPath,
     displayTitle: image.title,
     originalTitle: image.originalTitle,
@@ -82,6 +84,7 @@ export function buildImageDetailConfig(
       { label: "Cover status", path: image.coverPath },
     ],
     systemInfo: [
+      { label: "Sakurava Ref", value: formatSakuravaRef(image.sakuravaRef ?? "") },
       { label: "Created in Sakurava", value: formatSystemTimestamp(image.createdAt) },
       { label: "Last edited", value: formatSystemTimestamp(image.updatedAt) },
       { label: "Gallery status", value: formatSavedListStatus(galleryImagePaths) },
@@ -116,7 +119,7 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
   const values = imageToFormValues(image);
   return {
     ...formConfigs.images,
-    editCancelTo: `/images/${image.id}`,
+    editCancelTo: `/images/${image.sakuravaRef ?? image.id}`,
     initialValues: {
       ...formConfigs.images.initialValues,
       [mode]: values,
@@ -208,7 +211,9 @@ function toImageCollectionItem(image: Image): ImageCollectionItem {
 
   return {
     kind: "images",
-    key: image.id,
+    key: image.sakuravaRef ?? image.id,
+    sakuravaRef: image.sakuravaRef,
+    identityAliases: [image.id, legacySakuravaRef("IMG", image.id)],
     title: image.title,
     originalTitle: image.originalTitle,
     coverPath: image.coverPath,

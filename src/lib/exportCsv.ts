@@ -14,6 +14,13 @@ import type {
   Performer,
   Video,
 } from "../backend/types";
+import {
+  canonicalSakuravaRef,
+  formatSakuravaRef,
+  legacySakuravaRef,
+  recordMatchesSakuravaIdentity,
+  sectionCodeForLegacyPrefix,
+} from "./sakuravaRef";
 
 export type ExportCsvEntity =
   | "videos"
@@ -341,12 +348,17 @@ export function buildCategoriesCsv(
   const categoryNameByKey = new Map(
     categories.map((category) => [category.key, category.name]),
   );
+  const categoryRefByKey = new Map(
+    categories.map((category) => [category.key, category.sakuravaRef ?? category.key]),
+  );
   const rows = categories.map((category) => ({
     ...category,
     parentCategoryName: category.parentKey
       ? (categoryNameByKey.get(category.parentKey) ?? "")
       : "",
-    parentCategoryRef: category.parentKey ? sakuravaRef("CAT", category.parentKey) : "",
+    parentCategoryRef: category.parentKey
+      ? sakuravaRef("CAT", categoryRefByKey.get(category.parentKey) ?? category.parentKey)
+      : "",
   }));
 
   return buildCsv(categoryCsvSchema, rows, options);
@@ -356,7 +368,12 @@ export function buildGlossaryCsv(
   entries: GlossaryEntry[],
   options?: ExportSerializationOptions,
 ) {
-  return buildCsv(glossaryCsvSchema, entries, options);
+  const refById = new Map(entries.map((entry) => [entry.id, entry.sakuravaRef ?? entry.id]));
+  const rows = entries.map((entry) => ({
+    ...entry,
+    parentId: entry.parentId ? (refById.get(entry.parentId) ?? entry.parentId) : "",
+  }));
+  return buildCsv(glossaryCsvSchema, rows, options);
 }
 
 export function buildEntityCsv(
@@ -405,15 +422,26 @@ export function legacyImportHeadersFor(entity: ExportCsvEntity) {
 }
 
 export function exportRowsFor(entity: ExportCsvEntity, records: unknown[]) {
+  if (entity === "glossary") {
+    const entries = records as GlossaryEntry[];
+    const refById = new Map(entries.map((entry) => [entry.id, entry.sakuravaRef ?? entry.id]));
+    return entries.map((entry) => ({
+      ...entry,
+      parentId: entry.parentId ? (refById.get(entry.parentId) ?? entry.parentId) : "",
+    }));
+  }
   if (entity !== "categories") return records;
   const categories = records as ManagedCategory[];
   const categoryNameByKey = new Map(categories.map((category) => [category.key, category.name]));
+  const categoryRefByKey = new Map(categories.map((category) => [category.key, category.sakuravaRef ?? category.key]));
   return categories.map((category) => ({
     ...category,
     parentCategoryName: category.parentKey
       ? (categoryNameByKey.get(category.parentKey) ?? "")
       : "",
-    parentCategoryRef: category.parentKey ? sakuravaRef("CAT", category.parentKey) : "",
+    parentCategoryRef: category.parentKey
+      ? sakuravaRef("CAT", categoryRefByKey.get(category.parentKey) ?? category.parentKey)
+      : "",
   }));
 }
 
@@ -443,7 +471,21 @@ export function sakuravaRef(prefix: SakuravaRefPrefix, sourceId: string) {
     return "";
   }
 
-  return `${prefix}-${stableRefToken(normalized)}`;
+  return canonicalSakuravaRef(normalized)
+    ? formatSakuravaRef(normalized)
+    : legacySakuravaRef(prefix, normalized);
+}
+
+export function sakuravaRefMatches(
+  prefix: SakuravaRefPrefix,
+  reference: string,
+  record: { id?: string; key?: string; sakuravaRef?: string },
+) {
+  return recordMatchesSakuravaIdentity(
+    sectionCodeForLegacyPrefix(prefix),
+    reference,
+    record,
+  );
 }
 
 function actionColumn<TRecord>(): CsvSchemaColumn<TRecord> {
@@ -473,10 +515,11 @@ function refColumn<TRecord>(
     clearable: false,
     valueType: "identifier",
     value: (record) =>
-      sakuravaRef(
-        prefix,
-        String((record as Record<string, CsvCell>)[sourceField] ?? ""),
-      ),
+      sakuravaRef(prefix, String(
+        (record as Record<string, CsvCell>).sakuravaRef
+          ?? (record as Record<string, CsvCell>)[sourceField]
+          ?? "",
+      )),
   };
 }
 
@@ -702,17 +745,6 @@ function joinReadableList(values: string[]) {
     .map((value) => value.trim())
     .filter(Boolean)
     .join("; ");
-}
-
-function stableRefToken(value: string) {
-  let hash = 0x811c9dc5;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-
-  return (hash >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(-7);
 }
 
 export function normalizeDateOnlyForCsv(value: CsvCell) {

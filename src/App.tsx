@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import ConfirmDialog from "./components/ConfirmDialog";
 import AppShell from "./layouts/AppShell";
 import {
   applyAppearanceAccent,
@@ -39,6 +40,12 @@ import {
 } from "./runtime/mediaAssetScope";
 import { isTauriRuntimeAvailable } from "./runtime/tauriClient";
 import {
+  applySakuravaRefMigration,
+  getSakuravaRefMigrationStatus,
+  type SakuravaRefMigrationStatus,
+} from "./runtime/sakuravaRefCommands";
+import { useTranslation } from "./lib/LanguageContext";
+import {
   AUTOMATIC_BACKUP_CHECK_INTERVAL_MS,
   AUTOMATIC_BACKUP_SETTINGS_EVENT,
   runAutomaticBackupIfDue,
@@ -56,6 +63,13 @@ function App() {
   const [mediaAssetScopeReady, setMediaAssetScopeReady] = useState(
     () => !isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0,
   );
+  const [refMigrationStatus, setRefMigrationStatus] = useState<SakuravaRefMigrationStatus | null>(null);
+  const [refMigrationPending, setRefMigrationPending] = useState(false);
+  const [refMigrationFailed, setRefMigrationFailed] = useState(false);
+  const [refMigrationSucceeded, setRefMigrationSucceeded] = useState(false);
+  const [refMigrationValidationFailed, setRefMigrationValidationFailed] = useState(false);
+  const [refRecoveryViewAllowed, setRefRecoveryViewAllowed] = useState(false);
+  const [refUpgradePromptDismissed, setRefUpgradePromptDismissed] = useState(false);
 
   useEffect(() => {
     applyAppearanceTheme(appearanceTheme);
@@ -101,6 +115,50 @@ function App() {
       window.clearInterval(intervalId);
     };
   }, [isImageViewerWindow]);
+
+  const refreshRefMigrationStatus = () => {
+    if (isImageViewerWindow || !isTauriRuntimeAvailable()) return Promise.resolve();
+    setRefMigrationValidationFailed(false);
+    return getSakuravaRefMigrationStatus()
+      .then((status) => {
+        if (status && typeof status.required === "boolean") {
+          setRefMigrationStatus({
+            ...status,
+            state: status.state ?? (status.required ? "legacy" : "migrated"),
+          });
+        }
+      })
+      .catch(() => {
+        setRefMigrationStatus(null);
+        setRefMigrationValidationFailed(true);
+      });
+  };
+
+  useEffect(() => {
+    void refreshRefMigrationStatus();
+  }, [isImageViewerWindow]);
+
+  useEffect(() => {
+    const showUpgradePrompt = () => setRefUpgradePromptDismissed(false);
+    window.addEventListener("sakurava-ref-upgrade-requested", showUpgradePrompt);
+    return () => window.removeEventListener("sakurava-ref-upgrade-requested", showUpgradePrompt);
+  }, []);
+
+  const applyRefMigration = async () => {
+    if (refMigrationPending) return;
+    setRefMigrationPending(true);
+    setRefMigrationFailed(false);
+    try {
+      await applySakuravaRefMigration();
+      await refreshRefMigrationStatus();
+      window.dispatchEvent(new Event("sakurava-ref-state-changed"));
+      setRefMigrationSucceeded(true);
+    } catch {
+      setRefMigrationFailed(true);
+    } finally {
+      setRefMigrationPending(false);
+    }
+  };
 
   if (isImageViewerWindow) {
     return (
@@ -158,9 +216,126 @@ function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <SakuravaRefMigrationDialog
+            status={refMigrationStatus}
+            validationFailed={refMigrationValidationFailed}
+            recoveryViewAllowed={refRecoveryViewAllowed}
+            upgradePromptDismissed={refUpgradePromptDismissed}
+            pending={refMigrationPending}
+            failed={refMigrationFailed}
+            onRetry={() => void refreshRefMigrationStatus()}
+            onOpenRecovery={() => setRefRecoveryViewAllowed(true)}
+            onDismissUpgrade={() => setRefUpgradePromptDismissed(true)}
+            onConfirm={() => void applyRefMigration()}
+          />
+          <SakuravaRefMigrationToast
+            visible={refMigrationSucceeded}
+            onDismiss={() => setRefMigrationSucceeded(false)}
+          />
         </BrowserRouter>
       </LanguageProvider>
     </MediaAssetScopeReadyContext.Provider>
+  );
+}
+
+function SakuravaRefMigrationDialog({
+  status,
+  validationFailed,
+  recoveryViewAllowed,
+  upgradePromptDismissed,
+  pending,
+  failed,
+  onRetry,
+  onOpenRecovery,
+  onDismissUpgrade,
+  onConfirm,
+}: {
+  status: SakuravaRefMigrationStatus | null;
+  validationFailed: boolean;
+  recoveryViewAllowed: boolean;
+  upgradePromptDismissed: boolean;
+  pending: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  onOpenRecovery: () => void;
+  onDismissUpgrade: () => void;
+  onConfirm: () => void;
+}) {
+  const t = useTranslation();
+  const navigate = useNavigate();
+  const state = validationFailed
+    ? "invalid"
+    : status
+      ? status.state ?? (status.required ? "legacy" : "migrated")
+      : "checking";
+  if (state === "checking") {
+    return null;
+  }
+  if (state === "migrated" || (state === "invalid" && recoveryViewAllowed)) return null;
+  if (state === "invalid") {
+    return (
+      <ConfirmDialog
+        open
+        title={t("migration.ref.recoveryTitle")}
+        description={t("migration.ref.recoveryBody")}
+        cancelLabel={t("migration.ref.openRecovery")}
+        confirmLabel={t("migration.ref.retryValidation")}
+        pending={pending}
+        onCancel={() => {
+          onOpenRecovery();
+          navigate("/settings");
+        }}
+        onConfirm={onRetry}
+      />
+    );
+  }
+  if (!status) return null;
+  if (upgradePromptDismissed) return null;
+  const total = Object.values(status.counts).reduce((sum, count) => sum + count, 0);
+  return (
+    <ConfirmDialog
+      open
+      title={t("migration.ref.title")}
+      description={(
+        <div className="space-y-2">
+          <p>{t("migration.ref.body", { count: String(total) })}</p>
+          <p>{t("migration.ref.safety")}</p>
+          {status.issues.length > 0 ? <p role="alert" className="text-rose-700">{t("migration.ref.precondition")}</p> : null}
+          {failed ? <p role="alert" className="text-rose-700">{t("migration.ref.failed")}</p> : null}
+        </div>
+      )}
+      confirmLabel={t("migration.ref.confirm")}
+      pendingLabel={t("migration.ref.pending")}
+      pending={pending}
+      onCancel={onDismissUpgrade}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+function SakuravaRefMigrationToast({
+  visible,
+  onDismiss,
+}: {
+  visible: boolean;
+  onDismiss: () => void;
+}) {
+  const t = useTranslation();
+
+  useEffect(() => {
+    if (!visible) return;
+    const timeoutId = window.setTimeout(onDismiss, 4_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [onDismiss, visible]);
+
+  if (!visible) return null;
+  return (
+    <div
+      role="status"
+      className="fixed bottom-6 right-6 z-[80] rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-lg"
+    >
+      {t("migration.ref.success")}
+    </div>
   );
 }
 

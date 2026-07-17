@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
-import { buildGlossaryCsv, buildVideosCsv, sakuravaRef } from "./exportCsv";
-import { applyImportCsvPreview } from "./importCsvApply";
+import {
+  buildCategoriesCsv,
+  buildGlossaryCsv,
+  buildImagesCsv,
+  buildPerformersCsv,
+  buildVideosCsv,
+  sakuravaRef,
+} from "./exportCsv";
+import { applyImportCsvPreview, buildNormalizedImportPatch } from "./importCsvApply";
 import { buildImportCsvPreview } from "./importCsvPreview";
 
 describe("import CSV apply", () => {
@@ -203,6 +210,81 @@ describe("import CSV apply", () => {
     expect(mutations.updateVideo).not.toHaveBeenCalled();
   });
 
+  it("prepares every current public relationship Ref as its hidden storage key", () => {
+    const relatedVideo = video({ id: "video-hidden", sakuravaRef: "V26070001", title: "Video" });
+    const relatedImage = image({ id: "image-hidden", sakuravaRef: "I26070002", title: "Image" });
+    const relatedPerformer = performerRecord({ id: "performer-hidden", sakuravaRef: "P26070003", name: "Performer" });
+    const managed = category({ key: "category-hidden", sakuravaRef: "C26070004", name: "Drama" });
+    const parentCategory = category({ key: "parent-hidden", sakuravaRef: "C26070005", name: "Parent" });
+    const childCategory = category({ key: "child-hidden", sakuravaRef: "C26070006", name: "Child" });
+    const parentTerm = glossaryEntry({ id: "term-parent-hidden", sakuravaRef: "G26070007", term: "Parent Term" });
+    const childTerm = glossaryEntry({ id: "term-child-hidden", sakuravaRef: "G26070008", term: "Child Term" });
+    const currentContext = context({
+      videos: [relatedVideo], images: [relatedImage], performers: [relatedPerformer],
+      categories: [managed, parentCategory, childCategory], glossary: [parentTerm, childTerm],
+    });
+
+    const cases = [
+      {
+        entity: "videos" as const,
+        csv: entityRow(buildVideosCsv, {
+          Action: "Create", Title: "New Video", Categories: "C2607-0004 | Drama",
+          "Related Performers": "P2607-0003 | Performer", "Related Images": "I2607-0002 | Image",
+        }),
+        expected: {
+          categoriesJson: '["Drama"]',
+          relatedPerformersJson: '[{"performerId":"performer-hidden","nameSnapshot":"Performer"}]',
+          relatedImagesJson: '[{"recordId":"image-hidden","titleSnapshot":"Image"}]',
+        },
+      },
+      {
+        entity: "images" as const,
+        csv: entityRow(buildImagesCsv, {
+          Action: "Create", Title: "New Image", Categories: "C2607-0004 | Drama",
+          "Related Performers": "P2607-0003 | Performer", "Related Videos": "V2607-0001 | Video",
+        }),
+        expected: {
+          categoriesJson: '["Drama"]',
+          relatedPerformersJson: '[{"performerId":"performer-hidden","nameSnapshot":"Performer"}]',
+          relatedVideosJson: '[{"recordId":"video-hidden","titleSnapshot":"Video"}]',
+        },
+      },
+      {
+        entity: "performers" as const,
+        csv: entityRow(buildPerformersCsv, {
+          Action: "Create", Name: "New Performer", Categories: "C2607-0004 | Drama",
+          "Related Videos": "V2607-0001 | Video", "Related Images": "I2607-0002 | Image",
+        }),
+        expected: {
+          categoriesJson: '["Drama"]',
+          relatedVideosJson: '[{"recordId":"video-hidden","titleSnapshot":"Video"}]',
+          relatedImagesJson: '[{"recordId":"image-hidden","titleSnapshot":"Image"}]',
+        },
+      },
+    ];
+
+    for (const item of cases) {
+      const row = buildImportCsvPreview(item.csv, currentContext).rows[0];
+      expect(row.errors).toEqual([]);
+      expect(row.warnings).toEqual([]);
+      expect(buildNormalizedImportPatch(item.entity, row, currentContext)).toMatchObject(item.expected);
+    }
+
+    const categoryRowPreview = buildImportCsvPreview(entityRow(buildCategoriesCsv, {
+      Action: "Update", "Sakurava Ref": "C2607-0006", "Category Name": "Child",
+      "Parent Ref": "C2607-0005",
+    }), currentContext).rows[0];
+    expect(buildNormalizedImportPatch("categories", categoryRowPreview, currentContext))
+      .toMatchObject({ parentKey: "parent-hidden" });
+
+    const glossaryRowPreview = buildImportCsvPreview(entityRow(buildGlossaryCsv, {
+      Action: "Update", "Sakurava Ref": "G2607-0008", Term: "Child Term",
+      Definition: "Definition", "Parent Ref": "G2607-0007",
+    }), currentContext).rows[0];
+    expect(buildNormalizedImportPatch("glossary", glossaryRowPreview, currentContext))
+      .toMatchObject({ parentId: "term-parent-hidden" });
+  });
+
   it("does not export or apply source media paths", async () => {
     const mutations = mutationMocks();
     const unlink = vi.fn();
@@ -256,7 +338,7 @@ describe("import CSV apply", () => {
     );
     expect(mutations.createManagedCategory).toHaveBeenCalledTimes(1);
     expect(report.rows.find((row) => row.target.includes("Drama"))?.message)
-      .toContain("Parent Category was not found");
+      .toContain("stable Parent Ref");
     expect(window.localStorage.getItem("sakurava.managedCategories.v1"))
       .toBe('["Genre"]');
   });
@@ -266,15 +348,15 @@ describe("import CSV apply", () => {
     const mutations = mutationMocks();
     const preview = buildImportCsvPreview(
       [
-        categoryHeader(),
-        categoryRow({
+        currentCategoryHeader(),
+        currentCategoryRow({
           Action: "Create",
-          "Parent Category": "Format",
+          "Parent Ref": sakuravaRef("CAT", parent.key),
           "Category Name": "Short",
         }),
-        categoryRow({
+        currentCategoryRow({
           Action: "Create",
-          "Parent Category": "Missing",
+          "Parent Ref": "CAT-MISSING",
           "Category Name": "Blocked Child",
         }),
       ].join("\r\n"),
@@ -294,7 +376,7 @@ describe("import CSV apply", () => {
       expect.objectContaining({ name: "Short", parentKey: "cat_format" }),
     );
     expect(report.rows.find((row) => row.target.includes("Blocked Child"))?.message)
-      .toContain("Parent Category was not found");
+      .toContain("Parent Category reference was not found");
   });
 
   it("blocks child-of-child category hierarchy", async () => {
@@ -305,9 +387,9 @@ describe("import CSV apply", () => {
       parentKey: "cat_parent",
     });
     const preview = buildImportCsvPreview(
-      withCategoryRow({
+      withCurrentCategoryRow({
         Action: "Create",
-        "Parent Category": "Child",
+        "Parent Ref": sakuravaRef("CAT", child.key),
         "Category Name": "Grandchild",
       }),
       context({ categories: [parent, child] }),
@@ -429,6 +511,23 @@ function categoryHeader() {
 function categoryRow(overrides: Record<string, string>) {
   const headers = categoryHeader().split(",");
   return headers.map((header) => overrides[header] ?? "").join(",");
+}
+
+function entityRow<T>(builder: (records: T[]) => string, overrides: Record<string, string>) {
+  const headers = builder([]).split("\r\n")[0].split(",");
+  return `${headers.join(",")}\r\n${headers.map((header) => overrides[header] ?? "").join(",")}`;
+}
+
+function currentCategoryHeader() {
+  return buildCategoriesCsv([]).split("\r\n")[0];
+}
+
+function currentCategoryRow(overrides: Record<string, string>) {
+  return currentCategoryHeader().split(",").map((header) => overrides[header] ?? "").join(",");
+}
+
+function withCurrentCategoryRow(overrides: Record<string, string>) {
+  return `${currentCategoryHeader()}\r\n${currentCategoryRow(overrides)}`;
 }
 
 function context(overrides: Partial<ReturnType<typeof contextBase>> = {}) {
