@@ -1,8 +1,10 @@
 import type { ExportCsvEntity } from "./exportCsv";
 
 export const SAKURAVA_APPLICATION_ID = "app.sakurava.desktop";
-export const SAKURAVA_IMPORT_CONTRACT_VERSION = 1;
-export const SAKURAVA_EXPORT_FORMAT_VERSION = 1;
+export const SAKURAVA_IMPORT_CONTRACT_VERSION = 2;
+export const SAKURAVA_EXPORT_FORMAT_VERSION = 2;
+export const SAKURAVA_SUPPORTED_IMPORT_CONTRACT_VERSIONS = [1, 2] as const;
+export const SAKURAVA_SUPPORTED_EXPORT_FORMAT_VERSIONS = [1, 2] as const;
 export const SAKURAVA_METADATA_SHEET = "__SakuravaMetadata";
 export const SAKURAVA_CLEAR_VALUE = "[[SAKURAVA:CLEAR:v1]]";
 
@@ -40,7 +42,7 @@ export function stableContractJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableContractJson).join(",")}]`;
   return `{${Object.entries(value as Record<string, unknown>)
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
     .map(([key, item]) => `${JSON.stringify(key)}:${stableContractJson(item)}`)
     .join(",")}}`;
 }

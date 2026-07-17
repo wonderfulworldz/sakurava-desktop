@@ -15,8 +15,9 @@ import {
   SAKURAVA_METADATA_SHEET,
   stableContractJson,
 } from "./importExportContract";
+import { IMPORT_MAX_ROWS_PER_SECTION } from "./importLimits";
 
-export const EXPORT_CONTRACT_VERSION = "sakurava-bulk-edit-v1";
+export const EXPORT_CONTRACT_VERSION = "sakurava-bulk-edit-v2";
 
 export type ExportDataSelection = {
   dataType: ExportCsvEntity;
@@ -169,12 +170,17 @@ function configureDataSheet(
       fgColor: { argb: column.editable ? "FFBE185D" : "FF64748B" },
     };
     cell.alignment = { vertical: "middle", wrapText: true };
+    cell.note = column.key === "action"
+      ? "Choose Auto, Create, Update, Delete, or Skip. Blank is treated as Auto."
+      : column.valueType === "identifier"
+        ? "Stable Sakurava record identifier. Keep existing identifiers unchanged."
+        : `${column.required ? "Required" : "Optional"} ${column.editable ? "editable" : "read-only"} field.`;
   });
 
   const actionColumn = schema.findIndex((column) => column.key === "action") + 1;
   if (actionColumn > 0) {
     const actionLetter = worksheet.getColumn(actionColumn).letter;
-    (worksheet as any).dataValidations.add(`${actionLetter}2:${actionLetter}1001`, {
+    (worksheet as any).dataValidations.add(`${actionLetter}2:${actionLetter}${IMPORT_MAX_ROWS_PER_SECTION + 1}`, {
       type: "list",
       allowBlank: true,
       formulae: [`"${EXPORT_ACTIONS.join(",")}"`],
@@ -198,6 +204,20 @@ function configureDataSheet(
       worksheetColumn.numFmt = excelDateNumberFormat(locale);
     } else if (column.valueType === "date-time") {
       worksheetColumn.numFmt = excelDateTimeNumberFormat(locale);
+    }
+    if (column.allowedValues?.length) {
+      const columnLetter = worksheetColumn.letter;
+      (worksheet as any).dataValidations.add(
+        `${columnLetter}2:${columnLetter}${IMPORT_MAX_ROWS_PER_SECTION + 1}`,
+        {
+          type: "list",
+          allowBlank: true,
+          formulae: [`"${column.allowedValues.join(",")}"`],
+          showErrorMessage: true,
+          errorTitle: `Choose a supported ${column.header}`,
+          error: `Use ${column.allowedValues.join(", ")}.`,
+        },
+      );
     }
   }
 }
@@ -271,7 +291,10 @@ function formatDataRow(
 ) {
   row.eachCell({ includeEmpty: true }, (cell, columnIndex) => {
     const column = schema[columnIndex - 1];
-    cell.alignment = { vertical: "top", wrapText: true };
+    cell.alignment = {
+      vertical: "top",
+      wrapText: column?.multiline === true || column?.valueType === "list/reference",
+    };
     if (header) {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF64748B" } };
@@ -313,7 +336,7 @@ function columnWidth(column: CsvSchemaColumn<any>) {
   if (column.valueType === "identifier") return 19;
   if (column.valueType === "date" || column.valueType === "date-time") return 16;
   if (column.valueType === "list/reference") return 34;
-  if (column.header.includes("Path") || column.header === "Notes") return 32;
+  if (column.multiline) return 36;
   return Math.max(12, Math.min(26, column.header.length + 4));
 }
 

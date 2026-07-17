@@ -4,6 +4,7 @@ import {
   parseRatingObject,
   parseRelatedCatalogRecordArray,
   parseRelatedPerformerArray,
+  parseSourceLinkArray,
   parseTextLabelArray,
 } from "../backend/json";
 import type {
@@ -38,6 +39,7 @@ export type CsvInternalField =
   | "bulkAction"
   | "sakuravaRef"
   | "parentCategoryName"
+  | "parentCategoryRef"
   | "visibility"
   | "categoryNotes"
   | keyof Video
@@ -59,6 +61,8 @@ export type CsvSchemaColumn<TRecord> = {
   valueType: ExportValueType;
   value: (record: TRecord) => CsvCell;
   example?: CsvCell;
+  allowedValues?: readonly string[];
+  multiline?: boolean;
 };
 
 export type ExportSerializationOptions = {
@@ -71,53 +75,50 @@ type RatingColumn = {
 };
 
 type SakuravaRefPrefix = "VID" | "IMG" | "PER" | "CAT" | "GLO";
-type CategoryCsvRecord = ManagedCategory & { parentCategoryName: string };
+type CategoryCsvRecord = ManagedCategory & {
+  parentCategoryName: string;
+  parentCategoryRef: string;
+};
 
 const BULK_EDIT_ACTION_DEFAULT = "Auto";
 const PATH_SLOT_COUNT = 4;
 
 const videoRatingColumns: RatingColumn[] = [
-  { header: "Rating - Visual", key: "visual" },
-  { header: "Rating - Story", key: "story" },
-  { header: "Rating - Performance", key: "performance" },
-  { header: "Rating - Chemistry", key: "chemistry" },
-  { header: "Rating - Intensity", key: "intensity" },
   { header: "Rating - Rewatch", key: "rewatch" },
+  { header: "Rating - Performance", key: "performance" },
+  { header: "Rating - Visual", key: "visual" },
+  { header: "Rating - Intensity", key: "intensity" },
+  { header: "Rating - Story", key: "story" },
+  { header: "Rating - Chemistry", key: "chemistry" },
 ];
 
 const imageRatingColumns: RatingColumn[] = [
+  { header: "Rating - Memorability", key: "memorability" },
   { header: "Rating - Visual", key: "visual" },
   { header: "Rating - Posing", key: "posing" },
   { header: "Rating - Atmosphere", key: "atmosphere" },
   { header: "Rating - Flow", key: "flow" },
-  { header: "Rating - Memorability", key: "memorability" },
   { header: "Rating - Signature", key: "signature" },
 ];
 
 const performerRatingColumns: RatingColumn[] = [
+  { header: "Rating - Attraction", key: "attraction" },
   { header: "Rating - Visual", key: "visual" },
   { header: "Rating - Performance", key: "performance" },
   { header: "Rating - Popularity", key: "popularity" },
-  { header: "Rating - Versatility", key: "versatility" },
-  { header: "Rating - Attraction", key: "attraction" },
   { header: "Rating - Exceptional", key: "exceptional" },
+  { header: "Rating - Versatility", key: "versatility" },
 ];
 
 export const videoCsvSchema: CsvSchemaColumn<Video>[] = [
   actionColumn(),
   refColumn("VID", "id"),
-  textColumn("Code", "code"),
   textColumn("Title", "title"),
   textColumn("Original Title", "originalTitle"),
-  dateColumn("Release Date", "releaseDate"),
-  textColumn("Publisher / Label", "publisherLabel"),
-  textColumn("Censorship", "censorship"),
+  textColumn("Code", "code"),
   listColumn("Categories", "categoriesJson", (record) =>
     parseTextLabelArray(record.categoriesJson),
   ),
-  ...ratingColumns<Video>(videoRatingColumns),
-  textColumn("Media Path", "mediaPath"),
-  textColumn("Cover Path", "coverPath"),
   listColumn("Related Performers", "relatedPerformersJson", (record) =>
     parseRelatedPerformerArray(record.relatedPerformersJson).map((reference) =>
       relatedDisplay("PER", reference.performerId, reference.nameSnapshot),
@@ -128,28 +129,28 @@ export const videoCsvSchema: CsvSchemaColumn<Video>[] = [
       relatedDisplay("IMG", reference.recordId, reference.titleSnapshot),
     ),
   ),
-  textColumn("Notes", "notes"),
+  booleanColumn("Favorite", "favorite"),
+  enumColumn("Availability", "availability", ["Owned", "Not Owned", "Missing"]),
+  enumColumn("Censorship", "censorship", ["Censored", "Uncensored", "Reduced", "Reduced / Reduced Mosaic", "Leaked", "Unknown"]),
+  dateColumn("Release Date", "releaseDate"),
+  textColumn("Publisher / Label", "publisherLabel"),
+  numberColumn("Duration (minutes)", "durationMinutes"),
+  textColumn("Resolution", "resolution"),
+  numberColumn("File Size (bytes)", "fileSizeBytes"),
+  textColumn("File Type", "fileType"),
+  sourceLinksColumn<Video>(),
+  ...ratingColumns<Video>(videoRatingColumns),
+  multilineTextColumn("Notes", "notes"),
 ];
 
 export const imageCsvSchema: CsvSchemaColumn<Image>[] = [
   actionColumn(),
   refColumn("IMG", "id"),
-  textColumn("Code", "code"),
   textColumn("Title", "title"),
   textColumn("Original Title", "originalTitle"),
-  dateColumn("Release Date", "releaseDate"),
-  textColumn("Publisher / Label", "publisherLabel"),
-  textColumn("Censorship", "censorship"),
+  textColumn("Code", "code"),
   listColumn("Categories", "categoriesJson", (record) =>
     parseTextLabelArray(record.categoriesJson),
-  ),
-  ...ratingColumns<Image>(imageRatingColumns),
-  textColumn("Cover Path", "coverPath"),
-  textColumn("Gallery Folder Path", "folderPath"),
-  ...pathColumns<Image>(
-    "Gallery Image",
-    "galleryImagePathsJson",
-    (record) => parseGalleryImagePathArray(record.galleryImagePathsJson),
   ),
   listColumn("Related Performers", "relatedPerformersJson", (record) =>
     parseRelatedPerformerArray(record.relatedPerformersJson).map((reference) =>
@@ -161,7 +162,18 @@ export const imageCsvSchema: CsvSchemaColumn<Image>[] = [
       relatedDisplay("VID", reference.recordId, reference.titleSnapshot),
     ),
   ),
-  textColumn("Notes", "notes"),
+  booleanColumn("Favorite", "favorite"),
+  enumColumn("Availability", "availability", ["Owned", "Not Owned", "Missing"]),
+  enumColumn("Censorship", "censorship", ["Censored", "Uncensored", "Reduced", "Reduced / Reduced Mosaic", "Leaked", "Unknown"]),
+  dateColumn("Release Date", "releaseDate"),
+  textColumn("Publisher / Label", "publisherLabel"),
+  numberColumn("Image Count", "imageCount"),
+  textColumn("Main Resolution", "mainResolution"),
+  numberColumn("Total File Size (bytes)", "totalFileSizeBytes"),
+  textColumn("Main File Type", "mainFileType"),
+  sourceLinksColumn<Image>(),
+  ...ratingColumns<Image>(imageRatingColumns),
+  multilineTextColumn("Notes", "notes"),
 ];
 
 export const performerCsvSchema: CsvSchemaColumn<Performer>[] = [
@@ -172,26 +184,8 @@ export const performerCsvSchema: CsvSchemaColumn<Performer>[] = [
   listColumn("Aliases", "aliasesJson", (record) =>
     parseTextLabelArray(record.aliasesJson),
   ),
-  dateColumn("Birth Date", "birthDate"),
-  dateColumn("Debut Date", "debutDate"),
-  dateColumn("Retired Date", "retiredDate"),
-  textColumn("Birthplace", "birthplace"),
-  textColumn("Nationality", "nationality"),
-  textColumn("Blood Type", "bloodType"),
-  textColumn("Height (cm)", "heightCm"),
-  textColumn("Weight (kg)", "weightKg"),
-  textColumn("Measurements", "measurements"),
-  textColumn("Cup Size", "cupSize"),
   listColumn("Categories", "categoriesJson", (record) =>
     parseTextLabelArray(record.categoriesJson),
-  ),
-  ...ratingColumns<Performer>(performerRatingColumns),
-  textColumn("Cover Path", "coverPath"),
-  ...pathColumns<Performer>(
-    "Mini Thumbnail",
-    "performerThumbnailPathsJson",
-    (record) =>
-      parsePerformerThumbnailPathArray(record.performerThumbnailPathsJson),
   ),
   listColumn("Related Videos", "relatedVideosJson", (record) =>
     parseRelatedCatalogRecordArray(record.relatedVideosJson).map((reference) =>
@@ -203,49 +197,43 @@ export const performerCsvSchema: CsvSchemaColumn<Performer>[] = [
       relatedDisplay("IMG", reference.recordId, reference.titleSnapshot),
     ),
   ),
-  textColumn("Notes", "notes"),
+  booleanColumn("Favorite", "favorite"),
+  textColumn("Gender", "gender"),
+  dateColumn("Birth Date", "birthDate"),
+  dateColumn("Debut Date", "debutDate"),
+  dateColumn("Retired Date", "retiredDate"),
+  textColumn("Birthplace", "birthplace"),
+  textColumn("Nationality", "nationality"),
+  textColumn("Blood Type", "bloodType"),
+  textColumn("Height (cm)", "heightCm"),
+  textColumn("Weight (kg)", "weightKg"),
+  textColumn("Measurements", "measurements"),
+  textColumn("Cup Size", "cupSize"),
+  sourceLinksColumn<Performer>(),
+  ...ratingColumns<Performer>(performerRatingColumns),
+  multilineTextColumn("Notes", "notes"),
 ];
 
 export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
   actionColumn(),
   refColumn("CAT", "key"),
+  textColumn("Category Name", "name"),
   {
-    key: "parentCategoryName",
-    header: "Parent Category",
-    internalField: "parentCategoryName",
+    key: "parentCategoryRef",
+    header: "Parent Ref",
+    internalField: "parentCategoryRef",
     required: false,
     editable: true,
     clearable: true,
     valueType: "list/reference",
-    value: (record) => record.parentCategoryName,
-    example: "Genre",
+    value: (record) => record.parentCategoryRef,
+    example: "CAT-EXAMPLE-PARENT",
   },
-  textColumn("Category Name", "name"),
-  textColumn("Description", "description"),
-  textColumn("Thumbnail Path", "thumbnailPath"),
-  textColumn("Show in Videos", "showInVideos"),
-  textColumn("Show in Images", "showInImages"),
-  textColumn("Show in Performers", "showInPerformers"),
-  {
-    key: "visibility",
-    header: "Visibility",
-    internalField: "visibility",
-    required: false,
-    editable: true,
-    clearable: false,
-    valueType: "text",
-    value: () => "",
-  },
-  {
-    key: "notes",
-    header: "Notes",
-    internalField: "notes",
-    required: false,
-    editable: true,
-    clearable: false,
-    valueType: "text",
-    value: () => "",
-  },
+  multilineTextColumn("Description", "description"),
+  booleanColumn("Show in Videos", "showInVideos"),
+  booleanColumn("Show in Images", "showInImages"),
+  booleanColumn("Show in Performers", "showInPerformers"),
+  booleanColumn("Show in Credits", "showInCredits"),
 ];
 
 export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
@@ -253,10 +241,6 @@ export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
   refColumn("GLO", "id"),
   textColumn("Term", "term"),
   textColumn("Definition", "definition"),
-  listColumn("Synonyms", "synonymsJson", (record) =>
-    parseTextLabelArray(record.synonymsJson),
-  ),
-  textColumn("Category", "category"),
   {
     key: "parentId",
     header: "Parent Ref",
@@ -267,11 +251,48 @@ export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
     valueType: "list/reference",
     value: (record) => record.parentId ? sakuravaRef("GLO", record.parentId) : "",
   },
-  textColumn("Thumbnail Path", "thumbnailPath"),
-  textColumn("Favorite", "favorite"),
+  listColumn("Synonyms", "synonymsJson", (record) =>
+    parseTextLabelArray(record.synonymsJson),
+  ),
+  textColumn("Category", "category"),
+  booleanColumn("Favorite", "favorite"),
   textColumn("Source Title", "sourceTitle"),
   textColumn("Source URL", "sourceUrl"),
 ];
+
+const legacyImportColumns: Record<ExportCsvEntity, CsvSchemaColumn<any>[]> = {
+  videos: [
+    textColumn<Video>("Media Path", "mediaPath"),
+    textColumn<Video>("Cover Path", "coverPath"),
+  ],
+  images: [
+    textColumn<Image>("Cover Path", "coverPath"),
+    textColumn<Image>("Gallery Folder Path", "folderPath"),
+    ...pathColumns<Image>("Gallery Image", "galleryImagePathsJson", (record) =>
+      parseGalleryImagePathArray(record.galleryImagePathsJson)),
+  ],
+  performers: [
+    textColumn<Performer>("Cover Path", "coverPath"),
+    ...pathColumns<Performer>("Mini Thumbnail", "performerThumbnailPathsJson", (record) =>
+      parsePerformerThumbnailPathArray(record.performerThumbnailPathsJson)),
+  ],
+  categories: [
+    textColumn<CategoryCsvRecord>("Thumbnail Path", "thumbnailPath"),
+    {
+      key: "legacy.parentCategoryName",
+      header: "Parent Category",
+      internalField: "parentCategoryName",
+      required: false,
+      editable: true,
+      clearable: true,
+      valueType: "list/reference",
+      value: (record) => record.parentCategoryName,
+    },
+    compatibilityPlaceholderColumn("Visibility", "visibility"),
+    compatibilityPlaceholderColumn("Notes", "categoryNotes"),
+  ],
+  glossary: [textColumn<GlossaryEntry>("Thumbnail Path", "thumbnailPath")],
+};
 
 export function escapeCsvValue(value: CsvCell) {
   if (value === null || value === undefined) {
@@ -325,6 +346,7 @@ export function buildCategoriesCsv(
     parentCategoryName: category.parentKey
       ? (categoryNameByKey.get(category.parentKey) ?? "")
       : "",
+    parentCategoryRef: category.parentKey ? sakuravaRef("CAT", category.parentKey) : "",
   }));
 
   return buildCsv(categoryCsvSchema, rows, options);
@@ -369,6 +391,19 @@ export function exportSchemaFor(entity: ExportCsvEntity): CsvSchemaColumn<any>[]
   return categoryCsvSchema;
 }
 
+export function importSchemaFor(entity: ExportCsvEntity): CsvSchemaColumn<any>[] {
+  const current = exportSchemaFor(entity);
+  const seen = new Set(current.map((column) => column.header));
+  return [
+    ...current,
+    ...legacyImportColumns[entity].filter((column) => !seen.has(column.header)),
+  ];
+}
+
+export function legacyImportHeadersFor(entity: ExportCsvEntity) {
+  return legacyImportColumns[entity].map((column) => column.header);
+}
+
 export function exportRowsFor(entity: ExportCsvEntity, records: unknown[]) {
   if (entity !== "categories") return records;
   const categories = records as ManagedCategory[];
@@ -378,6 +413,7 @@ export function exportRowsFor(entity: ExportCsvEntity, records: unknown[]) {
     parentCategoryName: category.parentKey
       ? (categoryNameByKey.get(category.parentKey) ?? "")
       : "",
+    parentCategoryRef: category.parentKey ? sakuravaRef("CAT", category.parentKey) : "",
   }));
 }
 
@@ -475,6 +511,94 @@ function textColumn<TRecord>(
         ? "number"
         : "text",
     value: (record) => (record as Record<string, CsvCell>)[internalField],
+  };
+}
+
+function multilineTextColumn<TRecord>(
+  header: string,
+  internalField: CsvInternalField,
+): CsvSchemaColumn<TRecord> {
+  return {
+    ...textColumn<TRecord>(header, internalField),
+    multiline: true,
+  };
+}
+
+function numberColumn<TRecord>(
+  header: string,
+  internalField: CsvInternalField,
+): CsvSchemaColumn<TRecord> {
+  return {
+    key: String(internalField),
+    header,
+    internalField,
+    required: false,
+    editable: true,
+    clearable: true,
+    valueType: "number",
+    value: (record) => (record as Record<string, CsvCell>)[internalField],
+  };
+}
+
+function booleanColumn<TRecord>(
+  header: string,
+  internalField: CsvInternalField,
+): CsvSchemaColumn<TRecord> {
+  return {
+    key: String(internalField),
+    header,
+    internalField,
+    required: false,
+    editable: true,
+    clearable: false,
+    valueType: "boolean",
+    allowedValues: ["true", "false"],
+    value: (record) => (record as Record<string, CsvCell>)[internalField],
+  };
+}
+
+function enumColumn<TRecord>(
+  header: string,
+  internalField: CsvInternalField,
+  allowedValues: readonly string[],
+): CsvSchemaColumn<TRecord> {
+  return {
+    ...textColumn<TRecord>(header, internalField),
+    allowedValues,
+  };
+}
+
+function sourceLinksColumn<TRecord extends { sourceLinksJson: string }>(): CsvSchemaColumn<TRecord> {
+  return {
+    key: "sourceLinksJson",
+    header: "Source Links",
+    internalField: "sourceLinksJson",
+    required: false,
+    editable: true,
+    clearable: true,
+    valueType: "list/reference",
+    multiline: true,
+    value: (record) => parseSourceLinkArray(record.sourceLinksJson)
+      .map((link) => link.title.trim() ? `${link.title.trim()} | ${link.url.trim()}` : link.url.trim())
+      .filter(Boolean)
+      .join("\n"),
+    example: "Official source | https://example.invalid/source",
+  };
+}
+
+function compatibilityPlaceholderColumn<TRecord>(
+  header: string,
+  internalField: "visibility" | "categoryNotes",
+): CsvSchemaColumn<TRecord> {
+  return {
+    key: `legacy.${internalField}`,
+    header,
+    internalField,
+    required: false,
+    editable: false,
+    clearable: false,
+    valueType: "text",
+    value: () => "",
   };
 }
 

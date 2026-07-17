@@ -5,8 +5,11 @@ import {
   buildImagesCsv,
   buildPerformersCsv,
   buildVideosCsv,
+  categoryCsvSchema,
   escapeCsvValue,
+  glossaryCsvSchema,
   imageCsvSchema,
+  importSchemaFor,
   performerCsvSchema,
   sakuravaRef,
   videoCsvSchema,
@@ -26,15 +29,6 @@ const rawInternalHeaders = [
 ];
 
 const calculatedHeaders = [
-  "Availability",
-  "Duration",
-  "Resolution",
-  "File Size",
-  "File Type",
-  "Image Count",
-  "Main Resolution",
-  "Total File Size",
-  "Main File Type",
   "Status",
   "Filmography",
   "Pictorials",
@@ -54,23 +48,28 @@ describe("export CSV helpers", () => {
       [
         "Action",
         "Sakurava Ref",
-        "Code",
         "Title",
         "Original Title",
-        "Release Date",
-        "Publisher / Label",
-        "Censorship",
+        "Code",
         "Categories",
-        "Rating - Visual",
-        "Rating - Story",
-        "Rating - Performance",
-        "Rating - Chemistry",
-        "Rating - Intensity",
-        "Rating - Rewatch",
-        "Media Path",
-        "Cover Path",
         "Related Performers",
         "Related Images",
+        "Favorite",
+        "Availability",
+        "Censorship",
+        "Release Date",
+        "Publisher / Label",
+        "Duration (minutes)",
+        "Resolution",
+        "File Size (bytes)",
+        "File Type",
+        "Source Links",
+        "Rating - Rewatch",
+        "Rating - Performance",
+        "Rating - Visual",
+        "Rating - Intensity",
+        "Rating - Story",
+        "Rating - Chemistry",
         "Notes",
       ].join(","),
     );
@@ -81,27 +80,28 @@ describe("export CSV helpers", () => {
       [
         "Action",
         "Sakurava Ref",
-        "Code",
         "Title",
         "Original Title",
+        "Code",
+        "Categories",
+        "Related Performers",
+        "Related Videos",
+        "Favorite",
+        "Availability",
+        "Censorship",
         "Release Date",
         "Publisher / Label",
-        "Censorship",
-        "Categories",
+        "Image Count",
+        "Main Resolution",
+        "Total File Size (bytes)",
+        "Main File Type",
+        "Source Links",
+        "Rating - Memorability",
         "Rating - Visual",
         "Rating - Posing",
         "Rating - Atmosphere",
         "Rating - Flow",
-        "Rating - Memorability",
         "Rating - Signature",
-        "Cover Path",
-        "Gallery Folder Path",
-        "Gallery Image 1",
-        "Gallery Image 2",
-        "Gallery Image 3",
-        "Gallery Image 4",
-        "Related Performers",
-        "Related Videos",
         "Notes",
       ].join(","),
     );
@@ -115,6 +115,11 @@ describe("export CSV helpers", () => {
         "Name",
         "Original Name",
         "Aliases",
+        "Categories",
+        "Related Videos",
+        "Related Images",
+        "Favorite",
+        "Gender",
         "Birth Date",
         "Debut Date",
         "Retired Date",
@@ -125,20 +130,13 @@ describe("export CSV helpers", () => {
         "Weight (kg)",
         "Measurements",
         "Cup Size",
-        "Categories",
+        "Source Links",
+        "Rating - Attraction",
         "Rating - Visual",
         "Rating - Performance",
         "Rating - Popularity",
-        "Rating - Versatility",
-        "Rating - Attraction",
         "Rating - Exceptional",
-        "Cover Path",
-        "Mini Thumbnail 1",
-        "Mini Thumbnail 2",
-        "Mini Thumbnail 3",
-        "Mini Thumbnail 4",
-        "Related Videos",
-        "Related Images",
+        "Rating - Versatility",
         "Notes",
       ].join(","),
     );
@@ -149,15 +147,13 @@ describe("export CSV helpers", () => {
       [
         "Action",
         "Sakurava Ref",
-        "Parent Category",
         "Category Name",
+        "Parent Ref",
         "Description",
-        "Thumbnail Path",
         "Show in Videos",
         "Show in Images",
         "Show in Performers",
-        "Visibility",
-        "Notes",
+        "Show in Credits",
       ].join(","),
     );
   });
@@ -188,17 +184,19 @@ describe("export CSV helpers", () => {
       image({ id: "raw-image-uuid", code: "I-CODE-001" }),
     ]);
 
-    expect(buildVideosCsv([]).split(",").slice(0, 4)).toEqual([
+    expect(buildVideosCsv([]).split(",").slice(0, 5)).toEqual([
       "Action",
       "Sakurava Ref",
-      "Code",
       "Title",
+      "Original Title",
+      "Code",
     ]);
-    expect(buildImagesCsv([]).split(",").slice(0, 4)).toEqual([
+    expect(buildImagesCsv([]).split(",").slice(0, 5)).toEqual([
       "Action",
       "Sakurava Ref",
-      "Code",
       "Title",
+      "Original Title",
+      "Code",
     ]);
     expect(dataRow(videoCsv)).toContain(",V-CODE-001,");
     expect(dataRow(imageCsv)).toContain(",I-CODE-001,");
@@ -226,10 +224,59 @@ describe("export CSV helpers", () => {
       .toMatchObject({ internalField: "sakuravaRef" });
     expect(videoCsvSchema.find((column) => column.header === "Rating - Visual"))
       .toMatchObject({ internalField: "ratingJson.visual" });
-    expect(imageCsvSchema.find((column) => column.header === "Gallery Image 1"))
+    expect(importSchemaFor("images").find((column) => column.header === "Gallery Image 1"))
       .toMatchObject({ internalField: "galleryImagePathsJson.1" });
-    expect(performerCsvSchema.find((column) => column.header === "Mini Thumbnail 1"))
+    expect(importSchemaFor("performers").find((column) => column.header === "Mini Thumbnail 1"))
       .toMatchObject({ internalField: "performerThumbnailPathsJson.1" });
+  });
+
+  it("covers every persisted user-editable field and excludes generated, derived, and path state", () => {
+    expect(editableFields(videoCsvSchema)).toEqual([
+      "title", "originalTitle", "code", "categoriesJson", "relatedPerformersJson",
+      "relatedImagesJson", "favorite", "availability", "censorship", "releaseDate",
+      "publisherLabel", "durationMinutes", "resolution", "fileSizeBytes", "fileType",
+      "sourceLinksJson", "ratingJson.rewatch", "ratingJson.performance", "ratingJson.visual",
+      "ratingJson.intensity", "ratingJson.story", "ratingJson.chemistry", "notes",
+    ]);
+    expect(editableFields(imageCsvSchema)).toEqual([
+      "title", "originalTitle", "code", "categoriesJson", "relatedPerformersJson",
+      "relatedVideosJson", "favorite", "availability", "censorship", "releaseDate",
+      "publisherLabel", "imageCount", "mainResolution", "totalFileSizeBytes",
+      "mainFileType", "sourceLinksJson", "ratingJson.memorability", "ratingJson.visual",
+      "ratingJson.posing", "ratingJson.atmosphere", "ratingJson.flow",
+      "ratingJson.signature", "notes",
+    ]);
+    expect(editableFields(performerCsvSchema)).toEqual([
+      "name", "originalName", "aliasesJson", "categoriesJson", "relatedVideosJson",
+      "relatedImagesJson", "favorite", "gender", "birthDate", "debutDate", "retiredDate",
+      "birthplace", "nationality", "bloodType", "heightCm", "weightKg", "measurements",
+      "cupSize", "sourceLinksJson", "ratingJson.attraction", "ratingJson.visual",
+      "ratingJson.performance", "ratingJson.popularity", "ratingJson.exceptional",
+      "ratingJson.versatility", "notes",
+    ]);
+    expect(editableFields(categoryCsvSchema)).toEqual([
+      "name", "parentCategoryRef", "description", "showInVideos", "showInImages",
+      "showInPerformers", "showInCredits",
+    ]);
+    expect(editableFields(glossaryCsvSchema)).toEqual([
+      "term", "definition", "parentId", "synonymsJson", "category", "favorite",
+      "sourceTitle", "sourceUrl",
+    ]);
+
+    const exportedFields = [
+      ...editableFields(videoCsvSchema),
+      ...editableFields(imageCsvSchema),
+      ...editableFields(performerCsvSchema),
+      ...editableFields(categoryCsvSchema),
+      ...editableFields(glossaryCsvSchema),
+    ];
+    for (const excluded of [
+      "id", "key", "createdAt", "updatedAt", "status", "filmographyCount",
+      "pictorialsCount", "mediaPath", "coverPath", "folderPath", "thumbnailPath",
+      "galleryImagePathsJson", "performerThumbnailPathsJson",
+    ]) {
+      expect(exportedFields).not.toContain(excluded);
+    }
   });
 
   it("splits rating JSON into readable columns", () => {
@@ -243,9 +290,9 @@ describe("export CSV helpers", () => {
       performer({ ratingJson: '{"attraction":5,"exceptional":"4"}' }),
     ]);
 
-    expect(dataRow(videoCsv)).toContain("4,5,,,,2");
-    expect(dataRow(imageCsv)).toContain(",3,,,4,");
-    expect(dataRow(performerCsv)).toContain(",,,,5,4");
+    expect(dataRow(videoCsv)).toContain("2,,4,,5,");
+    expect(dataRow(imageCsv)).toContain("4,,3,,,");
+    expect(dataRow(performerCsv)).toContain("5,,,,4,");
     expect(videoCsv).not.toContain('"{""visual""');
   });
 
@@ -312,7 +359,7 @@ describe("export CSV helpers", () => {
     expect(videoCsv).not.toContain(imageId);
   });
 
-  it("splits path arrays into limited editable path columns", () => {
+  it("excludes internal media paths while retaining version-1 import compatibility columns", () => {
     const imageCsv = buildImagesCsv([
       image({
         galleryImagePathsJson: JSON.stringify([
@@ -333,14 +380,13 @@ describe("export CSV helpers", () => {
       }),
     ]);
 
-    expect(dataRow(imageCsv)).toContain(
-      "D:/Images/one.jpg,D:/Images/two.jpg,D:/Images/three.jpg,D:/Images/four.jpg",
-    );
-    expect(imageCsv).not.toContain("D:/Images/five.jpg");
-    expect(dataRow(performerCsv)).toContain("D:/Thumbs/one.jpg,D:/Thumbs/two.jpg,,,");
+    expect(imageCsv).not.toContain("D:/Images/");
+    expect(performerCsv).not.toContain("D:/Thumbs/");
+    expect(importSchemaFor("images").map((column) => column.header)).toContain("Gallery Image 1");
+    expect(importSchemaFor("performers").map((column) => column.header)).toContain("Mini Thumbnail 1");
   });
 
-  it("exports category parent names without raw keys", () => {
+  it("exports category parent relationships as stable references without raw keys", () => {
     const csv = buildCategoriesCsv([
       category({ key: "cat_parent", name: "Genre" }),
       category({
@@ -352,7 +398,7 @@ describe("export CSV helpers", () => {
       }),
     ]);
 
-    expect(csv).toContain(`${sakuravaRef("CAT", "cat_child")},Genre,Drama`);
+    expect(csv).toContain(`${sakuravaRef("CAT", "cat_child")},Drama,${sakuravaRef("CAT", "cat_parent")}`);
     expect(csv).not.toContain("cat_parent");
     expect(csv).not.toContain("cat_child");
   });
@@ -374,6 +420,12 @@ describe("export CSV helpers", () => {
 
 function dataRow(csv: string) {
   return csv.split("\r\n")[1] ?? "";
+}
+
+function editableFields(schema: Array<{ editable: boolean; internalField: string }>) {
+  return schema
+    .filter((column) => column.editable && !["bulkAction", "sakuravaRef"].includes(column.internalField))
+    .map((column) => column.internalField);
 }
 
 function video(overrides: Partial<Video> = {}): Video {

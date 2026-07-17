@@ -128,6 +128,38 @@ describe("import CSV preview", () => {
     expect(unchangedPreview.rows[0].detectedResult).toBe("Unchanged");
   });
 
+  it("canonicalizes equivalent booleans, enums, dates, numbers, and references before comparison", () => {
+    const related = performer({ id: "performer-related", name: "Canonical Performer" });
+    const existing = video({
+      id: "video-canonical",
+      favorite: true,
+      availability: "Owned",
+      releaseDate: "2026-07-14",
+      durationMinutes: 90,
+      relatedPerformersJson: JSON.stringify([{
+        performerId: related.id,
+        nameSnapshot: related.name,
+      }]),
+    });
+    const preview = buildImportCsvPreview(
+      withVideoRow({
+        "Sakurava Ref": sakuravaRef("VID", existing.id),
+        Title: existing.title,
+        Favorite: "TRUE",
+        Availability: "owned",
+        "Release Date": "07/14/2026",
+        "Duration (minutes)": "090",
+        "Related Performers": `${sakuravaRef("PER", related.id)} | Changed display label`,
+      }),
+      context({ videos: [existing], performers: [related] }),
+      { locale: "en-US" },
+    );
+
+    expect(preview.rows[0].errors).toEqual([]);
+    expect(preview.rows[0].detectedResult).toBe("Unchanged");
+    expect(preview.rows[0].changeDetails).toEqual([]);
+  });
+
   it("marks blank ref with main field as Added and Skip as Skipped", () => {
     const added = buildImportCsvPreview(
       withVideoRow({ Action: "Auto", Title: "New Video" }),

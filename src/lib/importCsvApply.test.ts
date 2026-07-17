@@ -70,28 +70,16 @@ describe("import CSV apply", () => {
     const performer = performerRecord({ id: "performer-2", name: "Performer Two" });
     const csv = [
       videoHeader(),
-      [
-        "Auto",
-        sakuravaRef("VID", existing.id),
-        "KEEP-CODE",
-        "Changed",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "4",
-        "",
-        "",
-        "",
-        "",
-        "D:/media/changed.mp4",
-        "",
-        `${sakuravaRef("PER", performer.id)} | Performer Two`,
-        "",
-        "Changed notes",
-      ].join(","),
+      videoRow({
+        Action: "Auto",
+        "Sakurava Ref": sakuravaRef("VID", existing.id),
+        Code: "KEEP-CODE",
+        Title: "Changed",
+        Favorite: "TRUE",
+        "Rating - Story": "4",
+        "Related Performers": `${sakuravaRef("PER", performer.id)} | Performer Two`,
+        Notes: "Changed notes",
+      }),
       videoRow({ Action: "Create", Title: "New Video", Categories: "Favorite" }),
       videoRow({
         Action: "Delete",
@@ -128,7 +116,7 @@ describe("import CSV apply", () => {
       existing.id,
       expect.objectContaining({
         title: "Changed",
-        mediaPath: "D:/media/changed.mp4",
+        favorite: true,
         notes: "Changed notes",
         ratingJson: '{"story":4,"rewatch":5}',
         relatedPerformersJson:
@@ -215,7 +203,7 @@ describe("import CSV apply", () => {
     expect(mutations.updateVideo).not.toHaveBeenCalled();
   });
 
-  it("does not touch source media files", async () => {
+  it("does not export or apply source media paths", async () => {
     const mutations = mutationMocks();
     const unlink = vi.fn();
     const preview = buildImportCsvPreview(
@@ -232,8 +220,9 @@ describe("import CSV apply", () => {
 
     expect(unlink).not.toHaveBeenCalled();
     expect(mutations.createVideo).toHaveBeenCalledWith(
-      expect.objectContaining({ mediaPath: "D:/media/file.mp4" }),
+      expect.not.objectContaining({ mediaPath: "D:/media/file.mp4" }),
     );
+    expect(videoHeader()).not.toContain("Media Path");
   });
 
   it("does not infer a same-file category parent from a display name", async () => {

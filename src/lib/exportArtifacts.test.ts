@@ -91,7 +91,7 @@ describe("shared XLSX/CSV export contract", () => {
     const csv = new TextDecoder().decode(artifact.bytes);
     expect(artifact.template).toBe(true);
     expect(csv.split("\r\n")).toHaveLength(1);
-    expect(csv.startsWith("Action,Sakurava Ref,Code,Title")).toBe(true);
+    expect(csv.startsWith("Action,Sakurava Ref,Title,Original Title,Code")).toBe(true);
   });
 
   it("preserves CSV quoting and parser round-trip for commas, quotes, and multiline text", () => {
@@ -100,13 +100,13 @@ describe("shared XLSX/CSV export contract", () => {
       notes: "Line one\nLine two",
     })], { locale: "en-US" });
     const parsed = parseCsv(csv);
-    expect(parsed.rows[0][3]).toBe('Fictional, "Title"');
+    expect(parsed.rows[0][parsed.headers.indexOf("Title")]).toBe('Fictional, "Title"');
     expect(parsed.rows[0][parsed.rows[0].length - 1]).toBe("Line one\nLine two");
   });
 
   it("exports Glossary through the same Action and identifier contract", () => {
     const csv = buildEntityCsv("glossary", [glossary()]);
-    expect(csv).toContain("Action,Sakurava Ref,Term,Definition,Synonyms");
+    expect(csv).toContain("Action,Sakurava Ref,Term,Definition,Parent Ref,Synonyms");
     expect(csv).toContain("Auto,GLO-");
     expect(csv).toContain("Fictional glossary definition");
   });

@@ -21,6 +21,7 @@ export type ImportFieldDifference = {
 };
 
 export type ImportPlanOperation = {
+  sourceIdentity: string;
   sourceRowNumber: number;
   section: ImportCsvEntity;
   action: ImportPlanAction;
@@ -62,21 +63,21 @@ export function buildImportOperationPlan(
   if (preview.summary.blocked) {
     throw new Error("Import operation plan requires a Preview with no blocking issues.");
   }
+  const sourceFingerprint = sourceFileFingerprint(sourceBytes);
   const operations = preview.rows
     .filter((row) => ["Added", "Modified", "Deleted"].includes(row.detectedResult))
-    .map((row) => buildOperation(row, context));
+    .map((row) => buildOperation(row, context, sourceFingerprint));
   const catalogSnapshot = snapshotCatalog(context);
-  const payload = {
+  const plan: ImportOperationPlan = {
     contractVersion: SAKURAVA_IMPORT_CONTRACT_VERSION,
-    sourceFingerprint: sourceFileFingerprint(sourceBytes),
+    sourceFingerprint,
+    operationFingerprint: "",
     catalogSnapshot,
     operations,
     skippedCount: preview.rows.length - operations.length,
   };
-  return {
-    ...payload,
-    operationFingerprint: operationFingerprint(payload),
-  };
+  plan.operationFingerprint = operationFingerprint(importPlanFingerprintPayload(plan));
+  return plan;
 }
 
 export function importPlanFingerprintPayload(plan: ImportOperationPlan) {
@@ -84,7 +85,19 @@ export function importPlanFingerprintPayload(plan: ImportOperationPlan) {
     contractVersion: plan.contractVersion,
     sourceFingerprint: plan.sourceFingerprint,
     catalogSnapshot: plan.catalogSnapshot,
-    operations: plan.operations,
+    operations: plan.operations.map((operation) => ({
+      sourceIdentity: operation.sourceIdentity,
+      sourceRowNumber: operation.sourceRowNumber,
+      section: operation.section,
+      action: operation.action,
+      stableRecordIdentifier: operation.stableRecordIdentifier,
+      recordId: operation.recordId,
+      temporaryIdentifier: operation.temporaryIdentifier,
+      currentRecord: operation.currentRecord,
+      proposedValues: operation.proposedValues,
+      clearedFields: operation.clearedFields,
+      dependencyRefs: operation.dependencyRefs,
+    })),
     skippedCount: plan.skippedCount,
   };
 }
@@ -92,6 +105,7 @@ export function importPlanFingerprintPayload(plan: ImportOperationPlan) {
 function buildOperation(
   row: ImportCatalogRow,
   context: ImportCsvPreviewContext,
+  sourceFingerprint: string,
 ): ImportPlanOperation {
   const ref = (row.values["Sakurava Ref"] ?? "").trim();
   const current = resolveImportRecord(row.dataType, ref, context) ?? null;
@@ -107,6 +121,9 @@ function buildOperation(
     ? [String(proposedValues.parentId ?? "")].filter((value) => /^GLO-NEW-/.test(value))
     : [];
   return {
+    sourceIdentity: [sourceFingerprint, row.dataType, row.sheetName, row.rowNumber]
+      .map((value) => encodeURIComponent(String(value)))
+      .join(":"),
     sourceRowNumber: row.rowNumber,
     section: row.dataType,
     action,

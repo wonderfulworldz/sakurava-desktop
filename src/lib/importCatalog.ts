@@ -18,12 +18,20 @@ import { isClearlyExcelDateFormat, normalizeImportDate } from "./importDate";
 import { EXPORT_CONTRACT_VERSION } from "./exportWorkbook";
 import {
   SAKURAVA_APPLICATION_ID,
-  SAKURAVA_EXPORT_FORMAT_VERSION,
-  SAKURAVA_IMPORT_CONTRACT_VERSION,
   SAKURAVA_METADATA_SHEET,
+  SAKURAVA_SUPPORTED_EXPORT_FORMAT_VERSIONS,
+  SAKURAVA_SUPPORTED_IMPORT_CONTRACT_VERSIONS,
   type SakuravaWorkbookMetadata,
   SAKURAVA_CLEAR_VALUE,
 } from "./importExportContract";
+import {
+  IMPORT_MAX_CELL_CHARACTERS,
+  IMPORT_MAX_FILE_BYTES,
+  IMPORT_MAX_ROWS_PER_SECTION,
+  IMPORT_MAX_TOTAL_ROWS,
+  IMPORT_MAX_WORKSHEETS,
+  importLimitMessage,
+} from "./importLimits";
 
 export type ImportCatalogFormat = "csv" | "xlsx";
 
@@ -88,7 +96,13 @@ export function buildCsvCatalogPreview(
         sheetName: exportEntityLabel(preview.summary.entity),
         preview,
       }];
-  return catalogPreview("csv", sections, preview.headerErrors, preview.headerWarnings, context);
+  return catalogPreview(
+    "csv",
+    sections,
+    sections.length === 0 ? preview.headerErrors : [],
+    sections.length === 0 ? preview.headerWarnings : [],
+    context,
+  );
 }
 
 export async function buildXlsxCatalogPreview(
@@ -97,6 +111,9 @@ export async function buildXlsxCatalogPreview(
   locale: string,
   messages: ImportCatalogMessages = {},
 ): Promise<ImportCatalogPreview> {
+  if (bytes.byteLength > IMPORT_MAX_FILE_BYTES) {
+    return catalogPreview("xlsx", [], [importLimitMessage("file")], [], context);
+  }
   const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   try {
@@ -116,6 +133,9 @@ export async function buildXlsxCatalogPreview(
   const headerWarnings: string[] = [];
   const sections: ImportCatalogSection[] = [];
   const metadata = readWorkbookMetadata(workbook, headerErrors, headerWarnings);
+  if (workbook.worksheets.length > IMPORT_MAX_WORKSHEETS) {
+    headerErrors.push(importLimitMessage("sheets"));
+  }
   const seenTypes = new Set<ImportCsvEntity>();
 
   for (const worksheet of workbook.worksheets) {
@@ -139,6 +159,7 @@ export async function buildXlsxCatalogPreview(
       locale,
       workbook.properties.date1904 === true,
       messages,
+      !metadata || metadata.contractVersion === 1,
     ));
   }
 
@@ -158,6 +179,9 @@ export async function buildXlsxCatalogPreview(
       headerErrors.push("Workbook data sheets do not match the declared Sakurava data types.");
     }
   }
+  if (sections.reduce((total, section) => total + section.preview.rows.length, 0) > IMPORT_MAX_TOTAL_ROWS) {
+    headerErrors.push(importLimitMessage("totalRows"));
+  }
   if (workbook.description && !workbook.description.includes(EXPORT_CONTRACT_VERSION)) {
     headerWarnings.push("Workbook contract metadata is not recognized; supported sheet names were validated directly.");
   }
@@ -172,6 +196,7 @@ function buildWorksheetSection(
   locale: string,
   date1904: boolean,
   messages: ImportCatalogMessages,
+  allowLegacyColumns: boolean,
 ): ImportCatalogSection {
   const schema = exportSchemaFor(dataType);
   const dateHeaders = new Set(
@@ -185,7 +210,12 @@ function buildWorksheetSection(
   const rows: string[][] = [];
   const rowNumbers: number[] = [];
 
-  for (let rowNumber = 2; rowNumber <= worksheet.actualRowCount; rowNumber += 1) {
+  const parseErrors: string[] = [];
+  if (Math.max(0, worksheet.actualRowCount - 1) > IMPORT_MAX_ROWS_PER_SECTION) {
+    parseErrors.push(importLimitMessage("sectionRows"));
+  }
+  const finalRow = Math.min(worksheet.actualRowCount, IMPORT_MAX_ROWS_PER_SECTION + 1);
+  for (let rowNumber = 2; rowNumber <= finalRow; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
     const values = headers.map((header, index) =>
       worksheetCellText(row.getCell(index + 1), header, dateHeaders, locale, date1904),
@@ -200,9 +230,14 @@ function buildWorksheetSection(
     dataType,
     sheetName: worksheet.name,
     preview: buildImportTablePreview(
-      { headers, rows },
+      { headers, rows, errors: parseErrors },
       context,
-      { locale, rowNumbers, invalidDateMessage: messages.invalidDate },
+      {
+        locale,
+        rowNumbers,
+        invalidDateMessage: messages.invalidDate,
+        allowLegacyColumns,
+      },
     ),
   };
 }
@@ -284,8 +319,12 @@ function readWorkbookMetadata(workbook: Workbook, errors: string[], warnings: st
   try {
     const metadata = JSON.parse(String(worksheet.getCell("A1").value ?? "")) as SakuravaWorkbookMetadata;
     if (metadata.applicationId !== SAKURAVA_APPLICATION_ID) errors.push("Workbook application identifier is not supported.");
-    if (metadata.contractVersion !== SAKURAVA_IMPORT_CONTRACT_VERSION) errors.push("Workbook contract version is not supported.");
-    if (metadata.exportFormatVersion !== SAKURAVA_EXPORT_FORMAT_VERSION) errors.push("Workbook export format version is not supported.");
+    if (!SAKURAVA_SUPPORTED_IMPORT_CONTRACT_VERSIONS.includes(
+      metadata.contractVersion as (typeof SAKURAVA_SUPPORTED_IMPORT_CONTRACT_VERSIONS)[number],
+    )) errors.push("Workbook contract version is not supported.");
+    if (!SAKURAVA_SUPPORTED_EXPORT_FORMAT_VERSIONS.includes(
+      metadata.exportFormatVersion as (typeof SAKURAVA_SUPPORTED_EXPORT_FORMAT_VERSIONS)[number],
+    )) errors.push("Workbook export format version is not supported.");
     if (metadata.format !== "xlsx" || !["catalog", "template"].includes(metadata.workbookType)) errors.push("Workbook type metadata is not valid.");
     if (!Array.isArray(metadata.includedDataTypes) || metadata.includedDataTypes.some((value) => !isImportEntity(value))) errors.push("Workbook contains an unknown declared data type.");
     if (!metadata.generatedAt || Number.isNaN(Date.parse(metadata.generatedAt))) errors.push("Workbook generated timestamp is not valid.");
@@ -297,22 +336,46 @@ function readWorkbookMetadata(workbook: Workbook, errors: string[], warnings: st
 }
 
 function collectMalformedCellIssues(worksheet: Worksheet, errors: string[]) {
-  worksheet.eachRow((row) => row.eachCell((cell) => {
-    const value = cell.value;
-    if (!value || typeof value !== "object" || value instanceof Date) return;
-    const formulaResult = "result" in value ? value.result : null;
-    if (
-      "error" in value ||
-      (formulaResult && typeof formulaResult === "object" && "error" in formulaResult) ||
-      ("formula" in value && value.result == null)
-    ) {
-      errors.push(`Worksheet ${worksheet.name} contains an unreadable formula or error cell at ${cell.address}.`);
-      return;
+  let issueCount = 0;
+  let oversizedCellReported = false;
+  const finalRow = Math.min(worksheet.actualRowCount, IMPORT_MAX_ROWS_PER_SECTION + 1);
+  const finalColumn = Math.min(worksheet.actualColumnCount, 128);
+  for (let rowNumber = 1; rowNumber <= finalRow; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    for (let columnNumber = 1; columnNumber <= finalColumn; columnNumber += 1) {
+      const cell = row.getCell(columnNumber);
+      const value = cell.value;
+      if (
+        !oversizedCellReported &&
+        importCellText(resolvedCellValue(value)).length > IMPORT_MAX_CELL_CHARACTERS
+      ) {
+        errors.push(importLimitMessage("cell"));
+        oversizedCellReported = true;
+      }
+      if (!value || typeof value !== "object" || value instanceof Date) continue;
+      const formulaResult = "result" in value ? value.result : null;
+      if (
+        "error" in value ||
+        (formulaResult && typeof formulaResult === "object" && "error" in formulaResult) ||
+        ("formula" in value && value.result == null)
+      ) {
+        if (issueCount < 20) {
+          errors.push(`Worksheet ${worksheet.name} contains an unreadable formula or error cell at ${cell.address}.`);
+        }
+        issueCount += 1;
+        continue;
+      }
+      if (!("formula" in value) && !("sharedFormula" in value) && !("richText" in value) && !("text" in value)) {
+        if (issueCount < 20) {
+          errors.push(`Worksheet ${worksheet.name} contains a malformed cell at ${cell.address}.`);
+        }
+        issueCount += 1;
+      }
     }
-    if (!("formula" in value) && !("sharedFormula" in value) && !("richText" in value) && !("text" in value)) {
-      errors.push(`Worksheet ${worksheet.name} contains a malformed cell at ${cell.address}.`);
-    }
-  }));
+  }
+  if (issueCount > 20) {
+    errors.push(`Worksheet ${worksheet.name} contains ${issueCount - 20} additional unreadable cells.`);
+  }
 }
 
 function catalogPreview(

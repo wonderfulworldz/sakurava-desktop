@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+.import-details-cell {
+  container-type: inline-size;
+}
+
+.import-details-responsive {
+  font-size: 0;
+}
+
+.import-details-responsive::after {
+  content: attr(data-summary-narrow);
+  font-size: 0.75rem;
+}
+
+@container (min-width: 15rem) {
+  .import-details-responsive::after {
+    content: attr(data-summary-medium);
+  }
+}
+
+@container (min-width: 22rem) {
+  .import-details-responsive::after {
+    content: attr(data-summary-wide);
+  }
+}
+
 :root {
   --appearance-accent: #f16f9b;
   --appearance-accent-hover: color-mix(
