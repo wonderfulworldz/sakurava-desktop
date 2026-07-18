@@ -541,9 +541,11 @@ function buildRelatedSections(
           recordsByWorkId.set(credit.workId, {
             ...baseItem,
             roleName,
-            creditType: creditTypeKey
-              ? categoryByKey.get(creditTypeKey)?.trim() || creditTypeKey
-              : undefined,
+            creditType:
+              credit.creditTypeText?.trim() ||
+              (creditTypeKey
+                ? categoryByKey.get(creditTypeKey)?.trim() || creditTypeKey
+                : undefined),
           });
         });
       const records = [...recordsByWorkId.values()];

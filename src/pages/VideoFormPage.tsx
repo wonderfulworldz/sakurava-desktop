@@ -57,10 +57,13 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
     }
 
     setLoading(true);
-    Promise.all([
-      getVideo(itemKey),
-      listCreditsByWork("video", itemKey).catch(() => []),
-    ])
+    getVideo(itemKey)
+      .then(async (video) => {
+        const credits = video
+          ? await listCreditsByWork("video", video.id).catch(() => [])
+          : [];
+        return [video, credits] as const;
+      })
       .then(([video, credits]) => {
         if (cancelled) {
           return;

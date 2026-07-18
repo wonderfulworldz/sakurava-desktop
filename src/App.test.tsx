@@ -7805,7 +7805,8 @@ describe("App", () => {
               workId: created.id,
               performerId: "performer_aoi",
               characterName: "Lead Role",
-              creditTypeCategoryId: "Custom Main",
+              creditTypeText: "Custom Main",
+              creditTypeCategoryId: null,
               billingOrder: 1,
             }),
           );
@@ -7921,16 +7922,24 @@ describe("App", () => {
 
   it.each([
     {
-      path: "/videos/video_credit/edit",
+      path: "/videos/V26070001/edit",
       workType: "video",
       getCommand: "video_get",
-      record: persistedVideo({ id: "video_credit", title: "Credit Video" }),
+      record: persistedVideo({
+        id: "video_credit",
+        sakuravaRef: "V26070001",
+        title: "Credit Video",
+      }),
     },
     {
-      path: "/images/image_credit/edit",
+      path: "/images/I26070001/edit",
       workType: "image",
       getCommand: "image_get",
-      record: persistedImage({ id: "image_credit", title: "Credit Image" }),
+      record: persistedImage({
+        id: "image_credit",
+        sakuravaRef: "I26070001",
+        title: "Credit Image",
+      }),
     },
   ])(
     "loads existing $workType credits into compact Related Performers",
@@ -7947,27 +7956,29 @@ describe("App", () => {
         }
         if (command === "credit_list_by_work") {
           expect(args).toEqual({ workType, workId: record.id });
-          return [
-            {
-              id: `credit_${workType}`,
+          return ["Credit A", "Credit B", "Credit A", "Credit A", "Credit B"].map(
+            (creditTypeText, index) => ({
+              id: `credit_${workType}_${index + 3}`,
+              sakuravaRef: `R2607000${index + 3}`,
               workType,
               workId: record.id,
               performerId: performer.id,
-              characterName: "Loaded Role",
+              characterName: `Loaded Role ${index + 1}`,
               characterOriginalName: "Original Role",
               creditedAs: "Custom Billing",
               creditedAsMode: "custom",
+              creditTypeText,
               creditTypeCategoryId: "cat_voice",
               roleImportanceCategoryId: "cat_main",
               characterMode: "text",
               characterId: null,
-              billingOrder: 3,
+              billingOrder: index + 1,
               note: "Loaded note",
               legacySourceKey: null,
               createdAt: "1",
               updatedAt: "1",
-            },
-          ];
+            }),
+          );
         }
         if (command === "performer_list") {
           return [performer];
@@ -7997,19 +8008,23 @@ describe("App", () => {
         "sakurava.performerSuggestionsCacheVersion",
         "batch-38-9-4-direct-field-history-v1",
       );
-
       render(<App />);
 
       expect(await screen.findByRole("heading", { name: "Related Performers" }))
         .toBeInTheDocument();
       await waitFor(() =>
         expect(screen.getByLabelText("Related performer 1 role name"))
-          .toHaveValue("Loaded Role"),
+          .toHaveValue("Loaded Role 1"),
       );
       await waitFor(() =>
         expect(screen.getByLabelText("Related performer 1 credit type"))
-          .toHaveValue("cat_voice"),
+          .toHaveValue("Credit A"),
       );
+      expect(screen.getByText("5 selected")).toBeInTheDocument();
+      expect(screen.getAllByTestId("credit-editor-row")).toHaveLength(5);
+      expect(
+        screen.getAllByLabelText(/Related performer \d+ credit type/),
+      ).toHaveLength(5);
       expect(screen.getByLabelText("Related performer 1 credit type"))
         .not.toHaveAttribute("list");
       fireEvent.focus(screen.getByLabelText("Related performer 1 credit type"));
@@ -8028,16 +8043,17 @@ describe("App", () => {
       expect(screen.getByLabelText("Related performer 1 order"))
         .toHaveAttribute("type", "number");
       const list = screen.getByTestId("related-performer-credit-list");
-      expect(within(list).getByText("Credit Performer")).toBeInTheDocument();
-      expect(within(list).getByRole("button", { name: "Remove Credit Performer" }))
-        .toBeInTheDocument();
+      expect(within(list).getAllByText("Credit Performer")).toHaveLength(5);
+      expect(
+        within(list).getAllByRole("button", { name: "Remove Credit Performer" }),
+      ).toHaveLength(5);
       expect(screen.queryByText("Character Mode")).not.toBeInTheDocument();
       expect(screen.queryByText("Credited As Mode")).not.toBeInTheDocument();
       expect(screen.queryByText("Character Original Name")).not.toBeInTheDocument();
       expect(screen.queryByText("Role Importance")).not.toBeInTheDocument();
       expect(screen.queryByText("Billing Order")).not.toBeInTheDocument();
       expect(screen.queryByText(/^Role$/)).not.toBeInTheDocument();
-      expect(screen.getByText("Role Name")).toBeInTheDocument();
+      expect(screen.getAllByText("Role Name")).toHaveLength(5);
       expect(screen.queryByLabelText(/Move Credit Performer/))
         .not.toBeInTheDocument();
       expect(screen.queryByText("Loaded note")).not.toBeInTheDocument();

@@ -32,7 +32,7 @@ contract-version change, UI redesign, or Batch 41.9.
 | `workType`, `workId` | Required target section (`video`/`image`) and technical target id. |
 | `performerId` | Required technical Performer id. |
 | `characterName` | Required text column, default empty string. |
-| `characterOriginalName`, `creditedAs` | Nullable display text. |
+| `characterOriginalName`, `creditedAs`, `creditTypeText` | Nullable display text; Credit Type is independent from Credited As. |
 | `creditedAsMode` | Required `auto`/`custom`, default `auto`. |
 | `creditTypeCategoryId`, `roleImportanceCategoryId` | Nullable Managed Category keys. |
 | `characterMode` | Required `text`/`self`/`linked`, default `text`. |
@@ -120,7 +120,7 @@ Auto, Add, Update, Delete; blank Action is Auto.
 | Original Character | `characterOriginalName`, text | no | empty | yes | none |
 | Credited As Mode | `creditedAsMode`, Auto/Custom | yes | official default Auto | no | none |
 | Credited As | `creditedAs`, text | no | empty when Auto | yes | none |
-| Credit Type | `creditTypeCategoryId`, Category Ref | no | invalid becomes empty + Warning | yes | Managed Category |
+| Credit Type | `creditTypeText`, text | no | empty | yes | none |
 | Role Importance | `roleImportanceCategoryId`, Category Ref | no | invalid becomes empty + Warning | yes | Managed Category |
 | Character Mode | `characterMode`, Text/Self | yes | official default Text | no | none |
 | Billing Order | `billingOrder`, integer | no | invalid becomes empty + Warning | yes | none |
@@ -273,3 +273,165 @@ tests. These checks must not change the decisions above.
   no recovery state.
 
 Batch 41.9 is explicitly excluded and remains unchanged.
+
+## 41.8.5B implementation note
+
+Implemented migration identifier: `41.8.5B-credit-ref-r-v1`. The `credits`
+table now stores canonical `sakuravaRef` alongside its hidden technical `id`,
+with `idx_credits_sakurava_ref` and the existing R section counter, alias, and
+schema-migration ledger infrastructure. The existing `sakuravaRefCounters` and
+`sakuravaRefAliases` tables remain the sole durable high-water and alias store.
+
+Legacy Credit rows migrate in one transaction. `createdAt` accepts the current
+millisecond timestamp representation and valid ISO `YYYY-MM` prefix; missing or
+malformed timestamps use the one supplied migration month. Rows are ordered by
+binary canonical `credits.id` within each month. Logical duplicates remain
+separate. Existing valid R values are preserved, while invalid values or
+conflicting unique mappings reject the migration. New Credit creation allocates
+an R Ref atomically and normal updates preserve it; Credit deletion leaves the
+counter/ledger history intact.
+
+Staged Restore reuses the deterministic Credit migration before activation when
+the base identity upgrade is already present but the Credit migration marker is
+absent. Older packages with no Credit Ref therefore remain migratable; newer
+packages retain valid R values and reconcile counters. The package contract
+version remains unchanged. Final schema, counter, alias, catalog-relationship,
+and migration-state validation still runs before transaction commit/activation.
+
+Automated coverage includes legacy duplicate preservation, malformed/missing
+timestamp fallback, R allocation and update immutability, backup Preview
+compatibility, full Rust suite, and production TypeScript build. Manual
+disposable migration/CRUD/Restore smoke remains required before 41.8.5B
+closure. 41.8.5C remains limited to Credits XLSX/CSV Import/Export; Batch 41.9
+is unchanged.
+
+## 41.8.5B.4.2 Credit Type text contract correction
+
+A disposable desktop smoke exposed a normal-UI defect, not an R migration
+defect: the compact related-performer editor stored free-text Credit Type labels
+such as `Credit A` in `credits.creditTypeCategoryId`. That column remains a
+nullable relationship to `managedCategories.key`; it is not the free-text
+Credit Type contract. The unauthorized Category select correction was reverted.
+The compact free-text input, its suggestion behavior, and its existing layout
+are retained without a UI redesign.
+
+`41.8.5B-credit-type-text-v1` adds nullable `credits.creditTypeText` without
+rewriting existing Credited As, Category relationships, R Refs, timestamps, or
+legacy rows. The form, TypeScript payload, Rust command, SQL row mapping, and
+read model map Credit Type only to `creditTypeText`. `creditedAs` remains a
+separate text field; `creditTypeCategoryId` and `roleImportanceCategoryId`
+remain independent internal relationships.
+
+Rust `credit_create` and `credit_update` continue to validate the supported
+Video/Image work target, Performer target, and each present Category key inside
+the same SQLite transaction. They do not validate `creditTypeText` as a
+relationship. Invalid Create leaves no Credit, alias, or counter allocation;
+invalid Update retains the previous complete row and immutable R Ref. Backups
+carry the extended SQLite table; staged Restore upgrades older packages with a
+null text value before activation, without a package contract-version change.
+
+Focused component/App, runtime, schema, backup, and Rust coverage proves free
+text Create/Update, valid null and existing Category keys, duplicate logical
+Creates with distinct R Refs, and atomic rejection of invalid genuine
+relationships. The original malformed disposable database remains preserved as
+failure evidence. A new clean disposable root will be used for the remaining
+desktop CRUD, non-reuse, restart, and older-package Restore smoke. 41.8.5C
+remains unchanged; Batch 41.9 remains excluded.
+
+## 41.8.5B.5 same-performer edit-row identity
+
+The Work editor retains one form row per persisted Credit, even when every row
+has the same `performerId`. The persisted `credits.id` is the stable
+editor-row identity and carries the immutable public R Ref; `performerId`
+remains only the relationship target. Unsaved rows receive a generated
+client-only editor id. React keys, field edits, and row removal use that row
+identity, never a performer id or list index.
+
+Hydration maps each `credit_list_by_work` result one-to-one and retains its
+database ordering. The picker’s selected count is the Credit-row count, not the
+number of unique Performers. Save reconciliation updates, deletes, and retains
+persisted rows by `credits.id`; focused regressions cover five Credits for one
+Performer, a single-row Credit Type update, and removal of exactly one sibling
+row without R Ref allocation or reuse. The compact free-text Credit Type UI and
+surrounding UX are unchanged. Manual update/restart confirmation, then
+Delete/non-reuse and older-package Restore smoke, remain in the B closure;
+41.8.5C and Batch 41.9 remain excluded.
+
+## 41.8.5B.5.3 authoritative Work-edit Credit hydration
+
+The real disposable Video Edit route carries the public Work Ref, while the
+Credits table stores the hidden technical Work id. The prior loader passed the
+route value directly to `credit_list_by_work`, which returned zero rows for a
+valid migrated Work. Video and Image edit loaders now resolve the Work first
+and query Credits with its authoritative technical `id`. Persisted Credits are
+therefore the editable source; `relatedPerformersJson` remains only a legacy
+compatibility projection and is not used to replace modern Credit rows.
+
+The form retains each `credits.id`/R Ref through hydration and Save. Save
+reconciliation skips unchanged persisted rows and updates only the changed
+technical Credit id, with no sibling Create/Delete or R allocation. Focused
+public-Ref route regressions cover both Video and Image loaders and the
+five-same-Performer one-update case. Credit Type remains free text; no UI/UX
+redesign or 41.8.5C work is included.
+
+## 41.8.5B.6 disposable older-package Restore fixture
+
+`credits_r_smoke prepare-restore` and
+`scripts/prepare-credits-r-restore-smoke.ps1` create a debug/test-only,
+sentinel-protected Restore target under `manual-smoke/runtime-data`. The target
+is migrated and retains an R2607 high-water of 3, including the historical
+deleted `R2607-0003`; its normal Backup History folder contains one real v1
+Manual package made before the Credit-R migration. The package has five
+distinct legacy Credits and is validated by the existing production Preview
+path; no Restore occurs during preparation and no live app-data is accessed.
+
+The expected UI Restore result is five Credits with `R2605-0001`,
+`R2605-0002`, `R2606-0001`, `R2607-0001`, and `R2607-0002`, while the restored
+R2607 counter remains 3 from the newer safety snapshot. The inspector reports
+normal and Safety package names after Restore. Manual Restore and restart
+confirmation remain open until performed through the disposable desktop UI.
+Credit Type remains free text, the five-Credits-per-Performer limit is
+unchanged, 41.8.5C is not implemented, and Batch 41.9 remains excluded.
+
+## 41.8.5B final closure
+
+The disposable migration fixture completed with five distinct same-Performer
+Credits: `credit-a` → `R2605-0001`, `credit-b` → `R2605-0002`, `credit-c` →
+`R2606-0001`, `credit-d` → `R2607-0001`, and `credit-e` → `R2607-0002`.
+The Work editor hydrates those authoritative rows as `5 selected`. Credit Type
+remains the compact free-text `creditTypeText` input; Credited As and the two
+nullable managed-Category relationships remain separate.
+
+Two desktop defects were closed without changing the UI. The initial
+four-Create failure came from persisted form rows losing their authoritative
+baseline during reconciliation; reconciliation now uses `credits.id`, treats
+unchanged rows as no-ops, and updates only the edited row. The zero-row failure
+came from querying Credits with the public Work route Ref instead of the
+resolved technical Work id; Video and Image edit loaders now query the
+authoritative Credits table with the Work id. `relatedPerformersJson` remains a
+compatibility projection only and is not regenerated as an authoritative source
+when persisted Credits are edited. One-row edit, restart, and sibling
+preservation completed with zero Create/Delete, stable R Refs/counters, no
+synthetic `credit_legacy`, and zero duplicate or malformed R Refs.
+
+Delete/Create smoke removed only `R2605-0002`; the later disposable
+`R2607-0003` allocation was deleted without lowering high-water, and the next
+Create allocated `R2607-0004`, proving non-reuse. The five-Credits-per-Performer
+limit remains unchanged.
+
+Older-package Restore completed through Backup History using
+`sakurava-backup-20260718-105040-manual`. Preview passed for the v1 directory
+package with SQLite quick check and required schema. Staged migration completed
+before activation and restored the exact five Credit mappings above. The newer
+R2607 high-water of 3, including historical `R2607-0003`, remained intact; the
+Restore safety package `sakurava-backup-20260718-120902-safety` was created.
+Restart retained Credits, Refs, counters, packages, and migration state without
+recovery UI or `credit_legacy` synthesis. Final inspector results were
+`duplicateRefCount = 0` and `malformedRefCount = 0`.
+
+The temporary browser-console identity trace used during diagnosis was removed.
+The debug/test-only disposable root, sentinel, live-path collision checks,
+fixture generator, and read-only inspector remain regression infrastructure;
+they do not alter production Restore behavior. 41.8.5B implementation and
+manual closure gates are complete. Credits XLSX/CSV Import/Export remains
+41.8.5C work, and Batch 41.9 remains unchanged.

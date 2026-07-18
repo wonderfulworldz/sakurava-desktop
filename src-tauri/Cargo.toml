@@ -1,5 +1,6 @@
 [package]
 name = "sakurava-desktop"
+default-run = "sakurava-desktop"
 version = "0.0.0"
 description = "Sakurava desktop runtime"
 authors = ["Sakurava"]

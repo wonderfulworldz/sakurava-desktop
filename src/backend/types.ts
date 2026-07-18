@@ -100,12 +100,14 @@ export interface ManagedCategory {
 
 export interface Credit {
   id: EntityId;
+  sakuravaRef?: string;
   workType: CreditWorkType;
   workId: EntityId;
   performerId: EntityId;
   characterName: string;
   characterOriginalName: string | null;
   creditedAs: string | null;
+  creditTypeText: string | null;
   creditedAsMode: CreditedAsMode;
   creditTypeCategoryId: string | null;
   roleImportanceCategoryId: string | null;

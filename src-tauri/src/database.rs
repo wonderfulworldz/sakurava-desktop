@@ -14,6 +14,8 @@ use tauri::Manager;
 
 pub const APP_DATA_FOLDER_NAME: &str = "app.sakurava.desktop";
 pub const DATABASE_FILE_NAME: &str = "sakurava.sqlite";
+pub const DISPOSABLE_DATA_DIR_ENV: &str = "SAKURAVA_DISPOSABLE_DATA_DIR";
+pub const DISPOSABLE_SENTINEL_FILE_NAME: &str = ".sakurava-disposable";
 const APP_GENERATED_CACHE_DIR_NAMES: [&str; 3] =
     ["generated-cache", "thumbnail-cache", "preview-cache"];
 pub const BACKUP_FOLDER_NAME: &str = "backups";
@@ -22,15 +24,19 @@ pub const BACKUP_FORMAT_VERSION: u32 = 1;
 pub const BACKUP_DATABASE_FILE_NAME: &str = "sakurava.sqlite";
 pub const BACKUP_MANIFEST_FILE_NAME: &str = "manifest.json";
 pub const SAKURAVA_REF_MIGRATION_ID: &str = "41.8.4A-sakurava-ref-v1";
+pub const CREDIT_SAKURAVA_REF_MIGRATION_ID: &str = "41.8.5B-credit-ref-r-v1";
+pub const CREDIT_TYPE_TEXT_MIGRATION_ID: &str = "41.8.5B-credit-type-text-v1";
 pub const SAKURAVA_REF_CAPACITY: i64 = 9_999;
 
-const SAKURAVA_REF_SECTIONS: [(&str, &str, &str, &str); 5] = [
+const SAKURAVA_REF_SECTIONS: [(&str, &str, &str, &str); 6] = [
     ("V", "videos", "id", "VID"),
     ("I", "images", "id", "IMG"),
     ("P", "performers", "id", "PER"),
     ("C", "managedCategories", "key", "CAT"),
     ("G", "glossary_entries", "id", "GLO"),
+    ("R", "credits", "id", "CRD"),
 ];
+const BASE_SAKURAVA_REF_SECTION_COUNT: usize = 5;
 
 const CREATE_VIDEOS_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS videos (
@@ -166,12 +172,14 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
 const CREATE_CREDITS_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS credits (
   id TEXT PRIMARY KEY NOT NULL,
+  sakuravaRef TEXT NOT NULL DEFAULT '',
   workType TEXT NOT NULL,
   workId TEXT NOT NULL,
   performerId TEXT NOT NULL,
   characterName TEXT NOT NULL DEFAULT '',
   characterOriginalName TEXT,
   creditedAs TEXT,
+  creditTypeText TEXT,
   creditedAsMode TEXT NOT NULL DEFAULT 'auto',
   creditTypeCategoryId TEXT,
   roleImportanceCategoryId TEXT,
@@ -509,6 +517,100 @@ pub fn runtime_database_paths(app_data_dir: impl AsRef<Path>) -> RuntimeDatabase
     }
 }
 
+/// Resolves the directory used by the desktop runtime before any SQLite file
+/// is opened. Release builds deliberately ignore the disposable override.
+pub fn resolve_tauri_runtime_data_dir<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<PathBuf, String> {
+    let standard_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Unable to resolve app data directory: {error}"))?;
+
+    #[cfg(any(debug_assertions, test))]
+    {
+        let requested = std::env::var_os(DISPOSABLE_DATA_DIR_ENV).map(PathBuf::from);
+        return resolve_runtime_data_dir_with_override(
+            &standard_dir,
+            requested.as_deref(),
+            true,
+            true,
+        );
+    }
+
+    #[cfg(not(any(debug_assertions, test)))]
+    Ok(standard_dir)
+}
+
+/// Validates a debug/test disposable root. The explicit parameters keep the
+/// dangerous-path policy independently testable without changing process
+/// environment variables.
+pub fn resolve_runtime_data_dir_with_override(
+    standard_dir: &Path,
+    requested_dir: Option<&Path>,
+    allow_override: bool,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<PathBuf, String> {
+    if !allow_override || requested_dir.is_none() {
+        return Ok(standard_dir.to_path_buf());
+    }
+    let requested_dir = requested_dir.expect("checked above");
+    if requested_dir.as_os_str().is_empty() {
+        return Err("Disposable runtime directory is empty.".to_string());
+    }
+    if !requested_dir.is_dir() {
+        return Err("Disposable runtime directory does not exist.".to_string());
+    }
+    let standard = canonical_or_absolute_path(standard_dir)?;
+    let requested = requested_dir
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve disposable runtime directory: {error}"))?;
+    if requested == standard || requested.starts_with(&standard) || standard.starts_with(&requested)
+    {
+        return Err(
+            "Disposable runtime directory collides with the live app-data directory.".to_string(),
+        );
+    }
+    let sentinel = requested.join(DISPOSABLE_SENTINEL_FILE_NAME);
+    if !sentinel.is_file() {
+        return Err(format!(
+            "Disposable runtime sentinel is missing: {}",
+            DISPOSABLE_SENTINEL_FILE_NAME
+        ));
+    }
+
+    if require_workspace_manual_smoke_root {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| "Unable to resolve the workspace root.".to_string())?
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve workspace root: {error}"))?;
+        let allowed_root = workspace_root.join("manual-smoke").join("runtime-data");
+        if !requested.starts_with(&allowed_root) {
+            return Err(
+                "Disposable runtime directory must be inside manual-smoke/runtime-data."
+                    .to_string(),
+            );
+        }
+    }
+
+    Ok(requested)
+}
+
+fn canonical_or_absolute_path(path: &Path) -> Result<PathBuf, String> {
+    if path.exists() {
+        return path
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve app-data directory: {error}"));
+    }
+    if path.is_absolute() {
+        return Ok(path.to_path_buf());
+    }
+    std::env::current_dir()
+        .map(|current_dir| current_dir.join(path))
+        .map_err(|error| format!("Unable to resolve app-data directory: {error}"))
+}
+
 pub fn default_backup_folder(database: &RuntimeDatabase) -> PathBuf {
     database.paths.app_data_dir.join(BACKUP_FOLDER_NAME)
 }
@@ -787,12 +889,23 @@ fn preview_backup_package_directory(
     if table_has_column(&backup_connection, "videos", "sakuravaRef").map_err(|error| {
         BackupPackagePreviewError::new("identity_schema_inspection_failed", error.to_string())
     })? {
-        validate_sakurava_ref_schema(&backup_connection).map_err(|message| {
-            BackupPackagePreviewError::new("identity_validation_failed", message)
-        })?;
-        validate_sakurava_ref_counters(&backup_connection).map_err(|message| {
-            BackupPackagePreviewError::new("identity_counter_validation_failed", message)
-        })?;
+        let base_sections = &SAKURAVA_REF_SECTIONS[..BASE_SAKURAVA_REF_SECTION_COUNT];
+        validate_sakurava_ref_schema_for_sections(&backup_connection, base_sections).map_err(
+            |message| BackupPackagePreviewError::new("identity_validation_failed", message),
+        )?;
+        validate_sakurava_ref_counters_for_sections(&backup_connection, base_sections).map_err(
+            |message| BackupPackagePreviewError::new("identity_counter_validation_failed", message),
+        )?;
+        if credit_sakurava_ref_migration_is_applied(&backup_connection).map_err(|message| {
+            BackupPackagePreviewError::new("identity_schema_inspection_failed", message)
+        })? {
+            validate_sakurava_ref_schema(&backup_connection).map_err(|message| {
+                BackupPackagePreviewError::new("identity_validation_failed", message)
+            })?;
+            validate_sakurava_ref_counters(&backup_connection).map_err(|message| {
+                BackupPackagePreviewError::new("identity_counter_validation_failed", message)
+            })?;
+        }
     }
 
     let counts = BackupPackagePreviewCounts {
@@ -1624,6 +1737,8 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInCredits", false)?;
     ensure_text_column(connection, "glossary_entries", "parent_id", "")?;
+    ensure_text_column(connection, "credits", "sakuravaRef", "")?;
+    ensure_nullable_text_column(connection, "credits", "creditTypeText")?;
     backfill_legacy_credits(connection)?;
 
     // Only a genuinely fresh database receives identity infrastructure here.
@@ -1636,6 +1751,22 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
             "INSERT INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
             params![
                 SAKURAVA_REF_MIGRATION_ID,
+                backup_created_at(SystemTime::now())
+                    .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
+            ],
+        )?;
+        connection.execute(
+            "INSERT INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
+            params![
+                CREDIT_SAKURAVA_REF_MIGRATION_ID,
+                backup_created_at(SystemTime::now())
+                    .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
+            ],
+        )?;
+        connection.execute(
+            "INSERT INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
+            params![
+                CREDIT_TYPE_TEXT_MIGRATION_ID,
                 backup_created_at(SystemTime::now())
                     .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
             ],
@@ -1684,7 +1815,10 @@ fn upgrade_restored_identity(
     // allows the same atomic identity migration to run against a legacy package.
     if !table_has_column(connection, "videos", "sakuravaRef").map_err(|error| error.to_string())? {
         migrate_sakurava_ref_connection(connection, migration_yymm)?;
+    } else if !credit_sakurava_ref_migration_is_applied(connection)? {
+        migrate_credit_sakurava_ref_connection(connection, migration_yymm)?;
     }
+    migrate_credit_type_text_connection(connection)?;
     validate_sakurava_ref_schema(connection)?;
 
     if safety_database_path.is_file() {
@@ -1753,7 +1887,14 @@ fn reconcile_sakurava_ref_counters(connection: &Connection) -> Result<(), String
 }
 
 fn validate_sakurava_ref_counters(connection: &Connection) -> Result<(), String> {
-    for (section, table, _, _) in SAKURAVA_REF_SECTIONS {
+    validate_sakurava_ref_counters_for_sections(connection, &SAKURAVA_REF_SECTIONS)
+}
+
+fn validate_sakurava_ref_counters_for_sections(
+    connection: &Connection,
+    sections: &[(&str, &str, &str, &str)],
+) -> Result<(), String> {
+    for &(section, table, _, _) in sections {
         let mut statement = connection
             .prepare(&format!(
                 "SELECT substr(sakuravaRef, 2, 4), MAX(CAST(substr(sakuravaRef, 6, 4) AS INTEGER))
@@ -1789,7 +1930,8 @@ fn create_sakurava_ref_support_schema(connection: &Connection) -> rusqlite::Resu
          CREATE UNIQUE INDEX IF NOT EXISTS idx_images_sakurava_ref ON images(sakuravaRef) WHERE sakuravaRef <> '';
          CREATE UNIQUE INDEX IF NOT EXISTS idx_performers_sakurava_ref ON performers(sakuravaRef) WHERE sakuravaRef <> '';
          CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_sakurava_ref ON managedCategories(sakuravaRef) WHERE sakuravaRef <> '';
-         CREATE UNIQUE INDEX IF NOT EXISTS idx_glossary_sakurava_ref ON glossary_entries(sakuravaRef) WHERE sakuravaRef <> '';",
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_glossary_sakurava_ref ON glossary_entries(sakuravaRef) WHERE sakuravaRef <> '';
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_credits_sakurava_ref ON credits(sakuravaRef) WHERE sakuravaRef <> '';",
     )
 }
 
@@ -1853,12 +1995,12 @@ fn backfill_legacy_credits(connection: &Connection) -> rusqlite::Result<()> {
                 connection.execute(
                     "INSERT OR IGNORE INTO credits (
                         id, workType, workId, performerId, characterName,
-                        characterOriginalName, creditedAs, creditedAsMode,
+                        characterOriginalName, creditedAs, creditTypeText, creditedAsMode,
                         creditTypeCategoryId, roleImportanceCategoryId,
                         characterMode, characterId, billingOrder, note,
                         legacySourceKey, createdAt, updatedAt
                      )
-                     SELECT ?1, ?2, ?3, ?4, '', NULL, NULL, 'auto',
+                     SELECT ?1, ?2, ?3, ?4, '', NULL, NULL, NULL, 'auto',
                             NULL, NULL, 'text', NULL, ?5, NULL, ?6, ?7, ?7
                      WHERE NOT EXISTS (
                        SELECT 1 FROM credits WHERE legacySourceKey = ?6
@@ -1888,6 +2030,20 @@ fn ensure_text_column(
     if !table_has_column(connection, table_name, column_name)? {
         connection.execute_batch(&format!(
             "ALTER TABLE {table_name} ADD COLUMN {column_name} TEXT NOT NULL DEFAULT '{default_text}'"
+        ))?;
+    }
+
+    Ok(())
+}
+
+fn ensure_nullable_text_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+) -> rusqlite::Result<()> {
+    if !table_has_column(connection, table_name, column_name)? {
+        connection.execute_batch(&format!(
+            "ALTER TABLE {table_name} ADD COLUMN {column_name} TEXT"
         ))?;
     }
 
@@ -2358,6 +2514,13 @@ fn sakurava_ref_migration_status_for_connection(
 ) -> Result<SakuravaRefMigrationStatus, String> {
     let counts = sakurava_ref_counts(connection).map_err(|error| error.to_string())?;
     let state = classify_sakurava_ref_migration_state(connection)?;
+    let migration_id = if table_has_column(connection, "videos", "sakuravaRef")
+        .map_err(|error| error.to_string())?
+    {
+        CREDIT_SAKURAVA_REF_MIGRATION_ID
+    } else {
+        SAKURAVA_REF_MIGRATION_ID
+    };
     let issues = match state {
         SakuravaRefMigrationState::Legacy => validate_identity_preconditions(connection)?,
         SakuravaRefMigrationState::Migrated => Vec::new(),
@@ -2368,7 +2531,7 @@ fn sakurava_ref_migration_status_for_connection(
     Ok(SakuravaRefMigrationStatus {
         state,
         required: state == SakuravaRefMigrationState::Legacy,
-        migration_id: SAKURAVA_REF_MIGRATION_ID.to_string(),
+        migration_id: migration_id.to_string(),
         counts,
         capacity_per_section_month: SAKURAVA_REF_CAPACITY,
         preconditions_valid: state != SakuravaRefMigrationState::Invalid && issues.is_empty(),
@@ -2379,7 +2542,8 @@ fn sakurava_ref_migration_status_for_connection(
 fn classify_sakurava_ref_migration_state(
     connection: &Connection,
 ) -> Result<SakuravaRefMigrationState, String> {
-    let ref_columns = SAKURAVA_REF_SECTIONS
+    let base_sections = &SAKURAVA_REF_SECTIONS[..BASE_SAKURAVA_REF_SECTION_COUNT];
+    let ref_columns = base_sections
         .iter()
         .map(|(_, table, _, _)| {
             table_has_column(connection, table, "sakuravaRef").map_err(|error| error.to_string())
@@ -2425,19 +2589,60 @@ fn classify_sakurava_ref_migration_state(
         || !alias_table
         || !counter_table
         || !ledger_entry
-        || !sakurava_ref_indexes_valid(connection)?
+        || !sakurava_ref_indexes_valid_for_sections(connection, base_sections)?
     {
         return Ok(SakuravaRefMigrationState::Invalid);
     }
 
-    if validate_sakurava_ref_schema(connection).is_err()
-        || validate_sakurava_ref_counters(connection).is_err()
-        || validate_sakurava_ref_aliases_complete(connection).is_err()
+    if validate_sakurava_ref_schema_for_sections(connection, base_sections).is_err()
+        || validate_sakurava_ref_counters_for_sections(connection, base_sections).is_err()
+        || validate_sakurava_ref_aliases_complete_for_sections(connection, base_sections).is_err()
         || !validate_identity_preconditions(connection)?.is_empty()
     {
         return Ok(SakuravaRefMigrationState::Invalid);
     }
 
+    let credit_column = table_has_column(connection, "credits", "sakuravaRef")
+        .map_err(|error| error.to_string())?;
+    let credit_index = sqlite_object_exists(connection, "index", "idx_credits_sakurava_ref")?;
+    let credit_ledger = connection
+        .query_row(
+            "SELECT COUNT(*) FROM schemaMigrations WHERE migrationId = ?1",
+            [CREDIT_SAKURAVA_REF_MIGRATION_ID],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| error.to_string())?
+        == 1;
+    let credit_counter: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sakuravaRefCounters WHERE sectionCode = 'R'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    let has_credit_identity = credit_ledger
+        || credit_index
+        || credit_counter > 0
+        || connection
+            .query_row(
+                "SELECT COUNT(*) FROM credits WHERE sakuravaRef <> ''",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(|error| error.to_string())?
+            > 0;
+    if !has_credit_identity {
+        return Ok(SakuravaRefMigrationState::Legacy);
+    }
+    if !credit_column || !credit_index || !credit_ledger {
+        return Ok(SakuravaRefMigrationState::Invalid);
+    }
+    if validate_sakurava_ref_schema(connection).is_err()
+        || validate_sakurava_ref_counters(connection).is_err()
+        || validate_sakurava_ref_aliases_complete(connection).is_err()
+    {
+        return Ok(SakuravaRefMigrationState::Invalid);
+    }
     Ok(SakuravaRefMigrationState::Migrated)
 }
 
@@ -2456,14 +2661,22 @@ fn sqlite_object_exists(
         .map_err(|error| error.to_string())
 }
 
-fn sakurava_ref_indexes_valid(connection: &Connection) -> Result<bool, String> {
-    for (name, table) in [
-        ("idx_videos_sakurava_ref", "videos"),
-        ("idx_images_sakurava_ref", "images"),
-        ("idx_performers_sakurava_ref", "performers"),
-        ("idx_categories_sakurava_ref", "managedCategories"),
-        ("idx_glossary_sakurava_ref", "glossary_entries"),
-    ] {
+fn sakurava_ref_indexes_valid_for_sections(
+    connection: &Connection,
+    sections: &[(&str, &str, &str, &str)],
+) -> Result<bool, String> {
+    for (name, table) in sections
+        .iter()
+        .map(|(section, table, _, _)| match *section {
+            "V" => ("idx_videos_sakurava_ref", *table),
+            "I" => ("idx_images_sakurava_ref", *table),
+            "P" => ("idx_performers_sakurava_ref", *table),
+            "C" => ("idx_categories_sakurava_ref", *table),
+            "G" => ("idx_glossary_sakurava_ref", *table),
+            "R" => ("idx_credits_sakurava_ref", *table),
+            _ => ("", *table),
+        })
+    {
         let sql: Option<String> = connection
             .query_row(
                 "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?1 AND tbl_name = ?2",
@@ -2481,8 +2694,11 @@ fn sakurava_ref_indexes_valid(connection: &Connection) -> Result<bool, String> {
     Ok(true)
 }
 
-fn validate_sakurava_ref_aliases_complete(connection: &Connection) -> Result<(), String> {
-    for (section, table, key, legacy_prefix) in SAKURAVA_REF_SECTIONS {
+fn validate_sakurava_ref_aliases_complete_for_sections(
+    connection: &Connection,
+    sections: &[(&str, &str, &str, &str)],
+) -> Result<(), String> {
+    for &(section, table, key, legacy_prefix) in sections {
         let mut statement = connection
             .prepare(&format!("SELECT {key}, sakuravaRef FROM {table}"))
             .map_err(|error| error.to_string())?;
@@ -2518,13 +2734,16 @@ fn validate_sakurava_ref_aliases_complete(connection: &Connection) -> Result<(),
             if legacy_aliases != 1 {
                 return Err("Catalog reference aliases are ambiguous.".to_string());
             }
-            let legacy_ref = legacy_derived_ref(legacy_prefix, &technical_id);
-            for (alias, kind) in [
+            let mut aliases = vec![
                 (technical_id.as_str(), "legacyTechnicalId"),
-                (legacy_ref.as_str(), "contractV1Ref"),
-                (legacy_ref.as_str(), "contractV2Ref"),
                 (reference.as_str(), "currentCanonicalRef"),
-            ] {
+            ];
+            let legacy_ref = legacy_derived_ref(legacy_prefix, &technical_id);
+            if section != "R" {
+                aliases.push((legacy_ref.as_str(), "contractV1Ref"));
+                aliases.push((legacy_ref.as_str(), "contractV2Ref"));
+            }
+            for (alias, kind) in aliases {
                 let matches: i64 = connection
                     .query_row(
                         "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND alias = ?2 COLLATE NOCASE AND aliasKind = ?3 AND sakuravaRef = ?4",
@@ -2638,10 +2857,20 @@ pub fn migrate_sakurava_refs(
         )
     })?;
 
-    migrate_sakurava_ref_connection(&mut connection, &migration_yymm)?;
+    let credit_only_migration = table_has_column(&connection, "videos", "sakuravaRef")
+        .map_err(|error| error.to_string())?;
+    if credit_only_migration {
+        migrate_credit_sakurava_ref_connection(&mut connection, &migration_yymm)?;
+    } else {
+        migrate_sakurava_ref_connection(&mut connection, &migration_yymm)?;
+    }
     Ok(SakuravaRefMigrationResult {
         migrated: true,
-        migration_id: SAKURAVA_REF_MIGRATION_ID.to_string(),
+        migration_id: if credit_only_migration {
+            CREDIT_SAKURAVA_REF_MIGRATION_ID.to_string()
+        } else {
+            SAKURAVA_REF_MIGRATION_ID.to_string()
+        },
         migration_yymm,
         counts,
         safety_package_name: safety.package_name,
@@ -2670,7 +2899,9 @@ fn migrate_sakurava_ref_connection(
                 .map_err(|error| format!("Unable to add catalog reference storage: {error}"))?;
         }
         create_sakurava_ref_ledger_tables(&transaction).map_err(|error| error.to_string())?;
-        for (section, table, key, legacy_prefix) in SAKURAVA_REF_SECTIONS {
+        for &(section, table, key, legacy_prefix) in
+            &SAKURAVA_REF_SECTIONS[..BASE_SAKURAVA_REF_SECTION_COUNT]
+        {
             let ids = collect_text_column(
                 &transaction,
                 &format!("SELECT {key} FROM {table} ORDER BY {key} COLLATE BINARY ASC"),
@@ -2708,6 +2939,8 @@ fn migrate_sakurava_ref_connection(
                 params![section, migration_yymm, ids.len() as i64],
             ).map_err(|error| error.to_string())?;
         }
+        migrate_credit_sakurava_refs_in_transaction(&transaction, migration_yymm)?;
+        migrate_credit_type_text_in_transaction(&transaction)?;
         create_sakurava_ref_support_schema(&transaction).map_err(|error| error.to_string())?;
         transaction
             .execute(
@@ -2733,8 +2966,210 @@ fn migrate_sakurava_ref_connection(
     Ok(())
 }
 
+fn credit_sakurava_ref_migration_is_applied(connection: &Connection) -> Result<bool, String> {
+    if !sqlite_object_exists(connection, "table", "schemaMigrations")? {
+        return Ok(false);
+    }
+    connection
+        .query_row(
+            "SELECT COUNT(*) FROM schemaMigrations WHERE migrationId = ?1",
+            [CREDIT_SAKURAVA_REF_MIGRATION_ID],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|count| count == 1)
+        .map_err(|error| error.to_string())
+}
+
+fn migrate_credit_sakurava_ref_connection(
+    connection: &mut Connection,
+    migration_yymm: &str,
+) -> Result<(), String> {
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|error| format!("Unable to start Credit reference migration: {error}"))?;
+    let result = migrate_credit_sakurava_refs_in_transaction(&transaction, migration_yymm)
+        .and_then(|_| migrate_credit_type_text_in_transaction(&transaction))
+        .and_then(|_| validate_sakurava_ref_schema(&transaction))
+        .and_then(|_| validate_sakurava_ref_counters(&transaction))
+        .and_then(|_| validate_sakurava_ref_aliases_complete(&transaction));
+    if let Err(error) = result {
+        let _ = transaction.rollback();
+        return Err(format!(
+            "Credit reference upgrade was cancelled. No catalog changes were applied. {error}"
+        ));
+    }
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit Credit reference upgrade: {error}"))
+}
+
+fn migrate_credit_sakurava_refs_in_transaction(
+    connection: &Connection,
+    migration_yymm: &str,
+) -> Result<(), String> {
+    if !table_has_column(connection, "credits", "sakuravaRef").map_err(|error| error.to_string())? {
+        connection
+            .execute_batch("ALTER TABLE credits ADD COLUMN sakuravaRef TEXT NOT NULL DEFAULT ''")
+            .map_err(|error| format!("Unable to add Credit reference storage: {error}"))?;
+    }
+    create_sakurava_ref_ledger_tables(connection).map_err(|error| error.to_string())?;
+    let mut statement = connection
+        .prepare("SELECT id, createdAt, sakuravaRef FROM credits ORDER BY id COLLATE BINARY ASC")
+        .map_err(|error| error.to_string())?;
+    let credits = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    let mut missing_by_month = std::collections::BTreeMap::<String, Vec<String>>::new();
+    for (id, created_at, reference) in credits {
+        if reference.is_empty() {
+            missing_by_month
+                .entry(credit_ref_yymm(&created_at, migration_yymm)?)
+                .or_default()
+                .push(id);
+        } else if !valid_credit_sakurava_ref(&reference) {
+            return Err("Credits contain an invalid Sakurava Ref.".to_string());
+        }
+    }
+    for (month, ids) in missing_by_month {
+        for id in ids {
+            let reference = allocate_sakurava_ref(connection, "R", &month)?;
+            connection
+                .execute(
+                    "UPDATE credits SET sakuravaRef = ?1 WHERE id = ?2",
+                    params![reference, id],
+                )
+                .map_err(|error| format!("Unable to backfill Credit references: {error}"))?;
+        }
+    }
+    let mut existing = connection
+        .prepare("SELECT id, sakuravaRef FROM credits WHERE sakuravaRef <> ''")
+        .map_err(|error| error.to_string())?;
+    let rows = existing
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    for (id, reference) in rows {
+        register_credit_aliases(connection, &id, &reference)?;
+    }
+    create_sakurava_ref_support_schema(connection).map_err(|error| error.to_string())?;
+    reconcile_sakurava_ref_counters(connection)?;
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
+            params![
+                CREDIT_SAKURAVA_REF_MIGRATION_ID,
+                backup_created_at(SystemTime::now())?
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn migrate_credit_type_text_connection(connection: &mut Connection) -> Result<(), String> {
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|error| format!("Unable to start Credit Type text migration: {error}"))?;
+    let result = migrate_credit_type_text_in_transaction(&transaction);
+    if let Err(error) = result {
+        let _ = transaction.rollback();
+        return Err(format!(
+            "Credit Type text migration was cancelled. No catalog changes were applied. {error}"
+        ));
+    }
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit Credit Type text migration: {error}"))
+}
+
+fn migrate_credit_type_text_in_transaction(connection: &Connection) -> Result<(), String> {
+    if !table_has_column(connection, "credits", "creditTypeText")
+        .map_err(|error| error.to_string())?
+    {
+        connection
+            .execute_batch("ALTER TABLE credits ADD COLUMN creditTypeText TEXT")
+            .map_err(|error| format!("Unable to add Credit Type text storage: {error}"))?;
+    }
+    if sqlite_object_exists(connection, "table", "schemaMigrations")? {
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO schemaMigrations (migrationId, appliedAt) VALUES (?1, ?2)",
+                params![
+                    CREDIT_TYPE_TEXT_MIGRATION_ID,
+                    backup_created_at(SystemTime::now())?
+                ],
+            )
+            .map_err(|error| format!("Unable to record Credit Type text migration: {error}"))?;
+    }
+    Ok(())
+}
+
+fn register_credit_aliases(
+    connection: &Connection,
+    id: &str,
+    reference: &str,
+) -> Result<(), String> {
+    for (alias, kind) in [
+        (id, "legacyTechnicalId"),
+        (reference, "currentCanonicalRef"),
+    ] {
+        connection.execute(
+            "INSERT OR IGNORE INTO sakuravaRefAliases (sectionCode, alias, sakuravaRef, aliasKind) VALUES ('R', ?1, ?2, ?3)",
+            params![alias, reference, kind],
+        ).map_err(|error| format!("Credit reference aliases are ambiguous: {error}"))?;
+    }
+    Ok(())
+}
+
+fn valid_credit_sakurava_ref(value: &str) -> bool {
+    value.len() == 9
+        && value.starts_with('R')
+        && value[1..].bytes().all(|byte| byte.is_ascii_digit())
+}
+
+pub fn credit_ref_yymm(created_at: &str, fallback: &str) -> Result<String, String> {
+    let fallback = validate_migration_yymm(fallback)?;
+    let trimmed = created_at.trim();
+    if let Ok(milliseconds) = trimmed.parse::<u64>() {
+        let days = (milliseconds / 1000 / 86_400) as i64;
+        let (year, month, _) = civil_date_from_days(days);
+        if (2000..=2099).contains(&year) {
+            return Ok(format!("{:02}{month:02}", year - 2000));
+        }
+    }
+    if let Some((year, month)) = trimmed.get(0..7).and_then(|value| {
+        let mut parts = value.split('-');
+        Some((
+            parts.next()?.parse::<i64>().ok()?,
+            parts.next()?.parse::<u32>().ok()?,
+        ))
+    }) {
+        if (2000..=2099).contains(&year) && (1..=12).contains(&month) {
+            return Ok(format!("{:02}{month:02}", year - 2000));
+        }
+    }
+    Ok(fallback)
+}
+
 pub fn validate_sakurava_ref_schema(connection: &Connection) -> Result<(), String> {
-    for (section, table, _, _) in SAKURAVA_REF_SECTIONS {
+    validate_sakurava_ref_schema_for_sections(connection, &SAKURAVA_REF_SECTIONS)
+}
+
+fn validate_sakurava_ref_schema_for_sections(
+    connection: &Connection,
+    sections: &[(&str, &str, &str, &str)],
+) -> Result<(), String> {
+    for &(section, table, _, _) in sections {
         if !table_has_column(connection, table, "sakuravaRef").map_err(|error| error.to_string())? {
             return Err(format!("{table} is missing Sakurava Ref storage."));
         }
@@ -2769,13 +3204,17 @@ pub fn validate_sakurava_ref_schema(connection: &Connection) -> Result<(), Strin
     Ok(())
 }
 
+fn validate_sakurava_ref_aliases_complete(connection: &Connection) -> Result<(), String> {
+    validate_sakurava_ref_aliases_complete_for_sections(connection, &SAKURAVA_REF_SECTIONS)
+}
+
 pub fn allocate_sakurava_ref(
     connection: &Connection,
     section_code: &str,
     issuance_yymm: &str,
 ) -> Result<String, String> {
     let yymm = validate_migration_yymm(issuance_yymm)?;
-    if !matches!(section_code, "V" | "I" | "P" | "C" | "G") {
+    if !matches!(section_code, "V" | "I" | "P" | "C" | "G" | "R") {
         return Err("Unsupported Sakurava Ref section.".to_string());
     }
     create_sakurava_ref_ledger_tables(connection).map_err(|error| error.to_string())?;
@@ -2861,8 +3300,11 @@ pub fn resolve_sakurava_ref(
 }
 
 pub fn open_runtime_database(paths: RuntimeDatabasePaths) -> rusqlite::Result<RuntimeDatabase> {
-    let connection = Connection::open(&paths.database_file)?;
+    let mut connection = Connection::open(&paths.database_file)?;
     initialize_schema(&connection)?;
+    migrate_credit_type_text_connection(&mut connection).map_err(|error| {
+        rusqlite::Error::ToSqlConversionFailure(Box::new(io::Error::other(error)))
+    })?;
 
     Ok(RuntimeDatabase {
         paths,
@@ -2879,13 +3321,476 @@ pub fn prepare_database(app_data_dir: impl AsRef<Path>) -> Result<RuntimeDatabas
         .map_err(|error| format!("Unable to open or initialize SQLite database: {error}"))
 }
 
+#[cfg(any(debug_assertions, test))]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditsRSmokeFixture {
+    pub root: String,
+    pub database_path: String,
+    pub backup_package_name: String,
+    pub backup_package_path: String,
+    pub credit_ids: Vec<String>,
+    pub migration_month_fallback: String,
+}
+
+#[cfg(any(debug_assertions, test))]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditsRRestoreSmokeFixture {
+    pub root: String,
+    pub database_path: String,
+    pub backup_folder_path: String,
+    pub package_name: String,
+    pub package_path: String,
+    pub package_type: String,
+    pub package_preview: BackupPackagePreview,
+    pub active_before_restore: CreditsRSmokeInspection,
+    pub expected_credit_ids: Vec<String>,
+    pub expected_display_refs: Vec<String>,
+    pub expected_r_counters: Vec<(String, i64)>,
+    pub retained_high_water_ref: String,
+    pub expected_total_credits: usize,
+    pub live_app_data_accessed: bool,
+}
+
+#[cfg(any(debug_assertions, test))]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditsRSmokeInspectionCredit {
+    pub id: String,
+    pub created_at: String,
+    pub sakurava_ref: String,
+    pub display_ref: Option<String>,
+    pub work_id: String,
+    pub performer_id: String,
+    pub credit_type_text: Option<String>,
+    pub credited_as: Option<String>,
+    pub category_id: Option<String>,
+    pub role_importance_category_id: Option<String>,
+}
+
+#[cfg(any(debug_assertions, test))]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditsRSmokeInspection {
+    pub root: String,
+    pub database_path: String,
+    pub credits: Vec<CreditsRSmokeInspectionCredit>,
+    pub credit_ref_migration_present: bool,
+    pub r_counters: Vec<(String, i64)>,
+    pub duplicate_ref_count: i64,
+    pub malformed_ref_count: i64,
+    pub normal_backup_packages: Vec<String>,
+    pub safety_backup_packages: Vec<String>,
+}
+
+/// Builds a deterministic, entirely disposable pre-41.8.5B Credit fixture.
+/// It is compiled only for debug/test builds and refuses to overwrite an
+/// existing runtime database.
+#[cfg(any(debug_assertions, test))]
+pub fn prepare_credits_r_smoke_fixture(
+    root: impl AsRef<Path>,
+) -> Result<CreditsRSmokeFixture, String> {
+    prepare_credits_r_smoke_fixture_at(root.as_ref(), true)
+}
+
+/// Builds an isolated, migrated target plus one real pre-Credit-R Manual
+/// package. The package is deliberately not restored here: the desktop smoke
+/// must exercise the ordinary Restore UI and its staged safety lifecycle.
+#[cfg(any(debug_assertions, test))]
+pub fn prepare_credits_r_restore_smoke_fixture(
+    root: impl AsRef<Path>,
+) -> Result<CreditsRRestoreSmokeFixture, String> {
+    prepare_credits_r_restore_smoke_fixture_at(root.as_ref(), true)
+}
+
+#[cfg(any(debug_assertions, test))]
+fn prepare_credits_r_restore_smoke_fixture_at(
+    root: &Path,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<CreditsRRestoreSmokeFixture, String> {
+    // This reuses the proven legacy fixture and its real Manual package format.
+    let legacy = prepare_credits_r_smoke_fixture_at(root, require_workspace_manual_smoke_root)?;
+    let root = validate_disposable_root(root, require_workspace_manual_smoke_root)?;
+    let database = prepare_database(&root)?;
+
+    // Upgrade only the active disposable target. The package remains the
+    // pre-41.8.5B candidate that normal Restore must stage and migrate.
+    migrate_sakurava_refs(&database, "2607")?;
+    let retained_high_water_ref;
+    {
+        let connection = database.connection();
+        let connection = connection
+            .lock()
+            .map_err(|_| "Disposable Restore smoke database lock is unavailable.".to_string())?;
+        retained_high_water_ref = allocate_sakurava_ref(&connection, "R", "2607")?;
+        connection
+            .execute(
+                "INSERT INTO credits (id, sakuravaRef, workType, workId, performerId, characterName,
+                 creditedAsMode, characterMode, billingOrder, createdAt, updatedAt)
+                 VALUES ('credit-restore-retired', ?1, 'video', 'video-smoke', 'performer-smoke',
+                 'Retired disposable Credit', 'auto', 'text', 99, '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z')",
+                [&retained_high_water_ref],
+            )
+            .map_err(|error| error.to_string())?;
+        register_credit_aliases(
+            &connection,
+            "credit-restore-retired",
+            &retained_high_water_ref,
+        )?;
+        connection
+            .execute(
+                "DELETE FROM credits WHERE id = 'credit-restore-retired'",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+        require_migrated_sakurava_refs(&connection)?;
+    }
+
+    let package_preview = preview_backup_package(&database, &legacy.backup_package_name)
+        .map_err(|error| error.message)?;
+    let active_before_restore = inspect_credits_r_smoke_fixture_at(&root, false)?;
+    let expected_credit_ids = legacy.credit_ids;
+    let expected_display_refs = vec![
+        "R2605-0001".to_string(),
+        "R2605-0002".to_string(),
+        "R2606-0001".to_string(),
+        "R2607-0001".to_string(),
+        "R2607-0002".to_string(),
+    ];
+    let expected_r_counters = vec![
+        ("2605".to_string(), 2),
+        ("2606".to_string(), 1),
+        ("2607".to_string(), 3),
+    ];
+
+    Ok(CreditsRRestoreSmokeFixture {
+        root: root.display().to_string(),
+        database_path: root.join(DATABASE_FILE_NAME).display().to_string(),
+        backup_folder_path: default_backup_folder(&database).display().to_string(),
+        package_name: legacy.backup_package_name,
+        package_path: legacy.backup_package_path,
+        package_type: "manual".to_string(),
+        package_preview,
+        active_before_restore,
+        expected_credit_ids,
+        expected_display_refs,
+        expected_r_counters,
+        retained_high_water_ref,
+        expected_total_credits: 5,
+        live_app_data_accessed: false,
+    })
+}
+
+#[cfg(any(debug_assertions, test))]
+fn prepare_credits_r_smoke_fixture_at(
+    root: &Path,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<CreditsRSmokeFixture, String> {
+    let root = prepare_disposable_root(root, require_workspace_manual_smoke_root)?;
+    let database_path = root.join(DATABASE_FILE_NAME);
+    if database_path.exists() {
+        return Err("Disposable Credit smoke database already exists; choose a new root or inspect it first."
+            .to_string());
+    }
+
+    let database = prepare_database(&root)?;
+    let migration_month_fallback = "2607";
+    let credit_ids = vec![
+        "credit-a".to_string(),
+        "credit-b".to_string(),
+        "credit-c".to_string(),
+        "credit-d".to_string(),
+        "credit-e".to_string(),
+    ];
+    {
+        let connection = database.connection();
+        let connection = connection
+            .lock()
+            .map_err(|_| "Disposable Credit smoke database lock is unavailable.".to_string())?;
+        seed_credits_r_smoke_fixture(&connection, &credit_ids)?;
+        connection
+            .execute(
+                "DELETE FROM schemaMigrations WHERE migrationId = ?1",
+                [CREDIT_SAKURAVA_REF_MIGRATION_ID],
+            )
+            .map_err(|error| error.to_string())?;
+        connection
+            .execute("UPDATE credits SET sakuravaRef = ''", [])
+            .map_err(|error| error.to_string())?;
+        connection
+            .execute("DELETE FROM sakuravaRefAliases WHERE sectionCode = 'R'", [])
+            .map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "DELETE FROM sakuravaRefCounters WHERE sectionCode = 'R'",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+        connection
+            .execute_batch("DROP INDEX IF EXISTS idx_credits_sakurava_ref")
+            .map_err(|error| error.to_string())?;
+    }
+
+    let package = create_backup_package(
+        &database,
+        BackupPackageType::Manual,
+        Some("Disposable pre-41.8.5B Credit R migration fixture".to_string()),
+    )?;
+    let fixture = CreditsRSmokeFixture {
+        root: root.display().to_string(),
+        database_path: database_path.display().to_string(),
+        backup_package_name: package.package_name,
+        backup_package_path: package.package_path,
+        credit_ids,
+        migration_month_fallback: migration_month_fallback.to_string(),
+    };
+    let manifest = serde_json::to_string_pretty(&fixture)
+        .map_err(|error| format!("Unable to serialize disposable fixture manifest: {error}"))?;
+    fs::write(root.join("fixture-manifest.json"), manifest)
+        .map_err(|error| format!("Unable to write disposable fixture manifest: {error}"))?;
+    Ok(fixture)
+}
+
+/// Opens only the disposable SQLite file read-only. This intentionally avoids
+/// `prepare_database`, because inspection must not initialize or migrate it.
+#[cfg(any(debug_assertions, test))]
+pub fn inspect_credits_r_smoke_fixture(
+    root: impl AsRef<Path>,
+) -> Result<CreditsRSmokeInspection, String> {
+    inspect_credits_r_smoke_fixture_at(root.as_ref(), true)
+}
+
+#[cfg(any(debug_assertions, test))]
+fn inspect_credits_r_smoke_fixture_at(
+    root: &Path,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<CreditsRSmokeInspection, String> {
+    let root = validate_disposable_root(root, require_workspace_manual_smoke_root)?;
+    let database_path = root.join(DATABASE_FILE_NAME);
+    if !database_path.is_file() {
+        return Err("Disposable Credit smoke database is missing.".to_string());
+    }
+    let connection = Connection::open_with_flags(
+        &database_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| format!("Unable to open disposable Credit smoke database: {error}"))?;
+    let credit_type_text_column = if table_has_column(&connection, "credits", "creditTypeText")
+        .map_err(|error| error.to_string())?
+    {
+        "creditTypeText"
+    } else {
+        "NULL"
+    };
+    let mut statement = connection
+        .prepare(&format!(
+            "SELECT id, createdAt, sakuravaRef, workId, performerId, {credit_type_text_column},
+                    creditedAs, creditTypeCategoryId, roleImportanceCategoryId
+             FROM credits ORDER BY id COLLATE BINARY ASC"
+        ))
+        .map_err(|error| error.to_string())?;
+    let credits = statement
+        .query_map([], |row| {
+            let reference: String = row.get(2)?;
+            Ok(CreditsRSmokeInspectionCredit {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                display_ref: format_sakurava_ref(&reference),
+                sakurava_ref: reference,
+                work_id: row.get(3)?,
+                performer_id: row.get(4)?,
+                credit_type_text: row.get(5)?,
+                credited_as: row.get(6)?,
+                category_id: row.get(7)?,
+                role_importance_category_id: row.get(8)?,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    let credit_ref_migration_present: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM schemaMigrations WHERE migrationId = ?1",
+            [CREDIT_SAKURAVA_REF_MIGRATION_ID],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    let r_counters = connection
+        .prepare(
+            "SELECT issuanceYymm, lastSequence FROM sakuravaRefCounters
+             WHERE sectionCode = 'R' ORDER BY issuanceYymm ASC",
+        )
+        .map_err(|error| error.to_string())?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    let duplicate_ref_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM (
+               SELECT sakuravaRef FROM credits WHERE trim(sakuravaRef) <> ''
+               GROUP BY sakuravaRef HAVING COUNT(*) > 1
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    let malformed_ref_count = credits
+        .iter()
+        .filter(|credit| {
+            !credit.sakurava_ref.is_empty() && !valid_credit_sakurava_ref(&credit.sakurava_ref)
+        })
+        .count() as i64;
+    let mut normal_backup_packages = Vec::new();
+    let mut safety_backup_packages = Vec::new();
+    let backup_folder = root.join(BACKUP_FOLDER_NAME);
+    if backup_folder.is_dir() {
+        for entry in fs::read_dir(&backup_folder)
+            .map_err(|error| error.to_string())?
+            .flatten()
+        {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let Some(manifest) = read_valid_backup_manifest(&path) else {
+                continue;
+            };
+            match manifest.backup_type {
+                BackupPackageType::Safety => {
+                    safety_backup_packages.push(entry.file_name().to_string_lossy().to_string())
+                }
+                _ => normal_backup_packages.push(entry.file_name().to_string_lossy().to_string()),
+            }
+        }
+    }
+    normal_backup_packages.sort();
+    safety_backup_packages.sort();
+    Ok(CreditsRSmokeInspection {
+        root: root.display().to_string(),
+        database_path: database_path.display().to_string(),
+        credits,
+        credit_ref_migration_present: credit_ref_migration_present == 1,
+        r_counters,
+        duplicate_ref_count,
+        malformed_ref_count,
+        normal_backup_packages,
+        safety_backup_packages,
+    })
+}
+
+#[cfg(any(debug_assertions, test))]
+fn prepare_disposable_root(
+    root: &Path,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(root)
+        .map_err(|error| format!("Unable to create disposable runtime directory: {error}"))?;
+    let sentinel = root.join(DISPOSABLE_SENTINEL_FILE_NAME);
+    if !sentinel.exists() {
+        fs::write(&sentinel, "Sakurava disposable runtime fixture\n")
+            .map_err(|error| format!("Unable to create disposable runtime sentinel: {error}"))?;
+    }
+    validate_disposable_root(root, require_workspace_manual_smoke_root)
+}
+
+#[cfg(any(debug_assertions, test))]
+fn validate_disposable_root(
+    root: &Path,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<PathBuf, String> {
+    if !root.join(DISPOSABLE_SENTINEL_FILE_NAME).is_file() {
+        return Err(format!(
+            "Disposable runtime sentinel is missing: {}",
+            DISPOSABLE_SENTINEL_FILE_NAME
+        ));
+    }
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve disposable runtime directory: {error}"))?;
+    if require_workspace_manual_smoke_root {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| "Unable to resolve the workspace root.".to_string())?
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve workspace root: {error}"))?;
+        let allowed_root = workspace_root.join("manual-smoke").join("runtime-data");
+        if !root.starts_with(&allowed_root) {
+            return Err(
+                "Disposable runtime directory must be inside manual-smoke/runtime-data."
+                    .to_string(),
+            );
+        }
+    }
+    Ok(root)
+}
+
+#[cfg(any(debug_assertions, test))]
+fn seed_credits_r_smoke_fixture(
+    connection: &Connection,
+    credit_ids: &[String],
+) -> Result<(), String> {
+    let category_ref = allocate_sakurava_ref(connection, "C", "2605")?;
+    connection.execute(
+        "INSERT INTO managedCategories (key, sakuravaRef, name, showInCredits, createdAt, updatedAt)
+         VALUES ('category-smoke', ?1, 'Smoke Category', 1, '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
+        [category_ref.clone()],
+    ).map_err(|error| error.to_string())?;
+    register_current_sakurava_ref_alias(connection, "C", &category_ref)?;
+
+    let performer_ref = allocate_sakurava_ref(connection, "P", "2605")?;
+    connection.execute(
+        "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt)
+         VALUES ('performer-smoke', ?1, 'Smoke Performer', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
+        [performer_ref.clone()],
+    ).map_err(|error| error.to_string())?;
+    register_current_sakurava_ref_alias(connection, "P", &performer_ref)?;
+
+    let video_ref = allocate_sakurava_ref(connection, "V", "2605")?;
+    connection
+        .execute(
+            "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt)
+         VALUES ('video-smoke', ?1, 'Smoke Video', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
+            [video_ref.clone()],
+        )
+        .map_err(|error| error.to_string())?;
+    register_current_sakurava_ref_alias(connection, "V", &video_ref)?;
+
+    let timestamps = [
+        "2026-05-10T00:00:00Z",
+        "2026-05-11T00:00:00Z",
+        "2026-06-12T00:00:00Z",
+        "",
+        "not-a-timestamp",
+    ];
+    for (index, id) in credit_ids.iter().enumerate() {
+        connection
+            .execute(
+                "INSERT INTO credits (
+                id, sakuravaRef, workType, workId, performerId, characterName,
+                creditedAsMode, creditTypeCategoryId, characterMode, billingOrder,
+                createdAt, updatedAt
+             ) VALUES (?1, '', 'video', 'video-smoke', 'performer-smoke', 'Smoke Role',
+                'auto', 'category-smoke', 'text', ?2, ?3, '2026-07-01T00:00:00Z')",
+                params![id, index as i64 + 1, timestamps[index]],
+            )
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn prepare_tauri_database<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<RuntimeDatabase, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("Unable to resolve app data directory: {error}"))?;
+    let app_data_dir = resolve_tauri_runtime_data_dir(app)?;
+    #[cfg(any(debug_assertions, test))]
+    if std::env::var_os(DISPOSABLE_DATA_DIR_ENV).is_some() {
+        println!(
+            "Sakurava disposable runtime enabled: {}",
+            app_data_dir.display()
+        );
+    }
     if app_data_dir.file_name().and_then(|name| name.to_str()) != Some(APP_DATA_FOLDER_NAME) {
         println!(
             "Sakurava app data directory resolved outside expected folder name: {}",
@@ -3152,6 +4057,205 @@ mod tests {
         assert_eq!(DATABASE_FILE_NAME, "sakurava.sqlite");
     }
 
+    fn disposable_test_root(name: &str) -> PathBuf {
+        let root = unique_test_dir(name);
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("disposable root");
+        fs::write(
+            root.join(DISPOSABLE_SENTINEL_FILE_NAME),
+            "test disposable runtime\n",
+        )
+        .expect("sentinel");
+        root
+    }
+
+    #[test]
+    fn runtime_path_uses_standard_location_without_debug_override() {
+        let root = unique_test_dir("runtime-standard");
+        let standard = root.join("app.sakurava.desktop");
+        let disposable = disposable_test_root("runtime-standard-disposable");
+        assert_eq!(
+            resolve_runtime_data_dir_with_override(&standard, Some(&disposable), false, false)
+                .expect("release behavior"),
+            standard
+        );
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(disposable);
+    }
+
+    #[test]
+    fn debug_disposable_runtime_path_requires_safe_sentinel_and_no_live_collision() {
+        let root = unique_test_dir("runtime-disposable");
+        let standard = root.join("live").join(APP_DATA_FOLDER_NAME);
+        fs::create_dir_all(&standard).expect("live root");
+        let disposable = disposable_test_root("runtime-disposable-root");
+        assert_eq!(
+            resolve_runtime_data_dir_with_override(&standard, Some(&disposable), true, false)
+                .expect("disposable root"),
+            disposable.canonicalize().expect("canonical disposable")
+        );
+
+        let missing_sentinel = unique_test_dir("runtime-missing-sentinel");
+        fs::create_dir_all(&missing_sentinel).expect("missing sentinel root");
+        assert!(resolve_runtime_data_dir_with_override(
+            &standard,
+            Some(&missing_sentinel),
+            true,
+            false
+        )
+        .expect_err("missing sentinel")
+        .contains("sentinel"));
+        assert!(
+            resolve_runtime_data_dir_with_override(&standard, None, true, false)
+                .expect("no override")
+                .ends_with(APP_DATA_FOLDER_NAME)
+        );
+        assert!(
+            resolve_runtime_data_dir_with_override(&standard, Some(&standard), true, false)
+                .expect_err("live collision")
+                .contains("collides")
+        );
+
+        let nested = standard.join("nested");
+        fs::create_dir_all(&nested).expect("nested root");
+        fs::write(nested.join(DISPOSABLE_SENTINEL_FILE_NAME), "unsafe\n").expect("nested sentinel");
+        assert!(
+            resolve_runtime_data_dir_with_override(&standard, Some(&nested), true, false)
+                .expect_err("nested collision")
+                .contains("collides")
+        );
+        assert!(
+            resolve_runtime_data_dir_with_override(&standard, Some(&disposable), true, true)
+                .expect_err("outside manual smoke")
+                .contains("manual-smoke")
+        );
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(disposable);
+        let _ = fs::remove_dir_all(missing_sentinel);
+    }
+
+    #[test]
+    fn disposable_credit_fixture_is_legacy_then_migrates_without_merging_duplicates() {
+        let root = unique_test_dir("credits-r-disposable-fixture");
+        let fixture = prepare_credits_r_smoke_fixture_at(&root, false).expect("fixture");
+        assert!(Path::new(&fixture.database_path).is_file());
+        assert!(Path::new(&fixture.backup_package_path).is_dir());
+        let before = inspect_credits_r_smoke_fixture_at(&root, false).expect("legacy inspection");
+        assert_eq!(before.credits.len(), 5);
+        assert!(before
+            .credits
+            .iter()
+            .all(|credit| credit.sakurava_ref.is_empty()));
+        assert!(!before.credit_ref_migration_present);
+        assert!(
+            before
+                .credits
+                .iter()
+                .filter(|credit| credit.work_id == "video-smoke"
+                    && credit.performer_id == "performer-smoke")
+                .count()
+                >= 2
+        );
+        let legacy_projection: String = Connection::open(root.join(DATABASE_FILE_NAME))
+            .expect("legacy fixture connection")
+            .query_row(
+                "SELECT relatedPerformersJson FROM videos WHERE id = 'video-smoke'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("empty legacy projection");
+        assert_eq!(legacy_projection, "[]");
+
+        let database = prepare_database(&root).expect("open legacy fixture");
+        let result = migrate_sakurava_refs(&database, "2607").expect("Credit migration");
+        assert_eq!(result.migration_id, CREDIT_SAKURAVA_REF_MIGRATION_ID);
+        drop(database);
+        let after = inspect_credits_r_smoke_fixture_at(&root, false).expect("migrated inspection");
+        assert!(after.credit_ref_migration_present);
+        assert_eq!(after.duplicate_ref_count, 0);
+        assert_eq!(after.malformed_ref_count, 0);
+        assert_eq!(
+            after
+                .credits
+                .iter()
+                .find(|credit| credit.id == "credit-a")
+                .expect("credit a")
+                .sakurava_ref,
+            "R26050001"
+        );
+        assert_eq!(
+            after
+                .credits
+                .iter()
+                .find(|credit| credit.id == "credit-b")
+                .expect("credit b")
+                .sakurava_ref,
+            "R26050002"
+        );
+        assert_eq!(
+            after
+                .credits
+                .iter()
+                .find(|credit| credit.id == "credit-c")
+                .expect("credit c")
+                .sakurava_ref,
+            "R26060001"
+        );
+        assert_eq!(
+            after
+                .credits
+                .iter()
+                .find(|credit| credit.id == "credit-d")
+                .expect("credit d")
+                .sakurava_ref,
+            "R26070001"
+        );
+        assert_eq!(
+            after
+                .credits
+                .iter()
+                .find(|credit| credit.id == "credit-e")
+                .expect("credit e")
+                .sakurava_ref,
+            "R26070002"
+        );
+        assert!(after
+            .r_counters
+            .iter()
+            .any(|(month, sequence)| month == "2607" && *sequence == 2));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn credits_r_restore_smoke_fixture_keeps_one_previewable_older_manual_package() {
+        let root = unique_test_dir("credits-r-restore-smoke-fixture");
+        let fixture =
+            prepare_credits_r_restore_smoke_fixture_at(&root, false).expect("restore fixture");
+
+        assert!(Path::new(&fixture.database_path).is_file());
+        assert!(Path::new(&fixture.package_path).is_dir());
+        assert_eq!(fixture.package_type, "manual");
+        assert_eq!(fixture.package_preview.database.counts.credits, 5);
+        assert_eq!(fixture.expected_credit_ids.len(), 5);
+        assert_eq!(fixture.expected_display_refs.len(), 5);
+        assert_eq!(fixture.expected_total_credits, 5);
+        assert_eq!(fixture.retained_high_water_ref, "R26070003");
+        assert!(fixture.active_before_restore.credit_ref_migration_present);
+        assert_eq!(fixture.active_before_restore.credits.len(), 5);
+        assert!(fixture
+            .expected_r_counters
+            .iter()
+            .any(|(month, sequence)| month == "2607" && *sequence == 3));
+        assert!(!fixture.live_app_data_accessed);
+
+        let database = prepare_database(&root).expect("current target");
+        let preview = preview_backup_package(&database, &fixture.package_name)
+            .expect("normal package preview");
+        assert_eq!(preview.manifest.backup_type, BackupPackageType::Manual);
+        assert_eq!(preview.database.counts.credits, 5);
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn legacy_runtime_database(name: &str) -> (PathBuf, RuntimeDatabase) {
         let app_data_dir = unique_test_dir(name).join(APP_DATA_FOLDER_NAME);
         let _ = fs::remove_dir_all(&app_data_dir);
@@ -3161,7 +4265,7 @@ mod tests {
         for statement in SCHEMA_SQL {
             let legacy = statement
                 .lines()
-                .filter(|line| !line.contains("sakuravaRef"))
+                .filter(|line| !line.contains("sakuravaRef") && !line.contains("creditTypeText"))
                 .collect::<Vec<_>>()
                 .join("\n");
             connection.execute_batch(&legacy).expect("legacy schema");
@@ -3169,6 +4273,60 @@ mod tests {
         drop(connection);
         let database = open_runtime_database(paths).expect("legacy runtime database");
         (app_data_dir, database)
+    }
+
+    #[test]
+    fn credit_type_text_migration_adds_nullable_storage_without_rewriting_legacy_fields() {
+        let mut connection = Connection::open_in_memory().expect("legacy database");
+        for statement in SCHEMA_SQL {
+            let legacy = statement
+                .lines()
+                .filter(|line| !line.contains("creditTypeText"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            connection.execute_batch(&legacy).expect("legacy schema");
+        }
+        create_sakurava_ref_ledger_tables(&connection).expect("migration ledger");
+        connection
+            .execute(
+                "INSERT INTO credits (
+                    id, sakuravaRef, workType, workId, performerId, characterName,
+                    creditedAs, creditTypeCategoryId, roleImportanceCategoryId, createdAt, updatedAt
+                 ) VALUES ('credit-legacy', 'R26070001', 'video', 'video-1', 'performer-1',
+                    'Role', 'Stage Name', 'category-credit', 'category-role', '1', '1')",
+                [],
+            )
+            .expect("legacy credit");
+
+        migrate_credit_type_text_connection(&mut connection).expect("text migration");
+        migrate_credit_type_text_connection(&mut connection).expect("idempotent migration");
+
+        assert!(table_has_column(&connection, "credits", "creditTypeText"));
+        let values: (
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ) = connection
+            .query_row(
+                "SELECT creditTypeText, creditedAs, creditTypeCategoryId, roleImportanceCategoryId
+                 FROM credits WHERE id = 'credit-legacy'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("legacy values");
+        assert_eq!(values.0, None);
+        assert_eq!(values.1.as_deref(), Some("Stage Name"));
+        assert_eq!(values.2.as_deref(), Some("category-credit"));
+        assert_eq!(values.3.as_deref(), Some("category-role"));
+        let migration_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM schemaMigrations WHERE migrationId = ?1",
+                [CREDIT_TYPE_TEXT_MIGRATION_ID],
+                |row| row.get(0),
+            )
+            .expect("migration marker");
+        assert_eq!(migration_count, 1);
     }
 
     #[test]
@@ -3197,6 +4355,12 @@ mod tests {
                 "INSERT INTO glossary_entries (id, term, definition, created_at, updated_at) VALUES ('glossary-a', 'A', 'A', 1, 1)",
                 [],
             ).expect("legacy glossary");
+            connection.execute(
+                "INSERT INTO credits (id, workType, workId, performerId, characterName, createdAt, updatedAt) VALUES
+                 ('credit-b', 'video', 'video-a', 'performer-a', 'Role', '', '1'),
+                 ('credit-a', 'video', 'video-a', 'performer-a', 'Role', 'malformed', '1')",
+                [],
+            ).expect("logical duplicate legacy credits");
         }
 
         let status = sakurava_ref_migration_status(&database).expect("migration status");
@@ -3219,6 +4383,28 @@ mod tests {
                 .expect("video refs"),
             vec!["V26070001", "V26070002"]
         );
+        assert_eq!(
+            collect_text_column(&connection, "SELECT sakuravaRef FROM credits ORDER BY id")
+                .expect("credit refs"),
+            vec!["R26070001", "R26070002"]
+        );
+        assert!(table_has_column(&connection, "credits", "creditTypeText"));
+        let credit_type_text: Option<String> = connection
+            .query_row(
+                "SELECT creditTypeText FROM credits WHERE id = 'credit-a'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("legacy text remains null");
+        assert_eq!(credit_type_text, None);
+        let text_migration_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM schemaMigrations WHERE migrationId = ?1",
+                [CREDIT_TYPE_TEXT_MIGRATION_ID],
+                |row| row.get(0),
+            )
+            .expect("Credit Type text migration marker");
+        assert_eq!(text_migration_count, 1);
         for (table, expected) in [
             ("images", "I26070001"),
             ("performers", "P26070001"),
@@ -3259,6 +4445,19 @@ mod tests {
         ).expect("released alias kinds");
         assert_eq!(released_alias_kinds, 2);
         let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn credit_ref_month_uses_valid_timestamp_and_migration_fallback() {
+        assert_eq!(
+            credit_ref_yymm("1782864000000", "2607").expect("timestamp month"),
+            "2607"
+        );
+        assert_eq!(credit_ref_yymm("", "2607").expect("empty fallback"), "2607");
+        assert_eq!(
+            credit_ref_yymm("not-a-date", "2607").expect("invalid fallback"),
+            "2607"
+        );
     }
 
     #[test]
@@ -4534,15 +5733,19 @@ mod tests {
                     [glossary_ref],
                 )
                 .expect("insert glossary");
+            let credit_ref =
+                allocate_sakurava_ref(&connection, "R", "0001").expect("preview credit ref");
             connection
                 .execute(
                     "INSERT INTO credits
-                     (id, workType, workId, performerId, characterName, createdAt, updatedAt)
+                     (id, sakuravaRef, workType, workId, performerId, characterName, createdAt, updatedAt)
                      VALUES
-                     ('preview_credit', 'video', 'preview_video', 'preview_performer', '', '1', '1')",
-                    [],
+                     ('preview_credit', ?1, 'video', 'preview_video', 'preview_performer', '', '1', '1')",
+                    [credit_ref.clone()],
                 )
                 .expect("insert credit");
+            register_current_sakurava_ref_alias(&connection, "R", &credit_ref)
+                .expect("credit alias");
         }
         let created = create_backup_package_at(
             &database,

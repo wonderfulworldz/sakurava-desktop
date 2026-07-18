@@ -42,6 +42,75 @@ describe("CompactRelatedPerformersEditor group order", () => {
     expect(orderValues()).toEqual([1, 1, 2, 2, 3]);
     expect(current[1]?.characterName).toBe("Second Alexandrina role");
   });
+
+  it("keeps Credit Type as free text and separate from Category relationships", () => {
+    let current = [{ ...emptyCreditFormValue("aether"), characterName: "Credit A" }];
+    const onChange = (next: CreditFormValue[]) => {
+      current = next;
+      view.rerender(editor(next, onChange));
+    };
+    const view = render(editor(current, onChange));
+
+    expect(screen.getByLabelText("Related performer 1 credit type")).toHaveValue("");
+    expect(screen.getByLabelText("Related performer 1 credit type").tagName).toBe("INPUT");
+    fireEvent.change(screen.getByLabelText("Related performer 1 credit type"), {
+      target: { value: "Credit A" },
+    });
+
+    expect(current[0]).toMatchObject({
+      characterName: "Credit A",
+      creditTypeText: "Credit A",
+      creditTypeCategoryId: "",
+    });
+  });
+
+  it("keeps every persisted same-performer Credit as an independent editor row", () => {
+    let current: CreditFormValue[] = ["A", "B", "A", "A", "B"].map((creditTypeText, index) => ({
+      ...emptyCreditFormValue("aether", index + 1),
+      id: `credit-${index + 3}`,
+      editorRowId: `credit-${index + 3}`,
+      sakuravaRef: `R2607000${index + 3}`,
+      creditTypeText,
+    }));
+    const onChange = (next: CreditFormValue[]) => {
+      current = next;
+      view.rerender(editor(next, onChange));
+    };
+    const view = render(editor(current, onChange));
+
+    expect(screen.getByText("5 selected")).toBeInTheDocument();
+    expect(screen.getAllByTestId("credit-editor-row")).toHaveLength(5);
+    expect(
+      screen.getAllByLabelText(/Related performer \d+ credit type/),
+    ).toHaveLength(5);
+
+    fireEvent.change(screen.getByLabelText("Related performer 1 credit type"), {
+      target: { value: "C" },
+    });
+
+    expect(current.map((credit) => credit.creditTypeText)).toEqual([
+      "C",
+      "B",
+      "A",
+      "A",
+      "B",
+    ]);
+    expect(current.map((credit) => credit.id)).toEqual([
+      "credit-3",
+      "credit-4",
+      "credit-5",
+      "credit-6",
+      "credit-7",
+    ]);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove Aether" })[0]!);
+    expect(current.map((credit) => credit.id)).toEqual([
+      "credit-4",
+      "credit-5",
+      "credit-6",
+      "credit-7",
+    ]);
+  });
 });
 
 function editor(

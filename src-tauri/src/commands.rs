@@ -34,17 +34,17 @@ use windows::{
 
 use crate::database::{
     allocate_sakurava_ref, backup_runtime_database, clear_app_generated_cache,
-    create_backup_package, create_import_safety_backup_package, delete_backup_package,
-    export_backup_package, import_selected_backup_package, list_backup_packages,
-    migrate_sakurava_refs, open_default_backup_folder, preview_backup_package,
-    register_current_sakurava_ref_alias, require_migrated_sakurava_refs, resolve_sakurava_ref,
-    restore_backup_package, restore_backup_package_with_sakurava_refs, restore_runtime_database,
-    rotate_automatic_backup_packages, sakurava_ref_migration_status, BackupFolderOpenResult,
-    BackupPackageDeleteResult, BackupPackageExportResult, BackupPackageImportError,
-    BackupPackageImportResult, BackupPackageInfo, BackupPackagePreview, BackupPackagePreviewError,
-    BackupPackageRestoreError, BackupPackageRestoreResult, BackupPackageRotationResult,
-    BackupPackageType, ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult,
-    RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
+    create_backup_package, create_import_safety_backup_package, credit_ref_yymm,
+    delete_backup_package, export_backup_package, import_selected_backup_package,
+    list_backup_packages, migrate_sakurava_refs, open_default_backup_folder,
+    preview_backup_package, register_current_sakurava_ref_alias, require_migrated_sakurava_refs,
+    resolve_sakurava_ref, restore_backup_package, restore_backup_package_with_sakurava_refs,
+    restore_runtime_database, rotate_automatic_backup_packages, sakurava_ref_migration_status,
+    BackupFolderOpenResult, BackupPackageDeleteResult, BackupPackageExportResult,
+    BackupPackageImportError, BackupPackageImportResult, BackupPackageInfo, BackupPackagePreview,
+    BackupPackagePreviewError, BackupPackageRestoreError, BackupPackageRestoreResult,
+    BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
+    DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -464,12 +464,14 @@ pub struct MediaOpenResult {
 #[serde(rename_all = "camelCase")]
 pub struct Credit {
     pub id: String,
+    pub sakurava_ref: String,
     pub work_type: String,
     pub work_id: String,
     pub performer_id: String,
     pub character_name: String,
     pub character_original_name: Option<String>,
     pub credited_as: Option<String>,
+    pub credit_type_text: Option<String>,
     pub credited_as_mode: String,
     pub credit_type_category_id: Option<String>,
     pub role_importance_category_id: Option<String>,
@@ -491,6 +493,7 @@ pub struct CreditInput {
     pub character_name: Option<String>,
     pub character_original_name: Option<String>,
     pub credited_as: Option<String>,
+    pub credit_type_text: Option<String>,
     pub credited_as_mode: Option<String>,
     pub credit_type_category_id: Option<String>,
     pub role_importance_category_id: Option<String>,
@@ -509,6 +512,7 @@ pub struct CreditPatch {
     pub character_name: Option<String>,
     pub character_original_name: Option<Option<String>>,
     pub credited_as: Option<Option<String>>,
+    pub credit_type_text: Option<Option<String>>,
     pub credited_as_mode: Option<String>,
     pub credit_type_category_id: Option<Option<String>>,
     pub role_importance_category_id: Option<Option<String>>,
@@ -2738,18 +2742,36 @@ fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, 
         &["text", "self", "linked"],
         "characterMode",
     )?;
+    let credit_type_category_id = normalize_optional_text(input.credit_type_category_id);
+    let role_importance_category_id = normalize_optional_text(input.role_importance_category_id);
+    let credit_type_text = normalize_optional_text(input.credit_type_text);
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|error| format!("Unable to start Credit create transaction: {error}"))?;
+    validate_credit_relationships(
+        &transaction,
+        &work_type,
+        &work_id,
+        &performer_id,
+        credit_type_category_id.as_deref(),
+        role_importance_category_id.as_deref(),
+    )?;
     let timestamp = current_timestamp();
+    let sakurava_ref =
+        allocate_sakurava_ref(&transaction, "R", &credit_ref_yymm(&timestamp, "0001")?)?;
     let credit = Credit {
         id: new_id("credit"),
+        sakurava_ref,
         work_type,
         work_id,
         performer_id,
         character_name: default_text(input.character_name),
         character_original_name: normalize_optional_text(input.character_original_name),
         credited_as: normalize_optional_text(input.credited_as),
+        credit_type_text,
         credited_as_mode,
-        credit_type_category_id: normalize_optional_text(input.credit_type_category_id),
-        role_importance_category_id: normalize_optional_text(input.role_importance_category_id),
+        credit_type_category_id,
+        role_importance_category_id,
         character_mode,
         character_id: normalize_optional_text(input.character_id),
         billing_order: input.billing_order,
@@ -2758,22 +2780,24 @@ fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, 
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
-    connection
+    transaction
         .execute(
             "INSERT INTO credits (
-                id, workType, workId, performerId, characterName, characterOriginalName,
-                creditedAs, creditedAsMode, creditTypeCategoryId, roleImportanceCategoryId,
+                id, sakuravaRef, workType, workId, performerId, characterName, characterOriginalName,
+                creditedAs, creditTypeText, creditedAsMode, creditTypeCategoryId, roleImportanceCategoryId,
                 characterMode, characterId, billingOrder, note, legacySourceKey,
                 createdAt, updatedAt
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 credit.id,
+                credit.sakurava_ref,
                 credit.work_type,
                 credit.work_id,
                 credit.performer_id,
                 credit.character_name,
                 credit.character_original_name,
                 credit.credited_as,
+                credit.credit_type_text,
                 credit.credited_as_mode,
                 credit.credit_type_category_id,
                 credit.role_importance_category_id,
@@ -2787,8 +2811,13 @@ fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, 
             ],
         )
         .map_err(database_error)?;
-    get_credit(connection, &credit.id)?
-        .ok_or_else(|| "Created credit could not be read".to_string())
+    register_current_sakurava_ref_alias(&transaction, "R", &credit.sakurava_ref)?;
+    let created = get_credit(&transaction, &credit.id)?
+        .ok_or_else(|| "Created credit could not be read".to_string())?;
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit Credit create transaction: {error}"))?;
+    Ok(created)
 }
 
 fn list_credits(connection: &Connection) -> Result<Vec<Credit>, String> {
@@ -2811,7 +2840,10 @@ fn update_credit(
     id: &str,
     patch: CreditPatch,
 ) -> Result<Option<Credit>, String> {
-    let Some(mut credit) = get_credit(connection, id)? else {
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|error| format!("Unable to start Credit update transaction: {error}"))?;
+    let Some(mut credit) = get_credit(&transaction, id)? else {
         return Ok(None);
     };
     if let Some(value) = patch.work_type {
@@ -2831,6 +2863,9 @@ fn update_credit(
     }
     if let Some(value) = patch.credited_as {
         credit.credited_as = normalize_optional_text(value);
+    }
+    if let Some(value) = patch.credit_type_text {
+        credit.credit_type_text = normalize_optional_text(value);
     }
     if let Some(value) = patch.credited_as_mode {
         credit.credited_as_mode =
@@ -2855,14 +2890,22 @@ fn update_credit(
     if let Some(value) = patch.note {
         credit.note = normalize_optional_text(value);
     }
+    validate_credit_relationships(
+        &transaction,
+        &credit.work_type,
+        &credit.work_id,
+        &credit.performer_id,
+        credit.credit_type_category_id.as_deref(),
+        credit.role_importance_category_id.as_deref(),
+    )?;
     credit.updated_at = current_timestamp();
-    connection
+    transaction
         .execute(
             "UPDATE credits SET workType = ?1, workId = ?2, performerId = ?3,
                 characterName = ?4, characterOriginalName = ?5, creditedAs = ?6,
-                creditedAsMode = ?7, creditTypeCategoryId = ?8,
-                roleImportanceCategoryId = ?9, characterMode = ?10, characterId = ?11,
-                billingOrder = ?12, note = ?13, updatedAt = ?14 WHERE id = ?15",
+                creditTypeText = ?7, creditedAsMode = ?8, creditTypeCategoryId = ?9,
+                roleImportanceCategoryId = ?10, characterMode = ?11, characterId = ?12,
+                billingOrder = ?13, note = ?14, updatedAt = ?15 WHERE id = ?16",
             params![
                 credit.work_type,
                 credit.work_id,
@@ -2870,6 +2913,7 @@ fn update_credit(
                 credit.character_name,
                 credit.character_original_name,
                 credit.credited_as,
+                credit.credit_type_text,
                 credit.credited_as_mode,
                 credit.credit_type_category_id,
                 credit.role_importance_category_id,
@@ -2882,7 +2926,65 @@ fn update_credit(
             ],
         )
         .map_err(database_error)?;
-    get_credit(connection, id)
+    let updated = get_credit(&transaction, id)?;
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit Credit update transaction: {error}"))?;
+    Ok(updated)
+}
+
+fn validate_credit_relationships(
+    connection: &Connection,
+    work_type: &str,
+    work_id: &str,
+    performer_id: &str,
+    credit_type_category_id: Option<&str>,
+    role_importance_category_id: Option<&str>,
+) -> Result<(), String> {
+    let work_table = match work_type {
+        "video" => "videos",
+        "image" => "images",
+        _ => return Err("Credit workType is invalid".to_string()),
+    };
+    let work_exists: i64 = connection
+        .query_row(
+            &format!("SELECT COUNT(*) FROM {work_table} WHERE id = ?1"),
+            [work_id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if work_exists != 1 {
+        return Err("Credit work target was not found.".to_string());
+    }
+    let performer_exists: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM performers WHERE id = ?1",
+            [performer_id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if performer_exists != 1 {
+        return Err("Credit performer target was not found.".to_string());
+    }
+    for (category_id, field_name) in [
+        (credit_type_category_id, "Credit Type"),
+        (role_importance_category_id, "Role Importance"),
+    ] {
+        let Some(category_id) = category_id else {
+            continue;
+        };
+        let category_exists: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM managedCategories WHERE key = ?1",
+                [category_id],
+                |row| row.get(0),
+            )
+            .map_err(database_error)?;
+        if category_exists != 1 {
+            return Err(format!("Credit {field_name} category was not found."));
+        }
+    }
+    Ok(())
 }
 
 fn delete_credit(connection: &Connection, id: String) -> Result<DeleteResult, String> {
@@ -5112,12 +5214,14 @@ fn normalize_related_catalog_records_json(value: Option<String>) -> String {
 fn credit_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Credit> {
     Ok(Credit {
         id: row.get("id")?,
+        sakurava_ref: row.get("sakuravaRef")?,
         work_type: row.get("workType")?,
         work_id: row.get("workId")?,
         performer_id: row.get("performerId")?,
         character_name: row.get("characterName")?,
         character_original_name: row.get("characterOriginalName")?,
         credited_as: row.get("creditedAs")?,
+        credit_type_text: row.get("creditTypeText")?,
         credited_as_mode: row.get("creditedAsMode")?,
         credit_type_category_id: row.get("creditTypeCategoryId")?,
         role_importance_category_id: row.get("roleImportanceCategoryId")?,
@@ -6167,6 +6271,7 @@ mod tests {
             character_name: Some("  Lead  ".to_string()),
             character_original_name: Some(" ".to_string()),
             credited_as: Some(" Stage Name ".to_string()),
+            credit_type_text: Some(" Credit A ".to_string()),
             credited_as_mode: Some("custom".to_string()),
             credit_type_category_id: None,
             role_importance_category_id: None,
@@ -6177,9 +6282,38 @@ mod tests {
         }
     }
 
+    fn credit_fixture_connection() -> Connection {
+        let connection = test_connection();
+        connection
+            .execute(
+                "INSERT INTO videos (id, title, createdAt, updatedAt) VALUES ('video-1', 'Video', '1', '1')",
+                [],
+            )
+            .expect("video target");
+        connection
+            .execute(
+                "INSERT INTO images (id, title, createdAt, updatedAt) VALUES ('image-1', 'Image', '1', '1')",
+                [],
+            )
+            .expect("image target");
+        connection
+            .execute(
+                "INSERT INTO performers (id, name, createdAt, updatedAt) VALUES ('performer-1', 'Performer One', '1', '1'), ('performer-2', 'Performer Two', '1', '1')",
+                [],
+            )
+            .expect("performer targets");
+        connection
+            .execute(
+                "INSERT INTO managedCategories (key, name, showInCredits, createdAt, updatedAt) VALUES ('category-credit', 'Credit Category', 1, '1', '1')",
+                [],
+            )
+            .expect("category target");
+        connection
+    }
+
     #[test]
     fn credit_crud_and_filtered_lists_use_independent_credit_rows() {
-        let connection = test_connection();
+        let connection = credit_fixture_connection();
         let first = create_credit(&connection, credit_input("video", "video-1", "performer-1"))
             .expect("create credit");
         let second = create_credit(&connection, credit_input("image", "image-1", "performer-1"))
@@ -6188,8 +6322,11 @@ mod tests {
             .expect("create third credit");
 
         assert_eq!(first.character_name, "Lead");
+        assert!(first.sakurava_ref.starts_with('R'));
         assert_eq!(first.character_original_name, None);
         assert_eq!(first.credited_as.as_deref(), Some("Stage Name"));
+        assert_eq!(first.credit_type_text.as_deref(), Some("Credit A"));
+        assert_eq!(first.credit_type_category_id, None);
         assert_eq!(first.note.as_deref(), Some("Note"));
         assert_eq!(list_credits(&connection).expect("list").len(), 3);
         assert_eq!(
@@ -6219,6 +6356,7 @@ mod tests {
                 character_name: Some("Updated Role".to_string()),
                 character_original_name: None,
                 credited_as: Some(None),
+                credit_type_text: None,
                 credited_as_mode: Some("auto".to_string()),
                 credit_type_category_id: None,
                 role_importance_category_id: None,
@@ -6230,8 +6368,10 @@ mod tests {
         )
         .expect("update")
         .expect("updated credit");
+        assert_eq!(updated.sakurava_ref, first.sakurava_ref);
         assert_eq!(updated.character_name, "Updated Role");
         assert_eq!(updated.credited_as, None);
+        assert_eq!(updated.credit_type_text.as_deref(), Some("Credit A"));
         assert_eq!(updated.credited_as_mode, "auto");
         assert_eq!(updated.character_mode, "self");
         assert_eq!(updated.billing_order, None);
@@ -6249,7 +6389,7 @@ mod tests {
 
     #[test]
     fn credit_validation_rejects_invalid_modes_and_required_ids() {
-        let connection = test_connection();
+        let connection = credit_fixture_connection();
         let mut invalid = credit_input("audio", "work", "performer");
         assert_eq!(
             create_credit(&connection, invalid).expect_err("work type"),
@@ -6274,8 +6414,144 @@ mod tests {
     }
 
     #[test]
+    fn credit_relationship_validation_is_atomic_for_create_and_update() {
+        let connection = credit_fixture_connection();
+        let before_counter: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sakuravaRefCounters WHERE sectionCode = 'R'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("counter count");
+        let mut invalid = credit_input("video", "video-1", "performer-1");
+        invalid.credit_type_category_id = Some("Credit A".to_string());
+        assert_eq!(
+            create_credit(&connection, invalid).expect_err("missing category"),
+            "Credit Credit Type category was not found."
+        );
+        let credit_count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))
+            .expect("credit count");
+        let alias_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("R aliases");
+        let after_counter: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sakuravaRefCounters WHERE sectionCode = 'R'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("counter count after rejection");
+        assert_eq!(credit_count, 0);
+        assert_eq!(alias_count, 0);
+        assert_eq!(after_counter, before_counter);
+
+        let valid_null =
+            create_credit(&connection, credit_input("video", "video-1", "performer-1"))
+                .expect("null category accepted");
+        let mut valid_category = credit_input("video", "video-1", "performer-1");
+        valid_category.credit_type_category_id = Some("category-credit".to_string());
+        let duplicate =
+            create_credit(&connection, valid_category).expect("valid category accepted");
+        assert_ne!(valid_null.id, duplicate.id);
+        assert_ne!(valid_null.sakurava_ref, duplicate.sakurava_ref);
+        assert_eq!(
+            duplicate.credit_type_category_id.as_deref(),
+            Some("category-credit")
+        );
+
+        let updated = update_credit(
+            &connection,
+            &valid_null.id,
+            CreditPatch {
+                work_type: None,
+                work_id: None,
+                performer_id: None,
+                character_name: Some("Updated Role".to_string()),
+                character_original_name: None,
+                credited_as: None,
+                credit_type_text: Some(Some("Credit B".to_string())),
+                credited_as_mode: None,
+                credit_type_category_id: Some(Some("category-credit".to_string())),
+                role_importance_category_id: None,
+                character_mode: None,
+                character_id: None,
+                billing_order: None,
+                note: None,
+            },
+        )
+        .expect("valid update")
+        .expect("updated credit");
+        assert_eq!(updated.sakurava_ref, valid_null.sakurava_ref);
+        assert_eq!(updated.credit_type_text.as_deref(), Some("Credit B"));
+        assert_eq!(
+            updated.credit_type_category_id.as_deref(),
+            Some("category-credit")
+        );
+
+        let rejected = update_credit(
+            &connection,
+            &valid_null.id,
+            CreditPatch {
+                work_type: None,
+                work_id: None,
+                performer_id: None,
+                character_name: Some("Should Not Persist".to_string()),
+                character_original_name: None,
+                credited_as: None,
+                credit_type_text: Some(None),
+                credited_as_mode: None,
+                credit_type_category_id: Some(Some("missing-category".to_string())),
+                role_importance_category_id: None,
+                character_mode: None,
+                character_id: None,
+                billing_order: None,
+                note: None,
+            },
+        )
+        .expect_err("invalid update rejected");
+        assert_eq!(rejected, "Credit Credit Type category was not found.");
+        assert_eq!(
+            get_credit(&connection, &valid_null.id)
+                .expect("read previous credit")
+                .expect("previous credit remains"),
+            updated
+        );
+
+        let cleared = update_credit(
+            &connection,
+            &valid_null.id,
+            CreditPatch {
+                work_type: None,
+                work_id: None,
+                performer_id: None,
+                character_name: None,
+                character_original_name: None,
+                credited_as: None,
+                credit_type_text: Some(None),
+                credited_as_mode: None,
+                credit_type_category_id: Some(None),
+                role_importance_category_id: None,
+                character_mode: None,
+                character_id: None,
+                billing_order: None,
+                note: None,
+            },
+        )
+        .expect("clear nullable category")
+        .expect("cleared credit");
+        assert_eq!(cleared.sakurava_ref, valid_null.sakurava_ref);
+        assert_eq!(cleared.credit_type_text, None);
+        assert_eq!(cleared.credit_type_category_id, None);
+    }
+
+    #[test]
     fn managed_category_credits_scope_round_trips_and_credit_keys_block_delete() {
-        let connection = test_connection();
+        let connection = credit_fixture_connection();
         let created = create_managed_category(
             &connection,
             ManagedCategoryInput {
@@ -6323,11 +6599,12 @@ mod tests {
             &connection,
             CreditInput {
                 work_type: "video".to_string(),
-                work_id: "video-credits".to_string(),
-                performer_id: "performer-credits".to_string(),
+                work_id: "video-1".to_string(),
+                performer_id: "performer-1".to_string(),
                 character_name: Some(created.key.clone()),
                 character_original_name: None,
                 credited_as: None,
+                credit_type_text: None,
                 credited_as_mode: None,
                 credit_type_category_id: Some(created.key.clone()),
                 role_importance_category_id: None,
@@ -6857,6 +7134,7 @@ mod tests {
                     character_name: None,
                     character_original_name: None,
                     credited_as: None,
+                    credit_type_text: None,
                     credited_as_mode: None,
                     credit_type_category_id: None,
                     role_importance_category_id: None,
@@ -7021,6 +7299,7 @@ mod tests {
                     character_name: None,
                     character_original_name: None,
                     credited_as: None,
+                    credit_type_text: None,
                     credited_as_mode: None,
                     credit_type_category_id: Some(category.key.clone()),
                     role_importance_category_id: None,

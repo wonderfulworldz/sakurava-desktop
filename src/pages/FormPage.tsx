@@ -542,7 +542,7 @@ function FormPage({
   function updateCredits(nextCredits: CreditFormValue[]) {
     nextCredits.forEach((credit) => {
       removedSuggestionKeys.current.delete(
-        memorySuggestionKey("creditType", credit.creditTypeCategoryId),
+        memorySuggestionKey("creditType", credit.creditTypeText),
       );
     });
     setCredits(nextCredits);
@@ -740,7 +740,7 @@ function FormPage({
     }
 
     try {
-      const compatibleRelatedPerformers = creditsToLegacyRelations(
+      const compatibleRelatedPerformers = relatedPerformersForSubmit(
         credits,
         availablePerformers,
         relatedPerformers,
@@ -774,7 +774,7 @@ function FormPage({
               addCachedPerformerSuggestion(
                 cache,
                 "creditType",
-                credit.creditTypeCategoryId,
+                credit.creditTypeText,
               ),
             withFields,
           );
@@ -3022,6 +3022,20 @@ function creditsToLegacyRelations(
     }
   }
   return relations;
+}
+
+export function relatedPerformersForSubmit(
+  credits: CreditFormValue[],
+  performers: Performer[],
+  fallback: RelatedPerformerFormValue[],
+) {
+  // Persisted Credit rows are now the authoritative representation. Keep the
+  // existing legacy projection unchanged on edit so a normal Credit-only save
+  // cannot manufacture a new compatibility source for startup backfill.
+  if (credits.some((credit) => credit.id)) {
+    return fallback;
+  }
+  return creditsToLegacyRelations(credits, performers, fallback);
 }
 
 function formConfirmationCopy(

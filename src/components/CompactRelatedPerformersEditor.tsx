@@ -111,10 +111,10 @@ function CompactRelatedPerformersEditor({
     return () => window.cancelAnimationFrame(frame);
   }, [credits.length]);
 
-  function update(index: number, patch: Partial<CreditFormValue>) {
+  function update(editorRowId: string, patch: Partial<CreditFormValue>) {
     onChange(
-      credits.map((credit, creditIndex) =>
-        creditIndex === index ? { ...credit, ...patch } : credit,
+      credits.map((credit) =>
+        credit.editorRowId === editorRowId ? { ...credit, ...patch } : credit,
       ),
     );
   }
@@ -139,7 +139,7 @@ function CompactRelatedPerformersEditor({
           ref={listRef}
         >
           {credits.map((credit, index) => {
-            const rowKey = credit.id ?? `new-credit-${index}`;
+            const rowKey = credit.editorRowId;
             const performer = performerById.get(credit.performerId);
             const performerName =
               performer?.name ||
@@ -148,8 +148,7 @@ function CompactRelatedPerformersEditor({
               "Unresolved Performer";
             const role =
               credit.characterMode === "self" ? "Self" : credit.characterName;
-            const visibleCreditType =
-              credit.creditTypeCategoryId || credit.roleImportanceCategoryId;
+            const visibleCreditType = credit.creditTypeText;
             const isAdditionalRole = Boolean(
               credit.performerId &&
                 credits
@@ -216,7 +215,7 @@ function CompactRelatedPerformersEditor({
                     onChange={(event) => {
                       const nextRole = event.target.value;
                       const isSelf = nextRole.trim().toLowerCase() === "self";
-                      update(index, {
+                      update(rowKey, {
                         characterMode: isSelf ? "self" : "text",
                         characterName: isSelf ? "" : nextRole,
                       });
@@ -231,7 +230,7 @@ function CompactRelatedPerformersEditor({
                     aria-label={`Related performer ${index + 1} credit type`}
                     value={visibleCreditType}
                     onChange={(value) =>
-                      update(index, { creditTypeCategoryId: value })
+                      update(rowKey, { creditTypeText: value })
                     }
                     history={creditTypeHistory}
                     onRemoveHistory={onRemoveCreditTypeHistory}
@@ -244,7 +243,9 @@ function CompactRelatedPerformersEditor({
                   onClick={() =>
                     onChange(
                       normalizeCreditOrders(
-                        credits.filter((_, creditIndex) => creditIndex !== index),
+                        credits.filter(
+                          (item) => item.editorRowId !== rowKey,
+                        ),
                       ),
                     )
                   }
@@ -300,9 +301,9 @@ function CreditTypeSuggestionInput({
   return (
       <MemorySuggestionInput
         ariaLabel={inputProps["aria-label"]}
-        suggestionAriaLabel="Credit Type suggestions"
         value={value}
         suggestions={suggestions}
+        suggestionAriaLabel="Credit Type suggestions"
         onChange={onChange}
         onRemoveSuggestion={onRemoveHistory}
         className={inputClassName}

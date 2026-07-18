@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS credits (
   characterName TEXT NOT NULL DEFAULT '',
   characterOriginalName TEXT,
   creditedAs TEXT,
+  creditTypeText TEXT,
   creditedAsMode TEXT NOT NULL DEFAULT 'auto',
   creditTypeCategoryId TEXT,
   roleImportanceCategoryId TEXT,
