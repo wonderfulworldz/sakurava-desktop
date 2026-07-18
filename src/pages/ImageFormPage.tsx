@@ -57,10 +57,13 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
     }
 
     setLoading(true);
-    Promise.all([
-      getImage(itemKey),
-      listCreditsByWork("image", itemKey).catch(() => []),
-    ])
+    getImage(itemKey)
+      .then(async (image) => {
+        const credits = image
+          ? await listCreditsByWork("image", image.id).catch(() => [])
+          : [];
+        return [image, credits] as const;
+      })
       .then(([image, credits]) => {
         if (cancelled) {
           return;

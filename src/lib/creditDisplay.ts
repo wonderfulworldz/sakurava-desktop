@@ -82,10 +82,12 @@ export function buildCreditDetailItems(
           credit.creditedAsMode === "custom"
             ? credit.creditedAs?.trim() || undefined
             : undefined,
-        creditType: resolveCategoryLabel(
-          credit.creditTypeCategoryId || credit.roleImportanceCategoryId,
-          categoryByKey,
-        ),
+        creditType:
+          credit.creditTypeText?.trim() ||
+          resolveCategoryLabel(
+            credit.creditTypeCategoryId || credit.roleImportanceCategoryId,
+            categoryByKey,
+          ),
         billingOrder:
           typeof credit.billingOrder === "number"
             ? credit.billingOrder
@@ -154,10 +156,12 @@ export function buildFilmographyDetailItems(
           credit.creditedAsMode === "custom"
             ? credit.creditedAs?.trim() || undefined
             : undefined,
-        creditType: resolveCategoryLabel(
-          credit.creditTypeCategoryId || credit.roleImportanceCategoryId,
-          categoryByKey,
-        ),
+        creditType:
+          credit.creditTypeText?.trim() ||
+          resolveCategoryLabel(
+            credit.creditTypeCategoryId || credit.roleImportanceCategoryId,
+            categoryByKey,
+          ),
         billingOrder:
           typeof credit.billingOrder === "number"
             ? credit.billingOrder

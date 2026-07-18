@@ -23,6 +23,17 @@ describe("Credit detail ordering", () => {
       "unordered",
     ]);
   });
+
+  it("prefers persisted free-text Credit Type over independent Category relationships", () => {
+    const items = buildCreditDetailItems(
+      [{ ...credit("free-text", 1), creditTypeText: "Credit A", creditTypeCategoryId: "cat-voice" }],
+      [],
+      [],
+      "[]",
+    );
+
+    expect(items[0]?.creditType).toBe("Credit A");
+  });
 });
 
 function credit(id: string, billingOrder: number | null): Credit {
@@ -34,6 +45,7 @@ function credit(id: string, billingOrder: number | null): Credit {
     characterName: "",
     characterOriginalName: null,
     creditedAs: null,
+    creditTypeText: null,
     creditedAsMode: "auto",
     creditTypeCategoryId: null,
     roleImportanceCategoryId: null,

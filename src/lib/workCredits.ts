@@ -11,13 +11,20 @@ import {
 } from "../runtime/creditCommands";
 
 export type CreditFormValue = {
+  /**
+   * Stable form identity. Persisted Credits use their database id; new rows
+   * receive a client-only value until Create returns a persisted Credit.
+   */
+  editorRowId: string;
   id?: string;
+  sakuravaRef?: string;
   performerId: string;
   performerNameSnapshot?: string;
   characterName: string;
   characterOriginalName: string;
   creditedAsMode: CreditedAsMode;
   creditedAs: string;
+  creditTypeText: string;
   creditTypeCategoryId: string;
   roleImportanceCategoryId: string;
   characterMode: Exclude<CreditCharacterMode, "linked">;
@@ -27,12 +34,15 @@ export type CreditFormValue = {
 
 export function creditToFormValue(credit: Credit): CreditFormValue {
   return {
+    editorRowId: credit.id,
     id: credit.id,
+    sakuravaRef: credit.sakuravaRef,
     performerId: credit.performerId,
     characterName: credit.characterName,
     characterOriginalName: credit.characterOriginalName ?? "",
     creditedAsMode: credit.creditedAsMode,
     creditedAs: credit.creditedAs ?? "",
+    creditTypeText: credit.creditTypeText ?? "",
     creditTypeCategoryId: credit.creditTypeCategoryId ?? "",
     roleImportanceCategoryId: credit.roleImportanceCategoryId ?? "",
     characterMode: credit.characterMode === "self" ? "self" : "text",
@@ -47,17 +57,26 @@ export function emptyCreditFormValue(
   billingOrder?: number,
 ): CreditFormValue {
   return {
+    editorRowId: nextCreditEditorRowId(),
     performerId,
     characterName: "",
     characterOriginalName: "",
     creditedAsMode: "auto",
     creditedAs: "",
+    creditTypeText: "",
     creditTypeCategoryId: "",
     roleImportanceCategoryId: "",
     characterMode: "text",
     billingOrder: billingOrder === undefined ? "" : String(billingOrder),
     note: "",
   };
+}
+
+let creditEditorRowSequence = 0;
+
+function nextCreditEditorRowId() {
+  creditEditorRowSequence += 1;
+  return `new-credit-row-${creditEditorRowSequence}`;
 }
 
 export function normalizeCreditOrders(
@@ -169,6 +188,9 @@ export async function reconcileWorkCredits(
   formCredits: readonly CreditFormValue[],
 ) {
   const normalizedCredits = normalizeCreditOrders(formCredits);
+  const originalById = new Map(
+    originalCredits.map((credit) => [credit.id, credit]),
+  );
   const retainedIds = new Set(
     normalizedCredits.flatMap((credit) => (credit.id ? [credit.id] : [])),
   );
@@ -190,6 +212,7 @@ export async function reconcileWorkCredits(
         credit.creditedAsMode === "custom"
           ? nullableText(credit.creditedAs)
           : null,
+      creditTypeText: nullableText(credit.creditTypeText),
       creditTypeCategoryId: nullableText(credit.creditTypeCategoryId),
       roleImportanceCategoryId: nullableText(
         credit.roleImportanceCategoryId,
@@ -201,7 +224,10 @@ export async function reconcileWorkCredits(
     } as const;
 
     if (credit.id) {
-      await updateCredit(credit.id, values);
+      const original = originalById.get(credit.id);
+      if (!original || !creditMatchesValues(original, values)) {
+        await updateCredit(credit.id, values);
+      }
     } else {
       await createCredit({ workType, workId, ...values });
     }
@@ -212,6 +238,39 @@ export async function reconcileWorkCredits(
       await deleteCredit(original.id);
     }
   }
+}
+
+function creditMatchesValues(
+  credit: Credit,
+  values: {
+    performerId: string;
+    characterName: string;
+    characterOriginalName: string | null;
+    creditedAsMode: CreditedAsMode;
+    creditedAs: string | null;
+    creditTypeText: string | null;
+    creditTypeCategoryId: string | null;
+    roleImportanceCategoryId: string | null;
+    characterMode: Exclude<CreditCharacterMode, "linked">;
+    characterId: null;
+    billingOrder: number | null;
+    note: string | null;
+  },
+) {
+  return (
+    credit.performerId === values.performerId &&
+    credit.characterName === values.characterName &&
+    credit.characterOriginalName === values.characterOriginalName &&
+    credit.creditedAsMode === values.creditedAsMode &&
+    credit.creditedAs === values.creditedAs &&
+    credit.creditTypeText === values.creditTypeText &&
+    credit.creditTypeCategoryId === values.creditTypeCategoryId &&
+    credit.roleImportanceCategoryId === values.roleImportanceCategoryId &&
+    credit.characterMode === values.characterMode &&
+    credit.characterId === values.characterId &&
+    credit.billingOrder === values.billingOrder &&
+    credit.note === values.note
+  );
 }
 
 function nullableText(value: string) {

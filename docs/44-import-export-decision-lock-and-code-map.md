@@ -356,3 +356,10 @@ relationships while excluding projected Deletes and merging fields per target.
 The fresh 278/273/5 desktop Delete-all Apply and restart both succeeded without
 recovery UI. Credits CRUD/public Ref `R` remains 41.8.5 work; Batch 41.9 is
 unchanged.
+
+## 41.8.5A pointer
+
+Credits public identity, migration, backup compatibility, and the separate
+XLSX/CSV contract are decision-locked in
+[`docs/45-credits-import-export-ref-r-decision.md`](45-credits-import-export-ref-r-decision.md).
+This 41.8.5A map does not alter the completed 41.8.4 workflow.

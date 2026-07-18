@@ -1,5 +1,5 @@
 mod commands;
-mod database;
+pub mod database;
 
 use tauri::Manager;
 

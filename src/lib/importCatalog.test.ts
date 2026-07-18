@@ -596,7 +596,7 @@ function makeGlossary(overrides: Partial<GlossaryEntry> = {}): GlossaryEntry {
 function credit(overrides: Partial<Credit> = {}): Credit {
   return {
     id: "credit-1", workType: "video", workId: "video-1", performerId: "performer-1",
-    characterName: "", characterOriginalName: null, creditedAs: null, creditedAsMode: "auto",
+    characterName: "", characterOriginalName: null, creditedAs: null, creditTypeText: null, creditedAsMode: "auto",
     creditTypeCategoryId: null, roleImportanceCategoryId: null, characterMode: "text",
     characterId: null, billingOrder: null, note: null, legacySourceKey: null,
     createdAt: "", updatedAt: "", ...overrides,

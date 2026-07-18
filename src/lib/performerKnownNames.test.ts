@@ -37,6 +37,7 @@ function credit(characterName: string): Credit {
     characterName,
     characterOriginalName: null,
     creditedAs: null,
+    creditTypeText: null,
     creditedAsMode: "auto",
     creditTypeCategoryId: null,
     roleImportanceCategoryId: null,

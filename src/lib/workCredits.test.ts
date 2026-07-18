@@ -7,6 +7,7 @@ import {
 } from "../runtime/creditCommands";
 import {
   emptyCreditFormValue,
+  creditToFormValue,
   creditGroupOrderAtIndex,
   insertCreditIntoPerformerGroup,
   moveCreditGroupToOrder,
@@ -26,12 +27,13 @@ describe("work Credit reconciliation", () => {
     vi.clearAllMocks();
   });
 
-  it("creates multiple credits for one performer and stores category keys", async () => {
+  it("creates multiple credits with free Credit Type text separate from category keys", async () => {
     const first = {
       ...emptyCreditFormValue("performer-1", 0),
       characterName: "Role One",
       creditedAsMode: "custom" as const,
       creditedAs: "Stage Name",
+      creditTypeText: "Credit A",
       creditTypeCategoryId: "cat-credit-voice",
       roleImportanceCategoryId: "cat-role-main",
     };
@@ -51,6 +53,7 @@ describe("work Credit reconciliation", () => {
         performerId: "performer-1",
         creditedAsMode: "custom",
         creditedAs: "Stage Name",
+        creditTypeText: "Credit A",
         creditTypeCategoryId: "cat-credit-voice",
         roleImportanceCategoryId: "cat-role-main",
       }),
@@ -91,6 +94,69 @@ describe("work Credit reconciliation", () => {
       expect.objectContaining({ note: "Updated" }),
     );
     expect(createCredit).not.toHaveBeenCalled();
+  });
+
+  it("updates and removes one same-performer Credit by its own persisted id", async () => {
+    const originals = [
+      credit("credit-3"),
+      credit("credit-4"),
+      credit("credit-5"),
+      credit("credit-6"),
+      credit("credit-7"),
+    ];
+    const retainedRows = originals.map((original, index) => ({
+      ...emptyCreditFormValue("performer-1", index + 1),
+      id: original.id,
+      editorRowId: original.id,
+      creditTypeText: ["Credit C", "Credit B", "Credit A", "Credit A", "Credit B"][index]!,
+    }));
+
+    await reconcileWorkCredits("video", "video-1", originals, retainedRows);
+
+    expect(updateCredit).toHaveBeenCalledTimes(5);
+    expect(updateCredit).toHaveBeenCalledWith(
+      "credit-3",
+      expect.objectContaining({ creditTypeText: "Credit C" }),
+    );
+    expect(updateCredit).toHaveBeenCalledWith(
+      "credit-4",
+      expect.objectContaining({ creditTypeText: "Credit B" }),
+    );
+    expect(deleteCredit).not.toHaveBeenCalled();
+    expect(createCredit).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    await reconcileWorkCredits("video", "video-1", originals, retainedRows.slice(1));
+
+    expect(deleteCredit).toHaveBeenCalledTimes(1);
+    expect(deleteCredit).toHaveBeenCalledWith("credit-3");
+    expect(updateCredit).toHaveBeenCalledWith("credit-4", expect.anything());
+    expect(updateCredit).toHaveBeenCalledWith("credit-7", expect.anything());
+    expect(createCredit).not.toHaveBeenCalled();
+  });
+
+  it("updates only one authoritative persisted row when five same-performer rows hydrate", async () => {
+    const originals = ["Credit A", "Credit B", "Credit A", "Credit A", "Credit B"].map(
+      (creditTypeText, index) => ({
+        ...credit(`credit-${index + 3}`),
+        workType: "video" as const,
+        workId: "video-1",
+        billingOrder: index + 1,
+        creditTypeText,
+      }),
+    );
+    const rows = originals.map(creditToFormValue);
+    rows[0] = { ...rows[0]!, creditTypeText: "Credit C" };
+
+    await reconcileWorkCredits("video", "video-1", originals, rows);
+
+    expect(updateCredit).toHaveBeenCalledTimes(1);
+    expect(updateCredit).toHaveBeenCalledWith(
+      "credit-3",
+      expect.objectContaining({ creditTypeText: "Credit C" }),
+    );
+    expect(createCredit).not.toHaveBeenCalled();
+    expect(deleteCredit).not.toHaveBeenCalled();
   });
 
   it("persists normalized compact list position through billingOrder", async () => {
@@ -232,6 +298,7 @@ function credit(id: string): Credit {
     characterName: "",
     characterOriginalName: null,
     creditedAs: null,
+    creditTypeText: null,
     creditedAsMode: "auto",
     creditTypeCategoryId: null,
     roleImportanceCategoryId: null,
