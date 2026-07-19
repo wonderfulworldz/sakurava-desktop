@@ -1190,12 +1190,14 @@ function SettingsPage() {
           ? await listPerformers()
             : entity === "categories"
               ? await listManagedCategories()
-              : await listGlossaryEntries();
+              : entity === "glossary"
+                ? await listGlossaryEntries()
+                : await listCredits();
     return { dataType: entity, records };
   }
 
   async function loadExportCounts(): Promise<Partial<Record<ExportCsvEntity, number>>> {
-    const entities: ExportCsvEntity[] = ["videos", "images", "performers", "categories", "glossary"];
+    const entities: ExportCsvEntity[] = ["videos", "images", "performers", "categories", "glossary", "credits"];
     const selections = await Promise.all(entities.map(loadExportSelection));
     return Object.fromEntries(
       selections.map((selection) => [selection.dataType, selection.records.length]),
@@ -1221,7 +1223,7 @@ function SettingsPage() {
         ? entities.map((dataType) => ({ dataType, records: [] }))
         : prepareSelectionsWithPublicRefs(
             await Promise.all(
-              (["videos", "images", "performers", "categories", "glossary"] as ExportCsvEntity[])
+              (["videos", "images", "performers", "categories", "glossary", "credits"] as ExportCsvEntity[])
                 .map(loadExportSelection),
             ),
           ).filter((selection) => entities.includes(selection.dataType));
@@ -3074,7 +3076,7 @@ function ImportExportPanel({
   const [mode, setMode] = useState<"idle" | "import" | "export">("idle");
   const importRequestId = useRef(0);
   const [selectedDataTypes, setSelectedDataTypes] = useState<ExportCsvEntity[]>([
-    "videos", "images", "performers", "categories", "glossary",
+    "videos", "images", "performers", "categories", "glossary", "credits",
   ]);
   const [format, setFormat] = useState<ExportFormat>("xlsx");
   const [exportTemplate, setExportTemplate] = useState(false);
@@ -3158,7 +3160,7 @@ function ImportExportPanel({
         <div aria-label={t("settings.importExport.exportMode")} className="pt-5">
           <h3 className="text-sm font-semibold text-slate-900">{t("settings.importExport.selectSections")}</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {(["videos", "images", "performers", "categories", "glossary"] as ExportCsvEntity[]).map((dataType) => (
+            {(["videos", "images", "performers", "categories", "glossary", "credits"] as ExportCsvEntity[]).map((dataType) => (
               <ExportSelectionCard key={dataType} dataType={dataType} selected={selectedDataTypes.includes(dataType)} onToggle={() => toggleDataType(dataType)} />
             ))}
           </div>
@@ -3231,7 +3233,7 @@ function CatalogReferenceBoundary({
 
 function ExportSelectionCard({ dataType, selected, onToggle }: { dataType: ExportCsvEntity; selected: boolean; onToggle: () => void }) {
   const t = useTranslation();
-  const Icon = dataType === "videos" ? Video : dataType === "images" ? ImageIcon : dataType === "performers" ? UserRound : dataType === "glossary" ? FileText : Tag;
+  const Icon = dataType === "videos" ? Video : dataType === "images" ? ImageIcon : dataType === "performers" ? UserRound : dataType === "glossary" || dataType === "credits" ? FileText : Tag;
   const label = t(`settings.importExport.section.${dataType}`);
   return <SakuravaCheckbox label={label} checked={selected} onChange={onToggle} icon={Icon} variant="card" />;
 }
@@ -3620,7 +3622,7 @@ function friendlyImportIssue(
   const category = message.match(/^Unknown category:\s*(.+?)\.?$/i);
   if (category) return `Category “${category[1]}” is not available`;
   if (/valid date|date format/i.test(message)) return t?.("settings.importExport.details.invalidDate") ?? "Date is not valid for this computer";
-  if (/^Unknown Action:/i.test(message)) return "Choose Auto, Create, Update, Delete, or Skip";
+  if (/^Unknown Action:/i.test(message)) return "Choose Auto, Add, Update, or Delete";
   if (/Sakurava Ref was not found/i.test(message)) return t?.("settings.importExport.details.idNotFound") ?? "Record ID was not found";
   if (/Duplicate Sakurava Ref/i.test(message)) return "This Sakurava record appears more than once";
   if (/must start with|Sakurava Ref is not valid/i.test(message)) return "The Sakurava record reference is not valid";

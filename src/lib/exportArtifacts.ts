@@ -8,7 +8,14 @@ import {
   buildXlsxWorkbook,
   type ExportDataSelection,
 } from "./exportWorkbook";
-import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type {
+  Credit,
+  Image,
+  ManagedCategory,
+  Performer,
+  Video,
+} from "../backend/types";
+import type { CreditCsvRecord } from "./exportCsv";
 import { formatSakuravaRef } from "./sakuravaRef";
 
 export function prepareSelectionsWithPublicRefs(
@@ -58,9 +65,48 @@ export function prepareSelectionsWithPublicRefs(
           relatedImagesJson: replaceRelationshipIds(performer.relatedImagesJson, "recordId", publicRefMaps.images),
         };
       }
+      if (selection.dataType === "credits") {
+        return prepareCreditExportRecord(
+          record as Credit,
+          publicRefMaps,
+          byType.get("categories") ?? [],
+        );
+      }
       return record;
     }),
   }));
+}
+
+function prepareCreditExportRecord(
+  credit: Credit,
+  publicRefMaps: {
+    videos: Map<string, string>;
+    images: Map<string, string>;
+    performers: Map<string, string>;
+  },
+  categories: unknown[],
+): CreditCsvRecord {
+  const categoryByKey = new Map(
+    categories.flatMap((record) => {
+      const category = record as ManagedCategory;
+      return category.key && category.sakuravaRef
+        ? [[category.key, category.sakuravaRef] as const]
+        : [];
+    }),
+  );
+  return {
+    ...credit,
+    workType: credit.workType === "video" ? "Video" : "Image",
+    creditedAsMode: credit.creditedAsMode === "auto" ? "Auto" : "Custom",
+    characterMode: credit.characterMode === "self" ? "Self" : "Text",
+    workRef: formatSakuravaRef((credit.workType === "video"
+      ? publicRefMaps.videos.get(credit.workId)
+      : publicRefMaps.images.get(credit.workId)) ?? ""),
+    performerRef: formatSakuravaRef(publicRefMaps.performers.get(credit.performerId) ?? ""),
+    roleImportanceRef: credit.roleImportanceCategoryId
+      ? formatSakuravaRef(categoryByKey.get(credit.roleImportanceCategoryId) ?? "")
+      : "",
+  };
 }
 
 function replaceCategoryLabels(text: string, references: Map<string, string>) {
@@ -137,6 +183,7 @@ export function exportTypeCode(dataTypes: ExportCsvEntity[]) {
   if (dataTypes[0] === "images") return "img";
   if (dataTypes[0] === "performers") return "per";
   if (dataTypes[0] === "glossary") return "glo";
+  if (dataTypes[0] === "credits") return "cre";
   return "cat";
 }
 

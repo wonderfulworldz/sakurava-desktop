@@ -26,7 +26,7 @@ describe("XLSX export and templates", () => {
     expect(sheet.getCell("A2").value).toBe("Auto");
     expect(sheet.getCell("B2").numFmt).toBe("@");
     expect(sheet.getCell(2, columnNumber(sheet, "Release Date")).value).toBeInstanceOf(Date);
-    expect(sheet.getCell("A2").dataValidation.formulae?.[0]).toContain("Create");
+    expect(sheet.getCell("A2").dataValidation.formulae?.[0]).toContain("Add");
   });
 
   it("builds a multi-type workbook with only selected data sheets", async () => {
@@ -140,7 +140,7 @@ describe("XLSX export and templates", () => {
     const examples = workbook.getWorksheet("Examples")!;
     expect(examples.getCell("A1").value).toContain("EXAMPLES ONLY");
     expect([3, 4, 5, 6].map((row) => examples.getCell(row, 1).value))
-      .toEqual(["Auto", "Auto", "Delete", "Skip"]);
+      .toEqual(["Auto", "Add", "Update", "Delete"]);
   });
 
   it("keeps empty dates empty and invalid values as visible text", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type { Credit, GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
 import { parseCsv } from "./importCsvPreview";
 import {
   buildCsvExportArtifacts,
@@ -26,6 +26,7 @@ describe("shared XLSX/CSV export contract", () => {
     ["performers", "per"],
     ["categories", "cat"],
     ["glossary", "glo"],
+  ["credits", "cre"],
   ] as const)("uses the approved filename token for %s", (dataType, token) => {
     expect(defaultExportFileName([dataType], "csv", fixedDate))
       .toBe(`skv-${token}-20261407-053825.csv`);
@@ -62,7 +63,7 @@ describe("shared XLSX/CSV export contract", () => {
   );
 
   it("uses the same approved Action values for both representations", () => {
-    expect(EXPORT_ACTIONS).toEqual(["Auto", "Create", "Update", "Delete", "Skip"]);
+    expect(EXPORT_ACTIONS).toEqual(["Auto", "Add", "Update", "Delete"]);
     expect(exportSchemaFor("videos")[0].value({})).toBe("Auto");
   });
 
@@ -186,9 +187,9 @@ function video(overrides: Partial<Video> = {}): Video {
 }
 
 // Compile-time coverage keeps every supported record type tied to this contract test.
-type SupportedRecords = Video | Image | Performer | ManagedCategory | GlossaryEntry;
+type SupportedRecords = Video | Image | Performer | ManagedCategory | GlossaryEntry | Credit;
 const _supportedDataTypes: Record<ExportCsvEntity, SupportedRecords | null> = {
-  videos: null, images: null, performers: null, categories: null, glossary: null,
+  videos: null, images: null, performers: null, categories: null, glossary: null, credits: null,
 };
 void _supportedDataTypes;
 

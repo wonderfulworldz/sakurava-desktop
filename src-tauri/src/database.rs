@@ -3367,6 +3367,15 @@ pub struct CreditsRSmokeInspectionCredit {
     pub credited_as: Option<String>,
     pub category_id: Option<String>,
     pub role_importance_category_id: Option<String>,
+    pub work_display_ref: Option<String>,
+    pub performer_display_ref: Option<String>,
+    pub role_importance_display_ref: Option<String>,
+    pub character_name: String,
+    pub character_original_name: Option<String>,
+    pub credited_as_mode: String,
+    pub character_mode: String,
+    pub billing_order: Option<i64>,
+    pub note: Option<String>,
 }
 
 #[cfg(any(debug_assertions, test))]
@@ -3380,8 +3389,61 @@ pub struct CreditsRSmokeInspection {
     pub r_counters: Vec<(String, i64)>,
     pub duplicate_ref_count: i64,
     pub malformed_ref_count: i64,
+    pub credit_legacy_count: i64,
     pub normal_backup_packages: Vec<String>,
     pub safety_backup_packages: Vec<String>,
+    pub fixture_expectations: Option<Value>,
+}
+
+/// Debug/test-only fixture description for the Credits spreadsheet desktop
+/// smoke. The matching PowerShell/Node helper turns its public rows into real
+/// CSV and XLSX inputs; production import/export code never reads this file.
+#[cfg(any(debug_assertions, test))]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditsSpreadsheetSmokeFixture {
+    pub root: String,
+    pub database_path: String,
+    pub smoke_input_path: String,
+    pub invalid_xlsx_path: String,
+    pub mixed_xlsx_path: String,
+    pub invalid_csv_path: String,
+    pub mixed_csv_path: String,
+    pub xlsx_export_path: String,
+    pub csv_export_path: String,
+    pub headers: Vec<String>,
+    pub baseline: CreditsRSmokeInspection,
+    pub spreadsheet_rows: Vec<CreditsSpreadsheetSmokeRow>,
+    pub invalid_row: CreditsSpreadsheetSmokeRow,
+    pub update_target_ref: String,
+    pub delete_target_ref: String,
+    pub add_work_ref: String,
+    pub add_performer_ref: String,
+    pub expected_new_ref: String,
+    pub expected_final_count: usize,
+    pub expected_r_counters: Vec<(String, i64)>,
+    pub expected_duplicate_warning_count: usize,
+    pub live_app_data_accessed: bool,
+}
+
+#[cfg(any(debug_assertions, test))]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditsSpreadsheetSmokeRow {
+    pub action: String,
+    pub sakurava_ref: String,
+    pub work_type: String,
+    pub work_ref: String,
+    pub performer_ref: String,
+    pub character_role: String,
+    pub original_character: String,
+    pub credited_as_mode: String,
+    pub credited_as: String,
+    pub credit_type: String,
+    pub role_importance: String,
+    pub character_mode: String,
+    pub billing_order: String,
+    pub note: String,
 }
 
 /// Builds a deterministic, entirely disposable pre-41.8.5B Credit fixture.
@@ -3402,6 +3464,373 @@ pub fn prepare_credits_r_restore_smoke_fixture(
     root: impl AsRef<Path>,
 ) -> Result<CreditsRRestoreSmokeFixture, String> {
     prepare_credits_r_restore_smoke_fixture_at(root.as_ref(), true)
+}
+
+/// Prepares only the isolated current-schema database and public input
+/// description for the Credits spreadsheet desktop smoke. It never invokes
+/// Preview, creates a package, exports through the UI, or applies an import.
+#[cfg(any(debug_assertions, test))]
+pub fn prepare_credits_spreadsheet_smoke_fixture(
+    root: impl AsRef<Path>,
+) -> Result<CreditsSpreadsheetSmokeFixture, String> {
+    prepare_credits_spreadsheet_smoke_fixture_at(root.as_ref(), true)
+}
+
+#[cfg(any(debug_assertions, test))]
+fn prepare_credits_spreadsheet_smoke_fixture_at(
+    root: &Path,
+    require_workspace_manual_smoke_root: bool,
+) -> Result<CreditsSpreadsheetSmokeFixture, String> {
+    let root = prepare_disposable_root(root, require_workspace_manual_smoke_root)?;
+    let database_path = root.join(DATABASE_FILE_NAME);
+    if database_path.exists() {
+        return Err(
+            "Disposable Credits spreadsheet fixture already exists; choose a new root or inspect it first."
+                .to_string(),
+        );
+    }
+
+    let database = prepare_database(&root)?;
+    let headers = vec![
+        "Action",
+        "Sakurava Ref",
+        "Work Type",
+        "Work Ref",
+        "Performer Ref",
+        "Character / Role",
+        "Original Character",
+        "Credited As Mode",
+        "Credited As",
+        "Credit Type",
+        "Role Importance",
+        "Character Mode",
+        "Billing Order",
+        "Note",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect::<Vec<_>>();
+
+    let (video_ref, image_ref, performer_alpha_ref, performer_beta_ref, role_ref, credits) = {
+        let database_connection = database.connection();
+        let connection = database_connection.lock().map_err(|_| {
+            "Disposable Credits spreadsheet database lock is unavailable.".to_string()
+        })?;
+        let now = "2026-07-18T00:00:00Z";
+        let role_ref = allocate_sakurava_ref(&connection, "C", "2607")?;
+        connection.execute(
+            "INSERT INTO managedCategories (key, sakuravaRef, name, showInCredits, createdAt, updatedAt)
+             VALUES ('role-importance-smoke', ?1, 'Lead', 1, ?2, ?2)",
+            params![role_ref, now],
+        ).map_err(|error| error.to_string())?;
+        register_current_sakurava_ref_alias(&connection, "C", &role_ref)?;
+
+        let video_ref = allocate_sakurava_ref(&connection, "V", "2607")?;
+        connection
+            .execute(
+                "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt)
+             VALUES ('video-spreadsheet', ?1, 'Spreadsheet Smoke Video', ?2, ?2)",
+                params![video_ref, now],
+            )
+            .map_err(|error| error.to_string())?;
+        register_current_sakurava_ref_alias(&connection, "V", &video_ref)?;
+
+        let image_ref = allocate_sakurava_ref(&connection, "I", "2607")?;
+        connection
+            .execute(
+                "INSERT INTO images (id, sakuravaRef, title, createdAt, updatedAt)
+             VALUES ('image-spreadsheet', ?1, 'Spreadsheet Smoke Image', ?2, ?2)",
+                params![image_ref, now],
+            )
+            .map_err(|error| error.to_string())?;
+        register_current_sakurava_ref_alias(&connection, "I", &image_ref)?;
+
+        let performer_alpha_ref = allocate_sakurava_ref(&connection, "P", "2607")?;
+        let performer_beta_ref = allocate_sakurava_ref(&connection, "P", "2607")?;
+        for (id, reference, name) in [
+            (
+                "performer-spreadsheet-alpha",
+                &performer_alpha_ref,
+                "Spreadsheet Alpha",
+            ),
+            (
+                "performer-spreadsheet-beta",
+                &performer_beta_ref,
+                "Spreadsheet Beta",
+            ),
+        ] {
+            connection
+                .execute(
+                    "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt)
+                 VALUES (?1, ?2, ?3, ?4, ?4)",
+                    params![id, reference, name, now],
+                )
+                .map_err(|error| error.to_string())?;
+            register_current_sakurava_ref_alias(&connection, "P", reference)?;
+        }
+
+        let credit_specs = [
+            (
+                "credit-spreadsheet-a",
+                "video",
+                "video-spreadsheet",
+                "performer-spreadsheet-alpha",
+                "Fixture Credit A",
+                Some("Fixture Alias"),
+                Some(1_i64),
+                Some("First note"),
+            ),
+            (
+                "credit-spreadsheet-b",
+                "video",
+                "video-spreadsheet",
+                "performer-spreadsheet-alpha",
+                "Fixture Credit B",
+                None,
+                Some(2_i64),
+                None,
+            ),
+            (
+                "credit-spreadsheet-c",
+                "video",
+                "video-spreadsheet",
+                "performer-spreadsheet-alpha",
+                "Fixture Duplicate",
+                None,
+                Some(3_i64),
+                None,
+            ),
+            (
+                "credit-spreadsheet-d",
+                "video",
+                "video-spreadsheet",
+                "performer-spreadsheet-alpha",
+                "Spreadsheet Duplicate Add",
+                None,
+                Some(4_i64),
+                Some("Duplicate source"),
+            ),
+            (
+                "credit-spreadsheet-e",
+                "video",
+                "video-spreadsheet",
+                "performer-spreadsheet-beta",
+                "Beta Credit",
+                None,
+                None,
+                None,
+            ),
+            (
+                "credit-spreadsheet-f",
+                "image",
+                "image-spreadsheet",
+                "performer-spreadsheet-alpha",
+                "Image Credit",
+                None,
+                Some(1_i64),
+                None,
+            ),
+        ];
+        let mut credits = Vec::new();
+        for (id, work_type, work_id, performer_id, credit_type, credited_as, billing_order, note) in
+            credit_specs
+        {
+            let reference = allocate_sakurava_ref(&connection, "R", "2607")?;
+            connection.execute(
+                "INSERT INTO credits (
+                    id, sakuravaRef, workType, workId, performerId, characterName,
+                    characterOriginalName, creditedAs, creditTypeText, creditedAsMode,
+                    roleImportanceCategoryId, characterMode, billingOrder, note, createdAt, updatedAt
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, 'Fixture Role', NULL, ?6, ?7, 'auto', ?8, 'text', ?9, ?10, ?11, ?11)",
+                params![id, reference, work_type, work_id, performer_id, credited_as, credit_type, "role-importance-smoke", billing_order, note, now],
+            ).map_err(|error| error.to_string())?;
+            register_credit_aliases(&connection, id, &reference)?;
+            credits.push((id.to_string(), reference));
+        }
+        require_migrated_sakurava_refs(&connection)?;
+        (
+            video_ref,
+            image_ref,
+            performer_alpha_ref,
+            performer_beta_ref,
+            role_ref,
+            credits,
+        )
+    };
+    drop(database);
+
+    let display = |reference: &str| format_sakurava_ref(reference).unwrap_or_default();
+    let rows =
+        credits
+            .iter()
+            .map(|(id, reference)| {
+                let (
+                    work_type,
+                    work_ref,
+                    performer_ref,
+                    credit_type,
+                    credited_as,
+                    billing_order,
+                    note,
+                ) = match id.as_str() {
+                    "credit-spreadsheet-e" => (
+                        "Video",
+                        &video_ref,
+                        &performer_beta_ref,
+                        "Beta Credit",
+                        "",
+                        "",
+                        "",
+                    ),
+                    "credit-spreadsheet-f" => (
+                        "Image",
+                        &image_ref,
+                        &performer_alpha_ref,
+                        "Image Credit",
+                        "",
+                        "1",
+                        "",
+                    ),
+                    "credit-spreadsheet-a" => (
+                        "Video",
+                        &video_ref,
+                        &performer_alpha_ref,
+                        "Fixture Credit A",
+                        "Fixture Alias",
+                        "1",
+                        "First note",
+                    ),
+                    "credit-spreadsheet-b" => (
+                        "Video",
+                        &video_ref,
+                        &performer_alpha_ref,
+                        "Fixture Credit B",
+                        "",
+                        "2",
+                        "",
+                    ),
+                    "credit-spreadsheet-c" => (
+                        "Video",
+                        &video_ref,
+                        &performer_alpha_ref,
+                        "Fixture Duplicate",
+                        "",
+                        "3",
+                        "",
+                    ),
+                    _ => (
+                        "Video",
+                        &video_ref,
+                        &performer_alpha_ref,
+                        "Spreadsheet Duplicate Add",
+                        "",
+                        "4",
+                        "Duplicate source",
+                    ),
+                };
+                CreditsSpreadsheetSmokeRow {
+                    action: "Auto".to_string(),
+                    sakurava_ref: display(reference),
+                    work_type: work_type.to_string(),
+                    work_ref: display(work_ref),
+                    performer_ref: display(performer_ref),
+                    character_role: "Fixture Role".to_string(),
+                    original_character: String::new(),
+                    credited_as_mode: "Auto".to_string(),
+                    credited_as: credited_as.to_string(),
+                    credit_type: credit_type.to_string(),
+                    role_importance: display(&role_ref),
+                    character_mode: "Text".to_string(),
+                    billing_order: billing_order.to_string(),
+                    note: note.to_string(),
+                }
+            })
+            .collect::<Vec<_>>();
+    let update_target_ref = rows[0].sakurava_ref.clone();
+    let delete_target_ref = rows[1].sakurava_ref.clone();
+    let add_source = rows[3].clone();
+    let mut mixed_rows = rows.clone();
+    mixed_rows[0].action = "Update".to_string();
+    mixed_rows[0].credit_type = "Spreadsheet Updated".to_string();
+    mixed_rows[1].action = "Delete".to_string();
+    let mut add_row = add_source;
+    add_row.action = "Add".to_string();
+    add_row.sakurava_ref.clear();
+    mixed_rows.push(add_row);
+    let invalid_row = CreditsSpreadsheetSmokeRow {
+        action: "Add".to_string(),
+        sakurava_ref: String::new(),
+        work_type: "Video".to_string(),
+        work_ref: "V2607-9999".to_string(),
+        performer_ref: display(&performer_alpha_ref),
+        character_role: "Invalid Work".to_string(),
+        original_character: String::new(),
+        credited_as_mode: "Auto".to_string(),
+        credited_as: String::new(),
+        credit_type: "Invalid Relationship".to_string(),
+        role_importance: display(&role_ref),
+        character_mode: "Text".to_string(),
+        billing_order: "1".to_string(),
+        note: String::new(),
+    };
+    let smoke_input_path = root.join("smoke-input");
+    let manual_smoke = root
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(|| "Unable to resolve manual-smoke directory.".to_string())?;
+    let fixture = CreditsSpreadsheetSmokeFixture {
+        root: root.display().to_string(),
+        database_path: database_path.display().to_string(),
+        smoke_input_path: smoke_input_path.display().to_string(),
+        invalid_xlsx_path: smoke_input_path
+            .join("invalid-credits.xlsx")
+            .display()
+            .to_string(),
+        mixed_xlsx_path: smoke_input_path
+            .join("mixed-credits.xlsx")
+            .display()
+            .to_string(),
+        invalid_csv_path: smoke_input_path
+            .join("invalid-csv-set")
+            .join("credits.csv")
+            .display()
+            .to_string(),
+        mixed_csv_path: smoke_input_path
+            .join("mixed-csv-set")
+            .join("credits.csv")
+            .display()
+            .to_string(),
+        xlsx_export_path: manual_smoke
+            .join("credits-spreadsheet-07-export-xlsx")
+            .display()
+            .to_string(),
+        csv_export_path: manual_smoke
+            .join("credits-spreadsheet-07-export-csv")
+            .display()
+            .to_string(),
+        headers,
+        baseline: inspect_credits_r_smoke_fixture_at(&root, false)?,
+        spreadsheet_rows: mixed_rows,
+        invalid_row,
+        update_target_ref,
+        delete_target_ref,
+        add_work_ref: display(&video_ref),
+        add_performer_ref: display(&performer_alpha_ref),
+        expected_new_ref: "R2607-0007".to_string(),
+        expected_final_count: 6,
+        expected_r_counters: vec![("2607".to_string(), 7)],
+        expected_duplicate_warning_count: 1,
+        live_app_data_accessed: false,
+    };
+    fs::create_dir_all(&smoke_input_path).map_err(|error| {
+        format!("Unable to create Credits spreadsheet input directory: {error}")
+    })?;
+    let manifest = serde_json::to_string_pretty(&fixture)
+        .map_err(|error| format!("Unable to serialize Credits spreadsheet fixture: {error}"))?;
+    fs::write(root.join("fixture-manifest.json"), manifest).map_err(|error| {
+        format!("Unable to write Credits spreadsheet fixture manifest: {error}")
+    })?;
+    Ok(fixture)
 }
 
 #[cfg(any(debug_assertions, test))]
@@ -3585,9 +4014,19 @@ fn inspect_credits_r_smoke_fixture_at(
     };
     let mut statement = connection
         .prepare(&format!(
-            "SELECT id, createdAt, sakuravaRef, workId, performerId, {credit_type_text_column},
-                    creditedAs, creditTypeCategoryId, roleImportanceCategoryId
-             FROM credits ORDER BY id COLLATE BINARY ASC"
+            "SELECT credits.id, credits.createdAt, credits.sakuravaRef, credits.workId,
+                    credits.performerId, {credit_type_text_column}, credits.creditedAs,
+                    credits.creditTypeCategoryId, credits.roleImportanceCategoryId,
+                    COALESCE(videos.sakuravaRef, images.sakuravaRef, ''),
+                    COALESCE(performers.sakuravaRef, ''), COALESCE(role.sakuravaRef, ''),
+                    credits.characterName, credits.characterOriginalName,
+                    credits.creditedAsMode, credits.characterMode, credits.billingOrder, credits.note
+             FROM credits
+             LEFT JOIN videos ON credits.workType = 'video' AND videos.id = credits.workId
+             LEFT JOIN images ON credits.workType = 'image' AND images.id = credits.workId
+             LEFT JOIN performers ON performers.id = credits.performerId
+             LEFT JOIN managedCategories AS role ON role.key = credits.roleImportanceCategoryId
+             ORDER BY credits.id COLLATE BINARY ASC"
         ))
         .map_err(|error| error.to_string())?;
     let credits = statement
@@ -3604,6 +4043,15 @@ fn inspect_credits_r_smoke_fixture_at(
                 credited_as: row.get(6)?,
                 category_id: row.get(7)?,
                 role_importance_category_id: row.get(8)?,
+                work_display_ref: format_sakurava_ref(&row.get::<_, String>(9)?),
+                performer_display_ref: format_sakurava_ref(&row.get::<_, String>(10)?),
+                role_importance_display_ref: format_sakurava_ref(&row.get::<_, String>(11)?),
+                character_name: row.get(12)?,
+                character_original_name: row.get(13)?,
+                credited_as_mode: row.get(14)?,
+                character_mode: row.get(15)?,
+                billing_order: row.get(16)?,
+                note: row.get(17)?,
             })
         })
         .map_err(|error| error.to_string())?
@@ -3642,6 +4090,13 @@ fn inspect_credits_r_smoke_fixture_at(
             !credit.sakurava_ref.is_empty() && !valid_credit_sakurava_ref(&credit.sakurava_ref)
         })
         .count() as i64;
+    let credit_legacy_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM credits WHERE id LIKE 'credit_legacy:%'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
     let mut normal_backup_packages = Vec::new();
     let mut safety_backup_packages = Vec::new();
     let backup_folder = root.join(BACKUP_FOLDER_NAME);
@@ -3667,6 +4122,10 @@ fn inspect_credits_r_smoke_fixture_at(
     }
     normal_backup_packages.sort();
     safety_backup_packages.sort();
+    let fixture_expectations = fs::read_to_string(root.join("fixture-manifest.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|value| value.get("expectedNewRef").is_some().then_some(value));
     Ok(CreditsRSmokeInspection {
         root: root.display().to_string(),
         database_path: database_path.display().to_string(),
@@ -3675,8 +4134,10 @@ fn inspect_credits_r_smoke_fixture_at(
         r_counters,
         duplicate_ref_count,
         malformed_ref_count,
+        credit_legacy_count,
         normal_backup_packages,
         safety_backup_packages,
+        fixture_expectations,
     })
 }
 
@@ -4223,6 +4684,65 @@ mod tests {
             .r_counters
             .iter()
             .any(|(month, sequence)| month == "2607" && *sequence == 2));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn disposable_credits_spreadsheet_fixture_is_current_isolated_and_prepared_only() {
+        let root = unique_test_dir("credits-spreadsheet-disposable-fixture");
+        let fixture = prepare_credits_spreadsheet_smoke_fixture_at(&root, false)
+            .expect("spreadsheet fixture");
+        assert!(Path::new(&fixture.database_path).is_file());
+        assert_eq!(fixture.headers.len(), 14);
+        assert_eq!(fixture.baseline.credits.len(), 6);
+        assert!(fixture.baseline.credit_ref_migration_present);
+        assert_eq!(fixture.baseline.duplicate_ref_count, 0);
+        assert_eq!(fixture.baseline.malformed_ref_count, 0);
+        assert_eq!(fixture.baseline.credit_legacy_count, 0);
+        assert_eq!(
+            fixture
+                .baseline
+                .credits
+                .iter()
+                .filter(|credit| {
+                    credit.work_id == "video-spreadsheet"
+                        && credit.performer_id == "performer-spreadsheet-alpha"
+                })
+                .count(),
+            4
+        );
+        assert_eq!(fixture.spreadsheet_rows.len(), 7);
+        assert_eq!(
+            fixture
+                .spreadsheet_rows
+                .iter()
+                .filter(|row| row.action == "Update")
+                .count(),
+            1
+        );
+        assert_eq!(
+            fixture
+                .spreadsheet_rows
+                .iter()
+                .filter(|row| row.action == "Delete")
+                .count(),
+            1
+        );
+        assert_eq!(
+            fixture
+                .spreadsheet_rows
+                .iter()
+                .filter(|row| row.action == "Add")
+                .count(),
+            1
+        );
+        assert_eq!(fixture.invalid_row.work_ref, "V2607-9999");
+        assert_eq!(fixture.expected_new_ref, "R2607-0007");
+        assert_eq!(fixture.expected_final_count, 6);
+        assert_eq!(fixture.expected_r_counters, vec![("2607".to_string(), 7)]);
+        assert!(!fixture.live_app_data_accessed);
+        assert!(!Path::new(&fixture.invalid_xlsx_path).exists());
+        assert!(!Path::new(&fixture.mixed_xlsx_path).exists());
         let _ = fs::remove_dir_all(root);
     }
 

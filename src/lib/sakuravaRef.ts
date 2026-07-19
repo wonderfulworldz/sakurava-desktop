@@ -51,7 +51,7 @@ export function canonicalImportIdentity(value: string) {
 }
 
 export function resolveSakuravaIdentity<TRecord extends SakuravaIdentityRecord>(
-  section: Exclude<SakuravaRefSectionCode, "R">,
+  section: SakuravaRefSectionCode,
   identity: string,
   records: readonly TRecord[],
 ): SakuravaIdentityResolution<TRecord> {
@@ -66,7 +66,9 @@ export function resolveSakuravaIdentity<TRecord extends SakuravaIdentityRecord>(
     }
   }
 
-  const legacyPrefix = legacyPrefixBySection[section];
+  // Credits are intentionally public-Ref-only. Their technical id is never a
+  // spreadsheet or user-facing identity, unlike the five legacy sections.
+  const legacyPrefix = section === "R" ? null : legacyPrefixBySection[section];
   const explicitLegacy = trimmed.match(/^(VID|IMG|PER|CAT|GLO)-[0-9A-Z]+$/i);
   if (explicitLegacy && explicitLegacy[1].toUpperCase() !== legacyPrefix) {
     return { status: "malformed", canonicalIdentity };
@@ -87,7 +89,7 @@ export function resolveSakuravaIdentity<TRecord extends SakuravaIdentityRecord>(
 }
 
 export function recordMatchesSakuravaIdentity(
-  section: Exclude<SakuravaRefSectionCode, "R">,
+  section: SakuravaRefSectionCode,
   identity: string,
   record: SakuravaIdentityRecord,
 ) {
@@ -98,20 +100,29 @@ export function recordMatchesSakuravaIdentity(
   if (candidateCurrent) {
     return candidateCurrent[0] === section && candidateCurrent === recordCurrent;
   }
+  if (section === "R") {
+    return false;
+  }
   const normalized = candidate.toUpperCase();
   return normalized === technical.toUpperCase()
     || normalized === legacySakuravaRef(legacyPrefixBySection[section], technical).toUpperCase();
 }
 
 export function sakuravaIdentityLookupKeys(
-  section: Exclude<SakuravaRefSectionCode, "R">,
+  section: SakuravaRefSectionCode,
   record: SakuravaIdentityRecord,
 ) {
   const technical = String(record.key ?? record.id ?? "").trim();
   const current = canonicalSakuravaRef(record.sakuravaRef ?? "");
-  return Array.from(new Set([
+  const publicKeys = [
     current ?? "",
     current ? formatSakuravaRef(current) : "",
+  ];
+  if (section === "R") {
+    return Array.from(new Set(publicKeys.filter(Boolean).map(canonicalImportIdentity)));
+  }
+  return Array.from(new Set([
+    ...publicKeys,
     technical,
     legacySakuravaRef(legacyPrefixBySection[section], technical),
   ].filter(Boolean).map(canonicalImportIdentity)));
