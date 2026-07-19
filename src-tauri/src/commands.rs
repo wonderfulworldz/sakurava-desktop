@@ -2729,6 +2729,24 @@ fn validate_media_open_file_path(path: &str) -> Result<PathBuf, String> {
 }
 
 fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, String> {
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|error| format!("Unable to start Credit create transaction: {error}"))?;
+    let created = create_credit_in_transaction(&transaction, input, None)?;
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit Credit create transaction: {error}"))?;
+    Ok(created)
+}
+
+/// Creates a Credit on the caller's already-open transaction. Import Apply
+/// uses this so relationship validation, R allocation, ledger/alias writes,
+/// and the row insert either commit together or all roll back together.
+fn create_credit_in_transaction(
+    connection: &Connection,
+    input: CreditInput,
+    issuance_yymm: Option<&str>,
+) -> Result<Credit, String> {
     let work_type = validate_credit_choice(input.work_type, &["video", "image"], "workType")?;
     let work_id = require_text(input.work_id, "Credit workId is required")?;
     let performer_id = require_text(input.performer_id, "Credit performerId is required")?;
@@ -2745,20 +2763,23 @@ fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, 
     let credit_type_category_id = normalize_optional_text(input.credit_type_category_id);
     let role_importance_category_id = normalize_optional_text(input.role_importance_category_id);
     let credit_type_text = normalize_optional_text(input.credit_type_text);
-    let transaction = connection
-        .unchecked_transaction()
-        .map_err(|error| format!("Unable to start Credit create transaction: {error}"))?;
     validate_credit_relationships(
-        &transaction,
+        connection,
         &work_type,
         &work_id,
         &performer_id,
         credit_type_category_id.as_deref(),
         role_importance_category_id.as_deref(),
     )?;
+    validate_credit_capacity(connection, &work_type, &work_id, &performer_id)?;
     let timestamp = current_timestamp();
-    let sakurava_ref =
-        allocate_sakurava_ref(&transaction, "R", &credit_ref_yymm(&timestamp, "0001")?)?;
+    let allocation_yymm = match issuance_yymm {
+        // Import carries a validated YYMM issuance month just like the other
+        // catalog import sections. Do not parse it as a Credit timestamp.
+        Some(value) => value.to_string(),
+        None => credit_ref_yymm(&timestamp, "0001")?,
+    };
+    let sakurava_ref = allocate_sakurava_ref(connection, "R", &allocation_yymm)?;
     let credit = Credit {
         id: new_id("credit"),
         sakurava_ref,
@@ -2780,7 +2801,7 @@ fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, 
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
-    transaction
+    connection
         .execute(
             "INSERT INTO credits (
                 id, sakuravaRef, workType, workId, performerId, characterName, characterOriginalName,
@@ -2811,13 +2832,9 @@ fn create_credit(connection: &Connection, input: CreditInput) -> Result<Credit, 
             ],
         )
         .map_err(database_error)?;
-    register_current_sakurava_ref_alias(&transaction, "R", &credit.sakurava_ref)?;
-    let created = get_credit(&transaction, &credit.id)?
-        .ok_or_else(|| "Created credit could not be read".to_string())?;
-    transaction
-        .commit()
-        .map_err(|error| format!("Unable to commit Credit create transaction: {error}"))?;
-    Ok(created)
+    register_current_sakurava_ref_alias(connection, "R", &credit.sakurava_ref)?;
+    get_credit(connection, &credit.id)?
+        .ok_or_else(|| "Created credit could not be read".to_string())
 }
 
 fn list_credits(connection: &Connection) -> Result<Vec<Credit>, String> {
@@ -2843,7 +2860,19 @@ fn update_credit(
     let transaction = connection
         .unchecked_transaction()
         .map_err(|error| format!("Unable to start Credit update transaction: {error}"))?;
-    let Some(mut credit) = get_credit(&transaction, id)? else {
+    let updated = update_credit_in_transaction(&transaction, id, patch)?;
+    transaction
+        .commit()
+        .map_err(|error| format!("Unable to commit Credit update transaction: {error}"))?;
+    Ok(updated)
+}
+
+fn update_credit_in_transaction(
+    connection: &Connection,
+    id: &str,
+    patch: CreditPatch,
+) -> Result<Option<Credit>, String> {
+    let Some(mut credit) = get_credit(connection, id)? else {
         return Ok(None);
     };
     if let Some(value) = patch.work_type {
@@ -2891,15 +2920,22 @@ fn update_credit(
         credit.note = normalize_optional_text(value);
     }
     validate_credit_relationships(
-        &transaction,
+        connection,
         &credit.work_type,
         &credit.work_id,
         &credit.performer_id,
         credit.credit_type_category_id.as_deref(),
         credit.role_importance_category_id.as_deref(),
     )?;
+    validate_credit_update_capacity(
+        connection,
+        id,
+        &credit.work_type,
+        &credit.work_id,
+        &credit.performer_id,
+    )?;
     credit.updated_at = current_timestamp();
-    transaction
+    connection
         .execute(
             "UPDATE credits SET workType = ?1, workId = ?2, performerId = ?3,
                 characterName = ?4, characterOriginalName = ?5, creditedAs = ?6,
@@ -2926,11 +2962,7 @@ fn update_credit(
             ],
         )
         .map_err(database_error)?;
-    let updated = get_credit(&transaction, id)?;
-    transaction
-        .commit()
-        .map_err(|error| format!("Unable to commit Credit update transaction: {error}"))?;
-    Ok(updated)
+    get_credit(connection, id)
 }
 
 fn validate_credit_relationships(
@@ -2983,6 +3015,47 @@ fn validate_credit_relationships(
         if category_exists != 1 {
             return Err(format!("Credit {field_name} category was not found."));
         }
+    }
+    Ok(())
+}
+
+const MAX_CREDITS_PER_WORK_PERFORMER: i64 = 5;
+
+fn validate_credit_capacity(
+    connection: &Connection,
+    work_type: &str,
+    work_id: &str,
+    performer_id: &str,
+) -> Result<(), String> {
+    let existing: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM credits WHERE workType = ?1 AND workId = ?2 AND performerId = ?3",
+            params![work_type, work_id, performer_id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if existing >= MAX_CREDITS_PER_WORK_PERFORMER {
+        return Err("A Work may have at most five Credits for the same Performer.".to_string());
+    }
+    Ok(())
+}
+
+fn validate_credit_update_capacity(
+    connection: &Connection,
+    id: &str,
+    work_type: &str,
+    work_id: &str,
+    performer_id: &str,
+) -> Result<(), String> {
+    let siblings: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM credits WHERE workType = ?1 AND workId = ?2 AND performerId = ?3 AND id <> ?4",
+            params![work_type, work_id, performer_id, id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if siblings >= MAX_CREDITS_PER_WORK_PERFORMER {
+        return Err("A Work may have at most five Credits for the same Performer.".to_string());
     }
     Ok(())
 }
@@ -3625,6 +3698,18 @@ fn apply_import_operations(
     let mut cleared = 0usize;
     let mut deleted = 0usize;
     let mut generated_ids = std::collections::HashMap::<String, String>::new();
+    // Credit Adds must evaluate the final Work/Performer capacity. Execute
+    // explicit Credit Deletes first so a same-plan Delete can free a slot,
+    // while the enclosing transaction preserves full rollback semantics.
+    let mut credit_deletes = operations
+        .iter()
+        .filter(|operation| operation.action == "delete" && operation.section == "credits")
+        .collect::<Vec<_>>();
+    credit_deletes.sort_by_key(|operation| operation.source_row_number);
+    for operation in credit_deletes {
+        apply_import_delete(connection, operation)?;
+        deleted += 1;
+    }
     let mut creates = operations
         .iter()
         .filter(|operation| operation.action == "create")
@@ -3685,7 +3770,7 @@ fn apply_import_operations(
 
     let mut deletes = operations
         .iter()
-        .filter(|operation| operation.action == "delete")
+        .filter(|operation| operation.action == "delete" && operation.section != "credits")
         .collect::<Vec<_>>();
     deletes.sort_by(|left, right| {
         let left_phase = delete_phase(&left.section);
@@ -3706,6 +3791,7 @@ fn apply_import_operations(
 
 fn delete_phase(section: &str) -> usize {
     match section {
+        "credits" => 0,
         // A Category may be used by these records, so they must leave first.
         "videos" | "images" | "performers" => 0,
         "glossary" => 1,
@@ -3757,6 +3843,14 @@ fn apply_import_create(
         "glossary" => Ok(Some(
             create_glossary_entry(connection, decode_import_value(proposed)?)?.id,
         )),
+        "credits" => Ok(Some(
+            create_credit_in_transaction(
+                connection,
+                decode_import_value(proposed)?,
+                Some(issuance_yymm),
+            )?
+            .id,
+        )),
         _ => Err("Unsupported import section.".to_string()),
     }
 }
@@ -3802,7 +3896,7 @@ fn apply_import_update(
         "glossary" => update_glossary_entry(connection, id, decode_import_value(proposed)?)?
             .map(|_| ())
             .ok_or_else(|| "Glossary record changed after Preview.".to_string()),
-        "credits" => update_credit(connection, id, decode_import_value(proposed)?)?
+        "credits" => update_credit_in_transaction(connection, id, decode_import_value(proposed)?)?
             .map(|_| ())
             .ok_or_else(|| "Credit changed after Preview.".to_string()),
         _ => Err("Unsupported import section.".to_string()),
@@ -3847,6 +3941,13 @@ fn apply_import_delete(
                 Err("Glossary delete target changed after Preview.".to_string())
             }
         }
+        "credits" => delete_credit(connection, id).and_then(|result| {
+            if result.deleted {
+                Ok(())
+            } else {
+                Err("Credit delete target changed after Preview.".to_string())
+            }
+        }),
         _ => Err("Unsupported import section.".to_string()),
     }
 }
@@ -3956,6 +4057,9 @@ fn import_revalidation_snapshot(
         if operation.section == "categories" {
             collect_category_operation_dependencies(operation, snapshot, &mut included)?;
         }
+        if operation.section == "credits" {
+            collect_credit_operation_dependencies(operation, snapshot, &mut included)?;
+        }
     }
 
     expand_glossary_relationship_scope(snapshot, &mut included)?;
@@ -3977,6 +4081,55 @@ fn import_revalidation_snapshot(
         scoped.insert(section.to_string(), Value::Array(records));
     }
     Ok(Value::Object(scoped))
+}
+
+fn collect_credit_operation_dependencies(
+    operation: &ImportCatalogPlanOperation,
+    snapshot: &Value,
+    included: &mut std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+) -> Result<(), String> {
+    let current = operation.current_record.as_ref();
+    let work_type = operation
+        .proposed_values
+        .get("workType")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            current
+                .and_then(|value| value.get("workType"))
+                .and_then(Value::as_str)
+        });
+    let work_id = operation
+        .proposed_values
+        .get("workId")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            current
+                .and_then(|value| value.get("workId"))
+                .and_then(Value::as_str)
+        });
+    let performer_id = operation
+        .proposed_values
+        .get("performerId")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            current
+                .and_then(|value| value.get("performerId"))
+                .and_then(Value::as_str)
+        });
+    if let (Some(work_type), Some(work_id), Some(performer_id)) = (work_type, work_id, performer_id)
+    {
+        for credit in snapshot_records(snapshot, "credits")? {
+            if credit.get("workType").and_then(Value::as_str) == Some(work_type)
+                && credit.get("workId").and_then(Value::as_str) == Some(work_id)
+                && credit.get("performerId").and_then(Value::as_str) == Some(performer_id)
+            {
+                if let Some(id) = snapshot_record_id("credits", credit) {
+                    include_snapshot_id(included, "credits", id);
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn snapshot_records<'a>(snapshot: &'a Value, section: &str) -> Result<&'a Vec<Value>, String> {
@@ -4009,6 +4162,21 @@ fn collect_import_record_references(
     snapshot: &Value,
     included: &mut std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
 ) -> Result<(), String> {
+    if let Some(work_id) = record.get("workId").and_then(Value::as_str) {
+        match record.get("workType").and_then(Value::as_str) {
+            Some("video") => include_snapshot_id(included, "videos", work_id),
+            Some("image") => include_snapshot_id(included, "images", work_id),
+            _ => {}
+        }
+    }
+    if let Some(performer_id) = record.get("performerId").and_then(Value::as_str) {
+        include_snapshot_id(included, "performers", performer_id);
+    }
+    for field in ["creditTypeCategoryId", "roleImportanceCategoryId"] {
+        if let Some(category_id) = record.get(field).and_then(Value::as_str) {
+            include_snapshot_id(included, "categories", category_id);
+        }
+    }
     for (field, section) in [
         ("relatedPerformersJson", "performers"),
         ("relatedImagesJson", "images"),
@@ -7084,6 +7252,165 @@ mod tests {
         };
         plan.operation_fingerprint = import_plan_fingerprint(&plan);
         plan
+    }
+
+    #[test]
+    fn import_apply_credit_create_allocates_r_inside_the_catalog_transaction() {
+        let (root, database) = import_test_database("credit-create");
+        let (work, performer) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let work = create_video(
+                &connection,
+                VideoInput {
+                    title: "Credit import work".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("work");
+            let performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Credit import performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("performer");
+            (work, performer)
+        };
+        let operation = plan_operation(
+            "credits",
+            "create",
+            2,
+            json!({
+                "workType": "video",
+                "workId": work.id,
+                "performerId": performer.id,
+                "characterName": "Imported role",
+                "creditedAsMode": "auto",
+                "creditTypeText": "Credit A",
+                "characterMode": "text",
+                "billingOrder": 1,
+                "note": null,
+                "characterOriginalName": null,
+                "creditedAs": null,
+                "roleImportanceCategoryId": null
+            }),
+        );
+        let plan = signed_import_plan(&database, vec![operation]);
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.created_count, 1);
+        let connection = database.connection();
+        let credits = list_credits(&connection.lock().expect("database lock")).expect("credits");
+        assert_eq!(credits.len(), 1);
+        assert!(credits[0].sakurava_ref.starts_with("R2607"));
+        assert_eq!(credits[0].credit_type_text.as_deref(), Some("Credit A"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_mixed_credit_crud_preserves_identity_and_deleted_high_water() {
+        let (root, database) = import_test_database("credit-mixed-crud");
+        let (work, performer, updated_credit, deleted_credit) = {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            let work = create_video(
+                &connection,
+                VideoInput {
+                    title: "Credit import work".to_string(),
+                    ..empty_video_input()
+                },
+            )
+            .expect("work");
+            let performer = create_performer(
+                &connection,
+                PerformerInput {
+                    name: "Credit import performer".to_string(),
+                    ..empty_performer_input()
+                },
+            )
+            .expect("performer");
+            let input = |credit_type_text: &str| CreditInput {
+                work_type: "video".to_string(),
+                work_id: work.id.clone(),
+                performer_id: performer.id.clone(),
+                character_name: Some("Role".to_string()),
+                character_original_name: None,
+                credited_as: None,
+                credit_type_text: Some(credit_type_text.to_string()),
+                credited_as_mode: Some("auto".to_string()),
+                credit_type_category_id: None,
+                role_importance_category_id: None,
+                character_mode: Some("text".to_string()),
+                character_id: None,
+                billing_order: Some(1),
+                note: None,
+            };
+            let updated_credit =
+                create_credit(&connection, input("Before update")).expect("updated credit");
+            let deleted_credit =
+                create_credit(&connection, input("Delete me")).expect("deleted credit");
+            (work, performer, updated_credit, deleted_credit)
+        };
+
+        let mut update = plan_operation(
+            "credits",
+            "update",
+            2,
+            json!({ "creditTypeText": "After update" }),
+        );
+        update.record_id = Some(updated_credit.id.clone());
+        update.current_record =
+            Some(serde_json::to_value(&updated_credit).expect("updated snapshot"));
+        let mut delete = plan_operation("credits", "delete", 3, json!({}));
+        delete.record_id = Some(deleted_credit.id.clone());
+        delete.current_record =
+            Some(serde_json::to_value(&deleted_credit).expect("deleted snapshot"));
+        let create = plan_operation(
+            "credits",
+            "create",
+            4,
+            json!({
+                "workType": "video",
+                "workId": work.id,
+                "performerId": performer.id,
+                "characterName": "Role",
+                "creditedAsMode": "auto",
+                "creditTypeText": "New duplicate",
+                "characterMode": "text",
+                "billingOrder": 1,
+                "note": null,
+                "characterOriginalName": null,
+                "creditedAs": null,
+                "roleImportanceCategoryId": null
+            }),
+        );
+        let plan = signed_import_plan(&database, vec![update, delete, create]);
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.created_count, 1);
+        assert_eq!(result.updated_count, 1);
+        assert_eq!(result.deleted_count, 1);
+        assert!(result.backup_package_name.is_some());
+
+        let connection = database.connection();
+        let credits = list_credits(&connection.lock().expect("database lock")).expect("credits");
+        assert_eq!(credits.len(), 2);
+        let updated = credits
+            .iter()
+            .find(|credit| credit.id == updated_credit.id)
+            .expect("updated row");
+        assert_eq!(updated.sakurava_ref, updated_credit.sakurava_ref);
+        assert_eq!(updated.credit_type_text.as_deref(), Some("After update"));
+        assert!(!credits.iter().any(|credit| credit.id == deleted_credit.id));
+        let created = credits
+            .iter()
+            .find(|credit| credit.id != updated_credit.id)
+            .expect("created row");
+        assert_eq!(created.sakurava_ref, "R26070003");
+        assert_ne!(created.sakurava_ref, deleted_credit.sakurava_ref);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

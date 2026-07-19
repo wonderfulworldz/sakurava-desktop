@@ -100,11 +100,10 @@ function addInstructionsSheet(workbook: Workbook, options: XlsxBuildOptions) {
   worksheet.addRow(["Data types", options.selections.map((selection) => selection.dataType).join(", ")]);
   worksheet.addRow(["Locale", options.locale]);
   worksheet.addRow(["Local date style", localDateExample(options.locale)]);
-  worksheet.addRow(["Auto", "Recommended. Create for a blank identifier, update a known changed record, otherwise skip."]);
-  worksheet.addRow(["Create", "Create a new record. Do not supply an existing identifier."]);
+  worksheet.addRow(["Auto", "Recommended. Adds a blank Sakurava Ref row, updates a changed known Ref, and leaves unchanged data neutral."]);
+  worksheet.addRow(["Add", "Create a new record. Do not supply an existing Sakurava Ref."]);
   worksheet.addRow(["Update", "Update the record identified by Sakurava Ref."]);
   worksheet.addRow(["Delete", "Explicitly delete the identified record. Missing rows never mean Delete."]);
-  worksheet.addRow(["Skip", "Make no change for this row."]);
   worksheet.addRow(["Required fields", requiredFieldSummary(options.selections)]);
   worksheet.addRow(["Optional fields", "May be left empty when creating a record."]);
   worksheet.addRow(["Empty cells", "For future Update import, an empty cell leaves the current value unchanged."]);
@@ -171,7 +170,7 @@ function configureDataSheet(
     };
     cell.alignment = { vertical: "middle", wrapText: true };
     cell.note = column.key === "action"
-      ? "Choose Auto, Create, Update, Delete, or Skip. Blank is treated as Auto."
+      ? "Choose Auto, Add, Update, or Delete. Blank is treated as Auto."
       : column.valueType === "identifier"
         ? "Stable Sakurava record identifier. Keep existing identifiers unchanged."
         : `${column.required ? "Required" : "Optional"} ${column.editable ? "editable" : "read-only"} field.`;
@@ -241,7 +240,7 @@ function addExamplesSheet(
   };
   worksheet.addRow(schema.map((column) => column.header));
 
-  for (const action of ["Auto", "Auto", "Delete", "Skip"] as const) {
+  for (const action of ["Auto", "Add", "Update", "Delete"] as const) {
     const identifier = action === "Auto" && worksheet.rowCount === 2
       ? ""
       : `${exampleIdentifierPrefix(dataType)}-EXAMPLE-${worksheet.rowCount - 1}`;
@@ -262,6 +261,7 @@ function exampleIdentifierPrefix(dataType: ExportCsvEntity) {
   if (dataType === "images") return "IMG";
   if (dataType === "performers") return "PER";
   if (dataType === "glossary") return "GLO";
+  if (dataType === "credits") return "R";
   return "CAT";
 }
 

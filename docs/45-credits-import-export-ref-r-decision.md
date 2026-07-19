@@ -435,3 +435,191 @@ fixture generator, and read-only inspector remain regression infrastructure;
 they do not alter production Restore behavior. 41.8.5B implementation and
 manual closure gates are complete. Credits XLSX/CSV Import/Export remains
 41.8.5C work, and Batch 41.9 remains unchanged.
+
+## 41.8.5C implementation map and current verification
+
+Credits now extend the existing Import / Export pipeline rather than using a
+parallel path. `src/lib/exportCsv.ts` owns the exact fourteen-column Credits
+schema and deterministic public-R ordering; `src/lib/exportArtifacts.ts`
+builds the separate `credits.csv` set member; and
+`src/lib/exportWorkbook.ts` writes the separate `Credits` worksheet.
+`SettingsPage.loadExportSelection` supplies the authoritative Credit list and
+the existing compact section selector exposes Credits without changing the
+Import/Export workflow.
+
+`src/lib/importCatalog.ts` recognizes the `Credits` worksheet and projects the
+five-Credits-per-Work/Performer final state. `src/lib/importCsvPreview.ts`
+detects the public R section and validates Work, Performer, and Role Importance
+public Refs before a row can enter a plan. `src/lib/importCsvApply.ts` maps
+only those resolved relationships to technical runtime ids: Credit Type maps to
+the free-text `creditTypeText`; `creditedAs`, `creditTypeCategoryId`, and
+`roleImportanceCategoryId` remain separate. A logical duplicate Add is a
+non-blocking Preview warning and remains a distinct Create.
+
+`src/lib/importOperationPlan.ts` retains the immutable prepared plan and
+snapshot. In `src-tauri/src/commands.rs`, Credit Apply uses the existing package
+lock, verified safety backup, single SQLite transaction, R allocator,
+transaction-scoped final integrity validation, and rollback. Credit Adds use
+the plan issuance YYMM directly; explicit Credit Deletes run before Credit Adds
+so a same-plan Delete can release capacity without reusing its historical R
+number. Revalidation includes the target Credit, Work, Performer, Category,
+and same-capacity Credit set.
+
+Focused automated coverage in `src/lib/creditSpreadsheet.test.ts` verifies the
+exact headers, named CSV artifact, public Ref-only export, deterministic order,
+duplicate Add warning, Update/Delete targeting, and unknown-Work omission from
+the plan. The Rust `import_apply_credit_create_allocates_r_inside_the_catalog_transaction`
+regression verifies R allocation and Credit Type persistence through the real
+Apply transaction. Production build and Rust formatting pass. The required
+disposable desktop export/invalid-preview/mixed-Apply/restart/re-export smoke
+is still pending; 41.8.5C is not closed. Package version is unchanged, Credit
+Type remains free text, no UI/UX redesign is included, and Batch 41.9 remains
+unchanged.
+
+## 41.8.5C.1 regression-coverage stabilization
+
+The 278/273/5 `importCatalog` regression was measured as 6.3 seconds during a
+cold combined run and 3.8 seconds when isolated. It is a deliberate full XLSX
+write/load/Preview scenario, not an unresolved promise or planner loop. Its
+single test now has a local 10-second timeout; Vitest's global timeout was not
+changed. The suite completes with all 27 cases passing.
+
+The legacy `Skip` apply expectations were obsolete. Current public exports,
+XLSX validation, examples, and helper copy now expose only `Auto`, `Add`,
+`Update`, and `Delete`; `Create` remains an internal compatibility input.
+Unsupported `Skip` is consistently a non-blocking Preview row warning with no
+operation and no mutation in both CSV and XLSX. It is neither reinterpreted as
+an Add/Update/Delete nor exposed in the public workflow. The two old managed
+Category parent tests were likewise corrected to assert the existing locked
+row-level fallback: an unknown or display-name-only parent is omitted with a
+warning while the independent Category Add remains valid. The old deletion
+message assertion now checks the current unchanged safety message.
+
+Focused Credits production-shape coverage now verifies the exact fourteen
+headers, separate `Credits` XLSX sheet and `credits.csv`, display-form public
+R/Work/Performer/Role-Importance Refs, absence of technical ids, deterministic
+same-Performer duplicate ordering, and untouched-export neutrality. It covers
+Add (including a non-authoritative populated R Ref), duplicate-Add warning,
+Update/Delete target identity, malformed/unknown/wrong-section R Refs,
+Work/Performer/Role-Importance resolution, invalid modes and billing order,
+the five-per-Work/Performer projected-state limit, and Delete-plus-Add capacity.
+The export formatter was corrected so public relationship columns use display
+Refs; before this correction canonical raw values made an untouched Credit
+export appear Modified on re-import.
+
+Focused Credit Apply Rust transaction regressions cover R allocation and
+free-text `creditTypeText` persistence, plus a real mixed Credit
+Add/Update/Delete transaction: one existing R Ref is updated in place, one is
+deleted, and the new logical duplicate receives the next R Ref rather than the
+deleted number. Existing transaction, stale-snapshot, rollback,
+final-integrity, and Restore tests remain the authoritative Apply coverage and
+will be run again before the desktop smoke.
+Translations are limited to the existing Credits section label in English and
+Indonesian; Credits remains in the existing compact Import/Export selector with
+no new page, workflow, Review/Attention/Resolution UI, or input redesign. The
+package version remains unchanged. The disposable desktop smoke remains pending,
+so 41.8.5C is not closed and Batch 41.9 remains unchanged.
+
+## 41.8.5C.2 disposable desktop smoke setup
+
+The debug/test-only `credits_r_smoke prepare-spreadsheet` command and
+`scripts/prepare-credits-spreadsheet-smoke.ps1` now prepare the isolated
+`manual-smoke/runtime-data/credits-spreadsheet-07` root. It uses the existing
+sentinel and live-path protections, current migrations, Ref ledger/aliases,
+and read-only inspector; release builds do not expose this mechanism. The
+fixture contains a Video (`V2607-0001`), Image (`I2607-0001`), two Performers
+(`P2607-0001`, `P2607-0002`), role-importance Category (`C2607-0001`), and
+six first-class Credits (`R2607-0001` through `R2607-0006`). Four Credits share
+the Video/first-Performer relationship, including the duplicate-Add source.
+Baseline R high-water is 6, with no `credit_legacy`, duplicate, or malformed
+Credit Ref.
+
+The prepared `smoke-input` folder contains `invalid-credits.xlsx`,
+`mixed-credits.xlsx`, `invalid-csv-set/credits.csv`, and
+`mixed-csv-set/credits.csv`, all with the locked fourteen headers. The invalid
+row uses unknown Work Ref `V2607-9999`; it is for Preview-only verification and
+must not be applied. The mixed inputs contain exactly Update
+`R2607-0001` (`Credit Type` → `Spreadsheet Updated`), Delete
+`R2607-0002`, and one duplicate Add on `V2607-0001`/`P2607-0001` with Credit
+Type `Spreadsheet Duplicate Add`. Expected Preview is Add 1, Update 1, Delete
+1, Warning 1, and no executable blocking error. After the user performs Apply,
+the expected new Ref is `R2607-0007`, final count remains 6, and R2607
+high-water becomes 7 without reusing the deleted Ref.
+
+The setup creates empty manual UI export destinations
+`manual-smoke/credits-spreadsheet-07-export-xlsx` and
+`manual-smoke/credits-spreadsheet-07-export-csv`. The user must perform all
+exports, Preview, confirmation, Apply, restart, and re-export through the
+disposable desktop UI. `scripts/inspect-credits-spreadsheet-export.cjs` checks
+the actual UI-produced XLSX or CSV set for the Credits sheet/file, exact
+headers, public display Refs, row count, and absence of fixture technical ids.
+No manual stage is complete yet. Credit Type remains free text, the five-Credit
+limit and package version are unchanged, no UI/UX redesign is included, and
+Batch 41.9 remains unchanged.
+
+## 41.8.5C.2.1 single-category export filename codes
+
+Single-category exports use `skv-{code}-{YYYYDDMM}-{HHMMSS}.{extension}`.
+Credits use the stable internal three-letter ASCII code `cre`, producing
+`skv-cre-YYYYDDMM-HHMMSS.xlsx` and `skv-cre-YYYYDDMM-HHMMSS.csv`. The code is
+independent of translated display labels and the full word `credits` is not
+used in generated filenames. This supersedes the earlier `credits.csv`
+assumption without changing the Credits sheet, CSV contents, fourteen headers,
+ordering, or export workflow. The fixture database and historical exports are
+unchanged; replay into fresh v2 export folders remains pending. No UI/UX or
+package-version change was made, and Batch 41.9 remains unchanged.
+
+## 41.8.5C final closure
+
+41.8.5C is complete. Credits use the exact spreadsheet headers `Action`,
+`Sakurava Ref`, `Work Type`, `Work Ref`, `Performer Ref`, `Character / Role`,
+`Original Character`, `Credited As Mode`, `Credited As`, `Credit Type`, `Role
+Importance`, `Character Mode`, `Billing Order`, and `Note`; XLSX uses the
+separate `Credits` sheet. A single-category export is named
+`skv-cre-{YYYYDDMM}-{HHMMSS}.xlsx` or `skv-cre-{YYYYDDMM}-{HHMMSS}.csv`.
+`cre` is a stable internal code, not translated UI text; this is the final
+contract and supersedes the former `credits.csv` filename assumption.
+
+One first-class Credit exports as one row with public Credit, Work, Performer,
+and Role-Importance Refs only. `creditTypeText` remains free text and separate
+from `creditedAs` and managed-category relationships. Add cannot choose an R
+Ref, allocates it transactionally, and allows logical duplicates with a
+non-blocking Warning. Update and Delete target only the authoritative R Ref;
+Update preserves it, Delete does not release its high-water, and final-state
+capacity preserves the five-Credits-per-Performer limit. Work, Performer, and
+Role Importance resolve from their public Refs. Character Ref and linked-mode
+expansion remain out of scope.
+
+The immutable Preview snapshot rejects relevant stale Credit or relationship
+state. Apply creates the existing required safety backup and commits all Credit
+operations in one transaction only after final integrity validation; a failure
+rolls back records and R allocation state. `relatedPerformersJson` remains a
+compatibility projection and no `credit_legacy` row is synthesized. Package
+format/version and the existing Import/Export UI workflow are unchanged.
+
+Regression closure: the cold 278/273/5 XLSX test is legitimate work (about 6.3
+seconds combined, 3.8 seconds isolated), so only that test has a local
+10-second timeout; the global Vitest timeout is unchanged. Legacy `Skip` is a
+non-blocking CSV/XLSX-equivalent Preview warning with zero planned mutation.
+
+The completed disposable fixture baseline held six Credits (`R2607-0001`
+through `R2607-0006`) with R2607 high-water 6, four same-Performer Video
+Credits, and zero `credit_legacy`, duplicate, or malformed Refs. Initial XLSX
+`skv-cre-20261907-084446.xlsx` and CSV `skv-cre-20261907-084550.csv` both
+verified the exact headers, six rows, public Refs only, and no technical IDs.
+The invalid Preview for unknown Work `V2607-9999` produced one warning, zero
+planned operations, disabled Apply, no safety backup, and no state change.
+The mixed Preview reported All 7, Add 1, Update 1, Delete 1, Warning 1: it
+updated `R2607-0001` to `Spreadsheet Updated`, deleted `R2607-0002`, and added
+the logical duplicate `Spreadsheet Duplicate Add`.
+
+Apply completed atomically: six Credits remained, `R2607-0001` was updated,
+`R2607-0002` was absent, the Add received `R2607-0007`, and R2607 high-water
+became 7 without reuse. Safety package
+`sakurava-backup-20260719-015124-safety` was created. Restart preserved the
+six committed Credits, Ref state, high-water, and safety package with no
+recovery UI, `credit_legacy`, duplicate Ref, or malformed Ref. Re-export XLSX
+`skv-cre-20261907-085510.xlsx` and CSV `skv-cre-20261907-085636.csv` both
+verified six committed rows, exact headers, public Refs only, and no technical
+IDs. Credit Type remained free text; no UI/UX redesign occurred; Batch 41.9
+remains unchanged.

@@ -8,6 +8,7 @@ import {
   parseTextLabelArray,
 } from "../backend/json";
 import type {
+  Credit,
   GlossaryEntry,
   Image,
   ManagedCategory,
@@ -27,7 +28,8 @@ export type ExportCsvEntity =
   | "images"
   | "performers"
   | "categories"
-  | "glossary";
+  | "glossary"
+  | "credits";
 export type ExportFormat = "csv" | "xlsx";
 export type ExportValueType =
   | "text"
@@ -38,7 +40,9 @@ export type ExportValueType =
   | "identifier"
   | "list/reference";
 
-export const EXPORT_ACTIONS = ["Auto", "Create", "Update", "Delete", "Skip"] as const;
+// Public exports must use the locked current vocabulary. `Create` is accepted
+// only as an internal compatibility input; `Skip` is deliberately not emitted.
+export const EXPORT_ACTIONS = ["Auto", "Add", "Update", "Delete"] as const;
 
 export type CsvCell = string | number | boolean | Date | null | undefined;
 
@@ -56,6 +60,10 @@ export type CsvInternalField =
   | keyof Performer
   | keyof ManagedCategory
   | keyof GlossaryEntry
+  | keyof Credit
+  | "workRef"
+  | "performerRef"
+  | "roleImportanceRef"
   | `${"ratingJson"}.${string}`
   | `${"galleryImagePathsJson"}.${number}`
   | `${"performerThumbnailPathsJson"}.${number}`;
@@ -83,10 +91,18 @@ type RatingColumn = {
   key: string;
 };
 
-type SakuravaRefPrefix = "VID" | "IMG" | "PER" | "CAT" | "GLO";
+type SakuravaRefPrefix = "VID" | "IMG" | "PER" | "CAT" | "GLO" | "R";
 type CategoryCsvRecord = ManagedCategory & {
   parentCategoryName: string;
   parentCategoryRef: string;
+};
+export type CreditCsvRecord = Omit<Credit, "workType" | "creditedAsMode" | "characterMode"> & {
+  workType: "Video" | "Image";
+  creditedAsMode: "Auto" | "Custom";
+  characterMode: "Text" | "Self";
+  workRef?: string;
+  performerRef?: string;
+  roleImportanceRef?: string;
 };
 
 const BULK_EDIT_ACTION_DEFAULT = "Auto";
@@ -269,6 +285,27 @@ export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
   textColumn("Source URL", "sourceUrl"),
 ];
 
+/**
+ * Public Credits spreadsheet contract.  Relationship columns deliberately
+ * hold public Ref values; technical ids remain internal to the runtime.
+ */
+export const creditCsvSchema: CsvSchemaColumn<CreditCsvRecord>[] = [
+  actionColumn(),
+  refColumn("R", "id"),
+  enumColumn("Work Type", "workType", ["Video", "Image"]),
+  referenceColumn("Work Ref", "workRef", true),
+  referenceColumn("Performer Ref", "performerRef", true),
+  textColumn("Character / Role", "characterName"),
+  textColumn("Original Character", "characterOriginalName"),
+  enumColumn("Credited As Mode", "creditedAsMode", ["Auto", "Custom"]),
+  textColumn("Credited As", "creditedAs"),
+  textColumn("Credit Type", "creditTypeText"),
+  referenceColumn("Role Importance", "roleImportanceRef", false),
+  enumColumn("Character Mode", "characterMode", ["Text", "Self"]),
+  numberColumn("Billing Order", "billingOrder"),
+  multilineTextColumn("Note", "note"),
+];
+
 const legacyImportColumns: Record<ExportCsvEntity, CsvSchemaColumn<any>[]> = {
   videos: [
     textColumn<Video>("Media Path", "mediaPath"),
@@ -301,6 +338,7 @@ const legacyImportColumns: Record<ExportCsvEntity, CsvSchemaColumn<any>[]> = {
     compatibilityPlaceholderColumn("Notes", "categoryNotes"),
   ],
   glossary: [textColumn<GlossaryEntry>("Thumbnail Path", "thumbnailPath")],
+  credits: [],
 };
 
 export function escapeCsvValue(value: CsvCell) {
@@ -378,6 +416,13 @@ export function buildGlossaryCsv(
   return buildCsv(glossaryCsvSchema, rows, options);
 }
 
+export function buildCreditsCsv(
+  credits: CreditCsvRecord[],
+  options?: ExportSerializationOptions,
+) {
+  return buildCsv(creditCsvSchema, exportRowsFor("credits", credits) as CreditCsvRecord[], options);
+}
+
 export function buildEntityCsv(
   entity: ExportCsvEntity,
   records: unknown[],
@@ -399,6 +444,10 @@ export function buildEntityCsv(
     return buildGlossaryCsv(records as GlossaryEntry[], options);
   }
 
+  if (entity === "credits") {
+    return buildCreditsCsv(records as CreditCsvRecord[], options);
+  }
+
   return buildCategoriesCsv(records as ManagedCategory[], options);
 }
 
@@ -407,6 +456,7 @@ export function exportSchemaFor(entity: ExportCsvEntity): CsvSchemaColumn<any>[]
   if (entity === "images") return imageCsvSchema;
   if (entity === "performers") return performerCsvSchema;
   if (entity === "glossary") return glossaryCsvSchema;
+  if (entity === "credits") return creditCsvSchema;
   return categoryCsvSchema;
 }
 
@@ -431,6 +481,14 @@ export function exportRowsFor(entity: ExportCsvEntity, records: unknown[]) {
       ...entry,
       parentId: entry.parentId ? (refById.get(entry.parentId) ?? entry.parentId) : "",
     }));
+  }
+  if (entity === "credits") {
+    return [...records].sort((left, right) => {
+      const leftRecord = left as CreditCsvRecord;
+      const rightRecord = right as CreditCsvRecord;
+      return String(leftRecord.sakuravaRef ?? "").localeCompare(String(rightRecord.sakuravaRef ?? ""))
+        || leftRecord.id.localeCompare(rightRecord.id);
+    });
   }
   if (entity !== "categories") return records;
   const categories = records as ManagedCategory[];
@@ -464,6 +522,10 @@ export function exportEntityLabel(entity: ExportCsvEntity) {
     return "Glossary";
   }
 
+  if (entity === "credits") {
+    return "Credits";
+  }
+
   return "Managed Categories";
 }
 
@@ -473,9 +535,12 @@ export function sakuravaRef(prefix: SakuravaRefPrefix, sourceId: string) {
     return "";
   }
 
-  return canonicalSakuravaRef(normalized)
-    ? formatSakuravaRef(normalized)
-    : legacySakuravaRef(prefix, normalized);
+  const canonical = canonicalSakuravaRef(normalized);
+  if (canonical) return formatSakuravaRef(canonical);
+  // Credit technical ids are never public spreadsheet identities. An invalid
+  // or missing stored Credit Ref remains blank rather than becoming a legacy
+  // technical identifier.
+  return prefix === "R" ? "" : legacySakuravaRef(prefix, normalized);
 }
 
 export function sakuravaRefMatches(
@@ -484,7 +549,7 @@ export function sakuravaRefMatches(
   record: { id?: string; key?: string; sakuravaRef?: string },
 ) {
   return recordMatchesSakuravaIdentity(
-    sectionCodeForLegacyPrefix(prefix),
+    prefix === "R" ? "R" : sectionCodeForLegacyPrefix(prefix),
     reference,
     record,
   );
@@ -522,6 +587,23 @@ function refColumn<TRecord>(
           ?? (record as Record<string, CsvCell>)[sourceField]
           ?? "",
       )),
+  };
+}
+
+function referenceColumn<TRecord>(
+  header: string,
+  internalField: "workRef" | "performerRef" | "roleImportanceRef",
+  required: boolean,
+): CsvSchemaColumn<TRecord> {
+  return {
+    key: internalField,
+    header,
+    internalField,
+    required,
+    editable: true,
+    clearable: !required,
+    valueType: "list/reference",
+    value: (record) => (record as Record<string, CsvCell>)[internalField] ?? "",
   };
 }
 

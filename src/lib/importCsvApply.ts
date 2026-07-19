@@ -1,4 +1,6 @@
 import type {
+  Credit,
+  CreditPatch,
   GlossaryEntry,
   GlossaryEntryPatch,
   Image,
@@ -6,6 +8,7 @@ import type {
   ManagedCategory,
   ManagedCategoryPatch,
   NewImage,
+  NewCredit,
   NewGlossaryEntry,
   NewManagedCategory,
   NewPerformer,
@@ -36,14 +39,15 @@ import {
   sectionCodeForLegacyPrefix,
 } from "./sakuravaRef";
 
-export type ImportCatalogRecord = Video | Image | Performer | ManagedCategory | GlossaryEntry;
+export type ImportCatalogRecord = Video | Image | Performer | ManagedCategory | GlossaryEntry | Credit;
 type CatalogRecord = ImportCatalogRecord;
 type CatalogPatch =
   | VideoPatch
   | ImagePatch
   | PerformerPatch
   | ManagedCategoryPatch
-  | GlossaryEntryPatch;
+  | GlossaryEntryPatch
+  | CreditPatch;
 
 export type ImportCsvApplyStatus =
   | "applied"
@@ -98,14 +102,17 @@ export type ImportCsvApplyMutations = {
     patch: GlossaryEntryPatch,
   ) => Promise<GlossaryEntry | null>;
   deleteGlossaryEntry: (id: string) => Promise<{ id: string; deleted: boolean }>;
+  createCredit?: (input: NewCredit) => Promise<Credit>;
+  updateCredit?: (id: string, patch: CreditPatch) => Promise<Credit | null>;
+  deleteCredit?: (id: string) => Promise<{ id: string; deleted: boolean }>;
 };
 
 type EntityApplyDefinition = {
   entity: ImportCsvEntity;
-  refPrefix: "VID" | "IMG" | "PER" | "CAT" | "GLO";
+  sectionCode: "V" | "I" | "P" | "C" | "G" | "R";
   mainHeader: string;
   schema: CsvSchemaColumn<any>[];
-  records: (context: ImportCsvPreviewContext) => CatalogRecord[];
+  records: (context: ImportCsvPreviewContext) => ImportCatalogRecord[];
   create: (mutations: ImportCsvApplyMutations, input: Record<string, unknown>) => Promise<unknown>;
   update: (
     mutations: ImportCsvApplyMutations,
@@ -122,7 +129,7 @@ type CategoryRowReport = ImportCsvApplyRowReport & {
 const applyDefinitions: EntityApplyDefinition[] = [
   {
     entity: "videos",
-    refPrefix: "VID",
+    sectionCode: "V",
     mainHeader: "Title",
     schema: importSchemaFor("videos"),
     records: (context) => context.videos,
@@ -132,7 +139,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
   },
   {
     entity: "images",
-    refPrefix: "IMG",
+    sectionCode: "I",
     mainHeader: "Title",
     schema: importSchemaFor("images"),
     records: (context) => context.images,
@@ -142,7 +149,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
   },
   {
     entity: "performers",
-    refPrefix: "PER",
+    sectionCode: "P",
     mainHeader: "Name",
     schema: importSchemaFor("performers"),
     records: (context) => context.performers,
@@ -153,7 +160,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
   },
   {
     entity: "categories",
-    refPrefix: "CAT",
+    sectionCode: "C",
     mainHeader: "Category Name",
     schema: importSchemaFor("categories"),
     records: (context) => context.categories,
@@ -165,7 +172,7 @@ const applyDefinitions: EntityApplyDefinition[] = [
   },
   {
     entity: "glossary",
-    refPrefix: "GLO",
+    sectionCode: "G",
     mainHeader: "Term",
     schema: importSchemaFor("glossary"),
     records: (context) => context.glossary ?? [],
@@ -174,6 +181,25 @@ const applyDefinitions: EntityApplyDefinition[] = [
     update: (mutations, id, patch) =>
       mutations.updateGlossaryEntry(id, patch as GlossaryEntryPatch),
     delete: (mutations, id) => mutations.deleteGlossaryEntry(id),
+  },
+  {
+    entity: "credits",
+    sectionCode: "R",
+    mainHeader: "Work Ref",
+    schema: importSchemaFor("credits"),
+    records: (context) => context.credits ?? [],
+    create: (mutations, input) => {
+      if (!mutations.createCredit) throw new Error("Credit mutation runtime is unavailable.");
+      return mutations.createCredit(input as NewCredit);
+    },
+    update: (mutations, id, patch) => {
+      if (!mutations.updateCredit) throw new Error("Credit mutation runtime is unavailable.");
+      return mutations.updateCredit(id, patch as CreditPatch);
+    },
+    delete: (mutations, id) => {
+      if (!mutations.deleteCredit) throw new Error("Credit mutation runtime is unavailable.");
+      return mutations.deleteCredit(id);
+    },
   },
 ];
 
@@ -423,6 +449,9 @@ function buildPatchFromRow(
   context: ImportCsvPreviewContext,
   existing: CatalogRecord | undefined,
 ) {
+  if (definition.entity === "credits") {
+    return buildCreditPatchFromRow(row, context, existing as Credit | undefined);
+  }
   const patch: Record<string, unknown> = {};
   const headers = new Set(Object.keys(row.values));
   const changedHeaders =
@@ -484,6 +513,61 @@ function buildPatchFromRow(
   return patch;
 }
 
+function buildCreditPatchFromRow(
+  row: ImportCsvPreviewRow,
+  context: ImportCsvPreviewContext,
+  existing: Credit | undefined,
+) {
+  const patch: Record<string, unknown> = {};
+  const isAdd = row.detectedResult === "Added";
+  const changed = new Set(row.changes);
+  const shouldWrite = (header: string) => isAdd || changed.has(header);
+  const value = (header: string) => row.values[header] ?? "";
+  const optional = (header: string) => clearValue(value(header)).trim() || null;
+
+  const workTypeValue = value("Work Type").trim();
+  const workRefValue = value("Work Ref").trim();
+  if (isAdd || shouldWrite("Work Type") || shouldWrite("Work Ref")) {
+    const workType = (workTypeValue || existing?.workType || "").toLowerCase();
+    const workRef = workRefValue || (existing ? existing.workId : "");
+    const resolved = !workRefValue
+      ? undefined
+      : workType === "video"
+        ? resolveSakuravaIdentity("V", workRefValue, context.videos)
+        : resolveSakuravaIdentity("I", workRefValue, context.images);
+    if (workTypeValue || isAdd) patch.workType = workType;
+    if (resolved?.status === "resolved") patch.workId = resolved.record.id;
+    else if (isAdd) patch.workId = workRef;
+  }
+
+  if (isAdd || shouldWrite("Performer Ref")) {
+    const performerRef = value("Performer Ref").trim();
+    const resolved = resolveSakuravaIdentity("P", performerRef, context.performers);
+    patch.performerId = resolved.status === "resolved" ? resolved.record.id : performerRef;
+  }
+  if (isAdd || shouldWrite("Character / Role")) patch.characterName = clearValue(value("Character / Role")).trim();
+  if (isAdd || shouldWrite("Original Character")) patch.characterOriginalName = optional("Original Character");
+  if (isAdd || shouldWrite("Credited As Mode")) patch.creditedAsMode = value("Credited As Mode").trim().toLowerCase();
+  if (isAdd || shouldWrite("Credited As")) patch.creditedAs = optional("Credited As");
+  if (isAdd || shouldWrite("Credit Type")) patch.creditTypeText = optional("Credit Type");
+  if (isAdd || shouldWrite("Role Importance")) {
+    const roleImportance = value("Role Importance").trim();
+    if (!roleImportance || roleImportance === SAKURAVA_CLEAR_VALUE) {
+      patch.roleImportanceCategoryId = null;
+    } else {
+      const resolved = resolveSakuravaIdentity("C", roleImportance, context.categories);
+      patch.roleImportanceCategoryId = resolved.status === "resolved" ? resolved.record.key : roleImportance;
+    }
+  }
+  if (isAdd || shouldWrite("Character Mode")) patch.characterMode = value("Character Mode").trim().toLowerCase();
+  if (isAdd || shouldWrite("Billing Order")) {
+    const billingOrder = clearValue(value("Billing Order")).trim();
+    patch.billingOrder = billingOrder ? Number(billingOrder) : null;
+  }
+  if (isAdd || shouldWrite("Note")) patch.note = optional("Note");
+  return patch;
+}
+
 export function buildNormalizedImportPatch(
   entity: ImportCsvEntity,
   row: ImportCsvPreviewRow,
@@ -493,7 +577,7 @@ export function buildNormalizedImportPatch(
   if (!definition) throw new Error("Unsupported catalog data type.");
   const ref = (row.values["Sakurava Ref"] ?? "").trim();
   const resolution = resolveSakuravaIdentity(
-    sectionCodeForLegacyPrefix(definition.refPrefix),
+    definition.sectionCode,
     ref,
     definition.records(context),
   );
@@ -509,7 +593,7 @@ export function resolveImportRecord(
   const definition = applyDefinitions.find((candidate) => candidate.entity === entity);
   if (!definition) return undefined;
   const resolution = resolveSakuravaIdentity(
-    sectionCodeForLegacyPrefix(definition.refPrefix),
+    definition.sectionCode,
     ref,
     definition.records(context),
   );
@@ -787,7 +871,7 @@ function isApplicablePreviewRow(row: ImportCsvPreviewRow) {
 function buildRecordsByRef(definition: EntityApplyDefinition, context: ImportCsvPreviewContext) {
   return new Map(
     definition.records(context).flatMap((record) =>
-      sakuravaIdentityLookupKeys(sectionCodeForLegacyPrefix(definition.refPrefix), record)
+      sakuravaIdentityLookupKeys(definition.sectionCode, record)
         .map((key) => [key, record] as const),
     ),
   );

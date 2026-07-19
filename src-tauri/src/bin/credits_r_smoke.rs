@@ -31,6 +31,14 @@ fn main() {
                 },
             )
         }
+        "prepare-spreadsheet" => {
+            sakurava_desktop_lib::database::prepare_credits_spreadsheet_smoke_fixture(&root)
+                .and_then(|fixture| {
+                    serde_json::to_string_pretty(&fixture).map_err(|error| {
+                        format!("Unable to serialize spreadsheet fixture result: {error}")
+                    })
+                })
+        }
         "inspect" => sakurava_desktop_lib::database::inspect_credits_r_smoke_fixture(&root)
             .and_then(|inspection| {
                 serde_json::to_string_pretty(&inspection)
@@ -51,7 +59,7 @@ fn main() {
 
 #[cfg(debug_assertions)]
 fn print_usage_and_exit() -> ! {
-    eprintln!("Usage: credits_r_smoke <prepare|prepare-restore|inspect> --root <manual-smoke runtime root>");
+    eprintln!("Usage: credits_r_smoke <prepare|prepare-restore|prepare-spreadsheet|inspect> --root <manual-smoke runtime root>");
     std::process::exit(2);
 }
 

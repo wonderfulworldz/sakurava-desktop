@@ -7,6 +7,9 @@ import { SAKURAVA_METADATA_SHEET } from "./importExportContract";
 import { buildImportOperationPlan } from "./importOperationPlan";
 
 describe("catalog CSV/XLSX import preview", () => {
+  // This intentionally exercises the full XLSX write → load → Preview route
+  // with 278 rows. Cold ExcelJS startup can take longer than Vitest's default
+  // five seconds, while the scenario itself completes deterministically.
   it("builds the deterministic 278/273/5 Delete-all Preview plan", async () => {
     const categories = Array.from({ length: 5 }, (_, index) => managedCategory({
       key: `category-${index + 1}`,
@@ -85,7 +88,7 @@ describe("catalog CSV/XLSX import preview", () => {
       .filter((operation) => operation.action !== "create" && operation.recordId)
       .map((operation) => `${operation.section}:${operation.recordId}`);
     expect(new Set(targetedRecords)).toHaveLength(targetedRecords.length);
-  });
+  }, 10_000);
 
   it("keeps existing CSV import behavior and accepts local dates", () => {
     const csv = buildVideosCsv([video({ releaseDate: "2026-07-14" })], { locale: "en-GB" });
@@ -172,11 +175,22 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(blocked.headerErrors.join(" ")).toContain("No supported Sakurava data worksheets");
   });
 
-  it("keeps an unsupported Action as a non-blocking row warning", async () => {
-    const bytes = await videoWorkbookRow({ Action: "Bogus", Title: "Bad Action" });
-    const preview = await buildXlsxCatalogPreview(bytes, context(), "en-US");
-    expect(preview.rows[0].warnings.join(" ")).toContain("Action is not supported");
-    expect(preview.summary.blocked).toBe(false);
+  it("keeps legacy Skip neutral and non-destructive with CSV/XLSX parity", async () => {
+    const csv = buildVideosCsv([video({ title: "Legacy Skip" })])
+      .replace("\r\nAuto,", "\r\nSkip,");
+    const csvPreview = buildCsvCatalogPreview(csv, context(), "en-US");
+    const bytes = await videoWorkbookRow({ Action: "Skip", Title: "Legacy Skip" });
+    const xlsxPreview = await buildXlsxCatalogPreview(bytes, context(), "en-US");
+
+    for (const preview of [csvPreview, xlsxPreview]) {
+      expect(preview.rows[0].detectedResult).toBe("Error");
+      expect(preview.rows[0].warnings.join(" ")).toContain("Action is not supported");
+      expect(preview.summary.blocked).toBe(false);
+      expect(buildImportOperationPlan(preview, context(), new Uint8Array())).toMatchObject({
+        operations: [],
+        skippedCount: 1,
+      });
+    }
   });
 
   it("parses exported Glossary worksheets and ignores Instructions", async () => {

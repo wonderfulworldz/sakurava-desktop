@@ -33,7 +33,7 @@ import {
   IMPORT_MAX_WORKSHEETS,
   importLimitMessage,
 } from "./importLimits";
-import { canonicalImportIdentity } from "./sakuravaRef";
+import { canonicalImportIdentity, resolveSakuravaIdentity } from "./sakuravaRef";
 
 export type ImportCatalogFormat = "csv" | "xlsx";
 
@@ -90,6 +90,7 @@ const supportedSheets: Record<string, ImportCsvEntity> = {
   Performers: "performers",
   "Managed Categories": "categories",
   Glossary: "glossary",
+  Credits: "credits",
 };
 
 const ignoredSheets = new Set(["Instructions", "Examples", SAKURAVA_METADATA_SHEET]);
@@ -185,7 +186,7 @@ export async function buildXlsxCatalogPreview(
   }
   if (sections.length === 0) {
     headerErrors.push(messages.invalidSheet
-      ?? "No supported Sakurava data worksheets were found. Use Videos, Images, Performers, Managed Categories, Glossary, or an identified Data sheet.");
+      ?? "No supported Sakurava data worksheets were found. Use Videos, Images, Performers, Managed Categories, Glossary, Credits, or an identified Data sheet.");
   }
   if (metadata) {
     const actualTypes = Array.from(seenTypes).sort();
@@ -317,7 +318,7 @@ function workbookDataTypes(workbook: Workbook): ImportCsvEntity[] {
 }
 
 function isImportEntity(value: string): value is ImportCsvEntity {
-  return value === "videos" || value === "images" || value === "performers" || value === "categories" || value === "glossary";
+  return value === "videos" || value === "images" || value === "performers" || value === "categories" || value === "glossary" || value === "credits";
 }
 
 function readWorkbookMetadata(workbook: Workbook, errors: string[], warnings: string[]) {
@@ -401,6 +402,7 @@ function catalogPreview(
   context: ImportCsvPreviewContext,
 ): ImportCatalogPreview {
   validateGlossaryDependencies(sections, context);
+  validateProjectedCreditCapacity(sections, context);
   const automaticCleanupOperations = applyProjectedDeletePlanning(sections, context);
   const rows = sections.flatMap((section) =>
     section.preview.rows.map((row) => ({
@@ -437,6 +439,77 @@ function catalogPreview(
     },
     automaticCleanupOperations,
   };
+}
+
+/**
+ * The five-Credits-per-Work/Performer product limit is evaluated against the
+ * complete pending state, not source row order.  An explicit Credit Delete
+ * can therefore free a slot for an Add in the same atomic import.
+ */
+function validateProjectedCreditCapacity(
+  sections: ImportCatalogSection[],
+  context: ImportCsvPreviewContext,
+) {
+  const creditRows = sections
+    .filter((section) => section.dataType === "credits")
+    .flatMap((section) => section.preview.rows);
+  if (!creditRows.length) return;
+
+  const projected = new Map((context.credits ?? []).map((credit) => [credit.id, {
+    id: credit.id,
+    workType: credit.workType,
+    workId: credit.workId,
+    performerId: credit.performerId,
+  }]));
+  const resolveCredit = (ref: string) => {
+    const result = resolveSakuravaIdentity("R", ref, context.credits ?? []);
+    return result.status === "resolved" ? result.record : undefined;
+  };
+  for (const row of creditRows) {
+    if (row.detectedResult !== "Deleted") continue;
+    const target = resolveCredit(row.values["Sakurava Ref"] ?? "");
+    if (target) projected.delete(target.id);
+  }
+
+  const countFor = (candidate: { workType: string; workId: string; performerId: string }) =>
+    [...projected.values()].filter((credit) =>
+      credit.workType === candidate.workType
+        && credit.workId === candidate.workId
+        && credit.performerId === candidate.performerId,
+    ).length;
+  for (const row of creditRows) {
+    if (!["Added", "Modified"].includes(row.detectedResult) || row.errors.length > 0) continue;
+    const target = row.detectedResult === "Modified"
+      ? resolveCredit(row.values["Sakurava Ref"] ?? "")
+      : undefined;
+    const workType = ((row.values["Work Type"] ?? "") || target?.workType || "").trim().toLowerCase();
+    if (workType !== "video" && workType !== "image") continue;
+    const workRef = (row.values["Work Ref"] ?? "").trim();
+    const performerRef = (row.values["Performer Ref"] ?? "").trim();
+    const work = workRef
+      ? workType === "video"
+        ? resolveSakuravaIdentity("V", workRef, context.videos)
+        : resolveSakuravaIdentity("I", workRef, context.images)
+      : null;
+    const performer = performerRef
+      ? resolveSakuravaIdentity("P", performerRef, context.performers)
+      : null;
+    const candidate: { id: string; workType: "video" | "image"; workId: string; performerId: string } = {
+      id: target?.id ?? `preview:${row.rowNumber}`,
+      workType,
+      workId: work?.status === "resolved" ? work.record.id : (target?.workId ?? ""),
+      performerId: performer?.status === "resolved" ? performer.record.id : (target?.performerId ?? ""),
+    };
+    if (!candidate.workType || !candidate.workId || !candidate.performerId) continue;
+    const previous = target ? projected.get(target.id) : undefined;
+    if (previous) projected.delete(previous.id);
+    if (countFor(candidate) >= 5) {
+      if (previous) projected.set(previous.id, previous);
+      addRowError(row, "A Work may have at most five Credits for the same Performer.");
+      continue;
+    }
+    projected.set(candidate.id, candidate);
+  }
 }
 
 function validateGlossaryDependencies(
@@ -519,6 +592,7 @@ function addCategoryCleanupOperations(
   }
   for (const child of children) addCleanupOperation(operations, "categories", "update", child.key, child, { parentKey: null }, "Child Category parent relationship will be cleared");
   for (const credit of context.credits ?? []) {
+    if (isDeleted("credits", credit, deleted)) continue;
     const proposed: Record<string, unknown> = {};
     if (credit.creditTypeCategoryId === category.key) proposed.creditTypeCategoryId = null;
     if (credit.roleImportanceCategoryId === category.key) proposed.roleImportanceCategoryId = null;
@@ -657,7 +731,7 @@ function applyProjectedDeletePlanning(
     sectionRows.set(section.dataType, section.preview.rows);
   }
   const deleted = new Map<ImportCsvEntity, Set<string>>();
-  for (const entity of ["videos", "images", "performers", "categories", "glossary"] as const) {
+  for (const entity of ["videos", "images", "performers", "categories", "glossary", "credits"] as const) {
     const refs = new Set<string>();
     for (const row of sectionRows.get(entity) ?? []) {
       if (row.detectedResult === "Deleted" && row.errors.length === 0) {
@@ -675,7 +749,8 @@ function applyProjectedDeletePlanning(
         sakuravaRefMatches(entity === "videos" ? "VID" : entity === "images" ? "IMG" : "PER", row.values["Sakurava Ref"] ?? "", candidate),
       );
       const survivingCredits = record
-        ? (context.credits ?? []).filter((credit) => creditUsesRecord(credit, entity, record.id))
+        ? (context.credits ?? []).filter((credit) =>
+            creditUsesRecord(credit, entity, record.id) && !isDeleted("credits", credit, deleted))
         : [];
       if (survivingCredits.length > 0) {
         row.detectedResult = "Error";
@@ -705,7 +780,8 @@ function applyProjectedDeletePlanning(
       ...context.performers.map((record) => ({ entity: "performers" as const, record })),
     ].filter(({ entity, record }) => recordStillUsesCategory(entity, record, category, sectionRows, deleted));
     const survivingCredits = (context.credits ?? []).filter((credit) =>
-      credit.creditTypeCategoryId === category.key || credit.roleImportanceCategoryId === category.key,
+      !isDeleted("credits", credit, deleted)
+        && (credit.creditTypeCategoryId === category.key || credit.roleImportanceCategoryId === category.key),
     );
     const deletedChildren = context.categories.filter((candidate) =>
       candidate.parentKey === category.key && isDeleted("categories", candidate, deleted),
@@ -766,6 +842,12 @@ function applyProjectedDeletePlanning(
     }
   }
 
+  for (const row of sectionRows.get("credits") ?? []) {
+    if (row.detectedResult === "Deleted") {
+      row.dependencyPlan = { requiresDecision: false, detail: "Credit will be deleted", deleteOrder: 0 };
+    }
+  }
+
   // This rank is consumed by the immutable operation plan; the preview itself
   // intentionally keeps spreadsheet/source row order.
   for (const section of sections) {
@@ -800,7 +882,7 @@ function isDeleted(
   record: { id?: string; key?: string; sakuravaRef?: string },
   deleted: Map<ImportCsvEntity, Set<string>>,
 ) {
-  const prefix = entity === "videos" ? "VID" : entity === "images" ? "IMG" : entity === "performers" ? "PER" : entity === "categories" ? "CAT" : "GLO";
+  const prefix = entity === "videos" ? "VID" : entity === "images" ? "IMG" : entity === "performers" ? "PER" : entity === "categories" ? "CAT" : entity === "credits" ? "R" : "GLO";
   return Array.from(deleted.get(entity) ?? []).some((ref) => sakuravaRefMatches(prefix, ref, record));
 }
 

@@ -34,7 +34,7 @@ describe("import CSV apply", () => {
     expect(mutations.createVideo).not.toHaveBeenCalled();
   });
 
-  it("applies Glossary create, update, delete, skip, and no-change rows through existing CRUD", async () => {
+  it("excludes unsupported legacy Skip while applying valid Glossary CRUD rows", async () => {
     const updateTarget = glossaryEntry({ id: "glossary-update", term: "Alpha", definition: "Old" });
     const deleteTarget = glossaryEntry({ id: "glossary-delete", term: "Delete", definition: "Delete" });
     const unchangedTarget = glossaryEntry({ id: "glossary-same", term: "Same", definition: "Same" });
@@ -55,13 +55,16 @@ describe("import CSV apply", () => {
       confirmed: true,
     });
 
-    expect(report).toMatchObject({ appliedAdded: 1, appliedModified: 1, appliedDeleted: 1, skipped: 1, unchanged: 1 });
+    expect(report).toMatchObject({ appliedAdded: 1, appliedModified: 1, appliedDeleted: 1, skipped: 0, failed: 1, unchanged: 1 });
     expect(mutations.createGlossaryEntry).toHaveBeenCalledWith(expect.objectContaining({ term: "Created", definition: "Created definition" }));
     expect(mutations.updateGlossaryEntry).toHaveBeenCalledWith(updateTarget.id, expect.objectContaining({ definition: "Changed" }));
     expect(mutations.deleteGlossaryEntry).toHaveBeenCalledWith(deleteTarget.id);
+    expect(mutations.createGlossaryEntry).not.toHaveBeenCalledWith(
+      expect.objectContaining({ term: "Ignored" }),
+    );
   });
 
-  it("adds, modifies, deletes, skips, and leaves unchanged rows safely", async () => {
+  it("excludes unsupported legacy Skip while applying valid Video CRUD rows", async () => {
     const existing = video({
       id: "video-1",
       title: "Original",
@@ -114,7 +117,8 @@ describe("import CSV apply", () => {
     expect(report.appliedAdded).toBe(1);
     expect(report.appliedModified).toBe(1);
     expect(report.appliedDeleted).toBe(1);
-    expect(report.skipped).toBe(1);
+    expect(report.skipped).toBe(0);
+    expect(report.failed).toBe(1);
     expect(report.unchanged).toBe(1);
     expect(mutations.createVideo).toHaveBeenCalledWith(
       expect.objectContaining({ title: "New Video", categoriesJson: '["Favorite"]' }),
@@ -330,20 +334,24 @@ describe("import CSV apply", () => {
       confirmed: true,
     });
 
-    expect(report.appliedAdded).toBe(1);
-    expect(report.failed).toBe(1);
+    expect(report.appliedAdded).toBe(2);
+    expect(report.failed).toBe(0);
     expect(mutations.createManagedCategory).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ name: "Genre", parentKey: null }),
     );
-    expect(mutations.createManagedCategory).toHaveBeenCalledTimes(1);
-    expect(report.rows.find((row) => row.target.includes("Drama"))?.message)
+    expect(mutations.createManagedCategory).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ name: "Drama", parentKey: null }),
+    );
+    expect(mutations.createManagedCategory).toHaveBeenCalledTimes(2);
+    expect(report.rows.find((row) => row.target.includes("Drama"))?.warnings.join(" "))
       .toContain("stable Parent Ref");
     expect(window.localStorage.getItem("sakurava.managedCategories.v1"))
-      .toBe('["Genre"]');
+      .toBe('["Genre","Drama"]');
   });
 
-  it("applies child category when parent exists and blocks missing parent", async () => {
+  it("applies a valid category parent and safely omits an unknown parent", async () => {
     const parent = category({ key: "cat_format", name: "Format" });
     const mutations = mutationMocks();
     const preview = buildImportCsvPreview(
@@ -370,13 +378,16 @@ describe("import CSV apply", () => {
       confirmed: true,
     });
 
-    expect(report.appliedAdded).toBe(1);
-    expect(report.failed).toBe(1);
+    expect(report.appliedAdded).toBe(2);
+    expect(report.failed).toBe(0);
     expect(mutations.createManagedCategory).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Short", parentKey: "cat_format" }),
     );
-    expect(report.rows.find((row) => row.target.includes("Blocked Child"))?.message)
-      .toContain("Parent Category reference was not found");
+    expect(mutations.createManagedCategory).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Blocked Child", parentKey: null }),
+    );
+    expect(report.rows.find((row) => row.target.includes("Blocked Child"))?.warnings.join(" "))
+      .toContain("Parent Category Ref was not found");
   });
 
   it("blocks child-of-child category hierarchy", async () => {
@@ -451,7 +462,7 @@ describe("import CSV apply", () => {
     expect(window.localStorage.getItem("sakurava.managedCategories.v1"))
       .toBe('["Used"]');
     expect(report.rows.find((row) => row.target.includes("Used"))?.message)
-      .toContain("catalog records use it");
+      .toContain("Category is still used by records");
   });
 });
 

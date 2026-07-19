@@ -9,6 +9,7 @@ import type {
 import { normalizeImportDate } from "./importDate";
 import {
   buildCsv,
+  creditCsvSchema,
   categoryCsvSchema,
   imageCsvSchema,
   performerCsvSchema,
@@ -22,6 +23,7 @@ import {
   videoCsvSchema,
   type ExportCsvEntity,
   type CsvSchemaColumn,
+  type CreditCsvRecord,
 } from "./exportCsv";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 import {
@@ -29,6 +31,7 @@ import {
   resolveSakuravaIdentity,
   sakuravaIdentityLookupKeys,
   sectionCodeForLegacyPrefix,
+  type SakuravaRefSectionCode,
 } from "./sakuravaRef";
 import {
   IMPORT_MAX_CELL_CHARACTERS,
@@ -116,11 +119,11 @@ export type ImportPreviewOptions = {
 
 type EntityDefinition = {
   entity: ImportCsvEntity;
-  refPrefix: "VID" | "IMG" | "PER" | "CAT" | "GLO";
+  sectionCode: SakuravaRefSectionCode;
   mainHeader: string;
   requiredHeaders: string[];
   expectedHeaders: string[];
-  records: (context: ImportCsvPreviewContext) => Array<Video | Image | Performer | ManagedCategory | GlossaryEntry>;
+  records: (context: ImportCsvPreviewContext) => Array<Video | Image | Performer | ManagedCategory | GlossaryEntry | Credit>;
 };
 
 const rawTechnicalHeaders = new Set([
@@ -141,7 +144,7 @@ const validActions = new Set(["Auto", "Add", "Update", "Delete"]);
 const entityDefinitions: EntityDefinition[] = [
   {
     entity: "videos",
-    refPrefix: "VID",
+    sectionCode: "V",
     mainHeader: "Title",
     requiredHeaders: ["Title"],
     expectedHeaders: videoCsvSchema.map((column) => column.header),
@@ -149,7 +152,7 @@ const entityDefinitions: EntityDefinition[] = [
   },
   {
     entity: "images",
-    refPrefix: "IMG",
+    sectionCode: "I",
     mainHeader: "Title",
     requiredHeaders: ["Title"],
     expectedHeaders: imageCsvSchema.map((column) => column.header),
@@ -157,7 +160,7 @@ const entityDefinitions: EntityDefinition[] = [
   },
   {
     entity: "performers",
-    refPrefix: "PER",
+    sectionCode: "P",
     mainHeader: "Name",
     requiredHeaders: ["Name"],
     expectedHeaders: performerCsvSchema.map((column) => column.header),
@@ -165,7 +168,7 @@ const entityDefinitions: EntityDefinition[] = [
   },
   {
     entity: "categories",
-    refPrefix: "CAT",
+    sectionCode: "C",
     mainHeader: "Category Name",
     requiredHeaders: ["Category Name"],
     expectedHeaders: categoryCsvSchema.map((column) => column.header),
@@ -173,11 +176,19 @@ const entityDefinitions: EntityDefinition[] = [
   },
   {
     entity: "glossary",
-    refPrefix: "GLO",
+    sectionCode: "G",
     mainHeader: "Term",
     requiredHeaders: ["Term", "Definition"],
     expectedHeaders: glossaryCsvSchema.map((column) => column.header),
     records: (context) => context.glossary ?? [],
+  },
+  {
+    entity: "credits",
+    sectionCode: "R",
+    mainHeader: "Work Ref",
+    requiredHeaders: ["Work Type", "Work Ref", "Performer Ref", "Character / Role", "Credited As Mode", "Character Mode"],
+    expectedHeaders: creditCsvSchema.map((column) => column.header),
+    records: (context) => context.credits ?? [],
   },
 ];
 
@@ -414,7 +425,14 @@ function validateHeaders(
     (header) => !headers.includes(header),
   );
   if (missingExpectedHeaders.length > 0) {
-    warnings.push(`Missing expected headers: ${missingExpectedHeaders.join(", ")}.`);
+    const message = `Missing expected headers: ${missingExpectedHeaders.join(", ")}.`;
+    if (definition.entity === "credits") errors.push(message);
+    else warnings.push(message);
+  }
+  if (definition.entity === "credits" && definition.expectedHeaders.some(
+    (header, index) => headers[index] !== header,
+  )) {
+    errors.push("Credits CSV headers must use the published Sakurava order.");
   }
   const legacyHeaders = headers.filter((header) => legacyImportHeadersFor(definition.entity).includes(header));
   if (legacyHeaders.length > 0) {
@@ -462,7 +480,7 @@ function previewRow({
   const temporaryRef = definition.entity === "glossary" && isTemporaryGlossaryRef(ref);
   const identityResolution = ref && !temporaryRef
     ? resolveSakuravaIdentity(
-        sectionCodeForLegacyPrefix(definition.refPrefix),
+        definition.sectionCode,
         ref,
         definition.records(context),
       )
@@ -510,6 +528,9 @@ function previewRow({
   }
 
   const isAdd = !ref || temporaryRef;
+  if (definition.entity === "credits") {
+    validateCreditFields(values, context, ref, isAdd, errors);
+  }
   validateEditableFields(
     values,
     definition,
@@ -529,12 +550,19 @@ function previewRow({
     if (Object.values(values).some((value) => value.trim() === SAKURAVA_CLEAR_VALUE)) {
       warnings.push("The clear marker is only supported for an existing record. This row will not be applied.");
     }
-    applyRequiredAddDefaults(values, definition, warnings);
+    if (definition.entity === "credits") {
+      applyCreditAddDefaults(values, warnings, errors);
+      if (errors.length === 0) {
+        addDuplicateCreditWarning(values, context, warnings);
+      }
+    } else {
+      applyRequiredAddDefaults(values, definition, warnings);
+    }
 
     return {
       rowNumber,
       action: action ?? "Invalid",
-      detectedResult: !action || warnings.some((message) => message.endsWith("This row will not be applied.")) ? "Error" : "Added",
+      detectedResult: !action || errors.length > 0 || warnings.some((message) => message.endsWith("This row will not be applied.")) ? "Error" : "Added",
       target: mainValue || "New row",
       changes: action === "Add" || action === "Auto" ? ["New record"] : changes,
       warnings,
@@ -685,7 +713,7 @@ function buildCurrentRowsByRef(
 ) {
   const csv = buildCsv(
     importSchemaFor(definition.entity),
-    exportRowsFor(definition.entity, definition.records(context)),
+    currentRowsForDefinition(definition, context),
   );
   const parsed = parseCsv(csv);
   const rowsByRef = new Map<string, Record<string, string>>();
@@ -700,7 +728,7 @@ function buildCurrentRowsByRef(
     }
     const record = records[index];
     const keys = record
-      ? sakuravaIdentityLookupKeys(sectionCodeForLegacyPrefix(definition.refPrefix), record)
+      ? sakuravaIdentityLookupKeys(definition.sectionCode, record)
       : [canonicalImportIdentity(ref)];
     for (const key of keys) {
       if (ambiguousRefs.has(key)) continue;
@@ -715,6 +743,171 @@ function buildCurrentRowsByRef(
   }
 
   return rowsByRef;
+}
+
+function addDuplicateCreditWarning(
+  values: Record<string, string>,
+  context: ImportCsvPreviewContext,
+  warnings: string[],
+) {
+  const workType = (values["Work Type"] ?? "").trim().toLowerCase();
+  const work = workType === "video"
+    ? resolveSakuravaIdentity("V", values["Work Ref"] ?? "", context.videos)
+    : resolveSakuravaIdentity("I", values["Work Ref"] ?? "", context.images);
+  const performer = resolveSakuravaIdentity("P", values["Performer Ref"] ?? "", context.performers);
+  if (work.status !== "resolved" || performer.status !== "resolved") return;
+  const role = (values["Role Importance"] ?? "").trim();
+  const roleResolution = role
+    ? resolveSakuravaIdentity("C", role, context.categories)
+    : null;
+  const matches = (context.credits ?? []).some((credit) =>
+    credit.workType === workType
+      && credit.workId === work.record.id
+      && credit.performerId === performer.record.id
+      && credit.characterName === (values["Character / Role"] ?? "").trim()
+      && (credit.characterOriginalName ?? "") === clearCreditCell(values["Original Character"])
+      && credit.creditedAsMode === (values["Credited As Mode"] ?? "").trim().toLowerCase()
+      && (credit.creditedAs ?? "") === clearCreditCell(values["Credited As"])
+      && (credit.creditTypeText ?? "") === clearCreditCell(values["Credit Type"])
+      && (credit.roleImportanceCategoryId ?? "") === (roleResolution?.status === "resolved" ? roleResolution.record.key : "")
+      && credit.characterMode === (values["Character Mode"] ?? "").trim().toLowerCase()
+      && String(credit.billingOrder ?? "") === clearCreditCell(values["Billing Order"])
+      && (credit.note ?? "") === clearCreditCell(values.Note),
+  );
+  if (matches) {
+    warnings.push("A logically duplicate Credit will be added as a separate record.");
+  }
+}
+
+function clearCreditCell(value: string | undefined) {
+  const trimmed = (value ?? "").trim();
+  return trimmed === SAKURAVA_CLEAR_VALUE ? "" : trimmed;
+}
+
+function validateCreditFields(
+  values: Record<string, string>,
+  context: ImportCsvPreviewContext,
+  ref: string,
+  isAdd: boolean,
+  errors: string[],
+) {
+  const existing = ref
+    ? resolveSakuravaIdentity("R", ref, context.credits ?? [])
+    : null;
+  const current = existing?.status === "resolved" ? existing.record : undefined;
+  const suppliedWorkType = (values["Work Type"] ?? "").trim();
+  const suppliedWorkRef = (values["Work Ref"] ?? "").trim();
+  const suppliedPerformerRef = (values["Performer Ref"] ?? "").trim();
+  const suppliedRoleImportance = (values["Role Importance"] ?? "").trim();
+
+  if (suppliedWorkType && !["video", "image"].includes(suppliedWorkType.toLowerCase())) {
+    errors.push("Work Type must be Video or Image.");
+  }
+  const workType = suppliedWorkType
+    ? suppliedWorkType.toLowerCase()
+    : current?.workType;
+  const needsWork = isAdd || Boolean(suppliedWorkType || suppliedWorkRef);
+  if (needsWork && !workType) {
+    errors.push("Work Type is required for a Credit.");
+  }
+  if (needsWork && !suppliedWorkRef && isAdd) {
+    errors.push("Work Ref is required for a Credit.");
+  }
+  if (!isAdd && suppliedWorkType && suppliedWorkType.toLowerCase() !== current?.workType && !suppliedWorkRef) {
+    errors.push("Work Ref is required when Work Type changes.");
+  }
+  if (suppliedWorkRef) {
+    const resolution = workType === "video"
+      ? resolveSakuravaIdentity("V", suppliedWorkRef, context.videos)
+      : workType === "image"
+        ? resolveSakuravaIdentity("I", suppliedWorkRef, context.images)
+        : null;
+    if (resolution?.status !== "resolved") {
+      errors.push("Work Ref was not found for the selected Work Type.");
+    }
+  }
+  if (isAdd && !suppliedPerformerRef) {
+    errors.push("Performer Ref is required for a Credit.");
+  }
+  if (suppliedPerformerRef && resolveSakuravaIdentity("P", suppliedPerformerRef, context.performers).status !== "resolved") {
+    errors.push("Performer Ref was not found.");
+  }
+  if (suppliedRoleImportance && suppliedRoleImportance !== SAKURAVA_CLEAR_VALUE
+    && resolveSakuravaIdentity("C", suppliedRoleImportance, context.categories).status !== "resolved") {
+    errors.push("Role Importance Ref was not found.");
+  }
+  for (const [header, allowed] of [
+    ["Credited As Mode", ["auto", "custom"]],
+    ["Character Mode", ["text", "self"]],
+  ] as const) {
+    const value = (values[header] ?? "").trim();
+    if (value && !(allowed as readonly string[]).includes(value.toLowerCase())) {
+      errors.push(`${header} is not supported.`);
+    }
+  }
+  const billingOrder = (values["Billing Order"] ?? "").trim();
+  if (billingOrder && (!/^\d+$/.test(billingOrder) || Number(billingOrder) < 1)) {
+    errors.push("Billing Order must be a positive whole number.");
+  }
+}
+
+function applyCreditAddDefaults(
+  values: Record<string, string>,
+  warnings: string[],
+  errors: string[],
+) {
+  for (const header of ["Work Type", "Work Ref", "Performer Ref"] as const) {
+    if (!(values[header] ?? "").trim() && !errors.some((error) => error.startsWith(header))) {
+      errors.push(`${header} is required for a Credit.`);
+    }
+  }
+  if (!(values["Character / Role"] ?? "").trim()) {
+    values["Character / Role"] = "N/A";
+    warnings.push("Character / Role was empty and will use N/A.");
+  }
+  if (!(values["Credited As Mode"] ?? "").trim()) {
+    values["Credited As Mode"] = "Auto";
+    warnings.push("Credited As Mode was empty and will use the default value Auto.");
+  }
+  if (!(values["Character Mode"] ?? "").trim()) {
+    values["Character Mode"] = "Text";
+    warnings.push("Character Mode was empty and will use the default value Text.");
+  }
+}
+
+function currentRowsForDefinition(
+  definition: EntityDefinition,
+  context: ImportCsvPreviewContext,
+) {
+  if (definition.entity !== "credits") {
+    return exportRowsFor(definition.entity, definition.records(context));
+  }
+  const categoryRefByKey = new Map(
+    context.categories.map((category) => [category.key, category.sakuravaRef ?? category.key]),
+  );
+  const videoRefById = new Map(
+    context.videos.map((video) => [video.id, video.sakuravaRef ?? video.id]),
+  );
+  const imageRefById = new Map(
+    context.images.map((image) => [image.id, image.sakuravaRef ?? image.id]),
+  );
+  const performerRefById = new Map(
+    context.performers.map((performer) => [performer.id, performer.sakuravaRef ?? performer.id]),
+  );
+  return (context.credits ?? []).map((credit): CreditCsvRecord => ({
+    ...credit,
+    workType: credit.workType === "video" ? "Video" : "Image",
+    creditedAsMode: credit.creditedAsMode === "auto" ? "Auto" : "Custom",
+    characterMode: credit.characterMode === "self" ? "Self" : "Text",
+    workRef: sakuravaRef(
+      credit.workType === "video" ? "VID" : "IMG",
+      (credit.workType === "video" ? videoRefById : imageRefById).get(credit.workId) ?? "",
+    ),
+    performerRef: sakuravaRef("PER", performerRefById.get(credit.performerId) ?? ""),
+    roleImportanceRef: credit.roleImportanceCategoryId
+      ? sakuravaRef("CAT", categoryRefByKey.get(credit.roleImportanceCategoryId) ?? "")
+      : "",
+  }));
 }
 
 function findDuplicateRefs(headers: string[], rows: string[][]) {

@@ -14,8 +14,11 @@ $Root = if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root
 }
 $branch = (git -C $repositoryRoot branch --show-current).Trim()
-if ($branch -ne 'batch-41-8-5-credits-import-export-ref-r') {
-    throw "Expected batch-41-8-5-credits-import-export-ref-r, found $branch."
+if ($branch -notin @(
+    'batch-41-8-5-credits-import-export-ref-r',
+    'batch-41-8-5c-credits-spreadsheet-crud'
+)) {
+    throw "Expected the Credits R or Credits spreadsheet branch, found $branch."
 }
 $runtimeRoot = [System.IO.Path]::GetFullPath($Root)
 $sentinel = Join-Path $runtimeRoot '.sakurava-disposable'
