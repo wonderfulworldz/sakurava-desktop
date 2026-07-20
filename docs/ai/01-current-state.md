@@ -33,10 +33,12 @@ last_completed_roadmap_batch_title: GitHub and Repository Health Triage
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
 active_batch: 42.2  
 active_batch_title: Translation Containment  
-active_batch_phase: AUDIT_READY  
-active_batch_mode: AUDIT ONLY  
-audit_status: READY_FOR_RETRY_AFTER_PROJECT_OS_RECOVERY  
-audit_allowed: true  
+active_batch_phase: PLAN_READY  
+active_batch_mode: PLAN ONLY  
+audit_status: COMPLETE_WITH_CRITICAL_CONTAINMENT_FINDINGS  
+audit_allowed: false  
+plan_status: READY_NOT_STARTED  
+plan_allowed: true  
 implementation_status: NOT_STARTED  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
@@ -166,7 +168,7 @@ The approved roadmap is represented by Batch series `42.x`.
 - Batch `42.2 — Translation Containment`: `ACTIVE`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` Stage 0 scope definition is complete. Stage 1 is ready for a controlled read-only Translation architecture audit.
+Batch `42.2` Stage 1 static audit is complete with accepted critical containment findings. Stage 2 implementation planning is ready but not started.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -384,23 +386,31 @@ Current status:
 
 Current phase:
 
-`AUDIT_READY`
+`PLAN_READY`
 
 Current stage:
 
-`Stage 1 — Read-Only Translation Architecture Audit`
+`Stage 2 — Translation Containment Implementation Plan`
 
 Current mode:
 
-`AUDIT ONLY`
+`PLAN ONLY`
 
 Audit status:
 
-`READY_FOR_RETRY_AFTER_PROJECT_OS_RECOVERY`
+`COMPLETE_WITH_CRITICAL_CONTAINMENT_FINDINGS`
 
 Audit permission:
 
-`APPROVED`
+`COMPLETE`
+
+Audit evidence class:
+
+`REPORTED_BY_CODEX_STATIC_AUDIT`
+
+Audited baseline:
+
+`1e0d6dd13e55f36f6bae78d32fbeb26fd56c6b38`
 
 Implementation permission:
 
@@ -439,6 +449,18 @@ The authoritative current scope and blockers are stored in:
 
 `docs/ai/03-active-batch.md`
 
+### Stage 1 Audit Closure and Approved Product Direction
+
+Stage 1 completed as a static read-only audit with verdict `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`.
+
+Evidence class: `REPORTED_BY_CODEX_STATIC_AUDIT`.
+
+The audit found no repository mutation, source or data mutation, live AppData access, test, build, server, dependency change, active destructive migration, or proven current user-data corruption. Accepted containment findings are the Indonesian built-in identity regression, non-destructive preservation requirements for existing language data, unsafe CSV round-trip and historical-format compatibility gaps, non-atomic Translation persistence, and Translation state remaining outside the current Backup package.
+
+The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
+
+The current phase is `PLAN_READY`. Stage 2 is `PLAN ONLY`, `READY_NOT_STARTED`; implementation remains prohibited.
+
 ### First Stage 1 Preflight Disposition
 
 The first Stage 1 preflight stopped before authority-file or Translation-source inspection because four approved Project OS files were modified but not yet committed.
@@ -447,7 +469,7 @@ Evidence class: `REPORTED_BY_CODEX_PREFLIGHT`.
 
 No application source, Translation source, data, dependency, workflow, test, build, server, or Git-ref mutation occurred. Translation architecture remains unassessed.
 
-The approved recovery disposition is to preserve and commit those documentation updates. After this documentation-only commit is synchronized, Stage 1 remains ready for a separate full preflight retry. Implementation remains prohibited.
+The approved recovery disposition was to preserve and commit those documentation updates. That recovery was synchronized before the audited baseline, after which Stage 1 completed separately. Implementation remains prohibited.
 
 ---
 
@@ -455,15 +477,11 @@ The approved recovery disposition is to preserve and commit those documentation 
 
 The following remain unverified or intentionally deferred:
 
-- current Translation architecture and file boundaries;
-- Translation storage and persistence behavior;
-- fallback and missing-key behavior;
-- English core editing and reset behavior;
-- user-managed language lifecycle;
-- CSV import and export compatibility;
-- Settings integration;
-- whether migration is required;
-- whether completed Batch `41.9` protections remain fully reflected in current code;
+- actual runtime restart persistence and WebView storage location;
+- actual live user-language storage shapes and prevalence of legacy formats;
+- runtime outcome of focused Translation tests and disposable verification;
+- detailed English reset UX and implementation mechanics;
+- Backup/package inclusion and migration behavior for Translation;
 - exact remediation versions and compatibility impact for the seven Dependabot alerts;
 - code-scanning results, because code scanning is disabled;
 - secret-scanning results, because secret scanning is disabled;
@@ -480,14 +498,11 @@ Do not represent these items as proven until the applicable controlled audit or 
 
 ## 12. Current Blockers
 
-Batch `42.2` read-only audit execution is approved but has not started.
-
-The audit must begin with fresh verification of branch, HEAD, staged state, tracked modifications, and untracked evidence. It must stop before inspection if the repository state is ambiguous or differs unexpectedly from the recorded baseline.
+Batch `42.2` Stage 1 is complete. Stage 2 is ready to produce a controlled implementation plan and has not started.
 
 Implementation remains blocked because:
 
-- the current stage is audit-only;
-- current Translation architecture is unknown;
+- the current mode is plan-only;
 - implementation scope has not been approved;
 - dependency remediation is separate;
 - Vite `7.3.3` remains affected by current alerts;
@@ -541,12 +556,12 @@ for authoritative lock wording.
 
 Create one controlled Codex prompt for:
 
-`Batch 42.2 — Stage 1: Read-Only Translation Architecture Audit`
+`Batch 42.2 — Stage 2: Translation Containment Implementation Plan`
 
 Required mode:
 
-`AUDIT ONLY`
+`PLAN ONLY`
 
-The prompt must include fresh Git preflight, the approved architecture and data evidence sources, historical boundaries for Batches `41.9`, `42.2`, and `42.11`, required report format, sensitive-data rules, and stop conditions.
+The prompt must define exact source files, English-only built-in transition, non-destructive existing-language compatibility, language-code identity, English CSV edit/reset, UI-only Translation scope, future-feature gate, CSV adapters, atomic persistence, raw-data preservation, focused verification, rollback, and stop conditions.
 
-Do not authorize file modification, Translation-data mutation, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, commit, merge, or push.
+Do not authorize implementation, Translation-data mutation, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, package changes, Backup changes, commit, merge, or push.

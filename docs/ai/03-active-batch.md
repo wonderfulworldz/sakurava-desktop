@@ -5,11 +5,14 @@
 batch: 42.2  
 title: Translation Containment  
 status: ACTIVE  
-phase: AUDIT_READY  
-current_stage: Stage 1 — Read-Only Translation Architecture Audit  
-current_mode: AUDIT ONLY  
-audit_status: READY_FOR_RETRY_AFTER_PROJECT_OS_RECOVERY  
-audit_allowed: true  
+phase: PLAN_READY  
+current_stage: Stage 2 — Translation Containment Implementation Plan  
+current_mode: PLAN ONLY  
+stage_1_status: COMPLETE  
+stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
+audit_allowed: false  
+plan_status: READY_NOT_STARTED  
+plan_allowed: true  
 implementation_status: NOT_STARTED  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
@@ -20,12 +23,15 @@ risk_level: HIGH
 starting_branch: main  
 starting_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
 starting_baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
+audited_baseline: 1e0d6dd13e55f36f6bae78d32fbeb26fd56c6b38  
+audited_baseline_status: FRESHLY_VERIFIED_AND_SYNCHRONIZED  
 starting_git_state_freshly_verified_for_batch_42_2: false  
 first_audit_attempt: STOPPED_AT_GIT_PREFLIGHT  
 stop_reason: APPROVED_PROJECT_OS_CHANGES_NOT_YET_COMMITTED  
-translation_source_inspected: false  
+translation_source_inspected: true  
+first_attempt_translation_source_inspected: false  
 recovery_status: RESOLVED_BY_THIS_DOCUMENTATION_COMMIT  
-next_action: rerun Stage 1 through a separate controlled AUDIT ONLY prompt  
+next_action: begin Stage 2 through a separate controlled PLAN ONLY prompt  
 
 previous_batch: 42.1  
 previous_batch_title: GitHub and Repository Health Triage  
@@ -36,7 +42,7 @@ historical_corrective_batch: 41.9
 historical_corrective_batch_status: COMPLETED_AND_CLOSED  
 release_completion_batch: 42.11  
 
-approved_scope: READ_ONLY_TRANSLATION_ARCHITECTURE_AUDIT  
+approved_scope: TRANSLATION_CONTAINMENT_PRODUCT_DIRECTION_AND_PLAN  
 master_roadmap: docs/ai/07-master-roadmap.md  
 last_updated: 2026-07-20  
 
@@ -46,11 +52,11 @@ last_updated: 2026-07-20
 
 This file records the active state of Batch `42.2 — Translation Containment`.
 
-Batch `42.2` continues only the unresolved Translation work that remained after Batch `41.9`.
+Batch `42.2` continues only the unresolved Translation work that remained after Batch `41.9` and the approved product decisions recorded after the Stage 1 audit.
 
 It does not reopen or repeat completed Batch `41.9` corrective work without evidence of regression.
 
-Its purpose is to define and later execute a controlled read-only audit that establishes:
+Its Stage 1 audit established:
 
 - the current Translation architecture;
 - current storage and persistence behavior;
@@ -61,6 +67,17 @@ Its purpose is to define and later execute a controlled read-only audit that est
 - Settings integration;
 - data-safety and compatibility requirements;
 - whether any migration or minimum stabilization is actually required.
+
+The approved product direction is now:
+
+- English `en` is the sole built-in, installed-by-default, default, source, and fallback language;
+- Indonesian `id` and every other non-English language are user-managed and removable;
+- English is non-removable, CSV-editable, and resettable to the bundled baseline;
+- Translation covers application-controlled frontend UI only and never user-entered or stored catalog data;
+- one normalized language code represents exactly one identity, with recognized and custom codes supported;
+- existing language metadata, overrides, selection, and values require non-destructive compatibility handling;
+- every future feature must be translation-ready from initial implementation;
+- final CSV and release-facing completion remain assigned to Batch `42.11`.
 
 Batch `42.2` is corrective containment, not Translation release completion.
 
@@ -103,11 +120,40 @@ Batch `42.11 — Translation Release Completion` retains:
 
 Batch `42.2` must not absorb Batch `42.11`.
 
+### Stage 1 Accepted Findings
+
+The static audit completed without repository, source, data, live AppData, test, build, server, dependency, or Git-ref mutation. No active destructive migration or actual current user-data corruption was proven.
+
+Accepted containment findings are:
+
+- built-in Indonesian conflicts with the approved English-only identity boundary;
+- existing custom `id` data must survive removal of built-in treatment;
+- non-English CSV round trips and known historical CSV formats require safe compatibility handling;
+- Translation persistence is currently non-atomic and must report failures accurately;
+- malformed or legacy language data must be preserved until compatibility is resolved;
+- Translation localStorage is outside the current Backup/package boundary, which remains assigned to Batches `42.6` and `42.7`.
+
+### Stage 2 Plan-Only Required Output
+
+Stage 2 must define, without implementation:
+
+- exact source files and sub-stage sequencing;
+- the English-only built-in transition and non-destructive existing `id` compatibility;
+- language-code normalization and one-code/one-identity rules;
+- English CSV edit/reset behavior;
+- the frontend UI-only Translation boundary and user-data exclusion;
+- the future-feature translation-ready contract;
+- CSV round-trip and historical-format adapters;
+- atomic persistence, accurate errors, and rejected/raw-data preservation;
+- focused tests, disposable verification, rollback, and stop conditions.
+
+Stage 2 does not authorize implementation, tests, builds, runtime verification, migration, dependency remediation, package changes, or Backup changes.
+
 ---
 
 ## 4. Current Objective
 
-Execute the smallest safe read-only Translation architecture audit under the approved Stage 0 contract.
+Produce the smallest safe Stage 2 Translation containment implementation plan under the approved product direction.
 
 The audit must identify current behavior and unresolved risks without modifying:
 
@@ -120,7 +166,7 @@ The audit must identify current behavior and unresolved risks without modifying:
 - Backup or Restore behavior;
 - UI structure.
 
-The audit must distinguish:
+The plan must distinguish:
 
 - `PROVEN` current behavior;
 - `REPORTED` historical behavior;
@@ -151,14 +197,27 @@ The operator approved:
 
 ### Stage 1 — Read-Only Translation Architecture Audit
 
-**Status:** READY_FOR_RETRY_AFTER_PROJECT_OS_RECOVERY  
-**Mode:** AUDIT ONLY  
-**Audit Allowed:** Yes  
+**Status:** COMPLETE  
+**Verdict:** AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
+**Mode:** AUDIT ONLY (closed)  
+**Audit Allowed:** No  
 **Implementation Allowed:** No  
 **Tests and Builds Allowed:** No  
 **Vite Dev Server Allowed:** No  
 
-Stage 1 must begin with a fresh read-only Git preflight. If branch, HEAD, tracked state, staging, or repository safety differs unexpectedly from the recorded baseline, the audit must stop before further inspection.
+Stage 1 completed as a static read-only audit from baseline `1e0d6dd13e55f36f6bae78d32fbeb26fd56c6b38`. No implementation or runtime verification occurred.
+
+### Stage 2 — Translation Containment Implementation Plan
+
+**Status:** READY_NOT_STARTED  
+**Mode:** PLAN ONLY  
+**Plan Allowed:** Yes  
+**Implementation Allowed:** No  
+**Tests and Builds Allowed:** No  
+**Vite Dev Server Allowed:** No  
+**Dependency Remediation Allowed:** No  
+
+Stage 2 may define exact files, sequencing, compatibility, rollback, stop conditions, focused tests, and disposable verification. It must not implement or execute them.
 
 ---
 
@@ -384,35 +443,30 @@ A future read-only audit must stop and report when it encounters:
 
 ---
 
-## 14. Definition of Ready for Audit
+## 14. Definition of Ready for Stage 2 Planning
 
-The audit contract is approved. Audit execution is ready only through a controlled prompt that:
+Stage 1 is complete. Stage 2 planning is ready only through a controlled PLAN ONLY prompt that:
 
-- freshly verifies current branch, HEAD, staged state, tracked changes, and untracked evidence before inspection;
-- In Scope and Out of Scope are explicit;
-- applicable Active Locks are listed;
-- data-safety handling is approved;
-- migration and compatibility questions are explicit;
-- file modification is prohibited;
-- Vite dev-server execution is prohibited;
-- dependency changes are prohibited;
-- tests and builds remain prohibited unless separately approved;
-- final report format is approved;
-- `audit_allowed` remains `true`.
+- preserves the approved English-only and user-managed-language boundary;
+- defines exact source files and sub-stage sequencing;
+- defines non-destructive compatibility, rollback, and stop conditions;
+- keeps implementation, migration, tests, builds, Vite, Tauri, and dependency remediation prohibited;
+- keeps Backup/package inclusion assigned to Batches `42.6` and `42.7`;
+- keeps release-facing completion assigned to Batch `42.11`;
+- records `plan_allowed: true` and `implementation_allowed: false`.
 
 ---
 
-## 15. Definition of Done for Stage 0
+## 15. Definition of Done for Stage 1
 
-Stage 0 is complete because:
+Stage 1 is complete because:
 
-- the operator approves the audit goal;
-- proposed audit areas are accepted or revised;
-- protected contracts are confirmed;
-- evidence requirements are accepted;
-- stop conditions are accepted;
-- final report requirements are accepted;
-- audit execution is separately gated through one controlled Codex `AUDIT ONLY` prompt.
+- fresh Git preflight passed;
+- architecture, data model, lifecycle, fallback, CSV, Settings, persistence, safety, and compatibility were assessed;
+- critical findings were accepted as containment inputs;
+- no mutation, runtime execution, dependency change, migration, or live-data inspection occurred;
+- the approved product direction was recorded;
+- Stage 2 is ready but not started.
 
 ---
 
@@ -423,12 +477,19 @@ Stage 0 is complete because:
 - Batch `42.1` is completed and closed.
 - Batch `42.2` is active.
 - Batch `42.2` Stage 0 scope definition is complete.
-- Stage 1 read-only Translation architecture audit is ready but not started.
+- Stage 1 read-only Translation architecture audit is complete with verdict `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`.
+- Stage 2 Translation containment implementation planning is `READY_NOT_STARTED` and `PLAN ONLY`.
+- English `en` is the sole built-in/default/source/fallback language.
+- Indonesian and every other non-English language are user-managed and removable.
+- English is non-removable, CSV-editable, and resettable.
+- Translation is limited to application-controlled frontend UI; user data remains unchanged.
+- Every future feature must be translation-ready from initial implementation.
 - Batch `41.9` completed work must not be repeated.
 - Batch `42.11` remains separate.
 - dependency remediation remains separate.
 - implementation permission is false.
-- audit permission is true for the approved read-only Stage 1 scope.
+- audit permission is false because Stage 1 is complete.
+- plan permission is true for the approved Stage 2 planning scope.
 - tests and builds are not approved.
 - Vite dev-server execution is prohibited.
 
@@ -447,11 +508,9 @@ Stage 0 is complete because:
 
 ## 17. Current Blockers
 
-Audit execution is approved but has not started.
+Stage 1 is complete. Stage 2 planning is ready but has not started.
 
-Stage 1 must stop before source inspection when fresh Git preflight shows an unexpected branch, HEAD, staged change, tracked modification, repository mutation, or other ambiguous state.
-
-Implementation remains blocked because current architecture and required containment remain unknown, and the approved scope is audit-only.
+Implementation remains blocked because the current mode is PLAN ONLY; tests, builds, runtime verification, Vite, dependency remediation, migration, package changes, and Backup changes remain prohibited.
 
 ---
 
@@ -471,12 +530,12 @@ when active unresolved feedback exists.
 
 Create one controlled Codex prompt for:
 
-`Batch 42.2 — Stage 1: Read-Only Translation Architecture Audit`
+`Batch 42.2 — Stage 2: Translation Containment Implementation Plan`
 
 Required mode:
 
-`AUDIT ONLY`
+`PLAN ONLY`
 
-The prompt must enforce fresh Git preflight, approved evidence areas, historical boundaries, data-safety rules, report format, mutation check, and stop conditions.
+The prompt must define exact files, English-only built-in transition, non-destructive existing-language compatibility, language-code identity, English CSV edit/reset, UI-only Translation scope, future-feature gate, CSV adapters, atomic persistence, raw-data preservation, focused verification, rollback, and stop conditions.
 
-Do not authorize file modification, Translation-data mutation, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, commit, merge, or push.
+Do not authorize implementation, Translation-data mutation, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, package changes, Backup changes, commit, merge, or push.

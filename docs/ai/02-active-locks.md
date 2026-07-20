@@ -131,27 +131,21 @@ Do not introduce decorative motion that materially increases resource use or red
 
 Translation architecture must not be changed outside an approved translation scope.
 
-Protected behavior:
+Authoritative product behavior:
 
-* English is the core language.
-* English is not removable.
-* Existing approved English editing and reset behavior must remain until replaced by an approved decision.
-* Indonesian and other additional languages are user-managed.
-* Existing removable behavior for user-managed languages must remain until replaced by an approved decision.
-* CSV translation support must remain available.
-* Existing working translation data must not be discarded.
-* Unrelated batches may add only the translation keys required by their own feature.
-* Broad translation refactoring is prohibited outside the approved translation batch.
-
-This lock may be replaced only after:
-
-* current implementation is audited;
-* desired behavior is approved;
-* fallback behavior is defined;
-* storage and migration requirements are defined;
-* CSV compatibility is defined;
-* UI behavior is defined;
-* verification requirements are approved.
+* `en` is the sole built-in, installed-by-default, default, source, and fallback language.
+* No language other than `en` may be bundled, seeded, temporarily registered, or displayed as installed by default. This explicitly includes Indonesian (`id`).
+* Indonesian and every other non-English language are user-managed, removable, and must not be automatically recreated after removal.
+* English is not removable, but may be modified through the approved CSV workflow and reset to the original bundled English baseline.
+* English reset must not remove custom languages or overrides, alter catalog records, change database identities, or perform an unapproved package/database migration.
+* Translation applies only to application-controlled frontend presentation text: navigation, controls, labels, headings, placeholders, instructions, validation, warnings, errors, confirmations, loading, empty, status, and tooltip text.
+* User-entered or stored catalog data is outside Translation and must not be translated, rewritten, normalized, or mutated. This includes titles, names, notes, descriptions, metadata, Categories, Work records, Performer records, Credits, imported values, database values, exported catalog values, public references, and technical identifiers.
+* One normalized language code represents exactly one language identity. `en` is reserved and protected; every other code is removable.
+* Known language codes and custom language codes are supported. Unknown codes must not be silently remapped; safe operator/import labels may be retained when platform display metadata is unavailable.
+* Existing language metadata, overrides, selected-language state, and Translation values must be preserved through non-destructive compatibility handling.
+* Every future feature must add application-controlled frontend text through stable Translation keys and the English bundled baseline from its initial implementation. Feature batches may add only their own required keys.
+* Batch `42.11` retains final CSV refinement, release-critical coverage, shared-state coverage, fallback/missing-key regression, restart/persistence verification, and release-facing validation.
+* Broad unrelated Translation refactoring remains prohibited outside the approved Translation batch.
 
 Translation is corrective stabilization work.
 

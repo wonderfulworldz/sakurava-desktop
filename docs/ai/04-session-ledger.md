@@ -75,6 +75,38 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-20 — Translation Audit Accepted and Product Boundary Approved
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: TRANSLATION_AUDIT_CLOSURE_AND_PRODUCT_DECISION  
+active_batch: 42.2  
+completed_stage: Stage 1 — Read-Only Translation Architecture Audit  
+current_stage: Stage 2 — Translation Containment Implementation Plan  
+current_mode: PLAN ONLY  
+audit_status: COMPLETE_WITH_CRITICAL_CONTAINMENT_FINDINGS  
+plan_status: READY_NOT_STARTED  
+implementation_allowed: false  
+
+### Work Completed
+
+The Stage 1 static audit completed without repository mutation, source or data mutation, live AppData access, tests, builds, servers, dependency changes, active destructive migration, or proven current data corruption. Critical containment findings were reported.
+
+### Approved Product Boundary
+
+- English `en` is the sole built-in, default, source, and fallback language.
+- Indonesian and every other non-English language are user-managed and removable.
+- English is non-removable, CSV-editable, and resettable to the bundled baseline.
+- Translation covers application-controlled frontend UI only; user-entered data remains untranslated.
+- Future features must be translation-ready from initial implementation.
+
+### Next Action
+
+Stage 2 PLAN ONLY is ready. Implementation remains prohibited.
+
+---
+
 ## 2026-07-20 — Batch 42.2 Audit Preflight Stopped for Project OS Recovery
 
 ### Session Metadata
@@ -228,52 +260,6 @@ No application source, dependency, workflow, package, test, build, or remediatio
 ### Next Action
 
 Obtain explicit operator approval before activating Batch `42.2`.
-
----
-
-## 2026-07-20 — Batch 42.1 Audit Scope Approved
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: AUDIT_SCOPE_APPROVAL  
-started_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-ended_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-git_state_status: RECORDED_NOT_VERIFIED  
-active_batch: 42.1  
-active_batch_title: GitHub and Repository Health Triage  
-completed_stage: Stage 0 — Scope Definition  
-current_stage: Stage 1 — Read-Only Audit  
-current_mode: AUDIT ONLY  
-audit_status: READY_NOT_STARTED  
-audit_allowed: true  
-implementation_allowed: false  
-repository_audit_performed_this_session: false  
-source_code_modified_this_session: false  
-tests_or_builds_run_this_session: false  
-next_mode: CODEX_PROMPT  
-
-### Work Completed
-
-The operator approved the read-only scope for Batch `42.1`.
-
-The approved audit covers fresh Git-state verification, GitHub security and automation findings, workflow inventory, package and lockfile indicators, tracked generated or runtime artifacts, documentation authority, and repository-health classification.
-
-The audit is classification-only. It prohibits repository modification, dependency mutation, workflow changes, remediation, cleanup, tests, builds, commits, merges, and pushes. Secret values must not be copied into reports.
-
-Stage 0 is complete. Stage 1 is ready but has not started. No repository or GitHub evidence was collected during this documentation update.
-
-### Important Decisions
-
-- `audit_allowed` is now `true`.
-- `implementation_allowed` remains `false`.
-- The required Codex mode is `AUDIT ONLY`.
-- Critical security evidence triggers an immediate stop and controlled security or recovery decision.
-- Missing access must be reported as `INSUFFICIENT_EVIDENCE`, not used to broaden scope.
-
-### Next Action
-
-Create one controlled Codex `AUDIT ONLY` prompt for Batch `42.1 — Stage 1`.
 
 ---
 

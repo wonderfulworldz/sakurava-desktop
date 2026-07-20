@@ -665,11 +665,15 @@ An exposed secret, compromised workflow, or active critical reachable vulnerabil
 
 **Status**
 
-`ACTIVE — STAGE 1 AUDIT READY`
+`ACTIVE — STAGE 2 PLAN READY`
 
-Audit permission: `APPROVED`
+Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`
 
 Implementation permission: `NOT_APPROVED`
+
+Stage 2 mode: `PLAN ONLY`
+
+Stage 2 plan status: `READY_NOT_STARTED`
 
 Vite dev-server execution: `NOT_APPROVED`
 
@@ -704,6 +708,20 @@ Corrective stabilization, not the central product roadmap and not a duplicate of
 * compatibility and migration decisions;
 * minimum unresolved corrective stabilization.
 
+**Approved Translation Direction**
+
+* English `en` is the sole built-in, installed-by-default, default, source, and fallback language.
+* Indonesian `id` and every other non-English language are user-managed and removable.
+* English is non-removable, CSV-editable, and resettable to the bundled original baseline.
+* Translation covers application-controlled frontend UI only; user-entered and stored catalog data remains untranslated and unchanged.
+* One normalized language code represents exactly one identity. Recognized and custom codes are supported without silent remapping.
+* Existing language metadata, overrides, selected-language state, and Translation values require non-destructive compatibility handling.
+* Every future feature batch must integrate its application-controlled frontend UI text into stable Translation keys and the English baseline from initial implementation.
+
+**Accepted Stage 1 Findings**
+
+The static audit completed without mutation and did not prove an active destructive migration or actual current user-data corruption. It identified the Indonesian built-in identity regression, non-atomic Translation persistence, unsafe CSV round-trip and historical-format compatibility gaps, malformed/legacy data preservation requirements, and Translation localStorage remaining outside the current Backup package. Backup/package inclusion remains assigned to Batches `42.6` and `42.7`.
+
 **Out of Scope**
 
 * redoing completed Batch `41.9` corrections without evidence of regression;
@@ -717,7 +735,7 @@ Corrective stabilization, not the central product roadmap and not a duplicate of
 
 **Expected Result**
 
-The unresolved Translation containment work has one controlled direction, completed Batch `41.9` behavior is preserved, and remaining release-facing work can proceed later through Batch `42.11` without duplication.
+The unresolved Translation containment work has one controlled direction, completed Batch `41.9` behavior is preserved, and Stage 2 planning must define the English-only transition, non-destructive `id` compatibility, English CSV edit/reset behavior, code identity rules, UI-only Translation boundary, future-feature gate, CSV adapters, atomic persistence, raw-data preservation, focused verification, rollback, and stop conditions. Implementation remains separately gated.
 
 ---
 
@@ -1381,17 +1399,20 @@ Batch `42.2 — Translation Containment` is active.
 
 Current state:
 
-- phase: `AUDIT_READY`;
-- current stage: `Stage 1 — Read-Only Translation Architecture Audit`;
-- mode: `AUDIT ONLY`;
-- audit status: `READY_FOR_RETRY_AFTER_PROJECT_OS_RECOVERY`;
-- audit permission: `APPROVED`;
+- phase: `PLAN_READY`;
+- current stage: `Stage 2 — Translation Containment Implementation Plan`;
+- mode: `PLAN ONLY`;
+- Stage 1 status: `COMPLETE`;
+- Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
+- Stage 2 plan status: `READY_NOT_STARTED`;
+- audit permission: `COMPLETE`;
+- plan permission: `APPROVED`;
 - implementation permission: `NOT_APPROVED`;
 - tests and builds: `NOT_APPROVED`;
 - Vite dev-server execution: `NOT_APPROVED`;
 - dependency remediation: `NOT_APPROVED`.
 
-Batch `42.2` continues only unresolved Translation containment work.
+Batch `42.2` continues only unresolved Translation containment work and the approved product direction: English `en` is the sole built-in/default/source/fallback language; Indonesian and every other non-English language are user-managed and removable; English is CSV-editable and resettable; Translation is frontend application-controlled UI only; one normalized code represents one identity; existing language data requires non-destructive compatibility; and every future feature is translation-ready from initial implementation.
 
 It must not:
 
@@ -1401,9 +1422,9 @@ It must not:
 - change package or Backup behavior;
 - modify dependencies;
 - start Vite before targeted security remediation;
-- begin implementation before audit and decision gates are complete.
+- begin implementation before the Stage 2 plan and decision gates are complete.
 
-### Stage 0 Approval and Stage 1 Gate
+### Stage 0 Approval and Stage 1 Closure
 
 The operator approved:
 
@@ -1418,11 +1439,17 @@ The operator approved:
 - final report format;
 - Definition of Done.
 
-Stage 1 may begin only through one controlled Codex `AUDIT ONLY` prompt that starts with fresh Git verification.
+Stage 1 began through one controlled Codex `AUDIT ONLY` prompt with fresh Git verification and is now complete.
 
-The first Stage 1 attempt stopped at Git preflight because approved Project OS updates were not yet committed. The audit must be retried after this documentation-only recovery commit; no Translation finding or roadmap reassignment resulted.
+The first Stage 1 attempt stopped at Git preflight because approved Project OS updates were not yet committed. The recovery commit synchronized the repository, after which the Stage 1 static audit completed with critical containment findings. No Translation source or data mutation occurred.
 
-During Stage 1:
+### Permanent Future-Feature Translation Gate
+
+Every future feature batch must integrate its application-controlled frontend UI text into the stable Translation system and English baseline as part of feature implementation. It must not defer fundamental Translation integration to Batch `42.11`.
+
+Feature batches may add only their own required keys, must keep user-entered data outside Translation, must preserve stable key identity, and must provide English fallback for missing custom-language values. Batch `42.11` performs final CSV refinement, release-critical coverage, shared-state coverage, fallback/missing-key regression, restart persistence, and release-facing validation after feature and shared-UI work is stable.
+
+Stage 1 closure records:
 
 - repository and source inspection must remain read-only;
 - implementation remains prohibited;
