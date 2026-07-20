@@ -33,13 +33,13 @@ last_completed_roadmap_batch_title: GitHub and Repository Health Triage
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
 active_batch: 42.2  
 active_batch_title: Translation Containment  
-active_batch_phase: PLAN_READY  
-active_batch_mode: PLAN ONLY  
+active_batch_phase: IMPLEMENTATION_GATE  
+active_batch_mode: FOUNDATION_ONLY_PENDING_APPROVAL  
 audit_status: COMPLETE_WITH_CRITICAL_CONTAINMENT_FINDINGS  
 audit_allowed: false  
-plan_status: READY_NOT_STARTED  
-plan_allowed: true  
-implementation_status: NOT_STARTED  
+plan_status: COMPLETE  
+plan_allowed: false  
+implementation_status: READY_PENDING_SEPARATE_APPROVAL  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
 vite_dev_server_allowed: false  
@@ -168,7 +168,7 @@ The approved roadmap is represented by Batch series `42.x`.
 - Batch `42.2 — Translation Containment`: `ACTIVE`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` Stage 1 static audit is complete with accepted critical containment findings. Stage 2 implementation planning is ready but not started.
+Batch `42.2` Stage 1 static audit and Stage 2 implementation plan are complete. The next planned sub-stage is `42.2A — Lossless Translation Storage Foundation`, under the `FOUNDATION_ONLY` strategy and pending separate approval.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -299,6 +299,21 @@ Recorded result:
 This closure evidence is based on the Codex report and is classified as:
 
 `REPORTED`
+
+### Interposed Security Prerequisite — Batch 42.13A
+
+Batch `42.13A — Targeted Vite Security Prerequisite` completed from starting baseline `65a4815505d7f268b66d5616541b770f9252d684`.
+
+Evidence class: `REPORTED_BY_CODEX_VERIFICATION`.
+
+- Vite was updated from `7.3.3` to `7.3.5`.
+- The targeted Vite high advisory was removed; the final audit reported no high or critical advisory and retained only four low and two moderate unrelated findings for full Batch `42.13`.
+- Controlled full-suite A/B verification found no patch-specific failure. The complete suite remains not fully passing.
+- The cover-preview timeout was reproduced on Vite `7.3.3` and classified as a baseline-flaky test, not a Vite `7.3.5` regression.
+- The final production build passed. No Vite dev server, Tauri process, application runtime, or smoke test ran.
+- No application, Translation, Rust, database, Backup, workflow, or test source changed.
+
+Batch `42.2` Stage 2 planning remains complete. Its next planned sub-stage is `42.2A — Lossless Translation Storage Foundation`, using `FOUNDATION_ONLY`; implementation remains pending a separate controlled approval.
 
 ### Legacy Translation Correction — Batch 41.9
 
@@ -554,14 +569,14 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-Create one controlled Codex prompt for:
+Review the completed Batch `42.13A` evidence before considering one separately approved prompt for:
 
-`Batch 42.2 — Stage 2: Translation Containment Implementation Plan`
+`Batch 42.2A — Lossless Translation Storage Foundation`
 
 Required mode:
 
-`PLAN ONLY`
+`FOUNDATION_ONLY IMPLEMENTATION`
 
-The prompt must define exact source files, English-only built-in transition, non-destructive existing-language compatibility, language-code identity, English CSV edit/reset, UI-only Translation scope, future-feature gate, CSV adapters, atomic persistence, raw-data preservation, focused verification, rollback, and stop conditions.
+The scope must be limited to a new storage primitive and dedicated focused tests. It must preserve public runtime APIs and must not integrate callers, change the language registry, CSV, Settings, or runtime Translation behavior.
 
-Do not authorize implementation, Translation-data mutation, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, package changes, Backup changes, commit, merge, or push.
+Implementation remains unapproved until that separate controlled approval.

@@ -75,6 +75,25 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-20 — Verified Vite Security Prerequisite Closed
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: TARGETED_SECURITY_PREREQUISITE_CLOSURE  
+active_batch: 42.2  
+completed_stage: Batch 42.13A — Targeted Vite Security Prerequisite  
+current_stage: 42.2A — Lossless Translation Storage Foundation  
+implementation_allowed: false  
+
+### Work Completed
+
+Vite was updated to `7.3.5`, removing the targeted high advisory. Controlled A/B verification found no patch-specific test or build regression; the additional cover-preview timeout reproduced on the Vite `7.3.3` baseline and was classified as flaky. The complete suite retains pre-existing failures and is not fully passing. The final production build passed; no dev server or application runtime was started.
+
+### Next Action
+
+The two-commit closure returns Batch `42.2` to `42.2A` under the `FOUNDATION_ONLY` strategy, pending separate approval. Full dependency remediation remains deferred.
+
 ## 2026-07-20 — Translation Audit Accepted and Product Boundary Approved
 
 ### Session Metadata
@@ -220,46 +239,6 @@ No repository inspection, Translation audit, source modification, test, build, V
 ### Next Action
 
 Approve or revise the proposed read-only Translation audit scope.
-
----
-
-## 2026-07-20 — Batch 42.1 Closed and Project OS Tracking Established
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: BATCH_CLOSURE  
-started_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-ended_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
-git_state_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
-completed_batch: 42.1  
-completed_batch_title: GitHub and Repository Health Triage  
-closure_commit: 528246899386f960a1cce0b6f4bc4cba03b5315b  
-tracked_worktree_at_end: CLEAN_REPORTED  
-remaining_untracked_entries: 97  
-manual_smoke_status: LOCAL_AND_UNTRACKED  
-implementation_allowed: false  
-
-### Work Completed
-
-Batch `42.1` closed after a documentation-only commit tracked the nine approved Project OS authority files.
-
-The closure report states that local and remote `main` synchronized at the closure commit, the tracked worktree and staged state were clean, and `manual-smoke/` remained local and untracked.
-
-Seven Dependabot alerts were classified. No immediate production security blocker was proven.
-
-No application source, dependency, workflow, package, test, build, or remediation change was included.
-
-### Important Decisions
-
-- Project OS authority files are tracked.
-- Dependency findings remain assigned to Batch `42.13`.
-- Vite dev-server work requires targeted security remediation first.
-- Batch `42.2` remained pending until explicit activation.
-
-### Next Action
-
-Obtain explicit operator approval before activating Batch `42.2`.
 
 ---
 

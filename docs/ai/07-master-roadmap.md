@@ -1101,6 +1101,12 @@ A professional repository structure with preserved recovery and history.
 
 ### Batch 42.13 — Dependency and Security Remediation
 
+**Interposed completed prerequisite — Batch 42.13A**
+
+`42.13A — Targeted Vite Security Prerequisite` completed before Translation implementation. Vite `7.3.5` removed the targeted high finding. Controlled full-suite A/B verification and focused flake characterization did not prove a patch regression: the cover-preview timeout also reproduced on the Vite `7.3.3` baseline and remains separately classified as flaky. Full dependency and security remediation remains assigned to Batch `42.13`; the main roadmap order is unchanged.
+
+Batch `42.2` resumes only at `42.2A — Lossless Translation Storage Foundation` under the `FOUNDATION_ONLY` strategy, pending separate approval. Runtime Translation smoke remains separately gated by disposable WebView-profile isolation.
+
 **Goal**
 
 Resolve proven release-relevant dependency and supply-chain risks.
@@ -1399,14 +1405,14 @@ Batch `42.2 — Translation Containment` is active.
 
 Current state:
 
-- phase: `PLAN_READY`;
-- current stage: `Stage 2 — Translation Containment Implementation Plan`;
-- mode: `PLAN ONLY`;
+- phase: `IMPLEMENTATION_GATE`;
+- current stage: `42.2A — Lossless Translation Storage Foundation`;
+- mode: `FOUNDATION_ONLY`;
 - Stage 1 status: `COMPLETE`;
 - Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
-- Stage 2 plan status: `READY_NOT_STARTED`;
+- Stage 2 plan status: `COMPLETE`;
 - audit permission: `COMPLETE`;
-- plan permission: `APPROVED`;
+- plan permission: `COMPLETE`;
 - implementation permission: `NOT_APPROVED`;
 - tests and builds: `NOT_APPROVED`;
 - Vite dev-server execution: `NOT_APPROVED`;
@@ -1421,8 +1427,7 @@ It must not:
 - redesign Settings or UI;
 - change package or Backup behavior;
 - modify dependencies;
-- start Vite before targeted security remediation;
-- begin implementation before the Stage 2 plan and decision gates are complete.
+- begin implementation before the separate 42.2A approval.
 
 ### Stage 0 Approval and Stage 1 Closure
 

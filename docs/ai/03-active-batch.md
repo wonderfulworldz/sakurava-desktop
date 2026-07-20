@@ -5,15 +5,15 @@
 batch: 42.2  
 title: Translation Containment  
 status: ACTIVE  
-phase: PLAN_READY  
-current_stage: Stage 2 — Translation Containment Implementation Plan  
-current_mode: PLAN ONLY  
+phase: IMPLEMENTATION_GATE  
+current_stage: 42.2A — Lossless Translation Storage Foundation  
+current_mode: FOUNDATION_ONLY  
 stage_1_status: COMPLETE  
 stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
 audit_allowed: false  
-plan_status: READY_NOT_STARTED  
-plan_allowed: true  
-implementation_status: NOT_STARTED  
+plan_status: COMPLETE  
+plan_allowed: false  
+implementation_status: READY_PENDING_SEPARATE_APPROVAL  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
 vite_dev_server_allowed: false  
@@ -31,7 +31,12 @@ stop_reason: APPROVED_PROJECT_OS_CHANGES_NOT_YET_COMMITTED
 translation_source_inspected: true  
 first_attempt_translation_source_inspected: false  
 recovery_status: RESOLVED_BY_THIS_DOCUMENTATION_COMMIT  
-next_action: begin Stage 2 through a separate controlled PLAN ONLY prompt  
+interposed_prerequisite: Batch 42.13A — Targeted Vite Security Prerequisite (COMPLETED)  
+vite_security_prerequisite: SATISFIED  
+targeted_vite_high_advisory: REMOVED  
+full_batch_42_13: DEFERRED  
+selected_strategy: FOUNDATION_ONLY  
+next_action: review results and separately approve 42.2A foundation-only implementation  
 
 previous_batch: 42.1  
 previous_batch_title: GitHub and Repository Health Triage  
@@ -209,15 +214,25 @@ Stage 1 completed as a static read-only audit from baseline `1e0d6dd13e55f36f6ba
 
 ### Stage 2 — Translation Containment Implementation Plan
 
-**Status:** READY_NOT_STARTED  
-**Mode:** PLAN ONLY  
-**Plan Allowed:** Yes  
+**Status:** COMPLETE  
+**Mode:** PLAN ONLY (closed)  
+**Plan Allowed:** No  
 **Implementation Allowed:** No  
 **Tests and Builds Allowed:** No  
 **Vite Dev Server Allowed:** No  
 **Dependency Remediation Allowed:** No  
 
 Stage 2 may define exact files, sequencing, compatibility, rollback, stop conditions, focused tests, and disposable verification. It must not implement or execute them.
+
+### Stage 42.2A — Lossless Translation Storage Foundation
+
+**Status:** READY_PENDING_SEPARATE_APPROVAL  
+**Mode:** FOUNDATION_ONLY  
+**Implementation Allowed:** No  
+**Tests and Builds Allowed:** No  
+**Runtime Verification Allowed:** No  
+
+The approved foundation-only boundary is a new storage primitive and dedicated focused tests only. It must preserve current public runtime APIs and must not integrate callers, replace runtime APIs, change the language registry, change CSV behavior, change Settings, or change runtime Translation behavior.
 
 ---
 
@@ -528,14 +543,14 @@ when active unresolved feedback exists.
 
 ## 19. Next Recommended Action
 
-Create one controlled Codex prompt for:
+After Result Review, separately approve or decline a controlled prompt for:
 
-`Batch 42.2 — Stage 2: Translation Containment Implementation Plan`
+`Batch 42.2A — Lossless Translation Storage Foundation`
 
 Required mode:
 
-`PLAN ONLY`
+`FOUNDATION_ONLY`
 
-The prompt must define exact files, English-only built-in transition, non-destructive existing-language compatibility, language-code identity, English CSV edit/reset, UI-only Translation scope, future-feature gate, CSV adapters, atomic persistence, raw-data preservation, focused verification, rollback, and stop conditions.
+The work must remain limited to the storage primitive and dedicated focused tests, with no caller integration or current runtime behavior change.
 
-Do not authorize implementation, Translation-data mutation, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, package changes, Backup changes, commit, merge, or push.
+Implementation is not currently authorized.
