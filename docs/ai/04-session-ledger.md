@@ -75,82 +75,159 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-20 — Batch 42.2 Audit Preflight Stopped for Project OS Recovery
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: AUDIT_PREFLIGHT_STOP_AND_PROJECT_OS_RECOVERY  
+starting_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
+active_batch: 42.2  
+current_stage: Stage 1 — Read-Only Translation Architecture Audit  
+current_mode: AUDIT ONLY  
+translation_source_inspected: false  
+implementation_allowed: false  
+
+### Work Completed
+
+The expected `main` baseline was checked out, but four approved Project OS files were modified. Stage 1 stopped before authority-file and Translation-source inspection.
+
+No source, data, dependency, test, build, server, or Git-ref mutation occurred. The operator approved keeping and committing the documentation.
+
+### Next Action
+
+Retry Stage 1 separately after this documentation-only recovery commit is synchronized.
+
+---
+
+## 2026-07-20 — Batch 42.2 Translation Audit Scope Approved
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: AUDIT_SCOPE_APPROVAL  
+starting_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
+baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
+active_batch: 42.2  
+active_batch_title: Translation Containment  
+completed_stage: Stage 0 — Scope Definition  
+current_stage: Stage 1 — Read-Only Translation Architecture Audit  
+current_mode: AUDIT ONLY  
+audit_status: READY_NOT_STARTED  
+audit_allowed: true  
+implementation_allowed: false  
+tests_and_builds_allowed: false  
+vite_dev_server_allowed: false  
+dependency_remediation_allowed: false  
+next_mode: CODEX_PROMPT  
+
+### Work Completed
+
+The operator approved the Batch `42.2` read-only Translation audit contract.
+
+The approved scope covers architecture and file boundaries, English core behavior, user-managed languages, storage and persistence, fallback and missing keys, CSV compatibility, Settings integration, existing-data safety, compatibility, migration assessment, and historical separation between completed Batch `41.9`, current Batch `42.2`, and deferred Batch `42.11`.
+
+Audit execution remains static and read-only. It prohibits source or data modification, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, commit, merge, and push.
+
+### Important Decisions
+
+- Stage 0 is complete.
+- Stage 1 is ready but not started.
+- `audit_allowed` is true only for the approved read-only scope.
+- Implementation remains prohibited.
+- The audit must begin with fresh Git preflight and stop on unexpected repository state.
+- Vite dev-server execution remains prohibited pending targeted security remediation.
+
+### Next Action
+
+Create one controlled Codex `AUDIT ONLY` prompt for Batch `42.2 — Stage 1`.
+
+
+## 2026-07-20 — Batch 42.2 Activated for Translation Audit Scope Definition
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: BATCH_ACTIVATION  
+starting_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
+baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
+previous_batch: 42.1  
+previous_batch_status: COMPLETED_AND_CLOSED  
+active_batch: 42.2  
+active_batch_title: Translation Containment  
+current_stage: Stage 0 — Scope Definition  
+current_mode: DISCUSSION  
+audit_allowed: false  
+implementation_allowed: false  
+tests_and_builds_allowed: false  
+vite_dev_server_allowed: false  
+dependency_remediation_allowed: false  
+next_mode: DISCUSSION  
+
+### Work Completed
+
+The operator approved activation of Batch `42.2 — Translation Containment`.
+
+Batch `42.2` begins with audit-scope definition only.
+
+It continues unresolved Translation containment questions without repeating the corrective work completed in Batch `41.9`.
+
+Release-facing Translation completion remains assigned to Batch `42.11`.
+
+No repository inspection, Translation audit, source modification, test, build, Vite dev-server execution, dependency remediation, migration, commit, merge, or push occurred during activation.
+
+### Important Decisions
+
+- Batch `42.2` is active.
+- Audit execution remains not approved.
+- Implementation remains not approved.
+- Vite dev-server execution remains prohibited pending targeted security remediation.
+- Dependency and security remediation remain separate from Translation.
+- Stage 0 must define evidence sources, data-safety rules, compatibility boundaries, report format, and stop conditions.
+
+### Next Action
+
+Approve or revise the proposed read-only Translation audit scope.
+
+---
+
 ## 2026-07-20 — Batch 42.1 Closed and Project OS Tracking Established
 
 ### Session Metadata
 
 date: 2026-07-20  
-session_type: BATCH_CLOSURE_AND_PROJECT_OS_TRACKING  
+session_type: BATCH_CLOSURE  
 started_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-ended_baseline: THIS_DOCUMENTATION_COMMIT  
-active_batch: 42.2  
-active_batch_title: Translation Containment  
-active_batch_status: PENDING_ACTIVATION  
+ended_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
+git_state_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
 completed_batch: 42.1  
-completed_stage: Stage 2 — Project OS Tracking and Git Closure  
+completed_batch_title: GitHub and Repository Health Triage  
+closure_commit: 528246899386f960a1cce0b6f4bc4cba03b5315b  
+tracked_worktree_at_end: CLEAN_REPORTED  
+remaining_untracked_entries: 97  
+manual_smoke_status: LOCAL_AND_UNTRACKED  
 implementation_allowed: false  
 
 ### Work Completed
 
-Batch `42.1` audit and closure were completed. No immediate security blocker was proven, and seven Dependabot alerts were classified.
+Batch `42.1` closed after a documentation-only commit tracked the nine approved Project OS authority files.
 
-Local and GitHub `main` matched before closure. Project OS tracking policy was applied and only the approved Project OS authority files were included. `manual-smoke/` remained local and untracked.
+The closure report states that local and remote `main` synchronized at the closure commit, the tracked worktree and staged state were clean, and `manual-smoke/` remained local and untracked.
 
-No application source, dependency, workflow, package, test, or build change was made.
+Seven Dependabot alerts were classified. No immediate production security blocker was proven.
 
-Closure commit reference:
-
-`THIS_DOCUMENTATION_COMMIT`
-
-### Next Action
-
-`42.2 — Translation Containment`
-
-Next batch status:
-
-`PENDING_ACTIVATION`
-
-## 2026-07-20 — Batch 42.1 Audit Completed and Project OS Tracking Approved
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: AUDIT_RESULT_REVIEW_AND_GOVERNANCE_DECISION  
-started_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-ended_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-git_state_status: PROVEN_AT_AUDIT_TIME  
-active_batch: 42.1  
-active_batch_title: GitHub and Repository Health Triage  
-completed_stage: Stage 1 — Read-Only Audit and Evidence Reconciliation  
-current_stage: Stage 2 — Project OS Tracking and Git Closure  
-current_mode: CLOSURE  
-audit_status: COMPLETE_WITH_CLASSIFIED_FINDINGS  
-audit_allowed: false  
-implementation_allowed: false  
-project_os_tracking_policy: TRACK_IN_REPOSITORY  
-next_mode: CODEX_PROMPT  
-
-### Work Completed
-
-The Batch `42.1` audit verified local and GitHub `main` at `f41abe6eb582e72d8253ef75c4519ce93c2fa405`, with no staged or tracked changes and 106 untracked entries.
-
-Seven open Dependabot alerts were classified. No immediate production security blocker was proven. Vite `7.3.3` remains affected by two alerts; targeted remediation is required before future work that starts the Vite development server. Other dependency findings were assigned to Batch `42.13`, React Router was classified as not currently reachable, and version `0.0.0` was assigned to Batch `42.14`.
-
-GitHub evidence showed code scanning and secret scanning disabled, no classic branch protection, and no repository rulesets. A dynamic CodeQL run created during evidence collection failed at startup and produced no scanning result. No persistent scanning configuration or repository-file mutation was observed.
-
-The operator approved tracking the Project OS authority files in the repository. `manual-smoke/`, runtime databases, temporary exports, logs, generated smoke artifacts, build output, and dependency directories remain local and untracked.
+No application source, dependency, workflow, package, test, build, or remediation change was included.
 
 ### Important Decisions
 
-- Batch `42.1` moves to closure preparation.
-- Project OS tracking is approved.
-- Implementation and dependency remediation remain prohibited.
-- Batch `42.2` may begin only after Batch `42.1` closure.
-- Batch `42.2` implementation or dev-server execution must wait for the required security-remediation decision.
+- Project OS authority files are tracked.
+- Dependency findings remain assigned to Batch `42.13`.
+- Vite dev-server work requires targeted security remediation first.
+- Batch `42.2` remained pending until explicit activation.
 
 ### Next Action
 
-Create one controlled Codex `CLOSURE` prompt that updates and stages only the approved Project OS paths, verifies the staged diff, creates one documentation-only commit, synchronizes safely, and reports the new baseline.
+Obtain explicit operator approval before activating Batch `42.2`.
 
 ---
 
@@ -197,116 +274,6 @@ Stage 0 is complete. Stage 1 is ready but has not started. No repository or GitH
 ### Next Action
 
 Create one controlled Codex `AUDIT ONLY` prompt for Batch `42.1 — Stage 1`.
-
----
-
-## 2026-07-20 — Batch 41.9 Closure Corrected and Translation Plan Consolidated
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: BATCH_CLOSURE_CORRECTION_AND_ROADMAP_CONSOLIDATION  
-started_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-ended_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-git_state_status: RECORDED_NOT_VERIFIED  
-legacy_batch_series: 41.x  
-legacy_batch_series_status: CLOSED  
-last_completed_batch: 41.9  
-last_completed_batch_title: Translation Containment and Architecture Baseline  
-last_completed_batch_status: COMPLETED_AND_CLOSED  
-last_completed_batch_type: CORRECTIVE_TRANSLATION_REPAIR  
-previous_feature_batch: 41.8.5C  
-completed_roadmap_batch: 42.0  
-active_batch: 42.1  
-active_batch_title: GitHub and Repository Health Triage  
-active_batch_phase: AUDIT_SCOPE_DEFINITION  
-active_batch_mode: DISCUSSION  
-audit_allowed: false  
-implementation_allowed: false  
-repository_audit_performed_this_session: false  
-source_code_modified_this_session: false  
-tests_or_builds_run_this_session: false  
-next_mode: DISCUSSION  
-
-### Work Completed
-
-The operator clarified the historical role and closure of Batch `41.9`.
-
-Recorded correction:
-
-- Batch `41.9` was the corrective batch for the Translation section changed by Codex outside approved scope;
-- that corrective scope is completed and Batch `41.9` is closed;
-- completed corrections remain part of Batch `41.9` history and must not be repeated;
-- unresolved Translation architecture audit and containment work is consolidated into Batch `42.2`;
-- release-facing Translation completion is consolidated into Batch `42.11`;
-- Batch `42.2` and Batch `42.11` continue unresolved work rather than duplicating completed Batch `41.9` work;
-- Batch `42.0 — Master Roadmap and Project OS Baseline` remains completed;
-- Batch `42.1 — GitHub and Repository Health Triage` remains active in Discussion.
-
-Project OS documentation was corrected to reflect this interpretation.
-
-No new repository audit, GitHub inspection, source modification, test, build, dependency action, package change, commit, merge, or push was performed during this documentation correction.
-
-### Important Decisions
-
-- Legacy Batch series `41.x` remains closed.
-- Batch `41.9` is recorded as `COMPLETED_AND_CLOSED`.
-- Batch `41.9` completed only its approved corrective Translation scope.
-- Completed Batch `41.9` work remains historical.
-- Unfinished Translation plans are not deleted.
-- Unfinished containment work belongs to Batch `42.2`.
-- Release-facing Translation completion belongs to Batch `42.11`.
-- Active Locks remain authoritative.
-- Batch `42.1` audit execution still requires explicit scope approval.
-
-### Repository State
-
-The last recorded repository baseline remains:
-
-`f41abe6eb582e72d8253ef75c4519ce93c2fa405`
-
-The repository state and historical Batch `41.9` evidence were not freshly re-verified during this documentation correction.
-
-### Blockers and Risks
-
-- Batch `42.1` audit scope is not approved.
-- Current Git state has not been freshly verified.
-- Automated GitHub findings remain unknown.
-- Translation work must not be duplicated between completed Batch `41.9`, planned Batch `42.2`, and planned Batch `42.11`.
-
-### Next Action
-
-Continue Batch `42.1` in Discussion and define the exact read-only GitHub and Repository Health Triage scope.
-
-Do not begin technical inspection or remediation yet.
-
----
-
-## 2026-07-20 — Master Roadmap Re-Baseline and Documentation Review
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: PRODUCT_ROADMAP_REBASELINE_AND_DOCUMENTATION_REVIEW  
-started_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-ended_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405  
-git_state_status: RECORDED_NOT_VERIFIED  
-completed_stage: DOCUMENTATION_CONSISTENCY_REVIEW  
-active_batch_at_time: 41.9  
-implementation_allowed: false  
-repository_audit_performed: false  
-source_code_modified: false  
-tests_or_builds_run: false  
-
-### Work Completed
-
-The product roadmap was re-baselined toward a stable Windows Private Pilot release. Core decisions for `.skv`, managed mini images, full-page Forms, non-destructive feature controls, Translation containment, Windows 64-bit, repository health, dependencies, and packaging were aligned across Project OS documents.
-
-No technical repository work occurred.
-
-### Next Action at the Time
-
-Finalize documentation consistency and decide the operational batch-series transition.
 
 ---
 
