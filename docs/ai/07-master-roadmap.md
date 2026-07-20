@@ -1,0 +1,1538 @@
+# Sakurava Master Roadmap
+
+## 1. Document Metadata
+
+document: Sakurava Master Roadmap
+status: APPROVED_PRODUCT_BASELINE
+approved_at: 2026-07-20
+release_target: PRIVATE_PILOT
+implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
+repository_audit_status: BATCH_42_1_CLOSED
+technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
+last_recorded_git_baseline: f41abe6eb582e72d8253ef75c4519ce93c2fa405
+legacy_batch_series: 41.x
+legacy_batch_series_status: CLOSED
+new_batch_series: 42.x
+completed_baseline_batch: 42.0
+active_batch: 42.2
+active_batch_status: PENDING_ACTIVATION
+batch_42_1_closure_reference: THIS_DOCUMENTATION_COMMIT
+
+---
+
+## 2. Purpose
+
+This document defines the product-level roadmap for bringing Sakurava from its recorded functional state to a stable Windows desktop Private Pilot release.
+
+This roadmap covers the overall product direction. It must not be interpreted as implementation permission.
+
+Implementation, repository inspection, package changes, migrations, dependency changes, and source-code modification still require:
+
+* an approved Active Batch;
+* explicit In Scope and Out of Scope;
+* applicable Active Locks;
+* proportional risk assessment;
+* audit when current implementation is unknown;
+* verification and recovery requirements.
+
+Technical claims in this document that have not been verified against the current repository must be treated as:
+
+`UNKNOWN`
+
+until proven through fresh repository evidence.
+
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`, beginning with completed Batch `42.0` and active Batch `42.1`.
+
+---
+
+## 3. Product Vision
+
+Sakurava is a React and Tauri desktop catalog application.
+
+The final product should be:
+
+* comfortable to use;
+* stable;
+* responsive as the catalog grows;
+* efficient on lower-resource Windows computers;
+* safe for user data;
+* visually and behaviorally consistent;
+* maintainable;
+* supported by a professional repository;
+* installable by ordinary Windows users;
+* distributable directly without an application store.
+
+Sakurava development should prioritize:
+
+1. data safety;
+2. stability;
+3. measurable performance;
+4. maintainability;
+5. UI consistency;
+6. controlled release engineering;
+7. avoidance of unnecessary complexity.
+
+Existing working behavior must be preserved unless a separate product decision explicitly approves a change.
+
+---
+
+## 4. Release Baseline
+
+### 4.1 Release Type
+
+The first planned release is:
+
+`PRIVATE_PILOT`
+
+The Private Pilot will be distributed directly to the operator and selected users.
+
+The first release does not require distribution through:
+
+* Microsoft Store;
+* another application store;
+* a public application marketplace;
+* a public automatic-update channel.
+
+### 4.2 Windows Platform
+
+The approved direction is:
+
+* Windows 64-bit only;
+* Windows 32-bit is not planned;
+* Windows 11 64-bit is the recommended platform;
+* Windows 10 64-bit may remain a compatibility target for the Private Pilot;
+* minimum RAM target is 4 GB;
+* Windows ARM64 is not part of the first release scope.
+
+The exact minimum supported Windows build must be decided after the current Tauri, WebView2, installer, and runtime requirements are audited.
+
+### 4.3 Catalog Scale
+
+Sakurava must not introduce an artificial product limit on:
+
+* Work;
+* Performer;
+* Credits;
+* Categories;
+* Glossary records;
+* metadata;
+* relationships;
+* managed mini images.
+
+Actual capacity depends on:
+
+* available storage;
+* RAM;
+* CPU capability;
+* database size;
+* relationship volume;
+* query efficiency;
+* image count and size.
+
+The initial release acceptance dataset must contain at least:
+
+* 1,000 Work records;
+* representative Performer and Credit relationships;
+* representative Categories and Glossary data;
+* representative managed mini images;
+* representative filtering and search usage.
+
+The term “unlimited” means that Sakurava does not impose an arbitrary product limit. It does not guarantee identical performance at every data volume or on every device.
+
+---
+
+## 5. Approved Product Decisions
+
+The following product decisions are approved.
+
+### 5.1 Distribution
+
+* The first release is a Private Pilot.
+* Sakurava is distributed through a direct Windows installer.
+* Application-store distribution is not planned.
+* Manual installer updates are sufficient for the first release.
+* Auto-update is not release-critical.
+
+### 5.2 Platform
+
+* Windows 32-bit is excluded.
+* Windows 64-bit is the target.
+* Minimum RAM is 4 GB.
+* Exact minimum Windows build remains subject to technical audit.
+
+### 5.3 Forms
+
+* Existing forms remain full pages.
+* Forms will not be converted into modals or drawers.
+* Form polish may improve consistency, states, spacing, and interaction without changing the established workflow.
+
+### 5.4 Backup Package
+
+* The existing backup extension remains `.skv`.
+* `.skv` is not a new format introduced by this roadmap.
+* The current internal package structure is unknown until audited.
+* The `.skv` format must not change silently.
+* Compatibility with existing `.skv` packages must be considered before any internal format change.
+
+### 5.5 Managed Mini Images
+
+* Sakurava does not store full external image and video media as part of the catalog backup.
+* Full media is referenced through its source, path, stream, URL, or related metadata.
+* Sakurava creates a smaller local image representation when relevant media is added.
+* This smaller image is a managed catalog asset, not disposable cache.
+* Managed mini images must be included in `.skv` Backup.
+* Managed mini images must remain available after Restore even when the original source cannot be reached.
+* A failed regenerate operation must not delete or replace the last valid mini image.
+* Managed mini images must not be deleted through a generic Clear Cache action.
+
+### 5.6 Image Optimization
+
+The primary optimization method should be:
+
+1. resize to dimensions appropriate for the actual UI context;
+2. preserve aspect ratio or use controlled cropping;
+3. use an efficient and well-supported image format;
+4. use moderate encoding quality;
+5. avoid destructive compression;
+6. avoid enlarging a source that is already smaller than the target.
+
+PPI or DPI is not the primary control for application display size.
+
+Example dimensions such as:
+
+* `1920 × 1080` to `192 × 108`;
+* square images to `32 × 32`;
+
+are illustrative only.
+
+Final dimensions, profiles, crop behavior, format, and encoding quality must be based on an audit of the actual application layout and Windows display scaling.
+
+### 5.7 Configurable Catalog Features
+
+Explicit catalog features such as:
+
+* Cup Size;
+* three Body Size measurements;
+* other explicitly approved fields;
+
+may be enabled or disabled through Settings.
+
+Disabling a feature must:
+
+* hide the relevant field from normal UI use;
+* hide its related filters;
+* preserve all stored values;
+* preserve the values in Backup;
+* avoid database deletion or migration;
+* restore the values when the feature is enabled again.
+
+Feature configuration must:
+
+* persist after restart;
+* be included in Backup and Restore;
+* survive application upgrade;
+* use stable internal feature keys;
+* not depend on translated labels.
+
+This system must remain an explicit feature registry.
+
+It must not become:
+
+* a plugin system;
+* a free-form custom-field builder;
+* a database schema editor;
+* a remote feature-flag service;
+* configuration per individual Work.
+
+### 5.8 UI Polish
+
+Approved UI polish directions include:
+
+* simplifying the initial interface;
+* using a search icon as the initial search state where appropriate;
+* expanding the search field when activated;
+* using light and efficient transitions;
+* maintaining keyboard navigation;
+* maintaining visible focus states;
+* providing consistent hover, pressed, selected, disabled, warning, success, and error states;
+* allowing interface animations to be disabled through Settings;
+* respecting reduced-motion behavior;
+* keeping existing workflows unless a separate change is approved.
+
+### 5.9 Icons
+
+Sakurava requires two coordinated icon systems:
+
+1. application identity icons;
+2. interface semantic icons.
+
+Application identity should eventually be consistent across:
+
+* executable;
+* application window;
+* taskbar;
+* Alt+Tab;
+* Start Menu;
+* Desktop shortcut when used;
+* installer;
+* uninstaller;
+* Windows application listing.
+
+Interface icons should use consistent semantic mappings for actions and content types such as:
+
+* Video;
+* Image;
+* Search;
+* Add;
+* Edit;
+* Delete;
+* Settings;
+* Backup;
+* Restore;
+* Warning.
+
+The current repository implementation and icon coverage remain unknown until audited.
+
+### 5.10 GitHub Findings
+
+Automated GitHub findings must be included in the project plan.
+
+Automated findings must first be classified, not automatically fixed.
+
+Possible categories include:
+
+* dependency alerts;
+* code scanning;
+* secret scanning;
+* GitHub Actions warnings;
+* deprecated Actions;
+* workflow failure;
+* repository security settings;
+* code-quality findings.
+
+A finding may be classified as:
+
+* immediate security blocker;
+* release-critical remediation;
+* dedicated dependency work;
+* repository or CI maintenance;
+* documented false positive;
+* optional backlog.
+
+Dependency or security remediation must not be mixed into an unrelated feature batch.
+
+---
+
+## 6. Media and Cache Classification
+
+Sakurava must distinguish between managed catalog assets and disposable cache.
+
+| Data Type                          | Product Classification            | Included in Backup |          Safe to Clear as Cache |
+| ---------------------------------- | --------------------------------- | -----------------: | ------------------------------: |
+| Database and catalog records       | Primary user data                 |                Yes |                              No |
+| Media source references            | Primary catalog metadata          |                Yes |                              No |
+| Full external image or video media | External source data              |                 No |         Not managed by Sakurava |
+| Managed mini images                | Managed catalog assets            |                Yes |                              No |
+| Temporary decoded image cache      | Disposable cache                  |                 No |                             Yes |
+| Temporary metadata cache           | Disposable cache when implemented |                 No |                             Yes |
+| Temporary logs and generated files | Temporary or diagnostic data      |                 No | Yes, subject to evidence policy |
+
+The UI must not use an ambiguous action that could cause managed mini images to be deleted as though they were disposable cache.
+
+---
+
+## 7. Backup and Restore Direction
+
+The product-level Backup target is:
+
+`SAKURAVA FULL CATALOG BACKUP`
+
+“Full” means all user data and managed assets controlled by Sakurava. It does not mean full external videos and images.
+
+### 7.1 Required Backup Contents
+
+Subject to technical audit, the intended `.skv` Backup includes:
+
+* database;
+* Work records;
+* Image records;
+* Performer records;
+* Credits;
+* Categories;
+* Glossary;
+* metadata;
+* relationships;
+* public references;
+* media source references;
+* managed mini images;
+* Settings;
+* configurable feature state;
+* saved filters or persistent filter configuration;
+* user-managed translations;
+* application configuration;
+* application version;
+* backup package version;
+* integrity metadata.
+
+### 7.2 Intended Backup Exclusions
+
+The intended `.skv` Backup excludes:
+
+* full external video files;
+* full external image files;
+* disposable image cache;
+* decode cache;
+* temporary metadata cache;
+* temporary logs;
+* temporary export files;
+* build output;
+* development evidence;
+* test artifacts.
+
+### 7.3 Required Restore Safety
+
+The final Restore design must provide, when technically applicable:
+
+* package preflight validation;
+* package-version validation;
+* integrity validation;
+* corruption detection;
+* safety backup of the existing state;
+* staging before final replacement;
+* atomic completion;
+* rollback on failure;
+* no partially restored state;
+* compatibility handling;
+* migration handling;
+* restart verification.
+
+The actual existing behavior remains unknown until a dedicated audit is performed.
+
+---
+
+## 8. Performance Direction
+
+Performance work must begin with measurement.
+
+The project must not assume that every candidate optimization is required.
+
+### 8.1 Measurements
+
+Relevant measurements include:
+
+* startup time;
+* initial Catalog loading;
+* search response;
+* filter response;
+* sorting;
+* Catalog scrolling;
+* Detail navigation;
+* image decode behavior;
+* memory usage;
+* database query behavior;
+* render count;
+* managed mini-image size;
+* Backup package size.
+
+### 8.2 Preferred Early Optimizations
+
+High-value candidates include:
+
+* appropriately sized managed mini images;
+* automatic mini-image generation when media is added;
+* safe regenerate behavior;
+* lazy image loading;
+* asynchronous image decoding;
+* search debounce;
+* appropriate database indexes;
+* efficient database queries;
+* avoiding loading all unnecessary data into memory;
+* limiting unnecessary component rerenders.
+
+### 8.3 Conditional Optimizations
+
+The following must only be introduced when measurements show a real need:
+
+* database pagination;
+* virtualized grid or list;
+* metadata cache;
+* automatic cache size limits;
+* LRU cleanup;
+* configurable thumbnail quality;
+* low-resource mode;
+* multiple managed mini-image profiles.
+
+### 8.4 Deferred Complexity
+
+The following are not first-release requirements:
+
+* generalized cache platform;
+* complex background-job framework;
+* media deduplication;
+* automatic hardware detection;
+* many thumbnail variants;
+* automatic regeneration of all mini images at startup;
+* automatic regeneration of all mini images after Restore.
+
+---
+
+## 9. Design System Direction
+
+Sakurava should move toward shared visual and interaction foundations similar to global reusable elements.
+
+The goal is to reduce local duplication while preserving working behavior.
+
+### 9.1 Foundation Candidates
+
+* color tokens;
+* typography;
+* spacing;
+* border radius;
+* shadow and elevation;
+* layout density;
+* icon sizing;
+* motion;
+* transition;
+* focus state;
+* reduced-motion handling.
+
+### 9.2 Shared Component Candidates
+
+* Button;
+* Input;
+* Search;
+* Select;
+* Checkbox;
+* Card;
+* Catalog Card;
+* Table;
+* Dialog;
+* Tab;
+* Tooltip;
+* Dropdown;
+* Notification;
+* Empty State;
+* Error State;
+* Loading State;
+* Status Badge;
+* Page Header;
+* Section Header;
+* Action Bar.
+
+Existing Forms remain full pages.
+
+No design-system work authorizes:
+
+* navigation redesign;
+* workflow redesign;
+* arbitrary page restructuring;
+* replacement of working input types;
+* introduction of a new UI framework without a dedicated decision.
+
+---
+
+## 10. Master Workstreams
+
+| Workstream                          | Priority              | Primary Goal                                               |
+| ----------------------------------- | --------------------- | ---------------------------------------------------------- |
+| Roadmap and Release Baseline        | Release Critical      | Establish the approved product direction                   |
+| GitHub and Repository Health Triage | Pre-Release Important | Classify automated findings and immediate risks            |
+| Translation Containment             | Pre-Release Important | Stabilize the corrective translation condition             |
+| Catalog Performance Audit           | Release Critical      | Measure actual bottlenecks                                 |
+| Managed Mini Media Foundation       | Release Critical      | Create reliable and portable local visual assets           |
+| Catalog and Database Performance    | Release Critical      | Maintain responsiveness as the catalog grows               |
+| Backup and Restore Audit            | Release Critical      | Understand current `.skv` behavior and compatibility       |
+| Backup and Restore Hardening        | Release Critical      | Provide safe, compatible, atomic recovery                  |
+| Configurable Catalog Features       | Pre-Release Important | Enable non-destructive feature visibility control          |
+| Design System Foundation            | Pre-Release Important | Create shared UI foundations                               |
+| Controlled UI Polish                | Pre-Release Important | Improve consistency and interaction without redesign       |
+| Translation Release Completion      | Pre-Release Important | Complete release-facing translation after UI stabilization |
+| Repository Professionalization      | Pre-Release Important | Establish clear and conservative repository structure      |
+| Dependency and Security Remediation | Pre-Release Important | Address proven release-relevant dependency risk            |
+| Windows Identity and Packaging      | Release Critical      | Produce an installable 64-bit Windows application          |
+| Release Candidate Validation        | Release Critical      | Prove readiness for the Private Pilot                      |
+
+---
+
+## 11. Dependency Order
+
+1. Product and release direction must be approved before technical audits are scoped.
+
+2. GitHub findings should be triaged early because a secret or critical reachable vulnerability may temporarily override the normal roadmap.
+
+3. Translation containment should occur early enough to prevent additional uncontrolled patterns, but Translation must not dominate the product roadmap.
+
+4. Actual UI render dimensions and current media behavior must be audited before mini-image dimensions and profiles are approved.
+
+5. Managed mini-image classification must be stable before the final `.skv` Backup contents are approved.
+
+6. Backup and Restore behavior must be hardened before installer upgrade and recovery testing.
+
+7. Configurable catalog features must be defined before final Settings, Filter, Form, and Backup behavior is polished.
+
+8. Design System foundations must exist before broad page consistency work.
+
+9. Translation completion should occur after shared UI structure is stable.
+
+10. Repository cleanup must not be mixed with major feature implementation.
+
+11. Dependency and security remediation must remain a dedicated batch.
+
+12. Windows packaging requires stable data locations, Backup behavior, build behavior, and application identity.
+
+13. Release Candidate validation requires a feature freeze.
+
+---
+
+## 12. Approved Batch Roadmap
+
+### Batch 42.0 — Master Roadmap and Project OS Baseline
+
+**Goal**
+
+Record the approved product direction and update Project OS authority files.
+
+**In Scope**
+
+* Master Roadmap;
+* Current State;
+* Active Locks;
+* Active Batch repositioning;
+* Session Ledger.
+
+**Out of Scope**
+
+* repository audit;
+* source-code modification;
+* implementation;
+* build;
+* tests;
+* package changes;
+* dependency changes.
+
+**Expected Result**
+
+The roadmap becomes an official Project OS source of truth.
+
+---
+
+### Batch 42.1 — GitHub and Repository Health Triage
+
+**Goal**
+
+Classify automated GitHub findings before normal technical work continues.
+
+**Required Mode**
+
+Read-only audit.
+
+**In Scope**
+
+* Dependabot or dependency alerts;
+* code scanning;
+* secret scanning;
+* GitHub Actions warnings;
+* deprecated Actions;
+* failing workflows;
+* repository security recommendations.
+
+**Out of Scope**
+
+* automatic remediation;
+* forced upgrades;
+* broad refactoring;
+* unrelated cleanup.
+
+**Expected Result**
+
+Each finding is classified by severity, reachability, release impact, and correct roadmap placement.
+
+**Escalation Rule**
+
+An exposed secret, compromised workflow, or active critical reachable vulnerability may become an immediate blocker.
+
+---
+
+### Batch 42.2 — Translation Containment
+
+**Goal**
+
+Continue and consolidate the unresolved Translation containment work that remained after the completed corrective scope of Batch `41.9`.
+
+**Historical Boundary**
+
+Batch `41.9` already completed the corrective repair of the Translation section changed by Codex outside approved scope.
+
+Batch `42.2` must not repeat or reimplement completed Batch `41.9` corrections.
+
+It inherits only unresolved work that requires fresh evidence, product decisions, or controlled stabilization.
+
+**Position**
+
+Corrective stabilization, not the central product roadmap and not a duplicate of Batch `41.9`.
+
+**In Scope**
+
+* read-only mapping of the current Translation architecture;
+* verification of the completed Batch `41.9` corrective outcome where needed for safe continuation;
+* English core behavior;
+* user-managed languages;
+* persistence;
+* fallback;
+* missing keys;
+* CSV compatibility;
+* Settings integration;
+* existing Translation data safety;
+* compatibility and migration decisions;
+* minimum unresolved corrective stabilization.
+
+**Out of Scope**
+
+* redoing completed Batch `41.9` corrections without evidence of regression;
+* unrestricted architecture rewrite;
+* Settings redesign;
+* broad UI polish;
+* full release-facing Translation completion assigned to Batch `42.11`;
+* unrelated features;
+* dependency changes;
+* package changes.
+
+**Expected Result**
+
+The unresolved Translation containment work has one controlled direction, completed Batch `41.9` behavior is preserved, and remaining release-facing work can proceed later through Batch `42.11` without duplication.
+
+---
+
+### Batch 42.3 — Catalog Performance and Media Audit
+
+**Goal**
+
+Measure current application behavior before selecting optimization techniques.
+
+**In Scope**
+
+* Catalog rendering;
+* actual image render sizes;
+* current media flow;
+* current thumbnail or mini-image behavior;
+* image storage;
+* search and filter behavior;
+* startup;
+* scrolling;
+* database queries;
+* database indexes;
+* memory behavior;
+* missing-source handling.
+
+**Out of Scope**
+
+* implementation;
+* broad refactoring;
+* assumed thumbnail dimensions;
+* speculative cache systems.
+
+**Expected Result**
+
+A proven bottleneck report, performance budget, and minimum media-profile recommendation.
+
+---
+
+### Batch 42.4 — Managed Mini Media Foundation
+
+**Goal**
+
+Create reliable, lightweight, and portable managed mini images.
+
+**In Scope**
+
+* automatic generation on relevant media addition;
+* context-based dimensions;
+* controlled crop or aspect-ratio behavior;
+* efficient encoding;
+* validation;
+* safe regenerate;
+* missing-source fallback;
+* atomic replacement;
+* preservation of the previous valid image;
+* generator or profile metadata where needed.
+
+**Out of Scope**
+
+* storing full external media;
+* many image profiles;
+* destructive compression;
+* generalized media service;
+* media deduplication.
+
+**Expected Result**
+
+Catalog visuals remain available and efficient even when external source media cannot be reached.
+
+---
+
+### Batch 42.5 — Catalog and Database Performance
+
+**Goal**
+
+Maintain usable performance on 4 GB RAM devices and growing catalogs.
+
+**In Scope**
+
+* lazy image loading;
+* asynchronous decoding;
+* render isolation;
+* search debounce;
+* query improvement;
+* database indexes;
+* incremental loading when proven necessary;
+* pagination or virtualization only when proven necessary;
+* representative performance regression data.
+
+**Out of Scope**
+
+* speculative caching;
+* application-wide state-management replacement;
+* generalized low-resource architecture;
+* unrelated database migration.
+
+**Expected Result**
+
+Startup, search, filtering, scrolling, and navigation meet the approved performance budget.
+
+---
+
+### Batch 42.6 — Backup and Restore Audit
+
+**Goal**
+
+Understand the current `.skv` format, contents, compatibility, and failure behavior.
+
+**Required Mode**
+
+Read-only audit.
+
+**In Scope**
+
+* current `.skv` package structure;
+* current package naming;
+* current contents;
+* managed mini-image inclusion;
+* Settings and filter inclusion;
+* translation inclusion;
+* version metadata;
+* integrity validation;
+* migration history;
+* compatibility;
+* Restore sequence;
+* safety backup;
+* atomicity;
+* rollback;
+* AppData behavior.
+
+**Out of Scope**
+
+* package modification;
+* migration implementation;
+* compatibility break;
+* extension change.
+
+**Expected Result**
+
+A current-state map and an approved hardening plan.
+
+---
+
+### Batch 42.7 — `.skv` Backup and Atomic Restore Hardening
+
+**Goal**
+
+Make the existing `.skv` Backup portable, verifiable, compatible, and safe.
+
+**In Scope**
+
+* approved package contents;
+* managed mini images;
+* Settings;
+* persistent filters;
+* feature configuration;
+* user-managed translations;
+* manifest;
+* checksums;
+* package versioning;
+* compatibility handling;
+* staging Restore;
+* safety backup;
+* atomic completion;
+* rollback;
+* migration when approved;
+* restart verification.
+
+**Out of Scope**
+
+* extension change;
+* full external media;
+* incremental Backup;
+* cloud Backup;
+* scheduled Backup;
+* silent compatibility break.
+
+**Expected Result**
+
+A `.skv` package can safely restore the Sakurava-managed catalog and visual assets.
+
+---
+
+### Batch 42.8 — Explicit Catalog Feature Configuration
+
+**Goal**
+
+Allow approved catalog features to be enabled or disabled without data loss.
+
+**In Scope**
+
+* explicit feature registry;
+* stable feature keys;
+* Cup Size;
+* three Body Size measurements;
+* Settings controls;
+* persistent state;
+* field visibility;
+* filter visibility;
+* Backup and Restore;
+* upgrade behavior;
+* restart behavior.
+
+**Out of Scope**
+
+* plugin system;
+* generic custom fields;
+* deleting disabled data;
+* schema migration per toggle;
+* remote feature management.
+
+**Expected Result**
+
+Features can be hidden and restored without altering stored user data.
+
+---
+
+### Batch 42.9 — Design System and Iconography Foundation
+
+**Goal**
+
+Create shared visual and interaction foundations while preserving existing workflows.
+
+**In Scope**
+
+* design tokens;
+* shared components;
+* semantic icon registry;
+* application icon direction;
+* interface icon consistency;
+* motion tokens;
+* reduced motion;
+* focus states;
+* form-page consistency.
+
+**Out of Scope**
+
+* form conversion to modal;
+* navigation redesign;
+* workflow redesign;
+* page restructuring without approval;
+* new UI framework without a dedicated decision.
+
+**Expected Result**
+
+Global visual primitives reduce duplication and inconsistency.
+
+---
+
+### Batch 42.10 — Controlled UI Polish
+
+**Goal**
+
+Simplify and improve the interface without redesigning the application.
+
+**In Scope**
+
+* search icon to search-field interaction;
+* light transitions;
+* animation Settings;
+* consistent states;
+* tooltip behavior;
+* keyboard accessibility;
+* loading and feedback behavior;
+* consistency across core pages;
+* keeping Forms as pages.
+
+**Out of Scope**
+
+* free redesign;
+* converting Forms to modals;
+* major navigation changes;
+* animation library added only for decoration;
+* feature changes unrelated to UI consistency.
+
+**Expected Result**
+
+The application feels more consistent, interactive, and professional without becoming heavier.
+
+---
+
+### Batch 42.11 — Translation Release Completion
+
+**Goal**
+
+Complete the remaining release-facing Translation work after shared UI structure is stable and Batch `42.2` containment decisions are complete.
+
+**Historical Boundary**
+
+This batch does not repeat the corrective Translation repair completed in Batch `41.9` and does not reopen Batch `42.2` architecture decisions without new evidence.
+
+It consolidates only the remaining release-facing coverage and final regression work.
+
+**In Scope**
+
+* Settings;
+* Credits;
+* feature configuration;
+* Backup and Restore;
+* shared states;
+* remaining release-critical text;
+* fallback verification;
+* missing-key verification;
+* CSV regression;
+* restart persistence;
+* final verification that completed Batch `41.9` protections and Batch `42.2` containment decisions remain intact.
+
+**Out of Scope**
+
+* repeating completed Batch `41.9` corrective work;
+* new translation architecture;
+* reopening approved Batch `42.2` decisions without evidence;
+* Settings redesign;
+* remote language download;
+* language marketplace.
+
+**Expected Result**
+
+Release-critical UI is complete, the Translation plan is no longer duplicated across batches, and protected Translation behavior remains intact.
+
+---
+
+### Batch 42.12 — Repository Professionalization
+
+**Goal**
+
+Improve repository clarity through conservative classification and cleanup.
+
+**Required Candidate Classifications**
+
+* proven unused;
+* likely unused;
+* generated;
+* duplicate;
+* archived;
+* still required;
+* unknown.
+
+**In Scope**
+
+* source, documentation, test, script, and evidence separation;
+* `.gitignore`;
+* generated-file policy;
+* temporary-file policy;
+* documentation authority;
+* README;
+* archive structure;
+* obsolete files proven safe to remove.
+
+**Out of Scope**
+
+* deletion based only on filename or location;
+* feature changes;
+* dependency upgrades;
+* broad formatting;
+* unrelated refactoring;
+* deletion of protected local evidence.
+
+**Expected Result**
+
+A professional repository structure with preserved recovery and history.
+
+---
+
+### Batch 42.13 — Dependency and Security Remediation
+
+**Goal**
+
+Resolve proven release-relevant dependency and supply-chain risks.
+
+**In Scope**
+
+* dependency inventory;
+* reachable security risks;
+* unsupported dependencies;
+* lockfile consistency;
+* deprecated GitHub Actions;
+* minimum required upgrades;
+* production build reproducibility;
+* focused regression testing.
+
+**Out of Scope**
+
+* forced major upgrades without justification;
+* feature work;
+* UI polish;
+* repository cleanup;
+* broad automated fix commands.
+
+**Expected Result**
+
+Dependency risk is understood and controlled before final packaging.
+
+---
+
+### Batch 42.14 — Windows Identity and Packaging
+
+**Goal**
+
+Produce a repeatable Windows 64-bit installer for ordinary users.
+
+**In Scope**
+
+* release build;
+* installer format;
+* application name;
+* executable and window icon;
+* taskbar and Alt+Tab icon;
+* Start Menu shortcut;
+* optional Desktop shortcut;
+* publisher metadata;
+* application version;
+* install location;
+* AppData location;
+* upgrade data preservation;
+* uninstall data behavior;
+* prerequisites;
+* installer size;
+* clean-machine testing;
+* upgrade testing;
+* reinstall testing;
+* manual updates;
+* release notes;
+* code-signing evaluation;
+* SmartScreen evaluation;
+* local diagnostic logging where appropriate.
+
+**Out of Scope**
+
+* application stores;
+* Windows 32-bit;
+* auto-update;
+* portable edition;
+* enterprise deployment;
+* multiple release channels.
+
+**Expected Result**
+
+A Windows installer suitable for controlled Private Pilot distribution.
+
+---
+
+### Batch 42.15 — Private Pilot Release Candidate
+
+**Goal**
+
+Prove readiness through final release-focused evidence.
+
+**In Scope**
+
+* feature freeze;
+* core-workflow regression;
+* 1,000-Work acceptance dataset;
+* larger stress dataset;
+* performance measurement;
+* `.skv` Backup and Restore round trip;
+* missing-source behavior;
+* managed mini-image persistence;
+* Settings persistence;
+* feature-toggle persistence;
+* translation;
+* installation;
+* upgrade;
+* uninstall;
+* reinstall;
+* clean-machine testing;
+* restart persistence;
+* known limitations;
+* release notes.
+
+**Out of Scope**
+
+* new features;
+* redesign;
+* broad cleanup;
+* speculative optimization;
+* non-critical dependency changes.
+
+**Expected Result**
+
+The release candidate is classified as:
+
+* `READY`;
+* `CONDITIONALLY_READY`;
+* or `BLOCKED`.
+
+---
+
+## 13. Minimum Private Pilot Scope
+
+Sakurava is eligible for Private Pilot only when all applicable requirements below are met.
+
+### 13.1 Data Safety
+
+* no known release-critical data-loss defect;
+* `.skv` Backup includes the approved Sakurava-managed data;
+* managed mini images are preserved;
+* corrupted packages are rejected;
+* Restore protects the existing state;
+* failed Restore does not leave partial data;
+* restart persistence is verified.
+
+### 13.2 Performance
+
+* at least 1,000 Work records are tested;
+* representative Credits and relationships are tested;
+* representative managed mini images are tested;
+* startup, search, filtering, scrolling, and Detail navigation meet the approved budget;
+* a 4 GB RAM device or representative environment is included in acceptance testing;
+* full external media is not loaded unnecessarily.
+
+### 13.3 Catalog Media
+
+* mini images are generated automatically where required;
+* mini-image dimensions are based on actual UI needs;
+* regenerate is safe;
+* previous valid mini images survive generation failure;
+* missing external sources do not remove the local visual representation;
+* managed mini images are included in Backup.
+
+### 13.4 Settings and Features
+
+* explicit catalog feature states persist;
+* disabled features do not delete data;
+* feature configuration survives Backup, Restore, restart, and upgrade;
+* animation preference persists;
+* persistent filters and relevant Settings survive Backup and Restore.
+
+### 13.5 UI
+
+* primary icons are consistent;
+* application identity is visible in Windows;
+* Forms remain full pages;
+* core states are consistent;
+* keyboard focus remains visible;
+* reduced-motion behavior is supported;
+* the initial interface is simplified where approved.
+
+### 13.6 Translation
+
+* English remains the non-removable core language;
+* user-managed languages remain supported;
+* CSV support remains functional;
+* missing keys do not break the interface;
+* release-critical screens are translated;
+* translation data persists.
+
+### 13.7 Repository and Build
+
+* release build is repeatable;
+* generated and runtime files are not accidentally committed;
+* automated GitHub findings have been triaged;
+* release-relevant dependency risk has been handled;
+* documentation authority is clear;
+* manual-smoke evidence remains local unless explicitly approved otherwise.
+
+### 13.8 Windows Release
+
+* Windows 64-bit installer works;
+* application icon is present in relevant Windows surfaces;
+* install and uninstall work;
+* upgrade preserves user data;
+* AppData behavior is understood;
+* clean-machine testing passes;
+* manual update instructions exist;
+* release notes and known limitations exist.
+
+---
+
+## 14. Post-Release Work
+
+The following may be performed after the first Private Pilot release:
+
+* performance tuning based on pilot evidence;
+* additional managed mini-image profiles when proven necessary;
+* automatic disposable-cache pruning;
+* improved missing-source repair workflow;
+* optional data-only Backup;
+* scheduled Backup;
+* improved local diagnostic viewer;
+* code signing if not included in the initial pilot;
+* installer UX improvements;
+* release build automation;
+* additional accessibility polish;
+* ARM64 evaluation;
+* public beta preparation.
+
+---
+
+## 15. Optional Backlog
+
+The following are not release blockers without new evidence:
+
+* auto-update;
+* store distribution;
+* incremental Backup;
+* cloud Backup;
+* media deduplication;
+* generalized cache tiers;
+* generalized LRU system;
+* automatic low-resource mode;
+* remote feature flags;
+* plugin system;
+* custom-field builder;
+* portable edition;
+* Windows 32-bit;
+* external telemetry;
+* cloud crash reporting;
+* enterprise deployment;
+* multiple release channels.
+
+---
+
+## 16. Batch-Series Transition and Active Batch Position
+
+### Legacy Batch Series 41.x
+
+The legacy Batch `41.x` series is closed.
+
+Recorded closure:
+
+- Batch `41.8.5C — Credits Spreadsheet CRUD` remains the previous completed feature batch;
+- Batch `41.9 — Translation Containment and Architecture Baseline` completed the corrective repair of the Translation section changed by Codex outside approved scope;
+- Batch `41.9` is recorded as `COMPLETED_AND_CLOSED`;
+- completed Batch `41.9` corrections remain historical and must not be repeated;
+- unresolved Translation audit and containment work is consolidated into Batch `42.2`;
+- release-facing Translation completion is consolidated into Batch `42.11`.
+
+### New Batch Series 42.x
+
+Current recorded status:
+
+- Batch `42.0 — Master Roadmap and Project OS Baseline`: `COMPLETED`;
+- Batch `42.1 — GitHub and Repository Health Triage`: `COMPLETED`;
+- Batch `42.1` closure reference: `THIS_DOCUMENTATION_COMMIT`;
+- audit status: `COMPLETE_WITH_CLASSIFIED_FINDINGS`;
+- no immediate security blocker was proven;
+- implementation permission: `NOT_APPROVED`;
+- local and GitHub `main` matched at `f41abe6eb582e72d8253ef75c4519ce93c2fa405` at audit time.
+
+### Batch 42.1 Result
+
+The read-only triage found no immediate security blocker.
+
+Recorded GitHub and repository findings include:
+
+- 7 open Dependabot alerts;
+- code scanning disabled;
+- secret scanning disabled;
+- no classic branch protection;
+- no repository rulesets;
+- a failed dynamic CodeQL startup run with no scanning result;
+- Project OS authority files present locally but untracked;
+- `manual-smoke/` present as protected local untracked evidence;
+- application version remains `0.0.0`.
+
+Dependency findings are assigned primarily to Batch `42.13`.
+
+Batch `42.2` is next with status `PENDING_ACTIVATION`. It may initially contain discussion and read-only audit preparation only.
+
+A targeted approved remediation stage is required before future work that starts the Vite development server because Vite `7.3.3` remains affected by the `launch-editor` NTLMv2 alert.
+
+The `serde_with` finding requires review before packaging or release.
+
+The application version decision remains assigned to Batch `42.14`.
+
+Vite dev-server execution remains blocked pending approved targeted security remediation.
+
+Branch protection, repository rulesets, code scanning, secret scanning, CI governance, and optional evidence-ignore policy remain controlled future decisions rather than automatic changes.
+
+### Project OS Tracking Policy
+
+The operator approved tracking these authority files:
+
+- `SAKURAVA-CHATGPT-BOOT-PROMPT.md`;
+- `docs/ai/00-operating-contract.md`;
+- `docs/ai/01-current-state.md`;
+- `docs/ai/02-active-locks.md`;
+- `docs/ai/03-active-batch.md`;
+- `docs/ai/04-session-ledger.md`;
+- `docs/ai/05-model-routing.md`;
+- `docs/ai/06-feedback-log.md`;
+- `docs/ai/07-master-roadmap.md`.
+
+The following remain local and untracked:
+
+- `manual-smoke/`;
+- runtime databases;
+- temporary exports;
+- logs;
+- generated smoke artifacts;
+- build output;
+- dependency directories.
+
+### Closure Preconditions
+
+Batch `42.1` may close only after:
+
+- Project OS authority files are updated with the final findings;
+- only explicit approved Project OS paths are staged;
+- the staged diff excludes source, dependencies, workflows, package changes, runtime artifacts, and local evidence;
+- one documentation-only commit is created;
+- local and GitHub main synchronization is verified;
+- the resulting baseline is recorded;
+- Current State, Active Batch, and Session Ledger reflect closure.
+
+Until closure is proven:
+
+- Batch `42.2` must not be activated;
+- implementation remains prohibited;
+- dependency, workflow, GitHub-setting, and repository-cleanup changes remain prohibited.
+
+After Batch `42.1` closure, Batch `42.2` may begin with discussion and read-only Translation architecture audit preparation only.
+
+The authoritative current scope and closure permission remain recorded in:
+
+`docs/ai/03-active-batch.md`
+
+---
+
+## 17. Primary Risks
+
+| Risk                                        | Potential Impact                         | Required Control                              |
+| ------------------------------------------- | ---------------------------------------- | --------------------------------------------- |
+| Translation dominates the roadmap           | Core release work is delayed             | Split containment from completion             |
+| Performance work is speculative             | Time is spent without measurable benefit | Measure before implementation                 |
+| Managed mini images are treated as cache    | Catalog visuals are lost                 | Classify them as protected managed assets     |
+| `.skv` changes silently                     | Existing Backup compatibility breaks     | Dedicated audit, versioning, migration        |
+| Restore is not atomic                       | User data becomes partially restored     | Staging, safety backup, rollback              |
+| Feature toggle deletes data                 | Permanent user-data loss                 | Visibility-only behavior                      |
+| UI polish becomes redesign                  | Working workflow regresses               | Preserve UI contracts and full-page Forms     |
+| Repository cleanup deletes required files   | Build, history, or recovery breaks       | Conservative classification                   |
+| Dependency changes mix with features        | Regression source becomes unclear        | Dedicated remediation batch                   |
+| Windows packaging damages AppData           | Upgrade or uninstall loses data          | Clean-machine, upgrade, and uninstall testing |
+| Automated GitHub findings are blindly fixed | Broad uncontrolled changes               | Classify severity and reachability first      |
+| Four GB RAM target is not tested            | Pilot performs poorly on target devices  | Representative acceptance testing             |
+
+---
+
+## 18. Audit-Required Unknowns
+
+The following must not be represented as proven until audited:
+
+* current managed mini-image implementation;
+* current image dimensions;
+* current image formats;
+* current mini-image storage;
+* current regenerate behavior;
+* current missing-source behavior;
+* current Catalog render strategy;
+* current lazy loading;
+* current query behavior;
+* current indexes;
+* current memory behavior;
+* current `.skv` internal structure;
+* current `.skv` compatibility behavior;
+* current Backup contents;
+* current Restore atomicity;
+* current Restore rollback;
+* current migration behavior;
+* current configurable-feature architecture;
+* current shared-component coverage;
+* current icon implementation;
+* current application icon configuration;
+* current GitHub findings;
+* current dependency health;
+* current installer configuration;
+* current supported Windows versions;
+* current repository cleanup candidates.
+
+---
+
+## 19. Roadmap Governance
+
+Each technical batch must define:
+
+* Goal;
+* In Scope;
+* Out of Scope;
+* Protected Contracts;
+* Dependencies;
+* Risk Level;
+* Audit requirements;
+* Migration requirements;
+* Recovery or rollback requirements;
+* Verification;
+* Definition of Done;
+* Forbidden Actions.
+
+High-risk systems should begin with a read-only audit when current behavior is unknown.
+
+No batch may silently include:
+
+* unrelated refactoring;
+* dependency upgrades;
+* repository cleanup;
+* UI redesign;
+* package changes;
+* migrations;
+* new features outside approved scope.
+
+Recorded Git or test state must not be described as current proof until freshly verified.
+
+---
+
+## 20. Approved Roadmap Sequence
+
+```text
+Batch 42.0 — Master Roadmap and Project OS Baseline
+→ Batch 42.1 — GitHub and Repository Health Triage
+→ Batch 42.2 — Translation Containment
+→ Batch 42.3 — Catalog Performance and Media Audit
+→ Batch 42.4 — Managed Mini Media Foundation
+→ Batch 42.5 — Catalog and Database Performance
+→ Batch 42.6 — Backup and Restore Audit
+→ Batch 42.7 — .skv Backup and Atomic Restore Hardening
+→ Batch 42.8 — Explicit Catalog Feature Configuration
+→ Batch 42.9 — Design System and Iconography Foundation
+→ Batch 42.10 — Controlled UI Polish
+→ Batch 42.11 — Translation Release Completion
+→ Batch 42.12 — Repository Professionalization
+→ Batch 42.13 — Dependency and Security Remediation
+→ Batch 42.14 — Windows Identity and Packaging
+→ Batch 42.15 — Private Pilot Release Candidate
+```
+
+This sequence prioritizes:
+
+1. data safety;
+2. measurable performance;
+3. reliable managed media;
+4. controlled compatibility;
+5. maintainability;
+6. consistent user experience;
+7. safe Windows distribution.
+
+Translation remains necessary corrective work, but it is not the central product objective.
