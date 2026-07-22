@@ -75,6 +75,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-20 — English-Only Language Identity Completed
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: TRANSLATION_IDENTITY_CLOSURE  
+active_batch: 42.2  
+completed_stage: 42.2B — English-Only Language Identity and Resolution  
+current_stage: 42.2C — Translation CSV Compatibility and English Baseline Editing  
+implementation_allowed: false  
+
+### Work Completed
+
+Batch `42.2B` completed in commit `4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73`. English is the sole active built-in language; custom Indonesian remains user-managed and preserved. Identity, fallback, and recoverable persistence behavior were updated as reported. Focused Translation verification reported 98 passed tests and the production build passed.
+
+No CSV, Settings, migration, automatic recovery, dependency, database, Rust, Backup, package, workflow, or runtime-server work occurred.
+
+### Next Action
+
+Review the completed 42.2B result before separately approving proposed `42.2C — Translation CSV Compatibility and English Baseline Editing`. It remains unapproved.
+
 ## 2026-07-20 — Translation Storage Foundation Completed
 
 ### Session Metadata

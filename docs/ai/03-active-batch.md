@@ -6,7 +6,7 @@ batch: 42.2
 title: Translation Containment  
 status: ACTIVE  
 phase: IMPLEMENTATION_PLANNED  
-current_stage: 42.2B — English-Only Language Identity and Resolution  
+current_stage: 42.2C — Translation CSV Compatibility and English Baseline Editing  
 current_mode: READY_PENDING_SEPARATE_APPROVAL  
 stage_1_status: COMPLETE  
 stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
@@ -14,7 +14,7 @@ audit_status: COMPLETE_REPORTED
 audit_allowed: false  
 plan_status: COMPLETE_REPORTED  
 plan_allowed: false  
-implementation_status: NOT_STARTED  
+implementation_status: READY_PENDING_SEPARATE_APPROVAL  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
 vite_dev_server_allowed: false  
@@ -46,7 +46,7 @@ production_build: PASSED
 caller_integration: NONE  
 runtime_behavior_change: NONE  
 migration: NONE  
-next_action: review results and separately approve 42.2B implementation  
+next_action: review 42.2B results and separately approve 42.2C implementation  
 
 previous_batch: 42.1  
 previous_batch_title: GitHub and Repository Health Triage  
@@ -60,6 +60,17 @@ release_completion_batch: 42.11
 approved_scope: TRANSLATION_CONTAINMENT_PRODUCT_DIRECTION_AND_PLAN  
 master_roadmap: docs/ai/07-master-roadmap.md  
 last_updated: 2026-07-20  
+
+completed_42_2b: 42.2B — English-Only Language Identity and Resolution  
+completed_42_2b_status: COMPLETED_REPORTED  
+completed_42_2b_commit: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
+completed_42_2b_focused_tests: 98 passed  
+completed_42_2b_production_build: PASSED  
+completed_42_2b_migration: NONE  
+completed_42_2b_automatic_recovery: NONE  
+completed_42_2b_csv_work: NONE  
+completed_42_2b_settings_work: NONE  
+completed_42_2b_runtime_behavior: ENGLISH_ONLY_IDENTITY_AND_RESOLUTION_REPORTED  
 
 ---
 
@@ -254,6 +265,23 @@ The foundation-only boundary was a new storage primitive and dedicated focused t
 **Dependency Remediation Allowed:** No  
 
 Future planning must preserve English as the sole built-in/default/source/fallback language, keep Indonesian and all other non-English languages user-managed, preserve existing custom language data non-destructively, and maintain one normalized language code per identity. This closure does not authorize caller integration or behavior changes; 42.2B requires separate approval and its own controlled implementation prompt.
+
+---
+
+### Completed Stage 42.2B — English-Only Language Identity and Resolution
+
+**Status:** COMPLETED_REPORTED  
+**Implementation Commit:** `4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73`  
+**Focused Tests:** 98 passed  
+**Production Build:** Passed  
+**Migration:** None  
+**Automatic Recovery:** None  
+**CSV Work:** None  
+**Settings Work:** None  
+
+English is the sole active built-in, default, source, and fallback language. Indonesian and all other non-English languages remain user-managed and removable; existing custom Indonesian data remains preserved. Normalized identity, duplicate handling, malformed-storage preservation, selected-language fallback, English fallback resolution, and recoverable persistence integration are complete as reported. The 42.2A foundation is now used by the approved identity and resolution paths.
+
+No CSV, Settings, migration, automatic recovery, dependency, database, Rust, Backup, package, workflow, or runtime-server work occurred. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`, which requires a separate implementation prompt. Implementation, tests/builds, runtime verification, and dependency remediation remain false.
 
 ---
 
@@ -502,7 +530,7 @@ Stage 1 is complete because:
 - critical findings were accepted as containment inputs;
 - no mutation, runtime execution, dependency change, migration, or live-data inspection occurred;
 - the approved product direction was recorded;
-- Stage 2 planning is complete and reported; 42.2A is completed as reported and 42.2B is proposed pending separate approval.
+- Stage 2 planning, 42.2A, and 42.2B are complete as reported; 42.2C is proposed pending separate approval.
 
 ---
 
@@ -524,6 +552,8 @@ Stage 1 is complete because:
 - Batch `42.11` remains separate.
 - dependency remediation remains separate.
 - implementation permission is false.
+- 42.2B implementation is complete as reported.
+- 42.2C is the next proposed sub-stage and remains unapproved.
 - audit permission is false because Stage 1 is complete.
 - plan permission is complete for the approved Stage 2 planning scope.
 - tests and builds are not approved.
@@ -544,15 +574,15 @@ Stage 1 is complete because:
 
 ## 17. Current Blockers
 
-Stage 1 audit, Stage 2 planning, and the 42.2A foundation-only stage are complete as reported. The 42.2B stage remains pending separate approval.
+Stage 1 audit, Stage 2 planning, the 42.2A foundation-only stage, and 42.2B identity/resolution are complete as reported. The 42.2C stage remains pending separate approval.
 
-Implementation remains blocked because separate 42.2B approval has not been granted; tests, builds, runtime verification, dependency remediation, migration, package changes, and Backup changes remain prohibited.
+Implementation remains blocked because separate 42.2C approval has not been granted; tests, builds, runtime verification, dependency remediation, migration, package changes, and Backup changes remain prohibited.
 
 ---
 
 ## 18. Active Feedback
 
-None recorded.
+See the active Visual Front End warning instruction in `docs/ai/06-feedback-log.md`.
 
 Refer to:
 
@@ -566,12 +596,12 @@ when active unresolved feedback exists.
 
 After Result Review, separately approve or decline a controlled prompt for:
 
-`Batch 42.2B — English-Only Language Identity and Resolution`
+`Batch 42.2C — Translation CSV Compatibility and English Baseline Editing`
 
 Required mode:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-The proposed work must preserve the foundation-only boundary until separately approved; no caller integration or current runtime behavior change is authorized by this closure.
+The proposed work must preserve the completed English-only identity/resolution behavior until separately approved; no CSV or Settings implementation is authorized by this closure.
 
 Implementation is not currently authorized.

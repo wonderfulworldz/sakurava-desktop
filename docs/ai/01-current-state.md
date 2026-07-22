@@ -16,8 +16,8 @@ untracked_entry_count: 97
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: ab9d9d98ab2b04cbedf41674bb34fd9e5f965409  
-baseline_label: Batch 42.2A lossless storage foundation  
+last_recorded_baseline: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
+baseline_label: Batch 42.2B English-only language identity and resolution  
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -48,6 +48,16 @@ vite_dev_server_allowed: false
 dependency_remediation_allowed: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY  
 project_os_tracking_status: TRACKED_AND_SYNCHRONIZED_REPORTED  
+
+current_reported_batch_42_2b: COMPLETE_REPORTED  
+current_reported_implementation_commit: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
+current_reported_implementation_parent: 9e6c3e55f89d086942547190309bc307aaed44bb  
+current_proposed_sub_stage: 42.2C — Translation CSV Compatibility and English Baseline Editing  
+current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL  
+current_proposed_sub_stage_implementation_allowed: false  
+current_proposed_sub_stage_tests_and_builds_allowed: false  
+current_proposed_sub_stage_runtime_verification_allowed: false  
+current_proposed_sub_stage_dependency_remediation_allowed: false  
 
 package_version: NOT_RECORDED  
 backup_extension: .skv  
@@ -170,7 +180,7 @@ The approved roadmap is represented by Batch series `42.x`.
 - Batch `42.2 — Translation Containment`: `ACTIVE`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` Stage 1 static audit, Stage 2 implementation plan, and 42.2A foundation are complete as reported. The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`.
+Batch `42.2` Stage 1 static audit, Stage 2 implementation plan, 42.2A foundation, and 42.2B English-only identity/resolution are complete as reported. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -315,7 +325,7 @@ Evidence class: `REPORTED_BY_CODEX_VERIFICATION`.
 - The final production build passed. No Vite dev server, Tauri process, application runtime, or smoke test ran.
 - No application, Translation, Rust, database, Backup, workflow, or test source changed.
 
-Batch `42.2` Stage 2 planning remains complete. Batch 42.2A is complete as reported under `FOUNDATION_ONLY`; the next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`.
+Batch `42.2` Stage 2 planning, 42.2A foundation, and 42.2B identity/resolution are complete as reported. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`.
 
 ### Batch 42.2A — Lossless Translation Storage Foundation
 
@@ -326,6 +336,16 @@ Batch `42.2A` completed in commit `ab9d9d98ab2b04cbedf41674bb34fd9e5f965409` (pa
 The foundation provides injected storage, exact raw snapshots, malformed-value diagnostics, duplicate-property diagnostics, journal-first `RECOVERABLE_LOGICAL_TRANSACTION` planning and commit, rollback, pending inspection, explicit recovery, and a pure recovery-export model. Focused verification reported 46 passed tests and a passing Vite 7.3.5 production build. No caller integration, runtime Translation behavior change, startup recovery, migration, existing Translation module change, or dependency/database/Rust/Backup/package/workflow/runtime change occurred. The full frontend suite was not run; known pre-existing failures remain separately classified.
 
 The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`. Its implementation status is `READY_PENDING_SEPARATE_APPROVAL`; implementation, Translation tests/builds, runtime verification, and dependency remediation remain false.
+
+### Batch 42.2B — English-Only Language Identity and Resolution
+
+Evidence class: `REPORTED_BY_CODEX`.
+
+Batch `42.2B` completed in commit `4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73` (parent `9e6c3e55f89d086942547190309bc307aaed44bb`). English is recorded as the sole active built-in, default, source, and fallback language. Indonesian and all other non-English languages remain user-managed; existing custom `id` data remains preserved and removable. Normalized identity, duplicate handling, malformed-storage preservation, English fallback, and recoverable persistence integration are complete as reported.
+
+Focused Translation verification reported 98 passed tests across seven files, and the Vite 7.3.5 production build passed. No CSV, Settings, migration, automatic recovery, dependency, database, Rust, Backup, package, workflow, or runtime-server work occurred. The full frontend suite was not run; known unrelated baseline failures remain separately classified.
+
+The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`. Its implementation status is `READY_PENDING_SEPARATE_APPROVAL`; implementation, tests/builds, runtime verification, and dependency remediation remain false.
 
 ### Legacy Translation Correction — Batch 41.9
 
@@ -486,7 +506,7 @@ The audit found no repository mutation, source or data mutation, live AppData ac
 
 The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
 
-The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A — Lossless Translation Storage Foundation` is complete as reported; the next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`. Implementation remains prohibited.
+The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A — Lossless Translation Storage Foundation` and `42.2B — English-Only Language Identity and Resolution` are complete as reported; the next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`. Implementation remains prohibited.
 
 ### First Stage 1 Preflight Disposition
 
@@ -525,12 +545,12 @@ Do not represent these items as proven until the applicable controlled audit or 
 
 ## 12. Current Blockers
 
-Batch `42.2` Stage 1 audit, Stage 2 implementation plan, and 42.2A foundation are complete as reported. The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`.
+Batch `42.2` Stage 1 audit, Stage 2 implementation plan, 42.2A foundation, and 42.2B implementation are complete as reported. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`.
 
 Implementation remains blocked because:
 
 - the current mode is ready pending separate approval;
-- the next 42.2B implementation has not started and remains unapproved;
+- the next 42.2C implementation has not started and remains unapproved;
 - dependency remediation is separate;
 - Vite `7.3.5` is the current reported prerequisite state;
 - Vite dev-server execution remains separately gated;
@@ -581,14 +601,14 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-Review the completed Batch `42.2A` evidence before considering one separately approved prompt for:
+Review the completed Batch `42.2B` evidence before considering one separately approved prompt for:
 
-`Batch 42.2B — English-Only Language Identity and Resolution`
+`Batch 42.2C — Translation CSV Compatibility and English Baseline Editing`
 
 Required mode:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-The next scope must preserve the foundation-only boundary and define English-only identity/resolution handling without assuming approval for implementation.
+The next scope must preserve the completed English-only identity/resolution behavior and define CSV compatibility and English baseline editing without assuming approval for implementation.
 
 Implementation remains unapproved until that separate controlled approval.

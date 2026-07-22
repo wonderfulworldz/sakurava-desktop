@@ -1,11 +1,49 @@
 # Sakurava Feedback Log
 
-active_count: 0  
-last_updated: 2026-07-19  
+active_count: 1  
+last_updated: 2026-07-20  
 
 ## Active Feedback
 
-None.
+### FEEDBACK-2026-07-20-VISUAL-FRONT-END-WARNING — Visual Front End Prompt Warning
+
+date: 2026-07-20  
+batch: 42.2  
+stage_received: 42.2B Documentation Closure  
+type: DIRECT_COMMAND  
+status: APPROVED  
+risk: LOW  
+placement: CURRENT_STAGE / FUTURE_BATCHES  
+
+### Operator Feedback
+
+Before presenting any future implementation instruction or Codex prompt that may touch the Visual Front End, display a clear warning before the prompt.
+
+VISUAL FRONT END: TIDAK
+
+### Interpretation
+
+Use the exact heading `VISUAL FRONT END: YA` and name the specific visible surfaces that may change. Visual Front End includes visible components, pages, dialogs, forms, layout, navigation, styling, frontend interaction flows, visible language controls, Settings screens, and other rendered user-facing behavior. Documentation-only, backend-only, storage-only, test-only, and non-rendered logic stages may be marked `VISUAL FRONT END: TIDAK` unless they also change visible frontend behavior.
+
+### Impact
+
+Future prompt framing and operator review for user-facing rendered behavior.
+
+### Decision
+
+This is a durable warning requirement. It does not authorize Visual Front End changes; existing UI locks and approval gates remain in force.
+
+### Approval
+
+`APPROVED`
+
+### Next Action
+
+Apply the warning before any future Visual Front End instruction or Codex prompt.
+
+### Completion Evidence
+
+Recorded in Project OS during Batch 42.2B documentation closure.
 
 ---
 

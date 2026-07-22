@@ -665,15 +665,22 @@ An exposed secret, compromised workflow, or active critical reachable vulnerabil
 
 **Status**
 
-`ACTIVE — 42.2B PROPOSED`
+`ACTIVE — 42.2C PROPOSED`
 
 Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`
 
 Implementation permission: `NOT_APPROVED`
 
-Stage 2 mode: `READY_PENDING_SEPARATE_APPROVAL`
+Stage 2 mode: `PLAN ONLY — 42.2B COMPLETE`
 
 Stage 2 plan status: `COMPLETE_REPORTED`
+
+42.2B implementation status: `COMPLETED_REPORTED`  
+42.2B implementation commit: `4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73`  
+42.2B focused verification: `98 passed`  
+42.2B production build: `PASSED`  
+Next proposed sub-stage: `42.2C — Translation CSV Compatibility and English Baseline Editing`  
+42.2C implementation permission: `NOT_APPROVED`
 
 Vite dev-server execution: `NOT_APPROVED`
 
@@ -721,6 +728,12 @@ Corrective stabilization, not the central product roadmap and not a duplicate of
 **Accepted Stage 1 Findings**
 
 The static audit completed without mutation and did not prove an active destructive migration or actual current user-data corruption. It identified the Indonesian built-in identity regression, non-atomic Translation persistence, unsafe CSV round-trip and historical-format compatibility gaps, malformed/legacy data preservation requirements, and Translation localStorage remaining outside the current Backup package. Backup/package inclusion remains assigned to Batches `42.6` and `42.7`.
+
+### Completed Stage 42.2B — English-Only Language Identity and Resolution
+
+Batch `42.2B` completed as reported. English-only active built-in identity and resolution are established; custom Indonesian remains user-managed and preserved. Normalized identity, duplicate handling, malformed raw-storage preservation, selected-language fallback, English fallback, and recoverable persistence integration are reported complete.
+
+No migration, CSV, or Settings work occurred. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`, which remains separately gated. Batch `42.11` remains Translation Release Completion; Batches `42.6` and `42.7` retain Backup and package integration responsibility; full Batch `42.13` remains deferred. The approved main roadmap order is unchanged.
 
 **Out of Scope**
 
@@ -1406,12 +1419,14 @@ Batch `42.2 — Translation Containment` is active.
 Current state:
 
 - phase: `IMPLEMENTATION_PLANNED`;
-- current stage: `42.2B — English-Only Language Identity and Resolution`;
+- current stage: `42.2C — Translation CSV Compatibility and English Baseline Editing`;
 - mode: `READY_PENDING_SEPARATE_APPROVAL`;
 - Stage 1 status: `COMPLETE`;
 - Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
 - Stage 2 plan status: `COMPLETE_REPORTED`;
 - 42.2A status: `COMPLETED_REPORTED`;
+- 42.2B status: `COMPLETED_REPORTED`;
+- next proposed stage: `42.2C — Translation CSV Compatibility and English Baseline Editing`;
 - audit permission: `COMPLETE`;
 - plan permission: `COMPLETE`;
 - implementation permission: `NOT_APPROVED`;
@@ -1428,7 +1443,7 @@ It must not:
 - redesign Settings or UI;
 - change package or Backup behavior;
 - modify dependencies;
-- begin 42.2B implementation before its separate approval.
+- begin 42.2C implementation before its separate approval.
 
 ### Stage 0 Approval and Stage 1 Closure
 
