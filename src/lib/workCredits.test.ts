@@ -25,6 +25,7 @@ vi.mock("../runtime/creditCommands", () => ({
 describe("work Credit reconciliation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(deleteCredit).mockResolvedValue({ id: "deleted-credit", deleted: true });
   });
 
   it("creates multiple credits with free Credit Type text separate from category keys", async () => {
@@ -94,6 +95,20 @@ describe("work Credit reconciliation", () => {
       expect.objectContaining({ note: "Updated" }),
     );
     expect(createCredit).not.toHaveBeenCalled();
+  });
+
+  it("rejects a no-op Credit deletion and stops later reconciliation deletes", async () => {
+    vi.mocked(deleteCredit).mockResolvedValueOnce({ id: "credit-1", deleted: false });
+
+    await expect(reconcileWorkCredits(
+      "video",
+      "video-1",
+      [credit("credit-1"), credit("credit-2")],
+      [],
+    )).rejects.toThrow("Credit could not be deleted.");
+
+    expect(deleteCredit).toHaveBeenCalledTimes(1);
+    expect(deleteCredit).toHaveBeenCalledWith("credit-1");
   });
 
   it("updates and removes one same-performer Credit by its own persisted id", async () => {

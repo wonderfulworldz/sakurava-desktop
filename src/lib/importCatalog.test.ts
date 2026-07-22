@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Credit, GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
 import { buildCsvCatalogPreview, buildXlsxCatalogPreview } from "./importCatalog";
-import { buildCategoriesCsv, buildGlossaryCsv, buildVideosCsv, sakuravaRef } from "./exportCsv";
+import {
+  buildCategoriesCsv,
+  buildGlossaryCsv,
+  buildImagesCsv,
+  buildPerformersCsv,
+  buildVideosCsv,
+  sakuravaRef,
+} from "./exportCsv";
+import { prepareSelectionsWithPublicRefs } from "./exportArtifacts";
 import { buildXlsxWorkbook, EXPORT_CONTRACT_VERSION } from "./exportWorkbook";
 import { SAKURAVA_METADATA_SHEET } from "./importExportContract";
 import { buildImportOperationPlan } from "./importOperationPlan";
@@ -10,14 +18,14 @@ describe("catalog CSV/XLSX import preview", () => {
   // This intentionally exercises the full XLSX write → load → Preview route
   // with 278 rows. Cold ExcelJS startup can take longer than Vitest's default
   // five seconds, while the scenario itself completes deterministically.
-  it("builds the deterministic 278/273/5 Delete-all Preview plan", async () => {
+  it("builds the deterministic Delete-all plan with inferred Credit deletes", async () => {
     const categories = Array.from({ length: 5 }, (_, index) => managedCategory({
       key: `category-${index + 1}`,
       sakuravaRef: `C2607000${index + 1}`,
       name: index === 0 ? "Credit category" : `Category ${index + 1}`,
-      // Category 1 remains referenced by the Credit-protected Video while
-      // Category 2 is deleted. This matches the parent-cleanup shape that
-      // previously emitted a duplicate child update plus Delete operation.
+      // Category 1 is referenced by a Video and parents Category 2. The
+      // Delete-all plan must remove the dependent Credits before deleting
+      // every parent and preserve deterministic hierarchy ordering.
       parentKey: index === 1 ? "category-1" : null,
     }));
     const videos = Array.from({ length: 100 }, (_, index) => video({
@@ -29,8 +37,8 @@ describe("catalog CSV/XLSX import preview", () => {
       id: `image-${index + 1}`,
       sakuravaRef: `I2607${String(index + 1).padStart(4, "0")}`,
     }));
-    // The Credit-protected Video survives while this related Image is deleted.
-    // The full plan must emit a cleanup update before final Rust validation.
+    // Both sides are deleted in this fixture, so no surviving relationship
+    // update is needed; the final plan still deletes Credits first.
     videos[0].relatedImagesJson = JSON.stringify([
       { recordId: images[1].id, titleSnapshot: images[1].title },
     ]);
@@ -73,17 +81,15 @@ describe("catalog CSV/XLSX import preview", () => {
     const plan = buildImportOperationPlan(preview, context, bytes);
 
     expect(preview.rows).toHaveLength(278);
-    expect(preview.rows.filter((row) => row.detectedResult === "Deleted")).toHaveLength(273);
-    expect(preview.rows.filter((row) => row.detectedResult === "Error")).toHaveLength(5);
-    expect(preview.rows.filter((row) => row.warnings.length > 0)).toHaveLength(5);
-    expect(plan.operations.filter((operation) => operation.action === "delete")).toHaveLength(273);
-    expect(plan.operations.filter((operation) => operation.sourceIdentity.startsWith("cleanup:"))).toHaveLength(1);
-    const protectedVideoCleanup = plan.operations.find((operation) =>
-      operation.sourceIdentity === `cleanup:videos:${videos[0].id}:update`,
-    );
-    expect(protectedVideoCleanup?.proposedValues.categoriesJson).toBe("[]");
-    expect(protectedVideoCleanup?.proposedValues.relatedImagesJson).toBe("[]");
-    expect(plan.skippedCount).toBe(5);
+    expect(preview.rows.filter((row) => row.detectedResult === "Deleted")).toHaveLength(278);
+    expect(preview.rows.filter((row) => row.detectedResult === "Error")).toHaveLength(0);
+    expect(preview.rows.filter((row) => row.warnings.length > 0)).toHaveLength(0);
+    expect(plan.operations.filter((operation) => operation.action === "delete")).toHaveLength(281);
+    expect(plan.operations.filter((operation) =>
+      operation.sourceIdentity.startsWith("cleanup:credits:")
+        && operation.action === "delete",
+    )).toHaveLength(3);
+    expect(plan.skippedCount).toBe(0);
     const targetedRecords = plan.operations
       .filter((operation) => operation.action !== "create" && operation.recordId)
       .map((operation) => `${operation.section}:${operation.recordId}`);
@@ -473,7 +479,7 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(plan.operations.every((operation) => operation.sourceRowNumber >= 0)).toBe(true);
   });
 
-  it("cleans a preserved Credit work's Category before deleting that Category", async () => {
+  it("deletes a parent Credit before deleting its Work and Category", async () => {
     const category = managedCategory({ key: "category-preserved-work", name: "Preserved Work Category" });
     const record = video({ id: "video-preserved-work", categoriesJson: JSON.stringify([category.name]) });
     const built = await buildXlsxWorkbook({
@@ -502,12 +508,15 @@ describe("catalog CSV/XLSX import preview", () => {
     const videoRow = preview.rows.find((row) => row.dataType === "videos")!;
     const categoryRow = preview.rows.find((row) => row.dataType === "categories")!;
 
-    expect(videoRow.detectedResult).toBe("Error");
+    expect(videoRow.detectedResult).toBe("Deleted");
     expect(categoryRow.detectedResult).toBe("Deleted");
     expect(preview.automaticCleanupOperations).toContainEqual(expect.objectContaining({
+      section: "credits",
+      action: "delete",
+    }));
+    expect(preview.automaticCleanupOperations).not.toContainEqual(expect.objectContaining({
       section: "videos",
       recordId: record.id,
-      proposedValues: { categoriesJson: "[]" },
     }));
   });
 
@@ -530,17 +539,174 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.rows[0].detectedResult).toBe("Deleted");
   });
 
-  it("does not apply a Video Delete when a Credit work relationship cannot be cleared", () => {
+  it("infers Credit deletion for a Video Delete", () => {
     const record = video({ id: "video-credit", sakuravaRef: "V26070001", title: "Credited Video" });
+    const dependentCredit = credit({
+      id: "credit-video",
+      sakuravaRef: "R26070001",
+      workType: "video",
+      workId: record.id,
+    });
     const csv = buildVideosCsv([record]).replace("\r\nAuto,", "\r\nDelete,");
     const preview = buildCsvCatalogPreview(csv, {
       ...context(),
       videos: [record],
-      credits: [{ workType: "video", workId: record.id, performerId: "performer-credit" } as never],
+      credits: [dependentCredit],
     }, "en-US");
     expect(preview.summary.blocked).toBe(false);
-    expect(preview.rows[0].detectedResult).toBe("Error");
-    expect(preview.rows[0].warnings.join(" ")).toContain("cannot be cleared safely");
+    expect(preview.rows[0].detectedResult).toBe("Deleted");
+    expect(preview.rows[0].dependencyPlan?.detail).toBe("1 dependent Credits will be deleted first");
+    expect(preview.automaticCleanupOperations).toContainEqual(expect.objectContaining({
+      section: "credits",
+      action: "delete",
+      recordId: dependentCredit.id,
+    }));
+  });
+
+  it("plans Video Credit deletion and surviving inbound relationship cleanup", () => {
+    const target = video({ id: "video-delete", sakuravaRef: "V26070001" });
+    const survivingImage = image({
+      id: "image-survivor",
+      relatedVideosJson: JSON.stringify([{ recordId: target.id, titleSnapshot: target.title }]),
+    });
+    const survivingPerformer = performer({
+      id: "performer-survivor",
+      relatedVideosJson: JSON.stringify([{ recordId: target.id, titleSnapshot: target.title }]),
+    });
+    const dependentCredit = credit({
+      id: "credit-video-delete",
+      sakuravaRef: "R26070001",
+      workType: "video",
+      workId: target.id,
+      performerId: survivingPerformer.id,
+    });
+    const csv = buildVideosCsv([target]).replace("\r\nAuto,", "\r\nDelete,");
+    const contextValue = {
+      ...context(),
+      videos: [target],
+      images: [survivingImage],
+      performers: [survivingPerformer],
+      credits: [dependentCredit],
+    };
+    const preview = buildCsvCatalogPreview(csv, contextValue, "en-US");
+    const plan = buildImportOperationPlan(preview, contextValue, new TextEncoder().encode(csv));
+
+    expect(plan.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ section: "credits", action: "delete", recordId: dependentCredit.id }),
+      expect.objectContaining({ section: "images", action: "update", recordId: survivingImage.id, proposedValues: { relatedVideosJson: "[]" } }),
+      expect.objectContaining({ section: "performers", action: "update", recordId: survivingPerformer.id, proposedValues: { relatedVideosJson: "[]" } }),
+      expect.objectContaining({ section: "videos", action: "delete", recordId: target.id }),
+    ]));
+  });
+
+  it("plans Image Credit deletion and surviving inbound relationship cleanup", () => {
+    const target = image({ id: "image-delete", sakuravaRef: "I26070001" });
+    const survivingVideo = video({
+      id: "video-survivor",
+      relatedImagesJson: JSON.stringify([{ recordId: target.id, titleSnapshot: target.title }]),
+    });
+    const survivingPerformer = performer({
+      id: "performer-survivor",
+      relatedImagesJson: JSON.stringify([{ recordId: target.id, titleSnapshot: target.title }]),
+    });
+    const dependentCredit = credit({
+      id: "credit-image-delete",
+      sakuravaRef: "R26070001",
+      workType: "image",
+      workId: target.id,
+      performerId: survivingPerformer.id,
+    });
+    const csv = buildImagesCsv([target]).replace("\r\nAuto,", "\r\nDelete,");
+    const contextValue = {
+      ...context(),
+      videos: [survivingVideo],
+      images: [target],
+      performers: [survivingPerformer],
+      credits: [dependentCredit],
+    };
+    const preview = buildCsvCatalogPreview(csv, contextValue, "en-US");
+    const plan = buildImportOperationPlan(preview, contextValue, new TextEncoder().encode(csv));
+
+    expect(plan.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ section: "credits", action: "delete", recordId: dependentCredit.id }),
+      expect.objectContaining({ section: "videos", action: "update", recordId: survivingVideo.id, proposedValues: { relatedImagesJson: "[]" } }),
+      expect.objectContaining({ section: "performers", action: "update", recordId: survivingPerformer.id, proposedValues: { relatedImagesJson: "[]" } }),
+      expect.objectContaining({ section: "images", action: "delete", recordId: target.id }),
+    ]));
+  });
+
+  it("plans Performer Credit deletion across Works and inbound relationship cleanup", () => {
+    const target = performer({ id: "performer-delete", sakuravaRef: "P26070001" });
+    const survivingVideo = video({
+      id: "video-survivor",
+      relatedPerformersJson: JSON.stringify([{ performerId: target.id, nameSnapshot: target.name }]),
+    });
+    const survivingImage = image({
+      id: "image-survivor",
+      relatedPerformersJson: JSON.stringify([{ performerId: target.id, nameSnapshot: target.name }]),
+    });
+    const credits = [
+      credit({ id: "credit-video", sakuravaRef: "R26070001", workType: "video", workId: survivingVideo.id, performerId: target.id }),
+      credit({ id: "credit-image", sakuravaRef: "R26070002", workType: "image", workId: survivingImage.id, performerId: target.id }),
+    ];
+    const csv = buildPerformersCsv([target]).replace("\r\nAuto,", "\r\nDelete,");
+    const contextValue = {
+      ...context(),
+      videos: [survivingVideo],
+      images: [survivingImage],
+      performers: [target],
+      credits,
+    };
+    const preview = buildCsvCatalogPreview(csv, contextValue, "en-US");
+    const plan = buildImportOperationPlan(preview, contextValue, new TextEncoder().encode(csv));
+
+    expect(plan.operations.filter((operation) => operation.section === "credits" && operation.action === "delete"))
+      .toHaveLength(2);
+    expect(plan.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ section: "videos", action: "update", recordId: survivingVideo.id, proposedValues: { relatedPerformersJson: "[]" } }),
+      expect.objectContaining({ section: "images", action: "update", recordId: survivingImage.id, proposedValues: { relatedPerformersJson: "[]" } }),
+      expect.objectContaining({ section: "performers", action: "delete", recordId: target.id }),
+    ]));
+  });
+
+  it("deduplicates explicit and inferred Credit Deletes in the XLSX operation plan", async () => {
+    const target = video({ id: "video-xlsx", sakuravaRef: "V26070001" });
+    const linkedPerformer = performer({ id: "performer-xlsx", sakuravaRef: "P26070001" });
+    const credits = [
+      credit({ id: "credit-explicit", sakuravaRef: "R26070001", workId: target.id, performerId: linkedPerformer.id }),
+      credit({ id: "credit-inferred", sakuravaRef: "R26070002", workId: target.id, performerId: linkedPerformer.id, billingOrder: 2 }),
+    ];
+    const contextValue = {
+      ...context(),
+      videos: [target],
+      performers: [linkedPerformer],
+      credits,
+    };
+    const built = await buildXlsxWorkbook({
+      selections: prepareSelectionsWithPublicRefs([
+        { dataType: "videos", records: [target] },
+        { dataType: "performers", records: [linkedPerformer] },
+        { dataType: "credits", records: credits },
+      ]),
+      locale: "en-US",
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    workbook.getWorksheet("Videos")!.getCell(2, 1).value = "Delete";
+    workbook.getWorksheet("Credits")!.getCell(2, 1).value = "Delete";
+    const bytes = new Uint8Array(await workbook.xlsx.writeBuffer());
+    const preview = await buildXlsxCatalogPreview(bytes, contextValue, "en-US");
+    const plan = buildImportOperationPlan(preview, contextValue, bytes);
+    const creditDeletes = plan.operations.filter((operation) =>
+      operation.section === "credits" && operation.action === "delete",
+    );
+
+    expect(creditDeletes.map((operation) => operation.recordId).sort()).toEqual([
+      "credit-explicit",
+      "credit-inferred",
+    ]);
+    expect(new Set(creditDeletes.map((operation) => operation.recordId))).toHaveLength(2);
   });
 });
 

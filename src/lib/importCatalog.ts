@@ -748,21 +748,36 @@ function applyProjectedDeletePlanning(
       const record = recordsForEntity(entity, context).find((candidate) =>
         sakuravaRefMatches(entity === "videos" ? "VID" : entity === "images" ? "IMG" : "PER", row.values["Sakurava Ref"] ?? "", candidate),
       );
-      const survivingCredits = record
+      const dependentCredits = record
         ? (context.credits ?? []).filter((credit) =>
-            creditUsesRecord(credit, entity, record.id) && !isDeleted("credits", credit, deleted))
+            creditUsesRecord(credit, entity, record.id))
         : [];
-      if (survivingCredits.length > 0) {
-        row.detectedResult = "Error";
-        row.warnings.push(`${survivingCredits.length} Credit references cannot be cleared safely. This row will not be applied.`);
-        deleted.get(entity)?.delete((row.values["Sakurava Ref"] ?? "").trim());
+      for (const credit of dependentCredits) {
+        if (isDeleted("credits", credit, deleted)) continue;
+        addCleanupOperation(
+          cleanupOperations,
+          "credits",
+          "delete",
+          credit.id,
+          credit,
+          {},
+          "Dependent Credit will be deleted before its parent",
+        );
+        deleted.get("credits")?.add(credit.sakuravaRef ?? credit.id);
       }
+      row.dependencyPlan = {
+        requiresDecision: false,
+        detail: dependentCredits.length > 0
+          ? `${dependentCredits.length} dependent Credits will be deleted first`
+          : "Record will be deleted",
+        deleteOrder: 10,
+      };
       deleteRank.set(row, 10);
     }
   }
 
-  // Credit-protected rows have now been removed from the Delete set. Clear
-  // only their links to records that the same package still deletes.
+  // Parent Deletes now own their dependent Credit cleanup. Clear only links
+  // owned by catalog records that survive the same immutable plan.
   addSurvivingRelationshipCleanupOperations(context, cleanupOperations, deleted);
 
   const categoryRows = sectionRows.get("categories") ?? [];
@@ -883,7 +898,10 @@ function isDeleted(
   deleted: Map<ImportCsvEntity, Set<string>>,
 ) {
   const prefix = entity === "videos" ? "VID" : entity === "images" ? "IMG" : entity === "performers" ? "PER" : entity === "categories" ? "CAT" : entity === "credits" ? "R" : "GLO";
-  return Array.from(deleted.get(entity) ?? []).some((ref) => sakuravaRefMatches(prefix, ref, record));
+  return Array.from(deleted.get(entity) ?? []).some((ref) =>
+    (entity === "credits" && ref === record.id)
+      || sakuravaRefMatches(prefix, ref, record),
+  );
 }
 
 function recordStillUsesCategory(

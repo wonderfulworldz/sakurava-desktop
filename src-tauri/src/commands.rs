@@ -106,7 +106,7 @@ pub struct VideoInput {
     pub favorite: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoPatch {
     pub title: Option<String>,
@@ -188,7 +188,7 @@ pub struct ImageInput {
     pub favorite: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ImagePatch {
     pub title: Option<String>,
@@ -281,7 +281,7 @@ pub struct PerformerInput {
     pub favorite: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PerformerPatch {
     pub name: Option<String>,
@@ -890,9 +890,10 @@ pub fn video_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
-        delete_row(connection, "videos", id)
+        delete_catalog_entity_in_transaction(connection, "videos", id)
     })
 }
 
@@ -942,9 +943,10 @@ pub fn image_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
-        delete_row(connection, "images", id)
+        delete_catalog_entity_in_transaction(connection, "images", id)
     })
 }
 
@@ -994,9 +996,10 @@ pub fn performer_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
-        delete_row(connection, "performers", id)
+        delete_catalog_entity_in_transaction(connection, "performers", id)
     })
 }
 
@@ -2124,6 +2127,161 @@ fn delete_row(
         > 0;
 
     Ok(DeleteResult { id, deleted })
+}
+
+fn delete_catalog_entity_in_transaction(
+    connection: &Connection,
+    table_name: &str,
+    id: String,
+) -> Result<DeleteResult, String> {
+    if connection.is_autocommit() {
+        return Err("Catalog deletion requires an active transaction.".to_string());
+    }
+    require_migrated_sakurava_refs(connection)?;
+
+    let exists_statement = match table_name {
+        "videos" => "SELECT EXISTS(SELECT 1 FROM videos WHERE id = ?1)",
+        "images" => "SELECT EXISTS(SELECT 1 FROM images WHERE id = ?1)",
+        "performers" => "SELECT EXISTS(SELECT 1 FROM performers WHERE id = ?1)",
+        _ => return Err("Unsupported table".to_string()),
+    };
+    let exists: bool = connection
+        .query_row(exists_statement, [&id], |row| row.get(0))
+        .map_err(database_error)?;
+    if !exists {
+        return Ok(DeleteResult { id, deleted: false });
+    }
+
+    match table_name {
+        "videos" => {
+            connection
+                .execute(
+                    "DELETE FROM credits WHERE workType = 'video' AND workId = ?1",
+                    [&id],
+                )
+                .map_err(database_error)?;
+            remove_inbound_json_reference(
+                connection,
+                "images",
+                "relatedVideosJson",
+                "recordId",
+                &id,
+            )?;
+            remove_inbound_json_reference(
+                connection,
+                "performers",
+                "relatedVideosJson",
+                "recordId",
+                &id,
+            )?;
+        }
+        "images" => {
+            connection
+                .execute(
+                    "DELETE FROM credits WHERE workType = 'image' AND workId = ?1",
+                    [&id],
+                )
+                .map_err(database_error)?;
+            remove_inbound_json_reference(
+                connection,
+                "videos",
+                "relatedImagesJson",
+                "recordId",
+                &id,
+            )?;
+            remove_inbound_json_reference(
+                connection,
+                "performers",
+                "relatedImagesJson",
+                "recordId",
+                &id,
+            )?;
+        }
+        "performers" => {
+            connection
+                .execute("DELETE FROM credits WHERE performerId = ?1", [&id])
+                .map_err(database_error)?;
+            remove_inbound_json_reference(
+                connection,
+                "videos",
+                "relatedPerformersJson",
+                "performerId",
+                &id,
+            )?;
+            remove_inbound_json_reference(
+                connection,
+                "images",
+                "relatedPerformersJson",
+                "performerId",
+                &id,
+            )?;
+        }
+        _ => unreachable!(),
+    }
+
+    let result = delete_row(connection, table_name, id)?;
+    if !result.deleted {
+        return Err("Catalog delete target changed before it could be removed.".to_string());
+    }
+    require_migrated_sakurava_refs(connection)?;
+    Ok(result)
+}
+
+fn remove_inbound_json_reference(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+    id_field: &str,
+    target_id: &str,
+) -> Result<(), String> {
+    let supported = matches!(
+        (table_name, column_name, id_field),
+        ("videos", "relatedPerformersJson", "performerId")
+            | ("videos", "relatedImagesJson", "recordId")
+            | ("images", "relatedPerformersJson", "performerId")
+            | ("images", "relatedVideosJson", "recordId")
+            | ("performers", "relatedVideosJson", "recordId")
+            | ("performers", "relatedImagesJson", "recordId")
+    );
+    if !supported {
+        return Err("Unsupported catalog relationship cleanup.".to_string());
+    }
+
+    let query = format!("SELECT id, {column_name} FROM {table_name}");
+    let mut statement = connection.prepare(&query).map_err(database_error)?;
+    let records = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+    drop(statement);
+
+    let update = format!("UPDATE {table_name} SET {column_name} = ?1 WHERE id = ?2");
+    for (record_id, raw_json) in records {
+        let Value::Array(mut relationships) = serde_json::from_str::<Value>(&raw_json)
+            .map_err(|_| "Catalog relationship data is invalid.".to_string())?
+        else {
+            return Err("Catalog relationship data is invalid.".to_string());
+        };
+        let original_len = relationships.len();
+        relationships.retain(|relationship| {
+            relationship.get(id_field).and_then(Value::as_str) != Some(target_id)
+        });
+        if relationships.len() == original_len {
+            continue;
+        }
+        let next_json = serde_json::to_string(&relationships)
+            .map_err(|_| "Catalog relationship cleanup could not be serialized.".to_string())?;
+        let updated = connection
+            .execute(&update, params![next_json, record_id])
+            .map_err(database_error)?;
+        if updated != 1 {
+            return Err("Catalog relationship cleanup target changed.".to_string());
+        }
+    }
+    Ok(())
 }
 
 fn create_glossary_entry(
@@ -3912,14 +4070,17 @@ fn apply_import_delete(
         .clone()
         .ok_or_else(|| "Delete record was not resolved.".to_string())?;
     match operation.section.as_str() {
-        "videos" | "images" | "performers" => delete_row(connection, &operation.section, id)
-            .and_then(|result| {
-                if result.deleted {
-                    Ok(())
-                } else {
-                    Err("Delete target changed after Preview.".to_string())
-                }
-            }),
+        "videos" | "images" | "performers" => {
+            delete_catalog_entity_in_transaction(connection, &operation.section, id).and_then(
+                |result| {
+                    if result.deleted {
+                        Ok(())
+                    } else {
+                        Err("Delete target changed after Preview.".to_string())
+                    }
+                },
+            )
+        }
         "categories" => delete_managed_category_if_unused(connection, id).and_then(|result| {
             if result.deleted {
                 Ok(())
@@ -7853,7 +8014,7 @@ mod tests {
     }
 
     #[test]
-    fn import_apply_rolls_back_when_a_delete_would_leave_a_dangling_credit() {
+    fn import_apply_parent_delete_cleans_dependent_credit_in_same_transaction() {
         let (root, database) = import_test_database("credit-post-condition");
         let (video, performer) = {
             let connection = database.connection();
@@ -7884,18 +8045,20 @@ mod tests {
         let result =
             apply_import_catalog_plan(&database, signed_import_plan(&database, vec![delete]));
 
-        assert_eq!(result.transaction_status, "rolledBack");
-        assert_eq!(result.failure_stage.as_deref(), Some("validation"));
-        assert!(result.rollback_completed);
+        assert_eq!(result.transaction_status, "committed");
+        assert_eq!(result.deleted_count, 1);
+        assert_eq!(result.failure_stage, None);
+        assert!(!result.rollback_completed);
         let connection = database.connection();
         let connection = connection.lock().expect("database lock");
         assert!(get_video(&connection, &video.id)
             .expect("video query")
-            .is_some());
+            .is_none());
         assert!(get_performer(&connection, &performer.id)
             .expect("performer query")
             .is_some());
-        assert_eq!(list_credits(&connection).expect("credits").len(), 1);
+        assert!(list_credits(&connection).expect("credits").is_empty());
+        require_migrated_sakurava_refs(&connection).expect("valid final catalog");
         let _ = fs::remove_dir_all(root);
     }
 
@@ -8583,6 +8746,396 @@ mod tests {
             .expect("transport-normalized plan payload");
         assert_eq!(plan.skipped_count, 5);
         assert_eq!(plan.catalog_snapshot["videos"][0]["id"], "video-1");
+    }
+
+    fn catalog_delete_test_video(connection: &Connection, title: &str) -> Video {
+        let mut input = empty_video_input();
+        input.title = title.to_string();
+        create_video(connection, input).expect("create delete-test Video")
+    }
+
+    fn catalog_delete_test_image(connection: &Connection, title: &str) -> Image {
+        let mut input = empty_image_input();
+        input.title = title.to_string();
+        create_image(connection, input).expect("create delete-test Image")
+    }
+
+    fn catalog_delete_test_performer(connection: &Connection, name: &str) -> Performer {
+        let mut input = empty_performer_input();
+        input.name = name.to_string();
+        create_performer(connection, input).expect("create delete-test Performer")
+    }
+
+    fn commit_dependency_safe_delete(
+        connection: &mut Connection,
+        table: &str,
+        id: &str,
+    ) -> Result<DeleteResult, String> {
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(database_error)?;
+        let result = delete_catalog_entity_in_transaction(&transaction, table, id.to_string())?;
+        transaction.commit().map_err(database_error)?;
+        Ok(result)
+    }
+
+    fn text_column(connection: &Connection, table: &str, column: &str, id: &str) -> String {
+        connection
+            .query_row(
+                &format!("SELECT {column} FROM {table} WHERE id = ?1"),
+                [id],
+                |row| row.get(0),
+            )
+            .expect("relationship JSON")
+    }
+
+    #[test]
+    fn dependency_safe_catalog_delete_video_cleans_only_owned_dependencies() {
+        let mut connection = test_connection();
+        let target = catalog_delete_test_video(&connection, "Delete Video");
+        let unrelated_video = catalog_delete_test_video(&connection, "Keep Video");
+        let inbound_image = catalog_delete_test_image(&connection, "Inbound Image");
+        let inbound_performer = catalog_delete_test_performer(&connection, "Inbound Performer");
+        let unrelated_performer = catalog_delete_test_performer(&connection, "Unrelated Performer");
+        update_image(
+            &connection,
+            &inbound_image.id,
+            ImagePatch {
+                related_videos_json: Some(
+                    json!([
+                        { "recordId": target.id, "titleSnapshot": target.title },
+                        { "recordId": unrelated_video.id, "titleSnapshot": unrelated_video.title }
+                    ])
+                    .to_string(),
+                ),
+                ..ImagePatch::default()
+            },
+        )
+        .expect("link Image")
+        .expect("Image exists");
+        update_performer(
+            &connection,
+            &inbound_performer.id,
+            PerformerPatch {
+                related_videos_json: Some(
+                    json!([
+                        { "recordId": target.id, "titleSnapshot": target.title },
+                        { "recordId": unrelated_video.id, "titleSnapshot": unrelated_video.title }
+                    ])
+                    .to_string(),
+                ),
+                ..PerformerPatch::default()
+            },
+        )
+        .expect("link Performer")
+        .expect("Performer exists");
+        let first = create_credit(
+            &connection,
+            credit_input("video", &target.id, &inbound_performer.id),
+        )
+        .expect("first dependent Credit");
+        let second = create_credit(
+            &connection,
+            credit_input("video", &target.id, &inbound_performer.id),
+        )
+        .expect("logical duplicate dependent Credit");
+        let unrelated_credit = create_credit(
+            &connection,
+            credit_input("video", &unrelated_video.id, &unrelated_performer.id),
+        )
+        .expect("unrelated Credit");
+        let counter_before: i64 = connection
+            .query_row(
+                "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'V' AND issuanceYymm = '2607'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Video counter");
+
+        let result = commit_dependency_safe_delete(&mut connection, "videos", &target.id)
+            .expect("dependency-safe Video delete");
+
+        assert!(result.deleted);
+        assert!(get_video(&connection, &target.id)
+            .expect("target query")
+            .is_none());
+        assert!(get_credit(&connection, &first.id)
+            .expect("first Credit query")
+            .is_none());
+        assert!(get_credit(&connection, &second.id)
+            .expect("second Credit query")
+            .is_none());
+        assert_eq!(
+            get_credit(&connection, &unrelated_credit.id).expect("unrelated Credit query"),
+            Some(unrelated_credit)
+        );
+        assert_eq!(
+            text_column(
+                &connection,
+                "images",
+                "relatedVideosJson",
+                &inbound_image.id
+            ),
+            json!([{ "recordId": unrelated_video.id, "titleSnapshot": unrelated_video.title }])
+                .to_string()
+        );
+        assert_eq!(
+            text_column(
+                &connection,
+                "performers",
+                "relatedVideosJson",
+                &inbound_performer.id
+            ),
+            json!([{ "recordId": unrelated_video.id, "titleSnapshot": unrelated_video.title }])
+                .to_string()
+        );
+        assert!(get_image(&connection, &inbound_image.id)
+            .expect("surviving Image")
+            .is_some());
+        assert!(get_performer(&connection, &inbound_performer.id)
+            .expect("surviving Performer")
+            .is_some());
+        require_migrated_sakurava_refs(&connection).expect("valid final references");
+        let alias_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'V' AND sakuravaRef = ?1",
+                [&target.sakurava_ref],
+                |row| row.get(0),
+            )
+            .expect("durable alias count");
+        assert_eq!(alias_count, 1);
+        let counter_after: i64 = connection
+            .query_row(
+                "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'V' AND issuanceYymm = '2607'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Video counter after delete");
+        assert_eq!(counter_after, counter_before);
+        let replacement = catalog_delete_test_video(&connection, "Replacement Video");
+        assert_ne!(replacement.sakurava_ref, target.sakurava_ref);
+    }
+
+    #[test]
+    fn dependency_safe_catalog_delete_image_cleans_credits_and_inbound_links() {
+        let mut connection = test_connection();
+        let target = catalog_delete_test_image(&connection, "Delete Image");
+        let surviving_video = catalog_delete_test_video(&connection, "Surviving Video");
+        let surviving_performer = catalog_delete_test_performer(&connection, "Surviving Performer");
+        update_video(
+            &connection,
+            &surviving_video.id,
+            VideoPatch {
+                related_images_json: Some(
+                    json!([{ "recordId": target.id, "titleSnapshot": target.title }]).to_string(),
+                ),
+                ..VideoPatch::default()
+            },
+        )
+        .expect("link Video")
+        .expect("Video exists");
+        update_performer(
+            &connection,
+            &surviving_performer.id,
+            PerformerPatch {
+                related_images_json: Some(
+                    json!([{ "recordId": target.id, "titleSnapshot": target.title }]).to_string(),
+                ),
+                ..PerformerPatch::default()
+            },
+        )
+        .expect("link Performer")
+        .expect("Performer exists");
+        let first = create_credit(
+            &connection,
+            credit_input("image", &target.id, &surviving_performer.id),
+        )
+        .expect("first dependent Credit");
+        let second = create_credit(
+            &connection,
+            credit_input("image", &target.id, &surviving_performer.id),
+        )
+        .expect("second dependent Credit");
+
+        commit_dependency_safe_delete(&mut connection, "images", &target.id)
+            .expect("dependency-safe Image delete");
+
+        assert!(get_image(&connection, &target.id)
+            .expect("target query")
+            .is_none());
+        assert!(get_credit(&connection, &first.id)
+            .expect("first Credit")
+            .is_none());
+        assert!(get_credit(&connection, &second.id)
+            .expect("second Credit")
+            .is_none());
+        assert_eq!(
+            text_column(
+                &connection,
+                "videos",
+                "relatedImagesJson",
+                &surviving_video.id
+            ),
+            "[]"
+        );
+        assert_eq!(
+            text_column(
+                &connection,
+                "performers",
+                "relatedImagesJson",
+                &surviving_performer.id
+            ),
+            "[]"
+        );
+        assert!(get_video(&connection, &surviving_video.id)
+            .expect("surviving Video")
+            .is_some());
+        assert!(get_performer(&connection, &surviving_performer.id)
+            .expect("surviving Performer")
+            .is_some());
+        require_migrated_sakurava_refs(&connection).expect("valid final references");
+    }
+
+    #[test]
+    fn dependency_safe_catalog_delete_performer_cleans_cross_work_credits() {
+        let mut connection = test_connection();
+        let target = catalog_delete_test_performer(&connection, "Delete Performer");
+        let unrelated_performer = catalog_delete_test_performer(&connection, "Keep Performer");
+        let video = catalog_delete_test_video(&connection, "Credited Video");
+        let image = catalog_delete_test_image(&connection, "Credited Image");
+        update_video(
+            &connection,
+            &video.id,
+            VideoPatch {
+                related_performers_json: Some(json!([
+                    { "performerId": target.id, "nameSnapshot": target.name },
+                    { "performerId": unrelated_performer.id, "nameSnapshot": unrelated_performer.name }
+                ]).to_string()),
+                ..VideoPatch::default()
+            },
+        )
+        .expect("link Video")
+        .expect("Video exists");
+        update_image(
+            &connection,
+            &image.id,
+            ImagePatch {
+                related_performers_json: Some(
+                    json!([{ "performerId": target.id, "nameSnapshot": target.name }]).to_string(),
+                ),
+                ..ImagePatch::default()
+            },
+        )
+        .expect("link Image")
+        .expect("Image exists");
+        let video_credit = create_credit(&connection, credit_input("video", &video.id, &target.id))
+            .expect("Video Credit");
+        let image_credit = create_credit(&connection, credit_input("image", &image.id, &target.id))
+            .expect("Image Credit");
+        let unrelated_credit = create_credit(
+            &connection,
+            credit_input("video", &video.id, &unrelated_performer.id),
+        )
+        .expect("unrelated Credit");
+
+        commit_dependency_safe_delete(&mut connection, "performers", &target.id)
+            .expect("dependency-safe Performer delete");
+
+        assert!(get_performer(&connection, &target.id)
+            .expect("target query")
+            .is_none());
+        assert!(get_credit(&connection, &video_credit.id)
+            .expect("Video Credit")
+            .is_none());
+        assert!(get_credit(&connection, &image_credit.id)
+            .expect("Image Credit")
+            .is_none());
+        assert!(get_credit(&connection, &unrelated_credit.id)
+            .expect("unrelated Credit")
+            .is_some());
+        assert_eq!(
+            text_column(&connection, "videos", "relatedPerformersJson", &video.id),
+            json!([{ "performerId": unrelated_performer.id, "nameSnapshot": unrelated_performer.name }]).to_string()
+        );
+        assert_eq!(
+            text_column(&connection, "images", "relatedPerformersJson", &image.id),
+            "[]"
+        );
+        require_migrated_sakurava_refs(&connection).expect("valid final references");
+    }
+
+    #[test]
+    fn dependency_safe_catalog_delete_rolls_back_and_rejects_invalid_catalogs() {
+        let mut connection = test_connection();
+        let target = catalog_delete_test_video(&connection, "Rollback Video");
+        let performer = catalog_delete_test_performer(&connection, "Rollback Performer");
+        let credit = create_credit(
+            &connection,
+            credit_input("video", &target.id, &performer.id),
+        )
+        .expect("rollback Credit");
+
+        {
+            let transaction = connection
+                .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+                .expect("rollback transaction");
+            let deleted =
+                delete_catalog_entity_in_transaction(&transaction, "videos", target.id.clone())
+                    .expect("delete before injected rollback");
+            assert!(deleted.deleted);
+            transaction.rollback().expect("injected rollback");
+        }
+        assert!(get_video(&connection, &target.id)
+            .expect("rolled-back Video")
+            .is_some());
+        assert!(get_credit(&connection, &credit.id)
+            .expect("rolled-back Credit")
+            .is_some());
+
+        connection
+            .execute(
+                "UPDATE performers SET relatedVideosJson = '[{\"recordId\":\"missing-video\",\"titleSnapshot\":\"Missing\"}]' WHERE id = ?1",
+                [&performer.id],
+            )
+            .expect("inject pre-existing invalid relationship");
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("invalid-state transaction");
+        let error = delete_catalog_entity_in_transaction(&transaction, "videos", target.id.clone())
+            .expect_err("invalid catalog must reject delete");
+        assert_eq!(
+            error,
+            "Catalog references need recovery before this action is available."
+        );
+        transaction.rollback().expect("invalid-state rollback");
+        assert!(get_video(&connection, &target.id)
+            .expect("preserved Video")
+            .is_some());
+        assert!(get_credit(&connection, &credit.id)
+            .expect("preserved Credit")
+            .is_some());
+    }
+
+    #[test]
+    fn dependency_safe_catalog_delete_absent_target_is_non_mutating() {
+        let mut connection = test_connection();
+        let video = catalog_delete_test_video(&connection, "Keep Video");
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("no-op transaction");
+        let result = delete_catalog_entity_in_transaction(
+            &transaction,
+            "videos",
+            "missing-video".to_string(),
+        )
+        .expect("safe no-op");
+        transaction.commit().expect("commit no-op");
+
+        assert!(!result.deleted);
+        assert!(get_video(&connection, &video.id)
+            .expect("preserved Video")
+            .is_some());
+        require_migrated_sakurava_refs(&connection).expect("valid no-op state");
     }
 
     fn empty_image_input() -> ImageInput {

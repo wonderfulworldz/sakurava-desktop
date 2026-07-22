@@ -235,7 +235,10 @@ export async function reconcileWorkCredits(
 
   for (const original of originalCredits) {
     if (!retainedIds.has(original.id)) {
-      await deleteCredit(original.id);
+      const result = await deleteCredit(original.id);
+      if (!result.deleted) {
+        throw new Error("Credit could not be deleted.");
+      }
     }
   }
 }
