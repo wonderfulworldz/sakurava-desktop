@@ -665,7 +665,7 @@ An exposed secret, compromised workflow, or active critical reachable vulnerabil
 
 **Status**
 
-`ACTIVE — 42.2A FOUNDATION PLANNED`
+`ACTIVE — 42.2B PROPOSED`
 
 Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`
 
@@ -1105,7 +1105,7 @@ A professional repository structure with preserved recovery and history.
 
 `42.13A — Targeted Vite Security Prerequisite` completed before Translation implementation. Vite `7.3.5` removed the targeted high finding. Controlled full-suite A/B verification and focused flake characterization did not prove a patch regression: the cover-preview timeout also reproduced on the Vite `7.3.3` baseline and remains separately classified as flaky. Full dependency and security remediation remains assigned to Batch `42.13`; the main roadmap order is unchanged.
 
-Batch `42.2` resumes only at `42.2A — Lossless Translation Storage Foundation` under the `FOUNDATION_ONLY` strategy, pending separate approval. Runtime Translation smoke remains separately gated by disposable WebView-profile isolation.
+Batch `42.2A — Lossless Translation Storage Foundation` is complete as reported and remains unused by current runtime callers. Exact snapshots, journal, rollback, pending inspection, explicit recovery, and recovery-export primitives are available; focused verification and the production build passed. No current Translation behavior, migration, or caller integration occurred. The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`, separately gated. Runtime Translation smoke remains separately gated by disposable WebView-profile isolation.
 
 **Goal**
 
@@ -1406,11 +1406,12 @@ Batch `42.2 — Translation Containment` is active.
 Current state:
 
 - phase: `IMPLEMENTATION_PLANNED`;
-- current stage: `42.2A — Lossless Translation Storage Foundation`;
+- current stage: `42.2B — English-Only Language Identity and Resolution`;
 - mode: `READY_PENDING_SEPARATE_APPROVAL`;
 - Stage 1 status: `COMPLETE`;
 - Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
 - Stage 2 plan status: `COMPLETE_REPORTED`;
+- 42.2A status: `COMPLETED_REPORTED`;
 - audit permission: `COMPLETE`;
 - plan permission: `COMPLETE`;
 - implementation permission: `NOT_APPROVED`;
@@ -1427,7 +1428,7 @@ It must not:
 - redesign Settings or UI;
 - change package or Backup behavior;
 - modify dependencies;
-- begin implementation before the separate 42.2A approval.
+- begin 42.2B implementation before its separate approval.
 
 ### Stage 0 Approval and Stage 1 Closure
 

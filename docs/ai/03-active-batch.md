@@ -6,7 +6,7 @@ batch: 42.2
 title: Translation Containment  
 status: ACTIVE  
 phase: IMPLEMENTATION_PLANNED  
-current_stage: 42.2A — Lossless Translation Storage Foundation  
+current_stage: 42.2B — English-Only Language Identity and Resolution  
 current_mode: READY_PENDING_SEPARATE_APPROVAL  
 stage_1_status: COMPLETE  
 stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
@@ -38,7 +38,15 @@ targeted_vite_high_advisory: REMOVED
 full_batch_42_13: DEFERRED  
 strategy: FOUNDATION_ONLY  
 selected_strategy: FOUNDATION_ONLY  
-next_action: review results and separately approve 42.2A foundation-only implementation  
+completed_sub_stage: 42.2A — Lossless Translation Storage Foundation  
+completed_sub_stage_status: COMPLETED_REPORTED  
+implementation_commit: ab9d9d98ab2b04cbedf41674bb34fd9e5f965409  
+focused_tests: 46 passed  
+production_build: PASSED  
+caller_integration: NONE  
+runtime_behavior_change: NONE  
+migration: NONE  
+next_action: review results and separately approve 42.2B implementation  
 
 previous_batch: 42.1  
 previous_batch_title: GitHub and Repository Health Triage  
@@ -234,7 +242,18 @@ Stage 2 may define exact files, sequencing, compatibility, rollback, stop condit
 **Tests and Builds Allowed:** No  
 **Runtime Verification Allowed:** No  
 
-The approved foundation-only boundary is a new storage primitive and dedicated focused tests only. It must preserve current public runtime APIs and must not integrate callers, replace runtime APIs, change the language registry, change CSV behavior, change Settings, or change runtime Translation behavior.
+The foundation-only boundary was a new storage primitive and dedicated focused tests only. It preserves current public runtime APIs and remains unused by existing runtime callers. No language-registry, CSV, Settings, runtime Translation, database, migration, Backup, package, dependency, or runtime execution change occurred.
+
+### Stage 42.2B — English-Only Language Identity and Resolution
+
+**Status:** READY_PENDING_SEPARATE_APPROVAL  
+**Mode:** READY_PENDING_SEPARATE_APPROVAL  
+**Implementation Allowed:** No  
+**Tests and Builds Allowed:** No  
+**Runtime Verification Allowed:** No  
+**Dependency Remediation Allowed:** No  
+
+Future planning must preserve English as the sole built-in/default/source/fallback language, keep Indonesian and all other non-English languages user-managed, preserve existing custom language data non-destructively, and maintain one normalized language code per identity. This closure does not authorize caller integration or behavior changes; 42.2B requires separate approval and its own controlled implementation prompt.
 
 ---
 
@@ -483,7 +502,7 @@ Stage 1 is complete because:
 - critical findings were accepted as containment inputs;
 - no mutation, runtime execution, dependency change, migration, or live-data inspection occurred;
 - the approved product direction was recorded;
-- Stage 2 planning is complete and reported; 42.2A is proposed pending separate approval.
+- Stage 2 planning is complete and reported; 42.2A is completed as reported and 42.2B is proposed pending separate approval.
 
 ---
 
@@ -525,9 +544,9 @@ Stage 1 is complete because:
 
 ## 17. Current Blockers
 
-Stage 1 audit and Stage 2 planning are complete. The 42.2A foundation-only stage remains pending separate approval.
+Stage 1 audit, Stage 2 planning, and the 42.2A foundation-only stage are complete as reported. The 42.2B stage remains pending separate approval.
 
-Implementation remains blocked because separate 42.2A approval has not been granted; tests, builds, runtime verification, dependency remediation, migration, package changes, and Backup changes remain prohibited.
+Implementation remains blocked because separate 42.2B approval has not been granted; tests, builds, runtime verification, dependency remediation, migration, package changes, and Backup changes remain prohibited.
 
 ---
 
@@ -547,12 +566,12 @@ when active unresolved feedback exists.
 
 After Result Review, separately approve or decline a controlled prompt for:
 
-`Batch 42.2A — Lossless Translation Storage Foundation`
+`Batch 42.2B — English-Only Language Identity and Resolution`
 
 Required mode:
 
-`FOUNDATION_ONLY`
+`READY_PENDING_SEPARATE_APPROVAL`
 
-The work must remain limited to the storage primitive and dedicated focused tests, with no caller integration or current runtime behavior change.
+The proposed work must preserve the foundation-only boundary until separately approved; no caller integration or current runtime behavior change is authorized by this closure.
 
 Implementation is not currently authorized.

@@ -16,8 +16,8 @@ untracked_entry_count: 97
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 3da4d7a7fd793f8070e03999287a9c3e2910e43a  
-baseline_label: verified Vite prerequisite closure  
+last_recorded_baseline: ab9d9d98ab2b04cbedf41674bb34fd9e5f965409  
+baseline_label: Batch 42.2A lossless storage foundation  
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -39,9 +39,11 @@ audit_status: COMPLETE_REPORTED
 audit_allowed: false  
 plan_status: COMPLETE_REPORTED  
 plan_allowed: false  
-implementation_status: NOT_STARTED  
+implementation_status: READY_PENDING_SEPARATE_APPROVAL  
 implementation_allowed: false  
+strategy: FOUNDATION_ONLY  
 tests_and_builds_allowed: false  
+runtime_verification_allowed: false  
 vite_dev_server_allowed: false  
 dependency_remediation_allowed: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY  
@@ -168,7 +170,7 @@ The approved roadmap is represented by Batch series `42.x`.
 - Batch `42.2 — Translation Containment`: `ACTIVE`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` Stage 1 static audit and Stage 2 implementation plan are complete. The next planned sub-stage is `42.2A — Lossless Translation Storage Foundation`, under the `FOUNDATION_ONLY` strategy and pending separate approval.
+Batch `42.2` Stage 1 static audit, Stage 2 implementation plan, and 42.2A foundation are complete as reported. The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -313,7 +315,17 @@ Evidence class: `REPORTED_BY_CODEX_VERIFICATION`.
 - The final production build passed. No Vite dev server, Tauri process, application runtime, or smoke test ran.
 - No application, Translation, Rust, database, Backup, workflow, or test source changed.
 
-Batch `42.2` Stage 2 planning remains complete. Its next planned sub-stage is `42.2A — Lossless Translation Storage Foundation`, using `FOUNDATION_ONLY`; implementation remains pending a separate controlled approval.
+Batch `42.2` Stage 2 planning remains complete. Batch 42.2A is complete as reported under `FOUNDATION_ONLY`; the next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`.
+
+### Batch 42.2A — Lossless Translation Storage Foundation
+
+Evidence class: `REPORTED_BY_CODEX`.
+
+Batch `42.2A` completed in commit `ab9d9d98ab2b04cbedf41674bb34fd9e5f965409` (parent `7583b85e4e6308809e8eee768b3914f438e44ae3`). Exactly two new files were added: `src/lib/translationStorage.ts` and `src/lib/translationStorage.test.ts`.
+
+The foundation provides injected storage, exact raw snapshots, malformed-value diagnostics, duplicate-property diagnostics, journal-first `RECOVERABLE_LOGICAL_TRANSACTION` planning and commit, rollback, pending inspection, explicit recovery, and a pure recovery-export model. Focused verification reported 46 passed tests and a passing Vite 7.3.5 production build. No caller integration, runtime Translation behavior change, startup recovery, migration, existing Translation module change, or dependency/database/Rust/Backup/package/workflow/runtime change occurred. The full frontend suite was not run; known pre-existing failures remain separately classified.
+
+The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`. Its implementation status is `READY_PENDING_SEPARATE_APPROVAL`; implementation, Translation tests/builds, runtime verification, and dependency remediation remain false.
 
 ### Legacy Translation Correction — Batch 41.9
 
@@ -405,7 +417,7 @@ Current phase:
 
 Current stage:
 
-`42.2A — Lossless Translation Storage Foundation`
+`42.2B — English-Only Language Identity and Resolution`
 
 Current mode:
 
@@ -474,7 +486,7 @@ The audit found no repository mutation, source or data mutation, live AppData ac
 
 The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
 
-The current phase is `IMPLEMENTATION_PLANNED`. Stage 2 planning is complete and reported; the next proposed sub-stage is `42.2A — Lossless Translation Storage Foundation` under `FOUNDATION_ONLY`. Implementation remains prohibited.
+The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A — Lossless Translation Storage Foundation` is complete as reported; the next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`. Implementation remains prohibited.
 
 ### First Stage 1 Preflight Disposition
 
@@ -513,12 +525,12 @@ Do not represent these items as proven until the applicable controlled audit or 
 
 ## 12. Current Blockers
 
-Batch `42.2` Stage 1 audit and Stage 2 implementation plan are complete. The next proposed sub-stage is `42.2A — Lossless Translation Storage Foundation`.
+Batch `42.2` Stage 1 audit, Stage 2 implementation plan, and 42.2A foundation are complete as reported. The next proposed sub-stage is `42.2B — English-Only Language Identity and Resolution`.
 
 Implementation remains blocked because:
 
 - the current mode is ready pending separate approval;
-- implementation has not started and remains unapproved;
+- the next 42.2B implementation has not started and remains unapproved;
 - dependency remediation is separate;
 - Vite `7.3.5` is the current reported prerequisite state;
 - Vite dev-server execution remains separately gated;
@@ -569,14 +581,14 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-Review the completed Batch `42.13A` evidence before considering one separately approved prompt for:
+Review the completed Batch `42.2A` evidence before considering one separately approved prompt for:
 
-`Batch 42.2A — Lossless Translation Storage Foundation`
+`Batch 42.2B — English-Only Language Identity and Resolution`
 
 Required mode:
 
-`FOUNDATION_ONLY IMPLEMENTATION`
+`READY_PENDING_SEPARATE_APPROVAL`
 
-The scope must be limited to a new storage primitive and dedicated focused tests. It must preserve public runtime APIs and must not integrate callers, change the language registry, CSV, Settings, or runtime Translation behavior.
+The next scope must preserve the foundation-only boundary and define English-only identity/resolution handling without assuming approval for implementation.
 
 Implementation remains unapproved until that separate controlled approval.

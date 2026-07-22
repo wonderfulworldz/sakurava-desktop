@@ -75,6 +75,25 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-20 — Translation Storage Foundation Completed
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: TRANSLATION_FOUNDATION_CLOSURE  
+active_batch: 42.2  
+completed_stage: 42.2A — Lossless Translation Storage Foundation  
+current_stage: 42.2B — English-Only Language Identity and Resolution  
+implementation_allowed: false  
+
+### Work Completed
+
+Batch `42.2A` completed in commit `ab9d9d98ab2b04cbedf41674bb34fd9e5f965409` with two isolated files. Focused tests reported 46 passed and the production build passed. No caller integration, runtime behavior change, migration, dependency, database, Rust, Backup, package, or workflow change occurred.
+
+### Next Action
+
+Review the proposed `42.2B — English-Only Language Identity and Resolution`; it remains unapproved.
+
 ## 2026-07-20 — Vite Prerequisite Closed and Translation Foundation Planned
 
 ### Session Metadata
@@ -169,49 +188,6 @@ No source, data, dependency, test, build, server, or Git-ref mutation occurred. 
 Retry Stage 1 separately after this documentation-only recovery commit is synchronized.
 
 ---
-
-## 2026-07-20 — Batch 42.2 Translation Audit Scope Approved
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: AUDIT_SCOPE_APPROVAL  
-starting_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
-baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
-active_batch: 42.2  
-active_batch_title: Translation Containment  
-completed_stage: Stage 0 — Scope Definition  
-current_stage: Stage 1 — Read-Only Translation Architecture Audit  
-current_mode: AUDIT ONLY  
-audit_status: READY_NOT_STARTED  
-audit_allowed: true  
-implementation_allowed: false  
-tests_and_builds_allowed: false  
-vite_dev_server_allowed: false  
-dependency_remediation_allowed: false  
-next_mode: CODEX_PROMPT  
-
-### Work Completed
-
-The operator approved the Batch `42.2` read-only Translation audit contract.
-
-The approved scope covers architecture and file boundaries, English core behavior, user-managed languages, storage and persistence, fallback and missing keys, CSV compatibility, Settings integration, existing-data safety, compatibility, migration assessment, and historical separation between completed Batch `41.9`, current Batch `42.2`, and deferred Batch `42.11`.
-
-Audit execution remains static and read-only. It prohibits source or data modification, live AppData access, tests, builds, Vite or Tauri execution, dependency changes, migration, commit, merge, and push.
-
-### Important Decisions
-
-- Stage 0 is complete.
-- Stage 1 is ready but not started.
-- `audit_allowed` is true only for the approved read-only scope.
-- Implementation remains prohibited.
-- The audit must begin with fresh Git preflight and stop on unexpected repository state.
-- Vite dev-server execution remains prohibited pending targeted security remediation.
-
-### Next Action
-
-Create one controlled Codex `AUDIT ONLY` prompt for Batch `42.2 — Stage 1`.
-
 
 # Session Entry Template
 
