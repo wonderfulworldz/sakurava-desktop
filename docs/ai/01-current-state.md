@@ -12,12 +12,12 @@ repository_state_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE
 repository_state_evidence: CODEX_CLOSURE_REPORT  
 remote_main_verified: true  
 tracked_worktree_clean: true  
-untracked_entry_count: 1334
+untracked_entry_count: 1925
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: c5ca5c1289b7c621283e05171da2a92386dd994e
-baseline_label: Batch 42.3A-1 Catalog Integrity Static Audit
+last_recorded_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
+baseline_label: Batch 42.3A Catalog Reference Integrity Completion
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -31,13 +31,16 @@ new_roadmap_series: 42.x
 last_completed_roadmap_batch: 42.1  
 last_completed_roadmap_batch_title: GitHub and Repository Health Triage  
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
-active_batch: 42.3A
-active_batch_title: Catalog Reference Integrity and Deletion Recovery
-active_batch_phase: CORRECTIVE_INTEGRITY
+active_batch: 42.3
+active_batch_title: Catalog Performance and Media Audit
+active_batch_phase: AUDIT_FIRST_PROPOSED
 active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
+batch_42_3a_status: COMPLETED_AND_CLOSED
 audit_status: COMPLETE_REPORTED
 batch_42_3a_1_status: COMPLETE_REPORTED
 batch_42_3a_1_verdict: ROOT_CAUSE_CONFIRMED_FIX_REQUIRED
+batch_42_3a_2_status: COMPLETED_REPORTED
+batch_42_3a_3_status: PASSED_OBSERVED_BY_OPERATOR
 primary_root_cause_classification: DELETE_RELATIONSHIP_CASCADE_DEFECT
 secondary_classification: LIST_DETAIL_QUERY_DIVERGENCE
 data_risk_classification: POTENTIAL_HIDDEN_ORPHANS
@@ -49,7 +52,7 @@ runtime_performed: false
 audit_allowed: false
 plan_status: COMPLETE_REPORTED
 plan_allowed: false
-implementation_status: NOT_APPROVED
+implementation_status: COMPLETED_REPORTED
 implementation_allowed: false
 strategy: DEPENDENCY_SAFE_CATALOG_DELETION
 tests_and_builds_allowed: false
@@ -57,13 +60,25 @@ runtime_verification_allowed: false
 vite_dev_server_allowed: false
 dependency_remediation_allowed: false
 current_tests_builds_runtime_permission: false
-next_proposed_stage: 42.3A-2 — Dependency-Safe Catalog Deletion Fix
+next_proposed_stage: 42.3 — Catalog Performance and Media Audit
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 existing_catalog_repair_stage: SEPARATELY_GATED_IF_REQUIRED
 dependency_remediation: false
 migration_approved: false
 live_data_repair_approved: false
-batch_42_3_performance_media_status: SUSPENDED_BY_BLOCKING_INTEGRITY_PREREQUISITE
+batch_42_3_performance_media_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_3_mode: AUDIT_FIRST
+batch_42_3_audit_permission: false
+batch_42_3_implementation_permission: false
+batch_42_3a_final_implementation_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
+reference_safe_form_delete: PASSED_OBSERVED_BY_OPERATOR
+reference_safe_bulk_delete: PASSED_OBSERVED_BY_OPERATOR
+survivor_detail_access: PASSED_OBSERVED_BY_OPERATOR
+recovery_warning_after_accepted_smoke: NOT_OBSERVED
+ui_ux_flow: UNCHANGED_OBSERVED_BY_OPERATOR
+existing_catalog_repair_performed: false
+schema_migration: none
+package_or_backup_change: none
 project_os_tracking_policy: TRACK_IN_REPOSITORY  
 project_os_tracking_status: TRACKED_AND_SYNCHRONIZED_REPORTED  
 
@@ -73,7 +88,7 @@ current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb
 current_reported_batch_42_2c: COMPLETE_REPORTED  
 current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
 current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
-current_proposed_sub_stage: 42.3A-2 — Dependency-Safe Catalog Deletion Fix
+current_proposed_sub_stage: 42.3 — Catalog Performance and Media Audit
 current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL
 current_proposed_sub_stage_implementation_allowed: false  
 current_proposed_sub_stage_tests_and_builds_allowed: false  
@@ -93,7 +108,7 @@ duplicate_normalized_language_identity: NOT_OBSERVED
 user_entered_category_data_mutation: NOT_OBSERVED
 restart_persistence: PASSED_OBSERVED_BY_OPERATOR
 preview_numeric_counts: NOT_REPORTED
-next_proposed_batch: 42.3A-2 — Dependency-Safe Catalog Deletion Fix
+next_proposed_batch: 42.3 — Catalog Performance and Media Audit
 next_batch_approval: NOT_APPROVED
 next_batch_audit_permission: false
 next_batch_implementation_permission: false
@@ -423,8 +438,8 @@ The approved roadmap sequence is:
 1. Batch 42.0 — Master Roadmap and Project OS Baseline.
 2. Batch 42.1 — GitHub and Repository Health Triage.
 3. Batch 42.2 — Translation Containment.
-4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery.
-5. Batch 42.3 — Catalog Performance and Media Audit (suspended).
+4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed).
+5. Batch 42.3 — Catalog Performance and Media Audit (next proposed batch).
 6. Batch 42.4 — Managed Mini Media Foundation.
 7. Batch 42.5 — Catalog and Database Performance.
 8. Batch 42.6 — Backup and Restore Audit.
@@ -465,11 +480,12 @@ Summary:
 
 ---
 
-## 10. Active Batch
+## 10. Current Batch Position
 
-### Batch 42.3A — Catalog Reference Integrity and Deletion Recovery
+### Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (Completed)
 
-Current status: `AUDIT_COMPLETE_FIX_REQUIRED`
+Current status: `COMPLETED_AND_CLOSED`
+Final implementation baseline: `7e5fc6e7b807047203e645256b2f20f87a298f81`
 Phase: `CORRECTIVE_INTEGRITY`
 Audit status: `COMPLETE_REPORTED`
 Audit verdict: `ROOT_CAUSE_CONFIRMED_FIX_REQUIRED`
@@ -478,6 +494,8 @@ Secondary classification: `LIST_DETAIL_QUERY_DIVERGENCE`
 Data risk: `POTENTIAL_HIDDEN_ORPHANS`
 Operator evidence: `OBSERVED_BY_OPERATOR`
 Static findings: `REPORTED_BY_CODEX_STATIC_AUDIT`
+42.3A-2 implementation: `COMPLETED_REPORTED`
+42.3A-3 disposable manual smoke: `PASSED_OBSERVED_BY_OPERATOR`
 
 The static audit found that ordinary parent deletion can commit without dependency-safe cleanup or final reference validation. Surviving Credits and inbound JSON relationships may become dangling. Lists bypass global validation while Detail gets require it, allowing recovery errors to appear as misleading not-found states. Spreadsheet deletion is materially safer and must not be weakened. Restore replaces the database with a previously valid snapshot; it is not the corrective implementation.
 
@@ -489,10 +507,22 @@ Existing-catalog repair permission: `false`
 Dependency remediation permission: `false`
 Migration approved: `false`
 
-Next proposed stage: `42.3A-2 — Dependency-Safe Catalog Deletion Fix`
-Next-stage status: `READY_PENDING_SEPARATE_APPROVAL`
+Next proposed batch: `42.3 — Catalog Performance and Media Audit`
+Next-batch status: `READY_PENDING_SEPARATE_APPROVAL`
+Next-batch mode: `AUDIT_FIRST`
+Next-batch audit and implementation permission: `false`
 Existing-catalog repair: `SEPARATELY_GATED_IF_REQUIRED`
-Batch `42.3` performance/media work: `SUSPENDED_BY_BLOCKING_INTEGRITY_PREREQUISITE`
+Batch `42.3` is no longer suspended; it remains separately gated and unapproved.
+
+Closure outcome: ordinary Video, Image, and Performer deletion is reference-safe;
+dependent Credits and inbound relationships are cleaned transactionally;
+survivor Detail access remained available; and the recovery warning was not
+observed during the accepted smoke. UI/UX flow remained unchanged. No live
+AppData, operator database, or existing-catalog repair was used.
+
+Deferred Import/Export feedback: selected empty sections should later export as
+valid empty structures, and future spreadsheet terminology/Credits UX requires
+a separate compatibility decision. No spreadsheet contract changed.
 
 Batch `42.2` Translation work remains completed historical state. Its details belong in historical sections, the Session Ledger, and the Master Roadmap, not in the active stage.
 
@@ -500,7 +530,9 @@ Evidence class: `REPORTED_BY_CODEX_PREFLIGHT`.
 
 No application source, Translation source, data, dependency, workflow, test, build, server, or Git-ref mutation occurred. Translation architecture remains unassessed.
 
-The approved recovery disposition was to preserve and commit those documentation updates. That recovery was synchronized before the audited baseline, after which Stage 1 completed separately. Implementation remains prohibited.
+The approved recovery disposition was completed in Batch 42.3A. The next
+proposed Batch 42.3 audit remains separately gated; implementation remains
+prohibited.
 
 ---
 

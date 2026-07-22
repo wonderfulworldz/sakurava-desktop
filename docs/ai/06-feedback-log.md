@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 3
+active_count: 4
 last_updated: 2026-07-22  
 
 ## Active Feedback
@@ -73,15 +73,59 @@ Apply this rule immediately before any future manual-smoke instruction.
 
 Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed during 42.2D1 closure; the conditional rule remains active.
 
+### FEEDBACK-2026-07-22-EXPORT-EMPTY-SECTIONS — Empty Selected Export Sections
+
+date: 2026-07-22
+batch: FUTURE_IMPORT_EXPORT_WORK
+type: PROBLEM_REPORT
+status: PLANNED
+risk: MEDIUM
+placement: FUTURE_SEPARATE_BATCH / BACKLOG
+
+### Operator Feedback
+
+When all Export sections are selected, an empty selected section such as
+Credits blocks the entire Export. The desired future behavior is to export the
+selected section with valid empty headers or sheet structure while preserving
+populated sections.
+
+### Decision
+
+Record for later. This is not a Batch 42.3A blocker; no implementation or
+automatic deselection is authorized, and no data may be fabricated.
+
+### FEEDBACK-2026-07-22-SPREADSHEET-UX-TERMINOLOGY — Spreadsheet UX and Terminology
+
+date: 2026-07-22
+batch: FUTURE_IMPORT_EXPORT_WORK
+type: NEW_REQUEST
+status: PLANNED
+risk: MEDIUM
+placement: FUTURE_SEPARATE_BATCH / BACKLOG
+
+### Operator Feedback
+
+Improve CSV/XLSX spreadsheet design for user-oriented terminology and a more
+usable Credits table, and display Managed Categories as Category.
+
+### Decision
+
+Record for later. A dedicated product and compatibility decision is required;
+current headers, ordering, sheet names, public references, internal Category
+identity, and other spreadsheet contracts remain unchanged. No implementation
+or Active Lock change is authorized.
+
+## Resolved Feedback
+
 ### FEEDBACK-2026-07-22-CATALOG-DELETE-INTEGRITY — Catalog Deletion Integrity Failure
 
 date: 2026-07-22
 batch: 42.3A
 stage_received: 42.3A-1 Static Audit
 type: PROBLEM_REPORT
-status: BLOCKING
+status: RESOLVED
 risk: HIGH
-placement: CURRENT_STAGE / INTERPOSED_CORRECTIVE_BATCH
+placement: RESOLVED / COMPLETED_BATCH_42_3A
 
 ### Operator Feedback
 
@@ -103,15 +147,17 @@ the supported architecture findings separately as
 ### Decision
 
 - insert Batch `42.3A` before Batch `42.3`;
-- suspend Batch `42.3`;
-- require a prevention fix before performance/media work;
+- complete and close Batch `42.3A` after implementation and accepted smoke;
+- restore Batch `42.3` as the next audit-first proposed batch;
 - keep existing-catalog diagnosis and repair separately gated.
 
 ### Next Action
 
-Complete Result Review, then separately approve or reject `42.3A-2`.
-
-## Resolved Feedback
+Closure evidence: implementation commit
+`7e5fc6e7b807047203e645256b2f20f87a298f81`, focused Rust/frontend verification
+was `REPORTED_BY_CODEX`, disposable smoke was
+`PASSED_OBSERVED_BY_OPERATOR`, and no live AppData or existing-catalog repair
+was used.
 
 ### FEEDBACK-2026-07-22-TRANSLATION-D1-DECISIONS — User CSV and Design Decisions
 
