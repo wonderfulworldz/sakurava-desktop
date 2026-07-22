@@ -665,15 +665,15 @@ An exposed secret, compromised workflow, or active critical reachable vulnerabil
 
 **Status**
 
-`ACTIVE — STAGE 2 PLAN READY`
+`ACTIVE — 42.2A FOUNDATION PLANNED`
 
 Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`
 
 Implementation permission: `NOT_APPROVED`
 
-Stage 2 mode: `PLAN ONLY`
+Stage 2 mode: `READY_PENDING_SEPARATE_APPROVAL`
 
-Stage 2 plan status: `READY_NOT_STARTED`
+Stage 2 plan status: `COMPLETE_REPORTED`
 
 Vite dev-server execution: `NOT_APPROVED`
 
@@ -1397,7 +1397,7 @@ Its classified findings remain assigned to:
 - Batch `42.13` for dependency and security remediation;
 - Batch `42.14` for version and packaging identity.
 
-A targeted security-remediation stage is required before future work that starts the Vite development server.
+A targeted Vite security prerequisite was completed by Batch `42.13A`; future runtime work remains separately gated.
 
 ### Active Batch 42.2
 
@@ -1405,12 +1405,12 @@ Batch `42.2 — Translation Containment` is active.
 
 Current state:
 
-- phase: `IMPLEMENTATION_GATE`;
+- phase: `IMPLEMENTATION_PLANNED`;
 - current stage: `42.2A — Lossless Translation Storage Foundation`;
-- mode: `FOUNDATION_ONLY`;
+- mode: `READY_PENDING_SEPARATE_APPROVAL`;
 - Stage 1 status: `COMPLETE`;
 - Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
-- Stage 2 plan status: `COMPLETE`;
+- Stage 2 plan status: `COMPLETE_REPORTED`;
 - audit permission: `COMPLETE`;
 - plan permission: `COMPLETE`;
 - implementation permission: `NOT_APPROVED`;

@@ -5,15 +5,16 @@
 batch: 42.2  
 title: Translation Containment  
 status: ACTIVE  
-phase: IMPLEMENTATION_GATE  
+phase: IMPLEMENTATION_PLANNED  
 current_stage: 42.2A — Lossless Translation Storage Foundation  
-current_mode: FOUNDATION_ONLY  
+current_mode: READY_PENDING_SEPARATE_APPROVAL  
 stage_1_status: COMPLETE  
 stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
+audit_status: COMPLETE_REPORTED  
 audit_allowed: false  
-plan_status: COMPLETE  
+plan_status: COMPLETE_REPORTED  
 plan_allowed: false  
-implementation_status: READY_PENDING_SEPARATE_APPROVAL  
+implementation_status: NOT_STARTED  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
 vite_dev_server_allowed: false  
@@ -35,6 +36,7 @@ interposed_prerequisite: Batch 42.13A — Targeted Vite Security Prerequisite (C
 vite_security_prerequisite: SATISFIED  
 targeted_vite_high_advisory: REMOVED  
 full_batch_42_13: DEFERRED  
+strategy: FOUNDATION_ONLY  
 selected_strategy: FOUNDATION_ONLY  
 next_action: review results and separately approve 42.2A foundation-only implementation  
 
@@ -184,7 +186,7 @@ The plan must distinguish:
 
 ### Stage 0 — Scope Definition
 
-**Status:** COMPLETE  
+**Status:** COMPLETE_REPORTED  
 **Mode:** DISCUSSION  
 
 The operator approved:
@@ -481,7 +483,7 @@ Stage 1 is complete because:
 - critical findings were accepted as containment inputs;
 - no mutation, runtime execution, dependency change, migration, or live-data inspection occurred;
 - the approved product direction was recorded;
-- Stage 2 is ready but not started.
+- Stage 2 planning is complete and reported; 42.2A is proposed pending separate approval.
 
 ---
 
@@ -493,7 +495,7 @@ Stage 1 is complete because:
 - Batch `42.2` is active.
 - Batch `42.2` Stage 0 scope definition is complete.
 - Stage 1 read-only Translation architecture audit is complete with verdict `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`.
-- Stage 2 Translation containment implementation planning is `READY_NOT_STARTED` and `PLAN ONLY`.
+- Stage 2 Translation containment implementation planning is `COMPLETE_REPORTED`.
 - English `en` is the sole built-in/default/source/fallback language.
 - Indonesian and every other non-English language are user-managed and removable.
 - English is non-removable, CSV-editable, and resettable.
@@ -504,7 +506,7 @@ Stage 1 is complete because:
 - dependency remediation remains separate.
 - implementation permission is false.
 - audit permission is false because Stage 1 is complete.
-- plan permission is true for the approved Stage 2 planning scope.
+- plan permission is complete for the approved Stage 2 planning scope.
 - tests and builds are not approved.
 - Vite dev-server execution is prohibited.
 
@@ -523,9 +525,9 @@ Stage 1 is complete because:
 
 ## 17. Current Blockers
 
-Stage 1 is complete. Stage 2 planning is ready but has not started.
+Stage 1 audit and Stage 2 planning are complete. The 42.2A foundation-only stage remains pending separate approval.
 
-Implementation remains blocked because the current mode is PLAN ONLY; tests, builds, runtime verification, Vite, dependency remediation, migration, package changes, and Backup changes remain prohibited.
+Implementation remains blocked because separate 42.2A approval has not been granted; tests, builds, runtime verification, dependency remediation, migration, package changes, and Backup changes remain prohibited.
 
 ---
 

@@ -16,8 +16,8 @@ untracked_entry_count: 97
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
-baseline_label: docs close batch 42.1 and track project OS  
+last_recorded_baseline: 3da4d7a7fd793f8070e03999287a9c3e2910e43a  
+baseline_label: verified Vite prerequisite closure  
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -33,13 +33,13 @@ last_completed_roadmap_batch_title: GitHub and Repository Health Triage
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
 active_batch: 42.2  
 active_batch_title: Translation Containment  
-active_batch_phase: IMPLEMENTATION_GATE  
-active_batch_mode: FOUNDATION_ONLY_PENDING_APPROVAL  
-audit_status: COMPLETE_WITH_CRITICAL_CONTAINMENT_FINDINGS  
+active_batch_phase: IMPLEMENTATION_PLANNED  
+active_batch_mode: READY_PENDING_SEPARATE_APPROVAL  
+audit_status: COMPLETE_REPORTED  
 audit_allowed: false  
-plan_status: COMPLETE  
+plan_status: COMPLETE_REPORTED  
 plan_allowed: false  
-implementation_status: READY_PENDING_SEPARATE_APPROVAL  
+implementation_status: NOT_STARTED  
 implementation_allowed: false  
 tests_and_builds_allowed: false  
 vite_dev_server_allowed: false  
@@ -401,15 +401,15 @@ Current status:
 
 Current phase:
 
-`PLAN_READY`
+`IMPLEMENTATION_PLANNED`
 
 Current stage:
 
-`Stage 2 — Translation Containment Implementation Plan`
+`42.2A — Lossless Translation Storage Foundation`
 
 Current mode:
 
-`PLAN ONLY`
+`READY_PENDING_SEPARATE_APPROVAL`
 
 Audit status:
 
@@ -474,7 +474,7 @@ The audit found no repository mutation, source or data mutation, live AppData ac
 
 The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
 
-The current phase is `PLAN_READY`. Stage 2 is `PLAN ONLY`, `READY_NOT_STARTED`; implementation remains prohibited.
+The current phase is `IMPLEMENTATION_PLANNED`. Stage 2 planning is complete and reported; the next proposed sub-stage is `42.2A — Lossless Translation Storage Foundation` under `FOUNDATION_ONLY`. Implementation remains prohibited.
 
 ### First Stage 1 Preflight Disposition
 
@@ -513,15 +513,15 @@ Do not represent these items as proven until the applicable controlled audit or 
 
 ## 12. Current Blockers
 
-Batch `42.2` Stage 1 is complete. Stage 2 is ready to produce a controlled implementation plan and has not started.
+Batch `42.2` Stage 1 audit and Stage 2 implementation plan are complete. The next proposed sub-stage is `42.2A — Lossless Translation Storage Foundation`.
 
 Implementation remains blocked because:
 
-- the current mode is plan-only;
-- implementation scope has not been approved;
+- the current mode is ready pending separate approval;
+- implementation has not started and remains unapproved;
 - dependency remediation is separate;
-- Vite `7.3.3` remains affected by current alerts;
-- Vite dev-server execution is prohibited until a targeted security-remediation stage is approved and completed;
+- Vite `7.3.5` is the current reported prerequisite state;
+- Vite dev-server execution remains separately gated;
 - tests and builds are not approved.
 
 These blockers do not prevent requirement discussion or Project OS documentation maintenance.

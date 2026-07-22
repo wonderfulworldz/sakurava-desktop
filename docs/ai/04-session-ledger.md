@@ -75,6 +75,25 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-20 — Vite Prerequisite Closed and Translation Foundation Planned
+
+### Session Metadata
+
+date: 2026-07-20  
+session_type: PROJECT_OS_STATE_RECONCILIATION  
+active_batch: 42.2  
+completed_stage: Batch 42.13A and Batch 42.2 Stage 2 planning  
+current_stage: 42.2A — Lossless Translation Storage Foundation  
+implementation_allowed: false  
+
+### Work Completed
+
+Batch `42.13A` completed with Vite `7.3.5`; the targeted high advisory was removed, remaining low/moderate findings were deferred, and the production build passed. The full suite retains pre-existing failures, and the cover-preview timeout is classified as baseline-flaky. Batch `42.2` Stage 1 audit and Stage 2 plan are complete.
+
+### Next Action
+
+Review the proposed `42.2A` foundation-only stage. Implementation remains unapproved.
+
 ## 2026-07-20 — Verified Vite Security Prerequisite Closed
 
 ### Session Metadata
@@ -193,54 +212,6 @@ Audit execution remains static and read-only. It prohibits source or data modifi
 
 Create one controlled Codex `AUDIT ONLY` prompt for Batch `42.2 — Stage 1`.
 
-
-## 2026-07-20 — Batch 42.2 Activated for Translation Audit Scope Definition
-
-### Session Metadata
-
-date: 2026-07-20  
-session_type: BATCH_ACTIVATION  
-starting_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b  
-baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
-previous_batch: 42.1  
-previous_batch_status: COMPLETED_AND_CLOSED  
-active_batch: 42.2  
-active_batch_title: Translation Containment  
-current_stage: Stage 0 — Scope Definition  
-current_mode: DISCUSSION  
-audit_allowed: false  
-implementation_allowed: false  
-tests_and_builds_allowed: false  
-vite_dev_server_allowed: false  
-dependency_remediation_allowed: false  
-next_mode: DISCUSSION  
-
-### Work Completed
-
-The operator approved activation of Batch `42.2 — Translation Containment`.
-
-Batch `42.2` begins with audit-scope definition only.
-
-It continues unresolved Translation containment questions without repeating the corrective work completed in Batch `41.9`.
-
-Release-facing Translation completion remains assigned to Batch `42.11`.
-
-No repository inspection, Translation audit, source modification, test, build, Vite dev-server execution, dependency remediation, migration, commit, merge, or push occurred during activation.
-
-### Important Decisions
-
-- Batch `42.2` is active.
-- Audit execution remains not approved.
-- Implementation remains not approved.
-- Vite dev-server execution remains prohibited pending targeted security remediation.
-- Dependency and security remediation remain separate from Translation.
-- Stage 0 must define evidence sources, data-safety rules, compatibility boundaries, report format, and stop conditions.
-
-### Next Action
-
-Approve or revise the proposed read-only Translation audit scope.
-
----
 
 # Session Entry Template
 
