@@ -75,6 +75,25 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-22 — Translation CSV Compatibility Engine Completed
+
+### Session Metadata
+
+date: 2026-07-22  
+session_type: TRANSLATION_CSV_ENGINE_CLOSURE  
+active_batch: 42.2  
+completed_stage: 42.2C — Translation CSV Compatibility and English Baseline Editing  
+current_stage: 42.2D — Settings and Recovery Integration  
+implementation_allowed: false  
+
+### Work Completed
+
+Batch `42.2C` completed in commit `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`. Canonical Format D and historical Formats A–C compatibility, English editing and reset, Preview, stale protection, and atomic apply protections were completed as reported. Focused verification reported 146 passed tests and the production build passed. No Settings, visible frontend workflow, runtime, migration, automatic recovery, dependency, database, Rust, Backup, package, or workflow change occurred.
+
+### Next Action
+
+The next proposed stage is `42.2D — Settings and Recovery Integration`; it remains unapproved.
+
 ## 2026-07-20 — English-Only Language Identity Completed
 
 ### Session Metadata

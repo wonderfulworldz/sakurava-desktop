@@ -6,8 +6,8 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-07-20  
-repository_state_recorded_at: 2026-07-20  
+product_state_updated_at: 2026-07-22  
+repository_state_recorded_at: 2026-07-22  
 repository_state_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
 repository_state_evidence: CODEX_CLOSURE_REPORT  
 remote_main_verified: true  
@@ -16,8 +16,8 @@ untracked_entry_count: 97
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
-baseline_label: Batch 42.2B English-only language identity and resolution  
+last_recorded_baseline: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
+baseline_label: Batch 42.2C Translation CSV compatibility and English baseline editing  
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -41,7 +41,7 @@ plan_status: COMPLETE_REPORTED
 plan_allowed: false  
 implementation_status: READY_PENDING_SEPARATE_APPROVAL  
 implementation_allowed: false  
-strategy: FOUNDATION_ONLY  
+strategy: CSV_ENGINE_ONLY  
 tests_and_builds_allowed: false  
 runtime_verification_allowed: false  
 vite_dev_server_allowed: false  
@@ -50,9 +50,12 @@ project_os_tracking_policy: TRACK_IN_REPOSITORY
 project_os_tracking_status: TRACKED_AND_SYNCHRONIZED_REPORTED  
 
 current_reported_batch_42_2b: COMPLETE_REPORTED  
-current_reported_implementation_commit: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
-current_reported_implementation_parent: 9e6c3e55f89d086942547190309bc307aaed44bb  
-current_proposed_sub_stage: 42.2C — Translation CSV Compatibility and English Baseline Editing  
+current_reported_42_2b_commit: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
+current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb  
+current_reported_batch_42_2c: COMPLETE_REPORTED  
+current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
+current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
+current_proposed_sub_stage: 42.2D — Settings and Recovery Integration  
 current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL  
 current_proposed_sub_stage_implementation_allowed: false  
 current_proposed_sub_stage_tests_and_builds_allowed: false  
@@ -506,7 +509,17 @@ The audit found no repository mutation, source or data mutation, live AppData ac
 
 The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
 
-The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A — Lossless Translation Storage Foundation` and `42.2B — English-Only Language Identity and Resolution` are complete as reported; the next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`. Implementation remains prohibited.
+The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A — Lossless Translation Storage Foundation`, `42.2B — English-Only Language Identity and Resolution`, and `42.2C — Translation CSV Compatibility and English Baseline Editing` are complete as reported. The next proposed sub-stage is `42.2D — Settings and Recovery Integration`. Implementation remains prohibited.
+
+### Batch 42.2C — Translation CSV Compatibility and English Baseline Editing
+
+Evidence class: `REPORTED_BY_CODEX`.
+
+Batch `42.2C` completed in commit `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd` (parent `843989564e823f8815a0f9508e27f89bf912e858`). The engine provides deterministic canonical Format D import/export, import-only historical Format A–C Preview adapters, English override and reset behavior, fallback-safe custom-language round trips, immutable non-mutating Preview, stale protection, and all-or-nothing recoverable logical transactions with rollback and recovery-required reporting.
+
+Focused verification reported 146 passed tests across five files, and the Vite 7.3.5 production build passed. Existing CSV and Settings callers remain compatible. No Settings integration, visible frontend workflow change, runtime integration, migration, automatic recovery, dependency, database, Rust, Backup, package, workflow, or Project OS change occurred. The full frontend suite was not run.
+
+The next proposed sub-stage is `42.2D — Settings and Recovery Integration`. Its implementation status is `READY_PENDING_SEPARATE_APPROVAL`; implementation, tests/builds, runtime verification, and dependency remediation remain false.
 
 ### First Stage 1 Preflight Disposition
 
@@ -545,12 +558,12 @@ Do not represent these items as proven until the applicable controlled audit or 
 
 ## 12. Current Blockers
 
-Batch `42.2` Stage 1 audit, Stage 2 implementation plan, 42.2A foundation, and 42.2B implementation are complete as reported. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`.
+Batch `42.2` Stage 1 audit, Stage 2 implementation plan, 42.2A foundation, 42.2B identity/resolution, and 42.2C CSV compatibility are complete as reported. The next proposed sub-stage is `42.2D — Settings and Recovery Integration`.
 
 Implementation remains blocked because:
 
 - the current mode is ready pending separate approval;
-- the next 42.2C implementation has not started and remains unapproved;
+- the next 42.2D implementation has not started and remains unapproved;
 - dependency remediation is separate;
 - Vite `7.3.5` is the current reported prerequisite state;
 - Vite dev-server execution remains separately gated;
@@ -601,14 +614,14 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-Review the completed Batch `42.2B` evidence before considering one separately approved prompt for:
+Review the completed Batch `42.2C` evidence before considering one separately approved prompt for:
 
-`Batch 42.2C — Translation CSV Compatibility and English Baseline Editing`
+`Batch 42.2D — Settings and Recovery Integration`
 
 Required mode:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-The next scope must preserve the completed English-only identity/resolution behavior and define CSV compatibility and English baseline editing without assuming approval for implementation.
+The next scope must preserve the completed English-only identity/resolution and CSV engine behavior without assuming approval for implementation.
 
 Implementation remains unapproved until that separate controlled approval.
