@@ -37,7 +37,7 @@ Apply this rule before any future instruction that changes visible frontend beha
 
 ### Completion Evidence
 
-Recorded in Project OS during Batch 42.2C documentation closure.
+Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed during 42.2D1 closure; the conditional rule remains active.
 
 ### FEEDBACK-2026-07-22-MANUAL-SMOKE-NOTIFICATION — Manual Smoke Requirement Notification
 
@@ -71,7 +71,27 @@ Apply this rule immediately before any future manual-smoke instruction.
 
 ### Completion Evidence
 
-Recorded in Project OS during Batch 42.2C documentation closure.
+Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed during 42.2D1 closure; the conditional rule remains active.
+
+## Resolved Feedback
+
+### FEEDBACK-2026-07-22-TRANSLATION-D1-DECISIONS — User CSV and Design Decisions
+
+date: 2026-07-22  
+batch: 42.2  
+stage_received: 42.2D1 Project OS Documentation Closure  
+type: DIRECT_COMMAND  
+status: APPROVED  
+risk: LOW  
+placement: CURRENT_STAGE / FUTURE_BATCHES  
+
+### Decision
+
+The five-column user CSV contract, automatic state derivation, `Category` terminology, Sakurava design continuity, and safe automatic reconciliation of benign protected local-evidence count changes are recorded in Active Locks and current authority files.
+
+### Completion Evidence
+
+Documentation closure for Batch 42.2D1, commit `4c14990a666efde80972ec74973f1bdd5974a9a1`.
 
 ---
 

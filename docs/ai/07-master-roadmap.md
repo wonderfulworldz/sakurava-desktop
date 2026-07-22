@@ -665,13 +665,13 @@ An exposed secret, compromised workflow, or active critical reachable vulnerabil
 
 **Status**
 
-`ACTIVE — 42.2D PROPOSED`
+`ACTIVE — 42.2E PROPOSED`
 
 Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`
 
 Implementation permission: `NOT_APPROVED`
 
-Stage 2 mode: `PLAN ONLY — 42.2C COMPLETE`
+Stage 2 mode: `PLAN ONLY — 42.2D1 COMPLETE`
 
 Stage 2 plan status: `COMPLETE_REPORTED`
 
@@ -683,8 +683,10 @@ Stage 2 plan status: `COMPLETE_REPORTED`
 42.2C implementation commit: `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`  
 42.2C focused verification: `146 passed`  
 42.2C production build: `PASSED`  
-Next proposed sub-stage: `42.2D — Settings and Recovery Integration`  
-42.2D implementation permission: `NOT_APPROVED`
+42.2D1 implementation status: `COMPLETED_REPORTED`  
+42.2D1 implementation commit: `4c14990a666efde80972ec74973f1bdd5974a9a1`  
+Next proposed sub-stage: `42.2E — Disposable Translation Manual Smoke Verification`  
+42.2E approval: `NOT_APPROVED`
 
 Vite dev-server execution: `NOT_APPROVED`
 
@@ -743,7 +745,11 @@ No migration, CSV, or Settings work occurred. The next proposed sub-stage is `42
 
 Batch `42.2C` completed as reported in commit `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`. Canonical Format D and historical Formats A–C Preview compatibility, English CSV editing and reset, deterministic custom-language round trips, stale Preview protection, atomic apply, rollback, and recovery-required reporting are complete. Existing Settings callers remain compatible; no visible frontend workflow, Settings integration, migration, automatic recovery, dependency, database, Rust, Backup, package, or workflow change occurred. Focused verification reported 146 passed tests and the production build passed.
 
-The next proposed sub-stage is `42.2D — Settings and Recovery Integration`, which remains separately gated. Batch `42.2E` remains later verification and closure; Batch `42.11` remains Translation Release Completion; Batches `42.6` and `42.7` retain Backup and package integration responsibility; full Batch `42.13` remains deferred. The approved main roadmap order is unchanged.
+At the time of that completed stage, `42.2D` was the next proposed sub-stage; it is now complete as reported. Batch `42.2E` remains later verification and closure; Batch `42.11` remains Translation Release Completion; Batches `42.6` and `42.7` retain Backup and package integration responsibility; full Batch `42.13` remains deferred. The approved main roadmap order is unchanged.
+
+### Completed Stage 42.2D1 — User-Friendly Translation CSV Contract
+
+Batch `42.2D1` completed as reported in commit `4c14990a666efde80972ec74973f1bdd5974a9a1`. The canonical user export is `id_lang,language,key,translation,context`; automatic state derivation and legacy import compatibility remain part of the contract. Visible terminology is `Category` with internal identities unchanged, and Sakurava design continuity remains required. The next proposed stage is `42.2E — Disposable Translation Manual Smoke Verification`, not approved. Batch `42.11` remains final release-facing Translation completion; Batches `42.6` and `42.7` retain Backup/package responsibilities; roadmap order is unchanged.
 
 **Out of Scope**
 
@@ -1429,7 +1435,7 @@ Batch `42.2 — Translation Containment` is active.
 Current state:
 
 - phase: `IMPLEMENTATION_PLANNED`;
-- current stage: `42.2D — Settings and Recovery Integration`;
+- current stage: `42.2E — Disposable Translation Manual Smoke Verification`;
 - mode: `READY_PENDING_SEPARATE_APPROVAL`;
 - Stage 1 status: `COMPLETE`;
 - Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
@@ -1437,8 +1443,12 @@ Current state:
 - 42.2A status: `COMPLETED_REPORTED`;
 - 42.2B status: `COMPLETED_REPORTED`;
 - 42.2C status: `COMPLETED_REPORTED`;
+- 42.2D status: `COMPLETED_REPORTED`;
+- 42.2D1 status: `COMPLETED_REPORTED`;
+- 42.2D1 implementation commit: `4c14990a666efde80972ec74973f1bdd5974a9a1`;
 - 42.2C implementation commit: `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`;
-- next proposed stage: `42.2D — Settings and Recovery Integration`;
+- next proposed stage: `42.2E — Disposable Translation Manual Smoke Verification`;
+- 42.2E approval: `NOT_APPROVED`;
 - audit permission: `COMPLETE`;
 - plan permission: `COMPLETE`;
 - implementation permission: `NOT_APPROVED`;
@@ -1455,7 +1465,7 @@ It must not:
 - redesign Settings or UI;
 - change package or Backup behavior;
 - modify dependencies;
-- begin 42.2D implementation before its separate approval.
+- begin 42.2E manual smoke before its separate approval.
 
 ### Stage 0 Approval and Stage 1 Closure
 

@@ -6,7 +6,7 @@ batch: 42.2
 title: Translation Containment  
 status: ACTIVE  
 phase: IMPLEMENTATION_PLANNED  
-current_stage: 42.2D — Settings and Recovery Integration  
+current_stage: 42.2E — Disposable Translation Manual Smoke Verification  
 current_mode: READY_PENDING_SEPARATE_APPROVAL  
 stage_1_status: COMPLETE  
 stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
@@ -36,17 +36,22 @@ interposed_prerequisite: Batch 42.13A — Targeted Vite Security Prerequisite (C
 vite_security_prerequisite: SATISFIED  
 targeted_vite_high_advisory: REMOVED  
 full_batch_42_13: DEFERRED  
-strategy: CSV_ENGINE_ONLY  
-selected_strategy: CSV_ENGINE_ONLY  
-completed_sub_stage: 42.2C — Translation CSV Compatibility and English Baseline Editing  
+strategy: USER_CSV_CONTRACT  
+selected_strategy: USER_CSV_CONTRACT  
+completed_sub_stage: 42.2D1 — User-Friendly Translation CSV Contract  
 completed_sub_stage_status: COMPLETED_REPORTED  
-implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
+implementation_commit: 4c14990a666efde80972ec74973f1bdd5974a9a1  
+completed_42_2d_commit: 8d011d2d990890d663c63135e94d73c2db0bd2bc  
+completed_42_2d_status: COMPLETED_REPORTED  
+completed_42_2d1_commit: 4c14990a666efde80972ec74973f1bdd5974a9a1  
 focused_tests: 146 passed  
 production_build: PASSED  
 caller_integration: NONE  
 runtime_behavior_change: NONE  
 migration: NONE  
-next_action: review 42.2C results and separately approve 42.2D implementation  
+next_action: review 42.2D1 closure and separately approve or reject 42.2E manual smoke  
+manual_smoke_allowed: false  
+runtime_allowed: false  
 
 previous_batch: 42.1  
 previous_batch_title: GitHub and Repository Health Triage  
@@ -310,7 +315,7 @@ No CSV, Settings, migration, automatic recovery, dependency, database, Rust, Bac
 **Migration:** None  
 **Automatic Recovery:** None  
 
-The engine preserves exact storage snapshots, blocks stale or unsafe Preview state, prevents partial apply, and retains compatibility with existing CSV and Settings callers. The full frontend suite was not run. The next proposed sub-stage is `42.2D — Settings and Recovery Integration`, which requires separate approval.
+The engine preserves exact storage snapshots, blocks stale or unsafe Preview state, prevents partial apply, and retains compatibility with existing CSV and Settings callers. The full frontend suite was not run. At the time of that completed stage, `42.2D` was the next proposed sub-stage; it is now complete as reported and superseded by the 42.2E proposal.
 
 ---
 
@@ -559,7 +564,7 @@ Stage 1 is complete because:
 - critical findings were accepted as containment inputs;
 - no mutation, runtime execution, dependency change, migration, or live-data inspection occurred;
 - the approved product direction was recorded;
-- Stage 2 planning, 42.2A, 42.2B, and 42.2C are complete as reported; 42.2D is proposed pending separate approval.
+- Stage 2 planning and 42.2A through 42.2D1 are complete as reported; 42.2E is proposed pending separate approval.
 
 ---
 
@@ -583,7 +588,8 @@ Stage 1 is complete because:
 - implementation permission is false.
 - 42.2B implementation is complete as reported.
 - 42.2C implementation is complete as reported.
-- 42.2D is the next proposed sub-stage and remains unapproved.
+- 42.2D1 implementation is complete as reported.
+- 42.2E is the next proposed sub-stage and remains unapproved.
 - audit permission is false because Stage 1 is complete.
 - plan permission is complete for the approved Stage 2 planning scope.
 - tests and builds are not approved.
@@ -604,15 +610,15 @@ Stage 1 is complete because:
 
 ## 17. Current Blockers
 
-Stage 1 audit, Stage 2 planning, the 42.2A foundation-only stage, 42.2B identity/resolution, and 42.2C CSV compatibility are complete as reported. The 42.2D stage remains pending separate approval.
+Stage 1 audit, Stage 2 planning, and 42.2A through 42.2D1 are complete as reported. The 42.2E stage remains pending separate approval.
 
-Implementation remains blocked because separate 42.2D approval has not been granted; tests, builds, runtime verification, dependency remediation, migration, package changes, and Backup changes remain prohibited for the proposed stage.
+Implementation remains blocked because separate 42.2E approval has not been granted; manual smoke, runtime verification, tests, builds, dependency remediation, migration, package changes, and Backup changes remain prohibited for the proposed stage.
 
 ---
 
 ## 18. Active Feedback
 
-See the active Visual Front End warning instruction in `docs/ai/06-feedback-log.md`.
+See the active conditional frontend and manual-smoke notification instructions in `docs/ai/06-feedback-log.md`.
 
 Refer to:
 
@@ -626,16 +632,16 @@ when active unresolved feedback exists.
 
 After Result Review, separately approve or decline a controlled prompt for:
 
-`Batch 42.2D — Settings and Recovery Integration`
+`Batch 42.2E — Disposable Translation Manual Smoke Verification`
 
 Required mode:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-The proposed work must preserve the completed English-only identity/resolution and CSV engine behavior until separately approved. It may narrow into the existing Settings Translation workflow, but must not redesign Settings or alter Catalog Import/Export.
+The proposed work must preserve the completed English-only identity/resolution, CSV engine, Settings integration, and user-facing CSV contract until separately approved. Manual smoke, runtime execution, and implementation remain unauthorized.
 
 Implementation is not currently authorized.
 
-### Proposed Stage 42.2D Boundary
+### Completed Stage 42.2D1 Boundary
 
-The proposed `42.2D — Settings and Recovery Integration` would narrowly integrate the existing Translation Settings workflow with explicit Preview and confirmation, accurate success/failure results, English reset access, transaction-journal recovery access, and rejected/raw recovery export. Existing Settings structure and workflow must be preserved; Settings redesign, Catalog Import/Export changes, Rust, dependencies, migration, and unrelated production paths remain out of scope. Because rendered Settings behavior may change, any future implementation prompt must follow the active conditional frontend notification rule. Separate approval is required.
+`42.2D1` completed the user-friendly five-column CSV contract, automatic state derivation, legacy import compatibility, and visible Category terminology while preserving the existing Settings structure, English reset, explicit recovery, all-or-nothing Apply, and internal Category identities. The next proposed `42.2E` stage remains separately gated.

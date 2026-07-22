@@ -16,8 +16,8 @@ untracked_entry_count: 97
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
-baseline_label: Batch 42.2C Translation CSV compatibility and English baseline editing  
+last_recorded_baseline: 4c14990a666efde80972ec74973f1bdd5974a9a1  
+baseline_label: Batch 42.2D1 User-Friendly Translation CSV Contract  
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -55,12 +55,13 @@ current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb
 current_reported_batch_42_2c: COMPLETE_REPORTED  
 current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
 current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
-current_proposed_sub_stage: 42.2D — Settings and Recovery Integration  
+current_proposed_sub_stage: 42.2E — Disposable Translation Manual Smoke Verification  
 current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL  
 current_proposed_sub_stage_implementation_allowed: false  
 current_proposed_sub_stage_tests_and_builds_allowed: false  
 current_proposed_sub_stage_runtime_verification_allowed: false  
 current_proposed_sub_stage_dependency_remediation_allowed: false  
+current_proposed_sub_stage_manual_smoke_allowed: false  
 
 package_version: NOT_RECORDED  
 backup_extension: .skv  
@@ -509,7 +510,13 @@ The audit found no repository mutation, source or data mutation, live AppData ac
 
 The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
 
-The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A — Lossless Translation Storage Foundation`, `42.2B — English-Only Language Identity and Resolution`, and `42.2C — Translation CSV Compatibility and English Baseline Editing` are complete as reported. The next proposed sub-stage is `42.2D — Settings and Recovery Integration`. Implementation remains prohibited.
+The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A`, `42.2B`, `42.2C`, `42.2D`, and `42.2D1 — User-Friendly Translation CSV Contract` are complete as reported. The next proposed sub-stage is `42.2E — Disposable Translation Manual Smoke Verification`, which is not approved. Implementation and manual smoke remain prohibited.
+
+### Batch 42.2D1 — User-Friendly Translation CSV Contract
+
+Evidence class: `REPORTED_BY_CODEX`.
+
+Batch `42.2D1` completed in commit `4c14990a666efde80972ec74973f1bdd5974a9a1` (parent `8d011d2d990890d663c63135e94d73c2db0bd2bc`). The user-facing canonical export is `id_lang,language,key,translation,context`; users edit only `id_lang`, `language`, and `translation`, while state is derived automatically. Legacy seven-column and Formats A–C imports remain compatible. Visible terminology uses `Category` while internal identities remain stable, and the existing Sakurava UI/UX design is preserved. Reported verification was 80 library tests, 23 focused App tests, one installed-language check, and a passed Vite 7.3.5 production build; the full frontend suite was not run.
 
 ### Batch 42.2C — Translation CSV Compatibility and English Baseline Editing
 
@@ -558,12 +565,12 @@ Do not represent these items as proven until the applicable controlled audit or 
 
 ## 12. Current Blockers
 
-Batch `42.2` Stage 1 audit, Stage 2 implementation plan, 42.2A foundation, 42.2B identity/resolution, and 42.2C CSV compatibility are complete as reported. The next proposed sub-stage is `42.2D — Settings and Recovery Integration`.
+Batch `42.2` Stage 1 audit, Stage 2 implementation plan, and 42.2A through 42.2D1 are complete as reported. The next proposed sub-stage is `42.2E — Disposable Translation Manual Smoke Verification`.
 
 Implementation remains blocked because:
 
 - the current mode is ready pending separate approval;
-- the next 42.2D implementation has not started and remains unapproved;
+- 42.2E manual smoke has not started and remains unapproved;
 - dependency remediation is separate;
 - Vite `7.3.5` is the current reported prerequisite state;
 - Vite dev-server execution remains separately gated;
@@ -614,14 +621,14 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-Review the completed Batch `42.2C` evidence before considering one separately approved prompt for:
+Review this completed Batch `42.2D1` documentation closure before considering one separately approved prompt for:
 
-`Batch 42.2D — Settings and Recovery Integration`
+`Batch 42.2E — Disposable Translation Manual Smoke Verification`
 
 Required mode:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-The next scope must preserve the completed English-only identity/resolution and CSV engine behavior without assuming approval for implementation.
+The next scope must preserve the completed English-only identity/resolution, CSV engine, Settings integration, and user-facing CSV contract without assuming approval for manual smoke.
 
 Implementation remains unapproved until that separate controlled approval.

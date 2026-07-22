@@ -62,6 +62,8 @@ Meaningful UI or UX changes require:
 
 Approved controlled polish does not authorize unrestricted redesign.
 
+All new frontend elements must follow the closest established Sakurava visual and interaction pattern, including layout, hierarchy, typography, spacing, controls, button priority, dialogs, and functional states. A new requirement does not authorize a new visual language or redesign without explicit approval.
+
 ---
 
 ## LOCK-UI-002 — Forms Remain Full Pages
@@ -144,6 +146,10 @@ Authoritative product behavior:
 * Known language codes and custom language codes are supported. Unknown codes must not be silently remapped; safe operator/import labels may be retained when platform display metadata is unavailable.
 * Existing language metadata, overrides, selected-language state, and Translation values must be preserved through non-destructive compatibility handling.
 * Every future feature must add application-controlled frontend text through stable Translation keys and the English bundled baseline from its initial implementation. Feature batches may add only their own required keys.
+* The canonical user-facing CSV export is exactly `id_lang,language,key,translation,context`; `id_lang`, `language`, and `translation` are editable, while `key` and `context` are informational and protected.
+* Translation state is derived automatically. For non-English languages, text equal to effective English remains missing by default and must not become a redundant override.
+* The previous seven-column canonical format and historical Formats A, B, and C remain import-compatible; they are not the current export contract.
+* Visible user-facing terminology is `Category`; internal Category keys, routes, names, and identities remain stable.
 * Batch `42.11` retains final CSV refinement, release-critical coverage, shared-state coverage, fallback/missing-key regression, restart/persistence verification, and release-facing validation.
 * Broad unrelated Translation refactoring remains prohibited outside the approved Translation batch.
 
@@ -619,6 +625,8 @@ Do not:
 * delete it during normal closure without operator approval.
 
 Repository cleanup must not treat protected local evidence as ordinary generated waste.
+
+Benign changes in the count of protected local evidence may be reconciled automatically when every entry remains beneath `manual-smoke/`, no tracked or staged risk exists, and branch, remote, scope, dependency, data, package, workflow, and Git-history state remains safe. Record the fresh count and location. Never delete, restore, fabricate, rename, or modify protected evidence merely to match an older count.
 
 ---
 

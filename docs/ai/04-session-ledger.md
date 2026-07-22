@@ -75,6 +75,33 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-22 — User-Friendly Translation CSV Contract Completed
+
+### Session Metadata
+
+date: 2026-07-22  
+session_type: TRANSLATION_USER_CSV_CONTRACT_CLOSURE  
+starting_baseline: 8d011d2d990890d663c63135e94d73c2db0bd2bc  
+ending_implementation_baseline: 4c14990a666efde80972ec74973f1bdd5974a9a1  
+active_batch: 42.2  
+completed_stage: 42.2D1 — User-Friendly Translation CSV Contract  
+proposed_next_stage: 42.2E — Disposable Translation Manual Smoke Verification  
+branch: main  
+tracked_worktree: REPORTED clean  
+staging: REPORTED clean  
+local_untracked_evidence: REPORTED 97 beneath manual-smoke/  
+live_appdata_used: no  
+runtime_manual_smoke: not performed  
+next_mode: RESULT REVIEW  
+
+### Work Completed
+
+Batch `42.2D1` completed as reported in commit `4c14990a666efde80972ec74973f1bdd5974a9a1`. The canonical five-column user CSV, automatic state derivation, legacy import compatibility, Category terminology, and Sakurava design-continuity rule were recorded. Reported focused verification and production build passed; no runtime or manual smoke occurred.
+
+### Next Action
+
+Review this documentation closure, then separately approve or reject `42.2E`. It remains not approved.
+
 ## 2026-07-22 — Translation CSV Compatibility Engine Completed
 
 ### Session Metadata
