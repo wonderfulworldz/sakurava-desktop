@@ -75,6 +75,28 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-22 — Catalog Deletion Integrity Defect Confirmed
+
+date: 2026-07-22
+session_type: CATALOG_INTEGRITY_AUDIT_CLOSURE
+active_batch: 42.3A
+completed_stage: 42.3A-1 — Catalog Reference Integrity and Deletion Failure Audit
+audit_verdict: ROOT_CAUSE_CONFIRMED_FIX_REQUIRED
+primary_classification: DELETE_RELATIONSHIP_CASCADE_DEFECT
+secondary_classification: LIST_DETAIL_QUERY_DIVERGENCE
+data_risk: POTENTIAL_HIDDEN_ORPHANS
+implementation_allowed: false
+existing_catalog_repair_allowed: false
+
+The operator reported deletion-related Detail failures, the Settings recovery
+warning, unavailable Import/Export, and apparent recovery after Restore. The
+static audit recorded the findings without live AppData, an operator database,
+a Backup package, runtime, tests, or builds. Batch `42.3A` is now the blocking
+corrective prerequisite; Batch `42.3` is suspended.
+
+Next action: refresh Project ChatGPT files after documentation closure, then
+separately review and approve or reject `42.3A-2`.
+
 ## 2026-07-22 — Translation Containment Closed
 
 date: 2026-07-22
@@ -125,7 +147,7 @@ Batch `42.2D1` completed as reported in commit `4c14990a666efde80972ec74973f1bdd
 
 ### Next Action
 
-Review this documentation closure, then separately approve or reject `42.2E`. It remains not approved.
+This entry is historical. Batch `42.2E` was subsequently recorded as completed observed; current work is the interposed Batch `42.3A` corrective prerequisite.
 
 ## 2026-07-22 — Translation CSV Compatibility Engine Completed
 

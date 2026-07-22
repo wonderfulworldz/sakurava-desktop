@@ -16,8 +16,8 @@ untracked_entry_count: 1334
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 211e5bdd614ce5cc5e203f894db564702755b709
-baseline_label: Batch 42.2 Translation Containment Completion
+last_recorded_baseline: c5ca5c1289b7c621283e05171da2a92386dd994e
+baseline_label: Batch 42.3A-1 Catalog Integrity Static Audit
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -31,21 +31,39 @@ new_roadmap_series: 42.x
 last_completed_roadmap_batch: 42.1  
 last_completed_roadmap_batch_title: GitHub and Repository Health Triage  
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
-active_batch: 42.3
-active_batch_title: Catalog Performance and Media Audit
-active_batch_phase: AUDIT_FIRST_PROPOSED
-active_batch_mode: READY_PENDING_SEPARATE_APPROVAL  
-audit_status: COMPLETE_REPORTED  
-audit_allowed: false  
-plan_status: COMPLETE_REPORTED  
-plan_allowed: false  
-implementation_status: COMPLETED_AND_CLOSED
-implementation_allowed: false  
-strategy: CSV_ENGINE_ONLY  
-tests_and_builds_allowed: false  
-runtime_verification_allowed: false  
-vite_dev_server_allowed: false  
-dependency_remediation_allowed: false  
+active_batch: 42.3A
+active_batch_title: Catalog Reference Integrity and Deletion Recovery
+active_batch_phase: CORRECTIVE_INTEGRITY
+active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
+audit_status: COMPLETE_REPORTED
+batch_42_3a_1_status: COMPLETE_REPORTED
+batch_42_3a_1_verdict: ROOT_CAUSE_CONFIRMED_FIX_REQUIRED
+primary_root_cause_classification: DELETE_RELATIONSHIP_CASCADE_DEFECT
+secondary_classification: LIST_DETAIL_QUERY_DIVERGENCE
+data_risk_classification: POTENTIAL_HIDDEN_ORPHANS
+operator_problem_evidence: OBSERVED_BY_OPERATOR
+code_architecture_findings: REPORTED_BY_CODEX_STATIC_AUDIT
+live_appdata_inspected: false
+operator_database_inspected: false
+runtime_performed: false
+audit_allowed: false
+plan_status: COMPLETE_REPORTED
+plan_allowed: false
+implementation_status: NOT_APPROVED
+implementation_allowed: false
+strategy: DEPENDENCY_SAFE_CATALOG_DELETION
+tests_and_builds_allowed: false
+runtime_verification_allowed: false
+vite_dev_server_allowed: false
+dependency_remediation_allowed: false
+current_tests_builds_runtime_permission: false
+next_proposed_stage: 42.3A-2 — Dependency-Safe Catalog Deletion Fix
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+existing_catalog_repair_stage: SEPARATELY_GATED_IF_REQUIRED
+dependency_remediation: false
+migration_approved: false
+live_data_repair_approved: false
+batch_42_3_performance_media_status: SUSPENDED_BY_BLOCKING_INTEGRITY_PREREQUISITE
 project_os_tracking_policy: TRACK_IN_REPOSITORY  
 project_os_tracking_status: TRACKED_AND_SYNCHRONIZED_REPORTED  
 
@@ -55,8 +73,8 @@ current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb
 current_reported_batch_42_2c: COMPLETE_REPORTED  
 current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
 current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
-current_proposed_sub_stage: 42.3 — Catalog Performance and Media Audit
-current_proposed_sub_stage_status: NOT_APPROVED
+current_proposed_sub_stage: 42.3A-2 — Dependency-Safe Catalog Deletion Fix
+current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL
 current_proposed_sub_stage_implementation_allowed: false  
 current_proposed_sub_stage_tests_and_builds_allowed: false  
 current_proposed_sub_stage_runtime_verification_allowed: false  
@@ -75,7 +93,7 @@ duplicate_normalized_language_identity: NOT_OBSERVED
 user_entered_category_data_mutation: NOT_OBSERVED
 restart_persistence: PASSED_OBSERVED_BY_OPERATOR
 preview_numeric_counts: NOT_REPORTED
-next_proposed_batch: 42.3 — Catalog Performance and Media Audit
+next_proposed_batch: 42.3A-2 — Dependency-Safe Catalog Deletion Fix
 next_batch_approval: NOT_APPROVED
 next_batch_audit_permission: false
 next_batch_implementation_permission: false
@@ -200,10 +218,10 @@ The approved roadmap is represented by Batch series `42.x`.
 
 - Batch `42.0 — Master Roadmap and Project OS Baseline`: `COMPLETED`;
 - Batch `42.1 — GitHub and Repository Health Triage`: `COMPLETED_AND_CLOSED`;
-- Batch `42.2 — Translation Containment`: `ACTIVE`;
+- Batch `42.2 — Translation Containment`: `COMPLETED_AND_CLOSED`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` Stage 1 static audit, Stage 2 implementation plan, 42.2A foundation, and 42.2B English-only identity/resolution are complete as reported. The next proposed sub-stage is `42.2C — Translation CSV Compatibility and English Baseline Editing`.
+Batch `42.2` and its Translation stages are completed historical work. Current active work is the interposed corrective Batch `42.3A`.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -405,19 +423,20 @@ The approved roadmap sequence is:
 1. Batch 42.0 — Master Roadmap and Project OS Baseline.
 2. Batch 42.1 — GitHub and Repository Health Triage.
 3. Batch 42.2 — Translation Containment.
-4. Batch 42.3 — Catalog Performance and Media Audit.
-5. Batch 42.4 — Managed Mini Media Foundation.
-6. Batch 42.5 — Catalog and Database Performance.
-7. Batch 42.6 — Backup and Restore Audit.
-8. Batch 42.7 — `.skv` Backup and Atomic Restore Hardening.
-9. Batch 42.8 — Explicit Catalog Feature Configuration.
-10. Batch 42.9 — Design System and Iconography Foundation.
-11. Batch 42.10 — Controlled UI Polish.
-12. Batch 42.11 — Translation Release Completion.
-13. Batch 42.12 — Repository Professionalization.
-14. Batch 42.13 — Dependency and Security Remediation.
-15. Batch 42.14 — Windows Identity and Packaging.
-16. Batch 42.15 — Private Pilot Release Candidate.
+4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery.
+5. Batch 42.3 — Catalog Performance and Media Audit (suspended).
+6. Batch 42.4 — Managed Mini Media Foundation.
+7. Batch 42.5 — Catalog and Database Performance.
+8. Batch 42.6 — Backup and Restore Audit.
+9. Batch 42.7 — `.skv` Backup and Atomic Restore Hardening.
+10. Batch 42.8 — Explicit Catalog Feature Configuration.
+11. Batch 42.9 — Design System and Iconography Foundation.
+12. Batch 42.10 — Controlled UI Polish.
+13. Batch 42.11 — Translation Release Completion.
+14. Batch 42.12 — Repository Professionalization.
+15. Batch 42.13 — Dependency and Security Remediation.
+16. Batch 42.14 — Windows Identity and Packaging.
+17. Batch 42.15 — Private Pilot Release Candidate.
 
 Batch 42.0 is complete as a product and documentation baseline.
 
@@ -448,108 +467,34 @@ Summary:
 
 ## 10. Active Batch
 
-### Batch 42.2 — Translation Containment
+### Batch 42.3A — Catalog Reference Integrity and Deletion Recovery
 
-Current status:
+Current status: `AUDIT_COMPLETE_FIX_REQUIRED`
+Phase: `CORRECTIVE_INTEGRITY`
+Audit status: `COMPLETE_REPORTED`
+Audit verdict: `ROOT_CAUSE_CONFIRMED_FIX_REQUIRED`
+Primary classification: `DELETE_RELATIONSHIP_CASCADE_DEFECT`
+Secondary classification: `LIST_DETAIL_QUERY_DIVERGENCE`
+Data risk: `POTENTIAL_HIDDEN_ORPHANS`
+Operator evidence: `OBSERVED_BY_OPERATOR`
+Static findings: `REPORTED_BY_CODEX_STATIC_AUDIT`
 
-`ACTIVE`
+The static audit found that ordinary parent deletion can commit without dependency-safe cleanup or final reference validation. Surviving Credits and inbound JSON relationships may become dangling. Lists bypass global validation while Detail gets require it, allowing recovery errors to appear as misleading not-found states. Spreadsheet deletion is materially safer and must not be weakened. Restore replaces the database with a previously valid snapshot; it is not the corrective implementation.
 
-Current phase:
+Current implementation permission: `false`
+Tests and builds permission: `false`
+Runtime permission: `false`
+Live AppData permission: `false`
+Existing-catalog repair permission: `false`
+Dependency remediation permission: `false`
+Migration approved: `false`
 
-`IMPLEMENTATION_PLANNED`
+Next proposed stage: `42.3A-2 — Dependency-Safe Catalog Deletion Fix`
+Next-stage status: `READY_PENDING_SEPARATE_APPROVAL`
+Existing-catalog repair: `SEPARATELY_GATED_IF_REQUIRED`
+Batch `42.3` performance/media work: `SUSPENDED_BY_BLOCKING_INTEGRITY_PREREQUISITE`
 
-Current stage:
-
-`42.2B — English-Only Language Identity and Resolution`
-
-Current mode:
-
-`READY_PENDING_SEPARATE_APPROVAL`
-
-Audit status:
-
-`COMPLETE_WITH_CRITICAL_CONTAINMENT_FINDINGS`
-
-Audit permission:
-
-`COMPLETE`
-
-Audit evidence class:
-
-`REPORTED_BY_CODEX_STATIC_AUDIT`
-
-Audited baseline:
-
-`1e0d6dd13e55f36f6bae78d32fbeb26fd56c6b38`
-
-Implementation permission:
-
-`NOT_APPROVED`
-
-Tests and builds:
-
-`NOT_APPROVED`
-
-Vite dev-server execution:
-
-`NOT_APPROVED`
-
-Dependency remediation:
-
-`NOT_APPROVED`
-
-Risk level:
-
-`HIGH`
-
-Batch `42.2` exists to define and later execute a controlled read-only audit of unresolved Translation architecture and data-safety questions.
-
-It must preserve the completed corrective work from Batch `41.9` and must not repeat it without evidence of regression.
-
-It must remain separate from:
-
-- Translation Release Completion in Batch `42.11`;
-- dependency and security remediation in Batch `42.13`;
-- Settings redesign;
-- broad UI polish;
-- package or Backup changes;
-- repository cleanup.
-
-The authoritative current scope and blockers are stored in:
-
-`docs/ai/03-active-batch.md`
-
-### Stage 1 Audit Closure and Approved Product Direction
-
-Stage 1 completed as a static read-only audit with verdict `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`.
-
-Evidence class: `REPORTED_BY_CODEX_STATIC_AUDIT`.
-
-The audit found no repository mutation, source or data mutation, live AppData access, test, build, server, dependency change, active destructive migration, or proven current user-data corruption. Accepted containment findings are the Indonesian built-in identity regression, non-destructive preservation requirements for existing language data, unsafe CSV round-trip and historical-format compatibility gaps, non-atomic Translation persistence, and Translation state remaining outside the current Backup package.
-
-The operator approved English `en` as the sole built-in/default/source/fallback language; Indonesian and every other non-English language as user-managed and removable; English as non-removable, CSV-editable, and resettable; a frontend application-controlled UI-only Translation boundary; stable normalized language-code identity; and a permanent translation-ready gate for every future feature. Batch `42.11` remains the final release-facing completion boundary, while Backup/package Translation inclusion remains assigned to Batches `42.6` and `42.7`.
-
-The current phase is `IMPLEMENTATION_PLANNED`. Batch `42.2A`, `42.2B`, `42.2C`, `42.2D`, and `42.2D1 — User-Friendly Translation CSV Contract` are complete as reported. The next proposed sub-stage is `42.2E — Disposable Translation Manual Smoke Verification`, which is not approved. Implementation and manual smoke remain prohibited.
-
-### Batch 42.2D1 — User-Friendly Translation CSV Contract
-
-Evidence class: `REPORTED_BY_CODEX`.
-
-Batch `42.2D1` completed in commit `4c14990a666efde80972ec74973f1bdd5974a9a1` (parent `8d011d2d990890d663c63135e94d73c2db0bd2bc`). The user-facing canonical export is `id_lang,language,key,translation,context`; users edit only `id_lang`, `language`, and `translation`, while state is derived automatically. Legacy seven-column and Formats A–C imports remain compatible. Visible terminology uses `Category` while internal identities remain stable, and the existing Sakurava UI/UX design is preserved. Reported verification was 80 library tests, 23 focused App tests, one installed-language check, and a passed Vite 7.3.5 production build; the full frontend suite was not run.
-
-### Batch 42.2C — Translation CSV Compatibility and English Baseline Editing
-
-Evidence class: `REPORTED_BY_CODEX`.
-
-Batch `42.2C` completed in commit `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd` (parent `843989564e823f8815a0f9508e27f89bf912e858`). The engine provides deterministic canonical Format D import/export, import-only historical Format A–C Preview adapters, English override and reset behavior, fallback-safe custom-language round trips, immutable non-mutating Preview, stale protection, and all-or-nothing recoverable logical transactions with rollback and recovery-required reporting.
-
-Focused verification reported 146 passed tests across five files, and the Vite 7.3.5 production build passed. Existing CSV and Settings callers remain compatible. No Settings integration, visible frontend workflow change, runtime integration, migration, automatic recovery, dependency, database, Rust, Backup, package, workflow, or Project OS change occurred. The full frontend suite was not run.
-
-The next proposed sub-stage is `42.2D — Settings and Recovery Integration`. Its implementation status is `READY_PENDING_SEPARATE_APPROVAL`; implementation, tests/builds, runtime verification, and dependency remediation remain false.
-
-### First Stage 1 Preflight Disposition
-
-The first Stage 1 preflight stopped before authority-file or Translation-source inspection because four approved Project OS files were modified but not yet committed.
+Batch `42.2` Translation work remains completed historical state. Its details belong in historical sections, the Session Ledger, and the Master Roadmap, not in the active stage.
 
 Evidence class: `REPORTED_BY_CODEX_PREFLIGHT`.
 

@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 2  
+active_count: 3
 last_updated: 2026-07-22  
 
 ## Active Feedback
@@ -72,6 +72,44 @@ Apply this rule immediately before any future manual-smoke instruction.
 ### Completion Evidence
 
 Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed during 42.2D1 closure; the conditional rule remains active.
+
+### FEEDBACK-2026-07-22-CATALOG-DELETE-INTEGRITY — Catalog Deletion Integrity Failure
+
+date: 2026-07-22
+batch: 42.3A
+stage_received: 42.3A-1 Static Audit
+type: PROBLEM_REPORT
+status: BLOCKING
+risk: HIGH
+placement: CURRENT_STAGE / INTERPOSED_CORRECTIVE_BATCH
+
+### Operator Feedback
+
+The operator reported that one Video, one Image, and three Performers remained
+after Credit-bearing catalog activity. Credits appeared removable through the
+normal form and Save, but deleting a remaining Video, Image, or Performer could
+make another Detail screen show a not-found state. Settings reported
+`Catalog references need recovery`, Import and Export became unavailable, and
+Restore returned the catalog to a usable state. The five records originated
+from a Bulk Import/Export deletion attempt that could not delete
+Credit-protected targets.
+
+### Interpretation
+
+The observation is retained as `OBSERVED_BY_OPERATOR`. The static audit reports
+the supported architecture findings separately as
+`REPORTED_BY_CODEX_STATIC_AUDIT`; the live catalog state remains unknown.
+
+### Decision
+
+- insert Batch `42.3A` before Batch `42.3`;
+- suspend Batch `42.3`;
+- require a prevention fix before performance/media work;
+- keep existing-catalog diagnosis and repair separately gated.
+
+### Next Action
+
+Complete Result Review, then separately approve or reject `42.3A-2`.
 
 ## Resolved Feedback
 

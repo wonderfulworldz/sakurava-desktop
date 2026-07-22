@@ -9,21 +9,23 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 528246899386f960a1cce0b6f4bc4cba03b5315b
+last_recorded_git_baseline: c5ca5c1289b7c621283e05171da2a92386dd994e
 last_recorded_git_baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.1
-active_batch: 42.3
+active_batch: 42.3A
 
 ## Current Authority — 2026-07-22
 
 Batch `42.2 — Translation Containment` is `COMPLETED_AND_CLOSED` at final
 application/configuration baseline `211e5bdd614ce5cc5e203f894db564702755b709`.
-Stage `42.2E` is `COMPLETED_OBSERVED`. The next proposed batch is `42.3 —
-Catalog Performance and Media Audit`; it is not approved and remains audit-first.
+Stage `42.2E` is `COMPLETED_OBSERVED`. Batch `42.3A — Catalog Reference
+Integrity and Deletion Recovery` is interposed as a blocking corrective
+prerequisite. Batch `42.3 — Catalog Performance and Media Audit` remains in
+the roadmap but is suspended pending 42.3A closure.
 
 ---
 
@@ -48,7 +50,7 @@ Technical claims in this document that have not been verified against the curren
 
 until proven through fresh repository evidence.
 
-The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1` is completed and Batch `42.2` is active at Stage 0 scope definition.
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1` and Batch `42.2` are completed historical work; Batch `42.3A` is the active corrective prerequisite.
 
 ---
 
@@ -758,11 +760,11 @@ No migration, CSV, or Settings work occurred. The next proposed sub-stage is `42
 
 Batch `42.2C` completed as reported in commit `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`. Canonical Format D and historical Formats A–C Preview compatibility, English CSV editing and reset, deterministic custom-language round trips, stale Preview protection, atomic apply, rollback, and recovery-required reporting are complete. Existing Settings callers remain compatible; no visible frontend workflow, Settings integration, migration, automatic recovery, dependency, database, Rust, Backup, package, or workflow change occurred. Focused verification reported 146 passed tests and the production build passed.
 
-At the time of that completed stage, `42.2D` was the next proposed sub-stage; it is now complete as reported. Batch `42.2E` remains later verification and closure; Batch `42.11` remains Translation Release Completion; Batches `42.6` and `42.7` retain Backup and package integration responsibility; full Batch `42.13` remains deferred. The approved main roadmap order is unchanged.
+At the time of that completed stage, `42.2D` was the next proposed sub-stage; it is now complete as reported. Batch `42.2E` later completed as observed; Batch `42.11` remains Translation Release Completion; Batches `42.6` and `42.7` retain Backup and package integration responsibility; full Batch `42.13` remains deferred. The approved main roadmap order now includes interposed Batch `42.3A` before suspended Batch `42.3`.
 
 ### Completed Stage 42.2D1 — User-Friendly Translation CSV Contract
 
-Batch `42.2D1` completed as reported in commit `4c14990a666efde80972ec74973f1bdd5974a9a1`. The canonical user export is `id_lang,language,key,translation,context`; automatic state derivation and legacy import compatibility remain part of the contract. Visible terminology is `Category` with internal identities unchanged, and Sakurava design continuity remains required. The next proposed stage is `42.2E — Disposable Translation Manual Smoke Verification`, not approved. Batch `42.11` remains final release-facing Translation completion; Batches `42.6` and `42.7` retain Backup/package responsibilities; roadmap order is unchanged.
+Batch `42.2D1` completed as reported in commit `4c14990a666efde80972ec74973f1bdd5974a9a1`. The canonical user export is `id_lang,language,key,translation,context`; automatic state derivation and legacy import compatibility remain part of the contract. Visible terminology is `Category` with internal identities unchanged, and Sakurava design continuity remains required. The later `42.2E` disposable verification is recorded as completed observed. Batch `42.11` remains final release-facing Translation completion; Batches `42.6` and `42.7` retain Backup/package responsibilities.
 
 **Out of Scope**
 
@@ -790,6 +792,51 @@ audit-first batch and remains not approved; no performance finding is inferred.
 **Expected Result**
 
 The unresolved Translation containment work has one controlled direction, completed Batch `41.9` behavior is preserved, and Stage 2 planning must define the English-only transition, non-destructive `id` compatibility, English CSV edit/reset behavior, code identity rules, UI-only Translation boundary, future-feature gate, CSV adapters, atomic persistence, raw-data preservation, focused verification, rollback, and stop conditions. Implementation remains separately gated.
+
+---
+
+### Batch 42.3A — Catalog Reference Integrity and Deletion Recovery
+
+**Status**
+
+`AUDIT_COMPLETE_FIX_REQUIRED`
+
+**Goal**
+
+Prevent catalog entity deletion from committing dangling Credits or inbound
+relationships, preserve reference integrity, provide accurate failure states,
+and define a separately gated recovery path for already invalid catalogs.
+
+**In Scope**
+
+* dependency-safe Video/Image/Performer deletion;
+* Credits and inbound JSON relationships;
+* atomic transaction and rollback;
+* final catalog-reference validation;
+* accurate not-found versus recovery-required behavior;
+* focused regression coverage;
+* separately gated diagnosis and repair planning for affected catalogs.
+
+**Out of Scope**
+
+* performance optimization;
+* managed mini-media implementation;
+* broad Backup/Restore redesign;
+* `.skv` package changes;
+* dependency remediation;
+* unrelated UI redesign;
+* silent destructive data repair.
+
+**Expected Result**
+
+Ordinary deletion cannot corrupt global catalog references, surviving records
+remain accessible, failures are explicit and non-mutating, and affected
+catalogs can later be diagnosed and repaired through a controlled data-safety
+workflow.
+
+The next proposed stage is `42.3A-2 — Dependency-Safe Catalog Deletion Fix`.
+It remains separately gated and does not authorize implementation, tests,
+builds, runtime, migration, dependency work, or live-data repair.
 
 ---
 
@@ -1453,14 +1500,44 @@ Its classified findings remain assigned to:
 
 A targeted Vite security prerequisite was completed by Batch `42.13A`; future runtime work remains separately gated.
 
-### Active Batch 42.2
+### Active Batch 42.3A — Catalog Reference Integrity and Deletion Recovery
 
-Batch `42.2 — Translation Containment` is active.
+Batch `42.3A` is the active blocking corrective prerequisite.
 
 Current state:
 
+- status: `AUDIT_COMPLETE_FIX_REQUIRED`;
+- phase: `CORRECTIVE_INTEGRITY`;
+- 42.3A-1 status: `COMPLETE_REPORTED`;
+- 42.3A-1 verdict: `ROOT_CAUSE_CONFIRMED_FIX_REQUIRED`;
+- primary classification: `DELETE_RELATIONSHIP_CASCADE_DEFECT`;
+- secondary classification: `LIST_DETAIL_QUERY_DIVERGENCE`;
+- data risk: `POTENTIAL_HIDDEN_ORPHANS`;
+- current stage: `42.3A-2 — Dependency-Safe Catalog Deletion Fix`;
+- current mode: `READY_PENDING_SEPARATE_APPROVAL`;
+- implementation, tests, builds, runtime, migration, dependency, and live-data
+  repair permission: `false`;
+- Batch `42.3`: `SUSPENDED_PENDING_42_3A`.
+
+The blocker is that ordinary catalog deletion can create invalid surviving
+references. The proposed fix must preserve Credits as independent records,
+handle inbound JSON relationships transactionally, validate before commit,
+rollback on failure, and distinguish true not-found from recovery-required
+states. Spreadsheet deletion remains the safer protected path. Restore and
+Backup scope remain assigned to Batches `42.6` and `42.7`.
+
+Existing-catalog diagnosis and repair are separately gated and are not part of
+the current implementation permission.
+
+### Historical Batch 42.2 — Translation Containment (Completed)
+
+Batch `42.2 — Translation Containment` is completed and historical. The
+following record is retained for continuity and is not the active stage.
+
+Historical state:
+
 - phase: `IMPLEMENTATION_PLANNED`;
-- current stage: `42.2E — Disposable Translation Manual Smoke Verification`;
+- completed stage: `42.2E — Disposable Translation Manual Smoke Verification`;
 - mode: `READY_PENDING_SEPARATE_APPROVAL`;
 - Stage 1 status: `COMPLETE`;
 - Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`;
@@ -1472,8 +1549,7 @@ Current state:
 - 42.2D1 status: `COMPLETED_REPORTED`;
 - 42.2D1 implementation commit: `4c14990a666efde80972ec74973f1bdd5974a9a1`;
 - 42.2C implementation commit: `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`;
-- next proposed stage: `42.2E — Disposable Translation Manual Smoke Verification`;
-- 42.2E approval: `NOT_APPROVED`;
+- 42.2E approval: `COMPLETED_OBSERVED`;
 - audit permission: `COMPLETE`;
 - plan permission: `COMPLETE`;
 - implementation permission: `NOT_APPROVED`;
@@ -1481,7 +1557,13 @@ Current state:
 - Vite dev-server execution: `NOT_APPROVED`;
 - dependency remediation: `NOT_APPROVED`.
 
-Batch `42.2` continues only unresolved Translation containment work and the approved product direction: English `en` is the sole built-in/default/source/fallback language; Indonesian and every other non-English language are user-managed and removable; English is CSV-editable and resettable; Translation is frontend application-controlled UI only; one normalized code represents one identity; existing language data requires non-destructive compatibility; and every future feature is translation-ready from initial implementation.
+Batch `42.2` completed its approved Translation containment scope. English `en`
+is the sole built-in/default/source/fallback language; Indonesian and every
+other non-English language are user-managed and removable; English is
+CSV-editable and resettable; Translation is frontend application-controlled UI
+only; one normalized code represents one identity; existing language data
+requires non-destructive compatibility; and every future feature is
+translation-ready from initial implementation.
 
 It must not:
 
@@ -1622,7 +1704,8 @@ Recorded Git or test state must not be described as current proof until freshly 
 Batch 42.0 — Master Roadmap and Project OS Baseline
 → Batch 42.1 — GitHub and Repository Health Triage
 → Batch 42.2 — Translation Containment
-→ Batch 42.3 — Catalog Performance and Media Audit
+→ Batch 42.3A — Catalog Reference Integrity and Deletion Recovery
+→ Batch 42.3 — Catalog Performance and Media Audit (suspended pending 42.3A)
 → Batch 42.4 — Managed Mini Media Foundation
 → Batch 42.5 — Catalog and Database Performance
 → Batch 42.6 — Backup and Restore Audit
