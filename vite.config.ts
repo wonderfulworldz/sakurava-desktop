@@ -9,6 +9,7 @@ export default defineConfig({
         "src-tauri/target",
         "src-tauri/target/**",
         "**/src-tauri/target/**",
+        /(?:^|[\\/])manual-smoke(?:[\\/]|$)/,
       ],
     },
   },
