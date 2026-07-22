@@ -1,4 +1,15 @@
-import { getStoredCustomLanguages } from "./customLanguages";
+import {
+  getStoredCustomLanguages,
+  inspectStoredCustomLanguages,
+  normalizeLanguageIdentity,
+} from "./customLanguages";
+import {
+  commitTranslationTransaction,
+  createTranslationTransactionPlan,
+  readRawTranslationSnapshot,
+  translationStorageKeys,
+  type TranslationStorage,
+} from "./translationStorage";
 
 export type LanguageCode = string;
 
@@ -8,22 +19,27 @@ export type SupportedLanguage = {
   nativeLabel: string;
 };
 
-export const languageStorageKey = "sakurava.language.selected.v1";
+export const languageStorageKey = translationStorageKeys.selectedLanguage;
 export const defaultLanguageCode: LanguageCode = "en";
 
 const builtInLanguages: SupportedLanguage[] = [
   { code: "en", label: "English", nativeLabel: "English" },
-  { code: "id", label: "Indonesian", nativeLabel: "Bahasa Indonesia" },
 ];
 
 export { builtInLanguages };
 
-export function getSupportedLanguages(): SupportedLanguage[] {
-  if (typeof window === "undefined") return builtInLanguages;
+function browserStorage(): TranslationStorage | null {
+  return typeof window === "undefined" ? null : window.localStorage;
+}
 
-  const custom: SupportedLanguage[] = getStoredCustomLanguages().map(
+export function getSupportedLanguages(
+  storage: TranslationStorage | null = browserStorage(),
+): SupportedLanguage[] {
+  if (!storage) return [...builtInLanguages];
+
+  const custom: SupportedLanguage[] = getStoredCustomLanguages(storage).map(
     (language) => ({
-      code: language.code,
+      code: normalizeLanguageIdentity(language.code)!,
       label: language.label,
       nativeLabel: language.label,
     }),
@@ -1456,7 +1472,6 @@ const indonesianDictionary: TranslationDictionary = {
 
 const dictionaries: Record<LanguageCode, TranslationDictionary> = {
   en: englishDictionary,
-  id: indonesianDictionary,
 };
 
 export function getAllTranslationKeys(): string[] {
@@ -1565,39 +1580,95 @@ export function getKeyDescription(key: string): string {
 }
 
 export function normalizeLanguageCode(value: unknown): LanguageCode {
-  if (typeof value !== "string") {
-    return defaultLanguageCode;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  const allLanguages = getSupportedLanguages();
-  return allLanguages.some((language) => language.code === normalized)
-    ? normalized
-    : defaultLanguageCode;
+  return resolveAvailableLanguageCode(value) ?? defaultLanguageCode;
 }
 
-export function getStoredLanguageCode(): LanguageCode {
-  if (typeof window === "undefined") {
-    return defaultLanguageCode;
+export function resolveAvailableLanguageCode(
+  value: unknown,
+  storage: TranslationStorage | null = browserStorage(),
+): LanguageCode | null {
+  const identity = normalizeLanguageIdentity(value);
+  if (!identity) return null;
+  if (identity === defaultLanguageCode) return defaultLanguageCode;
+  if (!storage) return null;
+  const inspection = inspectStoredCustomLanguages(storage);
+  if (
+    inspection.classification === "fatal" ||
+    inspection.classification === "ambiguous" ||
+    inspection.classification === "transaction_recovery_required" ||
+    inspection.ambiguousIdentities.includes(identity)
+  ) {
+    return null;
   }
-
-  try {
-    return normalizeLanguageCode(window.localStorage.getItem(languageStorageKey));
-  } catch {
-    return defaultLanguageCode;
-  }
+  return inspection.languages.some(
+    (language) => normalizeLanguageIdentity(language.code) === identity,
+  ) ? identity : null;
 }
 
-export function storeLanguageCode(languageCode: LanguageCode) {
-  if (typeof window === "undefined") {
-    return;
-  }
+export function getStoredLanguageCode(
+  storage: TranslationStorage | null = browserStorage(),
+): LanguageCode {
+  if (!storage) return defaultLanguageCode;
+  const read = readRawTranslationSnapshot(storage);
+  if (!read.ok || read.snapshot.journal !== null) return defaultLanguageCode;
+  const raw = read.snapshot.state[languageStorageKey];
+  return resolveAvailableLanguageCode(raw, storage) ?? defaultLanguageCode;
+}
 
-  try {
-    window.localStorage.setItem(languageStorageKey, languageCode);
-  } catch {
-    // Language is a low-risk UI preference. Failed persistence should not block the app.
+export type LanguageSelectionMutationResult =
+  | { readonly ok: true; readonly status: "committed" | "unchanged" }
+  | {
+      readonly ok: false;
+      readonly status: "storage_unavailable" | "unknown_language" | "unsafe_stored_state" | "stale_snapshot" | "storage_failure" | "transaction_recovery_required";
+      readonly error: string;
+      readonly recoveryRequired?: boolean;
+    };
+
+export function storeLanguageCode(
+  languageCode: LanguageCode,
+  storage: TranslationStorage | null = browserStorage(),
+): LanguageSelectionMutationResult {
+  if (!storage) {
+    return { ok: false, status: "storage_unavailable", error: "Language selection requires browser storage." };
   }
+  const resolved = resolveAvailableLanguageCode(languageCode, storage);
+  if (!resolved) {
+    return { ok: false, status: "unknown_language", error: "The selected language is not installed or has an ambiguous identity." };
+  }
+  const customInspection = inspectStoredCustomLanguages(storage);
+  if (customInspection.classification === "fatal" || customInspection.classification === "ambiguous" || customInspection.classification === "transaction_recovery_required") {
+    return {
+      ok: false,
+      status: customInspection.classification === "transaction_recovery_required" ? "transaction_recovery_required" : "unsafe_stored_state",
+      error: "Translation storage must be resolved before language selection can be changed.",
+      recoveryRequired: customInspection.classification === "transaction_recovery_required",
+    };
+  }
+  const snapshot = customInspection.snapshot;
+  if (!snapshot) return { ok: false, status: "storage_failure", error: "Translation storage could not be read." };
+  const currentEffective = resolveAvailableLanguageCode(
+    snapshot.state[languageStorageKey],
+    storage,
+  ) ?? defaultLanguageCode;
+  if (currentEffective === resolved) {
+    return { ok: true, status: "unchanged" };
+  }
+  const plan = createTranslationTransactionPlan(snapshot, `language-selection:${resolved}`, {
+    [languageStorageKey]: languageCode,
+  });
+  if (!plan.ok) return { ok: false, status: "storage_failure", error: `Language-selection transaction plan failed: ${plan.code}.` };
+  const committed = commitTranslationTransaction(storage, plan.plan);
+  if (committed.ok) return { ok: true, status: "committed" };
+  if (committed.status === "stale_snapshot") {
+    return { ok: false, status: "stale_snapshot", error: "Translation storage changed before the language selection could be committed." };
+  }
+  const recoveryRequired = committed.status === "transaction_recovery_required";
+  return {
+    ok: false,
+    status: recoveryRequired ? "transaction_recovery_required" : "storage_failure",
+    error: recoveryRequired ? "Translation storage requires explicit transaction recovery." : "Language selection could not be persisted.",
+    recoveryRequired,
+  };
 }
 
 export function translate(
@@ -1605,18 +1676,15 @@ export function translate(
   key: string,
   replacements: Record<string, string> = {},
   overrides: Partial<Record<string, string>> = {},
+  englishOverrides: Partial<Record<string, string>> = {},
 ) {
   // Translation runs for every visible label. Selection is validated when it
   // enters LanguageContext, so avoid reparsing custom-language localStorage on
   // every t() call.
-  const normalizedLanguage =
-    typeof languageCode === "string"
-      ? languageCode.trim().toLowerCase()
-      : defaultLanguageCode;
-  const builtInDict = dictionaries[normalizedLanguage];
+  const normalizedLanguage = normalizeLanguageIdentity(languageCode) ?? defaultLanguageCode;
   const translated =
     overrides[key] ??
-    builtInDict?.[key] ??
+    (normalizedLanguage === defaultLanguageCode ? undefined : englishOverrides[key]) ??
     dictionaries[defaultLanguageCode][key] ??
     key;
 

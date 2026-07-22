@@ -16,9 +16,9 @@ describe("language editor helpers", () => {
     expect(keys).toContain("home.welcome");
     expect(keys).toContain("collection.filter");
 
-    // Verify sorted
-    const sorted = [...keys].sort();
-    expect(keys).toEqual(sorted);
+    // The helper returns a deterministic preferred-prefix order.
+    expect(getAllTranslationKeys()).toEqual(keys);
+    expect(keys.indexOf("common.save")).toBeLessThan(keys.indexOf("nav.home"));
 
     // Verify no duplicates
     const unique = [...new Set(keys)];
@@ -27,17 +27,17 @@ describe("language editor helpers", () => {
 
   it("getBuiltInText returns the built-in text for a language and key", () => {
     expect(getBuiltInText("en", "nav.home")).toBe("Home");
-    expect(getBuiltInText("id", "nav.home")).toBe("Beranda");
+    expect(getBuiltInText("id", "nav.home")).toBeUndefined();
     expect(getBuiltInText("en", "totally.missing.key")).toBeUndefined();
   });
 
   it("getKeyDescription returns a readable section path", () => {
-    expect(getKeyDescription("nav.home")).toBe("nav");
-    expect(getKeyDescription("settings.language.title")).toBe("settings > language");
+    expect(getKeyDescription("nav.home")).toBe("Nav > Home");
+    expect(getKeyDescription("settings.language.title")).toBe("Settings > Language > Title");
     expect(getKeyDescription("collection.searchPlaceholder.videos")).toBe(
-      "collection > searchPlaceholder",
+      "Collection > Search Placeholder > Videos",
     );
-    expect(getKeyDescription("singleword")).toBe("singleword");
+    expect(getKeyDescription("singleword")).toBe("Singleword");
   });
 
   it("key and description are read-only data (not editable)", () => {

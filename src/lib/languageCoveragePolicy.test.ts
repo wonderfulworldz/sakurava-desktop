@@ -34,8 +34,8 @@ describe("language coverage policy", () => {
     const keys = getAllTranslationKeys();
 
     const invalidKeys = keys.filter((key) => {
-      // Must be lowercase with dots, no spaces, no uppercase
-      return !/^[a-z][a-z0-9]*(\.[a-z][a-z0-9A-Z]*)*$/.test(key);
+      // Stable dot-separated identifiers may use camelCase within a segment.
+      return !/^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*)*$/.test(key);
     });
 
     expect(invalidKeys).toEqual([]);
@@ -47,18 +47,12 @@ describe("language coverage policy", () => {
     expect(keys.length).toBe(uniqueKeys.size);
   });
 
-  it("Indonesian/custom languages are not required to be complete", () => {
+  it("does not register Indonesian as a bundled dictionary", () => {
     const keys = getAllTranslationKeys();
-
-    // Indonesian may have missing keys — that's fine, they fall back to English
     const indonesianKeys = keys.filter(
       (key) => getBuiltInText("id", key) !== undefined,
     );
-
-    // Indonesian should have some keys but doesn't need all
-    expect(indonesianKeys.length).toBeGreaterThan(0);
-    // It's OK if Indonesian is incomplete
-    expect(indonesianKeys.length).toBeLessThanOrEqual(keys.length);
+    expect(indonesianKeys).toEqual([]);
   });
 
   it("key count is tracked for coverage awareness", () => {

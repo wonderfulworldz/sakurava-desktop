@@ -10,7 +10,7 @@ import {
   defaultLanguageCode,
   getStoredLanguageCode,
   getSupportedLanguages,
-  normalizeLanguageCode,
+  resolveAvailableLanguageCode,
   storeLanguageCode,
   translate,
   type LanguageCode,
@@ -36,19 +36,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [overrides, setOverrides] = useState<Record<string, string>>(() =>
     getOverridesForLanguage(getStoredLanguageCode()),
   );
+  const [englishOverrides, setEnglishOverrides] = useState<Record<string, string>>(() =>
+    getOverridesForLanguage(defaultLanguageCode),
+  );
   const [languages, setLanguages] = useState<SupportedLanguage[]>(() =>
     getSupportedLanguages(),
   );
 
   const setLanguageCode = useCallback((nextLanguageCode: LanguageCode) => {
-    const normalized = normalizeLanguageCode(nextLanguageCode);
+    const normalized = resolveAvailableLanguageCode(nextLanguageCode);
+    if (!normalized) return;
+    const persisted = storeLanguageCode(nextLanguageCode);
+    if (!persisted.ok) return;
     setLanguageCodeState(normalized);
-    storeLanguageCode(normalized);
     setOverrides(getOverridesForLanguage(normalized));
+    setEnglishOverrides(getOverridesForLanguage(defaultLanguageCode));
   }, []);
 
   const refreshOverrides = useCallback(() => {
     setOverrides(getOverridesForLanguage(languageCode));
+    setEnglishOverrides(getOverridesForLanguage(defaultLanguageCode));
   }, [languageCode]);
 
   const refreshLanguages = useCallback(() => {
@@ -56,8 +63,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguages(nextLanguages);
     if (!nextLanguages.some((language) => language.code === languageCode)) {
       setLanguageCodeState(defaultLanguageCode);
-      storeLanguageCode(defaultLanguageCode);
       setOverrides(getOverridesForLanguage(defaultLanguageCode));
+      setEnglishOverrides(getOverridesForLanguage(defaultLanguageCode));
     }
   }, [languageCode]);
 
@@ -65,12 +72,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     () => ({
       languageCode,
       setLanguageCode,
-      t: (key, replacements) => translate(languageCode, key, replacements, overrides),
+      t: (key, replacements) =>
+        translate(languageCode, key, replacements, overrides, englishOverrides),
       refreshOverrides,
       refreshLanguages,
       languages,
     }),
-    [languageCode, setLanguageCode, overrides, refreshOverrides, refreshLanguages, languages],
+    [languageCode, setLanguageCode, overrides, englishOverrides, refreshOverrides, refreshLanguages, languages],
   );
 
   return (
