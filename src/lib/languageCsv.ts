@@ -458,6 +458,14 @@ function emptyCustomPreview(errorMessage: string): CustomLanguageCsvPreview {
 // --- Safe compatibility engine (Batch 42.2C) ---
 
 export const canonicalLanguageCsvHeaders = Object.freeze([
+  "id_lang",
+  "language",
+  "key",
+  "translation",
+  "context",
+] as const);
+
+const legacyCanonicalFormatDHeaders = Object.freeze([
   "language_code",
   "language_label",
   "key",
@@ -487,7 +495,12 @@ const historicalFormatCHeaders = Object.freeze([
   "context",
 ] as const);
 
-export type LanguageCsvFormat = "A" | "B" | "C" | "D";
+export type LanguageCsvFormat =
+  | "USER_FRIENDLY_CANONICAL"
+  | "A"
+  | "B"
+  | "C"
+  | "D";
 export type LanguageCsvDiagnosticSeverity = "warning" | "error";
 
 export interface SafeLanguageCsvDiagnostic {
@@ -554,6 +567,10 @@ export interface SafeLanguageCsvPreview {
   readonly targetStoredCode: string;
   readonly targetIdentity: string;
   readonly targetLabel: string;
+  readonly proposedLabelChange?: Readonly<{
+    readonly from: string;
+    readonly to: string;
+  }>;
   readonly capturedSnapshot: RawTranslationSnapshot;
   readonly sourceRowCount: number;
   readonly ignoredBlankRowCount: number;
@@ -578,7 +595,7 @@ export interface SafeLanguageCsvPreview {
 export type SafeLanguageCsvExportResult =
   | {
       readonly ok: true;
-      readonly format: "D";
+      readonly format: "USER_FRIENDLY_CANONICAL";
       readonly languageCode: string;
       readonly csv: string;
     }
@@ -771,7 +788,9 @@ export function parseLanguageCsv(csvContent: string): ParsedLanguageCsv {
     ));
   }
   let format: LanguageCsvFormat | undefined;
-  if (sameHeader(normalizedHeader, canonicalLanguageCsvHeaders)) format = "D";
+  if (sameHeader(normalizedHeader, canonicalLanguageCsvHeaders)) {
+    format = "USER_FRIENDLY_CANONICAL";
+  } else if (sameHeader(normalizedHeader, legacyCanonicalFormatDHeaders)) format = "D";
   else if (sameHeader(normalizedHeader, historicalFormatAHeaders)) format = "A";
   else if (sameHeader(normalizedHeader, historicalFormatBHeaders)) format = "B";
   else if (sameHeader(normalizedHeader, historicalFormatCHeaders)) format = "C";
@@ -918,23 +937,19 @@ export function buildCanonicalLanguageCsv(
           "English",
           key,
           override ?? baseline,
-          override === undefined ? "baseline" : "override",
-          baseline,
           getKeyDescription(key),
         ]
       : [
           identity,
           target!.label,
           key,
-          override ?? "",
-          override === undefined ? "missing" : "override",
-          effectiveEnglish,
+          override ?? effectiveEnglish,
           getKeyDescription(key),
         ]);
   }
   return Object.freeze({
     ok: true,
-    format: "D",
+    format: "USER_FRIENDLY_CANONICAL",
     languageCode: identity,
     csv: serializeCsvRows(rows),
   });
@@ -1018,24 +1033,24 @@ function resolvePreviewIdentity(
     ));
   }
 
-  const labels = format === "D"
+  const labels = format === "D" || format === "USER_FRIENDLY_CANONICAL"
     ? rows.map((row) => row[1]).filter((value) => value !== "")
     : format === "B"
       ? rows.map((row) => row[1]).filter((value) => value !== "")
       : [];
   const uniqueLabels = [...new Set(labels)];
-  if ((format === "D" || format === "B") && uniqueLabels.length > 1) {
+  if ((format === "D" || format === "USER_FRIENDLY_CANONICAL" || format === "B") && uniqueLabels.length > 1) {
     diagnostics.push(diagnostic(
       "error",
       "inconsistent_language_labels",
       "CSV contains inconsistent language labels.",
     ));
   }
-  if (format === "D" && uniqueLabels.length === 0) {
+  if ((format === "D" || format === "USER_FRIENDLY_CANONICAL") && uniqueLabels.length === 0) {
     diagnostics.push(diagnostic(
       "error",
       "missing_language_label",
-      "Canonical Format D requires a language label.",
+      "Sakurava Translation CSV requires a language name.",
     ));
   }
   return {
@@ -1052,6 +1067,18 @@ function adaptRows(
 ): readonly AdaptedCsvRow[] {
   return Object.freeze(rows.map((row, index) => {
     const rowNumber = index + 2;
+    if (format === "USER_FRIENDLY_CANONICAL") {
+      return Object.freeze({
+        rowNumber,
+        code: row[0] ?? "",
+        label: row[1] ?? "",
+        key: row[2] ?? "",
+        text: row[3] ?? "",
+        state: "",
+        sourceText: "",
+        context: row[4] ?? "",
+      });
+    }
     if (format === "D") {
       return Object.freeze({
         rowNumber,
@@ -1108,6 +1135,9 @@ function jsonRaw(value: readonly unknown[] | Readonly<Record<string, unknown>>):
 function freezePreview(preview: SafeLanguageCsvPreview): SafeLanguageCsvPreview {
   return Object.freeze({
     ...preview,
+    ...(preview.proposedLabelChange
+      ? { proposedLabelChange: Object.freeze({ ...preview.proposedLabelChange }) }
+      : {}),
     counts: Object.freeze({ ...preview.counts }),
     rows: Object.freeze(preview.rows.map((row) => Object.freeze({
       ...row,
@@ -1167,9 +1197,17 @@ export function previewLanguageCsvImport(
   const existingMeta = customInspection.languages.find(
     (entry) => normalizeLanguageIdentity(entry.code) === identity,
   );
+  if (identity === "en" && identityResult.sourceLabel && identityResult.sourceLabel !== "English") {
+    fileDiagnostics.push(diagnostic(
+      "error",
+      "english_label_immutable",
+      "English must keep the language name English.",
+    ));
+  }
   const sourceLabel = identity === "en" ? "English" : identityResult.sourceLabel;
   let targetLabel = identity === "en" ? "English" : existingMeta?.label ?? sourceLabel;
-  const labelDecision = options.languageLabelDecision ?? "preserve_existing";
+  const labelDecision = options.languageLabelDecision ??
+    (parsed.format === "USER_FRIENDLY_CANONICAL" ? "replace_existing" : "preserve_existing");
   const normalizedSuppliedLabel = normalizeCustomLanguageLabel(
     options.explicitTargetLabel ?? sourceLabel,
   );
@@ -1197,6 +1235,11 @@ export function previewLanguageCsvImport(
         fileDiagnostics.push(diagnostic("error", "invalid_language_label", "Replacement language label is invalid."));
       } else {
         targetLabel = sourceLabel;
+        fileDiagnostics.push(diagnostic(
+          "warning",
+          "language_label_update_proposed",
+          `Language name will change from ${existingMeta.label} to ${sourceLabel}.`,
+        ));
       }
     } else {
       fileDiagnostics.push(diagnostic(
@@ -1243,11 +1286,11 @@ export function previewLanguageCsvImport(
 
   for (const row of adaptedRows) {
     const rowDiagnostics: SafeLanguageCsvDiagnostic[] = [];
-    if (parsed.format === "D" && row.code === "") {
-      rowDiagnostics.push(diagnostic("error", "missing_language_code", "Format D requires a language code on every row.", row.rowNumber, row.key));
+    if ((parsed.format === "D" || parsed.format === "USER_FRIENDLY_CANONICAL") && row.code === "") {
+      rowDiagnostics.push(diagnostic("error", "missing_language_code", "Every row requires a language code.", row.rowNumber, row.key));
     }
-    if (parsed.format === "D" && row.label === "") {
-      rowDiagnostics.push(diagnostic("error", "missing_language_label", "Format D requires a language label on every row.", row.rowNumber, row.key));
+    if ((parsed.format === "D" || parsed.format === "USER_FRIENDLY_CANONICAL") && row.label === "") {
+      rowDiagnostics.push(diagnostic("error", "missing_language_label", "Every row requires a language name.", row.rowNumber, row.key));
     }
     if (parsed.format === "D" && row.sourceText === "") {
       rowDiagnostics.push(diagnostic("error", "missing_source_text", "Format D requires source text on every row.", row.rowNumber, row.key));
@@ -1268,18 +1311,28 @@ export function previewLanguageCsvImport(
 
     const baseline = row.key ? getBuiltInText("en", row.key) ?? row.key : "";
     const effectiveEnglish = row.key ? englishOverrides[row.key] ?? baseline : "";
+    const expectedContext = row.key && keys.has(row.key) ? getKeyDescription(row.key) : "";
+    if (row.context !== "" && expectedContext !== "" && row.context !== expectedContext) {
+      rowDiagnostics.push(diagnostic(
+        "warning",
+        "context_mismatch",
+        "CSV context differs from the current informational context; the Translation key remains authoritative.",
+        row.rowNumber,
+        row.key,
+      ));
+    }
     let desired: string | null = row.text;
     if (parsed.format === "D") {
       const state = row.state.trim().toLowerCase();
       const validStates = identity === "en" ? ["baseline", "override"] : ["missing", "override"];
       if (!validStates.includes(state)) {
-        rowDiagnostics.push(diagnostic("error", "invalid_state", "Format D contains an invalid state value.", row.rowNumber, row.key));
+        rowDiagnostics.push(diagnostic("warning", "invalid_state", "Legacy Format D contains an unrecognized state; text-derived behavior is used.", row.rowNumber, row.key));
       }
       if (identity !== "en" && state === "missing" && row.text !== "") {
-        rowDiagnostics.push(diagnostic("error", "state_text_inconsistency", "A missing row cannot contain target text.", row.rowNumber, row.key));
+        rowDiagnostics.push(diagnostic("warning", "state_text_inconsistency", "Legacy missing-state evidence disagrees with the text-derived behavior.", row.rowNumber, row.key));
       }
       if (identity !== "en" && state === "override" && row.text === "") {
-        rowDiagnostics.push(diagnostic("error", "state_text_inconsistency", "An override row must contain target text.", row.rowNumber, row.key));
+        rowDiagnostics.push(diagnostic("warning", "state_text_inconsistency", "Legacy override-state evidence disagrees with the text-derived behavior.", row.rowNumber, row.key));
       }
       if (identity === "en" &&
         ((state === "baseline" && row.text !== "" && row.text !== baseline) ||
@@ -1291,6 +1344,16 @@ export function previewLanguageCsvImport(
       }
       if (identity !== "en" && row.sourceText !== effectiveEnglish) {
         rowDiagnostics.push(diagnostic("warning", "source_text_mismatch", "Effective English fallback differs from the CSV evidence.", row.rowNumber, row.key));
+      }
+      if (identity !== "en" && row.text === effectiveEnglish && row.text !== "") {
+        desired = null;
+        rowDiagnostics.push(diagnostic(
+          "warning",
+          "identical_english_treated_as_missing",
+          "Text identical to effective English defaults to missing.",
+          row.rowNumber,
+          row.key,
+        ));
       }
     } else if (parsed.format === "A") {
       const status = row.state.trim().toLowerCase();
@@ -1395,6 +1458,9 @@ export function previewLanguageCsvImport(
     targetStoredCode: existingMeta?.code ?? identityResult.sourceCode,
     targetIdentity: identity,
     targetLabel,
+    ...(existingMeta && targetLabel !== existingMeta.label
+      ? { proposedLabelChange: { from: existingMeta.label, to: targetLabel } }
+      : {}),
     capturedSnapshot: snapshotRead.snapshot,
     sourceRowCount: parsed.rows.length,
     ignoredBlankRowCount: parsed.ignoredBlankRows,

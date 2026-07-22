@@ -21,7 +21,7 @@ function pageTitleFromPath(pathname: string, t: (key: string) => string) {
   }
 
   if (pathname.startsWith("/settings/category-management")) {
-    return "Category Management";
+    return "Category";
   }
 
   if (pathname.startsWith("/glossary")) {
@@ -29,7 +29,7 @@ function pageTitleFromPath(pathname: string, t: (key: string) => string) {
   }
 
   if (pathname.startsWith("/categories")) {
-    return "Category Management";
+    return "Category";
   }
 
   if (pathname.startsWith("/settings")) {

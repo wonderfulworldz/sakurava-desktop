@@ -55,6 +55,12 @@ describe("language", () => {
       "settings.language.csvPreview.unchangedCount",
       "settings.language.csvPreview.warningCount",
       "settings.language.csvPreview.errorCount",
+      "settings.language.csvPreview.sakuravaFormat",
+      "settings.language.csvPreview.labelChange",
+      "settings.language.csvGuidance.editable",
+      "settings.language.csvGuidance.protected",
+      "settings.language.csvGuidance.status",
+      "settings.language.csvGuidance.englishTemplate",
       "settings.language.csvApply.confirmTitle",
       "settings.language.csvApply.success",
       "settings.language.csvApply.stale",
@@ -80,6 +86,17 @@ describe("language", () => {
       expect(getBuiltInText("id", key)).toBeUndefined();
     }
     expect(builtInLanguages.map((language) => language.code)).toEqual(["en"]);
+  });
+
+  it("uses the approved Category wording without changing stable keys", () => {
+    const keys = getAllTranslationKeys();
+    expect(getBuiltInText("en", "categoryManagement.title")).toBe("Category");
+    expect(getBuiltInText("en", "categoryManagement.toolbar")).toBe("Category toolbar");
+    expect(getBuiltInText("en", "categoryManagement.pagination")).toBe("Category pagination");
+    expect(keys).toContain("categoryManagement.title");
+    expect(new Set(keys).size).toBe(keys.length);
+    const visibleEnglish = keys.map((key) => getBuiltInText("en", key) ?? "");
+    expect(visibleEnglish.some((value) => /category management/i.test(value))).toBe(false);
   });
 
   it("defaults unknown or uninstalled identities to English", () => {

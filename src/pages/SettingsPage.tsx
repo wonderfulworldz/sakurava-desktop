@@ -365,6 +365,7 @@ function previewDecisionRequirements(
       options.historicalBuiltInDecision === undefined &&
       diagnosticCodes.includes("historical_built_in_not_preserved"),
     needsIdenticalEnglishDecision:
+      preview.format !== "USER_FRIENDLY_CANONICAL" &&
       options.identicalEnglishDecision === undefined &&
       diagnosticCodes.some((code) =>
         code === "identical_english_treated_as_missing" || code === "identical_english_preserved"),
@@ -2434,10 +2435,13 @@ function LanguageStatusContent({
   }
 
   if (status.state === "previewBlocked") {
+    const formatLabel = status.format === "USER_FRIENDLY_CANONICAL"
+      ? t("settings.language.csvPreview.sakuravaFormat")
+      : status.format;
     return (
       <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
         <p className="text-sm font-semibold text-amber-900">{t("settings.language.csvPreview.title")}</p>
-        {status.format ? <p className="mt-1 text-xs font-medium text-amber-800">{t("settings.language.csvPreview.detectedFormat")}: {status.format}</p> : null}
+        {formatLabel ? <p className="mt-1 text-xs font-medium text-amber-800">{t("settings.language.csvPreview.detectedFormat")}: {formatLabel}</p> : null}
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <label className="text-xs font-semibold text-slate-700">
             {t("settings.language.csvPreview.targetCode")}
@@ -2482,12 +2486,17 @@ function LanguageStatusContent({
     entry.code === "explicit_label_required" ||
     entry.code === "missing_language_identity");
   const decisionsPending = status.needsHistoricalBuiltInDecision || status.needsIdenticalEnglishDecision || needsTargetInput;
+  const formatLabel = preview.format === "english_reset"
+    ? t("settings.language.resetPreview.formatValue")
+    : preview.format === "USER_FRIENDLY_CANONICAL"
+      ? t("settings.language.csvPreview.sakuravaFormat")
+      : t("settings.language.csvPreview.formatValue", { format: preview.format });
 
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="text-sm font-semibold text-slate-800">{t(isReset ? "settings.language.resetPreview.title" : "settings.language.csvPreview.title")}</p>
       <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-        <LanguagePreviewMetric label={t("settings.language.csvPreview.detectedFormat")} value={preview.format === "english_reset" ? t("settings.language.resetPreview.formatValue") : t("settings.language.csvPreview.formatValue", { format: preview.format })} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.detectedFormat")} value={formatLabel} />
         <LanguagePreviewMetric label={t("settings.language.csvPreview.targetLanguage")} value={`${preview.targetLabel} (${preview.targetIdentity})`} />
         <LanguagePreviewMetric label={t("settings.language.csvPreview.sourceRows")} value={preview.sourceRowCount} />
         <LanguagePreviewMetric label={t("settings.language.csvPreview.ignoredBlankRows")} value={preview.ignoredBlankRowCount} />
@@ -2497,6 +2506,7 @@ function LanguageStatusContent({
         <LanguagePreviewMetric label={t("settings.language.csvPreview.unchangedCount")} value={preview.counts.unchanged} />
         <LanguagePreviewMetric label={t("settings.language.csvPreview.warningCount")} value={preview.warningCount} />
         <LanguagePreviewMetric label={t("settings.language.csvPreview.errorCount")} value={preview.errorCount} />
+        {preview.proposedLabelChange ? <LanguagePreviewMetric label={t("settings.language.csvPreview.labelChange")} value={`${preview.proposedLabelChange.from} → ${preview.proposedLabelChange.to}`} /> : null}
       </dl>
       {isReset ? <p className="mt-3 text-xs font-semibold text-slate-700">{t("settings.language.resetPreview.count")}: {preview.counts.resets}</p> : null}
       {needsTargetInput ? <div className="mt-3 grid gap-2 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-700">{t("settings.language.csvPreview.targetCode")}<input value={status.options.explicitTargetCode ?? ""} onChange={(event) => onOptionsChange({ explicitTargetCode: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700" /></label><label className="text-xs font-semibold text-slate-700">{t("settings.language.csvPreview.targetLabel")}<input value={status.options.explicitTargetLabel ?? ""} onChange={(event) => onOptionsChange({ explicitTargetLabel: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700" /></label></div> : null}
@@ -2967,6 +2977,12 @@ function SettingsSection({
           onConfirmRemove={handleConfirmRemoveLanguage}
           onClose={() => setLanguageCsvStatus({ state: "idle" })}
         />
+        <div className="mt-2 space-y-1 text-xs font-medium text-slate-500">
+          <p>{t("settings.language.csvGuidance.editable")}</p>
+          <p>{t("settings.language.csvGuidance.protected")}</p>
+          <p>{t("settings.language.csvGuidance.status")}</p>
+          <p>{t("settings.language.csvGuidance.englishTemplate")}</p>
+        </div>
         <p className="mt-2 text-xs font-medium text-slate-500">
           {t("settings.language.catalogDataHelper")}
         </p>
@@ -5244,10 +5260,10 @@ function CatalogSettingsCard({
         <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
           <div>
             <h3 className="text-base font-semibold text-slate-800">
-              Category Management
+              Category
             </h3>
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Add and Rename are active locally. Delete category management is planned and not active in this batch.
+              Add and Rename are active locally. Category deletion is planned and not active in this batch.
             </p>
           </div>
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">

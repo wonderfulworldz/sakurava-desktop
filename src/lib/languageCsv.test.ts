@@ -93,6 +93,13 @@ function safeStorage(
 }
 
 function formatD(...rows: string[]) {
+  return [
+    "language_code,language_label,key,text,state,source_text,context",
+    ...rows,
+  ].join("\n");
+}
+
+function userCsv(...rows: string[]) {
   return [canonicalLanguageCsvHeaders.join(","), ...rows].join("\n");
 }
 
@@ -229,12 +236,14 @@ describe("language CSV", () => {
 });
 
 describe("safe Translation CSV engine", () => {
-  it("detects the exact canonical Format D header", () => {
-    const parsed = parseLanguageCsv(formatD("en,English,nav.home,Home,baseline,Home,Nav"));
-    expect(parsed).toMatchObject({ ok: true, format: "D" });
+  it("detects the exact user-friendly canonical header and legacy Format D", () => {
+    const parsed = parseLanguageCsv(userCsv("en,English,nav.home,Home,Nav > Home"));
+    expect(parsed).toMatchObject({ ok: true, format: "USER_FRIENDLY_CANONICAL" });
     expect(canonicalLanguageCsvHeaders.join(",")).toBe(
-      "language_code,language_label,key,text,state,source_text,context",
+      "id_lang,language,key,translation,context",
     );
+    expect(parseLanguageCsv(formatD("en,English,nav.home,Home,baseline,Home,Nav")))
+      .toMatchObject({ ok: true, format: "D" });
   });
 
   it.each([
@@ -278,7 +287,7 @@ describe("safe Translation CSV engine", () => {
     expect(parsed).toMatchObject({ ok: true, ignoredBlankRows: 1 });
   });
 
-  it("exports deterministic English Format D with baseline and override states", () => {
+  it("exports deterministic English Sakurava Translation CSV without internal state", () => {
     const storage = safeStorage("[]", JSON.stringify({ en: { "nav.home": "Start" } }));
     const first = buildCanonicalLanguageCsv("en", storage);
     const second = buildCanonicalLanguageCsv("en", storage);
@@ -286,26 +295,28 @@ describe("safe Translation CSV engine", () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const parsed = parseLanguageCsv(first.csv);
+    expect(first.format).toBe("USER_FRIENDLY_CANONICAL");
+    expect(first.csv.split("\n")[0]).toBe("id_lang,language,key,translation,context");
+    expect(first.csv.split("\n")[0]).not.toContain("state");
+    expect(first.csv.split("\n")[0]).not.toContain("source_text");
     expect(parsed.rows).toHaveLength(getAllTranslationKeys().length);
     expect(parsed.rows.find((row) => row[2] === "nav.home")).toEqual([
-      "en", "English", "nav.home", "Start", "override", "Home", "Nav > Home",
+      "en", "English", "nav.home", "Start", "Nav > Home",
     ]);
-    expect(parsed.rows.find((row) => row[2] === "nav.videos")?.[4]).toBe("baseline");
+    expect(parsed.rows.find((row) => row[2] === "nav.videos")?.[3]).toBe("Videos");
   });
 
-  it("exports custom overrides without copying fallback English into text", () => {
+  it("exports custom overrides and effective English for missing translations", () => {
     const custom = JSON.stringify([{ code: "id", label: "Bahasa Indonesia", baseLanguage: "en" }]);
     const overrides = JSON.stringify({ en: { "nav.videos": "Movies" }, id: { "nav.home": "Beranda" } });
     const result = buildCanonicalLanguageCsv("ID", safeStorage(custom, overrides));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const parsed = parseLanguageCsv(result.csv);
-    expect(parsed.rows.find((row) => row[2] === "nav.home")?.slice(3, 6)).toEqual([
-      "Beranda", "override", "Home",
+    expect(parsed.rows.find((row) => row[2] === "nav.home")).toEqual([
+      "id", "Bahasa Indonesia", "nav.home", "Beranda", "Nav > Home",
     ]);
-    expect(parsed.rows.find((row) => row[2] === "nav.videos")?.slice(3, 6)).toEqual([
-      "", "missing", "Movies",
-    ]);
+    expect(parsed.rows.find((row) => row[2] === "nav.videos")?.[3]).toBe("Movies");
   });
 
   it("round-trips exact canonical Translation text and escaping", () => {
@@ -324,6 +335,144 @@ describe("safe Translation CSV engine", () => {
     buildCanonicalLanguageCsv("en", storage);
     previewLanguageCsvImport(formatD("en,English,nav.home,Home,baseline,Home,Nav"), {}, storage);
     previewFullEnglishReset(storage);
+    expect(storage.operations.every((operation) => operation.op === "getItem")).toBe(true);
+  });
+});
+
+describe("user-friendly Translation CSV contract", () => {
+  it("derives custom override, English fallback, reset, and unchanged actions without state", () => {
+    const custom = JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]);
+    const overrides = JSON.stringify({
+      en: { "nav.videos": "Movies" },
+      id: { "nav.home": "Beranda Lama", "nav.videos": "Video Lama", "nav.images": "Images" },
+    });
+    const preview = expectPreview(previewLanguageCsvImport(userCsv(
+      "id,Indonesian,nav.home,Beranda,Nav > Home",
+      "id,Indonesian,nav.videos,Movies,Nav > Videos",
+      "id,Indonesian,nav.images,,Nav > Images",
+      "id,Indonesian,nav.performers,Performers,Nav > Performers",
+      "id,Indonesian,nav.settings,Pengaturan,Nav > Settings",
+    ), {}, safeStorage(custom, overrides)));
+
+    expect(preview.applyAllowed).toBe(true);
+    expect(preview.counts).toEqual({ creates: 1, updates: 1, resets: 2, unchanged: 1 });
+    expect(preview.rows.map((row) => row.action)).toEqual([
+      "update_override",
+      "reset_override",
+      "reset_override",
+      "unchanged",
+      "create_override",
+    ]);
+    expect(preview.proposedCompleteOverrideState).toEqual({
+      en: { "nav.videos": "Movies" },
+      id: { "nav.home": "Beranda", "nav.settings": "Pengaturan" },
+    });
+  });
+
+  it("derives English override creation and baseline or blank resets", () => {
+    const storage = safeStorage("[]", JSON.stringify({ en: {
+      "nav.home": "Start",
+      "nav.videos": "Films",
+    } }));
+    const preview = expectPreview(previewLanguageCsvImport(userCsv(
+      "en,English,nav.home,Home,Nav > Home",
+      "en,English,nav.videos,,Nav > Videos",
+      "en,English,nav.images,Pictures,Nav > Images",
+    ), {}, storage));
+
+    expect(preview.counts).toEqual({ creates: 1, updates: 0, resets: 2, unchanged: 0 });
+    expect(preview.proposedCompleteOverrideState).toEqual({ en: { "nav.images": "Pictures" } });
+  });
+
+  it("keeps context informational while blocking unknown and duplicate keys", () => {
+    const context = expectPreview(previewLanguageCsvImport(
+      userCsv("en,English,nav.home,Home,Edited context"), {}, safeStorage(),
+    ));
+    expect(context.applyAllowed).toBe(true);
+    expect(context.rows[0].diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ severity: "warning", code: "context_mismatch" }),
+    ]));
+
+    const blocked = expectPreview(previewLanguageCsvImport(userCsv(
+      "en,English,nav.home,Home,Nav > Home",
+      "en,English,nav.home,Start,Nav > Home",
+      "en,English,unknown.key,Text,Unknown",
+    ), {}, safeStorage()));
+    expect(blocked.applyAllowed).toBe(false);
+    expect(blocked.rows.flatMap((row) => row.diagnostics.map((entry) => entry.code)))
+      .toEqual(expect.arrayContaining(["duplicate_key", "unknown_key"]));
+  });
+
+  it("requires one consistent language identity and language name", () => {
+    const mixed = expectPreview(previewLanguageCsvImport(userCsv(
+      "id,Indonesian,nav.home,Beranda,Nav > Home",
+      "ja,Japanese,nav.videos,ビデオ,Nav > Videos",
+    ), {}, safeStorage()));
+    expect(mixed.applyAllowed).toBe(false);
+    expect(mixed.fileDiagnostics.some((entry) => entry.code === "mixed_language_identities")).toBe(true);
+
+    const labels = expectPreview(previewLanguageCsvImport(userCsv(
+      "id,Indonesian,nav.home,Beranda,Nav > Home",
+      "id,Bahasa Indonesia,nav.videos,Video,Nav > Videos",
+    ), {}, safeStorage()));
+    expect(labels.applyAllowed).toBe(false);
+    expect(labels.fileDiagnostics.some((entry) => entry.code === "inconsistent_language_labels")).toBe(true);
+
+    const missing = expectPreview(previewLanguageCsvImport(
+      userCsv("jp,,nav.home,ホーム,Nav > Home"), {}, safeStorage(),
+    ));
+    expect(missing.applyAllowed).toBe(false);
+    expect(missing.fileDiagnostics.some((entry) => entry.code === "missing_language_label")).toBe(true);
+  });
+
+  it("shows an explicit existing-language label update proposal", () => {
+    const custom = JSON.stringify([{ code: "ID", label: "Stored Indonesian", baseLanguage: "en", extra: true }]);
+    const preview = expectPreview(previewLanguageCsvImport(
+      userCsv("id,Imported Indonesian,nav.home,Beranda,Nav > Home"),
+      {},
+      safeStorage(custom),
+    ));
+    expect(preview.proposedLabelChange).toEqual({
+      from: "Stored Indonesian",
+      to: "Imported Indonesian",
+    });
+    expect(preview.proposedCustomLanguageMetadata[0]).toMatchObject({
+      code: "ID",
+      label: "Imported Indonesian",
+      extra: true,
+    });
+  });
+
+  it("protects the English name and never creates English custom metadata", () => {
+    const renamed = expectPreview(previewLanguageCsvImport(
+      userCsv("en,Anglais,nav.home,Home,Nav > Home"), {}, safeStorage(),
+    ));
+    expect(renamed.applyAllowed).toBe(false);
+    expect(renamed.fileDiagnostics.some((entry) => entry.code === "english_label_immutable")).toBe(true);
+
+    const english = expectPreview(previewLanguageCsvImport(
+      userCsv("en,English,nav.home,Start,Nav > Home"), {}, safeStorage(),
+    ));
+    expect(english.proposedCustomLanguageMetadata).toEqual([]);
+  });
+
+  it("preserves quoted commas, quotes, embedded newlines, and Unicode", () => {
+    const text = "Halo, \"teman\"\nこんにちは 🌸";
+    const source = userCsv(`jp,Japanese Custom,nav.home,"Halo, ""teman""\nこんにちは 🌸",Nav > Home`);
+    const parsed = parseLanguageCsv(source);
+    expect(parsed).toMatchObject({ ok: true, format: "USER_FRIENDLY_CANONICAL" });
+    expect(parsed.rows[0][3]).toBe(text);
+    const preview = expectPreview(previewLanguageCsvImport(source, {}, safeStorage()));
+    expect(preview.rows[0].text).toBe(text);
+  });
+
+  it("does not mutate storage during canonical export or Preview", () => {
+    const custom = JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]);
+    const storage = safeStorage(custom, JSON.stringify({ id: { "nav.home": "Beranda" } }));
+    const exported = buildCanonicalLanguageCsv("id", storage);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    previewLanguageCsvImport(exported.csv, {}, storage);
     expect(storage.operations.every((operation) => operation.op === "getItem")).toBe(true);
   });
 });
@@ -426,15 +575,19 @@ describe("safe Translation CSV Preview semantics", () => {
     ]);
   });
 
-  it("diagnoses Format D state/text inconsistencies and source evidence mismatches", () => {
+  it("diagnoses legacy Format D evidence but derives safe behavior from text", () => {
     const custom = JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]);
     const preview = expectPreview(previewLanguageCsvImport(formatD(
       "id,Indonesian,nav.home,Beranda,missing,Old Home,Nav",
       "id,Indonesian,nav.videos,,override,Videos,Nav",
     ), {}, safeStorage(custom)));
-    expect(preview.applyAllowed).toBe(false);
-    expect(preview.errorCount).toBe(2);
+    expect(preview.applyAllowed).toBe(true);
+    expect(preview.errorCount).toBe(0);
     expect(preview.warningCount).toBeGreaterThan(0);
+    expect(preview.rows.map((row) => row.action)).toEqual([
+      "create_override",
+      "unchanged",
+    ]);
   });
 
   it("blocks missing required Format D identity, label, and source fields", () => {
@@ -499,7 +652,9 @@ describe("safe Translation CSV Preview semantics", () => {
       explicitTargetLabel: "Indonesian",
     }, safeStorage()));
     expect(preview.applyAllowed).toBe(false);
-    expect(preview.rows[0].diagnostics[0].code).toBe("unknown_historical_status");
+    expect(preview.rows[0].diagnostics.some((entry) =>
+      entry.code === "unknown_historical_status"
+    )).toBe(true);
   });
 
   it("preserves stored Format B labels unless replacement is explicitly approved", () => {

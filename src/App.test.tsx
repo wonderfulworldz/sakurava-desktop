@@ -1582,10 +1582,10 @@ describe("App", () => {
     ["/videos/sample-id", "Sakurava - Videos"],
     ["/images", "Sakurava - Images"],
     ["/performers", "Sakurava - Performers"],
-    ["/categories", "Sakurava - Category Management"],
+    ["/categories", "Sakurava - Category"],
     ["/glossary", "Sakurava - Glossary Library"],
     ["/settings", "Sakurava - Settings"],
-    ["/settings/category-management", "Sakurava - Category Management"],
+    ["/settings/category-management", "Sakurava - Category"],
   ])("sets page title for %s", async (path, expectedTitle) => {
     window.history.pushState({}, "", path);
     render(<App />);
@@ -1610,7 +1610,7 @@ describe("App", () => {
     ["/performers/new", "Add Performer"],
     ["/performers/sample-id", "Performer Detail"],
     ["/performers/sample-id/edit", "Edit Performer"],
-    ["/categories", "Category Management"],
+    ["/categories", "Category"],
     ["/glossary", "Glossary Library"],
     ["/settings", "Settings"],
   ])("renders %s", (path, heading) => {
@@ -1627,7 +1627,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Category Management" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Category" })).toBeInTheDocument();
     expect(screen.getByLabelText("Search categories")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort" })).toHaveTextContent(
       "Title A-Z",
@@ -2300,7 +2300,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Category Management" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Category" })).toBeInTheDocument();
     expect(screen.queryByText("Gender")).not.toBeInTheDocument();
     expect(screen.queryByText("Body Type")).not.toBeInTheDocument();
   });
@@ -3729,8 +3729,8 @@ describe("App", () => {
     setManagedCategories(["Private User Category"]);
     const sourcePath = "D:/Languages/japanese.csv";
     const csvContent = [
-      "language_code,language_label,key,text,state,source_text,context",
-      "ja,Japanese,nav.home,ホーム,override,Home,Sidebar",
+      "id_lang,language,key,translation,context",
+      "ja,Japanese,nav.home,ホーム,Nav > Home",
     ].join("\n");
     dialogMocks.open.mockResolvedValue(sourcePath);
     window.__TAURI_INTERNALS__ = {
@@ -3756,11 +3756,17 @@ describe("App", () => {
     };
 
     render(<App />);
+    expect(screen.getByText("Edit id_lang, language, and translation.")).toBeInTheDocument();
+    expect(screen.getByText("Keep key and context unchanged.")).toBeInTheDocument();
+    expect(screen.getByText("One CSV file represents one language. Status is calculated automatically.")).toBeInTheDocument();
+    expect(screen.getByText(/From an English export, change id_lang and language/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
     expect(await screen.findByText("Translation CSV Preview")).toBeInTheDocument();
-    expect(screen.getByText("Format D")).toBeInTheDocument();
+    expect(screen.getByText("Sakurava Translation CSV")).toBeInTheDocument();
     expect(screen.getByText("Japanese (ja)")).toBeInTheDocument();
-    expect(screen.getByText("Create").closest("div")).toHaveTextContent("1");
+    expect(screen.getByText("Translated / Create").closest("div")).toHaveTextContent("1");
+    expect(screen.queryByText("state")).not.toBeInTheDocument();
+    expect(screen.queryByText("source_text")).not.toBeInTheDocument();
     expect(window.localStorage.getItem(customLanguagesStorageKey)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Apply Translation CSV" }));
     const dialog = screen.getByRole("dialog", { name: "Apply Translation CSV?" });
@@ -3891,8 +3897,10 @@ describe("App", () => {
       }
       if (command === "export_csv_write") {
         expect(args.destinationPath).toBe(destinationPath);
-        expect(args.csvContent).toContain("language_code,language_label,key,text,state,source_text,context");
-        expect(args.csvContent).toContain("en,English,nav.home,Home,baseline,Home,Nav > Home");
+        expect(args.csvContent.split("\n")[0]).toBe("id_lang,language,key,translation,context");
+        expect(args.csvContent).toContain("en,English,nav.home,Home,Nav > Home");
+        expect(args.csvContent.split("\n")[0]).not.toContain("state");
+        expect(args.csvContent.split("\n")[0]).not.toContain("source_text");
         for (const key of [
           "home.savedVideos",
           "enum.availability.owned",
@@ -3983,8 +3991,8 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
     expect(await screen.findByText(/Historical Format A requires an explicit target language code/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Target language code"), { target: { value: "id" } });
-    fireEvent.change(screen.getByLabelText("Target label"), { target: { value: "Indonesian" } });
+    fireEvent.change(screen.getByLabelText("Language code"), { target: { value: "id" } });
+    fireEvent.change(screen.getByLabelText("Language name"), { target: { value: "Indonesian" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview Again" }));
     expect(await screen.findByText("Translation CSV Preview")).toBeInTheDocument();
     expect(screen.getByLabelText("Historical built-in text")).toBeInTheDocument();
@@ -4890,13 +4898,13 @@ describe("App", () => {
       .toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
-    expect(await screen.findByRole("heading", { name: "Category Management" }))
+    expect(await screen.findByRole("heading", { name: "Category" }))
       .toBeInTheDocument();
     expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
     expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
-    expect(await screen.findByRole("heading", { name: "Category Management" }))
+    expect(await screen.findByRole("heading", { name: "Category" }))
       .toBeInTheDocument();
     expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
     expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
@@ -5140,16 +5148,16 @@ describe("App", () => {
 
     render(<App />);
 
-    const toolbar = screen.getByLabelText("Category Management toolbar");
+    const toolbar = screen.getByLabelText("Category toolbar");
     const toolbarRow = screen.getByTestId("category-management-toolbar-row");
-    const pagination = screen.getByLabelText("Category Management pagination");
+    const pagination = screen.getByLabelText("Category pagination");
     const table = screen.getByRole("table");
     const tableScroll = screen.getByTestId("category-management-table-scroll");
     expect(screen.getByTestId("category-management-route-page")).toHaveClass("space-y-6");
     expect(screen.getByTestId("category-management-route-page").className)
       .not.toContain("max-w-[1180px]");
     expect(screen.getByTestId("category-management-page")).toHaveClass("space-y-6");
-    expect(screen.getByRole("heading", { name: "Category Management" }))
+    expect(screen.getByRole("heading", { name: "Category" }))
       .toHaveClass("text-4xl", "font-semibold", "tracking-normal");
     expect(
       toolbar.compareDocumentPosition(pagination)
@@ -5368,9 +5376,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Category" }));
 
     expect(screen.getByRole("heading", { name: "Add Category" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Category Management" }))
+    expect(screen.getByRole("heading", { name: "Category" }))
       .toBeInTheDocument();
-    expect(screen.getByText("Category")).toBeInTheDocument();
+    expect(screen.getByText("Category", { selector: "span" })).toBeInTheDocument();
     expect(screen.getAllByText("*")).toHaveLength(2);
     expect(screen.getByText("Parent Category")).toBeInTheDocument();
     expect(screen.getByText("Used In")).toBeInTheDocument();
