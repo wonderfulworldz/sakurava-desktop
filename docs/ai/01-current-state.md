@@ -12,12 +12,12 @@ repository_state_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE
 repository_state_evidence: CODEX_CLOSURE_REPORT  
 remote_main_verified: true  
 tracked_worktree_clean: true  
-untracked_entry_count: 97  
+untracked_entry_count: 1334
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 4c14990a666efde80972ec74973f1bdd5974a9a1
-baseline_label: Batch 42.2D1 User-Friendly Translation CSV Contract
+last_recorded_baseline: 211e5bdd614ce5cc5e203f894db564702755b709
+baseline_label: Batch 42.2 Translation Containment Completion
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -31,15 +31,15 @@ new_roadmap_series: 42.x
 last_completed_roadmap_batch: 42.1  
 last_completed_roadmap_batch_title: GitHub and Repository Health Triage  
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
-active_batch: 42.2  
-active_batch_title: Translation Containment  
-active_batch_phase: IMPLEMENTATION_PLANNED  
+active_batch: 42.3
+active_batch_title: Catalog Performance and Media Audit
+active_batch_phase: AUDIT_FIRST_PROPOSED
 active_batch_mode: READY_PENDING_SEPARATE_APPROVAL  
 audit_status: COMPLETE_REPORTED  
 audit_allowed: false  
 plan_status: COMPLETE_REPORTED  
 plan_allowed: false  
-implementation_status: READY_PENDING_SEPARATE_APPROVAL  
+implementation_status: COMPLETED_AND_CLOSED
 implementation_allowed: false  
 strategy: CSV_ENGINE_ONLY  
 tests_and_builds_allowed: false  
@@ -55,13 +55,32 @@ current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb
 current_reported_batch_42_2c: COMPLETE_REPORTED  
 current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
 current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
-current_proposed_sub_stage: 42.2E — Disposable Translation Manual Smoke Verification
-current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL  
+current_proposed_sub_stage: 42.3 — Catalog Performance and Media Audit
+current_proposed_sub_stage_status: NOT_APPROVED
 current_proposed_sub_stage_implementation_allowed: false  
 current_proposed_sub_stage_tests_and_builds_allowed: false  
 current_proposed_sub_stage_runtime_verification_allowed: false  
 current_proposed_sub_stage_dependency_remediation_allowed: false  
 current_proposed_sub_stage_manual_smoke_allowed: false
+batch_42_2_status: COMPLETED_AND_CLOSED
+batch_42_2e_status: COMPLETED_OBSERVED
+vite_watcher_correction_status: COMPLETED_REPORTED
+vite_watcher_correction_commit: 211e5bdd614ce5cc5e203f894db564702755b709
+disposable_manual_smoke: PASSED_OBSERVED_BY_OPERATOR
+manual_smoke_used_live_appdata: false
+canonical_five_column_csv_smoke: PASSED_OBSERVED_BY_OPERATOR
+corrected_utf8_existing_language_reimport: PASSED_OBSERVED_BY_OPERATOR
+indonesian_identity: USER_MANAGED
+duplicate_normalized_language_identity: NOT_OBSERVED
+user_entered_category_data_mutation: NOT_OBSERVED
+restart_persistence: PASSED_OBSERVED_BY_OPERATOR
+preview_numeric_counts: NOT_REPORTED
+next_proposed_batch: 42.3 — Catalog Performance and Media Audit
+next_batch_approval: NOT_APPROVED
+next_batch_audit_permission: false
+next_batch_implementation_permission: false
+runtime_permission: false
+dependency_remediation_permission: false
 
 package_version: NOT_RECORDED  
 backup_extension: .skv  

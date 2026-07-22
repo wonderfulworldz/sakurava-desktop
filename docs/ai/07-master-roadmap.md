@@ -16,7 +16,14 @@ legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.1
-active_batch: 42.2
+active_batch: 42.3
+
+## Current Authority — 2026-07-22
+
+Batch `42.2 — Translation Containment` is `COMPLETED_AND_CLOSED` at final
+application/configuration baseline `211e5bdd614ce5cc5e203f894db564702755b709`.
+Stage `42.2E` is `COMPLETED_OBSERVED`. The next proposed batch is `42.3 —
+Catalog Performance and Media Audit`; it is not approved and remains audit-first.
 
 ---
 
@@ -665,13 +672,13 @@ An exposed secret, compromised workflow, or active critical reachable vulnerabil
 
 **Status**
 
-`ACTIVE — 42.2E PROPOSED`
+`COMPLETED_AND_CLOSED`
 
 Stage 1 verdict: `AUDIT_COMPLETE_WITH_CRITICAL_FINDING`
 
-Implementation permission: `NOT_APPROVED`
+Implementation permission: `COMPLETED_AND_CLOSED`
 
-Stage 2 mode: `PLAN ONLY — 42.2D1 COMPLETE`
+Stage 2 mode: `COMPLETED — 42.2E OBSERVED`
 
 Stage 2 plan status: `COMPLETE_REPORTED`
 
@@ -685,10 +692,16 @@ Stage 2 plan status: `COMPLETE_REPORTED`
 42.2C production build: `PASSED`  
 42.2D1 implementation status: `COMPLETED_REPORTED`
 42.2D1 implementation commit: `4c14990a666efde80972ec74973f1bdd5974a9a1`
-Next proposed sub-stage: `42.2E — Disposable Translation Manual Smoke Verification`
-42.2E approval: `NOT_APPROVED`
+Final application/configuration baseline: `211e5bdd614ce5cc5e203f894db564702755b709`
+Stage 42.2E status: `COMPLETED_OBSERVED`
+Vite watcher correction: `COMPLETED_REPORTED` in commit `211e5bdd614ce5cc5e203f894db564702755b709`
+Disposable Translation smoke: `PASSED_OBSERVED_BY_OPERATOR`
+Corrected UTF-8 existing-language re-import: `PASSED_OBSERVED_BY_OPERATOR`
 
-Vite dev-server execution: `NOT_APPROVED`
+Next proposed batch: `42.3 — Catalog Performance and Media Audit`
+Batch 42.3 approval: `NOT_APPROVED`
+Batch 42.3 audit permission: `false`
+Batch 42.3 implementation permission: `false`
 
 **Goal**
 
@@ -752,6 +765,18 @@ At the time of that completed stage, `42.2D` was the next proposed sub-stage; it
 Batch `42.2D1` completed as reported in commit `4c14990a666efde80972ec74973f1bdd5974a9a1`. The canonical user export is `id_lang,language,key,translation,context`; automatic state derivation and legacy import compatibility remain part of the contract. Visible terminology is `Category` with internal identities unchanged, and Sakurava design continuity remains required. The next proposed stage is `42.2E — Disposable Translation Manual Smoke Verification`, not approved. Batch `42.11` remains final release-facing Translation completion; Batches `42.6` and `42.7` retain Backup/package responsibilities; roadmap order is unchanged.
 
 **Out of Scope**
+
+### Batch 42.2E Closure Outcome
+
+The operator-observed disposable smoke confirmed English as the sole
+built-in/default/source/fallback language, Indonesian as user-managed, the
+canonical five-column CSV, preserved normalized identity, UI-only Translation,
+unchanged Category/user-entered data, and restart persistence. The corrected
+UTF-8 existing-language re-import succeeded without a duplicate identity.
+Batch 42.2 did not absorb Backup/package integration from Batches 42.6/42.7,
+final release-facing Translation completion from Batch 42.11, unrelated
+Settings redesign, or dependency remediation. Batch 42.3 is the next proposed
+audit-first batch and remains not approved; no performance finding is inferred.
 
 * redoing completed Batch `41.9` corrections without evidence of regression;
 * unrestricted architecture rewrite;
