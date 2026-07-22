@@ -16,8 +16,8 @@ untracked_entry_count: 97
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 4c14990a666efde80972ec74973f1bdd5974a9a1  
-baseline_label: Batch 42.2D1 User-Friendly Translation CSV Contract  
+last_recorded_baseline: 4c14990a666efde80972ec74973f1bdd5974a9a1
+baseline_label: Batch 42.2D1 User-Friendly Translation CSV Contract
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -55,13 +55,13 @@ current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb
 current_reported_batch_42_2c: COMPLETE_REPORTED  
 current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
 current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
-current_proposed_sub_stage: 42.2E — Disposable Translation Manual Smoke Verification  
+current_proposed_sub_stage: 42.2E — Disposable Translation Manual Smoke Verification
 current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL  
 current_proposed_sub_stage_implementation_allowed: false  
 current_proposed_sub_stage_tests_and_builds_allowed: false  
 current_proposed_sub_stage_runtime_verification_allowed: false  
 current_proposed_sub_stage_dependency_remediation_allowed: false  
-current_proposed_sub_stage_manual_smoke_allowed: false  
+current_proposed_sub_stage_manual_smoke_allowed: false
 
 package_version: NOT_RECORDED  
 backup_extension: .skv  

@@ -6,7 +6,7 @@ batch: 42.2
 title: Translation Containment  
 status: ACTIVE  
 phase: IMPLEMENTATION_PLANNED  
-current_stage: 42.2E — Disposable Translation Manual Smoke Verification  
+current_stage: 42.2E — Disposable Translation Manual Smoke Verification
 current_mode: READY_PENDING_SEPARATE_APPROVAL  
 stage_1_status: COMPLETE  
 stage_1_verdict: AUDIT_COMPLETE_WITH_CRITICAL_FINDING  
@@ -36,22 +36,22 @@ interposed_prerequisite: Batch 42.13A — Targeted Vite Security Prerequisite (C
 vite_security_prerequisite: SATISFIED  
 targeted_vite_high_advisory: REMOVED  
 full_batch_42_13: DEFERRED  
-strategy: USER_CSV_CONTRACT  
-selected_strategy: USER_CSV_CONTRACT  
-completed_sub_stage: 42.2D1 — User-Friendly Translation CSV Contract  
+strategy: USER_CSV_CONTRACT
+selected_strategy: USER_CSV_CONTRACT
+completed_sub_stage: 42.2D1 — User-Friendly Translation CSV Contract
 completed_sub_stage_status: COMPLETED_REPORTED  
-implementation_commit: 4c14990a666efde80972ec74973f1bdd5974a9a1  
-completed_42_2d_commit: 8d011d2d990890d663c63135e94d73c2db0bd2bc  
-completed_42_2d_status: COMPLETED_REPORTED  
-completed_42_2d1_commit: 4c14990a666efde80972ec74973f1bdd5974a9a1  
+implementation_commit: 4c14990a666efde80972ec74973f1bdd5974a9a1
+completed_42_2d_commit: 8d011d2d990890d663c63135e94d73c2db0bd2bc
+completed_42_2d_status: COMPLETED_REPORTED
+completed_42_2d1_commit: 4c14990a666efde80972ec74973f1bdd5974a9a1
 focused_tests: 146 passed  
 production_build: PASSED  
 caller_integration: NONE  
 runtime_behavior_change: NONE  
 migration: NONE  
-next_action: review 42.2D1 closure and separately approve or reject 42.2E manual smoke  
-manual_smoke_allowed: false  
-runtime_allowed: false  
+next_action: review 42.2D1 closure and separately approve or reject 42.2E manual smoke
+manual_smoke_allowed: false
+runtime_allowed: false
 
 previous_batch: 42.1  
 previous_batch_title: GitHub and Repository Health Triage  

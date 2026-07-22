@@ -683,9 +683,9 @@ Stage 2 plan status: `COMPLETE_REPORTED`
 42.2C implementation commit: `eb0c377f6d412b9ee40c96bb42cbe53a700cebcd`  
 42.2C focused verification: `146 passed`  
 42.2C production build: `PASSED`  
-42.2D1 implementation status: `COMPLETED_REPORTED`  
-42.2D1 implementation commit: `4c14990a666efde80972ec74973f1bdd5974a9a1`  
-Next proposed sub-stage: `42.2E — Disposable Translation Manual Smoke Verification`  
+42.2D1 implementation status: `COMPLETED_REPORTED`
+42.2D1 implementation commit: `4c14990a666efde80972ec74973f1bdd5974a9a1`
+Next proposed sub-stage: `42.2E — Disposable Translation Manual Smoke Verification`
 42.2E approval: `NOT_APPROVED`
 
 Vite dev-server execution: `NOT_APPROVED`
