@@ -123,10 +123,12 @@ import {
   selectImportCatalogSource,
   selectLanguageCsvExportDestination,
   selectLanguageCsvImportSource,
+  selectTranslationRecoveryJsonDestination,
   selectLocalFolder,
 } from "../runtime/dialogCommands";
 import {
   writeExportCsv,
+  writeTranslationRecoveryJson,
 } from "../runtime/exportCommands";
 import { isTemplateExport, runCatalogExport } from "../runtime/catalogExport";
 import {
@@ -141,16 +143,33 @@ import {
 } from "../runtime/sakuravaRefCommands";
 import { listGlossaryEntries } from "../runtime/glossaryCommands";
 import {
-  applyCustomLanguageCsvPreview,
-  buildLanguageExportCsv,
-  buildCustomLanguageCsvPreview,
-  type CustomLanguageCsvPreview as CustomLanguageCsvPreviewType,
+  applyFullEnglishResetPreview,
+  applySafeLanguageCsvPreview,
+  buildCanonicalLanguageCsv,
+  previewFullEnglishReset,
+  previewLanguageCsvImport,
+  type HistoricalBuiltInDecision,
+  type IdenticalEnglishDecision,
+  type SafeLanguageCsvDiagnostic,
+  type SafeLanguageCsvPreview,
+  type SafeLanguageCsvPreviewOptions,
 } from "../lib/languageCsv";
 import {
   isCustomLanguageCode,
   removeCustomLanguage,
 } from "../lib/customLanguages";
 import { resetAllOverridesForLanguage } from "../lib/languageOverrides";
+import {
+  createTranslationRecoveryExport,
+  inspectPendingTranslationTransaction,
+  inspectRawTranslationSnapshot,
+  readRawTranslationSnapshot,
+  recoverTranslationTransaction,
+  type PendingTransactionInspection,
+  type RawTranslationSnapshot,
+  type RecoveryDirection,
+  type TranslationStorageInspection,
+} from "../lib/translationStorage";
 import {
   getCatalogPreferenceToggles,
   resetRememberedCatalogPreferences,
@@ -291,12 +310,66 @@ function combineImportApplyReports(reports: ImportCsvApplyReport[]): ImportCsvAp
 
 type LanguageCsvStatus =
   | { state: "idle" }
-  | { state: "pending" }
+  | { state: "pending"; operation: "import" | "export" | "apply" | "reset" | "recovery" | "recoveryExport" }
   | { state: "exportSuccess"; message: string }
-  | { state: "customPreview"; preview: CustomLanguageCsvPreviewType }
+  | {
+      state: "preview";
+      preview: SafeLanguageCsvPreview;
+      rawCsv: string;
+      options: SafeLanguageCsvPreviewOptions;
+      needsHistoricalBuiltInDecision: boolean;
+      needsIdenticalEnglishDecision: boolean;
+    }
+  | {
+      state: "previewBlocked";
+      rawCsv: string;
+      options: SafeLanguageCsvPreviewOptions;
+      format?: string;
+      diagnostics: readonly SafeLanguageCsvDiagnostic[];
+    }
+  | { state: "confirming"; preview: SafeLanguageCsvPreview; operation: "apply" | "reset" }
   | { state: "removeConfirm"; code: string; label: string }
   | { state: "applySuccess"; message: string }
+  | { state: "cancelled"; message: string }
   | { state: "error"; message: string };
+
+type TranslationStorageStatus =
+  | {
+      state: "ready";
+      snapshot: RawTranslationSnapshot;
+      inspection: TranslationStorageInspection;
+      pending: PendingTransactionInspection;
+    }
+  | { state: "error"; message: string };
+
+function inspectCurrentTranslationStorage(): TranslationStorageStatus {
+  const result = readRawTranslationSnapshot(window.localStorage);
+  if (!result.ok) {
+    return { state: "error", message: result.failure.message };
+  }
+  return {
+    state: "ready",
+    snapshot: result.snapshot,
+    inspection: inspectRawTranslationSnapshot(result.snapshot),
+    pending: inspectPendingTranslationTransaction(result.snapshot),
+  };
+}
+
+function previewDecisionRequirements(
+  preview: SafeLanguageCsvPreview,
+  options: SafeLanguageCsvPreviewOptions,
+) {
+  const diagnosticCodes = preview.rows.flatMap((row) => row.diagnostics.map((entry) => entry.code));
+  return {
+    needsHistoricalBuiltInDecision:
+      options.historicalBuiltInDecision === undefined &&
+      diagnosticCodes.includes("historical_built_in_not_preserved"),
+    needsIdenticalEnglishDecision:
+      options.identicalEnglishDecision === undefined &&
+      diagnosticCodes.some((code) =>
+        code === "identical_english_treated_as_missing" || code === "identical_english_preserved"),
+  };
+}
 
 const emptyCategoryAudit = buildCategoryAudit({
   videos: [],
@@ -423,6 +496,9 @@ function SettingsPage() {
   const [languageCsvStatus, setLanguageCsvStatus] = useState<LanguageCsvStatus>({
     state: "idle",
   });
+  const [translationStorageStatus, setTranslationStorageStatus] =
+    useState<TranslationStorageStatus>(() => inspectCurrentTranslationStorage());
+  const translationTransactionSequenceRef = useRef(0);
   const [isLanguageManagerOpen, setIsLanguageManagerOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<ImportStatus>({
     state: "idle",
@@ -475,6 +551,19 @@ function SettingsPage() {
     !isRestorePending;
   const canAddMediaRoot = isDesktopRuntime && !isMediaRootPending;
   const isLanguageCsvBusy = languageCsvStatus.state === "pending";
+  const isTranslationStorageUnsafe =
+    translationStorageStatus.state === "error" ||
+    translationStorageStatus.inspection.classification !== "clean" ||
+    translationStorageStatus.pending.recoveryRequired;
+
+  function nextTranslationTransactionId(operation: "csv-apply" | "english-reset") {
+    translationTransactionSequenceRef.current += 1;
+    return `settings-${operation}-${translationTransactionSequenceRef.current}`;
+  }
+
+  function refreshTranslationStorageStatus() {
+    setTranslationStorageStatus(inspectCurrentTranslationStorage());
+  }
 
   async function refreshCatalogRefStatus() {
     if (!isDesktopRuntime) return;
@@ -1036,24 +1125,35 @@ function SettingsPage() {
   }
 
   async function handleExportLanguageTemplate() {
-    if (isLanguageCsvBusy) {
+    if (isLanguageCsvBusy || isTranslationStorageUnsafe) {
       return;
     }
 
-    setLanguageCsvStatus({ state: "pending" });
+    setLanguageCsvStatus({ state: "pending", operation: "export" });
 
     try {
+      const exportResult = buildCanonicalLanguageCsv(languageCode);
+      if (!exportResult.ok) {
+        setLanguageCsvStatus({
+          state: "error",
+          message: exportResult.diagnostics.map((entry) => entry.message).join(" "),
+        });
+        return;
+      }
       const destinationPath = await selectLanguageCsvExportDestination(languageCode);
       if (!destinationPath) {
-        setLanguageCsvStatus({ state: "idle" });
+        setLanguageCsvStatus({ state: "cancelled", message: t("settings.language.csv.cancelled") });
         return;
       }
 
-      const csvContent = buildLanguageExportCsv(languageCode);
-      await writeExportCsv(destinationPath, csvContent);
+      const written = await writeExportCsv(destinationPath, exportResult.csv);
+      if (!written.success) {
+        setLanguageCsvStatus({ state: "error", message: t("settings.language.csv.exportFailure") });
+        return;
+      }
       setLanguageCsvStatus({
         state: "exportSuccess",
-        message: `Language CSV exported to ${destinationPath}`,
+        message: t("settings.language.csv.exportSuccess", { path: destinationPath }),
       });
     } catch (error) {
       setLanguageCsvStatus({
@@ -1067,11 +1167,11 @@ function SettingsPage() {
   }
 
   async function handleAddLanguageFromCsv() {
-    if (isLanguageCsvBusy) {
+    if (isLanguageCsvBusy || isTranslationStorageUnsafe) {
       return;
     }
 
-    setLanguageCsvStatus({ state: "pending" });
+    setLanguageCsvStatus({ state: "pending", operation: "import" });
 
     try {
       const sourcePath = await selectLanguageCsvImportSource();
@@ -1081,12 +1181,7 @@ function SettingsPage() {
       }
 
       const result = await readImportCsv(sourcePath);
-      const preview = buildCustomLanguageCsvPreview(result.csvContent);
-      if (preview.headerError) {
-        setLanguageCsvStatus({ state: "error", message: preview.headerError });
-        return;
-      }
-      setLanguageCsvStatus({ state: "customPreview", preview });
+      showLanguageCsvPreview(result.csvContent, {});
     } catch (error) {
       setLanguageCsvStatus({
         state: "error",
@@ -1098,21 +1193,82 @@ function SettingsPage() {
     }
   }
 
-  function handleApplyCustomLanguageCsv(preview: CustomLanguageCsvPreviewType) {
-    const report = applyCustomLanguageCsvPreview(preview);
-    if (report.applied === 0 && report.errors > 0) {
+  function showLanguageCsvPreview(
+    rawCsv: string,
+    options: SafeLanguageCsvPreviewOptions,
+  ) {
+    const result = previewLanguageCsvImport(rawCsv, options);
+    if (!result.ok) {
       setLanguageCsvStatus({
-        state: "error",
-        message: "Language CSV was not applied. Existing languages were not changed.",
+        state: "previewBlocked",
+        rawCsv,
+        options,
+        format: result.parsed?.format,
+        diagnostics: result.diagnostics,
       });
       return;
     }
-    refreshLanguages();
-    refreshOverrides();
+    const requirements = previewDecisionRequirements(result.preview, options);
     setLanguageCsvStatus({
-      state: "applySuccess",
-      message: `${preview.isNew ? "Added" : "Updated"} language "${preview.languageName}" (${preview.languageCode}). ${report.applied} translation${report.applied === 1 ? "" : "s"} applied. ${report.skipped} skipped.`,
+      state: "preview",
+      preview: result.preview,
+      rawCsv,
+      options,
+      ...requirements,
     });
+  }
+
+  function handleLanguagePreviewOptions(
+    patch: Partial<SafeLanguageCsvPreviewOptions>,
+  ) {
+    setLanguageCsvStatus((current) => {
+      if (current.state !== "preview" && current.state !== "previewBlocked") return current;
+      return { ...current, options: { ...current.options, ...patch } };
+    });
+  }
+
+  function handleRebuildLanguageCsvPreview() {
+    if (languageCsvStatus.state !== "preview" && languageCsvStatus.state !== "previewBlocked") return;
+    showLanguageCsvPreview(languageCsvStatus.rawCsv, languageCsvStatus.options);
+  }
+
+  function handleRequestLanguageCsvApply(preview: SafeLanguageCsvPreview) {
+    if (!preview.applyAllowed || preview.errorCount > 0 || isTranslationStorageUnsafe) return;
+    setLanguageCsvStatus({ state: "confirming", preview, operation: "apply" });
+  }
+
+  async function handleConfirmLanguageCsvApply(preview: SafeLanguageCsvPreview) {
+    setLanguageCsvStatus({ state: "pending", operation: "apply" });
+    await Promise.resolve();
+    const result = applySafeLanguageCsvPreview(preview, {
+      confirmed: true,
+      transactionId: nextTranslationTransactionId("csv-apply"),
+    });
+    if (result.ok) {
+      refreshLanguages();
+      refreshOverrides();
+      refreshTranslationStorageStatus();
+      setLanguageCsvStatus({
+        state: "applySuccess",
+        message: result.status === "unchanged"
+          ? t("settings.language.csvApply.unchangedCounts", { unchanged: String(result.counts.unchanged) })
+          : t("settings.language.csvApply.successCounts", {
+              creates: String(result.counts.creates),
+              updates: String(result.counts.updates),
+              resets: String(result.counts.resets),
+            }),
+      });
+      return;
+    }
+    refreshTranslationStorageStatus();
+    const detail = result.status === "stale_preview"
+      ? t("settings.language.csvApply.stale")
+      : result.status === "transaction_recovery_required"
+        ? t("settings.language.csvApply.recoveryRequired")
+        : result.rollback === "succeeded"
+          ? `${t("settings.language.csvApply.failure")} ${t("settings.language.csvApply.rollback")}`
+          : `${t("settings.language.csvApply.failure")} ${result.diagnostics.map((entry) => entry.message).join(" ")}`;
+    setLanguageCsvStatus({ state: "error", message: detail });
   }
 
   function handleRemoveCustomLanguage(code: string, label: string) {
@@ -1143,6 +1299,154 @@ function SettingsPage() {
       state: "applySuccess",
       message: `Removed language "${code}". Switched to English if it was active.`,
     });
+    refreshTranslationStorageStatus();
+  }
+
+  function handlePreviewEnglishReset() {
+    if (isLanguageCsvBusy || isTranslationStorageUnsafe) return;
+    const result = previewFullEnglishReset();
+    if (!result.ok) {
+      setLanguageCsvStatus({
+        state: "error",
+        message: result.diagnostics.map((entry) => entry.message).join(" "),
+      });
+      refreshTranslationStorageStatus();
+      return;
+    }
+    if (result.preview.counts.resets === 0) {
+      setLanguageCsvStatus({
+        state: "applySuccess",
+        message: t("settings.language.resetPreview.unchanged"),
+      });
+      return;
+    }
+    setLanguageCsvStatus({
+      state: "preview",
+      preview: result.preview,
+      rawCsv: "",
+      options: {},
+      needsHistoricalBuiltInDecision: false,
+      needsIdenticalEnglishDecision: false,
+    });
+  }
+
+  function handleRequestEnglishReset(preview: SafeLanguageCsvPreview) {
+    if (preview.kind !== "english_full_reset" || isTranslationStorageUnsafe) return;
+    setLanguageCsvStatus({ state: "confirming", preview, operation: "reset" });
+  }
+
+  function handleCancelLanguageConfirmation(preview: SafeLanguageCsvPreview) {
+    setLanguageCsvStatus({
+      state: "preview",
+      preview,
+      rawCsv: preview.rawCsv,
+      options: preview.kind === "language_csv_import"
+        ? {
+            historicalBuiltInDecision: preview.ambiguityDecisions.historicalBuiltIn,
+            identicalEnglishDecision: preview.ambiguityDecisions.identicalEnglish,
+            languageLabelDecision: preview.ambiguityDecisions.languageLabel,
+          }
+        : {},
+      needsHistoricalBuiltInDecision: false,
+      needsIdenticalEnglishDecision: false,
+    });
+  }
+
+  async function handleConfirmEnglishReset(preview: SafeLanguageCsvPreview) {
+    setLanguageCsvStatus({ state: "pending", operation: "reset" });
+    await Promise.resolve();
+    const result = applyFullEnglishResetPreview(preview, {
+      confirmed: true,
+      transactionId: nextTranslationTransactionId("english-reset"),
+    });
+    if (result.ok) {
+      refreshLanguages();
+      refreshOverrides();
+      refreshTranslationStorageStatus();
+      setLanguageCsvStatus({
+        state: "applySuccess",
+        message: result.status === "unchanged"
+          ? t("settings.language.resetPreview.unchanged")
+          : t("settings.language.reset.success"),
+      });
+      return;
+    }
+    refreshTranslationStorageStatus();
+    const message = result.status === "stale_preview"
+      ? t("settings.language.csvApply.stale")
+      : result.status === "transaction_recovery_required"
+        ? t("settings.language.csvApply.recoveryRequired")
+        : result.rollback === "succeeded"
+          ? `${t("settings.language.csvApply.failure")} ${t("settings.language.csvApply.rollback")}`
+          : t("settings.language.csvApply.failure");
+    setLanguageCsvStatus({ state: "error", message });
+  }
+
+  async function handleRecoverTranslation(direction: RecoveryDirection) {
+    if (isLanguageCsvBusy || translationStorageStatus.state !== "ready") return;
+    const pendingState = translationStorageStatus.pending.state;
+    const allowed = direction === "complete"
+      ? pendingState === "after_state"
+      : pendingState === "before_state" || pendingState === "mixed_state";
+    if (!allowed) return;
+
+    setLanguageCsvStatus({ state: "pending", operation: "recovery" });
+    await Promise.resolve();
+    const result = recoverTranslationTransaction(window.localStorage, direction);
+    refreshTranslationStorageStatus();
+    if (result.ok) {
+      refreshLanguages();
+      refreshOverrides();
+      setLanguageCsvStatus({
+        state: "applySuccess",
+        message: t("settings.language.recovery.success"),
+      });
+      return;
+    }
+    setLanguageCsvStatus({
+      state: "error",
+      message: t("settings.language.recovery.failure"),
+    });
+  }
+
+  async function handleExportTranslationRecovery() {
+    if (isLanguageCsvBusy || translationStorageStatus.state !== "ready") return;
+    setLanguageCsvStatus({ state: "pending", operation: "recoveryExport" });
+    try {
+      const destinationPath = await selectTranslationRecoveryJsonDestination();
+      if (!destinationPath) {
+        setLanguageCsvStatus({
+          state: "cancelled",
+          message: t("settings.language.recovery.cancelled"),
+        });
+        return;
+      }
+      const recovery = createTranslationRecoveryExport(translationStorageStatus.snapshot);
+      const result = await writeTranslationRecoveryJson(destinationPath, recovery);
+      if (result.cancelled) {
+        setLanguageCsvStatus({
+          state: "cancelled",
+          message: t("settings.language.recovery.cancelled"),
+        });
+        return;
+      }
+      if (!result.success) {
+        setLanguageCsvStatus({
+          state: "error",
+          message: t("settings.language.recovery.exportFailure"),
+        });
+        return;
+      }
+      setLanguageCsvStatus({
+        state: "exportSuccess",
+        message: t("settings.language.recovery.exportSuccess"),
+      });
+    } catch {
+      setLanguageCsvStatus({
+        state: "error",
+        message: t("settings.language.recovery.exportFailure"),
+      });
+    }
   }
 
   async function handleConfirmClearCache() {
@@ -1712,6 +2016,8 @@ function SettingsPage() {
           isLanguageCsvBusy,
           isLanguageManagerOpen,
           languageCsvStatus,
+          translationStorageStatus,
+          isTranslationStorageUnsafe,
           mediaRootStatus,
           backupStatus,
           restoreStatus,
@@ -1759,7 +2065,16 @@ function SettingsPage() {
           setIsLanguageManagerOpen,
           handleAddLanguageFromCsv,
           handleExportLanguageTemplate,
-          handleApplyCustomLanguageCsv,
+          handleLanguagePreviewOptions,
+          handleRebuildLanguageCsvPreview,
+          handleRequestLanguageCsvApply,
+          handleConfirmLanguageCsvApply,
+          handlePreviewEnglishReset,
+          handleRequestEnglishReset,
+          handleConfirmEnglishReset,
+          handleCancelLanguageConfirmation,
+          handleRecoverTranslation,
+          handleExportTranslationRecovery,
           handleConfirmRemoveLanguage,
           setLanguageCsvStatus,
           handleAddMediaRoot,
@@ -2014,28 +2329,58 @@ function CatalogPreferenceToggle({
 
 function LanguageStatusContent({
   status,
-  onApply,
+  onRequestApply,
+  onRequestReset,
+  onConfirmApply,
+  onConfirmReset,
+  onCancelConfirmation,
+  onOptionsChange,
+  onPreviewAgain,
   onConfirmRemove,
   onClose,
 }: {
   status: LanguageCsvStatus;
-  onApply: (preview: CustomLanguageCsvPreviewType) => void;
+  onRequestApply: (preview: SafeLanguageCsvPreview) => void;
+  onRequestReset: (preview: SafeLanguageCsvPreview) => void;
+  onConfirmApply: (preview: SafeLanguageCsvPreview) => void;
+  onConfirmReset: (preview: SafeLanguageCsvPreview) => void;
+  onCancelConfirmation: (preview: SafeLanguageCsvPreview) => void;
+  onOptionsChange: (patch: Partial<SafeLanguageCsvPreviewOptions>) => void;
+  onPreviewAgain: () => void;
   onConfirmRemove: (code: string) => void;
   onClose: () => void;
 }) {
   const t = useTranslation();
-  if (status.state === "idle" || status.state === "pending") {
+  if (status.state === "idle") {
     return null;
   }
 
-  if (status.state === "exportSuccess" || status.state === "applySuccess" || status.state === "error") {
+  if (status.state === "pending") {
+    const pendingKey = {
+      import: "settings.language.csv.importPending",
+      export: "settings.language.csv.exportPending",
+      apply: "settings.language.csvApply.pending",
+      reset: "settings.language.resetConfirm.pending",
+      recovery: "settings.language.recovery.pending",
+      recoveryExport: "settings.language.recovery.exportPending",
+    }[status.operation];
+    return (
+      <div role="status" className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+        {t(pendingKey)}
+      </div>
+    );
+  }
+
+  if (status.state === "exportSuccess" || status.state === "applySuccess" || status.state === "error" || status.state === "cancelled") {
     return (
       <div
-        role="alert"
+        role={status.state === "error" ? "alert" : "status"}
         className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${
           status.state === "error"
             ? "border-rose-200 bg-rose-50 text-rose-700"
-            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : status.state === "cancelled"
+              ? "border-slate-200 bg-slate-50 text-slate-600"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
         }`}
       >
         {status.message}
@@ -2057,24 +2402,160 @@ function LanguageStatusContent({
     );
   }
 
+  if (status.state === "confirming") {
+    const reset = status.operation === "reset";
+    return (
+      <ConfirmDialog
+        open
+        title={t(reset ? "settings.language.resetConfirm.title" : "settings.language.csvApply.confirmTitle")}
+        description={
+          <>
+            <dl className="grid grid-cols-2 gap-x-5 gap-y-1 text-sm text-slate-700">
+              <dt>{t("settings.language.csvPreview.targetLanguage")}</dt>
+              <dd>{status.preview.targetLabel} ({status.preview.targetIdentity})</dd>
+              <dt>{t("settings.language.csvPreview.createCount")}</dt>
+              <dd>{status.preview.counts.creates}</dd>
+              <dt>{t("settings.language.csvPreview.updateCount")}</dt>
+              <dd>{status.preview.counts.updates}</dd>
+              <dt>{t("settings.language.csvPreview.resetCount")}</dt>
+              <dd>{status.preview.counts.resets}</dd>
+            </dl>
+            <p className="mt-3 text-xs text-slate-500">
+              {t(reset ? "settings.language.resetConfirm.body" : "settings.language.csvApply.safety")}
+            </p>
+          </>
+        }
+        confirmLabel={t(reset ? "settings.language.resetConfirm.action" : "settings.language.csvApply.confirmAction")}
+        cancelLabel={t("common.cancel")}
+        onCancel={() => onCancelConfirmation(status.preview)}
+        onConfirm={() => reset ? onConfirmReset(status.preview) : onConfirmApply(status.preview)}
+      />
+    );
+  }
+
+  if (status.state === "previewBlocked") {
+    return (
+      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <p className="text-sm font-semibold text-amber-900">{t("settings.language.csvPreview.title")}</p>
+        {status.format ? <p className="mt-1 text-xs font-medium text-amber-800">{t("settings.language.csvPreview.detectedFormat")}: {status.format}</p> : null}
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="text-xs font-semibold text-slate-700">
+            {t("settings.language.csvPreview.targetCode")}
+            <input
+              value={status.options.explicitTargetCode ?? ""}
+              onChange={(event) => onOptionsChange({ explicitTargetCode: event.target.value })}
+              className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-700">
+            {t("settings.language.csvPreview.targetLabel")}
+            <input
+              value={status.options.explicitTargetLabel ?? ""}
+              onChange={(event) => onOptionsChange({ explicitTargetLabel: event.target.value })}
+              className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
+            />
+          </label>
+        </div>
+        <div className="mt-3 space-y-1">
+          {status.diagnostics.map((entry, index) => (
+            <p key={`${entry.code}-${index}`} role={entry.severity === "error" ? "alert" : undefined} className={entry.severity === "error" ? "text-xs font-semibold text-rose-700" : "text-xs font-semibold text-amber-800"}>
+              {entry.message}
+            </p>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <ShellButton label={t("settings.language.csvPreview.previewAgain")} onClick={onPreviewAgain} />
+          <ShellButton label={t("common.cancel")} onClick={onClose} />
+        </div>
+      </div>
+    );
+  }
+
+  const preview = status.preview;
+  const isReset = preview.kind === "english_full_reset";
+  const diagnostics = [
+    ...preview.fileDiagnostics,
+    ...preview.rows.flatMap((row) => row.diagnostics),
+  ];
+  const needsTargetInput = diagnostics.some((entry) =>
+    entry.code === "explicit_target_required" ||
+    entry.code === "explicit_label_required" ||
+    entry.code === "missing_language_identity");
+  const decisionsPending = status.needsHistoricalBuiltInDecision || status.needsIdenticalEnglishDecision || needsTargetInput;
+
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-sm font-semibold text-slate-800">
-        {status.preview.isNew ? "Add" : "Update"} {status.preview.languageName}
-      </p>
-      <p className="mt-1 text-xs font-medium text-slate-500">
-        {status.preview.validRows} valid row(s), {status.preview.errorRows} error(s)
-      </p>
-      <div className="mt-2 flex gap-2">
-        <ShellButton
-          label={status.preview.isNew ? "Add Language" : "Update Language"}
-          disabled={status.preview.validRows === 0}
-          onClick={() => onApply(status.preview)}
+      <p className="text-sm font-semibold text-slate-800">{t(isReset ? "settings.language.resetPreview.title" : "settings.language.csvPreview.title")}</p>
+      <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.detectedFormat")} value={preview.format === "english_reset" ? t("settings.language.resetPreview.formatValue") : t("settings.language.csvPreview.formatValue", { format: preview.format })} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.targetLanguage")} value={`${preview.targetLabel} (${preview.targetIdentity})`} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.sourceRows")} value={preview.sourceRowCount} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.ignoredBlankRows")} value={preview.ignoredBlankRowCount} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.createCount")} value={preview.counts.creates} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.updateCount")} value={preview.counts.updates} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.resetCount")} value={preview.counts.resets} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.unchangedCount")} value={preview.counts.unchanged} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.warningCount")} value={preview.warningCount} />
+        <LanguagePreviewMetric label={t("settings.language.csvPreview.errorCount")} value={preview.errorCount} />
+      </dl>
+      {isReset ? <p className="mt-3 text-xs font-semibold text-slate-700">{t("settings.language.resetPreview.count")}: {preview.counts.resets}</p> : null}
+      {needsTargetInput ? <div className="mt-3 grid gap-2 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-700">{t("settings.language.csvPreview.targetCode")}<input value={status.options.explicitTargetCode ?? ""} onChange={(event) => onOptionsChange({ explicitTargetCode: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700" /></label><label className="text-xs font-semibold text-slate-700">{t("settings.language.csvPreview.targetLabel")}<input value={status.options.explicitTargetLabel ?? ""} onChange={(event) => onOptionsChange({ explicitTargetLabel: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700" /></label></div> : null}
+      {status.needsHistoricalBuiltInDecision ? (
+        <LanguageDecisionSelect
+          label={t("settings.language.csvPreview.historicalBuiltIn")}
+          value={status.options.historicalBuiltInDecision ?? ""}
+          onChange={(value) => onOptionsChange({ historicalBuiltInDecision: value as HistoricalBuiltInDecision })}
+          t={t}
         />
+      ) : null}
+      {status.needsIdenticalEnglishDecision ? (
+        <LanguageDecisionSelect
+          label={t("settings.language.csvPreview.identicalEnglish")}
+          value={status.options.identicalEnglishDecision ?? ""}
+          onChange={(value) => onOptionsChange({ identicalEnglishDecision: value as IdenticalEnglishDecision })}
+          t={t}
+        />
+      ) : null}
+      {diagnostics.length > 0 ? <div className="mt-3 space-y-1">{diagnostics.map((entry, index) => (
+        <p key={`${entry.code}-${entry.rowNumber ?? 0}-${index}`} role={entry.severity === "error" ? "alert" : undefined} className={entry.severity === "error" ? "text-xs font-semibold text-rose-700" : "text-xs font-semibold text-amber-700"}>{entry.message}</p>
+      ))}</div> : null}
+      {(!preview.applyAllowed || decisionsPending) ? <p className="mt-3 text-xs font-semibold text-amber-800">{t("settings.language.csvPreview.blocked")}</p> : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ShellButton
+          label={t(isReset ? "settings.language.resetEnglish" : "settings.language.csvApply.confirmAction")}
+          disabled={!preview.applyAllowed || preview.errorCount > 0 || decisionsPending}
+          onClick={() => isReset ? onRequestReset(preview) : onRequestApply(preview)}
+        />
+        {decisionsPending ? <ShellButton label={t("settings.language.csvPreview.previewAgain")} onClick={onPreviewAgain} /> : null}
         <ShellButton label={t("common.cancel")} onClick={onClose} />
       </div>
     </div>
   );
+}
+
+function LanguagePreviewMetric({ label, value }: { label: string; value: string | number }) {
+  return <div className="rounded-lg border border-slate-200 bg-white px-3 py-2"><dt className="font-medium text-slate-500">{label}</dt><dd className="mt-0.5 font-semibold text-slate-800">{value}</dd></div>;
+}
+
+function LanguageDecisionSelect({ label, value, onChange, t }: { label: string; value: string; onChange: (value: string) => void; t: (key: string) => string }) {
+  return <label className="mt-3 block text-xs font-semibold text-slate-700">{label}<select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"><option value="">—</option><option value="treat_as_missing">{t("settings.language.csvPreview.treatAsMissing")}</option><option value="preserve_as_custom_override">{t("settings.language.csvPreview.preserveOverride")}</option></select></label>;
+}
+
+function TranslationStorageWarning({ status, busy, onRecover, onExport }: { status: TranslationStorageStatus; busy: boolean; onRecover: (direction: RecoveryDirection) => void; onExport: () => void }) {
+  const t = useTranslation();
+  if (status.state === "ready" && status.inspection.classification === "clean" && !status.pending.recoveryRequired) return null;
+  const classification = status.state === "error" ? "fatal" : status.inspection.classification;
+  const descriptionKey = classification === "transaction_recovery_required"
+    ? "settings.language.storage.transactionRequired"
+    : classification === "recoverable"
+      ? "settings.language.storage.recoverable"
+      : classification === "ambiguous"
+        ? "settings.language.storage.ambiguous"
+        : "settings.language.storage.fatal";
+  const pendingState = status.state === "ready" ? status.pending.state : "invalid_journal";
+  const canRollback = pendingState === "before_state" || pendingState === "mixed_state";
+  const canComplete = pendingState === "after_state";
+  return <div role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-sm font-semibold text-amber-900">{t("settings.language.storage.warningTitle")}</p><p className="mt-1 text-xs font-medium text-amber-800">{t(descriptionKey)}</p><p className="mt-2 text-xs text-amber-800">{t("settings.language.storage.preserved")} {t("settings.language.storage.noAutomaticRepair")}</p>{status.state === "ready" && status.pending.recoveryRequired ? <p className="mt-1 text-xs text-amber-800">{t("settings.language.storage.recoverableTransaction")}</p> : null}<div className="mt-3 flex flex-wrap gap-2">{canRollback ? <ShellButton label={t("settings.language.recovery.restorePrevious")} disabled={busy} onClick={() => onRecover("rollback")} /> : null}{canComplete ? <ShellButton label={t("settings.language.recovery.complete")} disabled={busy} onClick={() => onRecover("complete")} /> : null}<ShellButton label={t("settings.language.recovery.export")} disabled={busy || status.state === "error"} onClick={onExport} /></div></div>;
 }
 
 function SettingsSection({
@@ -2111,6 +2592,8 @@ function SettingsSection({
     isLanguageCsvBusy,
     isLanguageManagerOpen,
     languageCsvStatus,
+    translationStorageStatus,
+    isTranslationStorageUnsafe,
     mediaRootStatus,
     backupStatus,
     restoreStatus,
@@ -2158,7 +2641,16 @@ function SettingsSection({
     setIsLanguageManagerOpen,
     handleAddLanguageFromCsv,
     handleExportLanguageTemplate,
-    handleApplyCustomLanguageCsv,
+    handleLanguagePreviewOptions,
+    handleRebuildLanguageCsvPreview,
+    handleRequestLanguageCsvApply,
+    handleConfirmLanguageCsvApply,
+    handlePreviewEnglishReset,
+    handleRequestEnglishReset,
+    handleConfirmEnglishReset,
+    handleCancelLanguageConfirmation,
+    handleRecoverTranslation,
+    handleExportTranslationRecovery,
     handleConfirmRemoveLanguage,
     setLanguageCsvStatus,
     handleAddMediaRoot,
@@ -2350,11 +2842,18 @@ function SettingsSection({
       </SettingsPanelCard>
 
       <SettingsPanelCard title={t("settings.language.title")} icon={FileText} showReset={false}>
+        <TranslationStorageWarning
+          status={translationStorageStatus}
+          busy={isLanguageCsvBusy}
+          onRecover={handleRecoverTranslation}
+          onExport={handleExportTranslationRecovery}
+        />
         <ControlRow label={t("settings.language.appLanguage")}>
           <select
             aria-label={t("settings.language.appLanguage")}
             className="h-9 w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-sakura-300 focus:ring-4 focus:ring-sakura-100"
             value={languageCode}
+            disabled={isLanguageCsvBusy || isTranslationStorageUnsafe}
             onChange={(event) => handleLanguageChange(event.target.value)}
           >
             {languages.map((language: { code: string; label: string }) => (
@@ -2376,7 +2875,7 @@ function SettingsSection({
                 label={isLanguageManagerOpen
                   ? t("settings.language.closeManage")
                   : t("settings.language.manage")}
-                disabled={isLanguageCsvBusy}
+                disabled={isLanguageCsvBusy || isTranslationStorageUnsafe}
                 onClick={() =>
                   setIsLanguageManagerOpen(!isLanguageManagerOpen)
                 }
@@ -2413,7 +2912,7 @@ function SettingsSection({
                             aria-label={t("settings.language.removeLabel", {
                               name: language.label,
                             })}
-                            disabled={isLanguageCsvBusy}
+                            disabled={isLanguageCsvBusy || isTranslationStorageUnsafe}
                             onClick={() =>
                               handleRemoveCustomLanguage(
                                 language.code,
@@ -2441,19 +2940,30 @@ function SettingsSection({
           <div className="flex flex-wrap gap-2">
               <ShellButton
                 label={t("settings.language.importCsv")}
-                disabled={!isDesktopRuntime || isLanguageCsvBusy}
+                disabled={!isDesktopRuntime || isLanguageCsvBusy || isTranslationStorageUnsafe}
                 onClick={handleAddLanguageFromCsv}
               />
               <ShellButton
                 label={t("settings.language.exportCsv")}
-                disabled={!isDesktopRuntime || isLanguageCsvBusy}
+                disabled={!isDesktopRuntime || isLanguageCsvBusy || isTranslationStorageUnsafe}
                 onClick={handleExportLanguageTemplate}
+              />
+              <ShellButton
+                label={t("settings.language.resetEnglish")}
+                disabled={isLanguageCsvBusy || isTranslationStorageUnsafe}
+                onClick={handlePreviewEnglishReset}
               />
           </div>
         </ControlRow>
         <LanguageStatusContent
           status={languageCsvStatus}
-          onApply={handleApplyCustomLanguageCsv}
+          onRequestApply={handleRequestLanguageCsvApply}
+          onRequestReset={handleRequestEnglishReset}
+          onConfirmApply={handleConfirmLanguageCsvApply}
+          onConfirmReset={handleConfirmEnglishReset}
+          onCancelConfirmation={handleCancelLanguageConfirmation}
+          onOptionsChange={handleLanguagePreviewOptions}
+          onPreviewAgain={handleRebuildLanguageCsvPreview}
           onConfirmRemove={handleConfirmRemoveLanguage}
           onClose={() => setLanguageCsvStatus({ state: "idle" })}
         />

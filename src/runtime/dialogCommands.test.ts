@@ -5,6 +5,8 @@ import {
   selectCatalogCsvExportFolder,
   selectCatalogExportDestination,
   selectImportCatalogSource,
+  selectLanguageCsvImportSource,
+  selectTranslationRecoveryJsonDestination,
 } from "./dialogCommands";
 
 describe("dialog command filenames", () => {
@@ -41,5 +43,36 @@ describe("dialog command filenames", () => {
         { name: "Sakurava Catalog", extensions: ["xlsx", "csv"] },
       ]),
     }));
+  });
+
+  it("keeps the Translation CSV source dialog contract", async () => {
+    const open = vi.fn().mockResolvedValue("D:/Languages/custom.csv");
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke: vi.fn() };
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({ open }));
+    await expect(selectLanguageCsvImportSource()).resolves.toBe("D:/Languages/custom.csv");
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Import Sakurava Language CSV",
+      filters: [{ name: "CSV", extensions: ["csv"] }],
+    }));
+  });
+
+  it("selects a Translation-specific JSON recovery destination", async () => {
+    const save = vi.fn().mockResolvedValue("D:/Recovery/translation.json");
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke: vi.fn() };
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({ save }));
+    await expect(selectTranslationRecoveryJsonDestination())
+      .resolves.toBe("D:/Recovery/translation.json");
+    expect(save).toHaveBeenCalledWith({
+      title: "Export Translation Recovery Evidence",
+      defaultPath: "sakurava-translation-recovery.json",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+  });
+
+  it("represents Translation recovery destination cancellation accurately", async () => {
+    const save = vi.fn().mockResolvedValue(null);
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke: vi.fn() };
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({ save }));
+    await expect(selectTranslationRecoveryJsonDestination()).resolves.toBeNull();
   });
 });

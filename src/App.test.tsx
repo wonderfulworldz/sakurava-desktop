@@ -34,6 +34,11 @@ import {
   maxCustomLanguages,
 } from "./lib/customLanguages";
 import { languageOverridesStorageKey } from "./lib/languageOverrides";
+import {
+  createTranslationTransactionPlan,
+  readRawTranslationSnapshot,
+  translationStorageKeys,
+} from "./lib/translationStorage";
 import { rankPickerSearchResults } from "./lib/relatedPicker";
 import { clearAllSessionFilterStateForTests } from "./lib/sessionFilterState";
 import {
@@ -3650,7 +3655,7 @@ describe("App", () => {
       .getAllByRole("heading", { name: "Language" })[0]
       .closest("section") as HTMLElement;
     expect(languageCard).toBeInTheDocument();
-    expect(within(languageCard).getByText("English, Indonesian, Japanese"))
+    expect(within(languageCard).getByText("English, Japanese"))
       .toBeInTheDocument();
     expect(within(languageCard).getByRole("button", { name: "Manage..." }))
       .toBeEnabled();
@@ -3661,7 +3666,9 @@ describe("App", () => {
         name: "Export Language CSV",
       }),
     ).toBeEnabled();
-    expect(within(languageCard).queryByRole("button", { name: "Reset Language" }))
+    expect(within(languageCard).getByRole("button", { name: "Reset English" }))
+      .toBeEnabled();
+    expect(screen.queryByRole("option", { name: "Indonesian" }))
       .not.toBeInTheDocument();
 
     fireEvent.click(within(languageCard).getByRole("button", { name: "Manage..." }));
@@ -3717,13 +3724,13 @@ describe("App", () => {
     expect(screen.getByText(/Removed language "ja"/)).toBeInTheDocument();
   });
 
-  it("imports a valid custom Language CSV without touching catalog data", async () => {
+  it("previews and applies a canonical Translation Language CSV without touching catalog data", async () => {
     window.history.pushState({}, "", "/settings");
     setManagedCategories(["Private User Category"]);
     const sourcePath = "D:/Languages/japanese.csv";
     const csvContent = [
-      "language_code,key,text,context",
-      "ja,nav.home,ホーム,Sidebar",
+      "language_code,language_label,key,text,state,source_text,context",
+      "ja,Japanese,nav.home,ホーム,override,Home,Sidebar",
     ].join("\n");
     dialogMocks.open.mockResolvedValue(sourcePath);
     window.__TAURI_INTERNALS__ = {
@@ -3750,9 +3757,18 @@ describe("App", () => {
 
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
-    expect(await screen.findByText("Add Japanese")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add Language" }));
+    expect(await screen.findByText("Translation CSV Preview")).toBeInTheDocument();
+    expect(screen.getByText("Format D")).toBeInTheDocument();
+    expect(screen.getByText("Japanese (ja)")).toBeInTheDocument();
+    expect(screen.getByText("Create").closest("div")).toHaveTextContent("1");
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Apply Translation CSV" }));
+    const dialog = screen.getByRole("dialog", { name: "Apply Translation CSV?" });
+    expect(within(dialog).getByText(/Catalog and user data are not modified/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply Translation CSV" }));
 
+    expect(await screen.findByText(/Translation CSV applied and verified/)).toBeInTheDocument();
+    expect(screen.getByLabelText("App Language")).toHaveValue("en");
     expect(screen.getByLabelText("App Language")).toHaveTextContent("Japanese");
     expect(
       JSON.parse(
@@ -3853,7 +3869,7 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
 
-    expect(await screen.findByText(/Invalid CSV headers/)).toBeInTheDocument();
+    expect(await screen.findByText(/CSV headers do not exactly match a supported Translation format/)).toBeInTheDocument();
     expect(window.localStorage.getItem(customLanguagesStorageKey)).toBe(
       originalLanguages,
     );
@@ -3875,7 +3891,8 @@ describe("App", () => {
       }
       if (command === "export_csv_write") {
         expect(args.destinationPath).toBe(destinationPath);
-        expect(args.csvContent).toContain(",nav.home,Home,Nav > Home");
+        expect(args.csvContent).toContain("language_code,language_label,key,text,state,source_text,context");
+        expect(args.csvContent).toContain("en,English,nav.home,Home,baseline,Home,Nav > Home");
         for (const key of [
           "home.savedVideos",
           "enum.availability.owned",
@@ -3912,6 +3929,247 @@ describe("App", () => {
 
     expect(await screen.findByText(`Language CSV exported to ${destinationPath}`))
       .toBeInTheDocument();
+  });
+
+  it("previews and confirms English reset while preserving custom Translation and user data", async () => {
+    window.history.pushState({}, "", "/settings");
+    const customRaw = JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]);
+    const overridesRaw = JSON.stringify({
+      en: { "nav.home": "Dashboard", "settings.title": "Preferences" },
+      id: { "nav.home": "Beranda" },
+    });
+    window.localStorage.setItem(customLanguagesStorageKey, customRaw);
+    window.localStorage.setItem(languageOverridesStorageKey, overridesRaw);
+    window.localStorage.setItem(languageStorageKey, "id");
+    window.localStorage.setItem("sakurava.managedCategories.v1", JSON.stringify(["Private User Category"]));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Reset English" }));
+    const previewTitle = await screen.findByText("English Reset Preview");
+    const preview = previewTitle.closest("div") as HTMLElement;
+    expect(within(preview).getByText("English overrides to remove: 2")).toBeInTheDocument();
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBe(overridesRaw);
+    fireEvent.click(within(preview).getByRole("button", { name: "Reset English" }));
+    const dialog = screen.getByRole("dialog", { name: "Reset English to its bundled baseline?" });
+    expect(within(dialog).getByText(/Custom languages, custom-language overrides, the selected language, catalog records, and user data remain unchanged/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Reset English" }));
+
+    expect(await screen.findByText("English was reset to the bundled baseline and verified.")).toBeInTheDocument();
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBe(customRaw);
+    expect(JSON.parse(window.localStorage.getItem(languageOverridesStorageKey) ?? "{}")).toEqual({
+      id: { "nav.home": "Beranda" },
+    });
+    expect(window.localStorage.getItem(languageStorageKey)).toBe("id");
+    expect(JSON.parse(window.localStorage.getItem("sakurava.managedCategories.v1") ?? "[]"))
+      .toEqual(["Private User Category"]);
+  });
+
+  it("requires explicit historical Language CSV identity and ambiguity decisions", async () => {
+    window.history.pushState({}, "", "/settings");
+    const sourcePath = "D:/Languages/historical.csv";
+    const csvContent = [
+      "Key,Text,Description,Status",
+      "nav.home,Beranda,Sidebar,built-in",
+    ].join("\n");
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
+        if (command === "import_csv_read") return { sourcePath, csvContent, bytesRead: csvContent.length, success: true };
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+    expect(await screen.findByText(/Historical Format A requires an explicit target language code/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Target language code"), { target: { value: "id" } });
+    fireEvent.change(screen.getByLabelText("Target label"), { target: { value: "Indonesian" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview Again" }));
+    expect(await screen.findByText("Translation CSV Preview")).toBeInTheDocument();
+    expect(screen.getByLabelText("Historical built-in text")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply Translation CSV" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Historical built-in text"), {
+      target: { value: "preserve_as_custom_override" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview Again" }));
+    expect(screen.getByRole("button", { name: "Apply Translation CSV" })).toBeEnabled();
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBeNull();
+  });
+
+  it("rejects a stale Translation CSV Preview before mutation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const sourcePath = "D:/Languages/english.csv";
+    const csvContent = [
+      "language_code,language_label,key,text,state,source_text,context",
+      "en,English,nav.home,Dashboard,override,Home,Sidebar",
+    ].join("\n");
+    dialogMocks.open.mockResolvedValue(sourcePath);
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
+        if (command === "import_csv_read") return { sourcePath, csvContent, bytesRead: csvContent.length, success: true };
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Language CSV" }));
+    await screen.findByText("Translation CSV Preview");
+    fireEvent.click(screen.getByRole("button", { name: "Apply Translation CSV" }));
+    window.localStorage.setItem(customLanguagesStorageKey, JSON.stringify([{ code: "ja", label: "Japanese", baseLanguage: "en" }]));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Apply Translation CSV" }));
+    expect(await screen.findByText(/Preview is stale/)).toBeInTheDocument();
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBeNull();
+  });
+
+  it("shows pending Translation recovery without automatic mutation and restores the exact before state explicitly", async () => {
+    window.history.pushState({}, "", "/settings");
+    const snapshot = readRawTranslationSnapshot(window.localStorage);
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    const plan = createTranslationTransactionPlan(snapshot.snapshot, "settings-recovery-before", {
+      [customLanguagesStorageKey]: JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, plan.plan.serializedJournal);
+
+    render(<App />);
+    expect(screen.getByText("Translation storage needs attention")).toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe(plan.plan.serializedJournal);
+    expect(screen.getByRole("button", { name: "Restore Previous Translation State" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Light" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Restore Previous Translation State" }));
+    expect(await screen.findByText("Translation storage recovery completed and was verified.")).toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBeNull();
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBeNull();
+  });
+
+  it("offers only Translation recovery evidence export for an invalid journal", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, "{invalid exact journal");
+    window.localStorage.setItem("sakurava.managedCategories.v1", JSON.stringify(["Private User Category"]));
+    const destinationPath = "D:/Recovery/translation.json";
+    dialogMocks.save.mockResolvedValue(destinationPath);
+    const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
+      if (command === "export_file_write") {
+        const json = new TextDecoder().decode(new Uint8Array(args.bytes));
+        expect(args.expectedExtension).toBe("json");
+        expect(json).toContain("{invalid exact journal");
+        expect(json).not.toContain("Private User Category");
+        return { destinationPath, displayName: "translation.json", bytesWritten: args.bytes.length, success: true };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "Restore Previous Translation State" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Complete Translation Transaction" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe("{invalid exact journal");
+    fireEvent.click(screen.getByRole("button", { name: "Export Recovery JSON" }));
+    expect(await screen.findByText("Translation recovery JSON exported successfully.")).toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe("{invalid exact journal");
+  });
+
+  it("finalizes a verified Translation after-state only through explicit recovery", async () => {
+    window.history.pushState({}, "", "/settings");
+    const snapshot = readRawTranslationSnapshot(window.localStorage);
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    const customRaw = JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]);
+    const plan = createTranslationTransactionPlan(snapshot.snapshot, "settings-recovery-after", {
+      [customLanguagesStorageKey]: customRaw,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    window.localStorage.setItem(customLanguagesStorageKey, customRaw);
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, plan.plan.serializedJournal);
+
+    render(<App />);
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe(plan.plan.serializedJournal);
+    expect(screen.getByRole("button", { name: "Complete Translation Transaction" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Complete Translation Transaction" }));
+    expect(await screen.findByText("Translation storage recovery completed and was verified.")).toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBeNull();
+    expect(window.localStorage.getItem(customLanguagesStorageKey)).toBe(customRaw);
+  });
+
+  it("offers safe rollback for a mixed Translation transaction state", () => {
+    window.history.pushState({}, "", "/settings");
+    const snapshot = readRawTranslationSnapshot(window.localStorage);
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    const customRaw = JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]);
+    const overrideRaw = JSON.stringify({ id: { "nav.home": "Beranda" } });
+    const plan = createTranslationTransactionPlan(snapshot.snapshot, "settings-recovery-mixed", {
+      [customLanguagesStorageKey]: customRaw,
+      [languageOverridesStorageKey]: overrideRaw,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    window.localStorage.setItem(customLanguagesStorageKey, customRaw);
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, plan.plan.serializedJournal);
+
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Restore Previous Translation State" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Complete Translation Transaction" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(languageOverridesStorageKey)).toBeNull();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe(plan.plan.serializedJournal);
+  });
+
+  it("keeps Translation recovery evidence and warning when finalization fails", async () => {
+    window.history.pushState({}, "", "/settings");
+    const snapshot = readRawTranslationSnapshot(window.localStorage);
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    const plan = createTranslationTransactionPlan(snapshot.snapshot, "settings-recovery-failure", {
+      [customLanguagesStorageKey]: JSON.stringify([{ code: "id", label: "Indonesian", baseLanguage: "en" }]),
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, plan.plan.serializedJournal);
+    const originalRemove = window.localStorage.removeItem.bind(window.localStorage);
+    const removeSpy = vi.spyOn(window.localStorage, "removeItem").mockImplementation((key: string) => {
+      if (key === translationStorageKeys.transactionJournal) throw new Error("journal locked");
+      return originalRemove(key);
+    });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getByRole("button", { name: "Restore Previous Translation State" }));
+      expect(await screen.findByText("Translation storage recovery could not be verified.")).toBeInTheDocument();
+      expect(screen.getByText("Translation storage needs attention")).toBeInTheDocument();
+      expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe(plan.plan.serializedJournal);
+    } finally {
+      removeSpy.mockRestore();
+    }
+  });
+
+  it("reports Translation recovery export cancellation without clearing evidence", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, "{invalid exact journal");
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Export Recovery JSON" }));
+    expect(await screen.findByText("Translation recovery export was cancelled.")).toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe("{invalid exact journal");
+  });
+
+  it("reports Translation recovery export failure without clearing evidence", async () => {
+    window.history.pushState({}, "", "/settings");
+    window.localStorage.setItem(translationStorageKeys.transactionJournal, "{invalid exact journal");
+    dialogMocks.save.mockResolvedValue("D:/Recovery/translation.json");
+    window.__TAURI_INTERNALS__ = {
+      invoke: vi.fn(async (command: string) => {
+        if (["video_list", "image_list", "performer_list", "managed_category_list"].includes(command)) return [];
+        if (command === "export_file_write") throw new Error("destination exists");
+        throw new Error(`Unexpected command ${command}`);
+      }) as unknown as TestTauriInvoke,
+    };
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Export Recovery JSON" }));
+    expect(await screen.findByText("Translation recovery JSON could not be exported.")).toBeInTheDocument();
+    expect(window.localStorage.getItem(translationStorageKeys.transactionJournal)).toBe("{invalid exact journal");
   });
 
   it("shows desktop runtime database status when Tauri is available", () => {

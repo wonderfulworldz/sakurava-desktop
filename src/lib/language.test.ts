@@ -10,6 +10,7 @@ import {
   resolveAvailableLanguageCode,
   storeLanguageCode,
   translate,
+  getAllTranslationKeys,
 } from "./language";
 import { translationStorageKeys, type TranslationStorage } from "./translationStorage";
 
@@ -40,6 +41,45 @@ describe("language", () => {
     expect(builtInLanguages).toEqual([{ code: "en", label: "English", nativeLabel: "English" }]);
     expect(getBuiltInText("en", "nav.home")).toBe("Home");
     expect(getBuiltInText("id", "nav.home")).toBeUndefined();
+  });
+
+  it("includes the complete 42.2D Settings workflow in the bundled English baseline", () => {
+    const keys = getAllTranslationKeys();
+    const required = [
+      "settings.language.csvPreview.title",
+      "settings.language.csvPreview.detectedFormat",
+      "settings.language.csvPreview.targetLanguage",
+      "settings.language.csvPreview.createCount",
+      "settings.language.csvPreview.updateCount",
+      "settings.language.csvPreview.resetCount",
+      "settings.language.csvPreview.unchangedCount",
+      "settings.language.csvPreview.warningCount",
+      "settings.language.csvPreview.errorCount",
+      "settings.language.csvApply.confirmTitle",
+      "settings.language.csvApply.success",
+      "settings.language.csvApply.stale",
+      "settings.language.csvApply.rollback",
+      "settings.language.csvApply.recoveryRequired",
+      "settings.language.resetEnglish",
+      "settings.language.resetPreview.title",
+      "settings.language.resetConfirm.title",
+      "settings.language.storage.warningTitle",
+      "settings.language.storage.preserved",
+      "settings.language.storage.noAutomaticRepair",
+      "settings.language.recovery.restorePrevious",
+      "settings.language.recovery.complete",
+      "settings.language.recovery.export",
+      "settings.language.recovery.exportSuccess",
+      "settings.language.recovery.exportFailure",
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const key of required) {
+      expect(keys).toContain(key);
+      expect(getBuiltInText("en", key)).toEqual(expect.any(String));
+      expect(getBuiltInText("en", key)).not.toBe("");
+      expect(getBuiltInText("id", key)).toBeUndefined();
+    }
+    expect(builtInLanguages.map((language) => language.code)).toEqual(["en"]);
   });
 
   it("defaults unknown or uninstalled identities to English", () => {

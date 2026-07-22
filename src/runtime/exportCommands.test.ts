@@ -5,7 +5,13 @@ import {
   localFileTimestamp,
   writeExportArtifact,
   writeExportArtifactSet,
+  writeTranslationRecoveryJson,
 } from "./exportCommands";
+import {
+  createTranslationRecoveryExport,
+  translationStorageKeys,
+  type RawTranslationSnapshot,
+} from "../lib/translationStorage";
 
 describe("export command filenames", () => {
   it("uses local PC date components for skv CSV export names", () => {
@@ -63,5 +69,72 @@ describe("export command filenames", () => {
         { fileName: "two.csv", bytes: [2] },
       ],
     }, undefined);
+  });
+
+  it("writes deterministic UTF-8 Translation recovery JSON through the safe no-overwrite writer", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      destinationPath: "D:/Recovery/translation.json",
+      displayName: "translation.json",
+      bytesWritten: 10,
+      success: true,
+    });
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke };
+    const snapshot: RawTranslationSnapshot = {
+      state: {
+        [translationStorageKeys.selectedLanguage]: "id",
+        [translationStorageKeys.customLanguages]: '[{"code":"id","label":"Bahasa"}]',
+        [translationStorageKeys.languageOverrides]: '{"id":{"nav.home":"Beranda"}}',
+      },
+      journal: null,
+    };
+    const recovery = createTranslationRecoveryExport(snapshot);
+    await expect(writeTranslationRecoveryJson("D:/Recovery/translation.json", recovery))
+      .resolves.toMatchObject({ cancelled: false, success: true });
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const [, args] = invoke.mock.calls[0];
+    expect(invoke).toHaveBeenCalledWith("export_file_write", expect.objectContaining({
+      destinationPath: "D:/Recovery/translation.json",
+      expectedExtension: "json",
+    }), undefined);
+    const decoded = new TextDecoder().decode(new Uint8Array(args.bytes));
+    expect(decoded.endsWith("\n")).toBe(true);
+    expect(JSON.parse(decoded)).toMatchObject({
+      schemaVersion: 1,
+      snapshot: { state: { [translationStorageKeys.selectedLanguage]: "id" } },
+    });
+    expect(decoded).not.toContain("catalog");
+  });
+
+  it("does not invoke the writer when Translation recovery export is cancelled", async () => {
+    const invoke = vi.fn();
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke };
+    const snapshot: RawTranslationSnapshot = {
+      state: {
+        [translationStorageKeys.selectedLanguage]: null,
+        [translationStorageKeys.customLanguages]: null,
+        [translationStorageKeys.languageOverrides]: null,
+      },
+      journal: null,
+    };
+    await expect(writeTranslationRecoveryJson(null, createTranslationRecoveryExport(snapshot)))
+      .resolves.toEqual({ cancelled: true });
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("propagates Translation recovery JSON write failures", async () => {
+    const invoke = vi.fn().mockRejectedValue(new Error("destination exists"));
+    (globalThis as any).__TAURI_INTERNALS__ = { invoke };
+    const snapshot: RawTranslationSnapshot = {
+      state: {
+        [translationStorageKeys.selectedLanguage]: null,
+        [translationStorageKeys.customLanguages]: null,
+        [translationStorageKeys.languageOverrides]: null,
+      },
+      journal: null,
+    };
+    await expect(writeTranslationRecoveryJson(
+      "D:/Recovery/translation.json",
+      createTranslationRecoveryExport(snapshot),
+    )).rejects.toThrow("destination exists");
   });
 });

@@ -6,6 +6,7 @@ import {
   localExportTimestamp,
 } from "../lib/exportArtifacts";
 import { invokeTauriCommand } from "./tauriClient";
+import type { TranslationRecoveryExport } from "../lib/translationStorage";
 
 export type ExportCsvWriteResult = {
   destinationPath: string;
@@ -66,4 +67,35 @@ export function writeExportArtifactSet(
       bytes: Array.from(artifact.bytes),
     })),
   });
+}
+
+export type TranslationRecoveryJsonWriteResult =
+  | { readonly cancelled: true }
+  | {
+      readonly cancelled: false;
+      readonly destinationPath: string;
+      readonly bytesWritten: number;
+      readonly success: boolean;
+    };
+
+export async function writeTranslationRecoveryJson(
+  destinationPath: string | null,
+  recovery: TranslationRecoveryExport,
+): Promise<TranslationRecoveryJsonWriteResult> {
+  if (!destinationPath) {
+    return { cancelled: true };
+  }
+
+  const json = `${JSON.stringify(recovery, null, 2)}\n`;
+  const result = await invokeTauriCommand<ExportFileWriteResult>("export_file_write", {
+    destinationPath,
+    bytes: Array.from(new TextEncoder().encode(json)),
+    expectedExtension: "json",
+  });
+  return {
+    cancelled: false,
+    destinationPath: result.destinationPath,
+    bytesWritten: result.bytesWritten,
+    success: result.success,
+  };
 }

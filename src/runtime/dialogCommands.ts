@@ -283,3 +283,21 @@ export async function selectLanguageCsvImportSource() {
 
   return Array.isArray(selectedPath) ? (selectedPath[0] ?? null) : selectedPath;
 }
+
+export async function selectTranslationRecoveryJsonDestination() {
+  if (!isTauriRuntimeAvailable()) {
+    return null;
+  }
+
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: "Export Translation Recovery Evidence",
+    defaultPath: "sakurava-translation-recovery.json",
+    filters: [
+      {
+        name: "JSON",
+        extensions: ["json"],
+      },
+    ],
+  });
+}
