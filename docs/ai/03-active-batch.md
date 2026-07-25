@@ -4,11 +4,12 @@
 
 batch: 42.3
 title: Catalog Performance and Media Audit
-status: READY_PENDING_SEPARATE_APPROVAL
-phase: AUDIT_FIRST_PROPOSED
-current_stage: 42.3 — Catalog Performance and Media Audit
-current_mode: AUDIT_FIRST
+status: ACTIVE
+phase: CONTROLLED_MEASUREMENT
+current_stage: 42.3-2A — Targeted Measurement Completion and Startup Breakdown
+current_mode: PERFORMANCE_BASELINE_PARTIAL_REPORTED
 audit_allowed: false
+measurement_allowed: false
 implementation_allowed: false
 tests_and_builds_allowed: false
 runtime_allowed: false
@@ -16,49 +17,146 @@ live_appdata_allowed: false
 dependency_remediation_allowed: false
 risk: HIGH
 starting_branch: main
-starting_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
+recorded_repository_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+codex_capacity_status: PAUSED_WEEKLY_LIMIT_EXHAUSTED
+project_os_update_mode: MANUAL_HANDOFF_WITH_LEDGER_ARCHIVE_PENDING_REPOSITORY_COMMIT
+result_review: PARTIAL_BASELINE_ACCEPTED
+optimization_permission: false
+measurement_permission: false
+implementation_permission: false
 
-## Completed Corrective Batch
+## Completed Stage 42.3-1 — Static Architecture Audit
 
-Batch `42.3A — Catalog Reference Integrity and Deletion Recovery` is
-`COMPLETED_AND_CLOSED`.
+Status:
 
-- 42.3A-1 audit: `COMPLETE_REPORTED`;
-- 42.3A-2 implementation: `COMPLETED_REPORTED`;
-- 42.3A-3 disposable manual smoke: `PASSED_OBSERVED_BY_OPERATOR`;
-- final implementation baseline: `7e5fc6e7b807047203e645256b2f20f87a298f81`;
-- primary defect: `DELETE_RELATIONSHIP_CASCADE_DEFECT`;
-- secondary defect: `LIST_DETAIL_QUERY_DIVERGENCE`;
-- reference-safe Form and Bulk Delete passed operator smoke;
-- surviving Details remained accessible and the recovery warning did not
-  reappear during accepted smoke;
-- no live AppData, operator database, or existing-catalog repair was used;
-- UI/UX flow and protected spreadsheet contracts remain unchanged.
+`COMPLETE_REPORTED`
 
-The catalog-delete integrity blocker is resolved for future prevention. No
-existing-catalog diagnosis or repair occurred.
+Verdict:
 
-## Next Proposed Batch — 42.3
+`STATIC_ARCHITECTURE_AUDIT_COMPLETE_MEASUREMENT_REQUIRED`
 
-Batch `42.3 — Catalog Performance and Media Audit` is the next proposed batch.
-It is no longer suspended, but remains `READY_PENDING_SEPARATE_APPROVAL` and
-audit-first. No audit, implementation, tests, builds, runtime, dependency
-remediation, or live-data access is authorized by this record.
+Recorded findings:
 
-Retained scope:
+- Catalog cards and table thumbnails use original external images rather than a reduced representation;
+- complete entity tables are loaded before frontend pagination;
+- search, filtering, and sorting run in React over the loaded collection;
+- Detail pages use fixed command waterfalls and may load complete peer collections;
+- no managed mini-image generation system was found;
+- actual timing, memory, query plans, rendered dimensions, image decode cost, and scrolling behavior required controlled measurement.
 
-- Catalog rendering;
-- media behavior and actual render dimensions;
-- search and filtering;
-- startup and scrolling;
-- database queries and indexes;
-- memory behavior;
-- missing-source handling.
+No implementation occurred.
 
-Deferred Import/Export feedback is future backlog only: selected empty sections
-should later export with valid empty structure, and Credits spreadsheet UX,
-terminology, and Managed Categories wording require a separate product and
-compatibility decision. It is not assigned to Batch 42.3 and does not add a
-blocking prerequisite.
+## Completed Stage 42.3-2 — Controlled Disposable Performance Measurement
 
-No Active Lock change is required.
+Status:
+
+`PERFORMANCE_BASELINE_PARTIAL_REPORTED`
+
+Evidence class:
+
+`REPORTED_BY_CODEX`
+
+Primary repository baseline is recorded as:
+
+`2ed304740ab809bf910d59b200065303c8eb0df5`
+
+Disposable evidence root:
+
+`manual-smoke/42.3-2-performance-measurement-20260722/`
+
+Recorded fixture sizes:
+
+- Dataset S: 32 Works, 16 Performers, 64 Credits;
+- Dataset M: 256 Works, 128 Performers, 1,024 Credits;
+- Dataset A: 1,000 Works, 320 Performers, 4,000 Credits.
+
+Dominant measured result:
+
+- database preparation/reference initialization scaled from about 1.0 second at Dataset S to about 34.1 seconds at Dataset A;
+- process-to-Home usable scaled from about 2.0 seconds to about 35.2 seconds;
+- direct representative SQL statements remained below about 1 millisecond median at Dataset A;
+- collection frontend transformations remained low at the measured scale;
+- page-size-32 scrolling showed no measured frame interval above 16.7 ms;
+- rapid search caused repeated pipeline execution and supports later debounce evaluation;
+- original source images reached a measured source-to-render area ratio up to about 248.5×;
+- Dataset A aggregate working set was reported around 436–449 MiB without proof of a memory leak.
+
+Measurement gaps:
+
+- true page-size-256 behavior;
+- Video, Image, and Performer Detail waterfalls;
+- Image gallery behavior;
+- exact realistic image request/decode timing;
+- phase-specific memory;
+- repeated missing-source request behavior;
+- fixture or harness identity conflict that caused Detail resolution to return recovery-required;
+- final fresh remote query was not completed after execution quota exhaustion.
+
+No optimization, managed-media system, schema/index change, cache change, UI/UX change, dependency change, or product implementation occurred.
+
+## Current Proposed Stage — 42.3-2A
+
+Title:
+
+`Targeted Measurement Completion and Startup Breakdown`
+
+Status:
+
+`READY_PENDING_SEPARATE_APPROVAL`
+
+Required focus:
+
+- break down database preparation/reference initialization cost;
+- resolve the disposable fixture or measurement-harness Detail identity conflict without hidden repair;
+- measure valid Video, Image, and Performer Detail waterfalls;
+- measure actual page size 256;
+- measure gallery behavior and realistic photographic image request/decode cost;
+- capture phase-specific process memory;
+- complete missing-source repeated-request evidence;
+- use a new disposable evidence root with an explicit byte limit;
+- finish fresh primary and remote Git verification.
+
+This stage is not approved by this document and remains pending separate approval.
+
+The current action is a documentation-only reconciliation of the accepted
+partial baseline. No technical execution is authorized. The expected
+documentation scope is exactly:
+
+- `docs/ai/01-current-state.md`;
+- `docs/ai/03-active-batch.md`;
+- `docs/ai/04-session-ledger.md`;
+- `docs/ai/07-master-roadmap.md`;
+- `docs/ai/archive/session-ledger-2026.md`.
+
+## Batch Boundaries
+
+Potential later work remains separated:
+
+- Batch 42.4: managed mini-image generation, profiles, safe replacement, and retained fallback assets;
+- Batch 42.5: startup/database/query/render performance changes supported by measurement;
+- Batch 42.6/42.7: managed-media Backup and Restore compatibility;
+- Batch 42.10: separately approved visible UI polish only when supported;
+- future Import/Export feedback remains outside Batch 42.3.
+
+No final performance budget, media profile, mini-image dimensions, database migration, or optimization implementation is approved.
+
+## Protected Contracts
+
+- LOCK-UI-001
+- LOCK-UI-002
+- LOCK-UI-003
+- LOCK-TRANSLATION-001
+- LOCK-MEDIA-001
+- LOCK-BACKUP-001
+- LOCK-CREDITS-001
+- LOCK-CREDITS-002
+- LOCK-CREDITS-003
+- LOCK-CREDITS-004
+- LOCK-IMPORTEXPORT-001
+- LOCK-IMPORTEXPORT-002
+- LOCK-REF-001
+- LOCK-DATA-001
+- LOCK-PACKAGE-001
+- LOCK-DEPENDENCY-001
+- LOCK-EVIDENCE-001
+- LOCK-PROJECTOS-001

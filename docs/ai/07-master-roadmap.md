@@ -9,24 +9,37 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
-last_recorded_git_baseline_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE
+last_recorded_git_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+last_recorded_git_baseline_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
-last_completed_batch: 42.1
+last_completed_batch: 42.3A
 active_batch: 42.3
 
 ## Current Authority — 2026-07-22
 
-Batch `42.2 — Translation Containment` is `COMPLETED_AND_CLOSED` at final
-application/configuration baseline `211e5bdd614ce5cc5e203f894db564702755b709`.
-Stage `42.2E` is `COMPLETED_OBSERVED`. Batch `42.3A — Catalog Reference
-Integrity and Deletion Recovery` is `COMPLETED_AND_CLOSED` at implementation
-baseline `7e5fc6e7b807047203e645256b2f20f87a298f81`. Batch `42.3 — Catalog
-Performance and Media Audit` is the next proposed audit-first batch and remains
-`READY_PENDING_SEPARATE_APPROVAL`.
+Batch `42.2 — Translation Containment` and Batch `42.3A — Catalog Reference
+Integrity and Deletion Recovery` remain completed and closed. Batch `42.3 —
+Catalog Performance and Media Audit` is active.
+
+Stage `42.3-1` completed as a reported static architecture audit. Stage
+`42.3-2` captured a reported partial disposable performance baseline. Database
+preparation/reference initialization was the dominant measured startup cost,
+scaling from about 1.0 second at 32 Works to about 34.1 seconds at 1,000 Works.
+The baseline remains incomplete for valid Detail waterfalls, page size 256,
+gallery, realistic image decode timing, phase-specific memory, and repeated
+missing-source requests.
+
+The next proposed stage is `42.3-2A — Targeted Measurement Completion and
+Startup Breakdown`. It remains `READY_PENDING_SEPARATE_APPROVAL`. No
+optimization, managed-media implementation, schema/index change, cache change,
+UI/UX change, performance budget, or mini-image profile is approved.
+
+Codex execution is paused because the weekly limit is exhausted. The manual
+Project OS handoff—four active authority-file replacements plus the 2026 Session
+Ledger archive—must be reconciled and committed before further repository work.
 
 ---
 
@@ -51,7 +64,7 @@ Technical claims in this document that have not been verified against the curren
 
 until proven through fresh repository evidence.
 
-The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is the next proposed audit-first batch.
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is active, with Stage `42.3-2A` pending separate approval.
 
 ---
 
@@ -860,13 +873,99 @@ compatibility decisions. The current spreadsheet contract remains unchanged.
 
 **Status**
 
+`ACTIVE`
+
+Current proposed stage:
+
+`42.3-2A — Targeted Measurement Completion and Startup Breakdown`
+
+Current permission:
+
 `READY_PENDING_SEPARATE_APPROVAL`
 
-This remains audit-first. Audit and implementation permission are `false`.
+Result Review:
+
+`PARTIAL_BASELINE_ACCEPTED`
+
+All measurement, optimization, implementation, test, build, runtime, and
+dependency permissions remain `false`.
 
 **Goal**
 
 Measure current application behavior before selecting optimization techniques.
+
+**Completed Stage 42.3-1**
+
+The reported static architecture audit mapped Catalog rendering, current media
+flow, collection loading, frontend search/filter/sort, Detail command
+waterfalls, database queries and indexes, startup ordering, resource lifecycle,
+cache boundaries, and missing-source handling.
+
+Recorded static findings include:
+
+- visible Catalog thumbnails use original external images;
+- complete entity tables are loaded before frontend pagination;
+- no managed mini-image generation system exists;
+- actual performance impact required controlled measurement.
+
+No implementation occurred.
+
+**Completed Stage 42.3-2**
+
+Verdict:
+
+`PERFORMANCE_BASELINE_PARTIAL`
+
+Evidence class:
+
+`REPORTED_BY_CODEX`
+
+The disposable release-like baseline recorded:
+
+- Dataset S: 32 Works, 16 Performers, 64 Credits;
+- Dataset M: 256 Works, 128 Performers, 1,024 Credits;
+- Dataset A: 1,000 Works, 320 Performers, 4,000 Credits;
+- database preparation/reference initialization scaling from about 1.0 second
+  at Dataset S to about 34.1 seconds at Dataset A;
+- Home usable scaling from about 2.0 seconds to about 35.2 seconds;
+- representative direct SQL statements below about 1 millisecond median at the
+  acceptance dataset;
+- small measured frontend collection-transform cost at the tested scale;
+- no page-size-32 frame interval above 16.7 ms in the reported environment;
+- repeated search-pipeline executions during rapid input;
+- source-to-render image area ratios up to about 248.5×;
+- acceptance-dataset aggregate working set around 436–449 MiB without proof of
+  a memory leak.
+
+Incomplete evidence:
+
+- true page-size-256 behavior;
+- valid Video, Image, and Performer Detail waterfalls;
+- Image gallery behavior;
+- realistic photographic image request/decode timing;
+- phase-specific memory;
+- repeated missing-source request behavior.
+
+The Detail harness encountered a disposable fixture or identity conflict. It
+must be resolved before Detail results are used and is not currently classified
+as a production defect.
+
+**Next Proposed Stage**
+
+`42.3-2A — Targeted Measurement Completion and Startup Breakdown`
+
+Required focus:
+
+- break down database preparation/reference initialization;
+- resolve the disposable Detail fixture/harness identity conflict without hidden repair;
+- measure valid Detail waterfalls;
+- measure actual page size 256;
+- measure gallery and realistic photographic image request/decode behavior;
+- capture phase-specific memory and repeated missing-source evidence;
+- use a new evidence root with an explicit byte limit;
+- complete fresh Git and remote verification.
+
+This stage is not approved by this roadmap.
 
 **In Scope**
 
@@ -885,14 +984,23 @@ Measure current application behavior before selecting optimization techniques.
 
 **Out of Scope**
 
-* implementation;
+* production implementation;
 * broad refactoring;
-* assumed thumbnail dimensions;
-* speculative cache systems.
+* speculative cache systems;
+* final thumbnail or mini-image dimensions;
+* schema or migration change;
+* dependency remediation;
+* UI/UX redesign;
+* live AppData;
+* Backup/Restore implementation;
+* Import/Export backlog work.
 
 **Expected Result**
 
-A proven bottleneck report, performance budget, and minimum media-profile recommendation.
+A complete measured bottleneck report, operator-approved performance budgets,
+and minimum evidence-based recommendations for later Batches `42.4` and `42.5`.
+
+No optimization or media implementation is authorized.
 
 ---
 
@@ -1549,6 +1657,22 @@ remain assigned to Batches `42.6` and `42.7`.
 Existing-catalog diagnosis and repair are separately gated and are not part of
 the current implementation permission.
 
+### Current Batch 42.3 — Catalog Performance and Media Audit
+
+Batch `42.3` remains active with status:
+
+`ACTIVE`
+
+Stage `42.3-1` is complete reported. Stage `42.3-2` captured a partial reported
+disposable baseline accepted by Result Review as `PARTIAL_BASELINE_ACCEPTED`.
+The next proposed stage is `42.3-2A`, which remains pending separate approval.
+This documentation-only reconciliation records the accepted baseline before
+any further technical stage.
+
+No implementation, performance budget, managed mini-image profile, schema/index
+change, cache change, UI/UX change, dependency work, or live-data access is
+authorized.
+
 ### Historical Batch 42.2 — Translation Containment (Completed)
 
 Batch `42.2 — Translation Containment` is completed and historical. The
@@ -1725,7 +1849,7 @@ Batch 42.0 — Master Roadmap and Project OS Baseline
 → Batch 42.1 — GitHub and Repository Health Triage
 → Batch 42.2 — Translation Containment
 → Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed)
-→ Batch 42.3 — Catalog Performance and Media Audit (next; separate approval)
+→ Batch 42.3 — Catalog Performance and Media Audit (active; 42.3-2A pending separate approval)
 → Batch 42.4 — Managed Mini Media Foundation
 → Batch 42.5 — Catalog and Database Performance
 → Batch 42.6 — Backup and Restore Audit

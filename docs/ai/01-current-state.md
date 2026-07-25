@@ -6,18 +6,18 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-07-22  
-repository_state_recorded_at: 2026-07-22  
-repository_state_status: REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE  
-repository_state_evidence: CODEX_CLOSURE_REPORT  
-remote_main_verified: true  
+product_state_updated_at: 2026-07-25
+repository_state_recorded_at: 2026-07-25
+repository_state_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
+repository_state_evidence: CODEX_42_3_2_FINAL_REPORT
+remote_main_verified: FRESH_PREFLIGHT_MATCHED_REQUIRED_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 1925
+untracked_entry_count: 5392
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
-baseline_label: Batch 42.3A Catalog Reference Integrity Completion
+last_recorded_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+baseline_label: Batch 42.3 Catalog Performance Measurement Baseline
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -28,92 +28,68 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.1  
-last_completed_roadmap_batch_title: GitHub and Repository Health Triage  
+last_completed_roadmap_batch: 42.3A
+last_completed_roadmap_batch_title: Catalog Reference Integrity and Deletion Recovery
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
 active_batch: 42.3
 active_batch_title: Catalog Performance and Media Audit
-active_batch_phase: AUDIT_FIRST_PROPOSED
-active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
+active_batch_phase: CONTROLLED_MEASUREMENT
+active_batch_mode: PERFORMANCE_BASELINE_PARTIAL_REPORTED
+current_stage: 42.3-2A — Targeted Measurement Completion and Startup Breakdown
+current_stage_status: READY_PENDING_SEPARATE_APPROVAL
+codex_capacity_status: PAUSED_WEEKLY_LIMIT_EXHAUSTED
+manual_project_os_update_status: RECONCILIATION_IN_PROGRESS_DOCUMENTATION_ONLY
+
 batch_42_3a_status: COMPLETED_AND_CLOSED
-audit_status: COMPLETE_REPORTED
-batch_42_3a_1_status: COMPLETE_REPORTED
-batch_42_3a_1_verdict: ROOT_CAUSE_CONFIRMED_FIX_REQUIRED
-batch_42_3a_2_status: COMPLETED_REPORTED
-batch_42_3a_3_status: PASSED_OBSERVED_BY_OPERATOR
-primary_root_cause_classification: DELETE_RELATIONSHIP_CASCADE_DEFECT
-secondary_classification: LIST_DETAIL_QUERY_DIVERGENCE
-data_risk_classification: POTENTIAL_HIDDEN_ORPHANS
-operator_problem_evidence: OBSERVED_BY_OPERATOR
-code_architecture_findings: REPORTED_BY_CODEX_STATIC_AUDIT
-live_appdata_inspected: false
-operator_database_inspected: false
-runtime_performed: false
-audit_allowed: false
-plan_status: COMPLETE_REPORTED
-plan_allowed: false
-implementation_status: COMPLETED_REPORTED
-implementation_allowed: false
-strategy: DEPENDENCY_SAFE_CATALOG_DELETION
-tests_and_builds_allowed: false
-runtime_verification_allowed: false
-vite_dev_server_allowed: false
-dependency_remediation_allowed: false
-current_tests_builds_runtime_permission: false
-next_proposed_stage: 42.3 — Catalog Performance and Media Audit
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-existing_catalog_repair_stage: SEPARATELY_GATED_IF_REQUIRED
-dependency_remediation: false
-migration_approved: false
-live_data_repair_approved: false
-batch_42_3_performance_media_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_3_mode: AUDIT_FIRST
-batch_42_3_audit_permission: false
-batch_42_3_implementation_permission: false
-batch_42_3a_final_implementation_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
+batch_42_3a_final_implementation_baseline_historical: 7e5fc6e7b807047203e645256b2f20f87a298f81
+batch_42_3_1_status: COMPLETE_REPORTED
+batch_42_3_1_verdict: STATIC_ARCHITECTURE_AUDIT_COMPLETE_MEASUREMENT_REQUIRED
+batch_42_3_2_status: PERFORMANCE_BASELINE_PARTIAL_REPORTED
+batch_42_3_2_result_review: PARTIAL_BASELINE_ACCEPTED
+batch_42_3_2_evidence: REPORTED_BY_CODEX
+batch_42_3_2_evidence_root: manual-smoke/42.3-2-performance-measurement-20260722/
+measurement_dominant_cost: DATABASE_PREPARATION_AND_REFERENCE_INITIALIZATION
+measurement_fixture_or_harness_integrity_gap: DETAIL_IDENTITY_RECOVERY_REQUIRED
+measurement_final_remote_state: NOT_FRESHLY_RECONFIRMED_AT_STAGE_END
+measurement_implementation_performed: false
+measurement_remaining_gaps: STARTUP_REFERENCE_BREAKDOWN; DETAIL_WATERFALL_FIXTURE; PAGE_SIZE_256; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
+
+small_dataset_works: 32
+medium_dataset_works: 256
+acceptance_dataset_works: 1000
+small_startup_db_prepare_median_ms: 1004
+medium_startup_db_prepare_median_ms: 8580
+acceptance_startup_db_prepare_median_ms: 34136
+small_home_usable_cold_median_ms: 2040
+medium_home_usable_cold_median_ms: 9580
+acceptance_home_usable_cold_median_ms: 35170
+acceptance_memory_working_set_reported_mib: 436_TO_449
+page_size_32_scroll_frame_over_16_7_ms: ZERO_REPORTED
+page_size_256_measurement: INCOMPLETE
+valid_detail_measurement: INCOMPLETE
+realistic_image_decode_measurement: INCOMPLETE
+
 reference_safe_form_delete: PASSED_OBSERVED_BY_OPERATOR
 reference_safe_bulk_delete: PASSED_OBSERVED_BY_OPERATOR
 survivor_detail_access: PASSED_OBSERVED_BY_OPERATOR
 recovery_warning_after_accepted_smoke: NOT_OBSERVED
 ui_ux_flow: UNCHANGED_OBSERVED_BY_OPERATOR
+live_appdata_inspected: false
+operator_database_inspected: false
 existing_catalog_repair_performed: false
 schema_migration: none
 package_or_backup_change: none
-project_os_tracking_policy: TRACK_IN_REPOSITORY  
-project_os_tracking_status: TRACKED_AND_SYNCHRONIZED_REPORTED  
 
-current_reported_batch_42_2b: COMPLETE_REPORTED  
-current_reported_42_2b_commit: 4cdeb2dcd304f2b24d23fc571e9d4c21e2aeff73  
-current_reported_42_2b_parent: 9e6c3e55f89d086942547190309bc307aaed44bb  
-current_reported_batch_42_2c: COMPLETE_REPORTED  
-current_reported_implementation_commit: eb0c377f6d412b9ee40c96bb42cbe53a700cebcd  
-current_reported_implementation_parent: 843989564e823f8815a0f9508e27f89bf912e858  
-current_proposed_sub_stage: 42.3 — Catalog Performance and Media Audit
-current_proposed_sub_stage_status: READY_PENDING_SEPARATE_APPROVAL
-current_proposed_sub_stage_implementation_allowed: false  
-current_proposed_sub_stage_tests_and_builds_allowed: false  
-current_proposed_sub_stage_runtime_verification_allowed: false  
-current_proposed_sub_stage_dependency_remediation_allowed: false  
-current_proposed_sub_stage_manual_smoke_allowed: false
-batch_42_2_status: COMPLETED_AND_CLOSED
-batch_42_2e_status: COMPLETED_OBSERVED
-vite_watcher_correction_status: COMPLETED_REPORTED
-vite_watcher_correction_commit: 211e5bdd614ce5cc5e203f894db564702755b709
-disposable_manual_smoke: PASSED_OBSERVED_BY_OPERATOR
-manual_smoke_used_live_appdata: false
-canonical_five_column_csv_smoke: PASSED_OBSERVED_BY_OPERATOR
-corrected_utf8_existing_language_reimport: PASSED_OBSERVED_BY_OPERATOR
-indonesian_identity: USER_MANAGED
-duplicate_normalized_language_identity: NOT_OBSERVED
-user_entered_category_data_mutation: NOT_OBSERVED
-restart_persistence: PASSED_OBSERVED_BY_OPERATOR
-preview_numeric_counts: NOT_REPORTED
-next_proposed_batch: 42.3 — Catalog Performance and Media Audit
-next_batch_approval: NOT_APPROVED
-next_batch_audit_permission: false
-next_batch_implementation_permission: false
-runtime_permission: false
-dependency_remediation_permission: false
+42_3_audit_allowed: false
+42_3_measurement_allowed: false
+42_3_implementation_allowed: false
+tests_and_builds_allowed: false
+runtime_verification_allowed: false
+live_appdata_allowed: false
+dependency_remediation_allowed: false
+migration_approved: false
+performance_budget_approved: false
+mini_image_profile_approved: false
 
 package_version: NOT_RECORDED  
 backup_extension: .skv  
@@ -129,41 +105,52 @@ active_locks: docs/ai/02-active-locks.md
 active_batch_file: docs/ai/03-active-batch.md  
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
+project_os_tracking_policy: TRACK_IN_REPOSITORY
+project_os_tracking_status: MANUAL_UPDATE_PENDING_COMMIT
 
 ---
 
 ## 2. Freshness Rule
 
-This file records the latest approved product state and the most recent reported repository state.
+This file records approved product state and the latest reported repository state. These are different evidence classes.
 
-These are different evidence classes.
+### Current repository record
 
-### Product State
+Batch `42.3-2` began after a fresh preflight reported local `main` and
+`origin/main` synchronized at:
 
-Product decisions dated 2026-07-20 remain authoritative unless explicitly replaced through an approved Project OS change.
+`2ed304740ab809bf910d59b200065303c8eb0df5`
 
-### Repository State
+The measurement report states that the primary tracked worktree and staging
+remained clean and all untracked entries remained beneath `manual-smoke/`. Its
+final measurement-time remote query was not completed; the current
+documentation closure performed a fresh preflight query and confirmed the
+required baseline. Therefore:
 
-The Batch `42.1` closure report states that:
+- local repository state is `REPORTED_UNCHANGED_BY_CODEX_MEASUREMENT`;
+- the start-of-stage remote match is `REPORTED`;
+- the end-of-measurement remote state is `NOT_FRESHLY_RECONFIRMED`;
+- this documentation closure is the authorized reconciliation before any new
+  technical stage;
+- the recorded untracked count is 5,392 and remains informational while all
+  entries stay beneath `manual-smoke/`.
 
-- repository root remained `D:\sakurava-desktop`;
-- active branch remained `main`;
-- local and remote `main` were synchronized at `528246899386f960a1cce0b6f4bc4cba03b5315b`;
-- the tracked worktree and staged state were clean;
-- exactly nine approved Project OS authority files were committed;
-- no application source, dependency, workflow, package, runtime, or local-evidence file was committed;
-- `manual-smoke/` remained local and untracked;
-- 97 untracked entries remained after closure.
+The manual Project OS handoff prepared after the measurement report is
+expected to modify or add only:
 
-This repository state is:
+- `docs/ai/01-current-state.md`;
+- `docs/ai/03-active-batch.md`;
+- `docs/ai/04-session-ledger.md`;
+- `docs/ai/07-master-roadmap.md`;
+- `docs/ai/archive/session-ledger-2026.md`.
 
-`REPORTED_SYNCHRONIZED_BY_CODEX_CLOSURE`
+These intended documentation changes must be reconciled and committed through a
+controlled Project OS stage after Codex capacity returns. Until then, a dirty
+tracked state limited exactly to these five paths is expected and must not be
+discarded automatically.
 
-It has not been independently re-verified by ChatGPT after the push.
-
-Before repository audit, implementation, tests, builds, package work, dependency remediation, or Git closure, verify current Git state when intervening actions may have changed it.
-
-Fresh Git, test, build, inspector, GitHub, or runtime evidence overrides this recorded state.
+Fresh Git, test, build, inspector, or runtime evidence overrides this recorded
+state.
 
 ---
 
@@ -236,7 +223,7 @@ The approved roadmap is represented by Batch series `42.x`.
 - Batch `42.2 — Translation Containment`: `COMPLETED_AND_CLOSED`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` and its Translation stages are completed historical work. Current active work is the interposed corrective Batch `42.3A`.
+Batch `42.2` and its Translation stages are completed historical work. Current active work is Batch `42.3`, with static audit complete and a partial disposable performance baseline recorded.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -439,7 +426,7 @@ The approved roadmap sequence is:
 2. Batch 42.1 — GitHub and Repository Health Triage.
 3. Batch 42.2 — Translation Containment.
 4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed).
-5. Batch 42.3 — Catalog Performance and Media Audit (next proposed batch).
+5. Batch 42.3 — Catalog Performance and Media Audit (active; Stage 42.3-2A pending separate approval).
 6. Batch 42.4 — Managed Mini Media Foundation.
 7. Batch 42.5 — Catalog and Database Performance.
 8. Batch 42.6 — Backup and Restore Audit.
@@ -482,110 +469,120 @@ Summary:
 
 ## 10. Current Batch Position
 
-### Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (Completed)
+### Batch 42.3 — Catalog Performance and Media Audit
 
-Current status: `COMPLETED_AND_CLOSED`
-Final implementation baseline: `7e5fc6e7b807047203e645256b2f20f87a298f81`
-Phase: `CORRECTIVE_INTEGRITY`
-Audit status: `COMPLETE_REPORTED`
-Audit verdict: `ROOT_CAUSE_CONFIRMED_FIX_REQUIRED`
-Primary classification: `DELETE_RELATIONSHIP_CASCADE_DEFECT`
-Secondary classification: `LIST_DETAIL_QUERY_DIVERGENCE`
-Data risk: `POTENTIAL_HIDDEN_ORPHANS`
-Operator evidence: `OBSERVED_BY_OPERATOR`
-Static findings: `REPORTED_BY_CODEX_STATIC_AUDIT`
-42.3A-2 implementation: `COMPLETED_REPORTED`
-42.3A-3 disposable manual smoke: `PASSED_OBSERVED_BY_OPERATOR`
+Status:
 
-The static audit found that ordinary parent deletion can commit without dependency-safe cleanup or final reference validation. Surviving Credits and inbound JSON relationships may become dangling. Lists bypass global validation while Detail gets require it, allowing recovery errors to appear as misleading not-found states. Spreadsheet deletion is materially safer and must not be weakened. Restore replaces the database with a previously valid snapshot; it is not the corrective implementation.
+`ACTIVE`
 
-Current implementation permission: `false`
-Tests and builds permission: `false`
-Runtime permission: `false`
-Live AppData permission: `false`
-Existing-catalog repair permission: `false`
-Dependency remediation permission: `false`
-Migration approved: `false`
+Current proposed stage:
 
-Next proposed batch: `42.3 — Catalog Performance and Media Audit`
-Next-batch status: `READY_PENDING_SEPARATE_APPROVAL`
-Next-batch mode: `AUDIT_FIRST`
-Next-batch audit and implementation permission: `false`
-Existing-catalog repair: `SEPARATELY_GATED_IF_REQUIRED`
-Batch `42.3` is no longer suspended; it remains separately gated and unapproved.
+`42.3-2A — Targeted Measurement Completion and Startup Breakdown`
 
-Closure outcome: ordinary Video, Image, and Performer deletion is reference-safe;
-dependent Credits and inbound relationships are cleaned transactionally;
-survivor Detail access remained available; and the recovery warning was not
-observed during the accepted smoke. UI/UX flow remained unchanged. No live
-AppData, operator database, or existing-catalog repair was used.
+Current stage permission:
 
-Deferred Import/Export feedback: selected empty sections should later export as
-valid empty structures, and future spreadsheet terminology/Credits UX requires
-a separate compatibility decision. No spreadsheet contract changed.
+`READY_PENDING_SEPARATE_APPROVAL`
 
-Batch `42.2` Translation work remains completed historical state. Its details belong in historical sections, the Session Ledger, and the Master Roadmap, not in the active stage.
+Result Review:
 
-Evidence class: `REPORTED_BY_CODEX_PREFLIGHT`.
+`PARTIAL_BASELINE_ACCEPTED`
 
-No application source, Translation source, data, dependency, workflow, test, build, server, or Git-ref mutation occurred. Translation architecture remains unassessed.
+All measurement, optimization, implementation, test, build, runtime, and
+dependency permissions remain `false`.
 
-The approved recovery disposition was completed in Batch 42.3A. The next
-proposed Batch 42.3 audit remains separately gated; implementation remains
-prohibited.
+### Completed Stage 42.3-1
+
+Static architecture audit verdict:
+
+`STATIC_ARCHITECTURE_AUDIT_COMPLETE_MEASUREMENT_REQUIRED`
+
+Recorded static findings include original external images being used for
+visible thumbnails, complete-table collection loading before frontend paging,
+frontend search/filter/sort, fixed Detail command waterfalls, and no managed
+mini-image generation system.
+
+### Completed Stage 42.3-2
+
+Measurement verdict:
+
+`PERFORMANCE_BASELINE_PARTIAL`
+
+Evidence class:
+
+`REPORTED_BY_CODEX`
+
+The dominant measured cost was database preparation/reference initialization:
+
+- Dataset S, 32 Works: about 1.0 second median;
+- Dataset M, 256 Works: about 8.6 seconds median;
+- Dataset A, 1,000 Works: about 34.1 seconds median.
+
+Process-to-Home usable scaled from about 2.0 seconds to about 35.2 seconds. Direct
+representative SQL statements remained below about 1 millisecond median at the
+acceptance dataset. Collection frontend transformations remained small at the
+measured scale. Page-size-32 scrolling showed no reported frame interval above
+16.7 ms. Original source images reached a source-to-render area ratio up to
+about 248.5×. Acceptance-dataset aggregate working set was reported around
+436–449 MiB without proof of a memory leak.
+
+The baseline is incomplete for page size 256, valid Detail waterfalls, gallery,
+realistic image request/decode timing, phase-specific memory, and repeated
+missing-source requests. Detail measurement encountered a disposable fixture or
+harness identity conflict and must not be treated as a production defect.
+
+No performance budget, mini-image profile, schema/index change, cache change,
+UI/UX change, or implementation is approved.
 
 ---
 
 ## 11. Current Unknowns
 
-The following remain unverified or intentionally deferred:
+The following remain unverified or incomplete:
 
-- actual runtime restart persistence and WebView storage location;
-- actual live user-language storage shapes and prevalence of legacy formats;
-- runtime outcome of focused Translation tests and disposable verification;
-- detailed English reset UX and implementation mechanics;
-- Backup/package inclusion and migration behavior for Translation;
-- exact remediation versions and compatibility impact for the seven Dependabot alerts;
-- code-scanning results, because code scanning is disabled;
-- secret-scanning results, because secret scanning is disabled;
-- current managed mini-image implementation;
-- current Catalog performance bottlenecks;
-- current `.skv` package structure and compatibility;
-- current Restore atomicity and rollback;
-- current configurable-feature architecture;
-- current installer configuration.
+- exact breakdown inside database preparation/reference initialization;
+- whether repeated startup migration or validation work can safely be reduced;
+- valid Video, Image, and Performer Detail command waterfalls;
+- page-size-256 render, scrolling, and memory behavior;
+- realistic photographic image request and decode cost;
+- Image gallery behavior at representative scale;
+- phase-specific Tauri and WebView2 memory;
+- repeated missing-source request behavior;
+- final performance budgets for startup, interaction, scrolling, memory, and media;
+- final managed mini-image dimensions, encoding, crop behavior, and profiles;
+- final remote state after the partial measurement, because the end-of-stage fresh query did not complete.
 
-Do not represent these items as proven until the applicable controlled audit or implementation batch is completed.
+Do not represent these items as proven until the applicable controlled stage is completed.
 
 ---
 
 ## 12. Current Blockers
 
-Batch `42.2` Stage 1 audit, Stage 2 implementation plan, and 42.2A through 42.2D1 are complete as reported. The next proposed sub-stage is `42.2E — Disposable Translation Manual Smoke Verification`.
+Batch `42.3` is not blocked by a proven product defect, but execution is paused
+because the weekly Codex limit is exhausted.
 
-Implementation remains blocked because:
+Before any further repository measurement or implementation:
 
-- the current mode is ready pending separate approval;
-- 42.2E manual smoke has not started and remains unapproved;
-- dependency remediation is separate;
-- Vite `7.3.5` is the current reported prerequisite state;
-- Vite dev-server execution remains separately gated;
-- tests and builds are not approved.
+1. manually prepared Project OS replacements must be present;
+2. fresh Git preflight must classify the expected five documentation changes;
+3. those changes must be reviewed and committed through a documentation-only
+   reconciliation stage;
+4. Stage `42.3-2A` must receive separate approval;
+5. a new disposable evidence root and explicit byte limit must be defined.
 
-These blockers do not prevent requirement discussion or Project OS documentation maintenance.
+These blockers do not prevent discussion, checkpoint review, or product-budget decisions.
 
 ---
 
 ## 13. Primary Risks
 
-1. Batch `42.2` may accidentally repeat completed Batch `41.9` corrective work.
-2. Translation audit may silently expand into Settings redesign, broad UI work, package changes, or dependency work.
-3. Existing Translation data may be misinterpreted without storage and persistence evidence.
-4. Fallback, missing-key, CSV, or migration assumptions may be treated as proven without audit.
-5. Vite dev-server work may expose the developer to the current `launch-editor` alert before remediation.
-6. Dependency remediation may be mixed into Translation work.
-7. Release-facing Translation completion may be pulled forward from Batch `42.11`.
-8. Recorded closure state may become stale before the next repository operation.
+1. The measured 34-second startup cost may be optimized without first proving which validation or migration phase dominates.
+2. The disposable Detail identity conflict may be mistaken for a production catalog defect.
+3. Backend pagination, virtualization, memoization, cache, or indexes may be implemented despite insufficient evidence.
+4. Managed mini-image dimensions may be selected from synthetic low-entropy media rather than realistic source measurements.
+5. Manual Project OS changes may be discarded because they are mistaken for unexpected worktree drift.
+6. The evidence root may exceed its intended size if further measurements reuse it.
+7. Performance work may cross into Batch 42.4, 42.5, 42.6/42.7, or 42.10 without separate approval.
+8. Recorded repository state may become stale before Codex capacity returns.
 
 ---
 
@@ -596,12 +593,11 @@ Do not change the following without approved scope:
 - existing UI and workflow;
 - full-page Form behavior;
 - Translation architecture and stored language data;
-- database contracts;
-- public references;
+- database contracts, schema, and public references;
 - Credits behavior;
 - spreadsheet atomic Apply behavior;
 - `.skv` extension and package compatibility;
-- managed mini-image retention;
+- managed mini-image retention direction;
 - configurable-feature data retention;
 - dependency versions;
 - live AppData handling;
@@ -617,14 +613,24 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-Review this completed Batch `42.2D1` documentation closure before considering one separately approved prompt for:
+After Codex weekly capacity returns, perform one controlled documentation-only
+Project OS reconciliation stage first.
 
-`Batch 42.2E — Disposable Translation Manual Smoke Verification`
+Expected modified or added tracked paths:
 
-Required mode:
+- `docs/ai/01-current-state.md`;
+- `docs/ai/03-active-batch.md`;
+- `docs/ai/04-session-ledger.md`;
+- `docs/ai/07-master-roadmap.md`;
+- `docs/ai/archive/session-ledger-2026.md`.
 
-`READY_PENDING_SEPARATE_APPROVAL`
+Do not discard these files automatically.
 
-The next scope must preserve the completed English-only identity/resolution, CSV engine, Settings integration, and user-facing CSV contract without assuming approval for manual smoke.
+After the documentation state is verified and committed, separately review and
+approve or reject:
 
-Implementation remains unapproved until that separate controlled approval.
+`42.3-2A — Targeted Measurement Completion and Startup Breakdown`
+
+No further audit, measurement, tests, builds, runtime, optimization, managed
+media, schema/index, dependency, UI/UX, or live-data work is approved by this
+record.
