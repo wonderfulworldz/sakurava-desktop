@@ -6,9 +6,9 @@ batch: 42.4
 title: Managed Mini Media Foundation
 status: ACTIVE
 phase: DOCUMENTATION_ONLY_RECONCILIATION
-current_administrative_stage: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
+current_administrative_stage: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
-next_technical_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
+next_technical_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 implementation_allowed: false
@@ -25,7 +25,7 @@ ui_ux_allowed: false
 live_appdata_allowed: false
 manual_smoke_allowed: false
 
-recorded_repository_baseline: 853e677fb16b85a836a6ef8f62640a8efde37ed9
+recorded_repository_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 ## Authority State
@@ -51,7 +51,10 @@ had no routed runtime call site. Active related content uses Standard `4:3`.
 The evidence root remains local and untracked; live AppData, manual smoke, and
 implementation were not used.
 
-Stage `42.4-3C — Measurement Result and Standard Dimension Reconciliation` is
+The following is a historical, superseded 42.4-3C measurement record. It is
+retained for evidence continuity and does not override the accepted 42.4-4 and
+42.4-5 foundation decisions below. Stage `42.4-3C — Measurement Result and
+Standard Dimension Reconciliation` is
 `COMPLETED_AND_CLOSED`. The approved names are `LANDSCAPE_16_9`,
 `STANDARD_4_3`, `SQUARE_1_1`, and `PORTRAIT_4_5`. The exactly three standard
 tiers are `THUMBNAIL`, `MEDIUM`, and `LARGE` with maximum boxes `320×320`,
@@ -61,10 +64,23 @@ and `NATIVE_FALLBACK` as a non-tier state are required. Targeted/missing-only
 regeneration, validation, last-valid preservation, safe replacement, protected
 originals, and no startup-wide regeneration remain required.
 
-Stage `42.4-4 — Managed Media Architecture and Implementation Plan` is the next
-stage and is `READY_PENDING_SEPARATE_APPROVAL` in `PLAN ONLY` mode. It must not
-implement generation, correct ratios, generate images, change schema, use live
-AppData, run smoke, or authorize implementation.
+Stage `42.4-4 — Managed Media Architecture and Implementation Plan` is
+`COMPLETED_AND_ACCEPTED`. Stage `42.4-5 — Managed Media Contract, Schema, and
+Protected Storage Foundation` is `COMPLETED_AND_ACCEPTED`, and Stage `42.4-5C`
+is `COMPLETED_AND_CLOSED`. The implementation baseline is
+`e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+The accepted foundation consists of the shared role/profile contract, Rust and
+TypeScript validation, additive transactional tables
+`managed_media_items`, `managed_media_variants`, and
+`managed_media_operations`, protected `<app_data_dir>/managed-media/v1/`
+paths, and deterministic identity wrappers. It is inert and non-operational:
+there is no processor, generation, publication, recovery, frontend descriptor,
+ratio correction, UI, Translation, or Backup integration.
+
+Stage `42.4-6 — Managed Media Processor Dependency and Decode/Encode
+Foundation` is the next technical stage and remains
+`READY_PENDING_SEPARATE_APPROVAL`.
 
 ## Approved Product Boundary
 
@@ -149,7 +165,7 @@ Backup/Restore smoke remains assigned to Batches `42.6` and `42.7`.
 
 ## Next Proposed Stage
 
-`42.4-4 — Managed Media Architecture and Implementation Plan`
+`42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation`
 
 Status: `READY_PENDING_SEPARATE_APPROVAL`
 

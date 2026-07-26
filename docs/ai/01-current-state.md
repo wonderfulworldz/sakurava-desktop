@@ -8,16 +8,16 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-26
 repository_state_recorded_at: 2026-07-26
-repository_state_status: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
-repository_state_evidence: REPORTED_BY_CODEX_R3_R2_RESULT_REVIEW
-remote_main_verified: FRESH_PREFLIGHT_MATCHED_REQUIRED_BASELINE
+repository_state_status: MANAGED_MEDIA_FOUNDATION_ACCEPTED_AND_CLOSED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_5C_RESULT
+remote_main_verified: FRESH_PREFLIGHT_MATCHED_FOUNDATION_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 9084
+untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 853e677fb16b85a836a6ef8f62640a8efde37ed9
-baseline_label: Batch 42.3 Closure and Batch 42.4-0 Product Boundary Reconciliation
+last_recorded_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+baseline_label: Batch 42.4-5 Managed Media Foundation Implementation
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 legacy_batch_series: 41.x  
@@ -36,8 +36,8 @@ active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_phase: DOCUMENTATION_ONLY_RECONCILIATION
 active_batch_mode: DOCUMENTATION_ONLY_RECONCILIATION
-current_stage: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
-completed_current_stage: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
+current_stage: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
+completed_current_stage: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
@@ -68,7 +68,7 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
+next_proposed_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -109,6 +109,14 @@ stage_42_4_3_manual_smoke: not executed
 stage_42_4_3_repository_mutation: NONE
 stage_42_4_3_limitations: ACTUAL_HOST_DPR_1.25; EMULATED_DPR_UP_TO_2.0; HOST_CAP_1600X900_AND_1920X1080; RELATED_SQUARE_UNROUTED
 stage_42_4_3c_status: COMPLETED_AND_CLOSED
+stage_42_4_4_status: COMPLETED_AND_ACCEPTED
+stage_42_4_5_status: COMPLETED_AND_ACCEPTED
+stage_42_4_5c_status: COMPLETED_AND_CLOSED
+stage_42_4_5_implementation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+stage_42_4_5_architecture_id: RUST_MANAGED_MEDIA_SERVICE_WITH_HYBRID_SQLITE_METADATA_AND_IMMUTABLE_FILES
+stage_42_4_5_publication_model: JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION
+stage_42_4_5_schema_decision: SCHEMA_REQUIRED_IMPLEMENTED_AS_ADDITIVE_FOUNDATION
+stage_42_4_5_managed_media_tables: managed_media_items; managed_media_variants; managed_media_operations
 managed_mini_media_implementation_allowed: false
 managed_mini_media_measurement_allowed: false
 managed_mini_media_manual_smoke_allowed: false
@@ -130,12 +138,12 @@ managed_mini_media_no_upscale: true
 managed_mini_media_native_fallback: NATIVE_FALLBACK_NON_TIER
 managed_mini_media_exact_profiles: APPROVED_PRODUCT_TARGETS
 managed_mini_media_exact_dimensions: APPROVED_PRODUCT_TARGETS
-managed_mini_media_architecture: UNKNOWN_PENDING_42_4_4
+managed_mini_media_architecture: ACCEPTED_42_4_4_IMPLEMENTED_FOUNDATION_42_4_5
 managed_mini_media_visual_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 managed_mini_media_lifecycle_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 repair_authorized: false
 optimization_authorized: false
-active_technical_batch: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
+active_technical_batch: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -231,8 +239,10 @@ Batch 42.5 remains planned and unauthorized.
 
 All technical permissions remain false.
 
-## Batch 42.4-3C Measurement Result and Standard Dimension Reconciliation
+## Historical Superseded Record — Batch 42.4-3C Measurement Result and Standard Dimension Reconciliation
 
+This earlier 42.4-3C record is retained for history and is superseded by the
+accepted Stage 42.4-4 architecture and Stage 42.4-5 foundation decisions below.
 Stage 42.4-3 — Bounded Canonical Slot Runtime Measurement is
 `PARTIAL_RESULT_ACCEPTED_AND_CLOSED` with Codex verdict
 `CANONICAL_SLOT_MEASUREMENT_PARTIAL` and Result Review
@@ -274,8 +284,8 @@ Current source compliance gaps remain: Video/Image table geometry is `80×48` /
 `5:3` and later requires Landscape `16:9`; Performer table geometry is `44×56`
 / `11:14` and later requires Portrait `4:5`. These are not product profiles.
 Dormant Category `3:2` and the unrouted related-square helper are excluded from
-initial provisioning. Architecture decisions remain pending Stage 42.4-4,
-including format, quality, storage, metadata, schema, processing, replacement,
+initial provisioning. The historical 42.4-3C record left format, quality,
+storage, metadata, schema, processing, replacement,
 source reconciliation, cleanup, concurrency, queueing, retry, UI, tests, and
 recovery. Backup/package implementation remains assigned to Batches 42.6/42.7.
 
@@ -836,3 +846,67 @@ Stage 42.4-3 bounded runtime measurement described above.
 
 No measurement, tests, builds, runtime, optimization, managed media, schema or
 index work, dependency, UI/UX, or live-data work is approved by this record.
+
+---
+
+## Batch 42.4-5C Managed Media Foundation Result and Baseline Reconciliation
+
+Stage `42.4-4 — Managed Media Architecture and Implementation Plan` is
+`COMPLETED_AND_ACCEPTED`. Its accepted architecture is
+`RUST_MANAGED_MEDIA_SERVICE_WITH_HYBRID_SQLITE_METADATA_AND_IMMUTABLE_FILES`
+with publication model
+`JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION` and schema decision
+`SCHEMA_REQUIRED`.
+
+Stage `42.4-5 — Managed Media Contract, Schema, and Protected Storage
+Foundation` is `COMPLETED_AND_ACCEPTED` with Codex verdict
+`MANAGED_MEDIA_FOUNDATION_COMPLETE` and Result Review
+`MANAGED_MEDIA_FOUNDATION_ACCEPTED`. Its implementation baseline is
+`e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`, parent
+`7b36534674910930cda41a04c3e8052ab9ae5e71`, subject
+`feat(media): add managed media foundation`.
+
+Stage `42.4-5C — Managed Media Foundation Result and Baseline Reconciliation`
+is `COMPLETED_AND_CLOSED`. It records exactly ten approved implementation
+paths, successful local/remote synchronization, no dependency changes, no
+Project OS mutation during implementation, no live AppData use, and no manual
+smoke execution.
+
+The accepted foundation records the shared versioned contract
+`src/shared/managed-media-contract.v1.json`, exactly four canonical families,
+three standard tiers, exact approved dimensions, centered cover policy, and
+twenty stable role IDs. Rust and TypeScript validate the same contract.
+
+The additive schema consists of `managed_media_items`,
+`managed_media_variants`, and `managed_media_operations`. Creation is
+transactional and idempotent; no existing table or column was rewritten, no
+backfill or catalog scan occurred, and managed tables remain empty after
+ordinary migration. The protected root is `<app_data_dir>/managed-media/v1/`
+with immutable item/source-generation/role paths plus bounded `.staging` and
+`.quarantine` paths. Validated identities and deterministic preimages are
+present, but no hashing implementation or cryptographic dependency was added.
+
+The implementation is an inert, non-operational foundation. It does not
+calculate fingerprints, decode, orient, crop, resize, encode, generate,
+regenerate, publish, recover, reconcile CRUD lifecycle events, expose frontend
+descriptors, correct table ratios, add UI or Translation surfaces, or integrate
+Backup. Current rendering continues to use original external source paths.
+
+Accepted verification is recorded as `1 file / 5 TypeScript tests passed`,
+`18 focused Rust managed-media tests passed`, `145 full Rust tests passed`,
+frontend production build passed, final formatting and diff checks passed,
+exact allowlist passed, and disposable database verification completed outside
+the repository and live AppData. The initial focused Rust run had four failures
+from numeric family serialization names and Windows reparse setup privilege
+behavior; both were corrected in scope before final verification.
+
+Privileged Windows reparse-point creation is
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` because OS error `1314` prevented test
+setup. Static reparse-attribute detection exists; this is not classified as a
+production defect.
+
+All technical permissions are false. Stage `42.4-6 — Managed Media Processor
+Dependency and Decode/Encode Foundation` is
+`READY_PENDING_SEPARATE_APPROVAL`. Processor dependencies, generation,
+runtime integration, frontend integration, ratio correction, Backup/Restore,
+package work, live AppData, and manual smoke remain unauthorized.

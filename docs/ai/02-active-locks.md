@@ -179,7 +179,11 @@ Protected product behavior:
 * Restore must not automatically discard managed mini images because the external source cannot be found;
 * application startup must not automatically regenerate all managed mini images.
 
-Accepted Stage 42.4-3 measurement closure:
+Historical superseded Stage 42.4-3 measurement closure:
+
+The following measurement-era profile and tier wording is retained for audit
+history only. It is superseded by the accepted Stage 42.4-4/42.4-5 foundation
+closure below.
 
 * Stage 42.4-3 is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED` with Result Review
   `CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR`;
@@ -226,7 +230,9 @@ Family-level maximum availability is therefore Landscape Thumbnail/Medium/
 Large, Standard Thumbnail/Medium, Square Thumbnail/Medium, and Portrait
 Thumbnail/Medium/Large. A media item generates only combinations required by
 its active contexts; it does not receive every family and tier automatically.
-Exact role-to-tier mapping remains Stage 42.4-4 architecture work.
+The historical measurement record left exact role-to-tier mapping as Stage
+42.4-4 architecture work; the accepted foundation contract now records the
+authoritative role/profile mapping.
 
 Source-size eligibility and no-upscale protection:
 
@@ -267,10 +273,11 @@ excluded from initial provisioning. Active related content uses Standard `4:3`.
 
 Format, encoding quality, color/profile handling, animation, orientation,
 crop implementation, processing library, storage, naming, identity,
-fingerprinting, version metadata, validation, schema, compensation,
-replacement, source-change reconciliation, cleanup, concurrency, queueing,
-cancellation, retry, startup behavior, Translation surfaces, regeneration UI,
-tests, implementation sequence, and rollback remain pending Stage 42.4-4.
+fingerprinting, version metadata, validation, compensation, replacement,
+source-change reconciliation, cleanup, concurrency, queueing, cancellation,
+retry, startup behavior, Translation surfaces, regeneration UI, tests,
+implementation sequence, and rollback remain pending the separately gated
+processor and lifecycle stages after the accepted 42.4-4/42.4-5 foundation.
 Actual `.skv` package implementation remains assigned to Batches `42.6` and
 `42.7`. Full external media is not converted into Sakurava-managed original
 media through this lock.
@@ -284,6 +291,24 @@ Full external media remains referenced through:
 * related metadata.
 
 Final dimensions, image profiles, format, encoding quality, storage location, and naming remain subject to a dedicated audit and approved implementation scope.
+
+Accepted Stage 42.4-4 and Stage 42.4-5 foundation closure:
+
+* architecture ID: `RUST_MANAGED_MEDIA_SERVICE_WITH_HYBRID_SQLITE_METADATA_AND_IMMUTABLE_FILES`;
+* publication model: `JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION`;
+* the shared versioned role/profile contract is the single source of truth;
+* metadata uses hybrid SQLite tables `managed_media_items`,
+  `managed_media_variants`, and `managed_media_operations`;
+* protected assets use `<app_data_dir>/managed-media/v1/` and immutable
+  final-generation path direction;
+* relative paths and identities are validated; operator filenames never enter
+  managed filenames;
+* schema creation is additive, transactional, idempotent, and has no eager
+  backfill or startup catalog scan;
+* the implementation foundation remains inert and non-operational;
+* processor dependencies, image processing, generation, publication, recovery,
+  frontend integration, and runtime lifecycle remain separately gated;
+* Backup implementation remains assigned to Batches 42.6/42.7.
 
 ---
 

@@ -9,8 +9,8 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 853e677fb16b85a836a6ef8f62640a8efde37ed9
-last_recorded_git_baseline_status: FINAL_RECORDED_PRE_RECONCILIATION_BASELINE
+last_recorded_git_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+last_recorded_git_baseline_status: MANAGED_MEDIA_FOUNDATION_IMPLEMENTATION_BASELINE
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -18,7 +18,7 @@ new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.3
 active_batch: 42.4
-active_technical_batch: 42.4-3C
+active_technical_batch: 42.4-5C
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 batch_42_4_status: ACTIVE_DOCUMENTATION_CLOSURE
@@ -27,7 +27,7 @@ batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
 batch_42_4_stage_42_4_3c_status: COMPLETED_AND_CLOSED
-batch_42_4_next_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
+batch_42_4_next_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
@@ -95,8 +95,14 @@ and `1920×1920`. Standard and Square have no initial Large. Source eligibility
 checks both dimensions after crop, source upscaling is prohibited, and
 `NATIVE_FALLBACK` is a non-tier state. Targeted/missing-only regeneration,
 last-valid preservation, protected originals, and no startup-wide regeneration
-remain authoritative. Architecture, format, quality, storage, metadata,
-schema, and Backup contracts remain pending Stage 42.4-4.
+remain authoritative. Stage 42.4-4 is accepted with architecture ID
+`RUST_MANAGED_MEDIA_SERVICE_WITH_HYBRID_SQLITE_METADATA_AND_IMMUTABLE_FILES`
+and publication model `JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION`.
+Stage 42.4-5 is accepted as an inert additive foundation with schema decision
+`SCHEMA_REQUIRED`, tables `managed_media_items`, `managed_media_variants`, and
+`managed_media_operations`, shared contract, protected paths, and identity
+models. Processing dependencies, generation, publication, recovery, runtime,
+and Backup integration remain separately gated.
 
 Accepted carry-forward to Batch 42.5 is limited to valid R2 outer
 database-preparation/Home scaling, comparatively small direct SQL and frontend
@@ -263,7 +269,7 @@ The following product decisions are approved.
 * The `.skv` format must not change silently.
 * Compatibility with existing `.skv` packages must be considered before any internal format change.
 
-### 5.5 Managed Mini Images
+### 5.5 Managed Mini Images — Historical Pre-Foundation Baseline
 
 * Sakurava does not store full external image and video media as part of the catalog backup.
 * Full media is referenced through its source, path, stream, URL, or related metadata.
@@ -291,7 +297,9 @@ valid. Targeted or missing-only generation uses staging, validation,
 last-valid preservation, and protected cleanup; startup-wide regeneration is
 prohibited. UI assets, Translation assets, screenshots, manual-smoke
 evidence, full originals, and temporary decode cache are excluded. Exact
-architecture remains pending Stage 42.4-4.
+The historical pre-foundation wording above recorded architecture as pending
+Stage 42.4-4. That statement is superseded by the accepted 42.4-4/42.4-5
+foundation closure in the active Batch 42.4 section below.
 
 ### 5.6 Image Optimization
 
@@ -1120,7 +1128,11 @@ routed runtime call site; active related content uses Standard `4:3`. The
 measurement evidence remains local and untracked; live AppData and manual
 smoke were not used.
 
-**Approved Managed-Media Contract**
+**Historical Superseded Measurement Contract**
+
+The following 42.4-3C measurement reconciliation is retained as historical
+evidence only. It is superseded by the accepted Stage 42.4-4 architecture and
+Stage 42.4-5 foundation closure recorded below.
 
 * familiar ratio families are `LANDSCAPE_16_9`, `STANDARD_4_3`, `SQUARE_1_1`,
   and `PORTRAIT_4_5`;
@@ -1147,9 +1159,8 @@ smoke were not used.
   compliance corrections, not approved profiles;
 * Backup/Restore package implementation remains in Batches 42.6/42.7.
 
-The superseded active profile names `WIDE_16_9`, `MINI_CARD_4_3`, and
-`PERFORMER_PORTRAIT_4_5` are not current terminology. Historical references
-must be explicitly marked historical or superseded.
+The historical 42.4-3C profile names and tier labels above are not current
+authority. The current accepted names are recorded in the closure block below.
 
 **Out of Scope**
 
@@ -1165,11 +1176,11 @@ must be explicitly marked historical or superseded.
 * UI assets, Translation assets, screenshots, manual-smoke evidence, or
   temporary decode cache.
 
-**Next Stage**
+**Historical Next Stage Before Closure**
 
-`42.4-4 — Managed Media Architecture and Implementation Plan`
+Historical next stage: `42.4-4 — Managed Media Architecture and Implementation Plan`
 
-Status: `READY_PENDING_SEPARATE_APPROVAL`
+Historical status before closure: `READY_PENDING_SEPARATE_APPROVAL`
 Mode when approved: `PLAN ONLY`
 
 Stage 42.4-4 may inspect source read-only, select architecture, define
@@ -1177,6 +1188,34 @@ metadata/storage and safe lifecycle strategy, determine schema needs, and
 define verification and recovery. It must not implement generation, fix ratios,
 generate images, change schema, use live AppData, run manual smoke, or authorize
 implementation.
+
+**Accepted Stage 42.4-4 and 42.4-5 Closure**
+
+Stage `42.4-4` is `COMPLETED_AND_ACCEPTED`. Stage `42.4-5 — Managed Media
+Contract, Schema, and Protected Storage Foundation` is
+`COMPLETED_AND_ACCEPTED`, and Stage `42.4-5C` is `COMPLETED_AND_CLOSED`.
+The implementation baseline is
+`e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+The accepted foundation contains one shared versioned contract with four
+canonical families, three tiers, exact dimensions, centered cover policy, and
+twenty roles; additive tables `managed_media_items`,
+`managed_media_variants`, and `managed_media_operations`; protected
+`<app_data_dir>/managed-media/v1/` paths; and deterministic validated
+identities. It is inert: no processor, generation, publication, recovery,
+frontend descriptor, ratio correction, UI, Translation, or Backup integration
+exists in this foundation.
+
+Verification was accepted for TypeScript, focused and full Rust tests, the
+frontend build, formatting, diff checks, exact allowlist, and disposable
+database behavior. Privileged Windows reparse-point creation remains
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` because of OS error `1314`; static
+reparse detection exists.
+
+The next technical stage is `42.4-6 — Managed Media Processor Dependency and
+Decode/Encode Foundation`, `READY_PENDING_SEPARATE_APPROVAL`. Dependency and
+processor work is inactive until separately approved. Backup/package work
+remains assigned to Batches `42.6`/`42.7`.
 
 ---
 

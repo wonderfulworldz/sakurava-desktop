@@ -368,3 +368,23 @@ No source, data, dependency, test, build, server, or Git-ref mutation occurred. 
 Retry Stage 1 separately after this documentation-only recovery commit is synchronized.
 
 ---
+## 2026-07-26 — R3-R2 Final Bounded Retry Partial Result Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_R3_R2_PARTIAL_RESULT_RECONCILIATION
+recorded_repository_head: b2e586c834d6d4aa1cecb8de3049f0f89f08511f
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+r3_r2_result_review: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+parent_stage_42_3_2a: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+next_proposed_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+The minimal production-linked Rust build succeeded. Reopened S/A fixtures
+returned `Invalid` after immediate generation assertions returned `Migrated`,
+leaving a fixture or harness reopen-state conflict unresolved. Reproducibility,
+classifier-copy identity, detailed diagnostics, mutation comparison, and gate
+tests remain incomplete. Timing is `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`;
+no production defect or valid performance baseline was established. The final
+bounded retry is exhausted, no additional R3 retry is authorized, and this is a
+documentation-only parent-stage partial closure.
