@@ -8,16 +8,16 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-26
 repository_state_recorded_at: 2026-07-26
-repository_state_status: R3_PARTIAL_STATIC_RESULT_ACCEPTED
-repository_state_evidence: REPORTED_BY_CODEX_R3_RESULT_REVIEW
+repository_state_status: R3_R1_PARTIAL_ACCEPTED
+repository_state_evidence: REPORTED_BY_CODEX_R3_R1_RESULT_REVIEW
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_REQUIRED_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 8992
+untracked_entry_count: 9033
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
-baseline_label: Batch 42.3-2A-R3 Static Contract Result Reconciliation
+last_recorded_baseline: 2b0f994800281042ea92a8b93a8a55fb99a43659
+baseline_label: Batch 42.3-2A-R3-R1 Bounded Instrumentation Partial Result Reconciliation
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 legacy_batch_series: 41.x  
@@ -35,8 +35,8 @@ last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
 active_batch: 42.3
 active_batch_title: Catalog Performance and Media Audit
 active_batch_phase: CONTROLLED_MEASUREMENT
-active_batch_mode: R3_PARTIAL_STATIC_RESULT_ACCEPTED
-current_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
+active_batch_mode: R3_R1_PARTIAL_ACCEPTED
+current_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
@@ -55,13 +55,15 @@ batch_42_3_2a_r2_status: PARTIAL_RESULT_ACCEPTED
 batch_42_3_2a_r2_result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
 batch_42_3_2a_r3_attempt: STOPPED_WORKSPACE_LIMIT
 batch_42_3_2a_r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
+batch_42_3_2a_r3_r1_status: PARTIAL_RESULT_ACCEPTED
+batch_42_3_2a_r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
 batch_42_3_2a_parent_status: INCOMPLETE
 measurement_dominant_cost: DATABASE_PREPARATION
-measurement_fixture_or_harness_integrity_gap: UNKNOWN_GENERATOR_APPLICATION_VALIDATION_CONFLICT
+measurement_fixture_or_harness_integrity_gap: UNRESOLVED_HISTORICAL_HARNESS_CONFLICT
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
-measurement_remaining_gaps: FIXTURE_GENERATOR_CONTRACT; SAME_DATABASE_COMPARISON; INVALID_CREDIT_ROWS; INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
+measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
+next_proposed_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -70,6 +72,14 @@ r3_workspace_peak_bytes: 4685178294
 r3_workspace_hard_limit_bytes: 3500000000
 r3_retained_evidence_bytes: 31943
 r3_instrumentation_status: UNVERIFIED_BUILD_DID_NOT_COMPLETE
+r3_r1_retained_evidence_bytes: 54879
+r3_r1_workspace_peak_bytes: 135642641
+r3_r1_cargo_target_bytes: 131758144
+r3_r1_build_strategy: BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED
+r3_r1_generator_source: RECONSTRUCTED_DIAGNOSTIC_SOURCE
+r3_r1_generator_comparison: RECONSTRUCTED_GENERATOR_NOT_EQUIVALENT
+r3_r1_historical_conflict: UNRESOLVED_HISTORICAL_HARNESS_CONFLICT
+r3_r1_timings: INSTRUMENTATION_VERIFICATION_ONLY
 r3_production_defect_proven: false
 
 small_dataset_works: 32
@@ -124,7 +134,7 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: R3_RESULT_RECONCILIATION_IN_PROGRESS
+project_os_tracking_status: R3_R1_RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
 
 ---
 
@@ -134,20 +144,20 @@ This file records approved product state and the latest reported repository stat
 
 ### Current repository record
 
-The R3 documentation reconciliation was performed from local `main` with a
+The R3-R1 documentation reconciliation was performed from local `main` with a
 fresh `origin/main` synchronized at:
 
-`bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8`
+`2b0f994800281042ea92a8b93a8a55fb99a43659`
 
 The measurement report states that the primary tracked worktree and staging
 remained clean and all untracked entries remained beneath `manual-smoke/`. The
-R2 closure also completed a fresh remote verification. Therefore:
+R2 and R3-R1 closures completed fresh remote verification. Therefore:
 
 - local repository state is `REPORTED_UNCHANGED_BY_CODEX_MEASUREMENT`;
 - the starting and ending remote matches are `REPORTED_BY_CODEX`;
 - this documentation closure records the accepted partial result before any
   new technical stage;
-- the recorded untracked count is 8,992 and remains informational while all
+- the recorded untracked count is 9,033 and remains informational while all
   entries stay beneath `manual-smoke/`.
 
 The approved documentation closure modifies only:
@@ -438,7 +448,7 @@ The approved roadmap sequence is:
 2. Batch 42.1 — GitHub and Repository Health Triage.
 3. Batch 42.2 — Translation Containment.
 4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed).
-5. Batch 42.3 — Catalog Performance and Media Audit (active; Stage 42.3-2A-R3 pending separate approval).
+5. Batch 42.3 — Catalog Performance and Media Audit (active; Stage 42.3-2A-R3-R2 pending separate approval).
 6. Batch 42.4 — Managed Mini Media Foundation.
 7. Batch 42.5 — Catalog and Database Performance.
 8. Batch 42.6 — Backup and Restore Audit.
@@ -489,7 +499,7 @@ Status:
 
 Current proposed stage:
 
-`42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion`
+`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
 
 Current stage permission:
 
@@ -548,11 +558,19 @@ frontend image-error events, including 46 during the A interaction pass while
 Home and collection routes remained usable.
 
 R3 static mapping corrected the page-size contract: 256 is supported by source,
-and the R2 rejection is classified as a harness failure. The mapped
-`database_prepare` chain does not include application reference-status
-validation. The fixture-generator contract, same-database comparison, invalid
-Credit rows, internal phase timing, and instrumentation execution remain
-unknown or not measurable in the stopped R3 attempt.
+and the R2 rejection is classified as a harness failure. R3-R1 accepted a
+bounded standalone Rust diagnostic build, gate checks, and S/A instrumentation
+integrity traces. Those timings are diagnostic-only and are not production
+startup measurements. The exact R2 generator was unavailable; the temporary
+reconstruction was not equivalent, so the historical conflict remains
+unresolved and no production defect is proven.
+
+R3-R1 measured retained evidence at 54,879 bytes, workspace peak at
+135,642,641 bytes, and Cargo target output at 131,758,144 bytes. The
+reconstructed Dataset A contained 500 Videos, 500 Images, 320 Performers,
+4,000 Credits, 40 Categories, and 1,000 Works. The 930 microsecond S trace and
+9,245 microsecond A trace are `INSTRUMENTATION_VERIFICATION_ONLY`, not
+production startup timings or budgets.
 
 The baseline remains incomplete for valid Detail waterfalls, gallery, realistic
 image request/decode timing, phase-specific memory, repeated missing-source
@@ -591,15 +609,15 @@ Do not represent these items as proven until the applicable controlled stage is 
 ## 12. Current Blockers
 
 Batch `42.3` is not blocked by a proven product defect. The parent measurement
-stage remains incomplete pending the separately gated R3 candidate.
+stage remains incomplete pending the separately gated final R3-R2 candidate.
 
 Before any further repository measurement or implementation:
 
-1. Stage `42.3-2A-R3` must receive separate approval;
-2. fixture and application validation contracts must agree before Detail or
-   gallery measurement;
-3. internal startup phase instrumentation must be completed in a disposable,
-   measurement-only context.
+1. Stage `42.3-2A-R3-R2` must receive separate approval;
+2. a production-equivalent fixture and classifier comparison must be completed
+   before Detail or gallery measurement;
+3. production-linked startup phase instrumentation must be completed in a
+   disposable, measurement-only context.
 
 These blockers do not prevent discussion, checkpoint review, or product-budget decisions.
 
@@ -645,10 +663,10 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-The documentation closure records R1 and R2 and preserves the five-entry
-ledger. Separately review and approve or reject:
+The documentation closure records R1, R2, R3, and R3-R1 while preserving the
+five-entry ledger. Separately review and approve or reject:
 
-`42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion`
+`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
 
 No further audit, measurement, tests, builds, runtime, optimization, managed
 media, schema/index, dependency, UI/UX, or live-data work is approved by this

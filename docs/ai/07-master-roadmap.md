@@ -9,7 +9,7 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
+last_recorded_git_baseline: 2b0f994800281042ea92a8b93a8a55fb99a43659
 last_recorded_git_baseline_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 legacy_batch_series: 41.x
@@ -40,11 +40,19 @@ coverage, same-database comparison, and the generator/application conflict
 remain unknown or unmeasured. No production defect is proven.
 
 The parent `42.3-2A` is incomplete. R3 stopped at the workspace hard limit and
-its partial static result was accepted. The next proposed stage is
-`42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build`,
-status `READY_PENDING_SEPARATE_APPROVAL`. No optimization,
+its partial static result was accepted. R3-R1 accepted the bounded standalone
+diagnostic build and gate/trace integrity, but the exact R2 generator was
+unavailable and the reconstructed comparison was non-equivalent. The next
+proposed stage is `42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup
+Instrumentation Verification`, status `READY_PENDING_SEPARATE_APPROVAL`. No optimization,
 managed-media implementation, schema/index change, cache change, UI/UX change,
 performance budget, or mini-image profile is approved.
+
+R3-R1 retained 54,879 bytes of evidence, reached a 135,642,641-byte external
+workspace peak, and produced a 131,758,144-byte Cargo target. Its 27.7-second
+diagnostic build and 930/9,245 microsecond S/A traces are reported only as
+`INSTRUMENTATION_VERIFICATION_ONLY`; they are not production performance
+measurements or budgets. Graphify remains external advisory tooling.
 
 ---
 
@@ -69,7 +77,7 @@ Technical claims in this document that have not been verified against the curren
 
 until proven through fresh repository evidence.
 
-The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is active, with Stage `42.3-2A-R3` pending separate approval.
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is active, with Stage `42.3-2A-R3-R2` pending separate approval.
 
 ---
 
@@ -882,7 +890,7 @@ compatibility decisions. The current spreadsheet contract remains unchanged.
 
 Current proposed stage:
 
-`42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build`
+`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
 
 Current permission:
 
@@ -955,22 +963,23 @@ startup phases remain unknown. Incomplete evidence:
 - repeated missing-source request behavior;
 - metadata preservation.
 
-The fixture generator reported `Migrated`, while the application
-reference-status path reported invalid Credit references. The exact cause is
-unknown and must be resolved before Detail results are used. It is not
-classified as a production defect.
+The exact R2 generator was unavailable from permitted retained evidence. R3-R1
+used a reconstructed diagnostic generator that was explicitly non-equivalent;
+both reconstructed paths returned `Migrated` with unchanged hashes, so the
+historical conflict remains unresolved and is not classified as a production
+defect.
 
 **Next Proposed Stage**
 
-`42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build`
+`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
 
-Required focus:
+Recommended final bounded retry only:
 
-- map fixture-generator and application validation contracts;
-- map the actual supported page-size control;
-- add measurement-only phase markers inside `database_prepare`;
-- verify instrumentation in disposable scope;
-- defer Detail/gallery measurement until validation contracts agree.
+- create a reproducible fixture contract;
+- invoke the actual production classifier against byte-identical copies;
+- link temporary markers to the actual `prepare_database` path;
+- run one Dataset S and one Dataset A production-equivalent trace;
+- do not recover the exact R2 generator, repair fixtures, or implement product changes.
 
 This candidate is not approved by this roadmap.
 
@@ -1676,8 +1685,10 @@ R1 is completed and closed with `BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED`
 R2 is `PARTIAL_RESULT_ACCEPTED` with Result Review
 `TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`; R3 stopped at the workspace hard limit
 with `R3_PARTIAL_STATIC_RESULT_ACCEPTED`; parent `42.3-2A` remains incomplete.
-The next proposed stage is `42.3-2A-R3-R1 — Generator Contract Recovery and
-Bounded Instrumentation Build`, pending separate approval.
+The next proposed stage is `42.3-2A-R3-R2 — Production-Equivalent Fixture and
+Startup Instrumentation Verification`, pending separate approval. R3-R1
+accepted only the bounded standalone diagnostic strategy and integrity gates;
+its timings are not production performance measurements.
 
 No implementation, performance budget, managed mini-image profile, schema/index
 change, cache change, UI/UX change, dependency work, or live-data access is
@@ -1859,7 +1870,7 @@ Batch 42.0 — Master Roadmap and Project OS Baseline
 → Batch 42.1 — GitHub and Repository Health Triage
 → Batch 42.2 — Translation Containment
 → Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed)
-→ Batch 42.3 — Catalog Performance and Media Audit (active; 42.3-2A-R3 pending separate approval)
+→ Batch 42.3 — Catalog Performance and Media Audit (active; 42.3-2A-R3-R2 pending separate approval)
 → Batch 42.4 — Managed Mini Media Foundation
 → Batch 42.5 — Catalog and Database Performance
 → Batch 42.6 — Backup and Restore Audit

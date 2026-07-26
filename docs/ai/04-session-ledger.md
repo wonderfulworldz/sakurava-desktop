@@ -75,6 +75,23 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — R3-R1 Bounded Instrumentation Partial Result Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_R3_R1_PARTIAL_RESULT_RECONCILIATION
+recorded_repository_head: 2b0f994800281042ea92a8b93a8a55fb99a43659
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
+next_proposed_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+Graphify remains external advisory tooling. The exact R2 generator was
+unavailable; the reconstructed generator was non-equivalent. The bounded Rust
+diagnostic build, root gates, and S/A traces passed, with timing classified as
+instrumentation-only. The historical conflict remains unresolved; no
+production defect, repair, optimization, or implementation is authorized.
+
 ## 2026-07-26 — R3 Partial Static Contract Result Accepted
 
 date: 2026-07-26
@@ -177,26 +194,6 @@ prepared: four active authority-file replacements plus
 `docs/ai/archive/session-ledger-2026.md`. These paths must be reconciled and
 committed before any further repository execution. Stage `42.3-2A`
 remains separately gated and unapproved.
-
-## 2026-07-22 — Catalog Integrity Fix Passed Disposable Smoke
-
-date: 2026-07-22
-session_type: CATALOG_INTEGRITY_CLOSURE
-final_implementation_baseline: 7e5fc6e7b807047203e645256b2f20f87a298f81
-implementation_status: COMPLETED_REPORTED
-verification: REPORTED_BY_CODEX
-manual_smoke: PASSED_OBSERVED_BY_OPERATOR
-next_proposed_batch: 42.3 — Catalog Performance and Media Audit
-next_batch_approval: NOT_APPROVED
-
-Batch `42.3A-2` implementation, focused verification, formatting, build,
-commit, and push completed as reported. Operator smoke confirmed Form and Bulk
-Delete behavior, Credit and relationship cleanup, surviving Detail access, no
-return of the recovery warning, and unchanged UI/UX flow. No live AppData,
-operator database, or existing-catalog repair was used. Empty-section Export
-blocking and spreadsheet UX requests were recorded as deferred feedback.
-
-Batch `42.3A` is closed. Batch `42.3` is next but remains unapproved.
 
 ## Archived Session History
 

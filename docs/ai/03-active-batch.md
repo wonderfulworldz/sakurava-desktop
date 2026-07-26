@@ -6,7 +6,7 @@ batch: 42.3
 title: Catalog Performance and Media Audit
 status: ACTIVE
 phase: CONTROLLED_MEASUREMENT
-current_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
+current_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 completed_stage_42_3_1: COMPLETE_REPORTED
 stage_42_3_2_status: PERFORMANCE_BASELINE_PARTIAL_REPORTED
@@ -18,6 +18,9 @@ stage_42_3_2a_r2_result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
 parent_stage_42_3_2a_status: INCOMPLETE
 r3_attempt_status: STOPPED_WORKSPACE_LIMIT
 r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
+r3_r1_status: PARTIAL_RESULT_ACCEPTED
+r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
+next_stage_boundary: FINAL_BOUNDED_RETRY_RECOMMENDED_NOT_AUTHORIZED
 audit_allowed: false
 measurement_allowed: false
 tests_and_builds_allowed: false
@@ -37,7 +40,7 @@ ui_ux_allowed: false
 live_appdata_allowed: false
 risk: HIGH
 starting_branch: main
-recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
+recorded_repository_head: 2b0f994800281042ea92a8b93a8a55fb99a43659
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 ## Accepted R1 Result
@@ -85,27 +88,52 @@ runtime behavior remain UNKNOWN or NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT.
 
 No production defect, repair, optimization, or implementation is authorized.
 
-## Proposed Stage 42.3-2A-R3-R1
+R3-R1 retained evidence was 54,879 bytes; workspace peak was 135,642,641
+bytes; the Cargo target was 131,758,144 bytes; and the standalone release
+diagnostic build completed in 27.7 seconds. The S and A trace boundaries were
+930 and 9,245 microseconds respectively, always classified as
+`INSTRUMENTATION_VERIFICATION_ONLY`. Graphify remains completed external
+advisory tooling with status `READY_WITH_DOCS_ONLY_DRIFT`; no Graphify file
+changed.
+
+## Accepted R3-R1 Partial Result
 
 Title:
 
 `Generator Contract Recovery and Bounded Instrumentation Build`
 
+Result Review:
+
+`R3_R1_PARTIAL_ACCEPTED`
+
+Accepted evidence:
+
+- bounded standalone Rust diagnostic build strategy succeeded;
+- measurement and runtime-root gates rejected invalid roots;
+- reconstructed S/A database comparison returned `Migrated` with unchanged
+  hashes;
+- S/A traces completed as `INSTRUMENTATION_VERIFICATION_ONLY`;
+- exact R2 generator remained unavailable and the reconstruction was not
+  equivalent;
+- the historical R2 conflict remains unresolved.
+
+No production defect, repair, optimization, or implementation is authorized.
+
+## Proposed Stage 42.3-2A-R3-R2
+
+Title:
+
+`Production-Equivalent Fixture and Startup Instrumentation Verification`
+
 Status:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-Proposed boundary only:
-
-- map fixture-generator validation against application reference validation;
-- map the actual supported page-size control contract;
-- add measurement-only phase markers inside the current `database_prepare`
-  path;
-- run focused disposable instrumentation-integrity verification;
-- defer broad performance reruns until fixture validity is established;
-- do not measure Detail or gallery until validation contracts agree.
-
-R3-R1 is not approved by this document. No technical permission is granted.
+This is the recommended final bounded retry, not authorization. It would require
+a reproducible fixture contract, the actual production classifier against
+byte-identical copies, and markers linked to the actual `prepare_database` path.
+If that cannot complete safely, Batch 42.3 should proceed to partial audit
+closure with explicit limitations.
 
 ## Supported and Unsupported Conclusions
 
