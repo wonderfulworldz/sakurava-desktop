@@ -221,6 +221,43 @@ pub fn load_contract() -> Result<ManagedMediaContract, String> {
     parse_and_validate_contract(CONTRACT_JSON)
 }
 
+pub fn target_for_role(
+    contract: &ManagedMediaContract,
+    role_id: RoleId,
+    tier_id: TierId,
+) -> Result<(FamilyId, u32, u32), String> {
+    let role = contract
+        .roles
+        .iter()
+        .find(|role| role.id == role_id)
+        .ok_or_else(|| "Managed-media role is missing from the contract.".to_string())?;
+    if !role.tiers.contains(&tier_id) {
+        return Err(format!(
+            "{} does not provide {}.",
+            role_id.as_str(),
+            tier_id.as_str()
+        ));
+    }
+    let family = contract
+        .families
+        .iter()
+        .find(|family| family.id == role.family)
+        .ok_or_else(|| "Managed-media family is missing from the contract.".to_string())?;
+    let target = family
+        .targets
+        .iter()
+        .find(|target| target.tier == tier_id)
+        .ok_or_else(|| "Managed-media target is missing from the contract.".to_string())?;
+    Ok((family.id, target.width, target.height))
+}
+
+pub fn thumbnail_target_for_role(
+    contract: &ManagedMediaContract,
+    role_id: RoleId,
+) -> Result<(FamilyId, u32, u32), String> {
+    target_for_role(contract, role_id, TierId::Thumbnail)
+}
+
 pub fn parse_and_validate_contract(json: &str) -> Result<ManagedMediaContract, String> {
     let contract: ManagedMediaContract = serde_json::from_str(json)
         .map_err(|error| format!("Invalid managed-media JSON: {error}"))?;
@@ -521,5 +558,16 @@ mod tests {
         assert!(parse_and_validate_contract(&value.to_string())
             .expect_err("native fallback tier")
             .contains("unknown variant"));
+    }
+
+    #[test]
+    fn resolves_role_targets_from_the_shared_contract() {
+        let contract = load_contract().expect("shared contract");
+        assert_eq!(
+            target_for_role(&contract, RoleId::VideoDetailPrimary, TierId::Large)
+                .expect("landscape large"),
+            (FamilyId::Landscape16_9, 1920, 1080)
+        );
+        assert!(target_for_role(&contract, RoleId::ImageGalleryTile, TierId::Large).is_err());
     }
 }
