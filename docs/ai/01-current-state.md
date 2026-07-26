@@ -36,8 +36,8 @@ active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_phase: DOCUMENTATION_ONLY_RECONCILIATION
 active_batch_mode: DOCUMENTATION_ONLY_RECONCILIATION
-current_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
-completed_current_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
+current_stage: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
+completed_current_stage: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
@@ -68,7 +68,7 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-3 — Bounded Canonical Slot Runtime Measurement
+next_proposed_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -100,25 +100,42 @@ managed_mini_media_audit_mode: READ_ONLY
 managed_mini_media_audit_repository_mutation: NONE
 stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_2_status: COMPLETED_AND_CLOSED
-stage_42_4_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+stage_42_4_3_result: CANONICAL_SLOT_MEASUREMENT_PARTIAL
+stage_42_4_3_result_review: CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR
+stage_42_4_3_evidence_root: manual-smoke/42.4-3-canonical-slot-measurement-20260726-174041/
+stage_42_4_3_live_appdata_accessed: false
+stage_42_4_3_manual_smoke: not executed
+stage_42_4_3_repository_mutation: NONE
+stage_42_4_3_limitations: ACTUAL_HOST_DPR_1.25; EMULATED_DPR_UP_TO_2.0; HOST_CAP_1600X900_AND_1920X1080; RELATED_SQUARE_UNROUTED
+stage_42_4_3c_status: COMPLETED_AND_CLOSED
 managed_mini_media_implementation_allowed: false
 managed_mini_media_measurement_allowed: false
 managed_mini_media_manual_smoke_allowed: false
-managed_mini_media_canonical_ratio_families: WIDE_16_9; MINI_CARD_4_3; SQUARE_1_1; PERFORMER_PORTRAIT_4_5
+managed_mini_media_architecture_planning_allowed: false
+managed_mini_media_canonical_ratio_families: LANDSCAPE_16_9; STANDARD_4_3; SQUARE_1_1; PORTRAIT_4_5
 managed_mini_media_invalid_source_ratios: 5:3; 11:14
 managed_mini_media_dormant_ratio_excluded: 3:2
-managed_mini_media_card_mini_card_separation: FULL_CARD_16_9; MINI_LITE_CARD_4_3
-managed_mini_media_standard_tiers: SMALL; MEDIUM; LARGE
+managed_mini_media_related_square_excluded: true
+managed_mini_media_active_related_context: STANDARD_4_3
+managed_mini_media_card_mini_card_separation: FULL_CARD_LANDSCAPE_16_9; MINI_LITE_CARD_STANDARD_4_3
+managed_mini_media_standard_tiers: THUMBNAIL; MEDIUM; LARGE
 managed_mini_media_standard_tier_maximum: 3
-managed_mini_media_generation_direction: TARGETED_SAFE_REGENERATION
-managed_mini_media_exact_profiles: UNKNOWN
-managed_mini_media_exact_dimensions: UNKNOWN
-managed_mini_media_architecture: UNKNOWN
+managed_mini_media_standard_bounding_boxes: THUMBNAIL_320X320; MEDIUM_1280X1280; LARGE_1920X1920
+managed_mini_media_derived_dimensions: LANDSCAPE_16_9_320X180_1280X720_1920X1080; STANDARD_4_3_320X240_1280X960; SQUARE_1_1_320X320_1280X1280; PORTRAIT_4_5_256X320_1024X1280_1536X1920
+managed_mini_media_family_tier_ceilings: LANDSCAPE_THUMBNAIL_MEDIUM_LARGE; STANDARD_THUMBNAIL_MEDIUM; SQUARE_THUMBNAIL_MEDIUM; PORTRAIT_THUMBNAIL_MEDIUM_LARGE
+managed_mini_media_generation_direction: SOURCE_ELIGIBLE_TARGETED_SAFE_REGENERATION
+managed_mini_media_source_size_eligibility: WIDTH_AND_HEIGHT_AFTER_CANONICAL_CROP
+managed_mini_media_no_upscale: true
+managed_mini_media_native_fallback: NATIVE_FALLBACK_NON_TIER
+managed_mini_media_exact_profiles: APPROVED_PRODUCT_TARGETS
+managed_mini_media_exact_dimensions: APPROVED_PRODUCT_TARGETS
+managed_mini_media_architecture: UNKNOWN_PENDING_42_4_4
 managed_mini_media_visual_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 managed_mini_media_lifecycle_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 repair_authorized: false
 optimization_authorized: false
-active_technical_batch: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
+active_technical_batch: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -214,44 +231,53 @@ Batch 42.5 remains planned and unauthorized.
 
 All technical permissions remain false.
 
-## Batch 42.4-2 Canonical Ratio and Standard Variant Decision Reconciliation
+## Batch 42.4-3C Measurement Result and Standard Dimension Reconciliation
 
-Stage 42.4-1 is accepted with verdict `MANAGED_MINI_MEDIA_AUDIT_COMPLETE` and
-Result Review `MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS`. The new
-operator-approved decision is
-`CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION`,
-supplementing `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`.
-The approved active managed-media families are exactly `WIDE_16_9`,
-`MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`.
+Stage 42.4-3 — Bounded Canonical Slot Runtime Measurement is
+`PARTIAL_RESULT_ACCEPTED_AND_CLOSED` with Codex verdict
+`CANONICAL_SLOT_MEASUREMENT_PARTIAL` and Result Review
+`CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR`.
+The read-only measurement executed 17 configurations and loaded 408 image
+measurements across all four approved ratio families. The actual host DPR was
+`1.25`; DPR up to `2.0` was measured through emulation. Source proportions were
+preserved with centered `object-fit: cover`, no independent width/height
+stretch was observed, and intentionally small source media was enlarged by the
+current renderer. The exact actual host windows `1600×900` and `1920×1080` were
+not measurable because the host capped them. The related-square helper had no
+routed runtime call site; active related content uses Standard `4:3`.
 
-The current `80×48`/`5:3` Video/Image table geometry must later be corrected to
-`16:9`, and the current `44×56`/`11:14` Performer table geometry must later be
-corrected to `4:5`. These are current source compliance gaps, not approved
-profiles. Dormant unrouted Category `3:2` is excluded from initial provisioning.
-Full cards and mini/lite cards remain separate contexts: full Video/Image cards
-use `16:9`, while mini/lite cards use `4:3`.
+Stage 42.4-3C is `COMPLETED_AND_CLOSED`. The evidence root remains local and
+untracked at `manual-smoke/42.4-3-canonical-slot-measurement-20260726-174041/`.
+Live AppData was not accessed, manual smoke was not executed, repository
+mutation during measurement was `NONE`, and no implementation was performed.
 
-One canonical ratio identity must be shared by visible geometry, CSS,
-width/height declarations, metadata, profile mapping, generation, renderer
-selection, diagnostics, and automated tests. The initial foundation allows at
-most three standard logical tiers: `SMALL`, `MEDIUM`, and `LARGE`; families may
-use fewer tiers, but arbitrary per-page sizes or additional tiers require
-separate approval. Exact dimensions remain `UNKNOWN`.
+The approved active profile names are `LANDSCAPE_16_9`, `STANDARD_4_3`,
+`SQUARE_1_1`, and `PORTRAIT_4_5`. The initial standard tiers are exactly
+`THUMBNAIL`, `MEDIUM`, and `LARGE`, with maximum bounding boxes `320×320`,
+`1280×1280`, and `1920×1920`. Derived dimensions are Landscape `320×180`,
+`1280×720`, `1920×1080`; Standard `4:3` `320×240`, `1280×960`; Square
+`320×320`, `1280×1280`; and Portrait `256×320`, `1024×1280`, `1536×1920`.
+Standard and Square have no initial Large tier.
 
-The boundary covers applicable catalog media including covers, gallery,
-Performer, Category, Glossary, Video posters, and other catalog-media areas. UI
-assets, Translation assets, screenshots, manual-smoke evidence, full external
-originals, and temporary decode cache are excluded. Automatic generation and
-regeneration is limited to relevant source changes or bounded targeted repair;
-output uses isolated staging, validation before replacement, last-valid
-preservation, safe atomic or equivalent recoverable replacement, and
-reference-aware cleanup. Startup-wide regeneration is prohibited. The full
-viewer uses the original first and the largest valid managed representation only
-as a missing-source fallback. Actual `.skv` package implementation remains
-assigned to Batches 42.6/42.7. Architecture, metadata, storage, format,
-quality, naming, concurrency, queueing, and retry remain pending architecture
-planning. Visual/profile and lifecycle/regeneration smoke gates remain deferred
-until implementation and automated verification.
+Generation and regeneration require source-size eligibility in both dimensions
+after canonical crop and must not upscale. Sources between Medium and Large
+produce Thumbnail and Medium only; sources between Thumbnail and Medium produce
+Thumbnail only; sources below Thumbnail do not upscale and may use
+`NATIVE_FALLBACK`, which is not a fourth tier. Selection is smallest-sufficient,
+then next larger valid output, original when appropriate, largest valid managed
+fallback, native fallback, and finally placeholder/error state. Missing-only and
+targeted regeneration, isolated staging, validation, last-valid preservation,
+safe replacement, protected originals, reference-aware cleanup, and no startup
+mass regeneration remain authoritative.
+
+Current source compliance gaps remain: Video/Image table geometry is `80×48` /
+`5:3` and later requires Landscape `16:9`; Performer table geometry is `44×56`
+/ `11:14` and later requires Portrait `4:5`. These are not product profiles.
+Dormant Category `3:2` and the unrouted related-square helper are excluded from
+initial provisioning. Architecture decisions remain pending Stage 42.4-4,
+including format, quality, storage, metadata, schema, processing, replacement,
+source reconciliation, cleanup, concurrency, queueing, retry, UI, tests, and
+recovery. Backup/package implementation remains assigned to Batches 42.6/42.7.
 
 ---
 

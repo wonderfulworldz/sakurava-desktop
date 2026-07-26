@@ -11,6 +11,23 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-26 — R3-R1 Bounded Instrumentation Partial Result Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_R3_R1_PARTIAL_RESULT_RECONCILIATION
+recorded_repository_head: 2b0f994800281042ea92a8b93a8a55fb99a43659
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
+next_proposed_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+Graphify remains external advisory tooling. The exact R2 generator was
+unavailable; the reconstructed generator was non-equivalent. The bounded Rust
+diagnostic build, root gates, and S/A traces passed, with timing classified as
+instrumentation-only. The historical conflict remains unresolved; no
+production defect, repair, optimization, or implementation is authorized.
+
 ## 2026-07-26 — R3 Partial Static Contract Result Accepted
 
 date: 2026-07-26

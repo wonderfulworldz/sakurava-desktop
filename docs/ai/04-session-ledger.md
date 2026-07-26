@@ -75,10 +75,35 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — Batch 42.4 Standard Managed Media Dimensions Approved
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_STANDARD_DIMENSION_RECONCILIATION
+pre_reconciliation_repository_head: d1f79861b869256d53a4c6cc317d870bd82f2676
+stage_42_4_3_result_review: CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR
+stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+stage_42_4_3c_status: COMPLETED_AND_CLOSED
+active_batch: 42.4 — Managed Mini Media Foundation
+approved_family_names: LANDSCAPE_16_9; STANDARD_4_3; SQUARE_1_1; PORTRAIT_4_5
+standard_bounding_boxes: THUMBNAIL_320X320; MEDIUM_1280X1280; LARGE_1920X1920
+derived_dimensions: LANDSCAPE_320X180_1280X720_1920X1080; STANDARD_320X240_1280X960; SQUARE_320X320_1280X1280; PORTRAIT_256X320_1024X1280_1536X1920
+measurement_limitations: HOST_CAP_1600X900_AND_1920X1080; RELATED_SQUARE_UNROUTED; EMULATED_DPR_NOT_NATIVE_TAURI_WEBVIEW
+source_size_policy: BOTH_DIMENSIONS_AFTER_CROP; NO_UPSCALE
+native_fallback: NATIVE_FALLBACK_NOT_A_FOURTH_TIER
+next_proposed_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+The accepted partial measurement established the approved familiar ratio names,
+three bounding-box tiers, family ceilings, source-size eligibility, no-upscale
+behavior, native fallback, related-square exclusion, and active Standard `4:3`
+related content. Architecture remains pending Stage 42.4-4.
+
 ## 2026-07-26 — Batch 42.4 Canonical Ratios and Standard Variants Approved
 
 date: 2026-07-26
 session_type: PROJECT_OS_BATCH_42_4_CANONICAL_RATIO_DECISION_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_3C
 pre_reconciliation_repository_head: 9fbfa3883ff2408f6763df3b7fa0ca94443757a3
 stage_42_4_1_result_review: MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS
 active_batch: 42.4 — Managed Mini Media Foundation
@@ -105,6 +130,7 @@ only and remains separately gated.
 
 date: 2026-07-26
 session_type: PROJECT_OS_BATCH_42_4_PRODUCT_BOUNDARY_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_3C
 pre_reconciliation_repository_head: 853e677fb16b85a836a6ef8f62640a8efde37ed9
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4 — Managed Mini Media Foundation
@@ -161,23 +187,6 @@ tests remain incomplete. Timing is `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`;
 no production defect or valid performance baseline was established. The final
 bounded retry is exhausted, no additional R3 retry is authorized, and this is a
 documentation-only parent-stage partial closure.
-
-## 2026-07-26 — R3-R1 Bounded Instrumentation Partial Result Accepted
-
-date: 2026-07-26
-session_type: PROJECT_OS_R3_R1_PARTIAL_RESULT_RECONCILIATION
-recorded_repository_head: 2b0f994800281042ea92a8b93a8a55fb99a43659
-application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
-r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
-next_proposed_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
-next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
-implementation_allowed: false
-
-Graphify remains external advisory tooling. The exact R2 generator was
-unavailable; the reconstructed generator was non-equivalent. The bounded Rust
-diagnostic build, root gates, and S/A traces passed, with timing classified as
-instrumentation-only. The historical conflict remains unresolved; no
-production defect, repair, optimization, or implementation is authorized.
 
 ## Archived Session History
 

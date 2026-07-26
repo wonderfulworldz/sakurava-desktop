@@ -6,9 +6,9 @@ batch: 42.4
 title: Managed Mini Media Foundation
 status: ACTIVE
 phase: DOCUMENTATION_ONLY_RECONCILIATION
-current_administrative_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
+current_administrative_stage: 42.4-3C — Measurement Result and Standard Dimension Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
-next_technical_stage: 42.4-3 — Bounded Canonical Slot Runtime Measurement
+next_technical_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 implementation_allowed: false
@@ -16,6 +16,7 @@ audit_allowed: false
 tests_and_builds_allowed: false
 runtime_allowed: false
 measurement_allowed: false
+architecture_planning_allowed: false
 database_allowed: false
 backup_restore_allowed: false
 package_allowed: false
@@ -40,10 +41,30 @@ Review `MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS`. Stage `42.4-2`
 reconciles the accepted audit with the operator-approved canonical ratio and
 standard-tier decisions. No source or runtime compliance is implied.
 
-Stage `42.4-3 — Bounded Canonical Slot Runtime Measurement` is the next proposed
-stage and is `READY_PENDING_SEPARATE_APPROVAL` in `MEASUREMENT ONLY` mode. It
-must not correct ratios, generate media, change storage, or authorize
-implementation.
+Stage `42.4-3 — Bounded Canonical Slot Runtime Measurement` is accepted as
+`PARTIAL_RESULT_ACCEPTED_AND_CLOSED` with Result Review
+`CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR`.
+It executed 17 configurations and loaded 408 measurements across all four
+families. Actual host DPR was `1.25`; DPR up to `2.0` was emulated. The host
+capped actual `1600×900` and `1920×1080` windows, and the related-square helper
+had no routed runtime call site. Active related content uses Standard `4:3`.
+The evidence root remains local and untracked; live AppData, manual smoke, and
+implementation were not used.
+
+Stage `42.4-3C — Measurement Result and Standard Dimension Reconciliation` is
+`COMPLETED_AND_CLOSED`. The approved names are `LANDSCAPE_16_9`,
+`STANDARD_4_3`, `SQUARE_1_1`, and `PORTRAIT_4_5`. The exactly three standard
+tiers are `THUMBNAIL`, `MEDIUM`, and `LARGE` with maximum boxes `320×320`,
+`1280×1280`, and `1920×1920`. Standard and Square have no initial Large.
+Source-size eligibility checks both dimensions after crop; no-upscale behavior
+and `NATIVE_FALLBACK` as a non-tier state are required. Targeted/missing-only
+regeneration, validation, last-valid preservation, safe replacement, protected
+originals, and no startup-wide regeneration remain required.
+
+Stage `42.4-4 — Managed Media Architecture and Implementation Plan` is the next
+stage and is `READY_PENDING_SEPARATE_APPROVAL` in `PLAN ONLY` mode. It must not
+implement generation, correct ratios, generate images, change schema, use live
+AppData, run smoke, or authorize implementation.
 
 ## Approved Product Boundary
 
@@ -61,20 +82,23 @@ Slots with materially equivalent aspect ratio, crop or contain behavior,
 rendered-size range, visual purpose, and scaling requirements may share a profile
 family; unique areas retain distinct families.
 
-Approved active managed-media families are exactly `WIDE_16_9`,
-`MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`. `5:3`, `11:14`,
-and dormant unrouted Category `3:2` are not approved profile families. Full
-cards and mini/lite cards remain separate contexts. The initial foundation has
-at most three standard logical tiers: `SMALL`, `MEDIUM`, and `LARGE`; families
-may use fewer tiers, but arbitrary per-page sizes and extra tiers require
-separate approval. Exact dimensions and architecture remain pending.
+Approved active managed-media families are exactly `LANDSCAPE_16_9`,
+`STANDARD_4_3`, `SQUARE_1_1`, and `PORTRAIT_4_5`. `5:3`, `11:14`, dormant
+unrouted Category `3:2`, and the unrouted related-square helper are not
+approved profile families. Full cards use Landscape `16:9`; active mini/lite
+and related cards use Standard `4:3`. The initial foundation has exactly three
+tiers: `THUMBNAIL`, `MEDIUM`, and `LARGE`; arbitrary per-page sizes and extra
+tiers require separate approval. Approved dimensions and family ceilings are
+recorded in `LOCK-MEDIA-001`; architecture remains pending.
 
 Managed mini media preserves source aspect ratio and existing crop/contain
 behavior. Stretching, distortion, changing a slot ratio, independent
-proportion-breaking scaling, and unnecessary enlargement of a smaller source
-are not allowed. Generation is bounded to relevant source changes or targeted
-regeneration, uses isolated staging and validation before replacement, preserves
-last-valid output, and must not regenerate the whole catalog at startup.
+proportion-breaking scaling, and source upscaling are not allowed. Generation
+and regeneration are bounded by source-size eligibility, relevant source
+changes, missing/invalid/outdated outputs, or targeted selection; they use
+isolated staging and validation before replacement, preserve last-valid output,
+and must not regenerate the whole catalog at startup. A source below Thumbnail
+may use `NATIVE_FALLBACK`, which is not a tier.
 
 Coverage includes applicable catalog media for covers, gallery images, Performer
 visuals, Category visuals, Glossary visuals, Video posters or representative
@@ -109,7 +133,7 @@ does not implement Backup/Restore.
 
 ## Smoke-Test Timing
 
-No smoke test runs in this documentation stage. A visual/profile smoke gate is
+No smoke test runs in this documentation closure. A visual/profile smoke gate is
 required only after rendering/profile selection is implemented and automated
 verification passes. It must check protected slot ratios, Video/Image covers,
 Performer, gallery, Category, Glossary, variant selection, sharpness,
@@ -125,17 +149,15 @@ Backup/Restore smoke remains assigned to Batches `42.6` and `42.7`.
 
 ## Next Proposed Stage
 
-`42.4-3 — Bounded Canonical Slot Runtime Measurement`
+`42.4-4 — Managed Media Architecture and Implementation Plan`
 
 Status: `READY_PENDING_SEPARATE_APPROVAL`
 
-When separately approved, this stage is `MEASUREMENT ONLY`. It may measure
-logical and physical rendered envelopes for the four approved ratio families,
-representative window sizes, UI scale 90/100/110, and measurable approved
-Windows display-scaling cases. It may determine whether a family needs one,
-two, or three standard tiers and provide evidence for exact dimensions. It
-must not correct ratios, generate media, select format or quality, implement
-storage, change database/package behavior, or use live AppData.
+When separately approved, this stage is `PLAN ONLY`. It may inspect source
+read-only, select architecture, define metadata/storage strategy, determine
+schema requirements, define generation/regeneration and recovery, and define
+future verification. It must not correct ratios, generate media, implement
+storage, change schema, use live AppData, run smoke, or authorize implementation.
 
 ## Change Boundary
 

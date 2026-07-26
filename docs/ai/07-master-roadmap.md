@@ -18,14 +18,17 @@ new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.3
 active_batch: 42.4
-active_technical_batch: 42.4-2
+active_technical_batch: 42.4-3C
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 batch_42_4_status: ACTIVE_DOCUMENTATION_CLOSURE
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
-batch_42_4_stage_42_4_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_4_stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+batch_42_4_stage_42_4_3c_status: COMPLETED_AND_CLOSED
+batch_42_4_next_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
+batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
 
@@ -77,19 +80,23 @@ implementation is authorized. Batch `42.4 — Managed Mini Media Foundation` is
 now active in documentation closure; Stage `42.4-1` is accepted and Stage
 `42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation` is
 `COMPLETED_AND_CLOSED`. Stage `42.4-3 — Bounded Canonical Slot Runtime
-Measurement` is `READY_PENDING_SEPARATE_APPROVAL`; no technical implementation
-or measurement is active.
+Measurement` is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Stage 42.4-3C is
+`COMPLETED_AND_CLOSED`; no technical implementation is active.
 
 Accepted carry-forward to Batch 42.4 includes the static absence of a managed
 mini-image generation system, original-source thumbnail use, source/render
 disparity, and lifecycle/storage/Backup gaps. The approved active ratio families
-are `WIDE_16_9`, `MINI_CARD_4_3`, `SQUARE_1_1`, and
-`PERFORMER_PORTRAIT_4_5`; `5:3`, `11:14`, and initial dormant `3:2` are not
-approved profiles. Full cards and mini/lite cards remain distinct. The initial
-foundation allows only `SMALL`, `MEDIUM`, and `LARGE` standard tiers, with
-targeted safe regeneration and last-valid preservation. Exact dimensions,
-architecture, format, quality, storage, metadata, and Backup contracts remain
-pending.
+are `LANDSCAPE_16_9`, `STANDARD_4_3`, `SQUARE_1_1`, and `PORTRAIT_4_5`; `5:3`,
+`11:14`, initial dormant `3:2`, and the unrouted related-square helper are not
+approved profiles. Full cards use Landscape `16:9`; active related and
+mini/lite cards use Standard `4:3`. The initial standard tiers are exactly
+`THUMBNAIL`, `MEDIUM`, and `LARGE` with maximum boxes `320×320`, `1280×1280`,
+and `1920×1920`. Standard and Square have no initial Large. Source eligibility
+checks both dimensions after crop, source upscaling is prohibited, and
+`NATIVE_FALLBACK` is a non-tier state. Targeted/missing-only regeneration,
+last-valid preservation, protected originals, and no startup-wide regeneration
+remain authoritative. Architecture, format, quality, storage, metadata,
+schema, and Backup contracts remain pending Stage 42.4-4.
 
 Accepted carry-forward to Batch 42.5 is limited to valid R2 outer
 database-preparation/Home scaling, comparatively small direct SQL and frontend
@@ -270,16 +277,21 @@ The following product decisions are approved.
 The approved Batch 42.4 decision is
 `CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION`,
 supplementing `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`:
-the active managed-media families are `WIDE_16_9`, `MINI_CARD_4_3`,
-`SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`; full cards and mini/lite cards are
-separate contexts; `5:3`, `11:14`, and initial dormant `3:2` are not approved
-profiles; and the initial foundation allows at most `SMALL`, `MEDIUM`, and
-`LARGE` standard tiers. Source proportions must not be stretched or distorted.
-Targeted generation uses staging, validation, last-valid preservation, and
-protected cleanup; startup-wide regeneration is prohibited. UI assets,
-Translation assets, screenshots, manual-smoke evidence, full originals, and
-temporary decode cache are excluded. Exact pixel dimensions and architecture
-remain pending measurement and architecture planning.
+the active managed-media families are `LANDSCAPE_16_9`, `STANDARD_4_3`,
+`SQUARE_1_1`, and `PORTRAIT_4_5`; full cards and mini/lite cards are separate
+contexts; active related content uses Standard `4:3`; the unrouted related-
+square helper and dormant initial `3:2` are excluded; and `5:3` and `11:14`
+are not approved profiles. The initial foundation uses exactly
+`THUMBNAIL`, `MEDIUM`, and `LARGE` with maximum boxes `320×320`, `1280×1280`,
+and `1920×1920`. Landscape provides all three tiers; Standard and Square
+provide Thumbnail and Medium only; Portrait provides all three tiers. Source
+eligibility checks both dimensions after canonical crop and prohibits source
+upscaling; smaller sources use the non-tier `NATIVE_FALLBACK` state when
+valid. Targeted or missing-only generation uses staging, validation,
+last-valid preservation, and protected cleanup; startup-wide regeneration is
+prohibited. UI assets, Translation assets, screenshots, manual-smoke
+evidence, full originals, and temporary decode cache are excluded. Exact
+architecture remains pending Stage 42.4-4.
 
 ### 5.6 Image Optimization
 
@@ -1088,35 +1100,83 @@ No optimization or media implementation is authorized.
 
 **Goal**
 
-Audit and then, only after separate approval, create reliable, lightweight, and
-portable managed mini images while preserving existing visual slot geometry.
+Audit, reconcile, and later—only after separate approval—create reliable,
+portable managed media while preserving approved slot geometry and protected
+asset lifecycle behavior.
 
-**In Scope**
+**Accepted Stage Results**
 
-* accepted Stage 42.4-1 read-only audit and decision-gap record;
-* canonical active families `WIDE_16_9`, `MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`;
-* full-card versus mini/lite-card separation;
-* one ratio source of truth across geometry, metadata, generation, rendering, diagnostics, and tests;
-* limited standard tiers `SMALL`, `MEDIUM`, and `LARGE`;
-* targeted safe regeneration, staging, validation, last-valid preservation, and protected-asset cleanup principles.
+* Stage 42.4-1 audit: accepted with decision gaps;
+* Stage 42.4-2 reconciliation: completed and closed;
+* Stage 42.4-3 measurement: `PARTIAL_RESULT_ACCEPTED_AND_CLOSED` after 17
+  configurations and 408 loaded image measurements;
+* Stage 42.4-3C measurement-result reconciliation: `COMPLETED_AND_CLOSED`.
+
+The measurement used actual host DPR `1.25` and emulated DPR up to `2.0`.
+Source proportions were preserved with centered cover behavior and no
+independent stretch. Actual host windows `1600×900` and `1920×1080` were not
+measurable because the host capped them. The related-square helper has no
+routed runtime call site; active related content uses Standard `4:3`. The
+measurement evidence remains local and untracked; live AppData and manual
+smoke were not used.
+
+**Approved Managed-Media Contract**
+
+* familiar ratio families are `LANDSCAPE_16_9`, `STANDARD_4_3`, `SQUARE_1_1`,
+  and `PORTRAIT_4_5`;
+* the exactly three standard tiers are `THUMBNAIL`, `MEDIUM`, and `LARGE`;
+* maximum boxes are `320×320`, `1280×1280`, and `1920×1920`;
+* derived dimensions are Landscape `320×180`, `1280×720`, `1920×1080`;
+  Standard `4:3` `320×240`, `1280×960`; Square `320×320`, `1280×1280`;
+  and Portrait `256×320`, `1024×1280`, `1536×1920`;
+* Standard and Square have no initial Large tier;
+* source eligibility checks both dimensions after canonical crop;
+* generation and regeneration must not upscale;
+* sources below Thumbnail may use `NATIVE_FALLBACK`, which is not a fourth
+  tier;
+* generation is bounded to active context combinations and relevant source
+  changes; targeted and missing-only regeneration is supported;
+* isolated staging, validation before replacement, last-valid preservation,
+  protected originals, reference-aware cleanup, and no startup-wide
+  regeneration remain required;
+* the smallest sufficient valid output is selected, followed by larger valid
+  output, original, managed fallback, native fallback, and placeholder/error;
+* active related content uses Standard `4:3` and the unrouted related-square
+  helper is excluded;
+* current `80×48` / `5:3` and `44×56` / `11:14` source geometry remain later
+  compliance corrections, not approved profiles;
+* Backup/Restore package implementation remains in Batches 42.6/42.7.
+
+The superseded active profile names `WIDE_16_9`, `MINI_CARD_4_3`, and
+`PERFORMER_PORTRAIT_4_5` are not current terminology. Historical references
+must be explicitly marked historical or superseded.
 
 **Out of Scope**
 
 * implementation before separate approval;
-* inventing exact dimensions, formats, quality, naming, storage, or schema;
-* treating current `5:3` or `11:14` geometry as approved profiles;
-* initial provisioning for dormant unrouted Category `3:2`;
+* source correction, CSS changes, generation, regeneration, schema, migration,
+  package work, dependency work, runtime, tests, builds, or manual smoke;
+* final format, quality, color/profile, animation, orientation, crop library,
+  storage, naming, identity, fingerprint, metadata, replacement,
+  reconciliation, cleanup, concurrency, queueing, retry, UI, tests, and
+  recovery architecture decisions before Stage 42.4-4;
+* initial provisioning for dormant Category `3:2` or unrouted related-square;
 * storing full external media;
-* Backup/Restore package implementation, which remains in Batches 42.6/42.7;
-* UI assets, Translation assets, screenshots, manual-smoke evidence, or temporary decode cache.
+* UI assets, Translation assets, screenshots, manual-smoke evidence, or
+  temporary decode cache.
 
-**Expected Result**
+**Next Stage**
 
-Stage 42.4-1 is accepted and Stage 42.4-2 is closed. The current source gaps
-are recorded for later controlled correction; exact pixel dimensions and
-architecture remain pending. Stage 42.4-3 is the next proposed bounded runtime
-measurement stage and is pending separate approval. Visual and lifecycle smoke
-gates occur only after implementation and automated verification.
+`42.4-4 — Managed Media Architecture and Implementation Plan`
+
+Status: `READY_PENDING_SEPARATE_APPROVAL`
+Mode when approved: `PLAN ONLY`
+
+Stage 42.4-4 may inspect source read-only, select architecture, define
+metadata/storage and safe lifecycle strategy, determine schema needs, and
+define verification and recovery. It must not implement generation, fix ratios,
+generate images, change schema, use live AppData, run manual smoke, or authorize
+implementation.
 
 ---
 

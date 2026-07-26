@@ -169,41 +169,111 @@ They are not disposable cache.
 
 Protected product behavior:
 
-* managed mini images are generated automatically when relevant media is added;
+* managed mini images are generated automatically when relevant media is added or its source changes;
 * managed mini images provide a local visual representation of externally referenced media;
 * managed mini images remain useful when the original source is unavailable;
-* managed mini images must be included in `.skv` Backup;
-* managed mini images must survive Restore;
+* managed mini images must be included in `.skv` Backup and survive Restore;
 * a generic Clear Cache action must not delete managed mini images;
 * failed regeneration must not delete or replace the last valid mini image;
 * replacement must occur only after a newly generated image has been validated;
 * Restore must not automatically discard managed mini images because the external source cannot be found;
 * application startup must not automatically regenerate all managed mini images.
 
-Approved product boundary `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`:
+Accepted Stage 42.4-3 measurement closure:
 
-* existing media-slot ratio, shape, allocation, and visual hierarchy are protected;
-* managed mini media follows the existing slot and may use a shared profile family only for materially equivalent ratio, crop/contain behavior, rendered-size range, visual purpose, and scaling requirements;
-* a family may contain multiple size variants, and rendering selects the smallest sufficient variant without unnecessary upscaling;
-* source aspect ratio is preserved; stretching, distortion, forced independent scaling, and changing the slot ratio are prohibited;
-* current crop or contain behavior remains protected until an audit clarifies any unresolved crop anchor or focal-point behavior;
-* coverage includes applicable catalog media such as covers, gallery images, Performer visuals, Category visuals, Glossary visuals, and Video poster or representative frames;
-* application icons, navigation/control icons, the application logo, decorative frontend assets, Translation assets, development screenshots, manual-smoke evidence, full external originals, and temporary decode cache are excluded;
-* exact dimensions, format, quality, naming, storage, database representation, generation, concurrency, and replacement parameters remain `UNKNOWN` pending architecture planning and later approval;
-* the accepted Stage 42.4-1 audit is recorded as `MANAGED_MINI_MEDIA_AUDIT_COMPLETE` with Result Review `MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS`;
-* approved active managed-media ratio families are exactly `WIDE_16_9`, `MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`;
-* `5:3` and `11:14` are invalid product profile ratios, and dormant unrouted Category `3:2` is excluded from initial provisioning;
-* full cards and mini/lite cards are separate contexts: full Video/Image cards use `16:9`, while mini/lite cards use `4:3`; ratio sharing follows approved geometry and context, not entity type alone;
-* one canonical ratio identity must be shared by visible geometry, CSS, width/height declarations, metadata, profile mapping, generation, renderer selection, diagnostics, and tests; conflicting duplicate ratio declarations are prohibited;
-* the initial foundation permits at most three standard logical tiers: `SMALL`, `MEDIUM`, and `LARGE`. A family may use fewer tiers, but arbitrary per-page or per-component sizes and additional tiers require separate approval;
-* renderer selection chooses the smallest validated sufficient tier for actual rendering and display scaling, without enlarging an undersized variant when a sufficient larger variant exists;
-* automatic generation and regeneration is bounded to relevant source changes, missing/invalid/outdated variants, or explicitly targeted selections; startup-wide regeneration is prohibited;
-* generation uses isolated staging, validation before replacement, safe atomic or equivalent recoverable replacement, last-valid preservation, and reference-aware cleanup. External originals remain untouched; managed variants are protected assets and are not disposable cache;
-* the full viewer uses natural source ratio, prefers the original when available, and may use the largest valid managed representation only as a missing-source fallback. It has no separate managed-mini profile family;
-* exact pixel dimensions, architecture, schema, metadata, fingerprints, format, quality, naming, storage, queueing, retry, concurrency, and UI remain pending architecture planning;
-* actual `.skv` package implementation remains assigned to Batches `42.6` and `42.7`.
+* Stage 42.4-3 is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED` with Result Review
+  `CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR`;
+* all four approved ratio families were measured across 17 configurations and 408 loaded image measurements;
+* the actual host DPR was `1.25`; DPR up to `2.0` was measured through emulation and is not native Tauri/WebView proof;
+* centered `object-fit: cover` preserved source proportions and no independent width/height stretch was observed;
+* exact actual host windows `1600×900` and `1920×1080` were not measurable because the host capped them;
+* the related-square helper had no routed runtime call site; active related content uses Standard `4:3`;
+* the evidence root remains local and untracked at `manual-smoke/42.4-3-canonical-slot-measurement-20260726-174041/`;
+* repository mutation, live AppData access, implementation, and manual smoke were not performed.
 
-Full external media is not converted into Sakurava-managed original media through this lock.
+Approved managed-media profile names are ratio-oriented:
+
+* `LANDSCAPE_16_9` — Landscape;
+* `STANDARD_4_3` — Standard;
+* `SQUARE_1_1` — Square;
+* `PORTRAIT_4_5` — Portrait.
+
+The superseded active names `WIDE_16_9`, `MINI_CARD_4_3`, and
+`PERFORMER_PORTRAIT_4_5` must not remain active profile names. Historical
+references may remain only when explicitly marked historical or superseded.
+`SQUARE_1_1` remains unchanged. “Mini card” and “performer portrait” are not
+profile-family terminology.
+
+The initial foundation has exactly three standard tiers:
+
+* `THUMBNAIL`: maximum bounding box `320×320`;
+* `MEDIUM`: maximum bounding box `1280×1280`;
+* `LARGE`: maximum bounding box `1920×1920`.
+
+Generated output follows the canonical ratio. There is no fourth tier, and
+arbitrary per-page or per-component dimensions are not approved. The prior
+proposed width ladders `176 / 1048 / 2164` and `192 / 1152 / 2304` are
+superseded and are not active policy.
+
+Approved derived dimensions:
+
+* `LANDSCAPE_16_9`: `THUMBNAIL` `320×180`, `MEDIUM` `1280×720`, `LARGE` `1920×1080`;
+* `STANDARD_4_3`: `THUMBNAIL` `320×240`, `MEDIUM` `1280×960`; no initial `LARGE`;
+* `SQUARE_1_1`: `THUMBNAIL` `320×320`, `MEDIUM` `1280×1280`; no initial `LARGE`;
+* `PORTRAIT_4_5`: `THUMBNAIL` `256×320`, `MEDIUM` `1024×1280`, `LARGE` `1536×1920`.
+
+Family-level maximum availability is therefore Landscape Thumbnail/Medium/
+Large, Standard Thumbnail/Medium, Square Thumbnail/Medium, and Portrait
+Thumbnail/Medium/Large. A media item generates only combinations required by
+its active contexts; it does not receive every family and tier automatically.
+Exact role-to-tier mapping remains Stage 42.4-4 architecture work.
+
+Source-size eligibility and no-upscale protection:
+
+* eligibility checks both source dimensions after the canonical crop requirement;
+* a source larger than Medium but smaller than Large generates Thumbnail and Medium only;
+* a source larger than Thumbnail but smaller than Medium generates Thumbnail only;
+* a source smaller than Thumbnail is not enlarged and may create or preserve one maximum-valid native/cropped representation;
+* that representation is recorded as `NATIVE_FALLBACK`, which is not a fourth tier and is never presented as the full-quality original.
+
+Regeneration follows the same eligibility rules. It creates only required
+eligible outputs, skips outputs requiring enlargement, supports missing-only and
+bounded targeted regeneration, uses isolated staging and validation before
+replacement, preserves every last-valid output on failure, leaves external
+originals untouched, prohibits startup-wide regeneration, performs
+reference-aware cleanup, and keeps managed outputs outside generic disposable
+cache. A valid larger old output is not removed merely because a changed source
+is smaller until safe replacement and retention policy are defined.
+
+Rendering selects the smallest valid available output sufficient for actual
+rendering and display scaling, then the next larger valid output, then the
+original when available and appropriate, then the largest valid managed output
+as missing-source fallback, then `NATIVE_FALLBACK`, then the existing
+placeholder/error state. A smaller standard output must not be enlarged when a
+larger valid output exists. The full viewer remains original-first, natural-ratio,
+and has no separate viewer profile.
+
+“WordPress-like” means only a small named set of standard sizes, canonical-ratio
+derived output, bounded generation, smallest-sufficient selection, source-size
+eligibility, targeted or missing-only regeneration, and no uncontrolled custom
+size proliferation. It does not authorize WordPress code, storage, dependencies,
+automatic `srcset`, or universal generation.
+
+Current compliance gaps remain: Video/Image table geometry is `80×48` / `5:3`
+and must later become Landscape `16:9`; Performer table geometry is `44×56` /
+`11:14` and must later become Portrait `4:5`. These are not product profiles.
+Dormant unrouted Category `3:2` and the unrouted related-square helper remain
+excluded from initial provisioning. Active related content uses Standard `4:3`.
+
+Format, encoding quality, color/profile handling, animation, orientation,
+crop implementation, processing library, storage, naming, identity,
+fingerprinting, version metadata, validation, schema, compensation,
+replacement, source-change reconciliation, cleanup, concurrency, queueing,
+cancellation, retry, startup behavior, Translation surfaces, regeneration UI,
+tests, implementation sequence, and rollback remain pending Stage 42.4-4.
+Actual `.skv` package implementation remains assigned to Batches `42.6` and
+`42.7`. Full external media is not converted into Sakurava-managed original
+media through this lock.
 
 Full external media remains referenced through:
 
