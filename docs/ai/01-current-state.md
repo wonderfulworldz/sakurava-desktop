@@ -8,16 +8,16 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-26
 repository_state_recorded_at: 2026-07-26
-repository_state_status: R3_R1_PARTIAL_ACCEPTED
-repository_state_evidence: REPORTED_BY_CODEX_R3_R1_RESULT_REVIEW
+repository_state_status: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+repository_state_evidence: REPORTED_BY_CODEX_R3_R2_RESULT_REVIEW
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_REQUIRED_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 9033
+untracked_entry_count: 9084
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 2b0f994800281042ea92a8b93a8a55fb99a43659
-baseline_label: Batch 42.3-2A-R3-R1 Bounded Instrumentation Partial Result Reconciliation
+last_recorded_baseline: b2e586c834d6d4aa1cecb8de3049f0f89f08511f
+baseline_label: Batch 42.3-2A-R3-R2 Final Retry Partial Result Reconciliation
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 legacy_batch_series: 41.x  
@@ -35,9 +35,9 @@ last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
 active_batch: 42.3
 active_batch_title: Catalog Performance and Media Audit
 active_batch_phase: CONTROLLED_MEASUREMENT
-active_batch_mode: R3_R1_PARTIAL_ACCEPTED
+active_batch_mode: PARTIAL_AUDIT_CLOSURE
 current_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
-current_stage_status: READY_PENDING_SEPARATE_APPROVAL
+current_stage_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
@@ -57,13 +57,15 @@ batch_42_3_2a_r3_attempt: STOPPED_WORKSPACE_LIMIT
 batch_42_3_2a_r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
 batch_42_3_2a_r3_r1_status: PARTIAL_RESULT_ACCEPTED
 batch_42_3_2a_r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
-batch_42_3_2a_parent_status: INCOMPLETE
+batch_42_3_2a_r3_r2_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+batch_42_3_2a_r3_r2_result_review: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+batch_42_3_2a_parent_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
 measurement_dominant_cost: DATABASE_PREPARATION
-measurement_fixture_or_harness_integrity_gap: UNRESOLVED_HISTORICAL_HARNESS_CONFLICT
+measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CONFLICT_UNRESOLVED
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
+next_proposed_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -80,7 +82,9 @@ r3_r1_generator_source: RECONSTRUCTED_DIAGNOSTIC_SOURCE
 r3_r1_generator_comparison: RECONSTRUCTED_GENERATOR_NOT_EQUIVALENT
 r3_r1_historical_conflict: UNRESOLVED_HISTORICAL_HARNESS_CONFLICT
 r3_r1_timings: INSTRUMENTATION_VERIFICATION_ONLY
-r3_production_defect_proven: false
+r3_r2_production_defect_proven: false
+r3_r2_performance_baseline: NOT_ACCEPTED
+r3_r2_additional_retry: PROHIBITED
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -134,7 +138,29 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: R3_R1_RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
+project_os_tracking_status: R3_R2_RECONCILIATION_PENDING_DOCUMENTATION_COMMIT
+
+## R3-R2 Final Retry Closure
+
+Stage `42.3-2A-R3-R2` is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`,
+with Result Review `R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`. The
+minimal production-linked Rust build succeeded and the actual production
+`prepare_database` and classifier boundaries were invoked. Reopened S/A
+fixtures returned `Invalid` after immediate in-generator assertions returned
+`Migrated`; this remains an unresolved `FIXTURE_OR_HARNESS_REOPEN_STATE_CONFLICT`.
+
+The raw S/A traces are `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only. No valid
+production performance baseline or production defect was established. Fixture
+reproducibility, byte-identical classifier copies, detailed failure diagnostics,
+mutation comparison, and required root/live-AppData gate tests remain unknown or
+incomplete. `prepare_tauri_database` was not invoked. The final bounded retry is
+exhausted; no further R3 retry, repair, optimization, or implementation is
+authorized.
+
+Parent Stage `42.3-2A` is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`. Batch `42.3`
+remains active only for partial audit closure. The next proposed stage is
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`,
+`READY_PENDING_SEPARATE_APPROVAL`. All technical permissions remain false.
 
 ---
 
@@ -144,20 +170,20 @@ This file records approved product state and the latest reported repository stat
 
 ### Current repository record
 
-The R3-R1 documentation reconciliation was performed from local `main` with a
+The R3-R2 documentation reconciliation is performed from local `main` with a
 fresh `origin/main` synchronized at:
 
-`2b0f994800281042ea92a8b93a8a55fb99a43659`
+`b2e586c834d6d4aa1cecb8de3049f0f89f08511f`
 
 The measurement report states that the primary tracked worktree and staging
 remained clean and all untracked entries remained beneath `manual-smoke/`. The
-R2 and R3-R1 closures completed fresh remote verification. Therefore:
+R2, R3-R1, and R3-R2 technical records are Codex-reported evidence. Therefore:
 
 - local repository state is `REPORTED_UNCHANGED_BY_CODEX_MEASUREMENT`;
 - the starting and ending remote matches are `REPORTED_BY_CODEX`;
 - this documentation closure records the accepted partial result before any
   new technical stage;
-- the recorded untracked count is 9,033 and remains informational while all
+- the recorded untracked count is 9,084 and remains informational while all
   entries stay beneath `manual-smoke/`.
 
 The approved documentation closure modifies only:
@@ -448,7 +474,7 @@ The approved roadmap sequence is:
 2. Batch 42.1 — GitHub and Repository Health Triage.
 3. Batch 42.2 — Translation Containment.
 4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed).
-5. Batch 42.3 — Catalog Performance and Media Audit (active; Stage 42.3-2A-R3-R2 pending separate approval).
+5. Batch 42.3 — Catalog Performance and Media Audit (active; partial audit closure pending separate approval).
 6. Batch 42.4 — Managed Mini Media Foundation.
 7. Batch 42.5 — Catalog and Database Performance.
 8. Batch 42.6 — Backup and Restore Audit.
@@ -499,7 +525,7 @@ Status:
 
 Current proposed stage:
 
-`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
 
 Current stage permission:
 
@@ -579,6 +605,21 @@ behavior, and metadata preservation.
 No performance budget, mini-image profile, schema/index change, cache change,
 UI/UX change, or implementation is approved.
 
+### Completed Parent Stage 42.3-2A — Partial Closure
+
+R3-R2 is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`, with Result Review
+`R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`. The minimal production-linked
+Rust build succeeded and actual `prepare_database` and classifier boundaries
+were invoked. Reopened S/A fixtures returned `Invalid` after immediate
+in-generator assertions returned `Migrated`; the unresolved
+`FIXTURE_OR_HARNESS_REOPEN_STATE_CONFLICT` is not a production defect finding.
+
+R3-R2 raw traces are labelled `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only.
+Fixture reproducibility, byte-identical classifier copies, detailed diagnostics,
+mutation comparison, and required root/live-AppData gate tests remain unknown or
+incomplete. `prepare_tauri_database` was not invoked. The final bounded retry is
+exhausted; no additional R3 retry is authorized or recommended.
+
 ---
 
 ## 11. Current Unknowns
@@ -608,16 +649,16 @@ Do not represent these items as proven until the applicable controlled stage is 
 
 ## 12. Current Blockers
 
-Batch `42.3` is not blocked by a proven product defect. The parent measurement
-stage remains incomplete pending the separately gated final R3-R2 candidate.
+Batch `42.3` is not blocked by a proven product defect. Parent Stage `42.3-2A`
+is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Batch `42.3` remains active only for
+partial audit closure.
 
 Before any further repository measurement or implementation:
 
-1. Stage `42.3-2A-R3-R2` must receive separate approval;
-2. a production-equivalent fixture and classifier comparison must be completed
-   before Detail or gallery measurement;
-3. production-linked startup phase instrumentation must be completed in a
-   disposable, measurement-only context.
+1. review and separately approve or reject `42.3-CLOSE`;
+2. preserve the fixture and classifier limitations before any future technical
+   decision;
+3. do not introduce another R3 retry under this closure.
 
 These blockers do not prevent discussion, checkpoint review, or product-budget decisions.
 
@@ -663,10 +704,11 @@ for authoritative lock wording.
 
 ## 15. Recommended Next Action
 
-The documentation closure records R1, R2, R3, and R3-R1 while preserving the
-five-entry ledger. Separately review and approve or reject:
+The documentation closure records R1, R2, R3, R3-R1, and the final partial
+R3-R2 result while preserving the five-entry ledger. Separately review and
+approve or reject:
 
-`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
 
 No further audit, measurement, tests, builds, runtime, optimization, managed
 media, schema/index, dependency, UI/UX, or live-data work is approved by this

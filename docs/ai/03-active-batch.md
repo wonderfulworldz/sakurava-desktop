@@ -7,7 +7,7 @@ title: Catalog Performance and Media Audit
 status: ACTIVE
 phase: CONTROLLED_MEASUREMENT
 current_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
-current_stage_status: READY_PENDING_SEPARATE_APPROVAL
+current_stage_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
 completed_stage_42_3_1: COMPLETE_REPORTED
 stage_42_3_2_status: PERFORMANCE_BASELINE_PARTIAL_REPORTED
 stage_42_3_2_result_review: PARTIAL_BASELINE_ACCEPTED
@@ -15,12 +15,18 @@ stage_42_3_2a_r1_status: COMPLETED_AND_CLOSED
 stage_42_3_2a_r1_result: BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED
 stage_42_3_2a_r2_status: PARTIAL_RESULT_ACCEPTED
 stage_42_3_2a_r2_result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
-parent_stage_42_3_2a_status: INCOMPLETE
+parent_stage_42_3_2a_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
 r3_attempt_status: STOPPED_WORKSPACE_LIMIT
 r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
 r3_r1_status: PARTIAL_RESULT_ACCEPTED
 r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
-next_stage_boundary: FINAL_BOUNDED_RETRY_RECOMMENDED_NOT_AUTHORIZED
+stage_42_3_2a_r3_r2_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+stage_42_3_2a_r3_r2_result_review: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+retry_boundary: FINAL_BOUNDED_RETRY_EXHAUSTED
+additional_r3_retry: PROHIBITED
+next_proposed_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+next_stage_boundary: FINAL_BOUNDED_RETRY_EXHAUSTED
 audit_allowed: false
 measurement_allowed: false
 tests_and_builds_allowed: false
@@ -42,6 +48,23 @@ risk: HIGH
 starting_branch: main
 recorded_repository_head: 2b0f994800281042ea92a8b93a8a55fb99a43659
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+
+## Final R3-R2 Partial Result
+
+R3-R2 is accepted only as `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`.
+The minimal production-linked Rust build succeeded and actual production
+`prepare_database` plus the public classifier boundary were invoked. Reopened
+S/A fixtures returned `Invalid` after immediate in-generator assertions
+returned `Migrated`, leaving `FIXTURE_OR_HARNESS_REOPEN_STATE_CONFLICT` unresolved.
+
+The raw traces are labelled `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`; no valid
+production performance baseline or production defect was established. Fixture
+reproducibility, byte-identical classifier copies, detailed diagnostics,
+mutation comparison, and required root/live-AppData gate tests remain unknown or
+incomplete. `prepare_tauri_database` was not invoked. No repair, optimization,
+implementation, or additional R3 retry is authorized. Parent `42.3-2A` is
+`PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Batch `42.3` remains active only for
+partial audit closure.
 
 ## Accepted R1 Result
 
@@ -129,11 +152,11 @@ Status:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-This is the recommended final bounded retry, not authorization. It would require
-a reproducible fixture contract, the actual production classifier against
-byte-identical copies, and markers linked to the actual `prepare_database` path.
-If that cannot complete safely, Batch 42.3 should proceed to partial audit
-closure with explicit limitations.
+This technical stage is now recorded as
+`PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`. Its reopened fixture
+conflict and protocol deviations prevent valid performance interpretation. The
+final bounded retry is exhausted; Batch 42.3 proceeds to partial audit closure
+with explicit limitations and no additional R3 retry.
 
 ## Supported and Unsupported Conclusions
 

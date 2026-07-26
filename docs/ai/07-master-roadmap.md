@@ -9,7 +9,7 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 2b0f994800281042ea92a8b93a8a55fb99a43659
+last_recorded_git_baseline: b2e586c834d6d4aa1cecb8de3049f0f89f08511f
 last_recorded_git_baseline_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 legacy_batch_series: 41.x
@@ -39,12 +39,10 @@ reference-status validation. Internal phase timing, fixture-generator
 coverage, same-database comparison, and the generator/application conflict
 remain unknown or unmeasured. No production defect is proven.
 
-The parent `42.3-2A` is incomplete. R3 stopped at the workspace hard limit and
+The parent `42.3-2A` is now `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`. R3 stopped at the workspace hard limit and
 its partial static result was accepted. R3-R1 accepted the bounded standalone
 diagnostic build and gate/trace integrity, but the exact R2 generator was
-unavailable and the reconstructed comparison was non-equivalent. The next
-proposed stage is `42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup
-Instrumentation Verification`, status `READY_PENDING_SEPARATE_APPROVAL`. No optimization,
+unavailable and the reconstructed comparison was non-equivalent. No optimization,
 managed-media implementation, schema/index change, cache change, UI/UX change,
 performance budget, or mini-image profile is approved.
 
@@ -53,6 +51,22 @@ workspace peak, and produced a 131,758,144-byte Cargo target. Its 27.7-second
 diagnostic build and 930/9,245 microsecond S/A traces are reported only as
 `INSTRUMENTATION_VERIFICATION_ONLY`; they are not production performance
 measurements or budgets. Graphify remains external advisory tooling.
+
+R3-R2 is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`, with Result Review
+`R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`. The minimal production-linked
+Rust build succeeded and actual production `prepare_database` and classifier
+boundaries were invoked. Reopened S/A fixtures returned `Invalid` after
+immediate in-generator assertions returned `Migrated`, leaving
+`FIXTURE_OR_HARNESS_REOPEN_STATE_CONFLICT` unresolved. Fixture reproducibility,
+byte-identical classifier copies, detailed diagnostics, mutation comparison, and
+required root/live-AppData gate tests remain unknown or incomplete.
+
+R3-R2 traces are `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only. No valid
+production performance baseline or production defect was established. The final
+bounded retry is exhausted; no additional R3 retry, repair, optimization, or
+implementation is authorized. The next proposed stage is
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`,
+`READY_PENDING_SEPARATE_APPROVAL`. Batch 42.3 remains active and is not closed.
 
 ---
 
@@ -77,7 +91,7 @@ Technical claims in this document that have not been verified against the curren
 
 until proven through fresh repository evidence.
 
-The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is active, with Stage `42.3-2A-R3-R2` pending separate approval.
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is active for partial audit closure, with `42.3-CLOSE` pending separate approval.
 
 ---
 
@@ -890,7 +904,7 @@ compatibility decisions. The current spreadsheet contract remains unchanged.
 
 Current proposed stage:
 
-`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
 
 Current permission:
 
@@ -898,7 +912,7 @@ Current permission:
 
 Result Review:
 
-`TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`
+`R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`
 
 All measurement, optimization, implementation, test, build, runtime, and
 dependency permissions remain `false`.
@@ -969,19 +983,24 @@ both reconstructed paths returned `Migrated` with unchanged hashes, so the
 historical conflict remains unresolved and is not classified as a production
 defect.
 
+R3-R2 is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`. The minimal
+production-linked Rust build succeeded and actual `prepare_database` and
+classifier boundaries were invoked. Reopened S/A fixtures returned `Invalid`
+after immediate generation assertions returned `Migrated`, leaving an
+unresolved fixture or harness reopen-state conflict. Reproducibility,
+byte-identical classifier copies, detailed diagnostics, mutation comparison,
+and required gate tests remain unknown or incomplete. Its raw traces are
+`INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only; no valid production baseline or
+production defect was established. The final bounded retry is exhausted and no
+additional R3 retry is authorized.
+
 **Next Proposed Stage**
 
-`42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification`
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
 
-Recommended final bounded retry only:
-
-- create a reproducible fixture contract;
-- invoke the actual production classifier against byte-identical copies;
-- link temporary markers to the actual `prepare_database` path;
-- run one Dataset S and one Dataset A production-equivalent trace;
-- do not recover the exact R2 generator, repair fixtures, or implement product changes.
-
-This candidate is not approved by this roadmap.
+This documentation and decision closure is pending separate approval. It may
+consolidate accepted evidence and limitations, but does not authorize another
+technical retry or any implementation.
 
 **In Scope**
 
@@ -1684,15 +1703,20 @@ disposable baseline accepted by Result Review as `PARTIAL_BASELINE_ACCEPTED`.
 R1 is completed and closed with `BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED`.
 R2 is `PARTIAL_RESULT_ACCEPTED` with Result Review
 `TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`; R3 stopped at the workspace hard limit
-with `R3_PARTIAL_STATIC_RESULT_ACCEPTED`; parent `42.3-2A` remains incomplete.
-The next proposed stage is `42.3-2A-R3-R2 — Production-Equivalent Fixture and
-Startup Instrumentation Verification`, pending separate approval. R3-R1
+with `R3_PARTIAL_STATIC_RESULT_ACCEPTED`; parent `42.3-2A` is
+`PARTIAL_RESULT_ACCEPTED_AND_CLOSED`. R3-R1
 accepted only the bounded standalone diagnostic strategy and integrity gates;
 its timings are not production performance measurements.
 
 No implementation, performance budget, managed mini-image profile, schema/index
 change, cache change, UI/UX change, dependency work, or live-data access is
-authorized.
+authorized. R3-R2 is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`; its
+reopened fixtures returned `Invalid` after immediate generation assertions
+returned `Migrated`. The raw traces are invalid-fixture diagnostics only and no
+valid production baseline or defect was established. The final bounded retry is
+exhausted; no additional R3 retry is authorized. The next proposed stage is
+`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`, pending separate
+approval.
 
 ### Historical Batch 42.2 — Translation Containment (Completed)
 
@@ -1870,7 +1894,7 @@ Batch 42.0 — Master Roadmap and Project OS Baseline
 → Batch 42.1 — GitHub and Repository Health Triage
 → Batch 42.2 — Translation Containment
 → Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed)
-→ Batch 42.3 — Catalog Performance and Media Audit (active; 42.3-2A-R3-R2 pending separate approval)
+→ Batch 42.3 — Catalog Performance and Media Audit (active; 42.3-CLOSE pending separate approval)
 → Batch 42.4 — Managed Mini Media Foundation
 → Batch 42.5 — Catalog and Database Performance
 → Batch 42.6 — Backup and Restore Audit

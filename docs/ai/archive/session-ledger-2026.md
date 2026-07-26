@@ -11,6 +11,45 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-22 — Catalog Performance Baseline Partial; Codex Capacity Paused
+
+date: 2026-07-22
+session_type: CATALOG_PERFORMANCE_PARTIAL_MEASUREMENT_HANDOFF
+recorded_repository_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+completed_stage_42_3_1: COMPLETE_REPORTED
+completed_stage_42_3_2: PERFORMANCE_BASELINE_PARTIAL_REPORTED
+evidence_class: REPORTED_BY_CODEX
+next_proposed_stage: 42.3-2A — Targeted Measurement Completion and Startup Breakdown
+next_stage_approval: NOT_APPROVED
+codex_capacity: WEEKLY_LIMIT_EXHAUSTED
+project_os_update: MANUAL_HANDOFF_WITH_LEDGER_ARCHIVE_PENDING_REPOSITORY_COMMIT
+
+Stage `42.3-1` mapped the Catalog, media, query, startup, memory, and
+missing-source architecture without mutation. Stage `42.3-2` then captured a
+partial release-like disposable baseline. Database preparation/reference
+initialization was the dominant measured cost, scaling from about 1.0 second at
+32 Works to about 34.1 seconds at 1,000 Works; Home usable scaled from about 2.0
+to 35.2 seconds. Direct representative SQL and frontend collection transforms
+were comparatively small at the measured scale. Page-size-32 scrolling was
+stable in the reported environment, repeated rapid-search pipelines support
+later debounce evaluation, and original image area reached about 248.5× the
+rendered thumbnail area.
+
+The measurement remains incomplete for valid Detail waterfalls, page size 256,
+gallery, realistic image decode timing, phase-specific memory, and repeated
+missing-source requests. Detail measurement encountered a disposable fixture or
+harness identity conflict; it is not classified as a production defect. No
+optimization, managed-media system, schema/index, cache, UI/UX, dependency,
+Backup/Restore, Import/Export, or Translation change occurred. The primary
+repository remained reported unchanged; final fresh remote verification did not
+complete after execution quota exhaustion.
+
+The weekly Codex limit is exhausted. A five-path Project OS handoff was
+prepared: four active authority-file replacements plus
+`docs/ai/archive/session-ledger-2026.md`. These paths must be reconciled and
+committed before any further repository execution. Stage `42.3-2A`
+remains separately gated and unapproved.
+
 ## 2026-07-22 — Catalog Deletion Integrity Defect Confirmed
 
 date: 2026-07-22

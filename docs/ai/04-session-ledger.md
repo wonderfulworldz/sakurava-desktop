@@ -75,6 +75,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — R3-R2 Final Bounded Retry Partial Result Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_R3_R2_PARTIAL_RESULT_RECONCILIATION
+recorded_repository_head: b2e586c834d6d4aa1cecb8de3049f0f89f08511f
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+r3_r2_result_review: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+parent_stage_42_3_2a: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+next_proposed_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+The minimal production-linked Rust build succeeded. Reopened S/A fixtures
+returned `Invalid` after immediate generation assertions returned `Migrated`,
+leaving a fixture or harness reopen-state conflict unresolved. Reproducibility,
+classifier-copy identity, detailed diagnostics, mutation comparison, and gate
+tests remain incomplete. Timing is `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`;
+no production defect or valid performance baseline was established. The final
+bounded retry is exhausted, no additional R3 retry is authorized, and this is a
+documentation-only parent-stage partial closure.
+
 ## 2026-07-26 — R3-R1 Bounded Instrumentation Partial Result Accepted
 
 date: 2026-07-26
@@ -155,45 +176,6 @@ as a production defect. No optimization or implementation is authorized.
 
 This documentation-only reconciliation preserves the manual handoff and
 archives excess ledger history before any separately approved `42.3-2A` work.
-
-## 2026-07-22 — Catalog Performance Baseline Partial; Codex Capacity Paused
-
-date: 2026-07-22
-session_type: CATALOG_PERFORMANCE_PARTIAL_MEASUREMENT_HANDOFF
-recorded_repository_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
-completed_stage_42_3_1: COMPLETE_REPORTED
-completed_stage_42_3_2: PERFORMANCE_BASELINE_PARTIAL_REPORTED
-evidence_class: REPORTED_BY_CODEX
-next_proposed_stage: 42.3-2A — Targeted Measurement Completion and Startup Breakdown
-next_stage_approval: NOT_APPROVED
-codex_capacity: WEEKLY_LIMIT_EXHAUSTED
-project_os_update: MANUAL_HANDOFF_WITH_LEDGER_ARCHIVE_PENDING_REPOSITORY_COMMIT
-
-Stage `42.3-1` mapped the Catalog, media, query, startup, memory, and
-missing-source architecture without mutation. Stage `42.3-2` then captured a
-partial release-like disposable baseline. Database preparation/reference
-initialization was the dominant measured cost, scaling from about 1.0 second at
-32 Works to about 34.1 seconds at 1,000 Works; Home usable scaled from about 2.0
-to 35.2 seconds. Direct representative SQL and frontend collection transforms
-were comparatively small at the measured scale. Page-size-32 scrolling was
-stable in the reported environment, repeated rapid-search pipelines support
-later debounce evaluation, and original image area reached about 248.5× the
-rendered thumbnail area.
-
-The measurement remains incomplete for valid Detail waterfalls, page size 256,
-gallery, realistic image decode timing, phase-specific memory, and repeated
-missing-source requests. Detail measurement encountered a disposable fixture or
-harness identity conflict; it is not classified as a production defect. No
-optimization, managed-media system, schema/index, cache, UI/UX, dependency,
-Backup/Restore, Import/Export, or Translation change occurred. The primary
-repository remained reported unchanged; final fresh remote verification did not
-complete after execution quota exhaustion.
-
-The weekly Codex limit is exhausted. A five-path Project OS handoff was
-prepared: four active authority-file replacements plus
-`docs/ai/archive/session-ledger-2026.md`. These paths must be reconciled and
-committed before any further repository execution. Stage `42.3-2A`
-remains separately gated and unapproved.
 
 ## Archived Session History
 
