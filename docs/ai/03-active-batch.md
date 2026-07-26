@@ -6,7 +6,7 @@ batch: 42.3
 title: Catalog Performance and Media Audit
 status: ACTIVE
 phase: CONTROLLED_MEASUREMENT
-current_stage: 42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion
+current_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 completed_stage_42_3_1: COMPLETE_REPORTED
 stage_42_3_2_status: PERFORMANCE_BASELINE_PARTIAL_REPORTED
@@ -16,6 +16,8 @@ stage_42_3_2a_r1_result: BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED
 stage_42_3_2a_r2_status: PARTIAL_RESULT_ACCEPTED
 stage_42_3_2a_r2_result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
 parent_stage_42_3_2a_status: INCOMPLETE
+r3_attempt_status: STOPPED_WORKSPACE_LIMIT
+r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
 audit_allowed: false
 measurement_allowed: false
 tests_and_builds_allowed: false
@@ -35,7 +37,7 @@ ui_ux_allowed: false
 live_appdata_allowed: false
 risk: HIGH
 starting_branch: main
-recorded_repository_head: a7e33dc8400af486759e7a96bb960a51c9a6bc52
+recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 ## Accepted R1 Result
@@ -69,11 +71,25 @@ Internal startup phases remain unknown. Detail, gallery, complete image timing,
 phase memory, repeated missing-source, and metadata-preservation evidence remain
 incomplete. No memory leak was proven.
 
-## Proposed Stage 42.3-2A-R3
+## Accepted R3 Partial Static Result
+
+R3 stopped safely when its external workspace reached 4,685,178,294 bytes
+against a 3,500,000,000-byte hard limit. The retained evidence was 31,943
+bytes. Static mapping proves that application status and recovery gates use
+`classify_sakurava_ref_migration_state`; catalog page sizes 32, 64, 128, and
+256 are accepted with default 32; and the mapped `database_prepare` chain ends
+at schema initialization and Credit-type migration, outside application
+reference-status validation. The fixture-generator contract, same-database
+comparison, invalid Credit rows, internal phase timing, and instrumentation
+runtime behavior remain UNKNOWN or NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT.
+
+No production defect, repair, optimization, or implementation is authorized.
+
+## Proposed Stage 42.3-2A-R3-R1
 
 Title:
 
-`Fixture Validation Contract and Startup Instrumentation Completion`
+`Generator Contract Recovery and Bounded Instrumentation Build`
 
 Status:
 
@@ -89,7 +105,7 @@ Proposed boundary only:
 - defer broad performance reruns until fixture validity is established;
 - do not measure Detail or gallery until validation contracts agree.
 
-R3 is not approved by this document. No technical permission is granted.
+R3-R1 is not approved by this document. No technical permission is granted.
 
 ## Supported and Unsupported Conclusions
 

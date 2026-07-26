@@ -8,16 +8,16 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-26
 repository_state_recorded_at: 2026-07-26
-repository_state_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
-repository_state_evidence: CODEX_42_3_2_FINAL_REPORT
+repository_state_status: R3_PARTIAL_STATIC_RESULT_ACCEPTED
+repository_state_evidence: REPORTED_BY_CODEX_R3_RESULT_REVIEW
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_REQUIRED_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 8964
+untracked_entry_count: 8992
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: a7e33dc8400af486759e7a96bb960a51c9a6bc52
-baseline_label: Batch 42.3-2A Partial Measurement Documentation Closure
+last_recorded_baseline: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
+baseline_label: Batch 42.3-2A-R3 Static Contract Result Reconciliation
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 legacy_batch_series: 41.x  
@@ -35,8 +35,8 @@ last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
 active_batch: 42.3
 active_batch_title: Catalog Performance and Media Audit
 active_batch_phase: CONTROLLED_MEASUREMENT
-active_batch_mode: PERFORMANCE_BASELINE_PARTIAL_REPORTED
-current_stage: 42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion
+active_batch_mode: R3_PARTIAL_STATIC_RESULT_ACCEPTED
+current_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
@@ -53,17 +53,24 @@ batch_42_3_2a_r1_status: COMPLETED_AND_CLOSED
 batch_42_3_2a_r1_result: BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED
 batch_42_3_2a_r2_status: PARTIAL_RESULT_ACCEPTED
 batch_42_3_2a_r2_result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
+batch_42_3_2a_r3_attempt: STOPPED_WORKSPACE_LIMIT
+batch_42_3_2a_r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
 batch_42_3_2a_parent_status: INCOMPLETE
 measurement_dominant_cost: DATABASE_PREPARATION
 measurement_fixture_or_harness_integrity_gap: UNKNOWN_GENERATOR_APPLICATION_VALIDATION_CONFLICT
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
-measurement_remaining_gaps: INTERNAL_STARTUP_PHASES; DETAIL_WATERFALL_FIXTURE; PAGE_SIZE_256; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion
+measurement_remaining_gaps: FIXTURE_GENERATOR_CONTRACT; SAME_DATABASE_COMPARISON; INVALID_CREDIT_ROWS; INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
+next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
-page_size_256_runtime_state: REJECTED_BY_CONTROL
+page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
 missing_source_events: 142_MEASURED
+r3_workspace_peak_bytes: 4685178294
+r3_workspace_hard_limit_bytes: 3500000000
+r3_retained_evidence_bytes: 31943
+r3_instrumentation_status: UNVERIFIED_BUILD_DID_NOT_COMPLETE
+r3_production_defect_proven: false
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -117,7 +124,7 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: DOCUMENTATION_CLOSURE_IN_PROGRESS
+project_os_tracking_status: R3_RESULT_RECONCILIATION_IN_PROGRESS
 
 ---
 
@@ -127,10 +134,10 @@ This file records approved product state and the latest reported repository stat
 
 ### Current repository record
 
-The R2 measurement closure was performed from local `main` with a fresh
-`origin/main` synchronized at:
+The R3 documentation reconciliation was performed from local `main` with a
+fresh `origin/main` synchronized at:
 
-`a7e33dc8400af486759e7a96bb960a51c9a6bc52`
+`bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8`
 
 The measurement report states that the primary tracked worktree and staging
 remained clean and all untracked entries remained beneath `manual-smoke/`. The
@@ -140,7 +147,7 @@ R2 closure also completed a fresh remote verification. Therefore:
 - the starting and ending remote matches are `REPORTED_BY_CODEX`;
 - this documentation closure records the accepted partial result before any
   new technical stage;
-- the recorded untracked count is 8,964 and remains informational while all
+- the recorded untracked count is 8,992 and remains informational while all
   entries stay beneath `manual-smoke/`.
 
 The approved documentation closure modifies only:
@@ -516,7 +523,7 @@ Evidence class:
 
 `REPORTED_BY_CODEX`
 
-The dominant measured cost was database preparation/reference initialization:
+The dominant measured cost was the outer database preparation boundary:
 
 - Dataset S, 32 Works: about 1.0 second median;
 - Dataset M, 256 Works: about 8.6 seconds median;
@@ -535,9 +542,17 @@ accepted as `TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`. The parent `42.3-2A`
 remains incomplete. Internal startup phases remain unknown; the fixture
 generator reported `Migrated` while the application reference-status path
 reported invalid Credit references. This conflict is not classified as a
-production defect. The runtime control rejected page size 256. R2 recorded 142
+production defect. The R2 page-size-256 rejection is classified as a harness
+failure despite static support for 256. R2 recorded 142
 frontend image-error events, including 46 during the A interaction pass while
 Home and collection routes remained usable.
+
+R3 static mapping corrected the page-size contract: 256 is supported by source,
+and the R2 rejection is classified as a harness failure. The mapped
+`database_prepare` chain does not include application reference-status
+validation. The fixture-generator contract, same-database comparison, invalid
+Credit rows, internal phase timing, and instrumentation execution remain
+unknown or not measurable in the stopped R3 attempt.
 
 The baseline remains incomplete for valid Detail waterfalls, gallery, realistic
 image request/decode timing, phase-specific memory, repeated missing-source
@@ -552,7 +567,7 @@ UI/UX change, or implementation is approved.
 
 The following remain unverified or incomplete:
 
-- exact breakdown inside database preparation/reference initialization;
+- exact breakdown inside the database preparation boundary;
 - whether repeated startup migration or validation work can safely be reduced;
 - valid Video, Image, and Performer Detail command waterfalls;
 - page-size-256 render, scrolling, and memory behavior;

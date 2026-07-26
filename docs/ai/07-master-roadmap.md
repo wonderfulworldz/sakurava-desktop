@@ -9,7 +9,7 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: a7e33dc8400af486759e7a96bb960a51c9a6bc52
+last_recorded_git_baseline: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
 last_recorded_git_baseline_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 legacy_batch_series: 41.x
@@ -32,16 +32,17 @@ Stage `42.3-1` completed as a reported static architecture audit. Stage
 `PARTIAL_RESULT_ACCEPTED` with Result Review `TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`.
 
 R2 measured database-preparation medians of approximately 1.0, 8.6, and 35.5
-seconds for S/M/A. Internal startup phases remain unknown. The fixture
-generator reported `Migrated` while the application reference-status path
-reported invalid Credit references; this remains an unknown validation-contract
-conflict, not a production defect. Page-size 256 was rejected by the runtime
-control, and Detail, gallery, image-timing, phase-memory, repeated
-missing-source, and metadata-preservation evidence remain incomplete.
+seconds for S/M/A. R3 accepted static mapping shows catalog page sizes 32, 64,
+128, and 256 with default 32; the R2 256 rejection is classified as a harness
+failure. The mapped `database_prepare` chain does not include application
+reference-status validation. Internal phase timing, fixture-generator
+coverage, same-database comparison, and the generator/application conflict
+remain unknown or unmeasured. No production defect is proven.
 
-The parent `42.3-2A` is incomplete. The next proposed stage is
-`42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation
-Completion`, status `READY_PENDING_SEPARATE_APPROVAL`. No optimization,
+The parent `42.3-2A` is incomplete. R3 stopped at the workspace hard limit and
+its partial static result was accepted. The next proposed stage is
+`42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build`,
+status `READY_PENDING_SEPARATE_APPROVAL`. No optimization,
 managed-media implementation, schema/index change, cache change, UI/UX change,
 performance budget, or mini-image profile is approved.
 
@@ -881,7 +882,7 @@ compatibility decisions. The current spreadsheet contract remains unchanged.
 
 Current proposed stage:
 
-`42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion`
+`42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build`
 
 Current permission:
 
@@ -942,9 +943,9 @@ The disposable release-like baseline recorded:
   a memory leak.
 
 R1 completed with `BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED`. R2 was
-accepted as partial. The runtime rejected page size 256 for all three catalog
-types and recorded 142 frontend image-error events. Internal startup phases
-remain unknown. Incomplete evidence:
+accepted as partial. Static R3 mapping confirms page sizes 32, 64, 128, and 256
+with default 32; the R2 rejection is classified as a harness failure. Internal
+startup phases remain unknown. Incomplete evidence:
 
 - true page-size-256 behavior;
 - valid Video, Image, and Performer Detail waterfalls;
@@ -961,7 +962,7 @@ classified as a production defect.
 
 **Next Proposed Stage**
 
-`42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion`
+`42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build`
 
 Required focus:
 
@@ -971,7 +972,7 @@ Required focus:
 - verify instrumentation in disposable scope;
 - defer Detail/gallery measurement until validation contracts agree.
 
-This stage is not approved by this roadmap.
+This candidate is not approved by this roadmap.
 
 **In Scope**
 
@@ -1673,9 +1674,10 @@ Stage `42.3-1` is complete reported. Stage `42.3-2` captured a partial reported
 disposable baseline accepted by Result Review as `PARTIAL_BASELINE_ACCEPTED`.
 R1 is completed and closed with `BUILD_STRATEGY_VALIDATED_WITH_REBUILD_REQUIRED`.
 R2 is `PARTIAL_RESULT_ACCEPTED` with Result Review
-`TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`; parent `42.3-2A` remains incomplete.
-The next proposed stage is `42.3-2A-R3 — Fixture Validation Contract and
-Startup Instrumentation Completion`, pending separate approval.
+`TARGETED_MEASUREMENT_PARTIAL_ACCEPTED`; R3 stopped at the workspace hard limit
+with `R3_PARTIAL_STATIC_RESULT_ACCEPTED`; parent `42.3-2A` remains incomplete.
+The next proposed stage is `42.3-2A-R3-R1 — Generator Contract Recovery and
+Bounded Instrumentation Build`, pending separate approval.
 
 No implementation, performance budget, managed mini-image profile, schema/index
 change, cache change, UI/UX change, dependency work, or live-data access is

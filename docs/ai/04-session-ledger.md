@@ -75,16 +75,35 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — R3 Partial Static Contract Result Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_R3_STATIC_RESULT_RECONCILIATION
+recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
+next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+R3 stopped when its external workspace exceeded the approved hard limit.
+Static mapping accepted page size 256 and reclassified the R2 rejection as a
+harness failure. The mapped database_prepare chain does not include application
+reference-status validation. Fixture-generator coverage, same-database
+comparison, conflict cause, and internal phase timing remain unresolved. No
+diagnostic timing, production defect, repair, optimization, or implementation
+was authorized.
+
 ## 2026-07-26 — Batch 42.3-2A Partial Measurement Accepted
 
 date: 2026-07-26
 session_type: PROJECT_OS_PARTIAL_MEASUREMENT_CLOSURE
-recorded_repository_head: a7e33dc8400af486759e7a96bb960a51c9a6bc52
+recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 stage_42_3_2a_r1: COMPLETED_AND_CLOSED
 stage_42_3_2a_r2: PARTIAL_RESULT_ACCEPTED
 result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
-next_proposed_stage: 42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion
+next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
 next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
 implementation_allowed: false
 
@@ -178,28 +197,6 @@ operator database, or existing-catalog repair was used. Empty-section Export
 blocking and spreadsheet UX requests were recorded as deferred feedback.
 
 Batch `42.3A` is closed. Batch `42.3` is next but remains unapproved.
-
-## 2026-07-22 — Catalog Deletion Integrity Defect Confirmed
-
-date: 2026-07-22
-session_type: CATALOG_INTEGRITY_AUDIT_CLOSURE
-active_batch: 42.3A
-completed_stage: 42.3A-1 — Catalog Reference Integrity and Deletion Failure Audit
-audit_verdict: ROOT_CAUSE_CONFIRMED_FIX_REQUIRED
-primary_classification: DELETE_RELATIONSHIP_CASCADE_DEFECT
-secondary_classification: LIST_DETAIL_QUERY_DIVERGENCE
-data_risk: POTENTIAL_HIDDEN_ORPHANS
-implementation_allowed: false
-existing_catalog_repair_allowed: false
-
-The operator reported deletion-related Detail failures, the Settings recovery
-warning, unavailable Import/Export, and apparent recovery after Restore. The
-static audit recorded the findings without live AppData, an operator database,
-a Backup package, runtime, tests, or builds. Batch `42.3A` is now the blocking
-corrective prerequisite; Batch `42.3` is suspended.
-
-Next action: refresh Project ChatGPT files after documentation closure, then
-separately review and approve or reject `42.3A-2`.
 
 ## Archived Session History
 
