@@ -388,3 +388,22 @@ tests remain incomplete. Timing is `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`;
 no production defect or valid performance baseline was established. The final
 bounded retry is exhausted, no additional R3 retry is authorized, and this is a
 documentation-only parent-stage partial closure.
+
+## 2026-07-26 — Batch 42.3 Partial Audit Accepted and Closed
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_3_PARTIAL_AUDIT_CLOSURE
+recorded_repository_head: 8778d23e451df8cbbf8f11ba3c426e25199c6793
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+batch_42_3_result: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
+next_proposed_batch: Batch 42.4 — Managed Mini Media Foundation
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+Batch 42.3 preserves the accepted R2 baseline while classifying R3-R1 as
+`INSTRUMENTATION_VERIFICATION_ONLY` and R3-R2 as
+`INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`. Completed, partial, and incomplete
+objectives and permanent limitations are recorded. No production defect,
+performance budget, repair, optimization, or implementation was established
+or authorized. Batch 42.5 remains later and unauthorized.

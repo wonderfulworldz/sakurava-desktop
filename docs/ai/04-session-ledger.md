@@ -75,6 +75,28 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — Stage 42.4-6 Scope Consistency Corrected
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_5D_SCOPE_CONSISTENCY_CORRECTION
+pre_correction_repository_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
+application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+stage_42_4_5d_status: COMPLETED_AND_CLOSED
+correction: STALE_NEXT_STAGE_AND_BASELINE_REFERENCES_RECONCILED
+next_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+dependency_allowed: false
+tests_and_builds_allowed: false
+runtime_allowed: false
+database_allowed: false
+manual_smoke_allowed: false
+mutation: DOCUMENTATION_ONLY_NO_SOURCE_OR_EVIDENCE_MUTATION
+
+Stage 42.4-6 is the separately gated processor dependency and decode/encode
+implementation foundation. It does not repeat completed architecture or schema
+planning and is not approved.
+
 ## 2026-07-26 — Batch 42.4 Managed Media Foundation Implemented
 
 date: 2026-07-26
@@ -111,6 +133,7 @@ integration. All technical permissions return to false.
 
 date: 2026-07-26
 session_type: PROJECT_OS_BATCH_42_4_STANDARD_DIMENSION_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_5D
 pre_reconciliation_repository_head: d1f79861b869256d53a4c6cc317d870bd82f2676
 stage_42_4_3_result_review: CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR
 stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
@@ -129,7 +152,8 @@ implementation_allowed: false
 The accepted partial measurement established the approved familiar ratio names,
 three bounding-box tiers, family ceilings, source-size eligibility, no-upscale
 behavior, native fallback, related-square exclusion, and active Standard `4:3`
-related content. Architecture remains pending Stage 42.4-4.
+related content. This earlier architecture-pending statement is historical and
+superseded by the accepted Stage 42.4-4/42.4-5 foundation.
 
 ## 2026-07-26 — Batch 42.4 Canonical Ratios and Standard Variants Approved
 
@@ -179,25 +203,6 @@ or distortion. It covers applicable cover, Performer, gallery, Category,
 Glossary, Video-poster, and other catalog-media areas. Exact profiles remain
 unknown. Visual/profile and lifecycle/fallback smoke gates are reserved for
 after implementation verification; Stage 42.4-1 remains separately gated.
-
-## 2026-07-26 — Batch 42.3 Partial Audit Accepted and Closed
-
-date: 2026-07-26
-session_type: PROJECT_OS_BATCH_42_3_PARTIAL_AUDIT_CLOSURE
-recorded_repository_head: 8778d23e451df8cbbf8f11ba3c426e25199c6793
-application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
-batch_42_3_result: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
-valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
-next_proposed_batch: Batch 42.4 — Managed Mini Media Foundation
-next_batch_status: READY_PENDING_SEPARATE_APPROVAL
-implementation_allowed: false
-
-Batch 42.3 preserves the accepted R2 baseline while classifying R3-R1 as
-`INSTRUMENTATION_VERIFICATION_ONLY` and R3-R2 as
-`INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`. Completed, partial, and incomplete
-objectives and permanent limitations are recorded. No production defect,
-performance budget, repair, optimization, or implementation was established
-or authorized. Batch 42.5 remains later and unauthorized.
 
 ## Archived Session History
 

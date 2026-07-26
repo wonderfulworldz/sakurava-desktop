@@ -5,11 +5,12 @@
 batch: 42.4
 title: Managed Mini Media Foundation
 status: ACTIVE
-phase: DOCUMENTATION_ONLY_RECONCILIATION
-current_administrative_stage: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
+phase: POST_FOUNDATION_GATED
+current_administrative_stage: 42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
 current_stage_status: COMPLETED_AND_CLOSED
 next_technical_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_5d_status: COMPLETED_AND_CLOSED
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 implementation_allowed: false
 audit_allowed: false
@@ -25,8 +26,8 @@ ui_ux_allowed: false
 live_appdata_allowed: false
 manual_smoke_allowed: false
 
-recorded_repository_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
-application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+recorded_repository_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
+application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 ## Authority State
 
@@ -105,7 +106,8 @@ approved profile families. Full cards use Landscape `16:9`; active mini/lite
 and related cards use Standard `4:3`. The initial foundation has exactly three
 tiers: `THUMBNAIL`, `MEDIUM`, and `LARGE`; arbitrary per-page sizes and extra
 tiers require separate approval. Approved dimensions and family ceilings are
-recorded in `LOCK-MEDIA-001`; architecture remains pending.
+recorded in `LOCK-MEDIA-001`; architecture and schema foundation work are
+accepted and implemented inertly.
 
 Managed mini media preserves source aspect ratio and existing crop/contain
 behavior. Stretching, distortion, changing a slot ratio, independent
@@ -163,17 +165,23 @@ and absence of uncontrolled startup mass regeneration.
 
 Backup/Restore smoke remains assigned to Batches `42.6` and `42.7`.
 
-## Next Proposed Stage
+## Next Technical Stage
 
 `42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation`
 
 Status: `READY_PENDING_SEPARATE_APPROVAL`
 
-When separately approved, this stage is `PLAN ONLY`. It may inspect source
-read-only, select architecture, define metadata/storage strategy, determine
-schema requirements, define generation/regeneration and recovery, and define
-future verification. It must not correct ratios, generate media, implement
-storage, change schema, use live AppData, run smoke, or authorize implementation.
+When separately approved, this implementation foundation may add narrowly
+selected direct Rust image-processing and hashing dependencies, bounded
+streaming SHA-256, supported image decode, orientation normalization, centered
+canonical crop, both-dimension no-upscale eligibility, `NATIVE_FALLBACK`,
+JPEG/PNG encoding, output reopen/validation, synthetic disposable fixtures,
+and bounded quality/memory verification. It must not add CRUD hooks, a
+generation queue, operational regeneration, journal publication switching,
+startup recovery, frontend descriptors, table-ratio correction, visible UI,
+Translation keys, cleanup lifecycle, Backup/Restore/package integration, live
+AppData, or manual smoke. Stage 42.4-6 is not approved; all technical
+permissions remain false.
 
 ## Change Boundary
 

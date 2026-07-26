@@ -8,17 +8,17 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-26
 repository_state_recorded_at: 2026-07-26
-repository_state_status: MANAGED_MEDIA_FOUNDATION_ACCEPTED_AND_CLOSED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_5C_RESULT
-remote_main_verified: FRESH_PREFLIGHT_MATCHED_FOUNDATION_BASELINE
+repository_state_status: MANAGED_MEDIA_FOUNDATION_PROJECT_OS_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_5D_RESULT
+remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
-baseline_label: Batch 42.4-5 Managed Media Foundation Implementation
-application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+last_recorded_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
+baseline_label: Batch 42.4-5C Managed Media Foundation Project OS Reconciliation
+application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -34,10 +34,10 @@ last_completed_roadmap_batch_title: Catalog Performance and Media Audit
 last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
-active_batch_phase: DOCUMENTATION_ONLY_RECONCILIATION
-active_batch_mode: DOCUMENTATION_ONLY_RECONCILIATION
-current_stage: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
-completed_current_stage: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
+active_batch_phase: POST_FOUNDATION_GATED
+active_batch_mode: DOCUMENTATION_ONLY
+current_stage: 42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
+completed_current_stage: 42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
 current_stage_status: COMPLETED_AND_CLOSED
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
@@ -112,6 +112,7 @@ stage_42_4_3c_status: COMPLETED_AND_CLOSED
 stage_42_4_4_status: COMPLETED_AND_ACCEPTED
 stage_42_4_5_status: COMPLETED_AND_ACCEPTED
 stage_42_4_5c_status: COMPLETED_AND_CLOSED
+stage_42_4_5d_status: COMPLETED_AND_CLOSED
 stage_42_4_5_implementation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 stage_42_4_5_architecture_id: RUST_MANAGED_MEDIA_SERVICE_WITH_HYBRID_SQLITE_METADATA_AND_IMMUTABLE_FILES
 stage_42_4_5_publication_model: JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION
@@ -143,7 +144,7 @@ managed_mini_media_visual_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 managed_mini_media_lifecycle_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 repair_authorized: false
 optimization_authorized: false
-active_technical_batch: 42.4-5C — Managed Media Foundation Result and Baseline Reconciliation
+active_technical_batch: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -218,7 +219,7 @@ authorized.
 
 Parent Stage `42.3-2A` is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`.
 
-## Batch 42.3 Partial Audit Closure
+## Historical Pre-42.4-3 Record — Batch 42.3 Partial Audit Closure
 
 Batch `42.3` is now `PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`, with result
 `MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS`. Valid R2 baseline
@@ -837,19 +838,18 @@ for authoritative lock wording.
 
 ---
 
-## 15. Recommended Next Action
+## Historical Recommended Next Action Before Foundation Closure
 
-The documentation closure records R1, R2, R3, R3-R1, and the final partial
-R3-R2 result while preserving the five-entry ledger. Stage 42.4-1 is accepted
-and Stage 42.4-2 is closed. The next proposed action is the separately gated
-Stage 42.4-3 bounded runtime measurement described above.
+The earlier documentation record proposed Stage 42.4-3 measurement. That
+proposal is historical and superseded by the accepted foundation and the
+Stage 42.4-5D correction recorded below.
 
 No measurement, tests, builds, runtime, optimization, managed media, schema or
 index work, dependency, UI/UX, or live-data work is approved by this record.
 
 ---
 
-## Batch 42.4-5C Managed Media Foundation Result and Baseline Reconciliation
+## Batch 42.4-5D Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
 
 Stage `42.4-4 — Managed Media Architecture and Implementation Plan` is
 `COMPLETED_AND_ACCEPTED`. Its accepted architecture is
@@ -867,7 +867,8 @@ Foundation` is `COMPLETED_AND_ACCEPTED` with Codex verdict
 `feat(media): add managed media foundation`.
 
 Stage `42.4-5C — Managed Media Foundation Result and Baseline Reconciliation`
-is `COMPLETED_AND_CLOSED`. It records exactly ten approved implementation
+is `COMPLETED_AND_CLOSED`. Stage `42.4-5D — Post-Reconciliation Stage 42.4-6
+Scope Consistency Correction` is `COMPLETED_AND_CLOSED`. It records exactly ten approved implementation
 paths, successful local/remote synchronization, no dependency changes, no
 Project OS mutation during implementation, no live AppData use, and no manual
 smoke execution.
@@ -906,7 +907,18 @@ setup. Static reparse-attribute detection exists; this is not classified as a
 production defect.
 
 All technical permissions are false. Stage `42.4-6 — Managed Media Processor
-Dependency and Decode/Encode Foundation` is
-`READY_PENDING_SEPARATE_APPROVAL`. Processor dependencies, generation,
-runtime integration, frontend integration, ratio correction, Backup/Restore,
-package work, live AppData, and manual smoke remain unauthorized.
+Dependency and Decode/Encode Foundation` is the next technical stage with
+status `READY_PENDING_SEPARATE_APPROVAL`; it is not architecture or schema
+planning and is not approved. Processor dependencies, generation, runtime
+integration, frontend integration, ratio correction, Backup/Restore, package
+work, live AppData, and manual smoke remain unauthorized.
+
+When separately approved, Stage 42.4-6 may add narrowly selected direct Rust
+image-processing and hashing dependencies, bounded streaming SHA-256, supported
+image decode, orientation normalization, centered canonical crop, both-
+dimension no-upscale eligibility, `NATIVE_FALLBACK`, JPEG/PNG encoding, output
+reopen/validation, synthetic disposable fixtures, and bounded quality/memory
+verification. It must not add CRUD hooks, queues, operational regeneration,
+publication switching, startup recovery, frontend descriptors, table-ratio
+correction, UI, Translation keys, cleanup lifecycle, Backup/Restore/package
+integration, live AppData, or manual smoke.

@@ -9,16 +9,16 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
-last_recorded_git_baseline_status: MANAGED_MEDIA_FOUNDATION_IMPLEMENTATION_BASELINE
-application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+last_recorded_git_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
+last_recorded_git_baseline_status: MANAGED_MEDIA_FOUNDATION_PROJECT_OS_RECONCILED
+application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.3
 active_batch: 42.4
-active_technical_batch: 42.4-5C
+active_technical_batch: 42.4-6
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 batch_42_4_status: ACTIVE_DOCUMENTATION_CLOSURE
@@ -27,6 +27,10 @@ batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
 batch_42_4_stage_42_4_3c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_4_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_5_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_5c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_5d_status: COMPLETED_AND_CLOSED
 batch_42_4_next_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 
@@ -1212,10 +1216,26 @@ database behavior. Privileged Windows reparse-point creation remains
 `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` because of OS error `1314`; static
 reparse detection exists.
 
+Stage `42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency
+Correction` is `COMPLETED_AND_CLOSED`. It distinguishes repository baseline
+`0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b` from application/source baseline
+`e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4` and corrects the next-stage scope.
+
 The next technical stage is `42.4-6 — Managed Media Processor Dependency and
-Decode/Encode Foundation`, `READY_PENDING_SEPARATE_APPROVAL`. Dependency and
-processor work is inactive until separately approved. Backup/package work
-remains assigned to Batches `42.6`/`42.7`.
+Decode/Encode Foundation`, `READY_PENDING_SEPARATE_APPROVAL`. It is not
+`PLAN ONLY`, architecture selection, or schema selection. When separately
+approved it may add narrowly selected direct Rust image-processing and hashing
+dependencies, bounded streaming SHA-256, supported image decode, orientation
+normalization, centered canonical crop, both-dimension no-upscale eligibility,
+`NATIVE_FALLBACK`, JPEG/PNG encoding, output reopen/validation, synthetic
+disposable fixtures, and bounded quality/memory verification.
+
+It must not add CRUD hooks, a generation queue, operational regeneration,
+journal publication switching, startup recovery, frontend descriptors,
+table-ratio correction, visible UI, Translation keys, cleanup lifecycle,
+Backup/Restore/package integration, live AppData, or manual smoke. All
+technical permissions remain false. Backup/package work remains assigned to
+Batches `42.6`/`42.7`.
 
 ---
 
