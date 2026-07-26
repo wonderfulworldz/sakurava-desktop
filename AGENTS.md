@@ -210,3 +210,49 @@ npm.cmd run tauri dev
 Run `cargo test` from `src-tauri`, not from the project root.
 
 Docs-only changes do not require a full build unless docs reference generated code, scripts, or changed runtime behavior.
+
+## Graphify Code Navigation
+
+Graphify is an advisory code-navigation tool subordinate to the Sakurava
+Project OS, the approved Codex prompt, Active Locks, and current stage scope.
+
+For cross-file architecture, dependency, call-flow, or impact questions, run
+the approved bridge status check before broad repository searches:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" status
+```
+
+When the status is `READY` or `READY_WITH_DOCS_ONLY_DRIFT`, use the same bridge
+for bounded read-only navigation:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" query "<question>"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" explain "<node>"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" path "<source>" "<target>"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" affected "<node>"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" god-nodes
+```
+
+Graphify output is not final evidence. Confirm material conclusions against
+the current source, Git state, focused tests, builds, or runtime evidence when
+those actions are authorized by the current stage.
+
+A missing node, edge, path, or result does not prove that code is absent,
+unused, unreachable, or safe to change. The approved graph has known dangling
+endpoints and relation-collapse limitations.
+
+Use only the approved read-only Sakurava Graphify bridge. Do not run Graphify
+extract, update, watch, install, uninstall, hook, clone, add, global,
+save-result, reflect, or purge commands from the repository.
+
+Never direct Graphify at D:\sakurava-desktop, manual-smoke/, live AppData,
+runtime databases, media folders, or operator data.
+
+Graphify does not authorize audit, implementation, tests, builds, runtime,
+commit, push, scope expansion, or Project OS changes.
+
+If bridge status is `GRAPH_STALE`, report it and continue with normal
+controlled source inspection. Do not refresh the graph automatically.
+
+Do not add Graphify-generated marker sections, installer comments, or hook instructions.
