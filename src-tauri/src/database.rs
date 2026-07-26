@@ -1773,6 +1773,8 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
         )?;
     }
 
+    crate::managed_media::schema::initialize_schema(connection)?;
+
     Ok(())
 }
 
@@ -5349,6 +5351,9 @@ mod tests {
                 "glossary_entries",
                 "images",
                 "managedCategories",
+                "managed_media_items",
+                "managed_media_operations",
+                "managed_media_variants",
                 "performers",
                 "sakuravaRefAliases",
                 "sakuravaRefCounters",
@@ -5356,6 +5361,14 @@ mod tests {
                 "videos"
             ]
         );
+        for table in crate::managed_media::schema::MANAGED_MEDIA_TABLES {
+            let count: i64 = connection
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("managed-media row count");
+            assert_eq!(count, 0);
+        }
 
         let _ = fs::remove_dir_all(app_data_dir);
     }

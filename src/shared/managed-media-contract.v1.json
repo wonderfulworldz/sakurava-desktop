@@ -1,0 +1,238 @@
+{
+  "contractVersion": 1,
+  "profileVersion": "managed-media-profile-v1",
+  "tiers": [
+    {
+      "id": "THUMBNAIL",
+      "maxWidth": 320,
+      "maxHeight": 320
+    },
+    {
+      "id": "MEDIUM",
+      "maxWidth": 1280,
+      "maxHeight": 1280
+    },
+    {
+      "id": "LARGE",
+      "maxWidth": 1920,
+      "maxHeight": 1920
+    }
+  ],
+  "families": [
+    {
+      "id": "LANDSCAPE_16_9",
+      "ratio": {
+        "width": 16,
+        "height": 9
+      },
+      "targets": [
+        {
+          "tier": "THUMBNAIL",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "tier": "MEDIUM",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "tier": "LARGE",
+          "width": 1920,
+          "height": 1080
+        }
+      ]
+    },
+    {
+      "id": "STANDARD_4_3",
+      "ratio": {
+        "width": 4,
+        "height": 3
+      },
+      "targets": [
+        {
+          "tier": "THUMBNAIL",
+          "width": 320,
+          "height": 240
+        },
+        {
+          "tier": "MEDIUM",
+          "width": 1280,
+          "height": 960
+        }
+      ]
+    },
+    {
+      "id": "SQUARE_1_1",
+      "ratio": {
+        "width": 1,
+        "height": 1
+      },
+      "targets": [
+        {
+          "tier": "THUMBNAIL",
+          "width": 320,
+          "height": 320
+        },
+        {
+          "tier": "MEDIUM",
+          "width": 1280,
+          "height": 1280
+        }
+      ]
+    },
+    {
+      "id": "PORTRAIT_4_5",
+      "ratio": {
+        "width": 4,
+        "height": 5
+      },
+      "targets": [
+        {
+          "tier": "THUMBNAIL",
+          "width": 256,
+          "height": 320
+        },
+        {
+          "tier": "MEDIUM",
+          "width": 1024,
+          "height": 1280
+        },
+        {
+          "tier": "LARGE",
+          "width": 1536,
+          "height": 1920
+        }
+      ]
+    }
+  ],
+  "fitPolicies": [
+    {
+      "id": "CENTER_COVER",
+      "objectFit": "cover",
+      "objectPosition": "center"
+    }
+  ],
+  "roles": [
+    {
+      "id": "video_collection_full_card",
+      "family": "LANDSCAPE_16_9",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "image_collection_full_card",
+      "family": "LANDSCAPE_16_9",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "video_detail_primary",
+      "family": "LANDSCAPE_16_9",
+      "tiers": ["THUMBNAIL", "MEDIUM", "LARGE"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "image_detail_primary",
+      "family": "LANDSCAPE_16_9",
+      "tiers": ["THUMBNAIL", "MEDIUM", "LARGE"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "video_table",
+      "family": "LANDSCAPE_16_9",
+      "tiers": ["THUMBNAIL"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "image_table",
+      "family": "LANDSCAPE_16_9",
+      "tiers": ["THUMBNAIL"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "video_lite_card",
+      "family": "STANDARD_4_3",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "image_lite_card",
+      "family": "STANDARD_4_3",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "performer_lite_card",
+      "family": "STANDARD_4_3",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "related_video_active",
+      "family": "STANDARD_4_3",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "related_image_active",
+      "family": "STANDARD_4_3",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "related_performer_active",
+      "family": "STANDARD_4_3",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "performer_collection_full_card",
+      "family": "SQUARE_1_1",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "image_gallery_tile",
+      "family": "SQUARE_1_1",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "category_active_card",
+      "family": "SQUARE_1_1",
+      "tiers": ["THUMBNAIL", "MEDIUM"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "category_table",
+      "family": "SQUARE_1_1",
+      "tiers": ["THUMBNAIL"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "glossary_table",
+      "family": "SQUARE_1_1",
+      "tiers": ["THUMBNAIL"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "performer_detail_primary",
+      "family": "PORTRAIT_4_5",
+      "tiers": ["THUMBNAIL", "MEDIUM", "LARGE"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "performer_mini_row",
+      "family": "PORTRAIT_4_5",
+      "tiers": ["THUMBNAIL"],
+      "fitPolicy": "CENTER_COVER"
+    },
+    {
+      "id": "performer_table",
+      "family": "PORTRAIT_4_5",
+      "tiers": ["THUMBNAIL"],
+      "fitPolicy": "CENTER_COVER"
+    }
+  ]
+}

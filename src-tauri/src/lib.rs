@@ -1,5 +1,6 @@
 mod commands;
 pub mod database;
+pub mod managed_media;
 
 use tauri::Manager;
 
