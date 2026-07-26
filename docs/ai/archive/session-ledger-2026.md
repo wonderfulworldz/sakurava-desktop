@@ -11,6 +11,33 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-22 — Translation Containment Closed
+
+date: 2026-07-22
+session_type: TRANSLATION_CONTAINMENT_CLOSURE
+final_application_configuration_baseline: 211e5bdd614ce5cc5e203f894db564702755b709
+completed_stage: 42.2E — Disposable Translation Manual Smoke Verification
+proposed_next_batch: 42.3 — Catalog Performance and Media Audit
+next_batch_approval: NOT_APPROVED
+local_untracked_evidence: 1334 beneath manual-smoke/
+live_appdata_used: no
+next_mode: RESULT REVIEW
+
+Batch 42.2 is completed and closed. The Vite watcher correction and focused
+test/build are `REPORTED_BY_CODEX`; native dialogs and the disposable
+Translation smoke are `OBSERVED_BY_OPERATOR`. English remained the sole
+built-in language, Indonesian remained user-managed, the canonical five-column
+CSV and corrected UTF-8 existing-language re-import succeeded, no duplicate
+identity was observed, Category/user-entered data remained unchanged, and
+restart persistence succeeded. Preview numeric counts were `NOT_REPORTED`.
+No live AppData was used; evidence remained local beneath `manual-smoke/`.
+
+Next action: refresh the four Project ChatGPT files and begin a new chat
+checkpoint before authorizing Batch 42.3. No Batch 42.3 audit or implementation
+was authorized at that time.
+
+---
+
 ## 2026-07-22 — User-Friendly Translation CSV Contract Completed
 
 ### Session Metadata

@@ -75,6 +75,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — Batch 42.3-2A Partial Measurement Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_PARTIAL_MEASUREMENT_CLOSURE
+recorded_repository_head: a7e33dc8400af486759e7a96bb960a51c9a6bc52
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+stage_42_3_2a_r1: COMPLETED_AND_CLOSED
+stage_42_3_2a_r2: PARTIAL_RESULT_ACCEPTED
+result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
+next_proposed_stage: 42.3-2A-R3 — Fixture Validation Contract and Startup Instrumentation Completion
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+R1 validated external build-workspace separation with rebuild required. R2
+measured database-preparation medians of approximately 1.0 s, 8.6 s, and 35.5 s
+for S/M/A and recorded repeated missing-source events. Internal startup phases,
+the fixture/application validation conflict, page-size-256 state, Detail and
+gallery waterfalls, image timing, and phase-specific memory remain incomplete.
+No production defect or memory leak was proven. This entry records the
+documentation-only closure; R3 remains separately gated.
+
 ## 2026-07-25 — Batch 42.3-2 Partial Baseline Reconciled
 
 date: 2026-07-25
@@ -179,31 +200,6 @@ corrective prerequisite; Batch `42.3` is suspended.
 
 Next action: refresh Project ChatGPT files after documentation closure, then
 separately review and approve or reject `42.3A-2`.
-
-## 2026-07-22 — Translation Containment Closed
-
-date: 2026-07-22
-session_type: TRANSLATION_CONTAINMENT_CLOSURE
-final_application_configuration_baseline: 211e5bdd614ce5cc5e203f894db564702755b709
-completed_stage: 42.2E — Disposable Translation Manual Smoke Verification
-proposed_next_batch: 42.3 — Catalog Performance and Media Audit
-next_batch_approval: NOT_APPROVED
-local_untracked_evidence: 1334 beneath manual-smoke/
-live_appdata_used: no
-next_mode: RESULT REVIEW
-
-Batch 42.2 is completed and closed. The Vite watcher correction and focused
-test/build are `REPORTED_BY_CODEX`; native dialogs and the disposable
-Translation smoke are `OBSERVED_BY_OPERATOR`. English remained the sole
-built-in language, Indonesian remained user-managed, the canonical five-column
-CSV and corrected UTF-8 existing-language re-import succeeded, no duplicate
-identity was observed, Category/user-entered data remained unchanged, and
-restart persistence succeeded. Preview numeric counts were `NOT_REPORTED`.
-No live AppData was used; evidence remained local beneath `manual-smoke/`.
-
-Next action: refresh the four Project ChatGPT files and begin a new chat
-checkpoint before authorizing Batch 42.3. No Batch 42.3 audit or implementation
-is authorized.
 
 ## Archived Session History
 
