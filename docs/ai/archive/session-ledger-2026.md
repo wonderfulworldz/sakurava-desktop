@@ -11,6 +11,27 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-26 — R3 Partial Static Contract Result Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_R3_STATIC_RESULT_RECONCILIATION
+recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+r3_result_review: R3_PARTIAL_STATIC_RESULT_ACCEPTED
+next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+R3 stopped when its external workspace exceeded the approved hard limit.
+Static mapping accepted page size 256 and reclassified the R2 rejection as a
+harness failure. The mapped database_prepare chain does not include application
+reference-status validation. Fixture-generator coverage, same-database
+comparison, conflict cause, and internal phase timing remained unresolved. No
+diagnostic timing, production defect, repair, optimization, or implementation
+was authorized.
+
+---
+
 ## 2026-07-26 — Batch 42.3-2A Partial Measurement Accepted
 
 date: 2026-07-26

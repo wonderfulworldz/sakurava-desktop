@@ -34,10 +34,10 @@ last_completed_roadmap_batch_title: Catalog Performance and Media Audit
 last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
-active_batch_phase: AUDIT_FIRST
+active_batch_phase: DOCUMENTATION_ONLY_RECONCILIATION
 active_batch_mode: DOCUMENTATION_ONLY_RECONCILIATION
-current_stage: 42.4-0 — Batch Activation and Managed Mini Media Product Boundary Reconciliation
-completed_current_stage: 42.4-0 — Batch Activation and Managed Mini Media Product Boundary Reconciliation
+current_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
+completed_current_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
@@ -68,7 +68,7 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit
+next_proposed_stage: 42.4-3 — Bounded Canonical Slot Runtime Measurement
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -92,14 +92,33 @@ valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
 production_defect: NOT_PROVEN
 memory_leak: NOT_PROVEN
 performance_budget: NOT_APPROVED
-managed_mini_media_decision_id: FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA
-managed_mini_media_audit_status: NOT_PERFORMED
+managed_mini_media_decision_id: CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION
+managed_mini_media_prior_boundary_decision_id: FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA
+managed_mini_media_audit_status: MANAGED_MINI_MEDIA_AUDIT_COMPLETE
+managed_mini_media_audit_result_review: MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS
+managed_mini_media_audit_mode: READ_ONLY
+managed_mini_media_audit_repository_mutation: NONE
+stage_42_4_1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_2_status: COMPLETED_AND_CLOSED
+stage_42_4_3_status: READY_PENDING_SEPARATE_APPROVAL
+managed_mini_media_implementation_allowed: false
+managed_mini_media_measurement_allowed: false
+managed_mini_media_manual_smoke_allowed: false
+managed_mini_media_canonical_ratio_families: WIDE_16_9; MINI_CARD_4_3; SQUARE_1_1; PERFORMER_PORTRAIT_4_5
+managed_mini_media_invalid_source_ratios: 5:3; 11:14
+managed_mini_media_dormant_ratio_excluded: 3:2
+managed_mini_media_card_mini_card_separation: FULL_CARD_16_9; MINI_LITE_CARD_4_3
+managed_mini_media_standard_tiers: SMALL; MEDIUM; LARGE
+managed_mini_media_standard_tier_maximum: 3
+managed_mini_media_generation_direction: TARGETED_SAFE_REGENERATION
 managed_mini_media_exact_profiles: UNKNOWN
+managed_mini_media_exact_dimensions: UNKNOWN
+managed_mini_media_architecture: UNKNOWN
 managed_mini_media_visual_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 managed_mini_media_lifecycle_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 repair_authorized: false
 optimization_authorized: false
-active_technical_batch: NONE
+active_technical_batch: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -184,33 +203,55 @@ measurements remain the only accepted performance baseline. R3-R1 remains
 
 Completed, partial, and incomplete objectives remain explicitly separated. No
 production defect, memory leak, performance budget, repair, optimization, or
-implementation was established or authorized. The active technical batch is
-Batch `42.4 — Managed Mini Media Foundation` is active and audit-first. Stage
-`42.4-0` is completed and closed; Stage `42.4-1 — Managed Mini Media Slot,
-Profile, and Lifecycle Audit` is `READY_PENDING_SEPARATE_APPROVAL`. Batch 42.5
-remains planned and unauthorized.
+implementation was established or authorized. Batch `42.4 — Managed Mini Media
+Foundation` remains active in documentation
+closure. Stage `42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit`
+is completed and accepted with decision gaps. Stage `42.4-2 — Canonical Ratio
+and Standard Variant Decision Reconciliation` is completed and closed. Stage
+`42.4-3 — Bounded Canonical Slot Runtime Measurement` is the next proposed
+stage, `READY_PENDING_SEPARATE_APPROVAL`, and measurement is not authorized.
+Batch 42.5 remains planned and unauthorized.
 
 All technical permissions remain false.
 
-## Batch 42.4-0 Product Boundary Reconciliation
+## Batch 42.4-2 Canonical Ratio and Standard Variant Decision Reconciliation
 
-The operator-approved decision is
-`FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`.
-Existing visual slot ratios and hierarchy are protected. Managed mini media
-uses context-specific profile families, with multiple sufficient-size variants
-where needed; materially equivalent slots may share a family and unique ratios
-remain distinct. Source proportions and current crop/contain behavior must be
-preserved without stretching or distortion.
+Stage 42.4-1 is accepted with verdict `MANAGED_MINI_MEDIA_AUDIT_COMPLETE` and
+Result Review `MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS`. The new
+operator-approved decision is
+`CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION`,
+supplementing `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`.
+The approved active managed-media families are exactly `WIDE_16_9`,
+`MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`.
+
+The current `80×48`/`5:3` Video/Image table geometry must later be corrected to
+`16:9`, and the current `44×56`/`11:14` Performer table geometry must later be
+corrected to `4:5`. These are current source compliance gaps, not approved
+profiles. Dormant unrouted Category `3:2` is excluded from initial provisioning.
+Full cards and mini/lite cards remain separate contexts: full Video/Image cards
+use `16:9`, while mini/lite cards use `4:3`.
+
+One canonical ratio identity must be shared by visible geometry, CSS,
+width/height declarations, metadata, profile mapping, generation, renderer
+selection, diagnostics, and automated tests. The initial foundation allows at
+most three standard logical tiers: `SMALL`, `MEDIUM`, and `LARGE`; families may
+use fewer tiers, but arbitrary per-page sizes or additional tiers require
+separate approval. Exact dimensions remain `UNKNOWN`.
 
 The boundary covers applicable catalog media including covers, gallery,
 Performer, Category, Glossary, Video posters, and other catalog-media areas. UI
 assets, Translation assets, screenshots, manual-smoke evidence, full external
-originals, and temporary decode cache are excluded. Exact dimensions, variants,
-format, quality, crop anchors, naming, storage, database representation, and
-generation parameters remain `UNKNOWN`; the managed-mini-media audit has not
-been performed. Visual/profile and lifecycle/fallback smoke gates are reserved
-for after implementation and automated verification. Actual `.skv` package
-implementation remains assigned to Batches 42.6/42.7.
+originals, and temporary decode cache are excluded. Automatic generation and
+regeneration is limited to relevant source changes or bounded targeted repair;
+output uses isolated staging, validation before replacement, last-valid
+preservation, safe atomic or equivalent recoverable replacement, and
+reference-aware cleanup. Startup-wide regeneration is prohibited. The full
+viewer uses the original first and the largest valid managed representation only
+as a missing-source fallback. Actual `.skv` package implementation remains
+assigned to Batches 42.6/42.7. Architecture, metadata, storage, format,
+quality, naming, concurrency, queueing, and retry remain pending architecture
+planning. Visual/profile and lifecycle/regeneration smoke gates remain deferred
+until implementation and automated verification.
 
 ---
 
@@ -220,32 +261,37 @@ This file records approved product state and the latest reported repository stat
 
 ### Current repository record
 
-The R3-R2 documentation reconciliation is performed from local `main` with a
-fresh `origin/main` synchronized at:
+The Batch 42.4-2 documentation reconciliation begins from local `main` at
+the required pre-reconciliation HEAD:
 
-`b2e586c834d6d4aa1cecb8de3049f0f89f08511f`
+`9fbfa3883ff2408f6763df3b7fa0ca94443757a3`
+
+Fresh `origin/main` matched that required baseline before mutation.
 
 The measurement report states that the primary tracked worktree and staging
 remained clean and all untracked entries remained beneath `manual-smoke/`. The
 R2, R3-R1, and R3-R2 technical records are Codex-reported evidence. Therefore:
 
 - local repository state is `REPORTED_UNCHANGED_BY_CODEX_MEASUREMENT`;
-- the starting and ending remote matches are `REPORTED_BY_CODEX`;
-- this documentation closure records the accepted partial result before any
-  new technical stage;
+- the starting remote match is `REPORTED_BY_CODEX`; the post-push remote will
+  be recorded in the closure report after verification;
+- this documentation closure records the accepted Stage 42.4-1 audit and
+  reconciles the approved product decision before any new technical stage;
 - the recorded untracked count is 9,084 and remains informational while all
   entries stay beneath `manual-smoke/`.
 
 The approved documentation closure modifies only:
 
 - `docs/ai/01-current-state.md`;
+- `docs/ai/02-active-locks.md`;
 - `docs/ai/03-active-batch.md`;
 - `docs/ai/04-session-ledger.md`;
 - `docs/ai/07-master-roadmap.md`;
 - `docs/ai/archive/session-ledger-2026.md`.
 
-These documentation paths are reconciled and committed through the approved
-controlled Project OS closure. No technical stage is authorized by this record.
+These six documentation paths are reconciled and committed through the
+approved controlled Project OS closure. No technical stage is authorized by
+this record.
 
 Fresh Git, test, build, inspector, or runtime evidence overrides this recorded
 state.
@@ -323,7 +369,8 @@ The approved roadmap is represented by Batch series `42.x`.
 
 Batch `42.2` and its Translation stages are completed historical work. Batch
 `42.3` is completed and closed with its partial audit baseline recorded. Current
-active work is the documentation-reconciled, audit-first Batch `42.4`.
+active work is the documentation-reconciled Batch `42.4`; its next technical
+stage is the separately gated Stage `42.4-3` measurement proposal.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 
@@ -757,11 +804,9 @@ for authoritative lock wording.
 ## 15. Recommended Next Action
 
 The documentation closure records R1, R2, R3, R3-R1, and the final partial
-R3-R2 result while preserving the five-entry ledger. Separately review and
-approve or reject Batch 42.4:
+R3-R2 result while preserving the five-entry ledger. Stage 42.4-1 is accepted
+and Stage 42.4-2 is closed. The next proposed action is the separately gated
+Stage 42.4-3 bounded runtime measurement described above.
 
-`Batch 42.4 — Managed Mini Media Foundation`
-
-No further audit, measurement, tests, builds, runtime, optimization, managed
-media, schema/index, dependency, UI/UX, or live-data work is approved by this
-record.
+No measurement, tests, builds, runtime, optimization, managed media, schema or
+index work, dependency, UI/UX, or live-data work is approved by this record.

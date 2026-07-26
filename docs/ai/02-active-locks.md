@@ -189,7 +189,19 @@ Approved product boundary `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULT
 * current crop or contain behavior remains protected until an audit clarifies any unresolved crop anchor or focal-point behavior;
 * coverage includes applicable catalog media such as covers, gallery images, Performer visuals, Category visuals, Glossary visuals, and Video poster or representative frames;
 * application icons, navigation/control icons, the application logo, decorative frontend assets, Translation assets, development screenshots, manual-smoke evidence, full external originals, and temporary decode cache are excluded;
-* exact dimensions, variant count, format, quality, naming, storage, database representation, generation, and replacement parameters remain `UNKNOWN` pending the Batch 42.4-1 audit and later approval.
+* exact dimensions, format, quality, naming, storage, database representation, generation, concurrency, and replacement parameters remain `UNKNOWN` pending architecture planning and later approval;
+* the accepted Stage 42.4-1 audit is recorded as `MANAGED_MINI_MEDIA_AUDIT_COMPLETE` with Result Review `MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS`;
+* approved active managed-media ratio families are exactly `WIDE_16_9`, `MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`;
+* `5:3` and `11:14` are invalid product profile ratios, and dormant unrouted Category `3:2` is excluded from initial provisioning;
+* full cards and mini/lite cards are separate contexts: full Video/Image cards use `16:9`, while mini/lite cards use `4:3`; ratio sharing follows approved geometry and context, not entity type alone;
+* one canonical ratio identity must be shared by visible geometry, CSS, width/height declarations, metadata, profile mapping, generation, renderer selection, diagnostics, and tests; conflicting duplicate ratio declarations are prohibited;
+* the initial foundation permits at most three standard logical tiers: `SMALL`, `MEDIUM`, and `LARGE`. A family may use fewer tiers, but arbitrary per-page or per-component sizes and additional tiers require separate approval;
+* renderer selection chooses the smallest validated sufficient tier for actual rendering and display scaling, without enlarging an undersized variant when a sufficient larger variant exists;
+* automatic generation and regeneration is bounded to relevant source changes, missing/invalid/outdated variants, or explicitly targeted selections; startup-wide regeneration is prohibited;
+* generation uses isolated staging, validation before replacement, safe atomic or equivalent recoverable replacement, last-valid preservation, and reference-aware cleanup. External originals remain untouched; managed variants are protected assets and are not disposable cache;
+* the full viewer uses natural source ratio, prefers the original when available, and may use the largest valid managed representation only as a missing-source fallback. It has no separate managed-mini profile family;
+* exact pixel dimensions, architecture, schema, metadata, fingerprints, format, quality, naming, storage, queueing, retry, concurrency, and UI remain pending architecture planning;
+* actual `.skv` package implementation remains assigned to Batches `42.6` and `42.7`.
 
 Full external media is not converted into Sakurava-managed original media through this lock.
 

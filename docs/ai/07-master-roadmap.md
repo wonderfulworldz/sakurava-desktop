@@ -18,12 +18,14 @@ new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.3
 active_batch: 42.4
-active_technical_batch: NONE
+active_technical_batch: 42.4-2
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_AUDIT_FIRST
+batch_42_4_status: ACTIVE_DOCUMENTATION_CLOSURE
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
-batch_42_4_stage_42_4_1_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_3_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
 
@@ -72,15 +74,22 @@ R3-R2 traces are `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only. No valid
 production performance baseline or production defect was established. The final
 bounded retry is exhausted; no additional R3 retry, repair, optimization, or
 implementation is authorized. Batch `42.4 — Managed Mini Media Foundation` is
-now `ACTIVE_AUDIT_FIRST`; Stage `42.4-0` is `COMPLETED_AND_CLOSED`, and Stage
-`42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit` is
-`READY_PENDING_SEPARATE_APPROVAL`. No technical implementation is active.
+now active in documentation closure; Stage `42.4-1` is accepted and Stage
+`42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation` is
+`COMPLETED_AND_CLOSED`. Stage `42.4-3 — Bounded Canonical Slot Runtime
+Measurement` is `READY_PENDING_SEPARATE_APPROVAL`; no technical implementation
+or measurement is active.
 
-Accepted carry-forward to Batch 42.4 is limited to the static absence of a
-managed mini-image generation system, original-source thumbnail use, observed
-source/render disparity, and missing-source events with usable routes. Final
-dimensions, formats, quality, crop, storage, lifecycle, fallback, and Backup
-contracts remain unknown and require separate approval.
+Accepted carry-forward to Batch 42.4 includes the static absence of a managed
+mini-image generation system, original-source thumbnail use, source/render
+disparity, and lifecycle/storage/Backup gaps. The approved active ratio families
+are `WIDE_16_9`, `MINI_CARD_4_3`, `SQUARE_1_1`, and
+`PERFORMER_PORTRAIT_4_5`; `5:3`, `11:14`, and initial dormant `3:2` are not
+approved profiles. Full cards and mini/lite cards remain distinct. The initial
+foundation allows only `SMALL`, `MEDIUM`, and `LARGE` standard tiers, with
+targeted safe regeneration and last-valid preservation. Exact dimensions,
+architecture, format, quality, storage, metadata, and Backup contracts remain
+pending.
 
 Accepted carry-forward to Batch 42.5 is limited to valid R2 outer
 database-preparation/Home scaling, comparatively small direct SQL and frontend
@@ -114,7 +123,7 @@ Technical claims in this document that have not been verified against the curren
 
 until proven through fresh repository evidence.
 
-The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, Batch `42.3A`, and Batch `42.3` are completed within their recorded scopes. Batch `42.4` is the next proposed batch and remains pending separate approval.
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, Batch `42.3A`, and Batch `42.3` are completed within their recorded scopes. Batch `42.4` is active and remains separately gated for each technical stage.
 
 ---
 
@@ -258,15 +267,19 @@ The following product decisions are approved.
 * A failed regenerate operation must not delete or replace the last valid mini image.
 * Managed mini images must not be deleted through a generic Clear Cache action.
 
-The approved Batch 42.4 product decision is
-`FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`:
-existing slot ratios and visual hierarchy remain fixed; materially equivalent
-slots may share a profile family; each family may use multiple sufficient-size
-variants; and source proportions must not be stretched or distorted. Coverage
-includes applicable covers, gallery, Performer, Category, Glossary, Video poster,
-and other catalog-media slots. UI assets, Translation assets, screenshots,
-manual-smoke evidence, full originals, and temporary decode cache are excluded.
-Exact profiles and implementation parameters remain audit-dependent.
+The approved Batch 42.4 decision is
+`CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION`,
+supplementing `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`:
+the active managed-media families are `WIDE_16_9`, `MINI_CARD_4_3`,
+`SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`; full cards and mini/lite cards are
+separate contexts; `5:3`, `11:14`, and initial dormant `3:2` are not approved
+profiles; and the initial foundation allows at most `SMALL`, `MEDIUM`, and
+`LARGE` standard tiers. Source proportions must not be stretched or distorted.
+Targeted generation uses staging, validation, last-valid preservation, and
+protected cleanup; startup-wide regeneration is prohibited. UI assets,
+Translation assets, screenshots, manual-smoke evidence, full originals, and
+temporary decode cache are excluded. Exact pixel dimensions and architecture
+remain pending measurement and architecture planning.
 
 ### 5.6 Image Optimization
 
@@ -1031,8 +1044,8 @@ additional R3 retry is authorized.
 
 `42.4 — Managed Mini Media Foundation`
 
-This batch remains pending separate approval and is not authorized by this
-closure.
+This historical proposal was superseded by the approved Batch 42.4 activation
+and the later Stage 42.4-1/42.4-2 closure recorded above.
 
 **In Scope**
 
@@ -1071,7 +1084,7 @@ No optimization or media implementation is authorized.
 
 ---
 
-### Batch 42.4 — Managed Mini Media Foundation (Active Audit-First)
+### Batch 42.4 — Managed Mini Media Foundation (Active Documentation Closure)
 
 **Goal**
 
@@ -1080,27 +1093,30 @@ portable managed mini images while preserving existing visual slot geometry.
 
 **In Scope**
 
-* Stage 42.4-1 read-only audit of existing media-bearing slots and lifecycle;
-* context-specific profile families for materially equivalent slots;
-* multiple sufficient-size variants where the audit proves they are needed;
-* current crop/contain behavior and no-stretch preservation;
-* candidate validation, regeneration, and missing-source fallback behavior.
+* accepted Stage 42.4-1 read-only audit and decision-gap record;
+* canonical active families `WIDE_16_9`, `MINI_CARD_4_3`, `SQUARE_1_1`, and `PERFORMER_PORTRAIT_4_5`;
+* full-card versus mini/lite-card separation;
+* one ratio source of truth across geometry, metadata, generation, rendering, diagnostics, and tests;
+* limited standard tiers `SMALL`, `MEDIUM`, and `LARGE`;
+* targeted safe regeneration, staging, validation, last-valid preservation, and protected-asset cleanup principles.
 
 **Out of Scope**
 
 * implementation before separate approval;
-* changing existing slot ratios or visual hierarchy;
 * inventing exact dimensions, formats, quality, naming, storage, or schema;
+* treating current `5:3` or `11:14` geometry as approved profiles;
+* initial provisioning for dormant unrouted Category `3:2`;
 * storing full external media;
 * Backup/Restore package implementation, which remains in Batches 42.6/42.7;
 * UI assets, Translation assets, screenshots, manual-smoke evidence, or temporary decode cache.
 
 **Expected Result**
 
-The product boundary is recorded; exact profiles remain audit-dependent. Visual
-and lifecycle smoke gates occur only after implementation and automated
-verification. Batch 42.4 is active audit-first and Stage 42.4-1 remains pending
-separate approval.
+Stage 42.4-1 is accepted and Stage 42.4-2 is closed. The current source gaps
+are recorded for later controlled correction; exact pixel dimensions and
+architecture remain pending. Stage 42.4-3 is the next proposed bounded runtime
+measurement stage and is pending separate approval. Visual and lifecycle smoke
+gates occur only after implementation and automated verification.
 
 ---
 
@@ -1741,14 +1757,15 @@ accepted only the bounded standalone diagnostic strategy and integrity gates;
 its timings are not production performance measurements.
 
 No implementation, performance budget, managed mini-image profile, schema/index
-change, cache change, UI/UX change, dependency work, or live-data access is
-authorized. R3-R2 is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`; its
-reopened fixtures returned `Invalid` after immediate generation assertions
-returned `Migrated`. The raw traces are invalid-fixture diagnostics only and no
-valid production baseline or defect was established. The final bounded retry is
-exhausted; no additional R3 retry is authorized. Batch 42.4 is now the active
-audit-first batch; its Stage 42.4-1 remains pending separate approval. Batch 42.5
-remains planned and unauthorized.
+change, cache change, UI/UX change, dependency work, or live-data access was
+authorized by that historical closure. R3-R2 is
+`PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`; its reopened fixtures
+returned `Invalid` after immediate generation assertions returned `Migrated`.
+The raw traces are invalid-fixture diagnostics only and no valid production
+baseline or defect was established. The final bounded retry is exhausted; no
+additional R3 retry is authorized. Batch 42.4 is now governed by the active
+documentation-closure section above; Batch 42.5 remains planned and
+unauthorized.
 
 ### Historical Batch 42.2 — Translation Containment (Completed)
 
