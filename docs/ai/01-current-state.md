@@ -32,12 +32,13 @@ new_roadmap_series: 42.x
 last_completed_roadmap_batch: 42.3A
 last_completed_roadmap_batch_title: Catalog Reference Integrity and Deletion Recovery
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
-active_batch: 42.3
-active_batch_title: Catalog Performance and Media Audit
-active_batch_phase: CONTROLLED_MEASUREMENT
+active_batch: NONE
+active_batch_title: NONE
+active_batch_phase: PARTIAL_AUDIT_CLOSED
 active_batch_mode: PARTIAL_AUDIT_CLOSURE
-current_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
-current_stage_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+current_stage: NONE
+completed_current_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+current_stage_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
@@ -60,12 +61,14 @@ batch_42_3_2a_r3_r1_result_review: R3_R1_PARTIAL_ACCEPTED
 batch_42_3_2a_r3_r2_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
 batch_42_3_2a_r3_r2_result_review: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
 batch_42_3_2a_parent_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 measurement_dominant_cost: DATABASE_PREPARATION
 measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CONFLICT_UNRESOLVED
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+next_proposed_stage: Batch 42.4 — Managed Mini Media Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -83,8 +86,16 @@ r3_r1_generator_comparison: RECONSTRUCTED_GENERATOR_NOT_EQUIVALENT
 r3_r1_historical_conflict: UNRESOLVED_HISTORICAL_HARNESS_CONFLICT
 r3_r1_timings: INSTRUMENTATION_VERIFICATION_ONLY
 r3_r2_production_defect_proven: false
-r3_r2_performance_baseline: NOT_ACCEPTED
+r3_r2_performance_baseline: INVALID_FIXTURE_DIAGNOSTIC_ONLY
 r3_r2_additional_retry: PROHIBITED
+valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
+production_defect: NOT_PROVEN
+memory_leak: NOT_PROVEN
+performance_budget: NOT_APPROVED
+mini_image_profile: NOT_APPROVED
+repair_authorized: false
+optimization_authorized: false
+active_technical_batch: NONE
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -138,7 +149,7 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: R3_R2_RECONCILIATION_PENDING_DOCUMENTATION_COMMIT
+project_os_tracking_status: BATCH_42_3_CLOSURE_PENDING_DOCUMENTATION_COMMIT
 
 ## R3-R2 Final Retry Closure
 
@@ -157,10 +168,23 @@ incomplete. `prepare_tauri_database` was not invoked. The final bounded retry is
 exhausted; no further R3 retry, repair, optimization, or implementation is
 authorized.
 
-Parent Stage `42.3-2A` is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`. Batch `42.3`
-remains active only for partial audit closure. The next proposed stage is
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`,
-`READY_PENDING_SEPARATE_APPROVAL`. All technical permissions remain false.
+Parent Stage `42.3-2A` is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`.
+
+## Batch 42.3 Partial Audit Closure
+
+Batch `42.3` is now `PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`, with result
+`MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS`. Valid R2 baseline
+measurements remain the only accepted performance baseline. R3-R1 remains
+`INSTRUMENTATION_VERIFICATION_ONLY`; R3-R2 remains
+`INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`.
+
+Completed, partial, and incomplete objectives remain explicitly separated. No
+production defect, memory leak, performance budget, repair, optimization, or
+implementation was established or authorized. The active technical batch is
+`NONE`. Batch `42.4 — Managed Mini Media Foundation` is next proposed and
+`READY_PENDING_SEPARATE_APPROVAL`; Batch 42.5 remains planned and unauthorized.
+
+All technical permissions remain false.
 
 ---
 
@@ -474,7 +498,7 @@ The approved roadmap sequence is:
 2. Batch 42.1 — GitHub and Repository Health Triage.
 3. Batch 42.2 — Translation Containment.
 4. Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed).
-5. Batch 42.3 — Catalog Performance and Media Audit (active; partial audit closure pending separate approval).
+5. Batch 42.3 — Catalog Performance and Media Audit (partial audit closed).
 6. Batch 42.4 — Managed Mini Media Foundation.
 7. Batch 42.5 — Catalog and Database Performance.
 8. Batch 42.6 — Backup and Restore Audit.
@@ -521,19 +545,19 @@ Summary:
 
 Status:
 
-`ACTIVE`
+`PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`
 
-Current proposed stage:
+Next proposed batch:
 
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
+`Batch 42.4 — Managed Mini Media Foundation`
 
 Current stage permission:
 
 `READY_PENDING_SEPARATE_APPROVAL`
 
-Result Review:
+Closure result:
 
-`PARTIAL_BASELINE_ACCEPTED`
+`MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS`
 
 All measurement, optimization, implementation, test, build, runtime, and
 dependency permissions remain `false`.
@@ -650,12 +674,12 @@ Do not represent these items as proven until the applicable controlled stage is 
 ## 12. Current Blockers
 
 Batch `42.3` is not blocked by a proven product defect. Parent Stage `42.3-2A`
-is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Batch `42.3` remains active only for
-partial audit closure.
+is `PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Batch `42.3` is closed as a partial
+audit.
 
 Before any further repository measurement or implementation:
 
-1. review and separately approve or reject `42.3-CLOSE`;
+1. review and separately approve or reject Batch 42.4;
 2. preserve the fixture and classifier limitations before any future technical
    decision;
 3. do not introduce another R3 retry under this closure.
@@ -706,9 +730,9 @@ for authoritative lock wording.
 
 The documentation closure records R1, R2, R3, R3-R1, and the final partial
 R3-R2 result while preserving the five-entry ledger. Separately review and
-approve or reject:
+approve or reject Batch 42.4:
 
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
+`Batch 42.4 — Managed Mini Media Foundation`
 
 No further audit, measurement, tests, builds, runtime, optimization, managed
 media, schema/index, dependency, UI/UX, or live-data work is approved by this

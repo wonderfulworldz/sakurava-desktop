@@ -4,10 +4,10 @@
 
 batch: 42.3
 title: Catalog Performance and Media Audit
-status: ACTIVE
-phase: CONTROLLED_MEASUREMENT
-current_stage: 42.3-2A-R3-R2 — Production-Equivalent Fixture and Startup Instrumentation Verification
-current_stage_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
+status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+phase: PARTIAL_AUDIT_CLOSED
+current_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+current_stage_status: COMPLETED_AND_CLOSED
 completed_stage_42_3_1: COMPLETE_REPORTED
 stage_42_3_2_status: PERFORMANCE_BASELINE_PARTIAL_REPORTED
 stage_42_3_2_result_review: PARTIAL_BASELINE_ACCEPTED
@@ -24,8 +24,11 @@ stage_42_3_2a_r3_r2_status: PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
 stage_42_3_2a_r3_r2_result_review: R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS
 retry_boundary: FINAL_BOUNDED_RETRY_EXHAUSTED
 additional_r3_retry: PROHIBITED
-next_proposed_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
+next_proposed_stage: Batch 42.4 — Managed Mini Media Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+active_technical_batch: NONE
+batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
+valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
 next_stage_boundary: FINAL_BOUNDED_RETRY_EXHAUSTED
 audit_allowed: false
 measurement_allowed: false
@@ -63,8 +66,38 @@ reproducibility, byte-identical classifier copies, detailed diagnostics,
 mutation comparison, and required root/live-AppData gate tests remain unknown or
 incomplete. `prepare_tauri_database` was not invoked. No repair, optimization,
 implementation, or additional R3 retry is authorized. Parent `42.3-2A` is
-`PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Batch `42.3` remains active only for
-partial audit closure.
+`PARTIAL_RESULT_ACCEPTED_AND_CLOSED`; Batch `42.3` is closed as a partial audit.
+
+## Batch 42.3 Closure Baseline
+
+Valid R2 measurements are the only accepted performance baseline. R3-R1 timing
+remains `INSTRUMENTATION_VERIFICATION_ONLY`; R3-R2 timing remains
+`INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`. The fixture reopen conflict,
+production-equivalent internal phase timing, Detail waterfalls, gallery,
+page-size-256 runtime behavior, phase-specific memory, repeated missing-source
+behavior, metadata preservation, and final budgets remain limitations.
+
+Batch 42.3 is `PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`. No production defect,
+performance budget, repair, optimization, or implementation is authorized.
+The final bounded retry is exhausted and no technical batch is active.
+
+### Batch 42.4 Carry-Forward
+
+Safe inputs are the absence of a managed mini-image generation system, use of
+original sources for visible thumbnails, observed source/render disparity, and
+missing-source events with usable routes. Dimensions, format, quality, crop,
+storage, lifecycle, fallback, and Backup inclusion remain unknown. Batch 42.4
+may address those topics only after separate approval; no implementation is
+authorized here.
+
+### Batch 42.5 Carry-Forward
+
+Safe inputs are the accepted R2 outer database-preparation scaling, Home usable
+scaling, comparatively small direct SQL and collection transforms, repeated
+rapid-search pipelines, stable page-size-32 scrolling, and source-supported
+page-size-256 availability. R3 traces and fixture conflicts must not be used as
+optimization proof. Pagination, virtualization, memoization, debounce, cache,
+schema/index changes, budgets, and optimization remain unauthorized.
 
 ## Accepted R1 Result
 

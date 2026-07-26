@@ -11,6 +11,30 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-25 — Batch 42.3-2 Partial Baseline Reconciled
+
+date: 2026-07-25
+session_type: PROJECT_OS_RECONCILIATION_DOCUMENTATION_CLOSURE
+recorded_repository_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+completed_stage_42_3_1: COMPLETE_REPORTED
+completed_stage_42_3_2: PERFORMANCE_BASELINE_PARTIAL_REPORTED
+result_review: PARTIAL_BASELINE_ACCEPTED
+next_proposed_stage: 42.3-2A — Targeted Measurement Completion and Startup Breakdown
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+repository_state: REPORTED_BY_CODEX
+evidence_isolation: disposable_database_and_webview2
+implementation_allowed: false
+
+The accepted partial baseline measured startup database preparation/reference
+initialization as the dominant cost. Detail waterfall, startup breakdown,
+page-size-256, gallery, realistic image timing, phase-specific memory,
+missing-source repetition, and metadata-preservation evidence remain
+incomplete. The Detail fixture or harness identity conflict is not classified
+as a production defect. No optimization or implementation is authorized.
+
+This documentation-only reconciliation preserves the manual handoff and
+archives excess ledger history before any separately approved `42.3-2A` work.
+
 ## 2026-07-22 — Catalog Performance Baseline Partial; Codex Capacity Paused
 
 date: 2026-07-22

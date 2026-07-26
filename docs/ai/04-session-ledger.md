@@ -75,6 +75,25 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — Batch 42.3 Partial Audit Accepted and Closed
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_3_PARTIAL_AUDIT_CLOSURE
+recorded_repository_head: 8778d23e451df8cbbf8f11ba3c426e25199c6793
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+batch_42_3_result: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
+next_proposed_batch: Batch 42.4 — Managed Mini Media Foundation
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+Batch 42.3 preserves the accepted R2 baseline while classifying R3-R1 as
+`INSTRUMENTATION_VERIFICATION_ONLY` and R3-R2 as
+`INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE`. Completed, partial, and incomplete
+objectives and permanent limitations are recorded. No production defect,
+performance budget, repair, optimization, or implementation was established
+or authorized. Batch 42.5 remains later and unauthorized.
+
 ## 2026-07-26 — R3-R2 Final Bounded Retry Partial Result Accepted
 
 date: 2026-07-26
@@ -152,30 +171,6 @@ the fixture/application validation conflict, page-size-256 state, Detail and
 gallery waterfalls, image timing, and phase-specific memory remain incomplete.
 No production defect or memory leak was proven. This entry records the
 documentation-only closure; R3 remains separately gated.
-
-## 2026-07-25 — Batch 42.3-2 Partial Baseline Reconciled
-
-date: 2026-07-25
-session_type: PROJECT_OS_RECONCILIATION_DOCUMENTATION_CLOSURE
-recorded_repository_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
-completed_stage_42_3_1: COMPLETE_REPORTED
-completed_stage_42_3_2: PERFORMANCE_BASELINE_PARTIAL_REPORTED
-result_review: PARTIAL_BASELINE_ACCEPTED
-next_proposed_stage: 42.3-2A — Targeted Measurement Completion and Startup Breakdown
-next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
-repository_state: REPORTED_BY_CODEX
-evidence_isolation: disposable_database_and_webview2
-implementation_allowed: false
-
-The accepted partial baseline measured startup database preparation/reference
-initialization as the dominant cost. Detail waterfall, startup breakdown,
-page-size-256, gallery, realistic image timing, phase-specific memory,
-missing-source repetition, and metadata-preservation evidence remain
-incomplete. The Detail fixture or harness identity conflict is not classified
-as a production defect. No optimization or implementation is authorized.
-
-This documentation-only reconciliation preserves the manual handoff and
-archives excess ledger history before any separately approved `42.3-2A` work.
 
 ## Archived Session History
 

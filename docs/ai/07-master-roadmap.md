@@ -17,13 +17,19 @@ legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.3A
-active_batch: 42.3
+active_batch: NONE
+active_technical_batch: NONE
+batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
+next_proposed_batch: 42.4 — Managed Mini Media Foundation
+next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
 
-Batch `42.2 — Translation Containment` and Batch `42.3A — Catalog Reference
-Integrity and Deletion Recovery` remain completed and closed. Batch `42.3 —
-Catalog Performance and Media Audit` is active.
+Batch `42.2 — Translation Containment`, Batch `42.3A — Catalog Reference
+Integrity and Deletion Recovery`, and Batch `42.3 — Catalog Performance and
+Media Audit` are completed and closed within their recorded scopes. Batch 42.3
+is closed as a partial audit with explicit limitations.
 
 Stage `42.3-1` completed as a reported static architecture audit. Stage
 `42.3-2` remains `PERFORMANCE_BASELINE_PARTIAL_REPORTED` with
@@ -64,9 +70,26 @@ required root/live-AppData gate tests remain unknown or incomplete.
 R3-R2 traces are `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only. No valid
 production performance baseline or production defect was established. The final
 bounded retry is exhausted; no additional R3 retry, repair, optimization, or
-implementation is authorized. The next proposed stage is
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`,
-`READY_PENDING_SEPARATE_APPROVAL`. Batch 42.3 remains active and is not closed.
+implementation is authorized. The next proposed batch is
+`42.4 — Managed Mini Media Foundation`,
+`READY_PENDING_SEPARATE_APPROVAL`. Batch 42.3 is
+`PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`; no technical batch is active.
+
+Accepted carry-forward to Batch 42.4 is limited to the static absence of a
+managed mini-image generation system, original-source thumbnail use, observed
+source/render disparity, and missing-source events with usable routes. Final
+dimensions, formats, quality, crop, storage, lifecycle, fallback, and Backup
+contracts remain unknown and require separate approval.
+
+Accepted carry-forward to Batch 42.5 is limited to valid R2 outer
+database-preparation/Home scaling, comparatively small direct SQL and frontend
+transform costs, repeated rapid-search pipelines, stable page-size-32 scrolling,
+and source-supported page-size-256 availability. R3 timing and fixture conflicts
+must not inform optimization decisions. Batch 42.5 remains unauthorized.
+
+The next proposed batch is `42.4 — Managed Mini Media Foundation`,
+`READY_PENDING_SEPARATE_APPROVAL`. Batch 42.3 must not absorb Backup/Restore,
+Import/Export, Translation, dependency, UI/UX, or other roadmap workstreams.
 
 ---
 
@@ -91,7 +114,7 @@ Technical claims in this document that have not been verified against the curren
 
 until proven through fresh repository evidence.
 
-The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, and Batch `42.3A` are completed historical work; Batch `42.3` is active for partial audit closure, with `42.3-CLOSE` pending separate approval.
+The legacy Batch `41.x` series is closed. This roadmap uses Batch series `42.x`. Batch `42.1`, Batch `42.2`, Batch `42.3A`, and Batch `42.3` are completed within their recorded scopes. Batch `42.4` is the next proposed batch and remains pending separate approval.
 
 ---
 
@@ -900,11 +923,11 @@ compatibility decisions. The current spreadsheet contract remains unchanged.
 
 **Status**
 
-`ACTIVE`
+`PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`
 
 Current proposed stage:
 
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
+`42.4 — Managed Mini Media Foundation`
 
 Current permission:
 
@@ -912,7 +935,7 @@ Current permission:
 
 Result Review:
 
-`R3_R2_PARTIAL_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`
+`MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS`
 
 All measurement, optimization, implementation, test, build, runtime, and
 dependency permissions remain `false`.
@@ -994,13 +1017,12 @@ and required gate tests remain unknown or incomplete. Its raw traces are
 production defect was established. The final bounded retry is exhausted and no
 additional R3 retry is authorized.
 
-**Next Proposed Stage**
+**Next Proposed Batch**
 
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`
+`42.4 — Managed Mini Media Foundation`
 
-This documentation and decision closure is pending separate approval. It may
-consolidate accepted evidence and limitations, but does not authorize another
-technical retry or any implementation.
+This batch remains pending separate approval and is not authorized by this
+closure.
 
 **In Scope**
 
@@ -1694,9 +1716,9 @@ the current implementation permission.
 
 ### Current Batch 42.3 — Catalog Performance and Media Audit
 
-Batch `42.3` remains active with status:
+Batch `42.3` is closed as a partial audit with status:
 
-`ACTIVE`
+`PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`
 
 Stage `42.3-1` is complete reported. Stage `42.3-2` captured a partial reported
 disposable baseline accepted by Result Review as `PARTIAL_BASELINE_ACCEPTED`.
@@ -1715,8 +1737,8 @@ reopened fixtures returned `Invalid` after immediate generation assertions
 returned `Migrated`. The raw traces are invalid-fixture diagnostics only and no
 valid production baseline or defect was established. The final bounded retry is
 exhausted; no additional R3 retry is authorized. The next proposed stage is
-`42.3-CLOSE — Partial Audit Closure and Limitation Baseline`, pending separate
-approval.
+`42.4 — Managed Mini Media Foundation`, pending separate approval. Batch 42.5
+remains planned and unauthorized.
 
 ### Historical Batch 42.2 — Translation Containment (Completed)
 
@@ -1894,7 +1916,7 @@ Batch 42.0 — Master Roadmap and Project OS Baseline
 → Batch 42.1 — GitHub and Repository Health Triage
 → Batch 42.2 — Translation Containment
 → Batch 42.3A — Catalog Reference Integrity and Deletion Recovery (closed)
-→ Batch 42.3 — Catalog Performance and Media Audit (active; 42.3-CLOSE pending separate approval)
+→ Batch 42.3 — Catalog Performance and Media Audit (partial audit closed)
 → Batch 42.4 — Managed Mini Media Foundation
 → Batch 42.5 — Catalog and Database Performance
 → Batch 42.6 — Backup and Restore Audit
