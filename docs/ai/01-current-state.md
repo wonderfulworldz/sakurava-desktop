@@ -16,8 +16,8 @@ untracked_entry_count: 9084
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: b2e586c834d6d4aa1cecb8de3049f0f89f08511f
-baseline_label: Batch 42.3-2A-R3-R2 Final Retry Partial Result Reconciliation
+last_recorded_baseline: 853e677fb16b85a836a6ef8f62640a8efde37ed9
+baseline_label: Batch 42.3 Closure and Batch 42.4-0 Product Boundary Reconciliation
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 
 legacy_batch_series: 41.x  
@@ -29,16 +29,16 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.3A
-last_completed_roadmap_batch_title: Catalog Reference Integrity and Deletion Recovery
-last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED  
-active_batch: NONE
-active_batch_title: NONE
-active_batch_phase: PARTIAL_AUDIT_CLOSED
-active_batch_mode: PARTIAL_AUDIT_CLOSURE
-current_stage: NONE
-completed_current_stage: 42.3-CLOSE — Partial Audit Closure and Limitation Baseline
-current_stage_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+last_completed_roadmap_batch: 42.3
+last_completed_roadmap_batch_title: Catalog Performance and Media Audit
+last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+active_batch: 42.4
+active_batch_title: Managed Mini Media Foundation
+active_batch_phase: AUDIT_FIRST
+active_batch_mode: DOCUMENTATION_ONLY_RECONCILIATION
+current_stage: 42.4-0 — Batch Activation and Managed Mini Media Product Boundary Reconciliation
+completed_current_stage: 42.4-0 — Batch Activation and Managed Mini Media Product Boundary Reconciliation
+current_stage_status: COMPLETED_AND_CLOSED
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
@@ -68,7 +68,7 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: Batch 42.4 — Managed Mini Media Foundation
+next_proposed_stage: 42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -92,7 +92,11 @@ valid_performance_baseline: PARTIAL_R2_BASELINE_ONLY
 production_defect: NOT_PROVEN
 memory_leak: NOT_PROVEN
 performance_budget: NOT_APPROVED
-mini_image_profile: NOT_APPROVED
+managed_mini_media_decision_id: FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA
+managed_mini_media_audit_status: NOT_PERFORMED
+managed_mini_media_exact_profiles: UNKNOWN
+managed_mini_media_visual_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
+managed_mini_media_lifecycle_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 repair_authorized: false
 optimization_authorized: false
 active_technical_batch: NONE
@@ -149,7 +153,7 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: BATCH_42_3_CLOSURE_PENDING_DOCUMENTATION_COMMIT
+project_os_tracking_status: RECONCILED_BY_BATCH_42_4_0_DOCUMENTATION_CLOSURE
 
 ## R3-R2 Final Retry Closure
 
@@ -181,10 +185,32 @@ measurements remain the only accepted performance baseline. R3-R1 remains
 Completed, partial, and incomplete objectives remain explicitly separated. No
 production defect, memory leak, performance budget, repair, optimization, or
 implementation was established or authorized. The active technical batch is
-`NONE`. Batch `42.4 — Managed Mini Media Foundation` is next proposed and
-`READY_PENDING_SEPARATE_APPROVAL`; Batch 42.5 remains planned and unauthorized.
+Batch `42.4 — Managed Mini Media Foundation` is active and audit-first. Stage
+`42.4-0` is completed and closed; Stage `42.4-1 — Managed Mini Media Slot,
+Profile, and Lifecycle Audit` is `READY_PENDING_SEPARATE_APPROVAL`. Batch 42.5
+remains planned and unauthorized.
 
 All technical permissions remain false.
+
+## Batch 42.4-0 Product Boundary Reconciliation
+
+The operator-approved decision is
+`FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`.
+Existing visual slot ratios and hierarchy are protected. Managed mini media
+uses context-specific profile families, with multiple sufficient-size variants
+where needed; materially equivalent slots may share a family and unique ratios
+remain distinct. Source proportions and current crop/contain behavior must be
+preserved without stretching or distortion.
+
+The boundary covers applicable catalog media including covers, gallery,
+Performer, Category, Glossary, Video posters, and other catalog-media areas. UI
+assets, Translation assets, screenshots, manual-smoke evidence, full external
+originals, and temporary decode cache are excluded. Exact dimensions, variants,
+format, quality, crop anchors, naming, storage, database representation, and
+generation parameters remain `UNKNOWN`; the managed-mini-media audit has not
+been performed. Visual/profile and lifecycle/fallback smoke gates are reserved
+for after implementation and automated verification. Actual `.skv` package
+implementation remains assigned to Batches 42.6/42.7.
 
 ---
 
@@ -295,7 +321,9 @@ The approved roadmap is represented by Batch series `42.x`.
 - Batch `42.2 — Translation Containment`: `COMPLETED_AND_CLOSED`;
 - Batch `42.11 — Translation Release Completion`: planned after shared UI stabilization.
 
-Batch `42.2` and its Translation stages are completed historical work. Current active work is Batch `42.3`, with static audit complete and a partial disposable performance baseline recorded.
+Batch `42.2` and its Translation stages are completed historical work. Batch
+`42.3` is completed and closed with its partial audit baseline recorded. Current
+active work is the documentation-reconciled, audit-first Batch `42.4`.
 
 Translation implementation, test, build, Vite dev-server execution, dependency remediation, and migration remain unauthorized.
 

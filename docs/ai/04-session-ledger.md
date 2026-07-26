@@ -75,6 +75,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-26 — Batch 42.4 Product Boundary Approved
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_PRODUCT_BOUNDARY_RECONCILIATION
+pre_reconciliation_repository_head: 853e677fb16b85a836a6ef8f62640a8efde37ed9
+batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+active_batch: 42.4 — Managed Mini Media Foundation
+active_batch_phase: AUDIT_FIRST
+completed_stage: 42.4-0 — Batch Activation and Managed Mini Media Product Boundary Reconciliation
+next_stage: 42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+decision_id: FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA
+implementation_allowed: false
+
+The approved boundary protects existing slot ratios, uses context-specific
+profile families with multiple sufficient-size variants, and prohibits stretch
+or distortion. It covers applicable cover, Performer, gallery, Category,
+Glossary, Video-poster, and other catalog-media areas. Exact profiles remain
+unknown. Visual/profile and lifecycle/fallback smoke gates are reserved for
+after implementation verification; Stage 42.4-1 remains separately gated.
+
 ## 2026-07-26 — Batch 42.3 Partial Audit Accepted and Closed
 
 date: 2026-07-26
@@ -150,27 +171,6 @@ reference-status validation. Fixture-generator coverage, same-database
 comparison, conflict cause, and internal phase timing remain unresolved. No
 diagnostic timing, production defect, repair, optimization, or implementation
 was authorized.
-
-## 2026-07-26 — Batch 42.3-2A Partial Measurement Accepted
-
-date: 2026-07-26
-session_type: PROJECT_OS_PARTIAL_MEASUREMENT_CLOSURE
-recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
-application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
-stage_42_3_2a_r1: COMPLETED_AND_CLOSED
-stage_42_3_2a_r2: PARTIAL_RESULT_ACCEPTED
-result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
-next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
-next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
-implementation_allowed: false
-
-R1 validated external build-workspace separation with rebuild required. R2
-measured database-preparation medians of approximately 1.0 s, 8.6 s, and 35.5 s
-for S/M/A and recorded repeated missing-source events. Internal startup phases,
-the fixture/application validation conflict, page-size-256 state, Detail and
-gallery waterfalls, image timing, and phase-specific memory remain incomplete.
-No production defect or memory leak was proven. This entry records the
-documentation-only closure; R3 remains separately gated.
 
 ## Archived Session History
 

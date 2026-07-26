@@ -9,20 +9,21 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: b2e586c834d6d4aa1cecb8de3049f0f89f08511f
-last_recorded_git_baseline_status: RECONCILED_BY_CODEX_DOCUMENTATION_CLOSURE
+last_recorded_git_baseline: 853e677fb16b85a836a6ef8f62640a8efde37ed9
+last_recorded_git_baseline_status: FINAL_RECORDED_PRE_RECONCILIATION_BASELINE
 application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
-last_completed_batch: 42.3A
-active_batch: NONE
+last_completed_batch: 42.3
+active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-next_proposed_batch: 42.4 — Managed Mini Media Foundation
-next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_4_status: ACTIVE_AUDIT_FIRST
+batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_1_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
 
@@ -70,10 +71,10 @@ required root/live-AppData gate tests remain unknown or incomplete.
 R3-R2 traces are `INVALID_FIXTURE_DIAGNOSTIC_SINGLE_TRACE` only. No valid
 production performance baseline or production defect was established. The final
 bounded retry is exhausted; no additional R3 retry, repair, optimization, or
-implementation is authorized. The next proposed batch is
-`42.4 — Managed Mini Media Foundation`,
-`READY_PENDING_SEPARATE_APPROVAL`. Batch 42.3 is
-`PARTIAL_AUDIT_ACCEPTED_AND_CLOSED`; no technical batch is active.
+implementation is authorized. Batch `42.4 — Managed Mini Media Foundation` is
+now `ACTIVE_AUDIT_FIRST`; Stage `42.4-0` is `COMPLETED_AND_CLOSED`, and Stage
+`42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit` is
+`READY_PENDING_SEPARATE_APPROVAL`. No technical implementation is active.
 
 Accepted carry-forward to Batch 42.4 is limited to the static absence of a
 managed mini-image generation system, original-source thumbnail use, observed
@@ -87,8 +88,7 @@ transform costs, repeated rapid-search pipelines, stable page-size-32 scrolling,
 and source-supported page-size-256 availability. R3 timing and fixture conflicts
 must not inform optimization decisions. Batch 42.5 remains unauthorized.
 
-The next proposed batch is `42.4 — Managed Mini Media Foundation`,
-`READY_PENDING_SEPARATE_APPROVAL`. Batch 42.3 must not absorb Backup/Restore,
+Batch 42.4 must not absorb Backup/Restore,
 Import/Export, Translation, dependency, UI/UX, or other roadmap workstreams.
 
 ---
@@ -257,6 +257,16 @@ The following product decisions are approved.
 * Managed mini images must remain available after Restore even when the original source cannot be reached.
 * A failed regenerate operation must not delete or replace the last valid mini image.
 * Managed mini images must not be deleted through a generic Clear Cache action.
+
+The approved Batch 42.4 product decision is
+`FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`:
+existing slot ratios and visual hierarchy remain fixed; materially equivalent
+slots may share a profile family; each family may use multiple sufficient-size
+variants; and source proportions must not be stretched or distorted. Coverage
+includes applicable covers, gallery, Performer, Category, Glossary, Video poster,
+and other catalog-media slots. UI assets, Translation assets, screenshots,
+manual-smoke evidence, full originals, and temporary decode cache are excluded.
+Exact profiles and implementation parameters remain audit-dependent.
 
 ### 5.6 Image Optimization
 
@@ -1061,36 +1071,36 @@ No optimization or media implementation is authorized.
 
 ---
 
-### Batch 42.4 — Managed Mini Media Foundation
+### Batch 42.4 — Managed Mini Media Foundation (Active Audit-First)
 
 **Goal**
 
-Create reliable, lightweight, and portable managed mini images.
+Audit and then, only after separate approval, create reliable, lightweight, and
+portable managed mini images while preserving existing visual slot geometry.
 
 **In Scope**
 
-* automatic generation on relevant media addition;
-* context-based dimensions;
-* controlled crop or aspect-ratio behavior;
-* efficient encoding;
-* validation;
-* safe regenerate;
-* missing-source fallback;
-* atomic replacement;
-* preservation of the previous valid image;
-* generator or profile metadata where needed.
+* Stage 42.4-1 read-only audit of existing media-bearing slots and lifecycle;
+* context-specific profile families for materially equivalent slots;
+* multiple sufficient-size variants where the audit proves they are needed;
+* current crop/contain behavior and no-stretch preservation;
+* candidate validation, regeneration, and missing-source fallback behavior.
 
 **Out of Scope**
 
+* implementation before separate approval;
+* changing existing slot ratios or visual hierarchy;
+* inventing exact dimensions, formats, quality, naming, storage, or schema;
 * storing full external media;
-* many image profiles;
-* destructive compression;
-* generalized media service;
-* media deduplication.
+* Backup/Restore package implementation, which remains in Batches 42.6/42.7;
+* UI assets, Translation assets, screenshots, manual-smoke evidence, or temporary decode cache.
 
 **Expected Result**
 
-Catalog visuals remain available and efficient even when external source media cannot be reached.
+The product boundary is recorded; exact profiles remain audit-dependent. Visual
+and lifecycle smoke gates occur only after implementation and automated
+verification. Batch 42.4 is active audit-first and Stage 42.4-1 remains pending
+separate approval.
 
 ---
 
@@ -1714,7 +1724,7 @@ remain assigned to Batches `42.6` and `42.7`.
 Existing-catalog diagnosis and repair are separately gated and are not part of
 the current implementation permission.
 
-### Current Batch 42.3 — Catalog Performance and Media Audit
+### Completed Batch 42.3 — Catalog Performance and Media Audit
 
 Batch `42.3` is closed as a partial audit with status:
 
@@ -1736,8 +1746,8 @@ authorized. R3-R2 is `PARTIAL_RESULT_ACCEPTED_WITH_PROTOCOL_DEVIATIONS`; its
 reopened fixtures returned `Invalid` after immediate generation assertions
 returned `Migrated`. The raw traces are invalid-fixture diagnostics only and no
 valid production baseline or defect was established. The final bounded retry is
-exhausted; no additional R3 retry is authorized. The next proposed stage is
-`42.4 — Managed Mini Media Foundation`, pending separate approval. Batch 42.5
+exhausted; no additional R3 retry is authorized. Batch 42.4 is now the active
+audit-first batch; its Stage 42.4-1 remains pending separate approval. Batch 42.5
 remains planned and unauthorized.
 
 ### Historical Batch 42.2 — Translation Containment (Completed)

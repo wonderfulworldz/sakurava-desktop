@@ -11,6 +11,29 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-26 — Batch 42.3-2A Partial Measurement Accepted
+
+date: 2026-07-26
+session_type: PROJECT_OS_PARTIAL_MEASUREMENT_CLOSURE
+recorded_repository_head: bf6df2a1212ed78ade5f574341c46ab8ce8ba8a8
+application_source_baseline: 2ed304740ab809bf910d59b200065303c8eb0df5
+stage_42_3_2a_r1: COMPLETED_AND_CLOSED
+stage_42_3_2a_r2: PARTIAL_RESULT_ACCEPTED
+result_review: TARGETED_MEASUREMENT_PARTIAL_ACCEPTED
+next_proposed_stage: 42.3-2A-R3-R1 — Generator Contract Recovery and Bounded Instrumentation Build
+next_stage_approval: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+R1 validated external build-workspace separation with rebuild required. R2
+measured database-preparation medians of approximately 1.0 s, 8.6 s, and 35.5 s
+for S/M/A and recorded repeated missing-source events. Internal startup phases,
+the fixture/application validation conflict, page-size-256 state, Detail and
+gallery waterfalls, image timing, and phase-specific memory remain incomplete.
+No production defect or memory leak was proven. This entry records the
+documentation-only closure; R3 remains separately gated.
+
+---
+
 ## 2026-07-25 — Batch 42.3-2 Partial Baseline Reconciled
 
 date: 2026-07-25

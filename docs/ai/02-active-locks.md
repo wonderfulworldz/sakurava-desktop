@@ -180,6 +180,17 @@ Protected product behavior:
 * Restore must not automatically discard managed mini images because the external source cannot be found;
 * application startup must not automatically regenerate all managed mini images.
 
+Approved product boundary `FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA`:
+
+* existing media-slot ratio, shape, allocation, and visual hierarchy are protected;
+* managed mini media follows the existing slot and may use a shared profile family only for materially equivalent ratio, crop/contain behavior, rendered-size range, visual purpose, and scaling requirements;
+* a family may contain multiple size variants, and rendering selects the smallest sufficient variant without unnecessary upscaling;
+* source aspect ratio is preserved; stretching, distortion, forced independent scaling, and changing the slot ratio are prohibited;
+* current crop or contain behavior remains protected until an audit clarifies any unresolved crop anchor or focal-point behavior;
+* coverage includes applicable catalog media such as covers, gallery images, Performer visuals, Category visuals, Glossary visuals, and Video poster or representative frames;
+* application icons, navigation/control icons, the application logo, decorative frontend assets, Translation assets, development screenshots, manual-smoke evidence, full external originals, and temporary decode cache are excluded;
+* exact dimensions, variant count, format, quality, naming, storage, database representation, generation, and replacement parameters remain `UNKNOWN` pending the Batch 42.4-1 audit and later approval.
+
 Full external media is not converted into Sakurava-managed original media through this lock.
 
 Full external media remains referenced through:
