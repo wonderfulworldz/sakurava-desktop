@@ -5,10 +5,10 @@
 batch: 42.4
 title: Managed Mini Media Foundation
 status: ACTIVE
-phase: POST_FOUNDATION_GATED
-current_administrative_stage: 42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
+phase: PROCESSOR_FOUNDATION_RECONCILED
+current_administrative_stage: 42.4-6C — Managed Media Processor Foundation Result and Baseline Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
-next_technical_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+next_technical_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 stage_42_4_5d_status: COMPLETED_AND_CLOSED
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
@@ -26,8 +26,9 @@ ui_ux_allowed: false
 live_appdata_allowed: false
 manual_smoke_allowed: false
 
-recorded_repository_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
-application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+recorded_repository_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+application_source_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 ## Authority State
 
@@ -80,8 +81,40 @@ there is no processor, generation, publication, recovery, frontend descriptor,
 ratio correction, UI, Translation, or Backup integration.
 
 Stage `42.4-6 — Managed Media Processor Dependency and Decode/Encode
-Foundation` is the next technical stage and remains
-`READY_PENDING_SEPARATE_APPROVAL`.
+Foundation` is `COMPLETED_AND_ACCEPTED`; administrative Stage `42.4-6C`
+is `COMPLETED_AND_CLOSED`. The accepted application/source baseline is
+`a6a629dd39175a77ec6f96d62ac222a672a7640c`, with prior contract/schema/
+storage foundation baseline `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+The pure Rust processor provides bounded streaming SHA-256, JPEG/PNG/GIF
+first-frame/static-WebP decoding, EXIF orientation normalization, centered
+canonical crop, no-upscale eligibility, `NATIVE_FALLBACK`, Lanczos3 resize,
+JPEG/PNG encoding, and reopen validation. Current inputs are JPEG, PNG, GIF
+first frame, and static WebP; animated WebP, AVIF, HEIC, TIFF, BMP, SVG, and
+unsupported embedded profiles fail closed. Limits and JPEG quality are
+`INFERRED_INITIAL_DEFAULT_PENDING_VERIFICATION`, not product budgets.
+Synthetic PSNR and timing are regression evidence only; memory is
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`.
+
+The processor remains inert: no Tauri command, database access, managed-root
+write, queue, publication, recovery, CRUD hook, frontend integration,
+Backup/Restore integration, or visible UI exists. The next technical stage is
+`42.4-7 — Managed Media Journaled Publication and Recovery Foundation`,
+status `READY_PENDING_SEPARATE_APPROVAL`; all technical permissions remain
+false.
+
+## Accepted Verification and Limitations
+
+`REPORTED_BY_CODEX`: processor tests 14 passed, fingerprint tests 4 passed,
+focused GIF test 1 passed, full Rust suite 164 passed with 0 failures,
+`cargo check`, final `cargo fmt --check`, `git diff --check`, and staged diff
+check passed. Synthetic JPEG PSNR was 43.494 dB against a 30 dB test guard;
+synthetic PNG preserved processed pixels and alpha exactly. Synthetic timing
+probes were 6,031 ms for a sequential in-memory batch of 20, 22,776 ms for
+opaque 4000x3000 processing, and 32,414 ms for alpha 3000x4000 processing.
+These are environment-specific measurements, not product budgets or
+operational concurrency proof. Production quality, catalog compatibility,
+throughput, concurrency, lifecycle, and publication remain unknown.
 
 ## Approved Product Boundary
 
@@ -167,21 +200,15 @@ Backup/Restore smoke remains assigned to Batches `42.6` and `42.7`.
 
 ## Next Technical Stage
 
-`42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation`
+`42.4-7 — Managed Media Journaled Publication and Recovery Foundation`
 
 Status: `READY_PENDING_SEPARATE_APPROVAL`
 
-When separately approved, this implementation foundation may add narrowly
-selected direct Rust image-processing and hashing dependencies, bounded
-streaming SHA-256, supported image decode, orientation normalization, centered
-canonical crop, both-dimension no-upscale eligibility, `NATIVE_FALLBACK`,
-JPEG/PNG encoding, output reopen/validation, synthetic disposable fixtures,
-and bounded quality/memory verification. It must not add CRUD hooks, a
-generation queue, operational regeneration, journal publication switching,
-startup recovery, frontend descriptors, table-ratio correction, visible UI,
-Translation keys, cleanup lifecycle, Backup/Restore/package integration, live
-AppData, or manual smoke. Stage 42.4-6 is not approved; all technical
-permissions remain false.
+Stage 42.4-6 is completed and accepted, and Stage 42.4-6C is closed. The
+processor foundation is inert and does not perform generation, publication,
+recovery, CRUD integration, frontend integration, cleanup, or Backup/Restore
+work. Any 42.4-7 work remains separately gated and must use disposable roots
+and databases without live AppData, operator media, or manual smoke.
 
 ## Change Boundary
 

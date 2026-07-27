@@ -75,6 +75,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-27 — Managed Media Processor Foundation Accepted
+
+date: 2026-07-27
+session_type: PROJECT_OS_BATCH_42_4_6C_RESULT_RECONCILIATION
+implementation_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+implementation_parent: 34bd490734097ce77adfaf43b9ad0fe4fdf2b2be
+stage_42_4_6_status: COMPLETED_AND_ACCEPTED
+stage_42_4_6c_status: COMPLETED_AND_CLOSED
+dependencies: image 0.25.10; kamadak-exif 0.6.1; sha2 0.10.9
+processor: bounded_hashing_decode_orientation_crop_resize_encode_reopen_validation
+verification: REPORTED_BY_CODEX_14_PROCESSOR_4_FINGERPRINT_1_GIF_164_FULL_RUST
+synthetic_guards: MEASURED_PSNR_43.494_DB; PNG_EXACT; TIMING_PROBES_ONLY
+memory: NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+limitations: ANIMATED_WEBP_UNSUPPORTED; GIF_FIRST_FRAME; ICC_FAIL_CLOSED
+foundation_state: INERT_NON_OPERATIONAL
+next_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-6 is accepted and Stage 42.4-6C is closed. The processor remains
+disconnected from generation, publication, recovery, CRUD, frontend, and
+Backup/Restore. No technical work is authorized.
+
 ## 2026-07-26 — Stage 42.4-6 Scope Consistency Corrected
 
 date: 2026-07-26
@@ -181,28 +204,6 @@ from managed-media profiles, separates full cards from mini/lite cards, limits
 the foundation to three standard tiers, and records targeted safe regeneration.
 Exact dimensions and architecture remain pending. Stage 42.4-3 is measurement
 only and remains separately gated.
-
-## 2026-07-26 — Batch 42.4 Product Boundary Approved
-
-date: 2026-07-26
-session_type: PROJECT_OS_BATCH_42_4_PRODUCT_BOUNDARY_RECONCILIATION
-status: HISTORICAL_SUPERSEDED_BY_42_4_3C
-pre_reconciliation_repository_head: 853e677fb16b85a836a6ef8f62640a8efde37ed9
-batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
-active_batch: 42.4 — Managed Mini Media Foundation
-active_batch_phase: AUDIT_FIRST
-completed_stage: 42.4-0 — Batch Activation and Managed Mini Media Product Boundary Reconciliation
-next_stage: 42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_id: FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA
-implementation_allowed: false
-
-The approved boundary protects existing slot ratios, uses context-specific
-profile families with multiple sufficient-size variants, and prohibits stretch
-or distortion. It covers applicable cover, Performer, gallery, Category,
-Glossary, Video-poster, and other catalog-media areas. Exact profiles remain
-unknown. Visual/profile and lifecycle/fallback smoke gates are reserved for
-after implementation verification; Stage 42.4-1 remains separately gated.
 
 ## Archived Session History
 

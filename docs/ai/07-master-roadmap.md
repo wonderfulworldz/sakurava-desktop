@@ -9,19 +9,20 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
-last_recorded_git_baseline_status: MANAGED_MEDIA_FOUNDATION_PROJECT_OS_RECONCILED
-application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+last_recorded_git_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+last_recorded_git_baseline_status: MANAGED_MEDIA_PROCESSOR_FOUNDATION_RECONCILED
+application_source_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.3
 active_batch: 42.4
-active_technical_batch: 42.4-6
+active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_DOCUMENTATION_CLOSURE
+batch_42_4_status: ACTIVE_PROCESSOR_FOUNDATION_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -31,7 +32,9 @@ batch_42_4_stage_42_4_4_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_5_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_5c_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_5d_status: COMPLETED_AND_CLOSED
-batch_42_4_next_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+batch_42_4_stage_42_4_6_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_6c_status: COMPLETED_AND_CLOSED
+batch_42_4_next_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
@@ -116,6 +119,29 @@ must not inform optimization decisions. Batch 42.5 remains unauthorized.
 
 Batch 42.4 must not absorb Backup/Restore,
 Import/Export, Translation, dependency, UI/UX, or other roadmap workstreams.
+
+## Current Processor Foundation Authority — 2026-07-27
+
+Stage `42.4-6 — Managed Media Processor Dependency and Decode/Encode
+Foundation` is `COMPLETED_AND_ACCEPTED`; Stage `42.4-6C` is
+`COMPLETED_AND_CLOSED`. The accepted processor/application-source baseline is
+`a6a629dd39175a77ec6f96d62ac222a672a7640c`; the prior contract/schema/storage
+foundation baseline remains `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+The processor is a pure, bounded, inert foundation with SHA-256, supported
+decode, EXIF normalization, centered crop, no-upscale eligibility,
+`NATIVE_FALLBACK`, resize, JPEG/PNG encode, and reopen validation. Current
+inputs are JPEG, PNG, GIF first frame, and static WebP; animated WebP and
+unsupported formats or embedded profiles fail closed. Synthetic PSNR and
+timing are `MEASURED` regression evidence only, not product budgets; memory
+is `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`. Production quality,
+compatibility, throughput, concurrency, publication, and lifecycle remain
+unknown.
+
+No operational generation, publication, recovery, CRUD hook, frontend
+integration, cleanup, or Backup/Restore integration exists. Stage
+`42.4-7 — Managed Media Journaled Publication and Recovery Foundation` is
+`READY_PENDING_SEPARATE_APPROVAL`; all technical permissions remain false.
 
 ---
 
@@ -1221,21 +1247,32 @@ Correction` is `COMPLETED_AND_CLOSED`. It distinguishes repository baseline
 `0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b` from application/source baseline
 `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4` and corrects the next-stage scope.
 
-The next technical stage is `42.4-6 — Managed Media Processor Dependency and
-Decode/Encode Foundation`, `READY_PENDING_SEPARATE_APPROVAL`. It is not
-`PLAN ONLY`, architecture selection, or schema selection. When separately
-approved it may add narrowly selected direct Rust image-processing and hashing
-dependencies, bounded streaming SHA-256, supported image decode, orientation
-normalization, centered canonical crop, both-dimension no-upscale eligibility,
-`NATIVE_FALLBACK`, JPEG/PNG encoding, output reopen/validation, synthetic
-disposable fixtures, and bounded quality/memory verification.
+Stage `42.4-6 — Managed Media Processor Dependency and Decode/Encode
+Foundation` is `COMPLETED_AND_ACCEPTED`; administrative Stage `42.4-6C`
+is `COMPLETED_AND_CLOSED`. The accepted application/source baseline is
+`a6a629dd39175a77ec6f96d62ac222a672a7640c`; the prior contract/schema/
+storage foundation baseline remains `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
 
-It must not add CRUD hooks, a generation queue, operational regeneration,
-journal publication switching, startup recovery, frontend descriptors,
-table-ratio correction, visible UI, Translation keys, cleanup lifecycle,
-Backup/Restore/package integration, live AppData, or manual smoke. All
-technical permissions remain false. Backup/package work remains assigned to
-Batches `42.6`/`42.7`.
+The pure processor provides bounded streaming SHA-256, source/pixel/axis
+limits, JPEG/PNG/GIF first-frame/static-WebP decoding, physical EXIF
+orientation normalization, centered canonical crop, no-upscale eligibility,
+`NATIVE_FALLBACK`, Lanczos3 resize, JPEG/PNG encoding, output checksums, and
+reopen validation. Animated WebP, AVIF, HEIC, TIFF, BMP, SVG, and unsupported
+embedded profiles fail closed. Limits and JPEG quality are inferred initial
+defaults pending verification, not product budgets.
+
+`REPORTED_BY_CODEX`: 14 processor tests, 4 fingerprint tests, 1 focused GIF
+test, and 164 full Rust tests passed; cargo check, formatting, diff checks,
+and the exact seven-path mutation boundary passed. `MEASURED` synthetic
+JPEG PSNR was 43.494 dB, PNG equality was exact, and timing probes were
+environment-specific only. Memory is `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`.
+
+The processor remains inert and non-operational: no catalog lookup, database
+access, managed-root write, queue, publication, recovery, CRUD hook,
+frontend integration, visible UI, Translation, cleanup, or Backup/Restore
+integration exists. The next technical stage is `42.4-7 — Managed Media
+Journaled Publication and Recovery Foundation`, `READY_PENDING_SEPARATE_APPROVAL`.
+All technical permissions remain false.
 
 ---
 

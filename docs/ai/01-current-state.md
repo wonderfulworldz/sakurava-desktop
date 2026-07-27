@@ -6,19 +6,20 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-07-26
-repository_state_recorded_at: 2026-07-26
-repository_state_status: MANAGED_MEDIA_FOUNDATION_PROJECT_OS_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_5D_RESULT
+product_state_updated_at: 2026-07-27
+repository_state_recorded_at: 2026-07-27
+repository_state_status: MANAGED_MEDIA_PROCESSOR_FOUNDATION_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_6C_RESULT
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
-baseline_label: Batch 42.4-5C Managed Media Foundation Project OS Reconciliation
-application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+last_recorded_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+baseline_label: Batch 42.4-6 Managed Media Processor Foundation
+application_source_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
 legacy_batch_series_status: CLOSED  
@@ -34,11 +35,27 @@ last_completed_roadmap_batch_title: Catalog Performance and Media Audit
 last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
-active_batch_phase: POST_FOUNDATION_GATED
 active_batch_mode: DOCUMENTATION_ONLY
-current_stage: 42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
-completed_current_stage: 42.4-5D — Post-Reconciliation Stage 42.4-6 Scope Consistency Correction
+active_batch_phase: PROCESSOR_FOUNDATION_RECONCILED
+current_stage: 42.4-6C — Managed Media Processor Foundation Result and Baseline Reconciliation
+completed_current_stage: 42.4-6C — Managed Media Processor Foundation Result and Baseline Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
+stage_42_4_6_status: COMPLETED_AND_ACCEPTED
+stage_42_4_6c_status: COMPLETED_AND_CLOSED
+stage_42_4_6_verdict: MANAGED_MEDIA_PROCESSOR_FOUNDATION_COMPLETE
+stage_42_4_6_result_review: MANAGED_MEDIA_PROCESSOR_FOUNDATION_ACCEPTED_WITH_LIMITATIONS
+stage_42_4_6_implementation_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+stage_42_4_6_parent: 34bd490734097ce77adfaf43b9ad0fe4fdf2b2be
+stage_42_4_6_dependencies: IMAGE_0.25.10; KAMADAK_EXIF_0.6.1; SHA2_0.10.9
+stage_42_4_6_supported_inputs: JPEG; PNG; GIF_FIRST_FRAME; STATIC_WEBP
+stage_42_4_6_supported_outputs: OPAQUE_JPEG; ALPHA_PNG
+stage_42_4_6_memory: NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+stage_42_4_6_state: INERT_NON_OPERATIONAL
+stage_42_4_6_implementation_allowed: false
+stage_42_4_6_tests_builds_allowed: false
+stage_42_4_6_runtime_allowed: false
+stage_42_4_6_dependency_allowed: false
+stage_42_4_7_approval: false
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
@@ -68,7 +85,7 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+next_proposed_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
@@ -144,7 +161,7 @@ managed_mini_media_visual_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 managed_mini_media_lifecycle_smoke_gate: REQUIRED_AFTER_IMPLEMENTATION_VERIFICATION
 repair_authorized: false
 optimization_authorized: false
-active_technical_batch: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+active_technical_batch: NONE
 
 small_dataset_works: 32
 medium_dataset_works: 256
@@ -199,6 +216,35 @@ manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
 project_os_tracking_status: RECONCILED_BY_BATCH_42_4_0_DOCUMENTATION_CLOSURE
+
+## Stage 42.4-6C Processor Foundation Closure
+
+Stage `42.4-6` is `COMPLETED_AND_ACCEPTED`; administrative Stage `42.4-6C`
+is `COMPLETED_AND_CLOSED`. The accepted application/source baseline is
+`a6a629dd39175a77ec6f96d62ac222a672a7640c`, with prior contract/schema/storage
+foundation baseline `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+`REPORTED_BY_CODEX`: direct dependencies are `image 0.25.10` (JPEG, PNG, GIF,
+and WebP features with defaults disabled), `kamadak-exif 0.6.1`, and `sha2
+0.10.9`, resolved with Rust/Cargo `1.95.0` for `x86_64-pc-windows-msvc`.
+The pure processor provides bounded streaming SHA-256, decode for JPEG/PNG/GIF
+first frame/static WebP, physical EXIF orientation normalization, canonical
+centered crop, no-upscale eligibility, `NATIVE_FALLBACK`, Lanczos3 resizing,
+JPEG/PNG encoding, and reopen validation.
+
+Current outputs are opaque JPEG or alpha-preserving PNG. Animated WebP, AVIF,
+HEIC, TIFF, BMP, SVG, and unsupported embedded color profiles fail closed;
+GIF is first-frame only. The 256 MiB source limit, 64,000,000 decoded-pixel
+limit, 32,768 maximum axis, 64 KiB fingerprint buffer, Lanczos3 filter, and
+JPEG quality 85 are inferred initial defaults pending verification, not product
+budgets. Synthetic PSNR and timing probes are environment-specific regression
+evidence only; memory is `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`.
+
+The processor remains inert and non-operational: no Tauri command, catalog or
+database access, managed-root write, queue, publication, recovery, CRUD hook,
+frontend integration, Backup/Restore integration, or visible UI exists. Stage
+`42.4-7 — Managed Media Journaled Publication and Recovery Foundation` is
+`READY_PENDING_SEPARATE_APPROVAL`; all technical permissions remain false.
 
 ## R3-R2 Final Retry Closure
 

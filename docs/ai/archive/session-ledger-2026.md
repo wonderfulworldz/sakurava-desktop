@@ -407,3 +407,25 @@ Batch 42.3 preserves the accepted R2 baseline while classifying R3-R1 as
 objectives and permanent limitations are recorded. No production defect,
 performance budget, repair, optimization, or implementation was established
 or authorized. Batch 42.5 remains later and unauthorized.
+
+## 2026-07-26 — Batch 42.4 Product Boundary Approved
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_PRODUCT_BOUNDARY_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_3C
+pre_reconciliation_repository_head: 853e677fb16b85a836a6ef8f62640a8efde37ed9
+batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
+active_batch: 42.4 — Managed Mini Media Foundation
+active_batch_phase: AUDIT_FIRST
+completed_stage: 42.4-0 — Batch Activation and Managed Media Product Boundary Reconciliation
+next_stage: 42.4-1 — Managed Mini Media Slot, Profile, and Lifecycle Audit
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+decision_id: FIXED_EXISTING_SLOT_RATIOS_WITH_CONTEXT_SPECIFIC_MULTI_SIZE_MINI_MEDIA
+implementation_allowed: false
+
+The approved boundary protects existing slot ratios, uses context-specific
+profile families with multiple sufficient-size variants, and prohibits stretch
+or distortion. It covers applicable cover, Performer, gallery, Category,
+Glossary, Video-poster, and other catalog-media areas. Exact profiles remain
+unknown. Visual/profile and lifecycle/fallback smoke gates are reserved for
+after implementation verification; Stage 42.4-1 remains separately gated.
