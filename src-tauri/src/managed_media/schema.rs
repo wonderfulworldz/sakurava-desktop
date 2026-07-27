@@ -215,7 +215,7 @@ fn all_tables_exist(connection: &Connection) -> rusqlite::Result<bool> {
     Ok(true)
 }
 
-fn validate_schema(connection: &Connection) -> rusqlite::Result<()> {
+pub(crate) fn validate_schema(connection: &Connection) -> rusqlite::Result<()> {
     validate_columns(
         connection,
         "managed_media_items",
