@@ -8,17 +8,17 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-27
 repository_state_recorded_at: 2026-07-27
-repository_state_status: MANAGED_MEDIA_PROCESSOR_FOUNDATION_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_6C_RESULT
+repository_state_status: MANAGED_MEDIA_PUBLICATION_FOUNDATION_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_7C_RESULT
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
-baseline_label: Batch 42.4-6 Managed Media Processor Foundation
-application_source_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+last_recorded_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+baseline_label: Batch 42.4-7 Managed Media Journaled Publication and Recovery Foundation
+application_source_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -36,10 +36,15 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: PROCESSOR_FOUNDATION_RECONCILED
-current_stage: 42.4-6C — Managed Media Processor Foundation Result and Baseline Reconciliation
-completed_current_stage: 42.4-6C — Managed Media Processor Foundation Result and Baseline Reconciliation
+active_batch_phase: PUBLICATION_FOUNDATION_RECONCILED
+current_stage: 42.4-7C — Managed Media Publication and Recovery Result Reconciliation
+completed_current_stage: 42.4-7C — Managed Media Publication and Recovery Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
+stage_42_4_7_status: COMPLETED_AND_ACCEPTED
+stage_42_4_7p_status: COMPLETED_AND_CLOSED
+stage_42_4_7c_status: COMPLETED_AND_CLOSED
+stage_42_4_7_implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+stage_42_4_7_parent: f2aa8eafa6f2a4d650bc491aacee97c38e074dc9
 stage_42_4_6_status: COMPLETED_AND_ACCEPTED
 stage_42_4_6c_status: COMPLETED_AND_CLOSED
 stage_42_4_6_verdict: MANAGED_MEDIA_PROCESSOR_FOUNDATION_COMPLETE
@@ -55,7 +60,7 @@ stage_42_4_6_implementation_allowed: false
 stage_42_4_6_tests_builds_allowed: false
 stage_42_4_6_runtime_allowed: false
 stage_42_4_6_dependency_allowed: false
-stage_42_4_7_approval: false
+stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
@@ -85,8 +90,9 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
+next_proposed_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+next_stage_mode: AUDIT_ONLY_THEN_PLAN_ONLY_IF_JUSTIFIED
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
 missing_source_events: 142_MEASURED
@@ -216,6 +222,51 @@ manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
 project_os_tracking_status: RECONCILED_BY_BATCH_42_4_0_DOCUMENTATION_CLOSURE
+
+## Stage 42.4-7C Publication Foundation Closure
+
+Stage `42.4-7 — Managed Media Journaled Publication and Recovery Foundation`
+is `COMPLETED_AND_ACCEPTED`. Stage `42.4-7P — Remote Synchronization Closure`
+and administrative Stage `42.4-7C` are `COMPLETED_AND_CLOSED`. The accepted
+application/source baseline is `f4ac546e8930b37b1091f694b9660d2d3b639c91`,
+with processor baseline `a6a629dd39175a77ec6f96d62ac222a672a7640c` and prior
+contract/schema/storage baseline `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+The pure injected publication foundation records journal intent, writes and
+validates operation-specific staging, publishes immutable files, activates
+descriptors in a short SQLite transaction, preserves the previous valid
+descriptor/fingerprint/file until commit, compensates bounded failures, and
+supports explicit single-operation or bounded nonterminal recovery. It uses
+`JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION`; no SQLite transaction is
+held during file writing. Existing schema was sufficient; no DDL, migration,
+trigger, index, or database-initialization change occurred.
+
+The state machine is `running/staging` → `running/validated` →
+`running/publishing` → `recovery_required/published` → `completed/published`,
+with fail-closed `failed/failed` outcomes. Recovery is explicit, bounded to
+one operation or 256 nonterminal operations, and idempotent; it is not
+startup-registered and does not scan the full catalog or managed-media root.
+Old descriptors and immutable files are retained; retention cleanup is not
+implemented.
+
+Verification is `REPORTED_BY_CODEX`: 11 focused publication tests, 175 full
+Rust tests, cargo check, formatting, diff checks, and the exact five-path
+allowlist passed. Synthetic timings are `MEASURED` test evidence only:
+150,367 µs first publication, 1,830 µs descriptor activation, 30,645 µs and
+23,813 µs recovery probes, and 5,248,509 µs for sequential 20-result
+processing/publication. Memory is
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`; production lifecycle, throughput,
+concurrency, and operational memory remain `UNKNOWN`. Windows privileged
+reparse creation is not measurable and directory durability remains
+platform-dependent.
+
+This is an inert publication/recovery foundation. It has no catalog CRUD hooks,
+automatic generation, startup recovery, queue, frontend descriptor/rendering,
+cleanup, or Backup/Restore integration. The observed GitHub push reported 12
+default-branch vulnerability alerts (4 high, 5 moderate, 3 low); reachability
+is `UNKNOWN`, no remediation occurred, and triage remains in Batch 42.13.
+Stage `42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan` is
+`READY_PENDING_SEPARATE_APPROVAL`; all technical permissions remain false.
 
 ## Stage 42.4-6C Processor Foundation Closure
 

@@ -75,10 +75,38 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 # Latest Session
 
+## 2026-07-27 — Managed Media Journaled Publication Foundation Accepted
+
+date: 2026-07-27
+session_type: PROJECT_OS_BATCH_42_4_7C_RESULT_RECONCILIATION
+implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+implementation_parent: f2aa8eafa6f2a4d650bc491aacee97c38e074dc9
+stage_42_4_7_status: COMPLETED_AND_ACCEPTED
+stage_42_4_7p_status: COMPLETED_AND_CLOSED
+stage_42_4_7c_status: COMPLETED_AND_CLOSED
+next_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The accepted foundation uses journaled filesystem-first immutable publication:
+intent and staging are validated before immutable publication, descriptor
+activation is short and transactional, previous-valid descriptors/fingerprints/
+files are preserved, and explicit recovery is bounded to one operation or 256
+nonterminal operations. Recovery is idempotent and not startup-registered. The
+11 focused and 175 full Rust tests, checks, and exact-path review are
+`REPORTED_BY_CODEX`; synthetic timings are `MEASURED` only. Memory is not
+measurable, Windows reparse setup and platform durability remain limited, and
+production lifecycle/throughput/concurrency remain unknown. The foundation is
+inert and disconnected from catalog CRUD, generation, frontend, cleanup, and
+Backup/Restore. The operator observed 12 GitHub default-branch vulnerability
+alerts (4 high, 5 moderate, 3 low); no remediation occurred and triage remains
+in Batch 42.13. This documentation-only reconciliation closes the stage.
+
 ## 2026-07-27 — Managed Media Processor Foundation Accepted
 
 date: 2026-07-27
 session_type: PROJECT_OS_BATCH_42_4_6C_RESULT_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_7C
 implementation_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
 implementation_parent: 34bd490734097ce77adfaf43b9ad0fe4fdf2b2be
 stage_42_4_6_status: COMPLETED_AND_ACCEPTED
@@ -90,8 +118,8 @@ synthetic_guards: MEASURED_PSNR_43.494_DB; PNG_EXACT; TIMING_PROBES_ONLY
 memory: NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
 limitations: ANIMATED_WEBP_UNSUPPORTED; GIF_FIRST_FRAME; ICC_FAIL_CLOSED
 foundation_state: INERT_NON_OPERATIONAL
-next_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+historical_next_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
+historical_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 technical_permissions: false
 
 Stage 42.4-6 is accepted and Stage 42.4-6C is closed. The processor remains
@@ -177,33 +205,6 @@ three bounding-box tiers, family ceilings, source-size eligibility, no-upscale
 behavior, native fallback, related-square exclusion, and active Standard `4:3`
 related content. This earlier architecture-pending statement is historical and
 superseded by the accepted Stage 42.4-4/42.4-5 foundation.
-
-## 2026-07-26 — Batch 42.4 Canonical Ratios and Standard Variants Approved
-
-date: 2026-07-26
-session_type: PROJECT_OS_BATCH_42_4_CANONICAL_RATIO_DECISION_RECONCILIATION
-status: HISTORICAL_SUPERSEDED_BY_42_4_3C
-pre_reconciliation_repository_head: 9fbfa3883ff2408f6763df3b7fa0ca94443757a3
-stage_42_4_1_result_review: MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS
-active_batch: 42.4 — Managed Mini Media Foundation
-completed_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
-next_proposed_stage: 42.4-3 — Bounded Canonical Slot Runtime Measurement
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_id: CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION
-canonical_ratio_families: WIDE_16_9; MINI_CARD_4_3; SQUARE_1_1; PERFORMER_PORTRAIT_4_5
-source_ratio_corrections: 5:3 -> 16:9; 11:14 -> 4:5
-card_mini_card_separation: FULL_CARD_16_9; MINI_LITE_CARD_4_3
-standard_tiers: SMALL; MEDIUM; LARGE
-regeneration_policy: TARGETED_SAFE_REGENERATION_WITH_LAST_VALID_PRESERVATION
-full_viewer_boundary: ORIGINAL_FIRST_WITH_LARGEST_VALID_MANAGED_FALLBACK
-implementation_allowed: false
-
-Stage 42.4-1 was accepted as a complete read-only audit with decision gaps.
-The approved reconciliation removes `5:3`, `11:14`, and dormant initial `3:2`
-from managed-media profiles, separates full cards from mini/lite cards, limits
-the foundation to three standard tiers, and records targeted safe regeneration.
-Exact dimensions and architecture remain pending. Stage 42.4-3 is measurement
-only and remains separately gated.
 
 ## Archived Session History
 

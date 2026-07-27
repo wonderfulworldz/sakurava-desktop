@@ -9,9 +9,9 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
-last_recorded_git_baseline_status: MANAGED_MEDIA_PROCESSOR_FOUNDATION_RECONCILED
-application_source_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+last_recorded_git_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+last_recorded_git_baseline_status: MANAGED_MEDIA_PUBLICATION_FOUNDATION_RECONCILED
+application_source_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -22,7 +22,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_PROCESSOR_FOUNDATION_RECONCILED
+batch_42_4_status: ACTIVE_PUBLICATION_FOUNDATION_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -34,7 +34,11 @@ batch_42_4_stage_42_4_5c_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_5d_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_6_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_6c_status: COMPLETED_AND_CLOSED
-batch_42_4_next_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
+batch_42_4_stage_42_4_7_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_7p_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_7c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_7_implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+batch_42_4_next_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 
 ## Current Authority — 2026-07-26
@@ -142,6 +146,50 @@ No operational generation, publication, recovery, CRUD hook, frontend
 integration, cleanup, or Backup/Restore integration exists. Stage
 `42.4-7 — Managed Media Journaled Publication and Recovery Foundation` is
 `READY_PENDING_SEPARATE_APPROVAL`; all technical permissions remain false.
+
+The preceding processor-only wording is historical and superseded by the
+accepted Stage 42.4-7 publication foundation authority below.
+
+## Current Publication Foundation Authority — 2026-07-27
+
+Stage `42.4-7` is `COMPLETED_AND_ACCEPTED`; Stage `42.4-7P` and administrative
+Stage `42.4-7C` are `COMPLETED_AND_CLOSED`. The accepted application/source
+baseline is `f4ac546e8930b37b1091f694b9660d2d3b639c91`; processor and prior
+contract/schema/storage baselines remain separately recorded as
+`a6a629dd39175a77ec6f96d62ac222a672a7640c` and
+`e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
+
+The existing `managed_media_items`, `managed_media_variants`, and
+`managed_media_operations` tables provide the required lifecycle, publication,
+operation, and journal states without DDL, migration, trigger, index, or
+database-initialization changes. The accepted foundation implements
+`JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION`: journal intent, exact
+operation staging, flush/checksum/reopen validation, immutable same-root
+publication, exact idempotency and collision rejection, short descriptor
+activation, previous-valid preservation, bounded compensation, and explicit
+bounded recovery. No SQLite transaction remains open while files are written;
+old descriptors and immutable files are retained.
+
+Recovery accepts one operation ID or at most 256 nonterminal operations. It is
+explicit, bounded, and idempotent, with fail-closed typed conflicts; it does
+not scan the full catalog/root, regenerate media, or run at startup. Synthetic
+timings are `MEASURED` test evidence only, not product budgets or concurrency
+proof. Memory is `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`; Windows reparse
+creation, platform durability, production lifecycle, throughput, concurrency,
+and operational memory remain limited or `UNKNOWN`.
+
+The publication foundation is inert and disconnected from catalog CRUD,
+automatic generation, startup recovery, queueing, frontend descriptors or
+rendering, retention cleanup, and Backup/Restore/package behavior. The
+operator-observed push reported 12 default-branch vulnerability alerts (4
+high, 5 moderate, 3 low); reachability is `UNKNOWN`, no remediation occurred,
+and triage remains assigned to Batch `42.13`.
+
+The next proposed stage is `42.4-8 — Managed Media Catalog Lifecycle
+Integration Audit and Plan`, `READY_PENDING_SEPARATE_APPROVAL`, and must begin
+as `AUDIT ONLY`. It may later plan only if justified; no technical permission
+is granted here. Batch 42.4 must not absorb Backup/Restore, Import/Export,
+Translation, dependency, UI/UX, or security-remediation work.
 
 ---
 

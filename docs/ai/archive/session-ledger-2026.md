@@ -429,3 +429,30 @@ or distortion. It covers applicable cover, Performer, gallery, Category,
 Glossary, Video-poster, and other catalog-media areas. Exact profiles remain
 unknown. Visual/profile and lifecycle/fallback smoke gates are reserved for
 after implementation verification; Stage 42.4-1 remains separately gated.
+
+## 2026-07-26 — Batch 42.4 Canonical Ratios and Standard Variants Approved
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_CANONICAL_RATIO_DECISION_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_3C
+pre_reconciliation_repository_head: 9fbfa3883ff2408f6763df3b7fa0ca94443757a3
+stage_42_4_1_result_review: MANAGED_MINI_MEDIA_AUDIT_ACCEPTED_WITH_DECISION_GAPS
+active_batch: 42.4 — Managed Mini Media Foundation
+completed_stage: 42.4-2 — Canonical Ratio and Standard Variant Decision Reconciliation
+next_proposed_stage: 42.4-3 — Bounded Canonical Slot Runtime Measurement
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+decision_id: CANONICAL_RATIOS_WITH_LIMITED_STANDARD_VARIANTS_AND_SAFE_REGENERATION
+canonical_ratio_families: WIDE_16_9; MINI_CARD_4_3; SQUARE_1_1; PERFORMER_PORTRAIT_4_5
+source_ratio_corrections: 5:3 -> 16:9; 11:14 -> 4:5
+card_mini_card_separation: FULL_CARD_16_9; MINI_LITE_CARD_4_3
+standard_tiers: SMALL; MEDIUM; LARGE
+regeneration_policy: TARGETED_SAFE_REGENERATION_WITH_LAST_VALID_PRESERVATION
+full_viewer_boundary: ORIGINAL_FIRST_WITH_LARGEST_VALID_MANAGED_FALLBACK
+implementation_allowed: false
+
+Stage 42.4-1 was accepted as a complete read-only audit with decision gaps.
+The approved reconciliation removes `5:3`, `11:14`, and dormant initial `3:2`
+from managed-media profiles, separates full cards from mini/lite cards, limits
+the foundation to three standard tiers, and records targeted safe regeneration.
+Exact dimensions and architecture remained pending at the time of this
+historical entry; Stage 42.4-3 was measurement-only and separately gated.
