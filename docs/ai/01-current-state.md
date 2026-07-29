@@ -8,8 +8,8 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-29
 repository_state_recorded_at: 2026-07-29
-repository_state_status: RUNTIME_ACTIVATION_POLICY_RECONCILED
-repository_state_evidence: OPERATOR_APPROVED_I3_D_WITH_I3_A_REPORTED_BY_CODEX
+repository_state_status: TEMPORARY_GIT_DELIVERY_POLICY_RECONCILED
+repository_state_evidence: OPERATOR_APPROVED_WITH_REPORTED_BY_CODEX_PROXY_RECOVERY
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
@@ -20,7 +20,8 @@ last_recorded_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 baseline_label: Batch 42.4-9C-I3-D Runtime Activation Policy Decision
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
-prior_project_os_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
+prior_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
+project_os_reconciliation_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -38,10 +39,19 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: RUNTIME_ACTIVATION_POLICY_DECISION_RECONCILIATION
-current_stage: 42.4-9C-I3-D-C — Runtime Activation Policy Decision Reconciliation
-completed_current_stage: 42.4-9C-I3-D-C — Runtime Activation Policy Decision Reconciliation
+active_batch_phase: TEMPORARY_GIT_DELIVERY_POLICY_RECONCILIATION
+current_stage: 42.4-9C-I3-G1-C — Temporary Git Delivery Policy Reconciliation
+completed_current_stage: 42.4-9C-I3-G1-C — Temporary Git Delivery Policy Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
+decision_stage: LOCAL_GIT_PROXY_CONFIGURATION_DECISION
+decision_stage_status: COMPLETED_AND_ACCEPTED
+decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
+git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
+git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
+persistent_proxy_root_cause: UNKNOWN
+normal_fetch_state: AVAILABLE_REPORTED_BY_CODEX
+normal_push_state: DEGRADED_LOOPBACK_ROUTE_REPORTED_BY_CODEX
+process_scoped_fallback_state: APPROVED_WITH_EXACT_PREFLIGHT_AND_STOP_CONDITIONS
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
@@ -141,6 +151,35 @@ stage_42_4_6_dependency_allowed: false
 stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
+
+## Current Temporary Git Delivery Policy Authority — 2026-07-29
+
+The operator-approved decision is `COMPLETED_AND_ACCEPTED` with verdict
+`TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED` under policy ID
+`PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY`. It applies only to
+`D:\sakurava-desktop`, remote `origin`, and fetch/read verification or normal
+non-force push closure of already approved commits.
+
+Every future closure uses the normal path first: exact repository and commit
+preflight, clean worktree and staging, all untracked paths beneath
+`manual-smoke/`, fresh remote verification, and at most one normal push.
+The fallback is not a default. It requires an approved current stage, expected
+parent or local remote SHA, zero remote-only divergence, a specific loopback
+push failure, clean state, no credential rejection, and no persistent change.
+
+The child Git process may clear only its own HTTP proxy variables and apply
+empty command-scoped Git proxy overrides. It must perform a read-only remote
+gate before one non-force push and use the same bounded path for final
+verification. Credentials and secrets must remain redacted. Stop on remote
+conflict, authentication failure, dirty or out-of-scope state, failed direct
+connectivity, or any need for persistent configuration mutation.
+
+The persistent proxy root cause is `UNKNOWN`; no Git, Windows, environment,
+remote, credential, VPN, firewall, or security configuration correction is
+claimed. This temporary policy lasts until ordinary push reliability is proven,
+the root cause is separately corrected, or the operator replaces or withdraws
+the policy. I3-I1 remains `READY_PENDING_SEPARATE_APPROVAL` and separately
+gated; all technical permissions remain false.
 
 ## Current Runtime Activation Policy Authority — 2026-07-29
 

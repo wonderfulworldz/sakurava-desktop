@@ -666,3 +666,27 @@ technical_permissions: false
 Stage 42.4-9A and correction Stage 42.4-9A-R1 were accepted and administrative
 Stage 42.4-9A-C was closed. The lifecycle foundation is additive and inert;
 all technical permissions return to false.
+
+---
+
+## 2026-07-29 — Catalog Lifecycle Intent Integration Accepted
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9B_C_RESULT_RECONCILIATION
+stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
+implementation_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
+result: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
+integration_state: CATALOG_LIFECYCLE_INTEGRATION_INERT
+next_stage: 42.4-9C — Bounded Executor and Recovery Integration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Catalog CRUD and final-state Import planning now create lifecycle intents
+atomically, reconcile repeated slots with opaque tokens, and retire removed
+work without filesystem deletion. Verification and atomicity are
+`REPORTED_BY_CODEX`; no live AppData or operator database was used. Worker,
+source acquisition, processing, publication, startup recovery, and frontend
+integration remain inactive. This documentation-only reconciliation closes
+9B; 9C remains separately gated.

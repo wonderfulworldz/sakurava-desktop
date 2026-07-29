@@ -4,10 +4,17 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_RUNTIME_ACTIVATION_POLICY_RECONCILED
-phase: RUNTIME_ACTIVATION_POLICY_DECISION_RECONCILIATION
-current_administrative_stage: 42.4-9C-I3-D-C — Runtime Activation Policy Decision Reconciliation
+status: ACTIVE_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILED
+phase: TEMPORARY_GIT_DELIVERY_POLICY_RECONCILIATION
+current_administrative_stage: 42.4-9C-I3-G1-C — Temporary Git Delivery Policy Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
+decision_status: COMPLETED_AND_ACCEPTED
+decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
+git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
+git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
+persistent_proxy_root_cause: UNKNOWN
+ordinary_push_condition: DEGRADED
+future_git_delivery_blocker: MITIGATED_BY_APPROVED_TEMPORARY_POLICY
 stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
@@ -20,7 +27,7 @@ stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-prior_project_os_reconciliation_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
+prior_project_os_reconciliation_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
 implementation_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 implementation_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
 foundation_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
@@ -73,6 +80,30 @@ stage_42_4_9c_i3_i1_numeric_defaults_allowed: false
 stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
+
+## Closed Decision 42.4-9C-I3-G1-C — Temporary Git Delivery Policy
+
+The decision is `COMPLETED_AND_ACCEPTED` with verdict
+`TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED` and policy ID
+`PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY`. Evidence is limited to the
+repository `D:\sakurava-desktop`, remote `origin`, and Git fetch/read or
+non-force push closure. Prior proxy findings are `REPORTED_BY_CODEX`; the
+persistent source remains `UNKNOWN`.
+
+Normal path first is mandatory: exact commit allowlist and ancestry, clean
+worktree and staging, all untracked paths under `manual-smoke/`, fresh remote
+verification, and at most one normal push. Fallback requires the expected
+parent or local SHA, zero remote-only divergence, a specific loopback failure,
+clean state, no authentication rejection, and no persistent configuration need.
+
+The process-scoped child may clear only its own HTTP proxy variables and apply
+empty Git proxy overrides. A read-only `ls-remote` gate must prove the expected
+SHA before one normal non-force push; final verification uses the same bounded
+environment when needed. Secrets remain redacted. Stop on conflict, credential
+failure, failed connectivity, dirty or out-of-scope state, or any request to
+change persistent configuration. The policy is temporary and is not a default
+for general networking. I3-I1 remains separately gated and all technical
+permissions remain false.
 
 implementation_allowed: false
 audit_allowed: false

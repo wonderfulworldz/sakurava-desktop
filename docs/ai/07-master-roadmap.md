@@ -9,10 +9,10 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-last_recorded_git_baseline_status: RUNTIME_ACTIVATION_POLICY_RECONCILED
+last_recorded_git_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
+last_recorded_git_baseline_status: RUNTIME_ACTIVATION_POLICY_RECONCILED_WITH_TEMPORARY_GIT_DELIVERY_POLICY
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-prior_project_os_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
+prior_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -23,7 +23,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_LOCAL_GENERATION_ORCHESTRATION_RECONCILED
+batch_42_4_status: ACTIVE_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -88,6 +88,30 @@ batch_42_4_numeric_policy_state: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
 batch_42_4_next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
+batch_42_4_git_decision_status: COMPLETED_AND_ACCEPTED
+batch_42_4_git_decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
+batch_42_4_git_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
+batch_42_4_git_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
+batch_42_4_persistent_proxy_root_cause: UNKNOWN
+
+## Current Authority — 2026-07-29 — Temporary Git Delivery Policy Reconciliation
+
+The approved temporary Git delivery policy is
+`TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED` under
+`PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY`. It is limited to this
+repository, remote `origin`, fresh Git verification, and normal non-force
+closure of approved commits. Normal path first is mandatory; the fallback is
+not a default and requires exact preflight, expected parent or local SHA, zero
+remote-only divergence, one specific loopback push failure, clean state, no
+credential rejection, and no persistent configuration need.
+
+The child process may clear only its own HTTP proxy variables and use empty
+command-scoped Git proxy overrides. A read-only remote gate precedes one
+non-force push. Stop on remote conflict, credentials, failed connectivity,
+dirty or out-of-scope state, or any persistent proxy/environment/Windows/Git
+configuration change. The policy is origin-only and temporary; its persistent
+root cause remains `UNKNOWN`. I3-I1 remains separately gated and does not gain
+technical authorization.
 
 ## Current Authority — 2026-07-29 — Runtime Activation Policy Reconciliation
 

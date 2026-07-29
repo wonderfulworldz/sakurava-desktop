@@ -73,6 +73,31 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Temporary Git Delivery Policy Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILIATION
+pre_reconciliation_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+decision_status: COMPLETED_AND_ACCEPTED
+decision: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
+policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
+reconciliation_status: COMPLETED_AND_CLOSED
+persistent_proxy_source: UNKNOWN
+normal_fetch: AVAILABLE_REPORTED_BY_CODEX
+normal_push: DEGRADED_LOOPBACK_ROUTE_REPORTED_BY_CODEX
+approved_fallback: PROCESS_SCOPED_ORIGIN_ONLY_NORMAL_PATH_FIRST
+persistent_mutation: PROHIBITED
+next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The temporary policy applies only to approved Git closure. It requires exact
+preflight, a fresh read-only remote gate, secret-safe handling, and one
+non-force push; it does not authorize I3-I1 or any technical work.
+
+---
+
 ## 2026-07-29 — Runtime Activation Policy Approved
 
 date: 2026-07-29
@@ -155,28 +180,6 @@ technical_permissions: false
 The implementation acceptance and administrative closure states are now
 separated in Project OS. No source or technical verification was performed;
 9C remains pending separate approval and all technical permissions remain false.
-
-## 2026-07-29 — Catalog Lifecycle Intent Integration Accepted
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_9B_C_RESULT_RECONCILIATION
-stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
-implementation_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
-implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
-result: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
-integration_state: CATALOG_LIFECYCLE_INTEGRATION_INERT
-next_stage: 42.4-9C — Bounded Executor and Recovery Integration
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-Catalog CRUD and final-state Import planning now create lifecycle intents
-atomically, reconcile repeated slots with opaque tokens, and retire removed
-work without filesystem deletion. Verification and atomicity are
-`REPORTED_BY_CODEX`; no live AppData or operator database was used. Worker,
-source acquisition, processing, publication, startup recovery, and frontend
-integration remain inactive. This documentation-only reconciliation closes
-9B; 9C remains separately gated.
 
 ## Archived Session History
 
