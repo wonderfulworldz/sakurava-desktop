@@ -9,10 +9,10 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-last_recorded_git_baseline_status: BOUNDED_EXECUTOR_CORE_RECONCILED
-application_source_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-prior_project_os_baseline: e6164edcdff975a2b51b41ed241e1afb5efc7931
+last_recorded_git_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+last_recorded_git_baseline_status: LOCAL_GENERATION_ORCHESTRATION_RECONCILED
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+prior_project_os_baseline: 3c6601367625ae118a7f85b85586a2662cc132b0
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -23,7 +23,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_BOUNDED_EXECUTOR_CORE_RECONCILED
+batch_42_4_status: ACTIVE_LOCAL_GENERATION_ORCHESTRATION_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -64,11 +64,40 @@ batch_42_4_stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_9c_i1_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-batch_42_4_next_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
+batch_42_4_stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9c_i2_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+batch_42_4_stage_42_4_9c_i2_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
+batch_42_4_stage_42_4_9c_i2_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
+batch_42_4_next_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 
-## Current Authority — 2026-07-29 — Bounded Executor Core Reconciliation
+## Current Authority — 2026-07-29 — Local Generation Orchestration Reconciliation
+
+Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
+`42.4-9C-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation baseline
+is `235ae605e7156cfe00ca4b59dc0e53b7395acd64`, parent
+`3c6601367625ae118a7f85b85586a2662cc132b0`, with verdict
+`MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS` and
+state `INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION`.
+
+I2 adds local-only source acquisition and processing/publication orchestration:
+authoritative locator resolution, bounded allowed-root reads, one-read/one-
+fingerprint execution, deterministic target planning, existing-processor
+orchestration, standard/fallback mapping, deterministic immutable publication,
+bounded recovery linkage, token-guarded outcomes, and complete-generation
+finalization. The handler is explicitly invoked and remains runtime-inert.
+Remote URLs remain prohibited. No startup, worker, frontend, or Backup/Restore
+integration exists, and no production policy values are selected.
+
+The next proposed stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
+Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`. I3 is
+not approved; all technical permissions remain false. The exact six I2 source
+paths and accepted `REPORTED_BY_CODEX` verification are recorded in Current
+State and Active Batch.
+
+## Historical Authority — 2026-07-29 — Bounded Executor Core Reconciliation
 
 Stages `42.4-9C-A` and `42.4-9C-I1` are `COMPLETED_AND_ACCEPTED`; push Stage
 `42.4-9C-I1-P` and reconciliation Stage `42.4-9C-I1-C` are
@@ -1383,10 +1412,19 @@ injected one-cycle boundary are accepted as `REPORTED_BY_CODEX`. It does not
 acquire sources, invoke processing/publication/recovery, activate runtime,
 modify managed files, or change frontend behavior.
 
-The next proposed stage is `42.4-9C-I2 — Source Acquisition and
-Processing/Publication Orchestration`, `READY_PENDING_SEPARATE_APPROVAL`,
-expected mode `IMPLEMENT`. I2 is not active or authorized. All technical
-permissions remain false.
+Stage `42.4-9C-I2 — Source Acquisition and Processing/Publication
+Orchestration` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
+`42.4-9C-I2-C` is `COMPLETED_AND_CLOSED` at baseline
+`235ae605e7156cfe00ca4b59dc0e53b7395acd64`, with verdict
+`MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS` and
+state `INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION`. Local source acquisition,
+processing/publication orchestration, deterministic immutable identities,
+ownership-guarded outcomes, and complete-generation finalization are accepted
+as `REPORTED_BY_CODEX`; production runtime behavior remains unknown.
+
+The next proposed stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
+Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`. I3 is
+not approved and all technical permissions remain false.
 
 **Accepted Stage Results**
 

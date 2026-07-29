@@ -4,9 +4,9 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_BOUNDED_EXECUTOR_CORE_RECONCILED
-phase: BOUNDED_EXECUTOR_CORE_RESULT_RECONCILIATION
-current_administrative_stage: 42.4-9C-I1-C — Bounded Executor Core Result Reconciliation
+status: ACTIVE_LOCAL_GENERATION_ORCHESTRATION_RECONCILED
+phase: LOCAL_GENERATION_ORCHESTRATION_RESULT_RECONCILIATION
+current_administrative_stage: 42.4-9C-I2-C — Source Acquisition and Orchestration Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
@@ -18,12 +18,12 @@ stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
-application_source_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-prior_project_os_reconciliation_baseline: e6164edcdff975a2b51b41ed241e1afb5efc7931
-implementation_verdict: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
-foundation_state: INERT_BOUNDED_EXECUTOR_CORE
+implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+prior_project_os_reconciliation_baseline: 3c6601367625ae118a7f85b85586a2662cc132b0
+implementation_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+implementation_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
+foundation_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8c_status: COMPLETED_AND_CLOSED
@@ -42,10 +42,13 @@ plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
 frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-next_technical_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
+next_technical_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 next_stage_approved: false
+stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
+next_stage_42_4_9c_i3_approved: false
 
 implementation_allowed: false
 audit_allowed: false
@@ -72,7 +75,39 @@ ratio_correction_allowed: false
 retention_cleanup_allowed: false
 security_remediation_allowed: false
 
-## Closed Stage 42.4-9C-I1 Bounded Executor Core Reconciliation
+## Closed Stage 42.4-9C-I2 Local Generation Orchestration Reconciliation
+
+Implementation Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation
+Stage `42.4-9C-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation
+baseline is `235ae605e7156cfe00ca4b59dc0e53b7395acd64`, parent
+`3c6601367625ae118a7f85b85586a2662cc132b0`, with verdict
+`MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS` and
+state `INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION`.
+
+I2 resolves authoritative local source locators, acquires bounded local files,
+fingerprints once, plans deterministic targets, invokes the existing processor,
+maps standard and native-fallback outputs, publishes deterministic immutable
+variants, records ownership-guarded outcomes, and finalizes only complete valid
+generations. The exact changed source paths are:
+
+- `src-tauri/src/managed_media/acquisition.rs`
+- `src-tauri/src/managed_media/acquisition_tests.rs`
+- `src-tauri/src/managed_media/catalog_lifecycle.rs`
+- `src-tauri/src/managed_media/catalog_lifecycle_tests.rs`
+- `src-tauri/src/managed_media/lifecycle.rs`
+- `src-tauri/src/managed_media/mod.rs`
+
+Verification is `REPORTED_BY_CODEX`; the accepted focused and full results are
+recorded in Current State. Windows reparse fixture coverage remains
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`. I2 has no worker, polling, wake,
+startup/shutdown, Tauri, frontend, URL/network, automatic catalog processing,
+or live-data behavior. Production policies remain unknown or separately gated.
+
+The next technical stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
+Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`, and is
+not approved. All technical permissions remain false.
+
+## Historical Closed Stage 42.4-9C-I1 Bounded Executor Core Reconciliation
 
 Stage `42.4-9C-A` is `COMPLETED_AND_ACCEPTED`; implementation Stage
 `42.4-9C-I1` is `COMPLETED_AND_ACCEPTED`; `42.4-9C-I1-P` and

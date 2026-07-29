@@ -73,6 +73,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Local Generation Orchestration Accepted
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9C_I2_RESULT_RECONCILIATION
+implementation_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
+stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
+result: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
+orchestration_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
+verification: REPORTED_BY_CODEX_240_FULL_RUST_107_MANAGED_MEDIA
+reparse_limitation: NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+next_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+I2 was accepted and I2-C is closed. Local generation orchestration remains
+explicitly invoked and runtime-inert; production policies, Windows reparse
+fixture coverage, and I3 behavior remain separately gated. This entry records
+the documentation-only reconciliation after the pushed implementation.
+
 ## 2026-07-29 — Bounded Executor Core Accepted
 
 date: 2026-07-29
@@ -155,29 +176,6 @@ technical_permissions: false
 Stage 42.4-9A and correction Stage 42.4-9A-R1 were accepted and administrative
 Stage 42.4-9A-C was closed. The lifecycle foundation is additive and inert;
 all technical permissions return to false.
-
-## 2026-07-29 — Additive Managed Media Lifecycle Architecture Approved
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_8E_ARCHITECTURE_DECISION_CLOSURE
-stage_42_4_8d_status: COMPLETED_AND_ACCEPTED
-stage_42_4_8e_status: COMPLETED_AND_CLOSED
-final_architecture: ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED_AND_ACCEPTED
-operations_table: PUBLICATION_JOURNAL_ONLY
-lifecycle_tables: DEDICATED_ADDITIVE_INTENT_AND_TARGET_STRUCTURES
-retained_foundation: PROCESSOR_CONTRACT_PROTECTED_PATHS_IMMUTABLE_PUBLICATION
-generation_finalization: REQUIRED_TARGETS_COMPLETE_BEFORE_PROMOTION
-frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-next_stage: 42.4-9A — Lifecycle Schema and State-Machine Foundation
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-Stage 42.4-8D was accepted and administrative Stage 42.4-8E was closed. The
-architecture decision rejects lifecycle reuse of the publication-operation
-table, retains the accepted processor and immutable publication foundation,
-and requires dedicated lifecycle intent/target structures. Failed or partial
-generations preserve the current valid output. Stage 42.4-9A remains pending
-separate approval; no technical implementation is authorized.
 
 ## Archived Session History
 

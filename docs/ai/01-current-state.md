@@ -8,19 +8,19 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-29
 repository_state_recorded_at: 2026-07-29
-repository_state_status: BOUNDED_EXECUTOR_CORE_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9C_I1
+repository_state_status: LOCAL_GENERATION_ORCHESTRATION_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9C_I2
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-baseline_label: Batch 42.4-9C-I1 Bounded Executor Core
-application_source_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
-prior_project_os_baseline: e6164edcdff975a2b51b41ed241e1afb5efc7931
+last_recorded_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+baseline_label: Batch 42.4-9C-I2 Local Generation Orchestration
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
+prior_project_os_baseline: 3c6601367625ae118a7f85b85586a2662cc132b0
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -38,9 +38,9 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: BOUNDED_EXECUTOR_CORE_RESULT_RECONCILIATION
-current_stage: 42.4-9C-I1-C — Bounded Executor Core Result Reconciliation
-completed_current_stage: 42.4-9C-I1-C — Bounded Executor Core Result Reconciliation
+active_batch_phase: LOCAL_GENERATION_ORCHESTRATION_RESULT_RECONCILIATION
+current_stage: 42.4-9C-I2-C — Source Acquisition and Orchestration Result Reconciliation
+completed_current_stage: 42.4-9C-I2-C — Source Acquisition and Orchestration Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
@@ -56,6 +56,14 @@ stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
 stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9c_i1_verdict: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
 stage_42_4_9c_i1_state: INERT_BOUNDED_EXECUTOR_CORE
+stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i2_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
+stage_42_4_9c_i2_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
+stage_42_4_9c_i2_c_implementation_allowed: false
+stage_42_4_9c_i2_c_tests_builds_allowed: false
+stage_42_4_9c_i2_c_runtime_allowed: false
+stage_42_4_9c_i3_approved: false
 stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_c_r1_reason: IMPLEMENTATION_ACCEPTANCE_AND_ADMINISTRATIVE_CLOSURE_STATUS_SEPARATED
 stage_42_4_9a_architecture: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
@@ -105,7 +113,53 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Bounded Executor Authority — 2026-07-29
+## Current Local Generation Orchestration Authority — 2026-07-29
+
+Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED` and reconciliation Stage
+`42.4-9C-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation baseline
+is `235ae605e7156cfe00ca4b59dc0e53b7395acd64`, parent
+`3c6601367625ae118a7f85b85586a2662cc132b0`. The accepted verdict is
+`MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS` and
+the state is `INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION`.
+
+I2 provides authoritative local locator resolution, local-only bounded source
+acquisition, explicit allowed-root and path safety checks, one-read/one-
+fingerprint orchestration, deterministic target planning, existing-processor
+orchestration, standard and `NATIVE_FALLBACK` mapping, deterministic immutable
+publication identities, idempotent completed-publication reuse, bounded
+operation-specific recovery linkage, token-guarded outcomes, typed failure and
+retry boundaries, atomic finalization, and last-valid generation preservation.
+The exact changed source paths are:
+
+- `src-tauri/src/managed_media/acquisition.rs`
+- `src-tauri/src/managed_media/acquisition_tests.rs`
+- `src-tauri/src/managed_media/catalog_lifecycle.rs`
+- `src-tauri/src/managed_media/catalog_lifecycle_tests.rs`
+- `src-tauri/src/managed_media/lifecycle.rs`
+- `src-tauri/src/managed_media/mod.rs`
+
+Verification is `REPORTED_BY_CODEX`: 15 acquisition/orchestration tests, 13
+catalog-lifecycle tests, 2 locator-filter tests, 4 fingerprint tests, 4
+executor tests, 23 lifecycle tests, 14 processor tests, 11 publication tests,
+107 managed-media tests, and 240 full Rust tests passed; compiler, formatting,
+diff, and push verification passed. One short-timeout wrapper exited 124 with
+`BrokenPipe`; it produced no test verdict and was followed by the successful
+controlled full rerun. Windows reparse fixture creation is
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`; detected links and reparse paths fail
+closed, but universal real-Windows fixture coverage is not claimed.
+
+I2 is explicitly invoked only. It does not run a worker, discovery loop,
+polling, sleep, automatic retry, wake channel, startup or shutdown behavior,
+Tauri, frontend, URL/network acquisition, automatic catalog processing, or
+live AppData access. Production concurrency, lease, renewal, retry, startup,
+shutdown, throughput, memory, provisioning, foreign-key, remote-security, and
+Backup/Restore policies remain `UNKNOWN` or separately gated.
+
+The next proposed stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
+Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, with all technical permissions
+false. No I3 implementation is authorized.
+
+## Historical Bounded Executor Authority — 2026-07-29
 
 Stage `42.4-9C-A` is `COMPLETED_AND_ACCEPTED`; implementation Stage
 `42.4-9C-I1` is `COMPLETED_AND_ACCEPTED`; push Stage `42.4-9C-I1-P` and
@@ -177,14 +231,15 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
+next_proposed_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 stage_42_4_9a_implementation_allowed: false
 stage_42_4_9b_implementation_allowed: false
-stage_42_4_9c_status: ACTIVE_BOUNDED_EXECUTOR_CORE_RECONCILED
+stage_42_4_9c_status: ACTIVE_LOCAL_GENERATION_ORCHESTRATION_RECONCILED
 stage_42_4_9c_implementation_allowed: false
 stage_42_4_9c_i2_implementation_allowed: false
+stage_42_4_9c_i3_implementation_allowed: false
 stage_42_4_9a_tests_builds_allowed: false
 stage_42_4_9a_runtime_allowed: false
 stage_42_4_9a_database_allowed: false

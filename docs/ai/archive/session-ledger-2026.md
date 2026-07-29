@@ -617,3 +617,28 @@ better architecture when supported, and preservation of the existing frontend
 interface and experience. The 8B plan is planning input only; schema reuse is
 provisional, controlled internal replacement may be recommended only after 8D
 audit and approval, and no technical work is authorized.
+
+---
+
+## 2026-07-29 — Additive Managed Media Lifecycle Architecture Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_8E_ARCHITECTURE_DECISION_CLOSURE
+stage_42_4_8d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8e_status: COMPLETED_AND_CLOSED
+final_architecture: ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED_AND_ACCEPTED
+operations_table: PUBLICATION_JOURNAL_ONLY
+lifecycle_tables: DEDICATED_ADDITIVE_INTENT_AND_TARGET_STRUCTURES
+retained_foundation: PROCESSOR_CONTRACT_PROTECTED_PATHS_IMMUTABLE_PUBLICATION
+generation_finalization: REQUIRED_TARGETS_COMPLETE_BEFORE_PROMOTION
+frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
+next_stage: 42.4-9A — Lifecycle Schema and State-Machine Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-8D was accepted and administrative Stage 42.4-8E was closed. The
+architecture decision rejects lifecycle reuse of the publication-operation
+table, retains the accepted processor and immutable publication foundation,
+and requires dedicated lifecycle intent/target structures. Failed or partial
+generations preserve the current valid output. Stage 42.4-9A remains pending
+separate approval; no technical implementation is authorized.
