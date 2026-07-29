@@ -53,7 +53,7 @@ batch_42_4_operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
 batch_42_4_plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 batch_42_4_schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 batch_42_4_frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-batch_42_4_next_stage: 42.4-9A — Lifecycle Schema and State-Machine Foundation
+batch_42_4_next_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 
@@ -80,10 +80,37 @@ retained. Descriptor activation, publication recovery linkage, desired revision,
 source-changing catalog transactions, and stable-slot reconciliation require
 targeted refactoring.
 
-Stage `42.4-9A — Lifecycle Schema and State-Machine Foundation` is
-`READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`, and remains
-inactive. No technical implementation, migration, runtime, tests, builds,
-dependency, package, database, Backup/Restore, or UI/UX work is authorized.
+The following 8E proposal is historical and superseded by the accepted
+42.4-9A implementation and 42.4-9A-C reconciliation below. No technical
+implementation, migration, runtime, tests, builds, dependency, package,
+database, Backup/Restore, or UI/UX work is authorized.
+
+## Current Authority — 2026-07-29 — Lifecycle Schema Foundation Reconciliation
+
+Stage `42.4-9A — Lifecycle Schema and State-Machine Foundation` and bounded
+correction Stage `42.4-9A-R1` are `COMPLETED_AND_ACCEPTED`; administrative
+Stage `42.4-9A-C` is `COMPLETED_AND_CLOSED`. The accepted implementation
+baseline is `baa5a106f39e6c202f20798f33ae478714ef1030`, parent
+`46e9e9356c4d1799968780fc980ede119fc152da`.
+
+The foundation adds generation, lifecycle-intent, and lifecycle-target tables.
+`managed_media_operations` remains publication-journal-only. Publication and
+generation promotion are separated: one variant cannot promote a generation,
+and finalization requires all required targets to succeed. Partial or failed
+generations preserve the last valid state.
+
+Disposable compatibility, idempotency, rollback, partial-schema rejection,
+row preservation, and foreign-key/trigger protection were accepted as
+`REPORTED_BY_CODEX`; they do not prove live-production compatibility. The
+foundation remains inert with no CRUD, Import, worker, generation, startup,
+frontend, cleanup, or Backup integration.
+
+Remaining unknowns include production row population, universal runtime
+foreign-key enforcement, runtime behavior, numeric lease/retry/concurrency
+policy, existing-catalog provisioning, remote URL acquisition/security policy,
+and Backup/Restore integration. Stage `42.4-9B — Catalog Mutation and Import
+Intent Integration` is `READY_PENDING_SEPARATE_APPROVAL`, not active or
+authorized. All technical permissions remain false.
 
 ## Current Authority — 2026-07-26
 
@@ -204,9 +231,10 @@ contract/schema/storage baselines remain separately recorded as
 `e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4`.
 
 The existing `managed_media_items`, `managed_media_variants`, and
-`managed_media_operations` tables provide the required lifecycle, publication,
-operation, and journal states without DDL, migration, trigger, index, or
-database-initialization changes. The accepted foundation implements
+`managed_media_operations` tables provide publication, operation, and journal
+states without DDL, migration, trigger, index, or database-initialization
+changes. Lifecycle state is represented by the separately accepted additive
+tables recorded in the current authority above. The accepted foundation implements
 `JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION`: journal intent, exact
 operation staging, flush/checksum/reopen validation, immutable same-root
 publication, exact idempotency and collision rejection, short descriptor
@@ -1259,11 +1287,27 @@ transactions, and stable-slot reconciliation require targeted refactoring.
 Visible ratio correction and retention cleanup remain separate. Backup/Restore
 remains assigned to Batches 42.6/42.7.
 
-The next proposed stage is `42.4-9A — Lifecycle Schema and State-Machine
-Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`.
-It is not active or authorized. Exact schema, migration, numeric retry/worker
-policy, existing-catalog provisioning, package compatibility, and runtime
-behavior remain separately gated or `UNKNOWN`.
+Stage `42.4-9A — Lifecycle Schema and State-Machine Foundation` and correction
+Stage `42.4-9A-R1` are `COMPLETED_AND_ACCEPTED`; administrative Stage
+`42.4-9A-C` is `COMPLETED_AND_CLOSED`. The accepted implementation baseline is
+`baa5a106f39e6c202f20798f33ae478714ef1030`.
+
+The additive lifecycle tables are `managed_media_item_generations`,
+`managed_media_lifecycle_intents`, and `managed_media_lifecycle_targets`.
+`managed_media_operations` remains publication-journal-only. Desired/current
+revision state is structural and typed; publication does not promote a single
+variant, and finalization requires all required targets. Partial or failed
+generations preserve last-valid state.
+
+Verification and compatibility are limited to disposable evidence reported by
+Codex. The foundation remains inert and no production lifecycle integration is
+active. Production row population, runtime foreign-key enforcement, runtime
+behavior, numeric worker/retry policy, existing-catalog provisioning, and
+package/Backup integration remain unknown or separately gated.
+
+The next proposed stage is `42.4-9B — Catalog Mutation and Import Intent
+Integration`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`.
+It is not active or authorized. All technical permissions remain false.
 
 **Accepted Stage Results**
 

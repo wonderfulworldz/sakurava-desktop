@@ -8,17 +8,18 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-29
 repository_state_recorded_at: 2026-07-29
-repository_state_status: LIFECYCLE_FINAL_ARCHITECTURE_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_8E_CLOSURE
+repository_state_status: LIFECYCLE_SCHEMA_FOUNDATION_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9A_C_RESULT_RECONCILIATION
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
-baseline_label: Batch 42.4-7 Managed Media Journaled Publication and Recovery Foundation
-application_source_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+last_recorded_baseline: baa5a106f39e6c202f20798f33ae478714ef1030
+baseline_label: Batch 42.4-9A Lifecycle Schema and State-Machine Foundation
+application_source_baseline: baa5a106f39e6c202f20798f33ae478714ef1030
+implementation_parent: 46e9e9356c4d1799968780fc980ede119fc152da
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -36,10 +37,19 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: LIFECYCLE_FINAL_ARCHITECTURE_RECONCILED
-current_stage: 42.4-8E — Managed Media Lifecycle Final Architecture Decision Reconciliation
-completed_current_stage: 42.4-8E — Managed Media Lifecycle Final Architecture Decision Reconciliation
+active_batch_phase: LIFECYCLE_SCHEMA_FOUNDATION_RECONCILED
+current_stage: 42.4-9A-C — Lifecycle Schema Foundation Result Reconciliation
+completed_current_stage: 42.4-9A-C — Lifecycle Schema Foundation Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
+stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9a_verdict: MANAGED_MEDIA_LIFECYCLE_SCHEMA_FOUNDATION_ACCEPTED
+stage_42_4_9a_architecture: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
+stage_42_4_9a_lifecycle_tables: managed_media_item_generations; managed_media_lifecycle_intents; managed_media_lifecycle_targets
+stage_42_4_9a_operations_responsibility: PUBLICATION_JOURNAL_ONLY
+stage_42_4_9a_finalization: ALL_REQUIRED_TARGETS_SUCCESS_BEFORE_PROMOTION
+stage_42_4_9a_state: INERT_NON_OPERATIONAL_FOUNDATION
 stage_42_4_7_status: COMPLETED_AND_ACCEPTED
 stage_42_4_7p_status: COMPLETED_AND_CLOSED
 stage_42_4_7c_status: COMPLETED_AND_CLOSED
@@ -108,10 +118,12 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-9A — Lifecycle Schema and State-Machine Foundation
+next_proposed_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 stage_42_4_9a_implementation_allowed: false
+stage_42_4_9b_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_9b_implementation_allowed: false
 stage_42_4_9a_tests_builds_allowed: false
 stage_42_4_9a_runtime_allowed: false
 stage_42_4_9a_database_allowed: false
@@ -258,9 +270,36 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: RECONCILED_BY_BATCH_42_4_8E_DOCUMENTATION_CLOSURE
+project_os_tracking_status: RECONCILED_BY_BATCH_42_4_9A_C_DOCUMENTATION_CLOSURE
 
-## Stage 42.4-8E Final Architecture Decision Closure
+## Stage 42.4-9A-C Lifecycle Schema Foundation Result Reconciliation
+
+Stages `42.4-9A` and `42.4-9A-R1` are `COMPLETED_AND_ACCEPTED`; administrative
+Stage `42.4-9A-C` is `COMPLETED_AND_CLOSED`. The accepted implementation
+baseline is `baa5a106f39e6c202f20798f33ae478714ef1030`, parent
+`46e9e9356c4d1799968780fc980ede119fc152da`, with verdict
+`MANAGED_MEDIA_LIFECYCLE_SCHEMA_FOUNDATION_ACCEPTED`.
+
+The additive foundation contains `managed_media_item_generations`,
+`managed_media_lifecycle_intents`, and `managed_media_lifecycle_targets`.
+`managed_media_operations` remains `PUBLICATION_JOURNAL_ONLY`. Publication
+evidence does not promote a generation; finalization requires every required
+target to succeed and preserves the last valid generation on rejection.
+
+Disposable compatibility, idempotency, rollback, partial-schema rejection,
+row-preservation, and foreign-key/trigger protection verification are recorded
+as `REPORTED_BY_CODEX` and do not prove live-production compatibility. The
+foundation is `INERT_NON_OPERATIONAL_FOUNDATION`: no CRUD, Import, worker,
+generation, startup, frontend, cleanup, or Backup integration is active.
+
+Remaining unknowns include production row population, universal runtime
+foreign-key enforcement, runtime behavior, lease/retry/concurrency policy,
+existing-catalog provisioning, remote URL acquisition/security policy, and
+Backup/Restore integration. All technical permissions are false. The next
+proposed stage is `42.4-9B — Catalog Mutation and Import Intent Integration`,
+`READY_PENDING_SEPARATE_APPROVAL`; it is not approved.
+
+## Historical Stage 42.4-8E Final Architecture Decision Closure
 
 Stages `42.4-8D` and administrative Stage `42.4-8E` are respectively
 `COMPLETED_AND_ACCEPTED` and `COMPLETED_AND_CLOSED`. The accepted final
@@ -282,12 +321,11 @@ protected. Generation promotion waits for all required targets for the desired
 revision; partial or failed generations preserve the previous valid generation.
 No technical implementation is authorized.
 
-The next proposed stage is `42.4-9A — Lifecycle Schema and State-Machine
-Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, `IMPLEMENT` in a future
-separately approved stage. All technical permissions remain false. Exact table
-names, columns, indexes, migration versioning, retry policy, worker policy,
-existing-catalog provisioning, and Backup/Restore implications remain deferred
-or `UNKNOWN`.
+This historical closure was followed by the accepted 42.4-9A implementation
+and 42.4-9A-C reconciliation recorded above. Its former next-stage proposal
+is superseded; the current next proposal is 42.4-9B and remains separately
+gated. Exact retry policy, worker policy, existing-catalog provisioning, and
+Backup/Restore implications remain deferred or `UNKNOWN`.
 
 ## Historical Stage 42.4-8C Architecture Guardrail Closure
 

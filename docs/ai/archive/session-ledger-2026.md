@@ -518,3 +518,27 @@ Stage 42.4-4 architecture and Stage 42.4-5 implementation were accepted. The
 foundation records the shared contract, three additive tables, protected root,
 and deterministic identity models without operational processing or runtime
 integration. All technical permissions return to false.
+
+---
+
+## 2026-07-26 — Stage 42.4-6 Scope Consistency Corrected
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_5D_SCOPE_CONSISTENCY_CORRECTION
+pre_correction_repository_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
+application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+stage_42_4_5d_status: COMPLETED_AND_CLOSED
+correction: STALE_NEXT_STAGE_AND_BASELINE_REFERENCES_RECONCILED
+next_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+dependency_allowed: false
+tests_and_builds_allowed: false
+runtime_allowed: false
+database_allowed: false
+manual_smoke_allowed: false
+mutation: DOCUMENTATION_ONLY_NO_SOURCE_OR_EVIDENCE_MUTATION
+
+Stage 42.4-6 is the separately gated processor dependency and decode/encode
+implementation foundation. It does not repeat completed architecture or schema
+planning and is not approved.

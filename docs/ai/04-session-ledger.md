@@ -73,6 +73,28 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Managed Media Lifecycle Schema Foundation Accepted
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9A_C_RESULT_RECONCILIATION
+stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
+implementation_baseline: baa5a106f39e6c202f20798f33ae478714ef1030
+lifecycle_tables: managed_media_item_generations; managed_media_lifecycle_intents; managed_media_lifecycle_targets
+operations_table: PUBLICATION_JOURNAL_ONLY
+publication_boundary: ONE_VARIANT_DOES_NOT_PROMOTE_GENERATION
+finalization_boundary: ALL_REQUIRED_TARGETS_SUCCESS
+verification: REPORTED_BY_CODEX_196_FULL_RUST_69_MANAGED_MEDIA
+foundation_state: INERT_NON_OPERATIONAL
+next_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-9A and correction Stage 42.4-9A-R1 were accepted and administrative
+Stage 42.4-9A-C was closed. The lifecycle foundation is additive and inert;
+all technical permissions return to false.
+
 ## 2026-07-29 — Additive Managed Media Lifecycle Architecture Approved
 
 date: 2026-07-29
@@ -168,28 +190,6 @@ technical_permissions: false
 Stage 42.4-6 is accepted and Stage 42.4-6C is closed. The processor remains
 disconnected from generation, publication, recovery, CRUD, frontend, and
 Backup/Restore. No technical work is authorized.
-
-## 2026-07-26 — Stage 42.4-6 Scope Consistency Corrected
-
-date: 2026-07-26
-session_type: PROJECT_OS_BATCH_42_4_5D_SCOPE_CONSISTENCY_CORRECTION
-pre_correction_repository_baseline: 0bd8e8a2e7c646d121dc5e3ead81c4843dfb365b
-application_source_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
-stage_42_4_5d_status: COMPLETED_AND_CLOSED
-correction: STALE_NEXT_STAGE_AND_BASELINE_REFERENCES_RECONCILED
-next_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-implementation_allowed: false
-dependency_allowed: false
-tests_and_builds_allowed: false
-runtime_allowed: false
-database_allowed: false
-manual_smoke_allowed: false
-mutation: DOCUMENTATION_ONLY_NO_SOURCE_OR_EVIDENCE_MUTATION
-
-Stage 42.4-6 is the separately gated processor dependency and decode/encode
-implementation foundation. It does not repeat completed architecture or schema
-planning and is not approved.
 
 ## Archived Session History
 
