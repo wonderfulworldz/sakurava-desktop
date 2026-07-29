@@ -181,6 +181,17 @@ impl TestEnvironment {
             .expect("current source")
     }
 
+    fn pending_source(&self, item_id: &ValidatedSha256) -> Option<String> {
+        self.connection()
+            .query_row(
+                "SELECT pending_source_fingerprint
+                 FROM managed_media_items WHERE item_id = ?1",
+                [item_id.as_str()],
+                |row| row.get(0),
+            )
+            .expect("pending source")
+    }
+
     fn variant_path(&self, variant_id: &ValidatedSha256) -> PathBuf {
         let relative: String = self
             .connection()
@@ -306,8 +317,9 @@ fn schema_capability_and_first_publication_are_journaled_and_idempotent() {
         environment.operation_state("operation-first"),
         ("completed".to_string(), "published".to_string())
     );
+    assert_eq!(environment.current_source(&item), None);
     assert_eq!(
-        environment.current_source(&item).as_deref(),
+        environment.pending_source(&item).as_deref(),
         Some(result.source_sha256.as_str())
     );
     assert!(environment.variant_exists(&variant));
@@ -336,7 +348,11 @@ fn replacement_preserves_previous_descriptor_and_file() {
     let old_variant = hash('4');
     let new_variant = hash('5');
     let old_result = environment.process(2);
-    environment.insert_item(&item, &old_result.source_sha256, None);
+    environment.insert_item(
+        &item,
+        &old_result.source_sha256,
+        Some(&old_result.source_sha256),
+    );
     environment
         .publish("operation-old", &item, &old_variant, &old_result)
         .expect("old publication");
@@ -353,6 +369,10 @@ fn replacement_preserves_previous_descriptor_and_file() {
     assert!(environment.variant_exists(&new_variant));
     assert_eq!(
         environment.current_source(&item).as_deref(),
+        Some(old_result.source_sha256.as_str())
+    );
+    assert_eq!(
+        environment.pending_source(&item).as_deref(),
         Some(new_result.source_sha256.as_str())
     );
     let old_state: String = environment
@@ -511,8 +531,9 @@ fn descriptor_transaction_failure_rolls_back_and_recovery_completes() {
         RecoveryOutcome::FinalizedJournalState | RecoveryOutcome::CompletedDescriptorActivation
     ));
     assert!(environment.variant_exists(&variant));
+    assert_eq!(environment.current_source(&item), None);
     assert_eq!(
-        environment.current_source(&item).as_deref(),
+        environment.pending_source(&item).as_deref(),
         Some(result.source_sha256.as_str())
     );
 }
@@ -543,14 +564,7 @@ fn every_supported_crash_boundary_preserves_state_and_recovers_idempotently() {
             ),
             Err(PublicationError::InterruptedForVerification)
         ));
-        if failure == FailurePoint::AfterDescriptorCommit {
-            assert_eq!(
-                environment.current_source(&item).as_deref(),
-                Some(result.source_sha256.as_str())
-            );
-        } else {
-            assert_eq!(environment.current_source(&item), None);
-        }
+        assert_eq!(environment.current_source(&item), None);
 
         let outcome = environment
             .recover(&format!("operation-crash-{index}"))
@@ -564,8 +578,9 @@ fn every_supported_crash_boundary_preserves_state_and_recovers_idempotently() {
                     | RecoveryOutcome::RemovedExactStagingRemnant
             ));
             assert!(environment.variant_exists(&variant));
+            assert_eq!(environment.current_source(&item), None);
             assert_eq!(
-                environment.current_source(&item).as_deref(),
+                environment.pending_source(&item).as_deref(),
                 Some(result.source_sha256.as_str())
             );
             assert!(matches!(
@@ -600,7 +615,11 @@ fn failed_replacement_never_deactivates_or_deletes_last_valid_output() {
     let old_variant = indexed_hash(251);
     let new_variant = indexed_hash(252);
     let old_result = environment.process(70);
-    environment.insert_item(&item, &old_result.source_sha256, None);
+    environment.insert_item(
+        &item,
+        &old_result.source_sha256,
+        Some(&old_result.source_sha256),
+    );
     environment
         .publish("operation-last-valid-old", &item, &old_variant, &old_result)
         .expect("old publication");

@@ -263,6 +263,57 @@ impl OperationIdentity {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LifecycleIntentIdentity(String);
+
+impl LifecycleIntentIdentity {
+    pub fn new(value: impl Into<String>) -> Result<Self, String> {
+        Ok(Self(validate_file_token(
+            value.into(),
+            "lifecycle intent identifier",
+            128,
+        )?))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LifecycleTargetIdentity(String);
+
+impl LifecycleTargetIdentity {
+    pub fn new(value: impl Into<String>) -> Result<Self, String> {
+        Ok(Self(validate_file_token(
+            value.into(),
+            "lifecycle target identifier",
+            128,
+        )?))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LifecycleClaimToken(String);
+
+impl LifecycleClaimToken {
+    pub fn new(value: impl Into<String>) -> Result<Self, String> {
+        Ok(Self(validate_file_token(
+            value.into(),
+            "lifecycle claim token",
+            128,
+        )?))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 pub fn source_locator_preimage(kind: SourceLocatorKind, locator_hash: &ValidatedSha256) -> String {
     encode_preimage(&[
         ("version", "source-locator-v1"),

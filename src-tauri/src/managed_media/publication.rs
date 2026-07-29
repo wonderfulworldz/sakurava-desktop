@@ -677,18 +677,6 @@ fn activate_descriptor_in_transaction(
     }
 
     let now = timestamp();
-    let updated = transaction
-        .execute(
-            "UPDATE managed_media_items
-             SET current_source_fingerprint = ?2, pending_source_fingerprint = NULL,
-                 lifecycle_state = 'active', updated_at = ?3
-             WHERE item_id = ?1",
-            (&payload.item_id, &payload.source_fingerprint, &now),
-        )
-        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
-    if updated != 1 {
-        return Err(PublicationError::ItemIdentityConflict);
-    }
     let completed = transaction
         .execute(
             "UPDATE managed_media_operations
@@ -859,18 +847,6 @@ fn validate_completed(
     processor: &ManagedMediaProcessor,
     payload: &JournalPayload,
 ) -> Result<(), PublicationError> {
-    let active: Option<String> = connection
-        .query_row(
-            "SELECT current_source_fingerprint FROM managed_media_items WHERE item_id = ?1",
-            [&payload.item_id],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|_| PublicationError::SchemaStateConflict)?
-        .flatten();
-    if active.as_deref() != Some(&payload.source_fingerprint) {
-        return Err(PublicationError::RecoveryStateConflict);
-    }
     let descriptor: Option<(String, String)> = connection
         .query_row(
             "SELECT checksum, publication_state FROM managed_media_variants
@@ -886,6 +862,89 @@ fn validate_completed(
         return Err(PublicationError::RecoveryStateConflict);
     }
     validate_final_file(&final_path(root, payload)?, processor, payload)
+}
+
+pub(crate) fn validate_linked_publication(
+    connection: &Connection,
+    operation_id: &str,
+    item_id: &str,
+    variant_id: &str,
+    source_fingerprint: &str,
+    role: RoleId,
+    class: VariantClass,
+) -> Result<(), PublicationError> {
+    let operation: Option<(String, String, String)> = connection
+        .query_row(
+            "SELECT operation_state, journal_state, scope_payload_json
+             FROM managed_media_operations WHERE operation_id = ?1",
+            [operation_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()
+        .map_err(|_| PublicationError::SchemaStateConflict)?;
+    let (operation_state, journal_state, payload_json) =
+        operation.ok_or(PublicationError::RecoveryStateConflict)?;
+    if operation_state != "completed" || journal_state != "published" {
+        return Err(PublicationError::RecoveryStateConflict);
+    }
+    let payload: JournalPayload =
+        serde_json::from_str(&payload_json).map_err(|_| PublicationError::RecoveryStateConflict)?;
+    let (variant_class, standard_tier) = match class {
+        VariantClass::Standard(tier) => ("standard", Some(tier.as_str())),
+        VariantClass::NativeFallback => ("native_fallback", None),
+    };
+    if payload.operation_id != operation_id
+        || payload.item_id != item_id
+        || payload.variant_id != variant_id
+        || payload.source_fingerprint != source_fingerprint
+        || payload.role != role.as_str()
+        || payload.variant_class != variant_class
+        || payload.standard_tier.as_deref() != standard_tier
+    {
+        return Err(PublicationError::RecoveryStateConflict);
+    }
+    let descriptor: Option<(
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        String,
+        String,
+    )> = connection
+        .query_row(
+            "SELECT managed_item_id, variant_id, role_id, variant_class, standard_tier,
+                    source_fingerprint, publication_state
+             FROM managed_media_variants WHERE variant_id = ?1",
+            [variant_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| PublicationError::SchemaStateConflict)?;
+    if descriptor
+        != Some((
+            item_id.to_string(),
+            variant_id.to_string(),
+            role.as_str().to_string(),
+            variant_class.to_string(),
+            standard_tier.map(str::to_string),
+            source_fingerprint.to_string(),
+            "published".to_string(),
+        ))
+    {
+        return Err(PublicationError::RecoveryStateConflict);
+    }
+    Ok(())
 }
 
 fn cleanup_exact_staging(
