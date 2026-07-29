@@ -7,9 +7,11 @@ use rusqlite::Connection;
 
 use super::{
     catalog_lifecycle::{
-        plan_repeated_slots, reconcile_owner_mutation, ExistingRepeatedSlot, OwnerSources,
+        plan_repeated_slots, reconcile_owner_mutation, resolve_claimed_source_locator,
+        ExistingRepeatedSlot, LocatorResolutionError, OwnerSources,
     },
-    identity::SourceLocatorKind,
+    identity::{LifecycleIntentIdentity, OwnerKind, SourceLocatorKind, ValidatedSha256},
+    lifecycle::ItemRevision,
     schema,
 };
 
@@ -351,6 +353,158 @@ fn all_supported_owner_slots_use_only_their_contract_roles() {
         )
         .expect("fallback count");
     assert_eq!(fallback_count, 20);
+}
+
+#[test]
+fn authoritative_resolution_covers_every_owner_and_approved_source_slot_without_mutation() {
+    let mut connection = connection();
+    let owners = vec![
+        OwnerSources::video("video-1", "C:\\sources\\video.jpg"),
+        OwnerSources::image(
+            "image-1",
+            "C:\\sources\\image.jpg",
+            r#"["C:\\sources\\gallery-a.jpg"]"#,
+        ),
+        OwnerSources::performer(
+            "performer-1",
+            "C:\\sources\\performer.jpg",
+            r#"["C:\\sources\\mini-a.jpg"]"#,
+        ),
+        OwnerSources::category("category-1", "C:\\sources\\category.jpg"),
+        OwnerSources::glossary("glossary-1", "C:\\sources\\glossary.jpg"),
+    ];
+    let mut token_index = 0usize;
+    for owner in &owners {
+        let transaction = connection.transaction().expect("transaction");
+        reconcile_owner_mutation(
+            &transaction,
+            None,
+            Some(owner),
+            &mut || {
+                token_index += 1;
+                Ok(format!("repeated-{token_index}"))
+            },
+            NOW,
+        )
+        .expect("reconcile");
+        transaction.commit().expect("commit");
+    }
+    let item_count_before = count(&connection, "managed_media_items");
+    let mut statement = connection
+        .prepare(
+            "SELECT intent.intent_id, intent.managed_item_id, intent.desired_revision,
+                    item.owner_kind, item.owner_id, item.slot_kind
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_items item ON item.item_id = intent.managed_item_id
+             ORDER BY item.owner_kind, item.owner_id, item.slot_kind",
+        )
+        .expect("statement");
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+            ))
+        })
+        .expect("query")
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .expect("rows");
+
+    for (intent_id, item_id, revision, owner_kind, owner_id, slot_kind) in rows {
+        let mut provider = |requested_kind: OwnerKind, requested_id: &str| {
+            Ok(owners
+                .iter()
+                .find(|owner| owner.owner_kind == requested_kind && owner.owner_id == requested_id)
+                .cloned())
+        };
+        let resolved = resolve_claimed_source_locator(
+            &connection,
+            &LifecycleIntentIdentity::new(intent_id).expect("intent"),
+            &ValidatedSha256::new(item_id).expect("item"),
+            ItemRevision::new(revision as u64).expect("revision"),
+            &mut provider,
+        )
+        .expect("resolved source");
+        assert!(!resolved.locator.is_empty());
+        assert_eq!(resolved.item_key.preimage().contains(&owner_id), true);
+        match slot_kind.as_str() {
+            "gallery_tile" => {
+                assert_eq!(
+                    resolved.locator_kind,
+                    SourceLocatorKind::ExternalDirectoryEntry
+                )
+            }
+            _ => assert_eq!(resolved.locator_kind, SourceLocatorKind::ExternalFile),
+        }
+        assert!(matches!(
+            owner_kind.as_str(),
+            "video" | "image" | "performer" | "category" | "glossary"
+        ));
+    }
+    drop(statement);
+    assert_eq!(count(&connection, "managed_media_items"), item_count_before);
+}
+
+#[test]
+fn authoritative_resolution_fails_closed_for_missing_stale_and_ambiguous_sources() {
+    let mut connection = connection();
+    let owner = OwnerSources::image(
+        "image-1",
+        "C:\\sources\\cover.jpg",
+        r#"["C:\\sources\\gallery.jpg"]"#,
+    );
+    reconcile(&mut connection, None, Some(&owner), &["gallery-token"]).expect("reconcile");
+    let (intent, item, revision): (String, String, i64) = connection
+        .query_row(
+            "SELECT intent.intent_id, intent.managed_item_id, intent.desired_revision
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_items item ON item.item_id = intent.managed_item_id
+             WHERE item.slot_kind = 'gallery_tile'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("identity");
+    let intent = LifecycleIntentIdentity::new(intent).expect("intent");
+    let item = ValidatedSha256::new(item).expect("item");
+    let revision = ItemRevision::new(revision as u64).expect("revision");
+
+    let mut missing = |_kind: OwnerKind, _id: &str| Ok(None);
+    assert!(matches!(
+        resolve_claimed_source_locator(&connection, &intent, &item, revision, &mut missing),
+        Err(LocatorResolutionError::OwnerNotFound)
+    ));
+
+    let stale = OwnerSources::image(
+        "image-1",
+        "C:\\sources\\cover.jpg",
+        r#"["C:\\sources\\replacement.jpg"]"#,
+    );
+    let mut stale_provider = move |_kind: OwnerKind, _id: &str| Ok(Some(stale.clone()));
+    assert!(matches!(
+        resolve_claimed_source_locator(&connection, &intent, &item, revision, &mut stale_provider),
+        Err(LocatorResolutionError::SlotNotFound)
+    ));
+
+    let ambiguous = OwnerSources::image(
+        "image-1",
+        "C:\\sources\\cover.jpg",
+        r#"["C:\\sources\\gallery.jpg","C:\\sources\\gallery.jpg"]"#,
+    );
+    let mut ambiguous_provider = move |_kind: OwnerKind, _id: &str| Ok(Some(ambiguous.clone()));
+    assert!(matches!(
+        resolve_claimed_source_locator(
+            &connection,
+            &intent,
+            &item,
+            revision,
+            &mut ambiguous_provider
+        ),
+        Err(LocatorResolutionError::AmbiguousSlot)
+    ));
 }
 
 #[test]

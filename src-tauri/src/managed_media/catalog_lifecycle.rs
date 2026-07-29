@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    fmt,
+};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -25,6 +28,248 @@ pub struct OwnerSources {
     pub primary_visual: String,
     pub gallery_image_paths_json: String,
     pub performer_thumbnail_paths_json: String,
+}
+
+pub trait OwnerSourceProvider {
+    fn load_owner_sources(
+        &mut self,
+        owner_kind: OwnerKind,
+        owner_id: &str,
+    ) -> Result<Option<OwnerSources>, String>;
+}
+
+impl<F> OwnerSourceProvider for F
+where
+    F: FnMut(OwnerKind, &str) -> Result<Option<OwnerSources>, String>,
+{
+    fn load_owner_sources(
+        &mut self,
+        owner_kind: OwnerKind,
+        owner_id: &str,
+    ) -> Result<Option<OwnerSources>, String> {
+        self(owner_kind, owner_id)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedSourceLocator {
+    pub item_key: ManagedItemKey,
+    pub locator_kind: SourceLocatorKind,
+    pub locator: String,
+    pub locator_hash: ValidatedSha256,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocatorResolutionError {
+    ItemNotFound,
+    OwnerNotFound,
+    OwnerIdentityMismatch,
+    SlotNotFound,
+    AmbiguousSlot,
+    UnsupportedStoredIdentity,
+    LocatorHashMismatch,
+    StaleRevision,
+    ProviderFailure,
+}
+
+impl fmt::Display for LocatorResolutionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let message = match self {
+            Self::ItemNotFound => "The managed-media item was not found.",
+            Self::OwnerNotFound => "The authoritative catalog owner was not found.",
+            Self::OwnerIdentityMismatch => {
+                "The authoritative catalog owner identity is inconsistent."
+            }
+            Self::SlotNotFound => "The authoritative catalog source slot was not found.",
+            Self::AmbiguousSlot => "The authoritative catalog source slot is ambiguous.",
+            Self::UnsupportedStoredIdentity => {
+                "The managed-media source identity is not supported."
+            }
+            Self::LocatorHashMismatch => {
+                "The authoritative catalog source locator no longer matches the claimed work."
+            }
+            Self::StaleRevision => "The managed-media lifecycle revision is stale.",
+            Self::ProviderFailure => "The authoritative catalog source could not be loaded.",
+        };
+        formatter.write_str(message)
+    }
+}
+
+impl std::error::Error for LocatorResolutionError {}
+
+pub fn resolve_claimed_source_locator(
+    connection: &Connection,
+    intent_id: &LifecycleIntentIdentity,
+    item_id: &ValidatedSha256,
+    revision: ItemRevision,
+    provider: &mut (impl OwnerSourceProvider + ?Sized),
+) -> Result<ResolvedSourceLocator, LocatorResolutionError> {
+    let stored = connection
+        .query_row(
+            "SELECT item.owner_kind, item.owner_id, item.slot_kind, item.slot_token,
+                    item.source_locator_kind, item.locator_hash,
+                    intent.expected_locator_hash, intent.desired_revision
+             FROM managed_media_items item
+             JOIN managed_media_lifecycle_intents intent
+               ON intent.managed_item_id = item.item_id
+             WHERE item.item_id = ?1 AND intent.intent_id = ?2",
+            params![item_id.as_str(), intent_id.as_str()],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, i64>(7)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| LocatorResolutionError::ProviderFailure)?
+        .ok_or(LocatorResolutionError::ItemNotFound)?;
+
+    if stored.7 <= 0 || stored.7 as u64 != revision.get() {
+        return Err(LocatorResolutionError::StaleRevision);
+    }
+    if stored.5 != stored.6 {
+        return Err(LocatorResolutionError::LocatorHashMismatch);
+    }
+
+    let owner_kind =
+        parse_owner_kind(&stored.0).ok_or(LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let slot_kind =
+        parse_slot_kind(&stored.2).ok_or(LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let locator_kind =
+        parse_locator_kind(&stored.4).ok_or(LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let owner_id = OwnerIdentifier::new(stored.1.clone())
+        .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let slot_token = SlotToken::new(stored.3.clone())
+        .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let item_key = ManagedItemKey::new(owner_kind, owner_id, slot_kind, slot_token);
+    let derived_item_id = hash_identity(&item_key.preimage())
+        .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?;
+    if derived_item_id != *item_id {
+        return Err(LocatorResolutionError::OwnerIdentityMismatch);
+    }
+
+    let owner = provider
+        .load_owner_sources(owner_kind, &stored.1)
+        .map_err(|_| LocatorResolutionError::ProviderFailure)?
+        .ok_or(LocatorResolutionError::OwnerNotFound)?;
+    if owner.owner_kind != owner_kind || owner.owner_id != stored.1 {
+        return Err(LocatorResolutionError::OwnerIdentityMismatch);
+    }
+
+    let locator = resolve_owner_slot(&owner, slot_kind, &stored.3, locator_kind, &stored.5)?;
+    let current_hash =
+        locator_hash(locator_kind, &locator).map_err(|_| LocatorResolutionError::SlotNotFound)?;
+    if current_hash != stored.5 {
+        return Err(LocatorResolutionError::LocatorHashMismatch);
+    }
+
+    Ok(ResolvedSourceLocator {
+        item_key,
+        locator_kind,
+        locator,
+        locator_hash: ValidatedSha256::new(stored.5)
+            .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?,
+    })
+}
+
+fn resolve_owner_slot(
+    owner: &OwnerSources,
+    slot_kind: SlotKind,
+    slot_token: &str,
+    locator_kind: SourceLocatorKind,
+    expected_hash: &str,
+) -> Result<String, LocatorResolutionError> {
+    match (owner.owner_kind, slot_kind, locator_kind) {
+        (
+            _,
+            SlotKind::PrimaryVisual,
+            SourceLocatorKind::ExternalFile | SourceLocatorKind::ExternalUrl,
+        ) => {
+            if slot_token != PRIMARY_VISUAL_TOKEN {
+                return Err(LocatorResolutionError::SlotNotFound);
+            }
+            let locator = owner.primary_visual.trim();
+            if locator.is_empty() {
+                return Err(LocatorResolutionError::SlotNotFound);
+            }
+            Ok(locator.to_string())
+        }
+        (OwnerKind::Image, SlotKind::GalleryTile, SourceLocatorKind::ExternalDirectoryEntry) => {
+            resolve_repeated_locator(&owner.gallery_image_paths_json, locator_kind, expected_hash)
+        }
+        (OwnerKind::Performer, SlotKind::MiniRow, SourceLocatorKind::ExternalFile) => {
+            resolve_repeated_locator(
+                &owner.performer_thumbnail_paths_json,
+                locator_kind,
+                expected_hash,
+            )
+        }
+        (_, _, SourceLocatorKind::ExternalUrl) => {
+            Err(LocatorResolutionError::UnsupportedStoredIdentity)
+        }
+        _ => Err(LocatorResolutionError::SlotNotFound),
+    }
+}
+
+fn resolve_repeated_locator(
+    persisted_json: &str,
+    locator_kind: SourceLocatorKind,
+    expected_hash: &str,
+) -> Result<String, LocatorResolutionError> {
+    let entries = parse_persisted_string_array(persisted_json)
+        .map_err(|_| LocatorResolutionError::SlotNotFound)?;
+    let matching = entries
+        .into_iter()
+        .filter(|entry| locator_hash(locator_kind, entry).ok().as_deref() == Some(expected_hash))
+        .collect::<Vec<_>>();
+    match matching.as_slice() {
+        [locator] => Ok(locator.clone()),
+        [] => Err(LocatorResolutionError::SlotNotFound),
+        _ => Err(LocatorResolutionError::AmbiguousSlot),
+    }
+}
+
+fn parse_owner_kind(value: &str) -> Option<OwnerKind> {
+    [
+        OwnerKind::Video,
+        OwnerKind::Image,
+        OwnerKind::Performer,
+        OwnerKind::Category,
+        OwnerKind::Glossary,
+    ]
+    .into_iter()
+    .find(|kind| kind.as_str() == value)
+}
+
+fn parse_slot_kind(value: &str) -> Option<SlotKind> {
+    [
+        SlotKind::PrimaryVisual,
+        SlotKind::CollectionCard,
+        SlotKind::LiteCard,
+        SlotKind::TableThumbnail,
+        SlotKind::GalleryTile,
+        SlotKind::RelatedCard,
+        SlotKind::MiniRow,
+    ]
+    .into_iter()
+    .find(|kind| kind.as_str() == value)
+}
+
+fn parse_locator_kind(value: &str) -> Option<SourceLocatorKind> {
+    [
+        SourceLocatorKind::ExternalFile,
+        SourceLocatorKind::ExternalDirectoryEntry,
+        SourceLocatorKind::ExternalUrl,
+    ]
+    .into_iter()
+    .find(|kind| kind.as_str() == value)
 }
 
 impl OwnerSources {
@@ -763,7 +1008,7 @@ fn next_revision(connection: &Connection, item_id: &str) -> Result<ItemRevision,
     ItemRevision::new(next as u64).map_err(lifecycle_error)
 }
 
-fn locator_hash(kind: SourceLocatorKind, locator: &str) -> Result<String, String> {
+pub(crate) fn locator_hash(kind: SourceLocatorKind, locator: &str) -> Result<String, String> {
     if locator.is_empty() {
         return Err("Managed-media source locator is empty.".to_string());
     }

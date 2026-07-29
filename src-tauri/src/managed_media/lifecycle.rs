@@ -1001,6 +1001,52 @@ pub fn request_cancellation(
     Ok(())
 }
 
+pub fn complete_requested_cancellation(
+    connection: &Connection,
+    claimed: &ClaimedIntentSnapshot,
+    summary: &str,
+    now: &ExecutorTimestamp,
+) -> Result<(), LifecycleError> {
+    require_summary(summary)?;
+    let transaction = connection.unchecked_transaction()?;
+    let context = load_claim_context(&transaction, claimed.intent_id.as_str())?;
+    if context.item_id != claimed.item_id
+        || context.revision != claimed.revision
+        || context.state != LifecycleState::Claimed
+        || context.claim_token.as_ref() != Some(&claimed.claim_token)
+        || !context.cancellation_requested
+    {
+        return Err(LifecycleError::ClaimUnavailable);
+    }
+    transaction.execute(
+        "UPDATE managed_media_lifecycle_targets
+         SET target_state = 'cancelled', failure_class = 'cancelled',
+             failure_summary = ?2, updated_at = ?3
+         WHERE intent_id = ?1
+           AND target_state IN ('pending', 'claimed', 'retryable_failure', 'recovery_required')",
+        (claimed.intent_id.as_str(), summary, now.as_str()),
+    )?;
+    let updated = transaction.execute(
+        "UPDATE managed_media_lifecycle_intents
+         SET lifecycle_state = 'cancelled', claim_token = NULL, claim_expires_at = NULL,
+             retry_eligible_at = NULL, failure_class = 'cancelled',
+             failure_summary = ?3, updated_at = ?4, finished_at = ?4
+         WHERE intent_id = ?1 AND lifecycle_state = 'claimed' AND claim_token = ?2
+           AND cancellation_requested = 1",
+        (
+            claimed.intent_id.as_str(),
+            claimed.claim_token.as_str(),
+            summary,
+            now.as_str(),
+        ),
+    )?;
+    if updated != 1 {
+        return Err(LifecycleError::LostOwnership);
+    }
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn transition_intent(
     connection: &Connection,
     intent_id: &LifecycleIntentIdentity,
@@ -1444,6 +1490,30 @@ pub fn load_target(
     target_id: &LifecycleTargetIdentity,
 ) -> Result<LifecycleTargetRecord, LifecycleError> {
     load_target_from_connection(connection, target_id.as_str())
+}
+
+pub fn load_targets_for_claim(
+    connection: &Connection,
+    claimed: &ClaimedIntentSnapshot,
+    now: &ExecutorTimestamp,
+) -> Result<Vec<LifecycleTargetRecord>, LifecycleError> {
+    require_owned(validate_claim_ownership_in_connection(
+        connection,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )?)?;
+    let targets = load_targets_for_intent(connection, claimed.intent_id.as_str())?;
+    if targets.iter().any(|target| {
+        target.intent_id != claimed.intent_id.as_str()
+            || target.item_id != claimed.item_id.as_str()
+            || target.revision != claimed.revision
+    }) {
+        return Err(LifecycleError::IdentityConflict);
+    }
+    Ok(targets)
 }
 
 pub fn validate_claim_ownership(
