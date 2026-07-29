@@ -9,9 +9,9 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
-last_recorded_git_baseline_status: MANAGED_MEDIA_PUBLICATION_FOUNDATION_RECONCILED
-application_source_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+last_recorded_git_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+last_recorded_git_baseline_status: CATALOG_LIFECYCLE_INTENT_INTEGRATION_RECONCILED
+application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -22,7 +22,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_LIFECYCLE_FINAL_ARCHITECTURE_RECONCILED
+batch_42_4_status: ACTIVE_CATALOG_LIFECYCLE_INTEGRATION_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -53,11 +53,29 @@ batch_42_4_operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
 batch_42_4_plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 batch_42_4_schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 batch_42_4_frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-batch_42_4_next_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
+batch_42_4_stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9b_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+batch_42_4_stage_42_4_9b_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
+batch_42_4_next_stage: 42.4-9C — Bounded Executor and Recovery Integration
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 
 ## Current Authority — 2026-07-29
+
+Stage `42.4-9B` and closure Stage `42.4-9B-C` are completed and accepted.
+Catalog CRUD and final-state Import planning create lifecycle intents
+atomically, use stable internal owner identities and opaque repeated-slot
+tokens, and retire removed work without deleting immutable files. Import
+coalesces to final state before one transaction commits; Preview remains
+mutation-free and existing spreadsheet contracts remain unchanged.
+
+The integration is inert: no worker, claim, source acquisition, processing,
+publication, startup recovery, or frontend descriptor is active. Production row
+population, runtime behavior, executor policy, existing-catalog backfill, and
+Backup/Restore integration remain unknown or separately gated. The next stage,
+`42.4-9C — Bounded Executor and Recovery Integration`, is
+`READY_PENDING_SEPARATE_APPROVAL`; no technical permission is granted.
 
 Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
 Stage `42.4-8C` is `COMPLETED_AND_CLOSED`; Stage `42.4-8D` is
@@ -1305,7 +1323,17 @@ active. Production row population, runtime foreign-key enforcement, runtime
 behavior, numeric worker/retry policy, existing-catalog provisioning, and
 package/Backup integration remain unknown or separately gated.
 
-The next proposed stage is `42.4-9B — Catalog Mutation and Import Intent
+Stage `42.4-9B — Catalog Mutation and Import Intent Integration` and closure
+Stage `42.4-9B-C` are `COMPLETED_AND_CLOSED` with verdict
+`MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED` at baseline
+`ce44fc4e197c6f177c8922238d0a2bfb1b10db3d` (parent
+`e1bf3506670cccf73ea09dea94b586831d8fcb9d`). Catalog CRUD and final-state
+Import planning are atomic and inert, with stable owner identities, opaque
+repeated-slot tokens, deterministic retirement, and no immutable-file deletion.
+Preview, Apply, final validation, rollback, and spreadsheet contracts remain
+protected.
+
+The next proposed stage is `42.4-9C — Bounded Executor and Recovery
 Integration`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`.
 It is not active or authorized. All technical permissions remain false.
 

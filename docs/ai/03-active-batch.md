@@ -4,17 +4,17 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_DOCUMENTATION_CLOSURE
-phase: LIFECYCLE_SCHEMA_FOUNDATION_RECONCILED
-current_administrative_stage: 42.4-9A-C — Lifecycle Schema Foundation Result Reconciliation
+status: ACTIVE_INTEGRATION_RECONCILED
+phase: CATALOG_LIFECYCLE_INTENT_INTEGRATION
+current_administrative_stage: 42.4-9B-C — Catalog Lifecycle Intent Integration Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_baseline: baa5a106f39e6c202f20798f33ae478714ef1030
-implementation_parent: 46e9e9356c4d1799968780fc980ede119fc152da
-implementation_verdict: MANAGED_MEDIA_LIFECYCLE_SCHEMA_FOUNDATION_ACCEPTED
-foundation_state: INERT_NON_OPERATIONAL
+implementation_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
+implementation_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
+foundation_state: CATALOG_LIFECYCLE_INTEGRATION_INERT
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8c_status: COMPLETED_AND_CLOSED
@@ -33,7 +33,7 @@ plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
 frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-next_technical_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
+next_technical_stage: 42.4-9C — Bounded Executor and Recovery Integration
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 next_stage_approved: false
@@ -62,6 +62,28 @@ frontend_descriptor_allowed: false
 ratio_correction_allowed: false
 retention_cleanup_allowed: false
 security_remediation_allowed: false
+
+## Closed Stage 42.4-9B Integration Reconciliation
+
+Stage `42.4-9B` and closure Stage `42.4-9B-C` are `COMPLETED_AND_CLOSED`.
+The accepted verdict is `MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED`.
+The implementation baseline is `ce44fc4e197c6f177c8922238d0a2bfb1b10db3d`,
+parent `e1bf3506670cccf73ea09dea94b586831d8fcb9d`.
+
+Catalog mutation and final-state Import planning now create lifecycle intents
+atomically with catalog changes. Video, Image, Performer, Category, and Glossary
+owners use stable internal identities and opaque source-slot tokens; repeated
+slots reconcile by token, retire removed work without deleting immutable files,
+and coalesce to the final spreadsheet state before one Apply transaction commits.
+The integration is inert: no worker, claim, source acquisition, processing,
+publication, startup recovery, or frontend descriptor is active.
+
+Stage `42.4-9C — Bounded Executor and Recovery Integration` is the next
+proposed stage, `READY_PENDING_SEPARATE_APPROVAL`, and is not authorized.
+All audit, measurement, test, build, runtime, dependency, schema/index,
+database, live-data, Backup/Restore, frontend, and UI/UX permissions remain
+false. Production row population, runtime lifecycle behavior, and numeric
+executor/retry policy remain `UNKNOWN` or unapproved.
 
 ## Closed Stage 42.4-9A Foundation Reconciliation
 

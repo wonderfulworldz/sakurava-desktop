@@ -11,6 +11,30 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-27 — Managed Media Processor Foundation Accepted
+
+date: 2026-07-27
+session_type: PROJECT_OS_BATCH_42_4_6C_RESULT_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_7C
+implementation_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
+implementation_parent: 34bd490734097ce77adfaf43b9ad0fe4fdf2b2be
+stage_42_4_6_status: COMPLETED_AND_ACCEPTED
+stage_42_4_6c_status: COMPLETED_AND_CLOSED
+dependencies: image 0.25.10; kamadak-exif 0.6.1; sha2 0.10.9
+processor: bounded_hashing_decode_orientation_crop_resize_encode_reopen_validation
+verification: REPORTED_BY_CODEX_14_PROCESSOR_4_FINGERPRINT_1_GIF_164_FULL_RUST
+synthetic_guards: MEASURED_PSNR_43.494_DB; PNG_EXACT; TIMING_PROBES_ONLY
+memory: NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+limitations: ANIMATED_WEBP_UNSUPPORTED; GIF_FIRST_FRAME; ICC_FAIL_CLOSED
+foundation_state: INERT_NON_OPERATIONAL
+historical_next_stage: 42.4-7 — Managed Media Journaled Publication and Recovery Foundation
+historical_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-6 is accepted and Stage 42.4-6C is closed. The processor remains
+disconnected from generation, publication, recovery, CRUD, frontend, and
+Backup/Restore. No technical work is authorized.
+
 ## 2026-07-26 — R3-R1 Bounded Instrumentation Partial Result Accepted
 
 date: 2026-07-26
