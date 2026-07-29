@@ -6,7 +6,7 @@ use std::{
     time::SystemTime,
 };
 
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -24,17 +24,21 @@ use super::{
     lifecycle::{
         complete_requested_cancellation, complete_retirement, finalize_generation,
         load_targets_for_claim, record_desired_fingerprint, record_target_outcome,
-        release_claim_for_retry, transition_intent, validate_claim_ownership, ClaimOwnershipStatus,
-        ClaimedIntentSnapshot, ExecutorTimestamp, FailureClass, FinalizationOutcome,
-        LifecycleAction, LifecycleError, LifecycleState, LifecycleTargetRecord, TargetOutcome,
-        TargetState,
+        release_claim_for_retry, transition_intent, validate_claim_ownership,
+        AtomicPublicationLifecycleOutcome, ClaimOwnershipStatus, ClaimedIntentSnapshot,
+        ExecutorTimestamp, FailureClass, FinalizationOutcome, LifecycleAction, LifecycleError,
+        LifecycleState, LifecycleTargetRecord, TargetOutcome, TargetState,
     },
     path::ManagedMediaRoot,
     processor::{
         ManagedMediaProcessor, ProcessorError, ProcessorRequest, ProcessorResult, ProcessorVariant,
         MAX_SOURCE_BYTES,
     },
-    publication::{publish, PublicationError, PublicationOutcome, PublicationRequest},
+    publication::{
+        activate_lifecycle_publication, cleanup_lifecycle_publication,
+        execute_lifecycle_publication_filesystem, prepare_lifecycle_publication, PublicationError,
+        PublicationLifecycleContext, PublicationOutcome, PublicationRequest,
+    },
 };
 
 const MAX_READ_CHUNK_BYTES: usize = 1024 * 1024;
@@ -916,7 +920,7 @@ impl<'a> LocalGenerationOrchestrator<'a> {
             return Err(OrchestrationFailure::ProcessorValidationFailure);
         }
         self.prepare_target(claimed, target)?;
-        self.checkpoint(
+        let preparation_time = self.checkpoint(
             claimed,
             OrchestrationCheckpoint::BeforePublication {
                 role: target.role,
@@ -925,16 +929,12 @@ impl<'a> LocalGenerationOrchestrator<'a> {
         )?;
         let variant_id = derive_variant_id(resolved, source_fingerprint, result)?;
         let operation_id = derive_operation_id(claimed, target, &variant_id)?;
-        let existing_state: Option<String> = self
-            .connection
-            .query_row(
-                "SELECT operation_state FROM managed_media_operations WHERE operation_id = ?1",
-                [operation_id.as_str()],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(|_| OrchestrationFailure::PublicationFailure)?;
-        let outcome = publish(
+        let lifecycle = PublicationLifecycleContext {
+            claimed: claimed.clone(),
+            target_id: LifecycleTargetIdentity::new(target.target_id.clone())
+                .map_err(|_| OrchestrationFailure::TargetRecordConflict)?,
+        };
+        let prepared = prepare_lifecycle_publication(
             self.connection,
             self.managed_root,
             self.processor,
@@ -944,48 +944,48 @@ impl<'a> LocalGenerationOrchestrator<'a> {
                 variant_id: variant_id.clone(),
                 processor_result: result,
             },
+            &lifecycle,
+            &preparation_time,
         )
         .map_err(map_publication_error)?;
-        self.checkpoint(
+        execute_lifecycle_publication_filesystem(self.managed_root, self.processor, &prepared)
+            .map_err(map_publication_error)?;
+        let activation_time = self.checkpoint(
             claimed,
             OrchestrationCheckpoint::AfterPublication {
                 role: target.role,
                 class: target.class,
             },
         )?;
+        let lifecycle_outcome = activate_lifecycle_publication(
+            self.connection,
+            &prepared,
+            &lifecycle,
+            &activation_time,
+        )
+        .map_err(map_publication_error)?;
+        cleanup_lifecycle_publication(self.managed_root, self.processor, &prepared)
+            .map_err(map_publication_error)?;
+        let outcome = if prepared.already_completed() {
+            PublicationOutcome::AlreadyCompleted {
+                relative_path: prepared.relative_path().to_string(),
+            }
+        } else {
+            PublicationOutcome::Published {
+                relative_path: prepared.relative_path().to_string(),
+            }
+        };
         match outcome {
             PublicationOutcome::AlreadyCompleted { .. } => {
                 report.idempotent_publications_reused += 1
             }
-            PublicationOutcome::Published { .. } => {
-                if existing_state.is_some() {
-                    report.publication_recovery_invoked += 1;
-                }
-            }
+            PublicationOutcome::Published { .. } => {}
         }
-
-        let now = self.checkpoint(
-            claimed,
-            OrchestrationCheckpoint::BeforeTargetRecording {
-                role: target.role,
-                class: target.class,
-            },
-        )?;
-        record_target_outcome(
-            self.connection,
-            claimed,
-            &LifecycleTargetIdentity::new(target.target_id.clone())
-                .map_err(|_| OrchestrationFailure::TargetRecordConflict)?,
-            &TargetOutcome {
-                state: TargetState::Published,
-                publication_operation_id: Some(operation_id.as_str().to_string()),
-                result_variant_id: Some(variant_id),
-                failure_class: None,
-                failure_summary: None,
-            },
-            &now,
-        )
-        .map_err(map_lifecycle_write_error)?;
+        match lifecycle_outcome {
+            AtomicPublicationLifecycleOutcome::AwaitingOtherTargets => {}
+            AtomicPublicationLifecycleOutcome::Finalized => report.finalized = true,
+            AtomicPublicationLifecycleOutcome::AlreadyFinalized => report.already_finalized = true,
+        }
         match target.class {
             VariantClass::Standard(_) => report.standard_targets_published += 1,
             VariantClass::NativeFallback => report.fallback_targets_published += 1,
@@ -1325,9 +1325,10 @@ fn derive_operation_id(
     variant_id: &ValidatedSha256,
 ) -> Result<OperationIdentity, OrchestrationFailure> {
     let preimage = format!(
-        "lifecycle-publication-v1|{}|{}|{}|{}|{}",
+        "lifecycle-publication-v2|{}|{}|{}|{}|{}|{}",
         claimed.intent_id.as_str(),
         claimed.revision.get(),
+        claimed.claim_token.as_str(),
         target.target_id,
         target.class_label(),
         variant_id.as_str()

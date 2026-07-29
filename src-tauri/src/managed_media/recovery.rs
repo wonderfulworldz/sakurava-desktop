@@ -4,7 +4,10 @@ use super::{
     identity::OperationIdentity,
     path::ManagedMediaRoot,
     processor::ManagedMediaProcessor,
-    publication::{list_nonterminal_operations, recover_one, PublicationError, RecoveryOutcome},
+    publication::{
+        apply_recovery, cleanup_recovery, inspect_recovery_filesystem, list_nonterminal_operations,
+        prepare_recovery, PublicationError, RecoveryOutcome,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -25,16 +28,24 @@ pub fn recover(
     processor: &ManagedMediaProcessor,
     scope: RecoveryScope,
 ) -> Result<Vec<OperationRecoveryOutcome>, PublicationError> {
-    let operation_ids = match scope {
-        RecoveryScope::Operation(operation) => vec![operation.as_str().to_string()],
+    let plans = match scope {
+        RecoveryScope::Operation(operation) => {
+            vec![prepare_recovery(connection, operation.as_str())?]
+        }
         RecoveryScope::BoundedNonterminal { maximum_operations } => {
             list_nonterminal_operations(connection, maximum_operations)?
+                .into_iter()
+                .map(|operation_id| prepare_recovery(connection, &operation_id))
+                .collect::<Result<Vec<_>, _>>()?
         }
     };
-    operation_ids
+    plans
         .into_iter()
-        .map(|operation_id| {
-            let outcome = recover_one(connection, root, processor, &operation_id)?;
+        .map(|plan| {
+            let operation_id = plan.operation_id().to_string();
+            let evidence = inspect_recovery_filesystem(root, processor, &plan)?;
+            let outcome = apply_recovery(connection, &plan, evidence)?;
+            cleanup_recovery(root, processor, &plan, evidence)?;
             Ok(OperationRecoveryOutcome {
                 operation_id,
                 outcome,

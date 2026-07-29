@@ -132,6 +132,20 @@ pub struct ExecutorCycleReport {
     pub handler_failures: Vec<HandlerFailure>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ClaimBatchReport {
+    pub discovered: u32,
+    pub successfully_claimed: u32,
+    pub reclaimed_expired: u32,
+    pub lost_races: u32,
+    pub skipped_cancelled: u32,
+    pub skipped_stale: u32,
+    pub skipped_superseded: u32,
+    pub skipped_retired: u32,
+    pub skipped_invalid_state: u32,
+    pub claims: Vec<ClaimedIntentSnapshot>,
+}
+
 #[derive(Debug)]
 pub enum ExecutorError {
     InvalidPolicy,
@@ -229,12 +243,74 @@ where
     Ok(report)
 }
 
+pub fn claim_bounded<D, C, G>(
+    database: &D,
+    policy: ExecutorPolicy,
+    clock: &mut C,
+    token_generator: &mut G,
+) -> Result<ClaimBatchReport, ExecutorError>
+where
+    D: ExecutorDatabase,
+    C: ExecutorClock,
+    G: ClaimTokenGenerator,
+{
+    let discovery_now = injected_now(clock)?;
+    let cycle_limit = policy.discovery_limit().min(policy.claim_capacity());
+    let candidates = database.with_connection(|connection| {
+        discover_lifecycle_work(connection, &discovery_now, cycle_limit)
+    })?;
+    let mut report = ClaimBatchReport {
+        discovered: candidates.len() as u32,
+        ..ClaimBatchReport::default()
+    };
+    for candidate in candidates {
+        let claim_now = injected_now(clock)?;
+        let claim_expires_at = claim_now.checked_add_millis(policy.claim_lease_millis())?;
+        let raw_token = token_generator
+            .next_token()
+            .map_err(ExecutorError::InvalidClaimToken)?;
+        let claim_token =
+            LifecycleClaimToken::new(raw_token).map_err(ExecutorError::InvalidClaimToken)?;
+        let outcome = database.with_connection(|connection| {
+            claim_discovered_intent(
+                connection,
+                &candidate,
+                &claim_token,
+                &claim_now,
+                &claim_expires_at,
+            )
+        })?;
+        match outcome {
+            ClaimAttemptOutcome::Claimed(claimed) => {
+                report.successfully_claimed += 1;
+                if candidate.claim_kind == super::lifecycle::WorkClaimKind::ReclaimExpired {
+                    report.reclaimed_expired += 1;
+                }
+                report.claims.push(claimed);
+            }
+            ClaimAttemptOutcome::NotClaimed(reason) => record_batch_claim_loss(&mut report, reason),
+        }
+    }
+    Ok(report)
+}
+
 fn injected_now(clock: &mut impl ExecutorClock) -> Result<ExecutorTimestamp, ExecutorError> {
     let millis = clock.now_millis().map_err(ExecutorError::InvalidClock)?;
     ExecutorTimestamp::from_millis(millis).map_err(ExecutorError::Lifecycle)
 }
 
 fn record_claim_loss(report: &mut ExecutorCycleReport, reason: ClaimLossReason) {
+    match reason {
+        ClaimLossReason::LostRace | ClaimLossReason::Expired => report.lost_races += 1,
+        ClaimLossReason::Cancelled => report.skipped_cancelled += 1,
+        ClaimLossReason::StaleRevision => report.skipped_stale += 1,
+        ClaimLossReason::Superseded => report.skipped_superseded += 1,
+        ClaimLossReason::Retired => report.skipped_retired += 1,
+        ClaimLossReason::InvalidState => report.skipped_invalid_state += 1,
+    }
+}
+
+fn record_batch_claim_loss(report: &mut ClaimBatchReport, reason: ClaimLossReason) {
     match reason {
         ClaimLossReason::LostRace | ClaimLossReason::Expired => report.lost_races += 1,
         ClaimLossReason::Cancelled => report.skipped_cancelled += 1,

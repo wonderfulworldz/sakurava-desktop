@@ -792,7 +792,7 @@ fn cancellation_and_source_mutation_preserve_the_last_valid_generation() {
 }
 
 #[test]
-fn completed_publication_is_reused_after_claim_loss_before_target_linkage() {
+fn claim_loss_after_filesystem_publication_does_not_activate_a_descriptor() {
     let environment = OrchestrationEnvironment::new("interrupted-linkage", 640, 640);
     let first_claim = environment.claim("first-claim", 2, 100);
     let policy = environment.policy();
@@ -836,7 +836,7 @@ fn completed_publication_is_reused_after_claim_loss_before_target_linkage() {
                 row.get::<_, i64>(0)
             })
             .expect("variant count"),
-        1
+        0
     );
 
     let second_claim = environment.claim("second-claim", 20, 10_000);
@@ -856,7 +856,7 @@ fn completed_publication_is_reused_after_claim_loss_before_target_linkage() {
     )
     .execute(&second_claim)
     .expect("second orchestration");
-    assert!(second_report.idempotent_publications_reused >= 1);
+    assert_eq!(second_report.idempotent_publications_reused, 0);
     assert!(second_report.finalized);
     assert_eq!(
         environment

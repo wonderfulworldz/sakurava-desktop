@@ -8,7 +8,8 @@ use rusqlite::Connection;
 use super::{
     catalog_lifecycle::{
         plan_repeated_slots, reconcile_owner_mutation, resolve_claimed_source_locator,
-        ExistingRepeatedSlot, LocatorResolutionError, OwnerSources,
+        ExistingRepeatedSlot, LocatorResolutionError, OwnerSourceProvider, OwnerSources,
+        SqliteOwnerSourceProvider,
     },
     identity::{LifecycleIntentIdentity, OwnerKind, SourceLocatorKind, ValidatedSha256},
     lifecycle::ItemRevision,
@@ -21,6 +22,87 @@ fn connection() -> Connection {
     let connection = Connection::open_in_memory().expect("database");
     schema::initialize_schema(&connection).expect("managed-media schema");
     connection
+}
+
+fn create_catalog_owner_tables(connection: &Connection) {
+    connection
+        .execute_batch(
+            "CREATE TABLE videos (id TEXT PRIMARY KEY, coverPath TEXT NOT NULL);
+             CREATE TABLE images (
+               id TEXT PRIMARY KEY, coverPath TEXT NOT NULL,
+               galleryImagePathsJson TEXT NOT NULL
+             );
+             CREATE TABLE performers (
+               id TEXT PRIMARY KEY, coverPath TEXT NOT NULL,
+               performerThumbnailPathsJson TEXT NOT NULL
+             );
+             CREATE TABLE managedCategories (
+               key TEXT PRIMARY KEY, thumbnailPath TEXT NOT NULL
+             );
+             CREATE TABLE glossary_entries (
+               id TEXT PRIMARY KEY, thumbnail_path TEXT NOT NULL
+             );",
+        )
+        .expect("catalog owner tables");
+}
+
+#[test]
+fn sqlite_owner_source_provider_loads_owned_sources_for_every_supported_owner_kind() {
+    let connection = connection();
+    create_catalog_owner_tables(&connection);
+    connection
+        .execute_batch(
+            "INSERT INTO videos VALUES ('video-1', 'video.jpg');
+             INSERT INTO images VALUES ('image-1', 'image.jpg', '[\"gallery-a.jpg\",\"gallery-b.jpg\"]');
+             INSERT INTO performers VALUES ('performer-1', 'performer.jpg', '[\"mini-a.jpg\",\"mini-b.jpg\"]');
+             INSERT INTO managedCategories VALUES ('category-1', 'category.jpg');
+             INSERT INTO glossary_entries VALUES ('glossary-1', 'glossary.jpg');",
+        )
+        .expect("owners");
+    let mut provider = SqliteOwnerSourceProvider::new(&connection);
+    let cases = [
+        (OwnerKind::Video, "video-1", "video.jpg"),
+        (OwnerKind::Image, "image-1", "image.jpg"),
+        (OwnerKind::Performer, "performer-1", "performer.jpg"),
+        (OwnerKind::Category, "category-1", "category.jpg"),
+        (OwnerKind::Glossary, "glossary-1", "glossary.jpg"),
+    ];
+    for (kind, owner_id, expected) in cases {
+        let sources = provider
+            .load_owner_sources(kind, owner_id)
+            .expect("provider")
+            .expect("owner");
+        assert_eq!(sources.owner_kind, kind);
+        assert_eq!(sources.owner_id, owner_id);
+        assert_eq!(sources.primary_visual, expected);
+    }
+    assert!(provider
+        .load_owner_sources(OwnerKind::Video, "missing")
+        .expect("missing")
+        .is_none());
+}
+
+#[test]
+fn sqlite_owner_source_provider_preserves_repeated_slots_without_reading_media() {
+    let connection = connection();
+    create_catalog_owner_tables(&connection);
+    connection
+        .execute(
+            "INSERT INTO images VALUES (?1, ?2, ?3)",
+            (
+                "image-1",
+                "https://example.invalid/cover.jpg",
+                r#"["a.jpg","a.jpg"]"#,
+            ),
+        )
+        .expect("image");
+    let mut provider = SqliteOwnerSourceProvider::new(&connection);
+    let sources = provider
+        .load_owner_sources(OwnerKind::Image, "image-1")
+        .expect("provider")
+        .expect("image");
+    assert_eq!(sources.primary_visual, "https://example.invalid/cover.jpg");
+    assert_eq!(sources.gallery_image_paths_json, r#"["a.jpg","a.jpg"]"#);
 }
 
 fn reconcile(

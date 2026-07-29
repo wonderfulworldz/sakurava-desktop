@@ -9,6 +9,7 @@ pub mod path;
 pub mod processor;
 pub mod publication;
 pub mod recovery;
+pub mod runtime;
 pub mod schema;
 
 #[cfg(test)]
@@ -23,3 +24,5 @@ mod lifecycle_tests;
 mod processor_tests;
 #[cfg(test)]
 mod publication_tests;
+#[cfg(test)]
+mod runtime_tests;

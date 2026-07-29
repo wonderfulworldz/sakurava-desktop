@@ -9,12 +9,23 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::{
     contract::{RoleId, TierId},
-    identity::{OperationIdentity, ValidatedSha256},
+    identity::{
+        LifecycleClaimToken, LifecycleIntentIdentity, LifecycleTargetIdentity, OperationIdentity,
+        ValidatedSha256, VariantClass,
+    },
+    lifecycle::{
+        add_target, claim_intent, initialize_item_generation, queue_intent,
+        record_desired_fingerprint, AtomicPublicationLifecycleOutcome, ClaimAttemptOutcome,
+        ExecutorTimestamp, ItemRevision, LifecycleAction, NewLifecycleIntent, NewLifecycleTarget,
+    },
     path::ManagedMediaRoot,
     processor::{ManagedMediaProcessor, ProcessorRequest, ProcessorResult},
     publication::{
-        activate_descriptor_for_test, publish, publish_with_failure, FailurePoint,
-        PublicationError, PublicationOutcome, PublicationRequest, RecoveryOutcome,
+        activate_descriptor_for_test, activate_lifecycle_publication,
+        cleanup_lifecycle_publication, execute_lifecycle_publication_filesystem,
+        prepare_lifecycle_publication, publish, publish_with_failure, FailurePoint,
+        PublicationError, PublicationLifecycleContext, PublicationOutcome, PublicationRequest,
+        RecoveryOutcome,
     },
     recovery::{recover, RecoveryScope},
     schema,
@@ -264,6 +275,66 @@ fn request<'a>(
         variant_id: variant_id.clone(),
         processor_result: result,
     }
+}
+
+fn prepare_claimed_lifecycle(
+    environment: &TestEnvironment,
+    item: &ValidatedSha256,
+    result: &ProcessorResult,
+    label: &str,
+) -> PublicationLifecycleContext {
+    initialize_item_generation(environment.connection(), item, "1000").expect("generation");
+    let intent_id =
+        LifecycleIntentIdentity::new(format!("publication-intent-{label}")).expect("intent");
+    let target_id =
+        LifecycleTargetIdentity::new(format!("publication-target-{label}")).expect("target");
+    queue_intent(
+        environment.connection(),
+        &NewLifecycleIntent {
+            intent_id: intent_id.clone(),
+            item_id: item.clone(),
+            revision: ItemRevision::new(1).expect("revision"),
+            action: LifecycleAction::Generate,
+            expected_locator_hash: hash('f'),
+        },
+        "1000",
+    )
+    .expect("queue");
+    add_target(
+        environment.connection(),
+        &NewLifecycleTarget {
+            target_id: target_id.clone(),
+            intent_id: intent_id.clone(),
+            item_id: item.clone(),
+            revision: ItemRevision::new(1).expect("revision"),
+            role: RoleId::VideoTable,
+            class: VariantClass::Standard(TierId::Thumbnail),
+        },
+        "1000",
+    )
+    .expect("target");
+    let now = ExecutorTimestamp::from_millis(1000).expect("now");
+    let expires = ExecutorTimestamp::from_millis(10_000).expect("expiry");
+    let claimed = match claim_intent(
+        environment.connection(),
+        &intent_id,
+        &LifecycleClaimToken::new(format!("publication-claim-{label}")).expect("token"),
+        &now,
+        &expires,
+    )
+    .expect("claim")
+    {
+        ClaimAttemptOutcome::Claimed(claimed) => claimed,
+        other => panic!("unexpected claim outcome: {other:?}"),
+    };
+    record_desired_fingerprint(
+        environment.connection(),
+        &claimed,
+        &result.source_sha256,
+        &now,
+    )
+    .expect("desired fingerprint");
+    PublicationLifecycleContext { claimed, target_id }
 }
 
 fn hash(character: char) -> ValidatedSha256 {
@@ -899,6 +970,135 @@ fn schema_objects_remain_unchanged_and_foundation_measurements_are_bounded() {
             .expect("schema collect")
     };
     assert_eq!(schema_before, schema_after);
+}
+
+#[test]
+fn lifecycle_publication_phases_activate_descriptor_target_and_generation_atomically() {
+    let environment = TestEnvironment::new("lifecycle-phases");
+    let result = environment.process(61);
+    let item = indexed_hash(9_001);
+    let variant = indexed_hash(9_002);
+    environment.insert_item(&item, &result.source_sha256, None);
+    let lifecycle = prepare_claimed_lifecycle(&environment, &item, &result, "phases");
+    let prepared = prepare_lifecycle_publication(
+        environment.connection(),
+        &environment.root,
+        &environment.processor,
+        request("operation-phase-success", &item, &variant, &result),
+        &lifecycle,
+        &ExecutorTimestamp::from_millis(2_000).expect("preparation time"),
+    )
+    .expect("P1");
+    assert!(!environment.variant_exists(&variant));
+    assert_eq!(
+        environment.operation_state("operation-phase-success"),
+        ("running".to_string(), "staging".to_string())
+    );
+
+    execute_lifecycle_publication_filesystem(&environment.root, &environment.processor, &prepared)
+        .expect("P2");
+    assert!(!environment.variant_exists(&variant));
+    assert!(environment
+        .root
+        .resolve(prepared.relative_path())
+        .expect("final path")
+        .exists());
+
+    let outcome = activate_lifecycle_publication(
+        environment.connection(),
+        &prepared,
+        &lifecycle,
+        &ExecutorTimestamp::from_millis(3_000).expect("activation time"),
+    )
+    .expect("P3");
+    assert_eq!(outcome, AtomicPublicationLifecycleOutcome::Finalized);
+    assert!(environment.variant_exists(&variant));
+    assert_eq!(
+        environment.operation_state("operation-phase-success"),
+        ("completed".to_string(), "published".to_string())
+    );
+    assert_eq!(
+        environment
+            .connection()
+            .query_row(
+                "SELECT target_state FROM managed_media_lifecycle_targets
+                 WHERE target_id = ?1",
+                [lifecycle.target_id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("target state"),
+        "published"
+    );
+    assert_eq!(
+        environment.current_source(&item),
+        Some(result.source_sha256.as_str().to_string())
+    );
+    cleanup_lifecycle_publication(&environment.root, &environment.processor, &prepared)
+        .expect("P4");
+    assert!(!environment
+        .staging_path("operation-phase-success", &variant)
+        .exists());
+}
+
+#[test]
+fn lifecycle_publication_rejects_replaced_claim_after_immutable_rename_without_activation() {
+    let environment = TestEnvironment::new("lifecycle-stale-claim");
+    let result = environment.process(62);
+    let item = indexed_hash(9_011);
+    let variant = indexed_hash(9_012);
+    environment.insert_item(&item, &result.source_sha256, None);
+    let lifecycle = prepare_claimed_lifecycle(&environment, &item, &result, "stale");
+    let prepared = prepare_lifecycle_publication(
+        environment.connection(),
+        &environment.root,
+        &environment.processor,
+        request("operation-phase-stale", &item, &variant, &result),
+        &lifecycle,
+        &ExecutorTimestamp::from_millis(2_000).expect("preparation time"),
+    )
+    .expect("P1");
+    execute_lifecycle_publication_filesystem(&environment.root, &environment.processor, &prepared)
+        .expect("P2");
+    environment
+        .connection()
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET claim_token = 'replacement-claim'
+             WHERE intent_id = ?1",
+            [lifecycle.claimed.intent_id.as_str()],
+        )
+        .expect("replace claim");
+
+    assert!(activate_lifecycle_publication(
+        environment.connection(),
+        &prepared,
+        &lifecycle,
+        &ExecutorTimestamp::from_millis(3_000).expect("activation time"),
+    )
+    .is_err());
+    assert!(!environment.variant_exists(&variant));
+    assert_eq!(environment.current_source(&item), None);
+    assert_eq!(
+        environment.operation_state("operation-phase-stale"),
+        ("running".to_string(), "staging".to_string())
+    );
+    assert_eq!(
+        environment
+            .connection()
+            .query_row(
+                "SELECT target_state FROM managed_media_lifecycle_targets
+                 WHERE target_id = ?1",
+                [lifecycle.target_id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("target state"),
+        "pending"
+    );
+    assert!(environment
+        .root
+        .resolve(prepared.relative_path())
+        .expect("immutable final")
+        .exists());
 }
 
 fn micros(duration: Duration) -> u128 {

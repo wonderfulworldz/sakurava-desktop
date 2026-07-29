@@ -400,6 +400,13 @@ pub enum FinalizationOutcome {
     AlreadyFinalized,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AtomicPublicationLifecycleOutcome {
+    AwaitingOtherTargets,
+    Finalized,
+    AlreadyFinalized,
+}
+
 #[derive(Debug)]
 pub enum LifecycleError {
     Database(rusqlite::Error),
@@ -765,6 +772,51 @@ pub fn discover_lifecycle_work(
         ))
     })?;
     rows.map(|row| parse_work_candidate(row?)).collect()
+}
+
+pub fn earliest_eligible_due_time(
+    connection: &Connection,
+    now: &ExecutorTimestamp,
+) -> Result<Option<ExecutorTimestamp>, LifecycleError> {
+    schema::validate_schema(connection).map_err(|_| LifecycleError::SchemaConflict)?;
+    let now_millis =
+        i64::try_from(now.as_millis()).map_err(|_| LifecycleError::InvalidTimestamp)?;
+    let due = connection
+        .query_row(
+            "SELECT CASE
+                      WHEN i.lifecycle_state = 'retry_wait' THEN i.retry_eligible_at
+                      WHEN i.lifecycle_state = 'claimed' THEN i.claim_expires_at
+                      ELSE i.created_at
+                    END AS effective_due_at
+             FROM managed_media_lifecycle_intents i
+             JOIN managed_media_items item ON item.item_id = i.managed_item_id
+             JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = i.managed_item_id
+             WHERE (
+                 i.lifecycle_state IN ('queued', 'recovery_required')
+                 OR (i.lifecycle_state = 'retry_wait' AND i.retry_eligible_at IS NOT NULL)
+                 OR (i.lifecycle_state = 'claimed' AND i.claim_expires_at IS NOT NULL)
+               )
+               AND i.cancellation_requested = 0
+               AND i.superseded_by_intent_id IS NULL
+               AND item.lifecycle_state IN ('active', 'pending')
+               AND i.desired_revision = generation.desired_revision
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM managed_media_lifecycle_intents active_claim
+                 WHERE active_claim.managed_item_id = i.managed_item_id
+                   AND active_claim.intent_id <> i.intent_id
+                   AND active_claim.lifecycle_state = 'claimed'
+                   AND active_claim.claim_expires_at IS NOT NULL
+                   AND CAST(active_claim.claim_expires_at AS INTEGER) > ?1
+               )
+             ORDER BY CAST(effective_due_at AS INTEGER), CAST(i.created_at AS INTEGER), i.intent_id
+             LIMIT 1",
+            [now_millis],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    due.as_deref().map(ExecutorTimestamp::parse).transpose()
 }
 
 pub fn claim_intent(
@@ -1288,6 +1340,103 @@ pub fn record_target_outcome(
     Ok(PersistedWriteOutcome::Applied)
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn record_published_target_and_finalize_in_transaction(
+    transaction: &Transaction<'_>,
+    claimed: &ClaimedIntentSnapshot,
+    target_id: &LifecycleTargetIdentity,
+    operation_id: &str,
+    variant_id: &ValidatedSha256,
+    now: &ExecutorTimestamp,
+) -> Result<AtomicPublicationLifecycleOutcome, LifecycleError> {
+    require_owned(validate_claim_ownership_in_connection(
+        transaction,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )?)?;
+    let target = load_target_in_transaction(transaction, target_id.as_str())?;
+    if target.intent_id != claimed.intent_id.as_str()
+        || target.item_id != claimed.item_id.as_str()
+        || target.revision != claimed.revision
+    {
+        return Err(LifecycleError::IdentityConflict);
+    }
+    let requested = TargetOutcome {
+        state: TargetState::Published,
+        publication_operation_id: Some(operation_id.to_string()),
+        result_variant_id: Some(variant_id.clone()),
+        failure_class: None,
+        failure_summary: None,
+    };
+    validate_target_outcome(transaction, &target, &requested)?;
+    if target.state == TargetState::Published {
+        let stored: (Option<String>, Option<String>) = transaction.query_row(
+            "SELECT publication_operation_id, result_variant_id
+             FROM managed_media_lifecycle_targets WHERE target_id = ?1",
+            [target_id.as_str()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        if stored
+            != (
+                Some(operation_id.to_string()),
+                Some(variant_id.as_str().to_string()),
+            )
+        {
+            return Err(LifecycleError::StructuralConflict);
+        }
+    } else {
+        if target.state.is_terminal()
+            || !target_transition_allowed(target.state, TargetState::Published)
+        {
+            return Err(LifecycleError::InvalidTransition);
+        }
+        let updated = transaction.execute(
+            "UPDATE managed_media_lifecycle_targets
+             SET target_state = 'published', publication_operation_id = ?2,
+                 result_variant_id = ?3, failure_class = NULL, failure_summary = NULL,
+                 updated_at = ?4
+             WHERE target_id = ?1 AND target_state = ?5
+               AND EXISTS (
+                 SELECT 1 FROM managed_media_lifecycle_intents
+                 WHERE intent_id = ?6 AND lifecycle_state = 'claimed' AND claim_token = ?7
+               )",
+            params![
+                target_id.as_str(),
+                operation_id,
+                variant_id.as_str(),
+                now.as_str(),
+                target.state.as_str(),
+                claimed.intent_id.as_str(),
+                claimed.claim_token.as_str(),
+            ],
+        )?;
+        if updated != 1 {
+            return Err(LifecycleError::LostOwnership);
+        }
+    }
+
+    match finalize_generation_in_transaction(
+        transaction,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.intent_id,
+        &claimed.claim_token,
+        now,
+    ) {
+        Ok(FinalizationOutcome::Promoted) => Ok(AtomicPublicationLifecycleOutcome::Finalized),
+        Ok(FinalizationOutcome::AlreadyFinalized) => {
+            Ok(AtomicPublicationLifecycleOutcome::AlreadyFinalized)
+        }
+        Err(LifecycleError::FinalizationNotReady) => {
+            Ok(AtomicPublicationLifecycleOutcome::AwaitingOtherTargets)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 pub fn finalize_generation(
     connection: &Connection,
     item_id: &ValidatedSha256,
@@ -1297,7 +1446,27 @@ pub fn finalize_generation(
     now: &ExecutorTimestamp,
 ) -> Result<FinalizationOutcome, LifecycleError> {
     let transaction = connection.unchecked_transaction()?;
-    let intent = load_intent_in_transaction(&transaction, intent_id.as_str())?;
+    let outcome = finalize_generation_in_transaction(
+        &transaction,
+        item_id,
+        revision,
+        intent_id,
+        claim_token,
+        now,
+    )?;
+    transaction.commit()?;
+    Ok(outcome)
+}
+
+fn finalize_generation_in_transaction(
+    transaction: &Transaction<'_>,
+    item_id: &ValidatedSha256,
+    revision: ItemRevision,
+    intent_id: &LifecycleIntentIdentity,
+    claim_token: &LifecycleClaimToken,
+    now: &ExecutorTimestamp,
+) -> Result<FinalizationOutcome, LifecycleError> {
+    let intent = load_intent_in_transaction(transaction, intent_id.as_str())?;
     if intent.item_id != item_id.as_str() || intent.revision != revision {
         return Err(LifecycleError::IdentityConflict);
     }
@@ -1308,11 +1477,10 @@ pub fn finalize_generation(
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
     if current_revision == intent.revision.as_i64() && intent.state == LifecycleState::Completed {
-        transaction.commit()?;
         return Ok(FinalizationOutcome::AlreadyFinalized);
     }
     require_owned(validate_claim_ownership_in_connection(
-        &transaction,
+        transaction,
         intent_id,
         item_id,
         revision,
@@ -1355,7 +1523,7 @@ pub fn finalize_generation(
     {
         return Err(LifecycleError::IdentityConflict);
     }
-    let targets = load_targets_for_intent(&transaction, intent_id.as_str())?;
+    let targets = load_targets_for_intent(transaction, intent_id.as_str())?;
     if targets.is_empty()
         || targets.iter().any(|target| {
             !matches!(
@@ -1370,7 +1538,7 @@ pub fn finalize_generation(
         .iter()
         .filter(|target| target.state == TargetState::Published)
     {
-        validate_published_target(&transaction, target, desired_fingerprint)?;
+        validate_published_target(transaction, target, desired_fingerprint)?;
     }
     let updated_item = transaction.execute(
         "UPDATE managed_media_items
@@ -1396,7 +1564,6 @@ pub fn finalize_generation(
     if updated_item != 1 || updated_generation != 1 || updated_intent != 1 {
         return Err(LifecycleError::FinalizationNotReady);
     }
-    transaction.commit()?;
     Ok(FinalizationOutcome::Promoted)
 }
 

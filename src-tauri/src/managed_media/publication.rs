@@ -12,7 +12,15 @@ use serde::{Deserialize, Serialize};
 use super::{
     contract::{FamilyId, ProfileVersion, RoleId, TierId},
     fingerprint::fingerprint_reader,
-    identity::{OperationIdentity, ValidatedSha256, VariantClass},
+    identity::{
+        LifecycleClaimToken, LifecycleIntentIdentity, LifecycleTargetIdentity, OperationIdentity,
+        ValidatedSha256, VariantClass,
+    },
+    lifecycle::{
+        record_published_target_and_finalize_in_transaction, validate_claim_ownership,
+        AtomicPublicationLifecycleOutcome, ClaimOwnershipStatus, ClaimedIntentSnapshot,
+        ExecutorTimestamp, ItemRevision, LifecycleAction,
+    },
     path::{ManagedMediaRoot, ValidatedOutputExtension},
     processor::{
         CropRectangle, InputFormat, ManagedMediaProcessor, OrientationApplied, OutputFormat,
@@ -35,6 +43,35 @@ pub struct PublicationRequest<'a> {
     pub processor_result: &'a ProcessorResult,
 }
 
+#[derive(Debug, Clone)]
+pub struct PublicationLifecycleContext {
+    pub claimed: ClaimedIntentSnapshot,
+    pub target_id: LifecycleTargetIdentity,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PreparedLifecyclePublication {
+    payload: JournalPayload,
+    output_bytes: Vec<u8>,
+    already_completed: bool,
+}
+
+impl PreparedLifecyclePublication {
+    pub(crate) fn relative_path(&self) -> &str {
+        &self.payload.relative_path
+    }
+
+    pub(crate) fn already_completed(&self) -> bool {
+        self.already_completed
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LifecyclePublicationFilesystemOutcome {
+    ImmutableReady,
+    AlreadyImmutable,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PublicationOutcome {
     Published { relative_path: String },
@@ -50,6 +87,29 @@ pub enum RecoveryOutcome {
     FinalizedJournalState,
     RemovedExactStagingRemnant,
     MarkedFailedPreservingPrevious,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RecoveryPlan {
+    operation_id: String,
+    operation_state: String,
+    journal_state: String,
+    payload_json: String,
+    payload: JournalPayload,
+}
+
+impl RecoveryPlan {
+    pub(crate) fn operation_id(&self) -> &str {
+        &self.operation_id
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RecoveryFilesystemEvidence {
+    Completed { staging_remnant: bool },
+    Terminal,
+    MissingInitialEvidence,
+    ImmutableReady { staging_remnant: bool },
 }
 
 #[derive(Debug)]
@@ -153,6 +213,20 @@ pub(crate) struct JournalPayload {
     resize_filter: String,
     jpeg_quality: Option<u8>,
     processing_policy_version: String,
+    #[serde(default)]
+    lifecycle_intent_id: Option<String>,
+    #[serde(default)]
+    lifecycle_target_id: Option<String>,
+    #[serde(default)]
+    lifecycle_revision: Option<u64>,
+    #[serde(default)]
+    lifecycle_action: Option<String>,
+    #[serde(default)]
+    lifecycle_claim_token: Option<String>,
+    #[serde(default)]
+    lifecycle_claim_expires_at: Option<String>,
+    #[serde(default)]
+    lifecycle_attempt_count: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,7 +245,173 @@ pub fn publish(
     processor: &ManagedMediaProcessor,
     request: PublicationRequest<'_>,
 ) -> Result<PublicationOutcome, PublicationError> {
-    publish_internal(connection, root, processor, request, None)
+    publish_internal(connection, root, processor, request, None, None)
+}
+
+pub(crate) fn prepare_lifecycle_publication(
+    connection: &Connection,
+    root: &ManagedMediaRoot,
+    processor: &ManagedMediaProcessor,
+    request: PublicationRequest<'_>,
+    lifecycle: &PublicationLifecycleContext,
+    preparation_time: &ExecutorTimestamp,
+) -> Result<PreparedLifecyclePublication, PublicationError> {
+    validate_root(root)?;
+    schema::validate_schema(connection).map_err(|_| PublicationError::SchemaStateConflict)?;
+    processor
+        .validate_result(request.processor_result)
+        .map_err(|_| PublicationError::InvalidProcessorResult)?;
+    let payload = build_payload(connection, root, &request, Some(lifecycle))?;
+    validate_lifecycle_preparation(connection, lifecycle, &payload, preparation_time)?;
+    let existing_state = record_intent(connection, &payload)?;
+    if existing_state.as_deref() == Some("completed") {
+        validate_completed_descriptor(connection, &payload)?;
+    } else if existing_state.is_some() {
+        return Err(PublicationError::RecoveryStateConflict);
+    }
+    Ok(PreparedLifecyclePublication {
+        payload,
+        output_bytes: request.processor_result.output_bytes.clone(),
+        already_completed: existing_state.as_deref() == Some("completed"),
+    })
+}
+
+fn validate_lifecycle_preparation(
+    connection: &Connection,
+    lifecycle: &PublicationLifecycleContext,
+    payload: &JournalPayload,
+    preparation_time: &ExecutorTimestamp,
+) -> Result<(), PublicationError> {
+    if validate_claim_ownership(connection, &lifecycle.claimed, preparation_time)
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?
+        != ClaimOwnershipStatus::Owned
+    {
+        return Err(PublicationError::DescriptorTransactionFailure);
+    }
+    let target: (
+        String,
+        String,
+        u64,
+        String,
+        String,
+        Option<String>,
+        String,
+        Option<String>,
+        Option<String>,
+    ) = connection
+        .query_row(
+            "SELECT intent_id, managed_item_id, desired_revision, role_id,
+                    variant_class, standard_tier, target_state,
+                    publication_operation_id, result_variant_id
+             FROM managed_media_lifecycle_targets WHERE target_id = ?1",
+            [lifecycle.target_id.as_str()],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            },
+        )
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+    if target.0 != lifecycle.claimed.intent_id.as_str()
+        || target.1 != lifecycle.claimed.item_id.as_str()
+        || target.2 != lifecycle.claimed.revision.get()
+        || target.3 != payload.role
+        || target.4 != payload.variant_class
+        || target.5 != payload.standard_tier
+    {
+        return Err(PublicationError::DescriptorTransactionFailure);
+    }
+    if target.6 == "published" {
+        let operation_state: Option<String> = connection
+            .query_row(
+                "SELECT operation_state FROM managed_media_operations
+                 WHERE operation_id = ?1",
+                [&payload.operation_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+        if operation_state.as_deref() != Some("completed")
+            || target.7.as_deref() != Some(payload.operation_id.as_str())
+            || target.8.as_deref() != Some(payload.variant_id.as_str())
+        {
+            return Err(PublicationError::DescriptorTransactionFailure);
+        }
+    } else if !matches!(target.6.as_str(), "pending" | "claimed") {
+        return Err(PublicationError::DescriptorTransactionFailure);
+    }
+    Ok(())
+}
+
+pub(crate) fn execute_lifecycle_publication_filesystem(
+    root: &ManagedMediaRoot,
+    processor: &ManagedMediaProcessor,
+    prepared: &PreparedLifecyclePublication,
+) -> Result<LifecyclePublicationFilesystemOutcome, PublicationError> {
+    validate_root(root)?;
+    if prepared.already_completed {
+        validate_final_file(
+            &final_path(root, &prepared.payload)?,
+            processor,
+            &prepared.payload,
+        )?;
+        return Ok(LifecyclePublicationFilesystemOutcome::AlreadyImmutable);
+    }
+    write_staging(root, processor, &prepared.payload, &prepared.output_bytes)?;
+    publish_immutable(root, processor, &prepared.payload)?;
+    Ok(LifecyclePublicationFilesystemOutcome::ImmutableReady)
+}
+
+pub(crate) fn activate_lifecycle_publication(
+    connection: &Connection,
+    prepared: &PreparedLifecyclePublication,
+    lifecycle: &PublicationLifecycleContext,
+    activation_time: &ExecutorTimestamp,
+) -> Result<AtomicPublicationLifecycleOutcome, PublicationError> {
+    if prepared.already_completed {
+        let transaction = connection
+            .unchecked_transaction()
+            .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+        validate_completed_descriptor(&transaction, &prepared.payload)?;
+        let outcome = record_published_target_and_finalize_in_transaction(
+            &transaction,
+            &lifecycle.claimed,
+            &lifecycle.target_id,
+            &prepared.payload.operation_id,
+            &ValidatedSha256::new(prepared.payload.variant_id.clone())
+                .map_err(|_| PublicationError::VariantIdentityConflict)?,
+            activation_time,
+        )
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+        transaction
+            .commit()
+            .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+        return Ok(outcome);
+    }
+    activate_descriptor(
+        connection,
+        &prepared.payload,
+        Some(lifecycle),
+        Some(activation_time),
+        false,
+    )?
+    .ok_or(PublicationError::DescriptorTransactionFailure)
+}
+
+pub(crate) fn cleanup_lifecycle_publication(
+    root: &ManagedMediaRoot,
+    processor: &ManagedMediaProcessor,
+    prepared: &PreparedLifecyclePublication,
+) -> Result<(), PublicationError> {
+    cleanup_exact_staging(root, &prepared.payload, processor)
 }
 
 #[cfg(test)]
@@ -182,7 +422,14 @@ pub(crate) fn publish_with_failure(
     request: PublicationRequest<'_>,
     failure_point: FailurePoint,
 ) -> Result<PublicationOutcome, PublicationError> {
-    publish_internal(connection, root, processor, request, Some(failure_point))
+    publish_internal(
+        connection,
+        root,
+        processor,
+        request,
+        None,
+        Some(failure_point),
+    )
 }
 
 fn publish_internal(
@@ -190,6 +437,7 @@ fn publish_internal(
     root: &ManagedMediaRoot,
     processor: &ManagedMediaProcessor,
     request: PublicationRequest<'_>,
+    lifecycle: Option<&PublicationLifecycleContext>,
     failure_point: Option<FailurePoint>,
 ) -> Result<PublicationOutcome, PublicationError> {
     validate_root(root)?;
@@ -198,7 +446,7 @@ fn publish_internal(
         .validate_result(request.processor_result)
         .map_err(|_| PublicationError::InvalidProcessorResult)?;
 
-    let payload = build_payload(connection, root, &request)?;
+    let payload = build_payload(connection, root, &request, lifecycle)?;
     let existing_state = record_intent(connection, &payload)?;
     if existing_state.as_deref() == Some("completed") {
         validate_completed(connection, root, processor, &payload)?;
@@ -247,6 +495,8 @@ fn publish_internal(
     activate_descriptor(
         connection,
         &payload,
+        lifecycle,
+        lifecycle.map(|value| &value.claimed.claim_expires_at),
         failure_point == Some(FailurePoint::DuringDescriptorTransaction),
     )?;
     fail_if(failure_point, FailurePoint::AfterDescriptorCommit)?;
@@ -273,6 +523,7 @@ fn build_payload(
     connection: &Connection,
     root: &ManagedMediaRoot,
     request: &PublicationRequest<'_>,
+    lifecycle: Option<&PublicationLifecycleContext>,
 ) -> Result<JournalPayload, PublicationError> {
     let result = request.processor_result;
     let (current, pending) = connection
@@ -316,6 +567,13 @@ fn build_payload(
         ProcessorVariant::NativeFallback => ("native_fallback".to_string(), None),
     };
 
+    if let Some(lifecycle) = lifecycle {
+        if lifecycle.claimed.item_id != request.item_id
+            || lifecycle.claimed.action == LifecycleAction::Retire
+        {
+            return Err(PublicationError::ItemIdentityConflict);
+        }
+    }
     Ok(JournalPayload {
         version: JOURNAL_PAYLOAD_VERSION,
         operation_id: request.operation_id.as_str().to_string(),
@@ -348,6 +606,20 @@ fn build_payload(
         resize_filter: result.resize_filter.to_string(),
         jpeg_quality: result.jpeg_quality,
         processing_policy_version: result.processing_policy_version.to_string(),
+        lifecycle_intent_id: lifecycle.map(|value| value.claimed.intent_id.as_str().to_string()),
+        lifecycle_target_id: lifecycle.map(|value| value.target_id.as_str().to_string()),
+        lifecycle_revision: lifecycle.map(|value| value.claimed.revision.get()),
+        lifecycle_action: lifecycle.map(|value| match value.claimed.action {
+            LifecycleAction::Generate => "generate".to_string(),
+            LifecycleAction::RepairMissing => "repair_missing".to_string(),
+            LifecycleAction::Regenerate => "regenerate".to_string(),
+            LifecycleAction::Retire => "retire".to_string(),
+        }),
+        lifecycle_claim_token: lifecycle
+            .map(|value| value.claimed.claim_token.as_str().to_string()),
+        lifecycle_claim_expires_at: lifecycle
+            .map(|value| value.claimed.claim_expires_at.as_str().to_string()),
+        lifecycle_attempt_count: lifecycle.map(|value| value.claimed.attempt_count),
     })
 }
 
@@ -503,18 +775,52 @@ fn validate_file(
 fn activate_descriptor(
     connection: &Connection,
     payload: &JournalPayload,
+    lifecycle: Option<&PublicationLifecycleContext>,
+    activation_time: Option<&ExecutorTimestamp>,
     interrupt_before_commit: bool,
-) -> Result<(), PublicationError> {
+) -> Result<Option<AtomicPublicationLifecycleOutcome>, PublicationError> {
     let transaction = connection
         .unchecked_transaction()
         .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+    if lifecycle.is_some() {
+        let now = timestamp();
+        let transitioned = transaction
+            .execute(
+                "UPDATE managed_media_operations
+                 SET operation_state = 'recovery_required', journal_state = 'published',
+                     updated_at = ?2
+                 WHERE operation_id = ?1
+                   AND operation_state = 'running'
+                   AND journal_state IN ('staging', 'validated', 'publishing')",
+                (&payload.operation_id, &now),
+            )
+            .map_err(|_| PublicationError::JournalTransitionFailure)?;
+        if transitioned != 1 {
+            return Err(PublicationError::JournalTransitionFailure);
+        }
+    }
     activate_descriptor_in_transaction(&transaction, payload)?;
+    let lifecycle_outcome = lifecycle
+        .map(|context| {
+            record_published_target_and_finalize_in_transaction(
+                &transaction,
+                &context.claimed,
+                &context.target_id,
+                &payload.operation_id,
+                &ValidatedSha256::new(payload.variant_id.clone())
+                    .map_err(|_| PublicationError::VariantIdentityConflict)?,
+                activation_time.ok_or(PublicationError::DescriptorTransactionFailure)?,
+            )
+            .map_err(|_| PublicationError::DescriptorTransactionFailure)
+        })
+        .transpose()?;
     if interrupt_before_commit {
         return Err(PublicationError::InterruptedForVerification);
     }
     transaction
         .commit()
-        .map_err(|_| PublicationError::DescriptorTransactionFailure)
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+    Ok(lifecycle_outcome)
 }
 
 #[cfg(test)]
@@ -531,7 +837,7 @@ pub(crate) fn activate_descriptor_for_test(
         .map_err(|_| PublicationError::RecoveryStateConflict)?;
     let payload: JournalPayload =
         serde_json::from_str(&payload_json).map_err(|_| PublicationError::RecoveryStateConflict)?;
-    activate_descriptor(connection, &payload, false)
+    activate_descriptor(connection, &payload, None, None, false).map(|_| ())
 }
 
 fn activate_descriptor_in_transaction(
@@ -719,12 +1025,12 @@ fn transition_journal(
     Ok(())
 }
 
-fn mark_failed_preserving_previous(
-    connection: &Connection,
+fn mark_failed_preserving_previous_in_transaction(
+    transaction: &Transaction<'_>,
     operation_id: &str,
 ) -> Result<(), PublicationError> {
     let now = timestamp();
-    let updated = connection
+    let updated = transaction
         .execute(
             "UPDATE managed_media_operations
              SET operation_state = 'failed', journal_state = 'failed',
@@ -741,13 +1047,10 @@ fn mark_failed_preserving_previous(
     Ok(())
 }
 
-pub(crate) fn recover_one(
+pub(crate) fn prepare_recovery(
     connection: &Connection,
-    root: &ManagedMediaRoot,
-    processor: &ManagedMediaProcessor,
     operation_id: &str,
-) -> Result<RecoveryOutcome, PublicationError> {
-    validate_root(root)?;
+) -> Result<RecoveryPlan, PublicationError> {
     schema::validate_schema(connection).map_err(|_| PublicationError::SchemaStateConflict)?;
     let (operation_state, journal_state, payload_json) = connection
         .query_row(
@@ -770,53 +1073,229 @@ pub(crate) fn recover_one(
     if payload.operation_id != operation_id || payload.version != JOURNAL_PAYLOAD_VERSION {
         return Err(PublicationError::OperationIdentityConflict);
     }
+    Ok(RecoveryPlan {
+        operation_id: operation_id.to_string(),
+        operation_state,
+        journal_state,
+        payload_json,
+        payload,
+    })
+}
 
-    let staging = staging_path(root, &payload)?;
-    let final_path = final_path(root, &payload)?;
+pub(crate) fn inspect_recovery_filesystem(
+    root: &ManagedMediaRoot,
+    processor: &ManagedMediaProcessor,
+    plan: &RecoveryPlan,
+) -> Result<RecoveryFilesystemEvidence, PublicationError> {
+    validate_root(root)?;
+    let staging = staging_path(root, &plan.payload)?;
+    let final_path = final_path(root, &plan.payload)?;
     let staging_exists = staging.exists();
     let final_exists = final_path.exists();
 
-    if operation_state == "completed" && journal_state == "published" {
-        validate_completed(connection, root, processor, &payload)?;
-        if staging_exists || staging.parent().is_some_and(Path::exists) {
-            cleanup_exact_staging(root, &payload, processor)?;
-            return Ok(RecoveryOutcome::RemovedExactStagingRemnant);
-        }
-        return Ok(RecoveryOutcome::NoActionRequired);
+    if plan.operation_state == "completed" && plan.journal_state == "published" {
+        validate_final_file(&final_path, processor, &plan.payload)?;
+        return Ok(RecoveryFilesystemEvidence::Completed {
+            staging_remnant: staging_exists || staging.parent().is_some_and(Path::exists),
+        });
     }
-    if operation_state == "failed" || journal_state == "failed" {
-        return Ok(RecoveryOutcome::NoActionRequired);
+    if plan.operation_state == "failed" || plan.journal_state == "failed" {
+        return Ok(RecoveryFilesystemEvidence::Terminal);
+    }
+    if staging_exists {
+        validate_file(&staging, processor, &plan.payload)?;
+        publish_immutable(root, processor, &plan.payload)?;
+        return Ok(RecoveryFilesystemEvidence::ImmutableReady {
+            staging_remnant: true,
+        });
+    }
+    if final_exists {
+        validate_final_file(&final_path, processor, &plan.payload)?;
+        return Ok(RecoveryFilesystemEvidence::ImmutableReady {
+            staging_remnant: staging.parent().is_some_and(Path::exists),
+        });
+    }
+    if plan.journal_state == "staging" {
+        return Ok(RecoveryFilesystemEvidence::MissingInitialEvidence);
+    }
+    Err(PublicationError::RecoveryStateConflict)
+}
+
+pub(crate) fn apply_recovery(
+    connection: &Connection,
+    plan: &RecoveryPlan,
+    evidence: RecoveryFilesystemEvidence,
+) -> Result<RecoveryOutcome, PublicationError> {
+    match evidence {
+        RecoveryFilesystemEvidence::Completed { staging_remnant } => {
+            let current: (String, String, String) = connection
+                .query_row(
+                    "SELECT operation_state, journal_state, scope_payload_json
+                     FROM managed_media_operations WHERE operation_id = ?1",
+                    [&plan.operation_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(|_| PublicationError::RecoveryStateConflict)?;
+            if current
+                != (
+                    plan.operation_state.clone(),
+                    plan.journal_state.clone(),
+                    plan.payload_json.clone(),
+                )
+            {
+                return Err(PublicationError::RecoveryStateConflict);
+            }
+            let descriptor: Option<(String, String)> = connection
+                .query_row(
+                    "SELECT checksum, publication_state
+                     FROM managed_media_variants WHERE variant_id = ?1",
+                    [&plan.payload.variant_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()
+                .map_err(|_| PublicationError::RecoveryStateConflict)?;
+            if descriptor != Some((plan.payload.checksum.clone(), "published".to_string())) {
+                return Err(PublicationError::RecoveryStateConflict);
+            }
+            return Ok(if staging_remnant {
+                RecoveryOutcome::RemovedExactStagingRemnant
+            } else {
+                RecoveryOutcome::NoActionRequired
+            });
+        }
+        RecoveryFilesystemEvidence::Terminal => return Ok(RecoveryOutcome::NoActionRequired),
+        RecoveryFilesystemEvidence::MissingInitialEvidence => {
+            let transaction = connection
+                .unchecked_transaction()
+                .map_err(|_| PublicationError::JournalTransitionFailure)?;
+            validate_recovery_plan(&transaction, plan)?;
+            if plan.payload.lifecycle_intent_id.is_some() {
+                let updated = transaction
+                    .execute(
+                        "UPDATE managed_media_operations
+                         SET operation_state = 'recovery_required', updated_at = ?2
+                         WHERE operation_id = ?1",
+                        (&plan.operation_id, timestamp()),
+                    )
+                    .map_err(|_| PublicationError::JournalTransitionFailure)?;
+                if updated != 1 {
+                    return Err(PublicationError::JournalTransitionFailure);
+                }
+                transaction
+                    .commit()
+                    .map_err(|_| PublicationError::JournalTransitionFailure)?;
+                return Err(PublicationError::RecoveryStateConflict);
+            }
+            mark_failed_preserving_previous_in_transaction(&transaction, &plan.operation_id)?;
+            transaction
+                .commit()
+                .map_err(|_| PublicationError::JournalTransitionFailure)?;
+            return Ok(RecoveryOutcome::MarkedFailedPreservingPrevious);
+        }
+        RecoveryFilesystemEvidence::ImmutableReady { .. } => {}
     }
 
-    match journal_state.as_str() {
-        "staging" if !staging_exists && !final_exists => {
-            mark_failed_preserving_previous(connection, operation_id)?;
-            Ok(RecoveryOutcome::MarkedFailedPreservingPrevious)
-        }
-        "staging" | "validated" | "publishing" if staging_exists => {
-            validate_file(&staging, processor, &payload)?;
-            transition_journal(connection, operation_id, "running", "validated")?;
-            transition_journal(connection, operation_id, "running", "publishing")?;
-            publish_immutable(root, processor, &payload)?;
-            transition_journal(connection, operation_id, "recovery_required", "published")?;
-            activate_descriptor(connection, &payload, false)?;
-            cleanup_exact_staging(root, &payload, processor)?;
-            Ok(RecoveryOutcome::CompletedImmutablePublication)
-        }
-        "published" if operation_state == "recovery_required" && final_exists => {
-            validate_final_file(&final_path, processor, &payload)?;
-            activate_descriptor(connection, &payload, false)?;
-            cleanup_exact_staging(root, &payload, processor)?;
-            Ok(RecoveryOutcome::FinalizedJournalState)
-        }
-        "publishing" | "published" if final_exists => {
-            validate_final_file(&final_path, processor, &payload)?;
-            activate_descriptor(connection, &payload, false)?;
-            cleanup_exact_staging(root, &payload, processor)?;
-            Ok(RecoveryOutcome::CompletedDescriptorActivation)
-        }
-        _ => Err(PublicationError::RecoveryStateConflict),
+    let lifecycle = lifecycle_context_from_payload(&plan.payload)?;
+    let activation_time = lifecycle
+        .as_ref()
+        .map(|_| executor_timestamp_now())
+        .transpose()?;
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+    validate_recovery_plan(&transaction, plan)?;
+    let now = timestamp();
+    let transitioned = transaction
+        .execute(
+            "UPDATE managed_media_operations
+             SET operation_state = 'recovery_required', journal_state = 'published',
+                 updated_at = ?2
+             WHERE operation_id = ?1",
+            (&plan.operation_id, &now),
+        )
+        .map_err(|_| PublicationError::JournalTransitionFailure)?;
+    if transitioned != 1 {
+        return Err(PublicationError::JournalTransitionFailure);
     }
+    activate_descriptor_in_transaction(&transaction, &plan.payload)?;
+    if let Some(context) = lifecycle.as_ref() {
+        record_published_target_and_finalize_in_transaction(
+            &transaction,
+            &context.claimed,
+            &context.target_id,
+            &plan.payload.operation_id,
+            &ValidatedSha256::new(plan.payload.variant_id.clone())
+                .map_err(|_| PublicationError::VariantIdentityConflict)?,
+            activation_time
+                .as_ref()
+                .ok_or(PublicationError::DescriptorTransactionFailure)?,
+        )
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+    }
+    transaction
+        .commit()
+        .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
+    Ok(match plan.journal_state.as_str() {
+        "published" => RecoveryOutcome::FinalizedJournalState,
+        "publishing" => RecoveryOutcome::CompletedDescriptorActivation,
+        _ => RecoveryOutcome::CompletedImmutablePublication,
+    })
+}
+
+fn validate_recovery_plan(
+    transaction: &Transaction<'_>,
+    plan: &RecoveryPlan,
+) -> Result<(), PublicationError> {
+    let current: (String, String, String) = transaction
+        .query_row(
+            "SELECT operation_state, journal_state, scope_payload_json
+             FROM managed_media_operations WHERE operation_id = ?1",
+            [&plan.operation_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|_| PublicationError::RecoveryStateConflict)?;
+    if current
+        != (
+            plan.operation_state.clone(),
+            plan.journal_state.clone(),
+            plan.payload_json.clone(),
+        )
+    {
+        return Err(PublicationError::RecoveryStateConflict);
+    }
+    Ok(())
+}
+
+pub(crate) fn cleanup_recovery(
+    root: &ManagedMediaRoot,
+    processor: &ManagedMediaProcessor,
+    plan: &RecoveryPlan,
+    evidence: RecoveryFilesystemEvidence,
+) -> Result<(), PublicationError> {
+    if matches!(
+        evidence,
+        RecoveryFilesystemEvidence::Completed {
+            staging_remnant: true
+        } | RecoveryFilesystemEvidence::ImmutableReady {
+            staging_remnant: true
+        }
+    ) {
+        cleanup_exact_staging(root, &plan.payload, processor)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn recover_one(
+    connection: &Connection,
+    root: &ManagedMediaRoot,
+    processor: &ManagedMediaProcessor,
+    operation_id: &str,
+) -> Result<RecoveryOutcome, PublicationError> {
+    let plan = prepare_recovery(connection, operation_id)?;
+    let evidence = inspect_recovery_filesystem(root, processor, &plan)?;
+    let outcome = apply_recovery(connection, &plan, evidence)?;
+    cleanup_recovery(root, processor, &plan, evidence)?;
+    Ok(outcome)
 }
 
 pub(crate) fn list_nonterminal_operations(
@@ -847,6 +1326,14 @@ fn validate_completed(
     processor: &ManagedMediaProcessor,
     payload: &JournalPayload,
 ) -> Result<(), PublicationError> {
+    validate_completed_descriptor(connection, payload)?;
+    validate_final_file(&final_path(root, payload)?, processor, payload)
+}
+
+fn validate_completed_descriptor(
+    connection: &Connection,
+    payload: &JournalPayload,
+) -> Result<(), PublicationError> {
     let descriptor: Option<(String, String)> = connection
         .query_row(
             "SELECT checksum, publication_state FROM managed_media_variants
@@ -861,7 +1348,7 @@ fn validate_completed(
     {
         return Err(PublicationError::RecoveryStateConflict);
     }
-    validate_final_file(&final_path(root, payload)?, processor, payload)
+    Ok(())
 }
 
 pub(crate) fn validate_linked_publication(
@@ -1043,6 +1530,77 @@ fn result_from_payload(
     })
 }
 
+fn lifecycle_context_from_payload(
+    payload: &JournalPayload,
+) -> Result<Option<PublicationLifecycleContext>, PublicationError> {
+    let fields_present = [
+        payload.lifecycle_intent_id.is_some(),
+        payload.lifecycle_target_id.is_some(),
+        payload.lifecycle_revision.is_some(),
+        payload.lifecycle_action.is_some(),
+        payload.lifecycle_claim_token.is_some(),
+        payload.lifecycle_claim_expires_at.is_some(),
+        payload.lifecycle_attempt_count.is_some(),
+    ];
+    if fields_present.iter().all(|present| !present) {
+        return Ok(None);
+    }
+    if fields_present.iter().any(|present| !present) {
+        return Err(PublicationError::RecoveryStateConflict);
+    }
+    let action = match payload.lifecycle_action.as_deref() {
+        Some("generate") => LifecycleAction::Generate,
+        Some("repair_missing") => LifecycleAction::RepairMissing,
+        Some("regenerate") => LifecycleAction::Regenerate,
+        _ => return Err(PublicationError::RecoveryStateConflict),
+    };
+    let claimed = ClaimedIntentSnapshot {
+        intent_id: LifecycleIntentIdentity::new(
+            payload
+                .lifecycle_intent_id
+                .clone()
+                .ok_or(PublicationError::RecoveryStateConflict)?,
+        )
+        .map_err(|_| PublicationError::RecoveryStateConflict)?,
+        item_id: ValidatedSha256::new(payload.item_id.clone())
+            .map_err(|_| PublicationError::RecoveryStateConflict)?,
+        revision: ItemRevision::new(
+            payload
+                .lifecycle_revision
+                .ok_or(PublicationError::RecoveryStateConflict)?,
+        )
+        .map_err(|_| PublicationError::RecoveryStateConflict)?,
+        action,
+        claim_token: LifecycleClaimToken::new(
+            payload
+                .lifecycle_claim_token
+                .clone()
+                .ok_or(PublicationError::RecoveryStateConflict)?,
+        )
+        .map_err(|_| PublicationError::RecoveryStateConflict)?,
+        claim_expires_at: ExecutorTimestamp::parse(
+            payload
+                .lifecycle_claim_expires_at
+                .as_deref()
+                .ok_or(PublicationError::RecoveryStateConflict)?,
+        )
+        .map_err(|_| PublicationError::RecoveryStateConflict)?,
+        attempt_count: payload
+            .lifecycle_attempt_count
+            .ok_or(PublicationError::RecoveryStateConflict)?,
+    };
+    Ok(Some(PublicationLifecycleContext {
+        claimed,
+        target_id: LifecycleTargetIdentity::new(
+            payload
+                .lifecycle_target_id
+                .clone()
+                .ok_or(PublicationError::RecoveryStateConflict)?,
+        )
+        .map_err(|_| PublicationError::RecoveryStateConflict)?,
+    }))
+}
+
 fn staging_path(
     root: &ManagedMediaRoot,
     payload: &JournalPayload,
@@ -1111,6 +1669,15 @@ fn timestamp() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     format!("{}.{:09}Z", duration.as_secs(), duration.subsec_nanos())
+}
+
+fn executor_timestamp_now() -> Result<ExecutorTimestamp, PublicationError> {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| PublicationError::RecoveryStateConflict)?
+        .as_millis();
+    let millis = u64::try_from(millis).map_err(|_| PublicationError::RecoveryStateConflict)?;
+    ExecutorTimestamp::from_millis(millis).map_err(|_| PublicationError::RecoveryStateConflict)
 }
 
 fn fail_if(

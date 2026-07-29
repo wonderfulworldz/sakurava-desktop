@@ -3,7 +3,7 @@ use std::cell::Cell;
 use rusqlite::{params, Connection};
 
 use super::{
-    executor::{run_one_cycle, ExecutorDatabase, ExecutorError, ExecutorPolicy},
+    executor::{claim_bounded, run_one_cycle, ExecutorDatabase, ExecutorError, ExecutorPolicy},
     identity::{LifecycleClaimToken, LifecycleIntentIdentity, ValidatedSha256},
     lifecycle::{
         claim_intent, initialize_item_generation, load_intent, queue_intent, ClaimAttemptOutcome,
@@ -171,6 +171,22 @@ fn one_cycle_is_bounded_deterministic_and_releases_database_before_handler() {
         )
         .expect("retry state");
     assert_eq!(retry, None);
+}
+
+#[test]
+fn bounded_claim_batch_returns_owned_claims_without_running_handlers() {
+    let database = GuardedDatabase::new();
+    insert_work(&database.connection, 31, NOW_MILLIS);
+    insert_work(&database.connection, 32, NOW_MILLIS);
+    let policy = ExecutorPolicy::new(2, LEASE_MILLIS, 30_000, 1).expect("policy");
+    let mut now = || Ok(NOW_MILLIS);
+    let mut token = || Ok("owned-batch-token".to_string());
+    let report =
+        claim_bounded(&database, policy, &mut now, &mut token).expect("bounded claim batch");
+    assert_eq!(report.discovered, 1);
+    assert_eq!(report.successfully_claimed, 1);
+    assert_eq!(report.claims.len(), 1);
+    assert_eq!(report.claims[0].claim_token.as_str(), "owned-batch-token");
 }
 
 #[test]

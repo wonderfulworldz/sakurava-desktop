@@ -15,15 +15,15 @@ use super::{
     },
     lifecycle::{
         add_target, claim_discovered_intent, claim_intent, complete_retirement,
-        discover_lifecycle_work, finalize_generation, initialize_item_generation,
-        intent_transition_allowed, load_intent, load_target, queue_intent, reclaim_expired_intent,
-        record_desired_fingerprint, record_target_outcome, release_claim_for_retry, renew_claim,
-        request_cancellation, target_transition_allowed, transition_intent,
-        validate_claim_ownership, ClaimAttemptOutcome, ClaimLossReason, ClaimOwnershipStatus,
-        ClaimRenewalOutcome, ClaimedIntentSnapshot, ExecutorTimestamp, FailureClass,
-        FinalizationOutcome, ItemRevision, LifecycleAction, LifecycleError, LifecycleState,
-        NewLifecycleIntent, NewLifecycleTarget, PersistedWriteOutcome, TargetOutcome, TargetState,
-        WorkClaimKind,
+        discover_lifecycle_work, earliest_eligible_due_time, finalize_generation,
+        initialize_item_generation, intent_transition_allowed, load_intent, load_target,
+        queue_intent, reclaim_expired_intent, record_desired_fingerprint, record_target_outcome,
+        release_claim_for_retry, renew_claim, request_cancellation, target_transition_allowed,
+        transition_intent, validate_claim_ownership, ClaimAttemptOutcome, ClaimLossReason,
+        ClaimOwnershipStatus, ClaimRenewalOutcome, ClaimedIntentSnapshot, ExecutorTimestamp,
+        FailureClass, FinalizationOutcome, ItemRevision, LifecycleAction, LifecycleError,
+        LifecycleState, NewLifecycleIntent, NewLifecycleTarget, PersistedWriteOutcome,
+        TargetOutcome, TargetState, WorkClaimKind,
     },
     path::ManagedMediaRoot,
     processor::{ManagedMediaProcessor, ProcessorRequest, ProcessorResult, ProcessorVariant},
@@ -159,6 +159,119 @@ fn canonical_executor_timestamps_round_trip_order_and_reject_noncanonical_values
         ExecutorTimestamp::from_millis(i64::MAX as u64 + 1),
         Err(LifecycleError::InvalidTimestamp)
     ));
+}
+
+#[test]
+fn earliest_due_time_matches_discovery_and_preserves_future_retry_and_claim_times() {
+    let connection = connection();
+    let queued_item = hash(9_001);
+    let queued_locator = hash(9_101);
+    insert_item(&connection, &queued_item, &queued_locator, None);
+    queue_intent(
+        &connection,
+        &new_intent(9_001, &queued_item, 1, &queued_locator),
+        NOW,
+    )
+    .expect("queued");
+    assert_eq!(
+        earliest_eligible_due_time(&connection, &timestamp(NOW))
+            .expect("due")
+            .expect("queued due")
+            .as_str(),
+        NOW
+    );
+    assert_eq!(
+        discover_lifecycle_work(&connection, &timestamp(NOW), 1)
+            .expect("discover")
+            .len(),
+        1
+    );
+
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'retry_wait', retry_eligible_at = ?2
+             WHERE intent_id = ?1",
+            params![intent_id(9_001).as_str(), RETRY],
+        )
+        .expect("retry");
+    assert_eq!(
+        earliest_eligible_due_time(&connection, &timestamp(NOW))
+            .expect("due")
+            .expect("retry due")
+            .as_str(),
+        RETRY
+    );
+    assert!(discover_lifecycle_work(&connection, &timestamp(NOW), 1)
+        .expect("not due")
+        .is_empty());
+
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'claimed', retry_eligible_at = NULL,
+                 claim_token = 'claim-future', claim_expires_at = ?2
+             WHERE intent_id = ?1",
+            params![intent_id(9_001).as_str(), LATER],
+        )
+        .expect("future claim");
+    assert_eq!(
+        earliest_eligible_due_time(&connection, &timestamp(NOW))
+            .expect("due")
+            .expect("claim due")
+            .as_str(),
+        LATER
+    );
+}
+
+#[test]
+fn earliest_due_time_excludes_cancelled_retired_stale_and_terminal_work() {
+    let connection = connection();
+    assert!(earliest_eligible_due_time(&connection, &timestamp(NOW))
+        .expect("empty")
+        .is_none());
+    for index in 1..=4 {
+        let item = hash(9_200 + index);
+        let locator = hash(9_300 + index);
+        insert_item(&connection, &item, &locator, None);
+        queue_intent(
+            &connection,
+            &new_intent(9_200 + index, &item, 1, &locator),
+            NOW,
+        )
+        .expect("queue");
+    }
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents SET cancellation_requested = 1
+             WHERE intent_id = ?1",
+            [intent_id(9_201).as_str()],
+        )
+        .expect("cancel");
+    connection
+        .execute(
+            "UPDATE managed_media_items SET lifecycle_state = 'retired'
+             WHERE item_id = ?1",
+            [hash(9_202).as_str()],
+        )
+        .expect("retire");
+    connection
+        .execute(
+            "UPDATE managed_media_item_generations SET desired_revision = 2
+             WHERE managed_item_id = ?1",
+            [hash(9_203).as_str()],
+        )
+        .expect("stale");
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents SET lifecycle_state = 'failed'
+             WHERE intent_id = ?1",
+            [intent_id(9_204).as_str()],
+        )
+        .expect("terminal");
+    assert!(earliest_eligible_due_time(&connection, &timestamp(NOW))
+        .expect("filtered")
+        .is_none());
 }
 
 #[test]

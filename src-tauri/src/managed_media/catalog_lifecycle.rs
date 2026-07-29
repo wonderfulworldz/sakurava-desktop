@@ -38,6 +38,100 @@ pub trait OwnerSourceProvider {
     ) -> Result<Option<OwnerSources>, String>;
 }
 
+pub struct SqliteOwnerSourceProvider<'a> {
+    connection: &'a Connection,
+}
+
+impl<'a> SqliteOwnerSourceProvider<'a> {
+    pub const fn new(connection: &'a Connection) -> Self {
+        Self { connection }
+    }
+}
+
+impl OwnerSourceProvider for SqliteOwnerSourceProvider<'_> {
+    fn load_owner_sources(
+        &mut self,
+        owner_kind: OwnerKind,
+        owner_id: &str,
+    ) -> Result<Option<OwnerSources>, String> {
+        match owner_kind {
+            OwnerKind::Video => self
+                .connection
+                .query_row(
+                    "SELECT id, coverPath FROM videos WHERE id = ?1",
+                    [owner_id],
+                    |row| {
+                        Ok(OwnerSources::video(
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                        ))
+                    },
+                )
+                .optional()
+                .map_err(database_error),
+            OwnerKind::Image => self
+                .connection
+                .query_row(
+                    "SELECT id, coverPath, galleryImagePathsJson FROM images WHERE id = ?1",
+                    [owner_id],
+                    |row| {
+                        Ok(OwnerSources::image(
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                        ))
+                    },
+                )
+                .optional()
+                .map_err(database_error),
+            OwnerKind::Performer => self
+                .connection
+                .query_row(
+                    "SELECT id, coverPath, performerThumbnailPathsJson
+                     FROM performers WHERE id = ?1",
+                    [owner_id],
+                    |row| {
+                        Ok(OwnerSources::performer(
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                        ))
+                    },
+                )
+                .optional()
+                .map_err(database_error),
+            OwnerKind::Category => self
+                .connection
+                .query_row(
+                    "SELECT key, thumbnailPath FROM managedCategories WHERE key = ?1",
+                    [owner_id],
+                    |row| {
+                        Ok(OwnerSources::category(
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                        ))
+                    },
+                )
+                .optional()
+                .map_err(database_error),
+            OwnerKind::Glossary => self
+                .connection
+                .query_row(
+                    "SELECT id, thumbnail_path FROM glossary_entries WHERE id = ?1",
+                    [owner_id],
+                    |row| {
+                        Ok(OwnerSources::glossary(
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                        ))
+                    },
+                )
+                .optional()
+                .map_err(database_error),
+        }
+    }
+}
+
 impl<F> OwnerSourceProvider for F
 where
     F: FnMut(OwnerKind, &str) -> Result<Option<OwnerSources>, String>,
