@@ -73,6 +73,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Runtime Activation Policy Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9C_I3_D_DECISION_RECONCILIATION
+repository_pre_reconciliation_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d_c_status: COMPLETED_AND_CLOSED
+audit_result: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
+decision_result: MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED
+policy_state: INERT_RUNTIME_SUPERVISION_POLICY_APPROVED
+production_numeric_policies: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
+next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The dedicated supervisor, durable SQLite authority, coalesced wake plus
+earliest-due timer and safety recheck, bounded recovery ordering, graceful
+shutdown, fail-safe containment, unchanged FK policy, disabled remote access,
+and excluded provisioning decision were reconciled. I3-I1 remains inert and
+separately gated; no source or technical verification was performed.
+
 ## 2026-07-29 — Local Generation Orchestration Accepted
 
 date: 2026-07-29
@@ -85,13 +108,13 @@ result: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
 orchestration_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
 verification: REPORTED_BY_CODEX_240_FULL_RUST_107_MANAGED_MEDIA
 reparse_limitation: NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
-next_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
+next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 technical_permissions: false
 
 I2 was accepted and I2-C is closed. Local generation orchestration remains
 explicitly invoked and runtime-inert; production policies, Windows reparse
-fixture coverage, and I3 behavior remain separately gated. This entry records
+fixture coverage, and I3-I1 behavior remain separately gated. This entry records
 the documentation-only reconciliation after the pushed implementation.
 
 ## 2026-07-29 — Bounded Executor Core Accepted
@@ -154,28 +177,6 @@ work without filesystem deletion. Verification and atomicity are
 source acquisition, processing, publication, startup recovery, and frontend
 integration remain inactive. This documentation-only reconciliation closes
 9B; 9C remains separately gated.
-
-## 2026-07-29 — Managed Media Lifecycle Schema Foundation Accepted
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_9A_C_RESULT_RECONCILIATION
-stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_baseline: baa5a106f39e6c202f20798f33ae478714ef1030
-lifecycle_tables: managed_media_item_generations; managed_media_lifecycle_intents; managed_media_lifecycle_targets
-operations_table: PUBLICATION_JOURNAL_ONLY
-publication_boundary: ONE_VARIANT_DOES_NOT_PROMOTE_GENERATION
-finalization_boundary: ALL_REQUIRED_TARGETS_SUCCESS
-verification: REPORTED_BY_CODEX_196_FULL_RUST_69_MANAGED_MEDIA
-foundation_state: INERT_NON_OPERATIONAL
-next_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-Stage 42.4-9A and correction Stage 42.4-9A-R1 were accepted and administrative
-Stage 42.4-9A-C was closed. The lifecycle foundation is additive and inert;
-all technical permissions return to false.
 
 ## Archived Session History
 

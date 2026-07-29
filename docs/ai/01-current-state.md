@@ -8,8 +8,8 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-29
 repository_state_recorded_at: 2026-07-29
-repository_state_status: LOCAL_GENERATION_ORCHESTRATION_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9C_I2
+repository_state_status: RUNTIME_ACTIVATION_POLICY_RECONCILED
+repository_state_evidence: OPERATOR_APPROVED_I3_D_WITH_I3_A_REPORTED_BY_CODEX
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
@@ -17,10 +17,10 @@ untracked_entry_count: 9101
 default_branch: main  
 remote_branch: origin/main  
 last_recorded_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-baseline_label: Batch 42.4-9C-I2 Local Generation Orchestration
+baseline_label: Batch 42.4-9C-I3-D Runtime Activation Policy Decision
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
-prior_project_os_baseline: 3c6601367625ae118a7f85b85586a2662cc132b0
+prior_project_os_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -38,9 +38,9 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: LOCAL_GENERATION_ORCHESTRATION_RESULT_RECONCILIATION
-current_stage: 42.4-9C-I2-C — Source Acquisition and Orchestration Result Reconciliation
-completed_current_stage: 42.4-9C-I2-C — Source Acquisition and Orchestration Result Reconciliation
+active_batch_phase: RUNTIME_ACTIVATION_POLICY_DECISION_RECONCILIATION
+current_stage: 42.4-9C-I3-D-C — Runtime Activation Policy Decision Reconciliation
+completed_current_stage: 42.4-9C-I3-D-C — Runtime Activation Policy Decision Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
@@ -63,7 +63,36 @@ stage_42_4_9c_i2_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
 stage_42_4_9c_i2_c_implementation_allowed: false
 stage_42_4_9c_i2_c_tests_builds_allowed: false
 stage_42_4_9c_i2_c_runtime_allowed: false
-stage_42_4_9c_i3_approved: false
+stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_a_verdict: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
+stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d_verdict: MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED
+stage_42_4_9c_i3_d_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i3_d_c_policy_state: INERT_RUNTIME_SUPERVISION_POLICY_APPROVED
+runtime_supervision_policy: DEDICATED_MANAGED_MEDIA_SUPERVISOR_THREAD
+durable_authority_policy: SQLITE_DURABLE_STATE_IS_AUTHORITATIVE
+wake_due_policy: COALESCED_WAKE_PLUS_EARLIEST_DUE_TIMER_AND_SAFETY_RECHECK
+recovery_order_policy: PUBLICATION_RECOVERY_BEFORE_NEW_LIFECYCLE_CLAIMS
+shutdown_policy: BOUNDED_GRACEFUL_SHUTDOWN_WITH_DURABLE_RESTART_RECOVERY
+error_containment_policy: FAIL_SAFE_RUNTIME_DISABLE_WITH_DURABLE_WORK_PRESERVATION
+foreign_key_policy: UNCHANGED_IN_I3
+remote_acquisition_policy: REMOTE_ACQUISITION_DISABLED
+existing_catalog_provisioning_policy: OUT_OF_SCOPE
+numeric_policy_state: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
+stage_42_4_9c_i3_i1_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_9c_i3_i1_mode: IMPLEMENT
+stage_42_4_9c_i3_i1_approved: false
+stage_42_4_9c_i3_i1_implementation_allowed: false
+stage_42_4_9c_i3_i1_runtime_allowed: false
+stage_42_4_9c_i3_i1_tests_builds_allowed: false
+stage_42_4_9c_i3_i1_measurement_allowed: false
+stage_42_4_9c_i3_i1_source_inspection_allowed: false
+stage_42_4_9c_i3_i1_database_allowed: false
+stage_42_4_9c_i3_i1_dependency_allowed: false
+stage_42_4_9c_i3_i1_manual_smoke_allowed: false
+stage_42_4_9c_i3_i1_tauri_wiring_allowed: false
+stage_42_4_9c_i3_i1_command_wakes_allowed: false
+stage_42_4_9c_i3_i1_numeric_defaults_allowed: false
 stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_c_r1_reason: IMPLEMENTATION_ACCEPTANCE_AND_ADMINISTRATIVE_CLOSURE_STATUS_SEPARATED
 stage_42_4_9a_architecture: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
@@ -113,6 +142,41 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
+## Current Runtime Activation Policy Authority — 2026-07-29
+
+Stage `42.4-9C-I3-A` is `COMPLETED_AND_ACCEPTED` with accepted verdict
+`MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED`. The audit
+findings remain `REPORTED_BY_CODEX`; they are not fresh runtime proof. Stage
+`42.4-9C-I3-D` is `COMPLETED_AND_ACCEPTED` with verdict
+`MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED`, and reconciliation Stage
+`42.4-9C-I3-D-C` is `COMPLETED_AND_CLOSED`.
+
+The approved policy state is `INERT_RUNTIME_SUPERVISION_POLICY_APPROVED`:
+one backend-only dedicated supervisor thread with bounded workers, SQLite
+durable state as authority, coalesced post-commit wakes, earliest-due timing,
+bounded safety rechecks, publication recovery before lifecycle claims, bounded
+graceful shutdown, fail-safe runtime disable, unchanged foreign-key policy,
+disabled remote acquisition, and no existing-catalog provisioning.
+
+Production numeric policies remain
+`DEFERRED_PENDING_DISPOSABLE_EVIDENCE`. No worker concurrency, discovery or
+claim capacity, lease or renewal timing, retry limits or delays, wake capacity,
+safety interval, shutdown deadline, panic threshold, or memory guard is
+approved. The next proposed stage is `42.4-9C-I3-I1 — Inert Runtime
+Supervision and Policy Injection Foundation`, `READY_PENDING_SEPARATE_APPROVAL`,
+mode `IMPLEMENT`; it remains inert, with no Tauri wiring, command wakes, or
+production defaults. Later Tauri/runtime activation, measurement, and manual
+smoke remain separately gated. Existing-catalog provisioning remains outside
+I3 and all technical permissions remain false.
+
+The proposed I3-I1 allowlist is limited to `managed_media/mod.rs`,
+`runtime.rs`, `runtime_tests.rs`, `executor.rs`, `executor_tests.rs`,
+`acquisition.rs`, `acquisition_tests.rs`, `lifecycle.rs`,
+`lifecycle_tests.rs`, `catalog_lifecycle.rs`, and
+`catalog_lifecycle_tests.rs`. `lib.rs`, `commands.rs`, and `database.rs` are
+excluded from I3-I1 and belong only to later separately approved Tauri/runtime
+integration if evidence supports them.
+
 ## Current Local Generation Orchestration Authority — 2026-07-29
 
 Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED` and reconciliation Stage
@@ -155,9 +219,10 @@ live AppData access. Production concurrency, lease, renewal, retry, startup,
 shutdown, throughput, memory, provisioning, foreign-key, remote-security, and
 Backup/Restore policies remain `UNKNOWN` or separately gated.
 
-The next proposed stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
-Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, with all technical permissions
-false. No I3 implementation is authorized.
+The I3-A audit and I3-D policy decision are accepted and reconciled. The next
+proposed stage is `42.4-9C-I3-I1 — Inert Runtime Supervision and Policy
+Injection Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, with all technical
+permissions false. I3-I1 remains inert and is not authorized.
 
 ## Historical Bounded Executor Authority — 2026-07-29
 
@@ -231,7 +296,7 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
+next_proposed_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 stage_42_4_9a_implementation_allowed: false
@@ -240,6 +305,7 @@ stage_42_4_9c_status: ACTIVE_LOCAL_GENERATION_ORCHESTRATION_RECONCILED
 stage_42_4_9c_implementation_allowed: false
 stage_42_4_9c_i2_implementation_allowed: false
 stage_42_4_9c_i3_implementation_allowed: false
+stage_42_4_9c_i3_i1_implementation_allowed: false
 stage_42_4_9a_tests_builds_allowed: false
 stage_42_4_9a_runtime_allowed: false
 stage_42_4_9a_database_allowed: false

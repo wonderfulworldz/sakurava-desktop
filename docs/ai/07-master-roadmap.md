@@ -10,9 +10,9 @@ implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
 last_recorded_git_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-last_recorded_git_baseline_status: LOCAL_GENERATION_ORCHESTRATION_RECONCILED
+last_recorded_git_baseline_status: RUNTIME_ACTIVATION_POLICY_RECONCILED
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-prior_project_os_baseline: 3c6601367625ae118a7f85b85586a2662cc132b0
+prior_project_os_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -69,9 +69,57 @@ batch_42_4_stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_9c_i2_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 batch_42_4_stage_42_4_9c_i2_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
 batch_42_4_stage_42_4_9c_i2_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
-batch_42_4_next_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
+batch_42_4_stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i3_a_verdict: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
+batch_42_4_stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i3_d_verdict: MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED
+batch_42_4_stage_42_4_9c_i3_d_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9c_i3_policy_state: INERT_RUNTIME_SUPERVISION_POLICY_APPROVED
+batch_42_4_runtime_supervision_policy: DEDICATED_MANAGED_MEDIA_SUPERVISOR_THREAD
+batch_42_4_durable_authority_policy: SQLITE_DURABLE_STATE_IS_AUTHORITATIVE
+batch_42_4_wake_due_policy: COALESCED_WAKE_PLUS_EARLIEST_DUE_TIMER_AND_SAFETY_RECHECK
+batch_42_4_recovery_order_policy: PUBLICATION_RECOVERY_BEFORE_NEW_LIFECYCLE_CLAIMS
+batch_42_4_shutdown_policy: BOUNDED_GRACEFUL_SHUTDOWN_WITH_DURABLE_RESTART_RECOVERY
+batch_42_4_error_containment_policy: FAIL_SAFE_RUNTIME_DISABLE_WITH_DURABLE_WORK_PRESERVATION
+batch_42_4_foreign_key_policy: UNCHANGED_IN_I3
+batch_42_4_remote_acquisition_policy: REMOTE_ACQUISITION_DISABLED
+batch_42_4_existing_catalog_provisioning_policy: OUT_OF_SCOPE
+batch_42_4_numeric_policy_state: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
+batch_42_4_next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
+
+## Current Authority — 2026-07-29 — Runtime Activation Policy Reconciliation
+
+Stage `42.4-9C-I3-A` is `COMPLETED_AND_ACCEPTED` with verdict
+`MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED`, and Stage
+`42.4-9C-I3-D` is `COMPLETED_AND_ACCEPTED` with verdict
+`MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED`. Reconciliation Stage
+`42.4-9C-I3-D-C` is `COMPLETED_AND_CLOSED`; the policy state is
+`INERT_RUNTIME_SUPERVISION_POLICY_APPROVED`.
+
+The approved direction is a backend-only dedicated supervisor with bounded
+workers, SQLite durable state as authority, coalesced post-commit wakes,
+earliest-due timing and bounded safety rechecks, publication recovery before
+lifecycle claims, bounded graceful shutdown, and fail-safe runtime disable.
+There is no fixed startup delay. Foreign-key behavior remains unchanged,
+remote acquisition is disabled, existing-catalog provisioning is excluded, and
+no full catalog or managed-root scan is authorized.
+
+Production numeric policies remain
+`DEFERRED_PENDING_DISPOSABLE_EVIDENCE`; no value is approved for concurrency,
+batches, leases, renewal, retries, wake capacity, safety rechecks, shutdown,
+panic thresholds, or memory guards. The next proposed stage is
+`42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation`,
+`READY_PENDING_SEPARATE_APPROVAL`, mode `IMPLEMENT`. I3-I1 is inert and
+separately gated. Tauri wiring, command wakes, disposable runtime restart
+verification, numeric measurement, production activation, and manual smoke
+remain later stages.
+
+The proposed I3-I1 allowlist is limited to the managed-media runtime,
+executor, acquisition, lifecycle, catalog-lifecycle modules, and their tests.
+`src-tauri/src/lib.rs`, `commands.rs`, and `database.rs` remain excluded until
+later separately approved runtime integration.
 
 ## Current Authority — 2026-07-29 — Local Generation Orchestration Reconciliation
 
@@ -91,9 +139,10 @@ finalization. The handler is explicitly invoked and remains runtime-inert.
 Remote URLs remain prohibited. No startup, worker, frontend, or Backup/Restore
 integration exists, and no production policy values are selected.
 
-The next proposed stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
-Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`. I3 is
-not approved; all technical permissions remain false. The exact six I2 source
+The I3-A audit and I3-D policy decision are accepted and reconciled. The next
+proposed stage is `42.4-9C-I3-I1 — Inert Runtime Supervision and Policy
+Injection Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode
+`IMPLEMENT`; it is not approved and all technical permissions remain false. The exact six I2 source
 paths and accepted `REPORTED_BY_CODEX` verification are recorded in Current
 State and Active Batch.
 
@@ -1422,9 +1471,10 @@ processing/publication orchestration, deterministic immutable identities,
 ownership-guarded outcomes, and complete-generation finalization are accepted
 as `REPORTED_BY_CODEX`; production runtime behavior remains unknown.
 
-The next proposed stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
-Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`. I3 is
-not approved and all technical permissions remain false.
+The I3-A audit and I3-D policy decision are accepted and reconciled. The next
+proposed stage is `42.4-9C-I3-I1 — Inert Runtime Supervision and Policy
+Injection Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode
+`IMPLEMENT`; it is not approved and all technical permissions remain false.
 
 **Accepted Stage Results**
 

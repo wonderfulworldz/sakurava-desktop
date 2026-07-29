@@ -642,3 +642,27 @@ table, retains the accepted processor and immutable publication foundation,
 and requires dedicated lifecycle intent/target structures. Failed or partial
 generations preserve the current valid output. Stage 42.4-9A remains pending
 separate approval; no technical implementation is authorized.
+
+---
+
+## 2026-07-29 — Managed Media Lifecycle Schema Foundation Accepted
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9A_C_RESULT_RECONCILIATION
+stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
+implementation_baseline: baa5a106f39e6c202f20798f33ae478714ef1030
+lifecycle_tables: managed_media_item_generations; managed_media_lifecycle_intents; managed_media_lifecycle_targets
+operations_table: PUBLICATION_JOURNAL_ONLY
+publication_boundary: ONE_VARIANT_DOES_NOT_PROMOTE_GENERATION
+finalization_boundary: ALL_REQUIRED_TARGETS_SUCCESS
+verification: REPORTED_BY_CODEX_196_FULL_RUST_69_MANAGED_MEDIA
+foundation_state: INERT_NON_OPERATIONAL
+next_stage: 42.4-9B — Catalog Mutation and Import Intent Integration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-9A and correction Stage 42.4-9A-R1 were accepted and administrative
+Stage 42.4-9A-C was closed. The lifecycle foundation is additive and inert;
+all technical permissions return to false.

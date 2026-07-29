@@ -4,9 +4,9 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_LOCAL_GENERATION_ORCHESTRATION_RECONCILED
-phase: LOCAL_GENERATION_ORCHESTRATION_RESULT_RECONCILIATION
-current_administrative_stage: 42.4-9C-I2-C — Source Acquisition and Orchestration Result Reconciliation
+status: ACTIVE_RUNTIME_ACTIVATION_POLICY_RECONCILED
+phase: RUNTIME_ACTIVATION_POLICY_DECISION_RECONCILIATION
+current_administrative_stage: 42.4-9C-I3-D-C — Runtime Activation Policy Decision Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
@@ -20,7 +20,7 @@ stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-prior_project_os_reconciliation_baseline: 3c6601367625ae118a7f85b85586a2662cc132b0
+prior_project_os_reconciliation_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
 implementation_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 implementation_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
 foundation_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
@@ -42,10 +42,34 @@ plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
 frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-next_technical_stage: 42.4-9C-I3 — Runtime Wake, Restart Recovery, and Shutdown
+next_technical_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 next_stage_approved: false
+stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_a_verdict: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
+stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d_verdict: MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED
+stage_42_4_9c_i3_d_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i3_d_c_policy_state: INERT_RUNTIME_SUPERVISION_POLICY_APPROVED
+runtime_supervision_policy: DEDICATED_MANAGED_MEDIA_SUPERVISOR_THREAD
+durable_authority_policy: SQLITE_DURABLE_STATE_IS_AUTHORITATIVE
+wake_due_policy: COALESCED_WAKE_PLUS_EARLIEST_DUE_TIMER_AND_SAFETY_RECHECK
+recovery_order_policy: PUBLICATION_RECOVERY_BEFORE_NEW_LIFECYCLE_CLAIMS
+shutdown_policy: BOUNDED_GRACEFUL_SHUTDOWN_WITH_DURABLE_RESTART_RECOVERY
+error_containment_policy: FAIL_SAFE_RUNTIME_DISABLE_WITH_DURABLE_WORK_PRESERVATION
+foreign_key_policy: UNCHANGED_IN_I3
+remote_acquisition_policy: REMOTE_ACQUISITION_DISABLED
+existing_catalog_provisioning_policy: OUT_OF_SCOPE
+numeric_policy_state: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
+stage_42_4_9c_i3_i1_measurement_allowed: false
+stage_42_4_9c_i3_i1_source_inspection_allowed: false
+stage_42_4_9c_i3_i1_database_allowed: false
+stage_42_4_9c_i3_i1_dependency_allowed: false
+stage_42_4_9c_i3_i1_manual_smoke_allowed: false
+stage_42_4_9c_i3_i1_tauri_wiring_allowed: false
+stage_42_4_9c_i3_i1_command_wakes_allowed: false
+stage_42_4_9c_i3_i1_numeric_defaults_allowed: false
 stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
@@ -75,6 +99,38 @@ ratio_correction_allowed: false
 retention_cleanup_allowed: false
 security_remediation_allowed: false
 
+## Closed Decision 42.4-9C-I3-D-C — Runtime Activation Policy
+
+Stage `42.4-9C-I3-A` is `COMPLETED_AND_ACCEPTED` with accepted verdict
+`MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED`. Its findings
+remain `REPORTED_BY_CODEX`, not fresh runtime proof. Stage `42.4-9C-I3-D` is
+`COMPLETED_AND_ACCEPTED` with verdict
+`MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED`; this reconciliation is
+`COMPLETED_AND_CLOSED` with policy state
+`INERT_RUNTIME_SUPERVISION_POLICY_APPROVED`.
+
+The approved direction is one backend-only dedicated supervisor thread with
+bounded workers, SQLite durable state as authority, post-commit coalesced
+wakes, earliest-due timing, bounded safety rechecks, publication recovery
+before new lifecycle claims, no fixed startup delay, bounded graceful shutdown,
+and fail-safe runtime disable. Foreign-key behavior is unchanged, remote
+acquisition is disabled, and existing-catalog provisioning is out of scope.
+
+All production numeric policies remain
+`DEFERRED_PENDING_DISPOSABLE_EVIDENCE`. No concurrency, batch, lease,
+renewal, retry, wake, safety-recheck, shutdown, panic, or memory value is
+approved. The next proposed stage is `42.4-9C-I3-I1 — Inert Runtime
+Supervision and Policy Injection Foundation`, `READY_PENDING_SEPARATE_APPROVAL`,
+mode `IMPLEMENT`, and it remains inert. Its proposed allowlist is limited to
+the managed-media runtime, executor, acquisition, lifecycle, and catalog-
+lifecycle modules and tests. `lib.rs`, `commands.rs`, and `database.rs` are
+excluded until later separately approved Tauri/runtime integration.
+
+Later separately gated work includes Tauri lifecycle wiring, post-commit
+command wakes, disposable Tauri restart verification, numeric measurement,
+production activation, and operator manual smoke. All technical permissions
+remain false.
+
 ## Closed Stage 42.4-9C-I2 Local Generation Orchestration Reconciliation
 
 Implementation Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation
@@ -103,9 +159,10 @@ recorded in Current State. Windows reparse fixture coverage remains
 startup/shutdown, Tauri, frontend, URL/network, automatic catalog processing,
 or live-data behavior. Production policies remain unknown or separately gated.
 
-The next technical stage is `42.4-9C-I3 — Runtime Wake, Restart Recovery, and
-Shutdown`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`, and is
-not approved. All technical permissions remain false.
+The I3-A audit and I3-D policy decision are now accepted and reconciled. The
+next proposed technical stage is `42.4-9C-I3-I1 — Inert Runtime Supervision and
+Policy Injection Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode
+`IMPLEMENT`, and it is not approved. All technical permissions remain false.
 
 ## Historical Closed Stage 42.4-9C-I1 Bounded Executor Core Reconciliation
 
