@@ -10,9 +10,11 @@ implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
 last_recorded_git_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
-last_recorded_git_baseline_status: RUNTIME_ACTIVATION_POLICY_RECONCILED_WITH_TEMPORARY_GIT_DELIVERY_POLICY
+last_recorded_git_baseline_status: PHASED_RUNTIME_SCOPE_AND_EFFICIENT_DELIVERY_RECONCILED
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+pre_reconciliation_repository_baseline: 857667981d36100b66e80784b014f158a7848341
 prior_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
+project_os_reconciliation_baseline: 857667981d36100b66e80784b014f158a7848341
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -23,7 +25,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILED
+batch_42_4_status: ACTIVE_PHASED_RUNTIME_SCOPE_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -85,7 +87,15 @@ batch_42_4_foreign_key_policy: UNCHANGED_IN_I3
 batch_42_4_remote_acquisition_policy: REMOTE_ACQUISITION_DISABLED
 batch_42_4_existing_catalog_provisioning_policy: OUT_OF_SCOPE
 batch_42_4_numeric_policy_state: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
-batch_42_4_next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
+batch_42_4_stage_42_4_9c_i3_d2_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i3_d2_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9c_i3_d2_verdict: PHASED_PUBLICATION_RECOVERY_SCOPE_READY_FOR_OPERATOR_DECISION
+batch_42_4_stage_42_4_9c_i3_d2_architecture: OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY
+batch_42_4_stage_42_4_9c_i3_d2_scope: EXPANDED_14_PATH_SCOPE_APPROVED
+batch_42_4_stage_42_4_9c_i3_d2_runtime: INERT_NOT_REGISTERED
+batch_42_4_stage_42_4_9c_i3_d2_schema: NO_CHANGE_REQUIRED
+batch_42_4_stage_42_4_9c_i3_d2_database_rs: NO_CHANGE_REQUIRED
+batch_42_4_next_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 batch_42_4_git_decision_status: COMPLETED_AND_ACCEPTED
@@ -94,7 +104,27 @@ batch_42_4_git_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 batch_42_4_git_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 batch_42_4_persistent_proxy_root_cause: UNKNOWN
 
-## Current Authority — 2026-07-29 — Temporary Git Delivery Policy Reconciliation
+## Current Authority — 2026-07-29 — Phased Runtime Scope and Efficient Delivery Reconciliation
+
+Stage `42.4-9C-I3-D2` is `COMPLETED_AND_ACCEPTED`; D2-C is
+`COMPLETED_AND_CLOSED`. The accepted Option C architecture is
+`OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY` with an exact fourteen-path
+managed-media implementation scope, short SQLite boundaries, owned
+filesystem plans, atomic descriptor/journal/target conditional finalization,
+last-valid preservation, and stale-work rejection. Publication is P1–P4 and
+recovery is R1–R4. No schema or `database.rs` change is required.
+
+The next proposed stage is `42.4-9C-I3-I2 — Phased Publication, Recovery, and
+Inert Runtime Completion`, `READY_PENDING_SEPARATE_APPROVAL`, with one
+implementation approval containing Internal Phase A and Internal Phase B.
+Internal checkpoints are not separate product stages. Result Review and
+bounded correction remain required before documentation closure; 9D and 9E
+remain separately gated because their evidence and risk domains differ.
+Production runtime activation and numeric policy remain unapproved. The
+permanent roadmap principle is minimum necessary stage structure with full
+quality gates, avoiding speculative abstraction and stage proliferation.
+
+## Historical Authority — 2026-07-29 — Temporary Git Delivery Policy Reconciliation
 
 The approved temporary Git delivery policy is
 `TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED` under
@@ -113,7 +143,7 @@ configuration change. The policy is origin-only and temporary; its persistent
 root cause remains `UNKNOWN`. I3-I1 remains separately gated and does not gain
 technical authorization.
 
-## Current Authority — 2026-07-29 — Runtime Activation Policy Reconciliation
+## Historical Authority — 2026-07-29 — Runtime Activation Policy Reconciliation
 
 Stage `42.4-9C-I3-A` is `COMPLETED_AND_ACCEPTED` with verdict
 `MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED`, and Stage
@@ -145,7 +175,7 @@ executor, acquisition, lifecycle, catalog-lifecycle modules, and their tests.
 `src-tauri/src/lib.rs`, `commands.rs`, and `database.rs` remain excluded until
 later separately approved runtime integration.
 
-## Current Authority — 2026-07-29 — Local Generation Orchestration Reconciliation
+## Historical Authority — 2026-07-29 — Local Generation Orchestration Reconciliation
 
 Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
 `42.4-9C-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation baseline

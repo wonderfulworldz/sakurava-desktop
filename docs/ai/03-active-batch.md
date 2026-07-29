@@ -4,9 +4,9 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILED
-phase: TEMPORARY_GIT_DELIVERY_POLICY_RECONCILIATION
-current_administrative_stage: 42.4-9C-I3-G1-C — Temporary Git Delivery Policy Reconciliation
+status: ACTIVE_PHASED_RUNTIME_SCOPE_RECONCILED
+phase: PHASED_RUNTIME_SCOPE_AND_EFFICIENT_DELIVERY_RECONCILIATION
+current_administrative_stage: 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 decision_status: COMPLETED_AND_ACCEPTED
 decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
@@ -27,6 +27,7 @@ stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
 application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+pre_reconciliation_repository_baseline: 857667981d36100b66e80784b014f158a7848341
 prior_project_os_reconciliation_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
 implementation_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 implementation_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
@@ -49,7 +50,20 @@ plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
 frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-next_technical_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
+stage_42_4_9c_i3_d2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d2_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i3_d2_verdict: PHASED_PUBLICATION_RECOVERY_SCOPE_READY_FOR_OPERATOR_DECISION
+stage_42_4_9c_i3_d2_operator_decision: PHASED_PUBLICATION_RECOVERY_ARCHITECTURE_APPROVED
+stage_42_4_9c_i3_d2_architecture: OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY
+stage_42_4_9c_i3_d2_option: OPTION_C
+stage_42_4_9c_i3_d2_scope: EXPANDED_14_PATH_SCOPE_APPROVED
+stage_42_4_9c_i3_d2_database_boundary: SHORT_SQLITE_BOUNDARIES_WITH_OWNED_FILESYSTEM_PLANS
+stage_42_4_9c_i3_d2_phases: P1_DATABASE_PREPARATION; P2_FILESYSTEM_EXECUTION; P3_GUARDED_DATABASE_ACTIVATION; P4_EXACT_FILESYSTEM_CLEANUP; R1_BOUNDED_DATABASE_DISCOVERY; R2_FILESYSTEM_RECONCILIATION; R3_GUARDED_DATABASE_TRANSITION; R4_EXACT_CLEANUP
+stage_42_4_9c_i3_d2_runtime: INERT_NOT_REGISTERED
+stage_42_4_9c_i3_d2_schema: NO_CHANGE_REQUIRED
+stage_42_4_9c_i3_d2_database_rs: NO_CHANGE_REQUIRED
+stage_42_4_9c_i3_d2_source_handoff: SEVEN_PATH_DIRTY_HANDOFF_PRESERVED_UNACCEPTED
+next_technical_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 next_stage_approved: false
@@ -81,7 +95,32 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Closed Decision 42.4-9C-I3-G1-C — Temporary Git Delivery Policy
+## Current Decision 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery
+
+Stage D2 is `COMPLETED_AND_ACCEPTED` and D2-C is `COMPLETED_AND_CLOSED`.
+Option C, `OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY`, is approved with the
+P1–P4 publication and R1–R4 recovery phases recorded in metadata. The exact
+future allowlist is fourteen managed-media paths: `mod.rs`, `runtime.rs`,
+`runtime_tests.rs`, `executor.rs`, `executor_tests.rs`, `acquisition.rs`,
+`acquisition_tests.rs`, `lifecycle.rs`, `lifecycle_tests.rs`,
+`catalog_lifecycle.rs`, `catalog_lifecycle_tests.rs`, `publication.rs`,
+`publication_tests.rs`, and `recovery.rs`. Recovery tests remain in
+`publication_tests.rs`; `lib.rs`, `commands.rs`, `database.rs`, schema,
+processor, frontend, dependencies, packages, Project OS, and protected
+evidence are excluded.
+
+The future I3-I2 implementation is one approval stage with two internal
+phases. Internal Phase A covers phased publication/recovery and lifecycle
+finalization; Internal Phase B covers the inert runtime backend, bounded
+registry, policy injection, ownership-loss signaling, panic cleanup, and
+bounded shutdown. Internal checkpoints require focused publication,
+recovery, lifecycle, acquisition, managed-media, complete-group, full-Rust,
+check, format, diff, and exact-allowlist verification; they are not separate
+approval stages. 9D and 9E remain separate because their evidence and risk
+domains differ. Production runtime activation and numeric policies remain
+unapproved; all technical permissions are false.
+
+## Historical Closed Decision 42.4-9C-I3-G1-C — Temporary Git Delivery Policy
 
 The decision is `COMPLETED_AND_ACCEPTED` with verdict
 `TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED` and policy ID
@@ -130,7 +169,7 @@ ratio_correction_allowed: false
 retention_cleanup_allowed: false
 security_remediation_allowed: false
 
-## Closed Decision 42.4-9C-I3-D-C — Runtime Activation Policy
+## Historical Closed Decision 42.4-9C-I3-D-C — Runtime Activation Policy
 
 Stage `42.4-9C-I3-A` is `COMPLETED_AND_ACCEPTED` with accepted verdict
 `MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED`. Its findings
@@ -162,7 +201,7 @@ command wakes, disposable Tauri restart verification, numeric measurement,
 production activation, and operator manual smoke. All technical permissions
 remain false.
 
-## Closed Stage 42.4-9C-I2 Local Generation Orchestration Reconciliation
+## Historical Closed Stage 42.4-9C-I2 Local Generation Orchestration Reconciliation
 
 Implementation Stage `42.4-9C-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation
 Stage `42.4-9C-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation

@@ -305,6 +305,25 @@ Every executable stage must include:
 - stop condition;
 - output to send back.
 
+## Delivery Efficiency and Anti-Overengineering
+
+Plan future roadmap, batch, and stage work with the minimum necessary stage
+structure while preserving full quality, safety, approval, evidence, and
+completion gates. Combine coupled work when it shares one objective, risk
+domain, mutation boundary, and compatible verification. Split work only when
+results change later instructions, independent approval is required, risk or
+data-safety boundaries materially differ, evidence cannot be collected
+together, or a stop condition requires reassessment.
+
+Internal phases and checkpoints may organize one approved stage; they are not
+independent approval stages. Fewer stages must never mean weaker locks, data
+protection, focused tests, integration or regression verification, Result
+Review, or Git safety. Prefer reuse and bounded extension over speculative
+abstraction, future-proofing, general frameworks, duplicate audits,
+repetitive planning, ceremonial reconciliation, or stage proliferation. Use
+the simplest design that satisfies the approved behavior and safety contract,
+and optimize total delivery cost without reducing control or evidence quality.
+
 ---
 
 ## 7. Feedback and Adaptive Planning

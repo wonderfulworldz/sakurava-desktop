@@ -690,3 +690,23 @@ work without filesystem deletion. Verification and atomicity are
 source acquisition, processing, publication, startup recovery, and frontend
 integration remain inactive. This documentation-only reconciliation closes
 9B; 9C remains separately gated.
+
+---
+
+## 2026-07-29 — Catalog Lifecycle Project OS Status Corrected
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9B_C_R1_STATUS_CORRECTION
+prior_project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
+application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
+authority_conflict: CORRECTED
+next_stage: 42.4-9C — Bounded Executor and Recovery Integration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The implementation acceptance and administrative closure states are now
+separated in Project OS. No source or technical verification was performed;
+9C remains pending separate approval and all technical permissions remain false.

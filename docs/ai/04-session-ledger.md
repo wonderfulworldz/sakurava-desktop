@@ -73,6 +73,25 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Phased Runtime Scope and Efficient Delivery Rule Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_D2_SCOPE_AND_DELIVERY_EFFICIENCY_RECONCILIATION
+pre_reconciliation_baseline: 857667981d36100b66e80784b014f158a7848341
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+d2_status: COMPLETED_AND_ACCEPTED
+architecture: OPTION_C_OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY
+scope: 14_EXACT_MANAGED_MEDIA_PATHS
+source_handoff: SEVEN_PATH_PARTIAL_PRESERVED_UNACCEPTED
+efficient_delivery_rule: MINIMUM_NECESSARY_STAGE_STRUCTURE_WITH_FULL_QUALITY_GATES
+next_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+D2-C was reconciled as a documentation-only closure. Internal phases and
+checkpoints remain inside one future implementation stage; no technical work,
+tests, builds, runtime, or manual smoke occurred.
+
 ## 2026-07-29 — Temporary Git Delivery Policy Approved
 
 date: 2026-07-29
@@ -162,24 +181,6 @@ technical_permissions: false
 Stage 42.4-9C-I1 was accepted and pushed. The bounded executor remains inert;
 I2 source acquisition and processing/publication orchestration is separately
 gated and has not started.
-
-## 2026-07-29 — Catalog Lifecycle Project OS Status Corrected
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_9B_C_R1_STATUS_CORRECTION
-prior_project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
-application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
-stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
-stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
-authority_conflict: CORRECTED
-next_stage: 42.4-9C — Bounded Executor and Recovery Integration
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The implementation acceptance and administrative closure states are now
-separated in Project OS. No source or technical verification was performed;
-9C remains pending separate approval and all technical permissions remain false.
 
 ## Archived Session History
 
