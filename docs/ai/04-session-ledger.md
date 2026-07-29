@@ -73,6 +73,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Bounded Executor Core Accepted
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9C_I1_RESULT_RECONCILIATION
+implementation_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
+stage_42_4_9c_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
+result: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
+executor_state: INERT_BOUNDED_EXECUTOR_CORE
+verification: REPORTED_BY_CODEX_223_FULL_RUST_90_MANAGED_MEDIA
+next_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-9C-I1 was accepted and pushed. The bounded executor remains inert;
+I2 source acquisition and processing/publication orchestration is separately
+gated and has not started.
+
 ## 2026-07-29 — Catalog Lifecycle Project OS Status Corrected
 
 date: 2026-07-29
@@ -157,26 +178,6 @@ table, retains the accepted processor and immutable publication foundation,
 and requires dedicated lifecycle intent/target structures. Failed or partial
 generations preserve the current valid output. Stage 42.4-9A remains pending
 separate approval; no technical implementation is authorized.
-
-## 2026-07-29 — Managed Media Lifecycle Architecture Guardrails Approved
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_8C_ARCHITECTURE_GUARDRAIL_RECONCILIATION
-stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
-stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
-stage_42_4_8c_status: COMPLETED_AND_CLOSED
-operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
-next_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_stage_mode: AUDIT ONLY
-technical_permissions: false
-
-The five approved principles require rigorous analysis, audit before
-implementation, no forced legacy integration, preference for a demonstrably
-better architecture when supported, and preservation of the existing frontend
-interface and experience. The 8B plan is planning input only; schema reuse is
-provisional, controlled internal replacement may be recommended only after 8D
-audit and approval, and no technical work is authorized.
 
 ## Archived Session History
 

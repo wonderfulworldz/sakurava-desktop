@@ -4,22 +4,26 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_INTEGRATION_RECONCILED
-phase: CATALOG_LIFECYCLE_INTENT_INTEGRATION
-current_administrative_stage: 42.4-9B-C-R1 — Project OS Status and Baseline Consistency Correction
+status: ACTIVE_BOUNDED_EXECUTOR_CORE_RECONCILED
+phase: BOUNDED_EXECUTOR_CORE_RESULT_RECONCILIATION
+current_administrative_stage: 42.4-9C-I1-C — Bounded Executor Core Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
-implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
-application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
-prior_project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
-implementation_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
-foundation_state: CATALOG_LIFECYCLE_INTEGRATION_INERT
+implementation_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
+application_source_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+prior_project_os_reconciliation_baseline: e6164edcdff975a2b51b41ed241e1afb5efc7931
+implementation_verdict: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
+foundation_state: INERT_BOUNDED_EXECUTOR_CORE
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8c_status: COMPLETED_AND_CLOSED
@@ -38,7 +42,7 @@ plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
 frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-next_technical_stage: 42.4-9C — Bounded Executor and Recovery Integration
+next_technical_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 next_stage_approved: false
@@ -68,7 +72,37 @@ ratio_correction_allowed: false
 retention_cleanup_allowed: false
 security_remediation_allowed: false
 
-## Closed Stage 42.4-9B Integration Reconciliation
+## Closed Stage 42.4-9C-I1 Bounded Executor Core Reconciliation
+
+Stage `42.4-9C-A` is `COMPLETED_AND_ACCEPTED`; implementation Stage
+`42.4-9C-I1` is `COMPLETED_AND_ACCEPTED`; `42.4-9C-I1-P` and
+`42.4-9C-I1-C` are `COMPLETED_AND_CLOSED`.
+
+The accepted baseline is `3050667ae47477a09073d0a95683b52dfafe750b`, parent
+`e6164edcdff975a2b51b41ed241e1afb5efc7931`. The inert bounded executor core
+provides canonical epoch-millisecond time, bounded deterministic discovery,
+short claims and reclaim, renewal, ownership-guarded writes, persisted
+same-item serialization, independent different-item eligibility, and an
+injected one-cycle handler boundary. Verification is `REPORTED_BY_CODEX`:
+223 full Rust tests and 90 managed-media tests passed, with compiler,
+formatting, diff, and push synchronization passing.
+
+I1 does not acquire sources, read source bytes, invoke processing, publication,
+recovery, workers, startup/shutdown, Tauri, frontend, Import/Export, or
+managed-file operations. Production policies and behavior remain unknown.
+The exact changed source paths are:
+
+- `src-tauri/src/managed_media/mod.rs`
+- `src-tauri/src/managed_media/executor.rs`
+- `src-tauri/src/managed_media/executor_tests.rs`
+- `src-tauri/src/managed_media/lifecycle.rs`
+- `src-tauri/src/managed_media/lifecycle_tests.rs`
+
+The next proposed stage is `42.4-9C-I2 — Source Acquisition and
+Processing/Publication Orchestration`, `READY_PENDING_SEPARATE_APPROVAL`.
+It is not approved; all technical permissions remain false.
+
+## Historical Closed Stage 42.4-9B Integration Reconciliation
 
 Implementation Stage `42.4-9B` is `COMPLETED_AND_ACCEPTED`; administrative
 Stage `42.4-9B-C` is `COMPLETED_AND_CLOSED`; correction Stage
@@ -85,8 +119,9 @@ and coalesce to the final spreadsheet state before one Apply transaction commits
 The integration is inert: no worker, claim, source acquisition, processing,
 publication, startup recovery, or frontend descriptor is active.
 
-Stage `42.4-9C — Bounded Executor and Recovery Integration` is the next
-proposed stage, `READY_PENDING_SEPARATE_APPROVAL`, and is not authorized.
+Stage `42.4-9C-I2 — Source Acquisition and Processing/Publication
+Orchestration` is the next proposed stage, `READY_PENDING_SEPARATE_APPROVAL`,
+and is not authorized.
 All audit, measurement, test, build, runtime, dependency, schema/index,
 database, live-data, Backup/Restore, frontend, and UI/UX permissions remain
 false. Production row population, runtime lifecycle behavior, and numeric

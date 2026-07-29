@@ -595,3 +595,25 @@ mutation: DOCUMENTATION_ONLY_NO_SOURCE_OR_EVIDENCE_MUTATION
 Stage 42.4-6 is the separately gated processor dependency and decode/encode
 implementation foundation. It does not repeat completed architecture or schema
 planning and is not approved.
+
+---
+
+## 2026-07-29 — Managed Media Lifecycle Architecture Guardrails Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_8C_ARCHITECTURE_GUARDRAIL_RECONCILIATION
+stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8c_status: COMPLETED_AND_CLOSED
+operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
+next_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+next_stage_mode: AUDIT ONLY
+technical_permissions: false
+
+The five approved principles require rigorous analysis, audit before
+implementation, no forced legacy integration, preference for a demonstrably
+better architecture when supported, and preservation of the existing frontend
+interface and experience. The 8B plan is planning input only; schema reuse is
+provisional, controlled internal replacement may be recommended only after 8D
+audit and approval, and no technical work is authorized.

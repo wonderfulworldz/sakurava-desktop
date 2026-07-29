@@ -8,20 +8,19 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-29
 repository_state_recorded_at: 2026-07-29
-repository_state_status: CATALOG_LIFECYCLE_INTENT_INTEGRATION_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9B_C_RESULT_RECONCILIATION
+repository_state_status: BOUNDED_EXECUTOR_CORE_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9C_I1
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
-baseline_label: Batch 42.4-9B Catalog Lifecycle Intent Integration
-application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
-implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
-project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
-project_os_reconciliation_parent: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+last_recorded_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+baseline_label: Batch 42.4-9C-I1 Bounded Executor Core
+application_source_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
+prior_project_os_baseline: e6164edcdff975a2b51b41ed241e1afb5efc7931
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -39,9 +38,9 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: CATALOG_LIFECYCLE_INTENT_INTEGRATION
-current_stage: 42.4-9B-C-R1 — Project OS Status and Baseline Consistency Correction
-completed_current_stage: 42.4-9B-C-R1 — Project OS Status and Baseline Consistency Correction
+active_batch_phase: BOUNDED_EXECUTOR_CORE_RESULT_RECONCILIATION
+current_stage: 42.4-9C-I1-C — Bounded Executor Core Result Reconciliation
+completed_current_stage: 42.4-9C-I1-C — Bounded Executor Core Result Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
@@ -51,6 +50,12 @@ stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
 stage_42_4_9b_architecture: CATALOG_LIFECYCLE_INTEGRATION_INERT
+stage_42_4_9c_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i1_verdict: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
+stage_42_4_9c_i1_state: INERT_BOUNDED_EXECUTOR_CORE
 stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_c_r1_reason: IMPLEMENTATION_ACCEPTANCE_AND_ADMINISTRATIVE_CLOSURE_STATUS_SEPARATED
 stage_42_4_9a_architecture: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
@@ -100,7 +105,34 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Integration Authority — 2026-07-29
+## Current Bounded Executor Authority — 2026-07-29
+
+Stage `42.4-9C-A` is `COMPLETED_AND_ACCEPTED`; implementation Stage
+`42.4-9C-I1` is `COMPLETED_AND_ACCEPTED`; push Stage `42.4-9C-I1-P` and
+reconciliation Stage `42.4-9C-I1-C` are `COMPLETED_AND_CLOSED`.
+The accepted implementation baseline is
+`3050667ae47477a09073d0a95683b52dfafe750b`, parent
+`e6164edcdff975a2b51b41ed241e1afb5efc7931`.
+
+The result is `MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED` and state
+`INERT_BOUNDED_EXECUTOR_CORE`. Canonical executor timestamps, bounded
+deterministic discovery, transactional claims and reclaim, renewal, ownership
+guards, persisted same-item serialization, and an injected one-cycle executor
+are accepted as `REPORTED_BY_CODEX`. The database boundary is released before
+handler execution.
+
+I1 does not acquire sources, read source bytes, calculate fingerprints, invoke
+the processor, publication, or recovery, modify managed files, run workers,
+register startup or shutdown, integrate Tauri, or change frontend,
+Import/Export, Backup/Restore, or live AppData behavior. Production worker,
+lease, retry, resource, acquisition, foreign-key, provisioning, and
+Backup/Restore policies remain `UNKNOWN` or separately gated.
+
+The next proposed stage is `42.4-9C-I2 — Source Acquisition and
+Processing/Publication Orchestration`, `READY_PENDING_SEPARATE_APPROVAL`.
+I2 has not started and all technical permissions remain false.
+
+## Historical Catalog Lifecycle Integration Authority — 2026-07-29
 
 Stage `42.4-9B-C` is `COMPLETED_AND_CLOSED` with verdict
 `MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED`.
@@ -145,13 +177,14 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-9C — Bounded Executor and Recovery Integration
+next_proposed_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 stage_42_4_9a_implementation_allowed: false
 stage_42_4_9b_implementation_allowed: false
-stage_42_4_9c_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_9c_status: ACTIVE_BOUNDED_EXECUTOR_CORE_RECONCILED
 stage_42_4_9c_implementation_allowed: false
+stage_42_4_9c_i2_implementation_allowed: false
 stage_42_4_9a_tests_builds_allowed: false
 stage_42_4_9a_runtime_allowed: false
 stage_42_4_9a_database_allowed: false

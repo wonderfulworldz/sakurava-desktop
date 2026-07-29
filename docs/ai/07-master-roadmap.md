@@ -9,9 +9,10 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
-last_recorded_git_baseline_status: CATALOG_LIFECYCLE_INTENT_INTEGRATION_RECONCILED
-application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+last_recorded_git_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+last_recorded_git_baseline_status: BOUNDED_EXECUTOR_CORE_RECONCILED
+application_source_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+prior_project_os_baseline: e6164edcdff975a2b51b41ed241e1afb5efc7931
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -22,7 +23,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_CATALOG_LIFECYCLE_INTEGRATION_RECONCILED
+batch_42_4_status: ACTIVE_BOUNDED_EXECUTOR_CORE_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -58,11 +59,43 @@ batch_42_4_stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_9b_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 batch_42_4_stage_42_4_9b_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
-batch_42_4_next_stage: 42.4-9C — Bounded Executor and Recovery Integration
+batch_42_4_stage_42_4_9c_a_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9c_i1_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+batch_42_4_next_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 
-## Current Authority — 2026-07-29
+## Current Authority — 2026-07-29 — Bounded Executor Core Reconciliation
+
+Stages `42.4-9C-A` and `42.4-9C-I1` are `COMPLETED_AND_ACCEPTED`; push Stage
+`42.4-9C-I1-P` and reconciliation Stage `42.4-9C-I1-C` are
+`COMPLETED_AND_CLOSED`. The accepted implementation baseline is
+`3050667ae47477a09073d0a95683b52dfafe750b`, parent
+`e6164edcdff975a2b51b41ed241e1afb5efc7931`.
+
+The bounded executor is `INERT_BOUNDED_EXECUTOR_CORE`. Accepted capabilities
+include canonical epoch-millisecond time, deterministic bounded discovery,
+short claim/reclaim transactions, renewal, ownership-guarded writes,
+database-enforced same-item serialization, independent different-item work,
+injected policy and boundaries, and an explicit one-cycle executor whose
+database boundary is released before handler execution. Verification remains
+`REPORTED_BY_CODEX`; no runtime behavior or production policy is proven.
+
+I1 does not acquire sources, calculate source fingerprints, invoke processing,
+publication, or recovery, modify managed files, run workers, register startup
+or shutdown, or change frontend, Import/Export, Backup/Restore, or live
+AppData behavior. Production worker, lease, retry, acquisition, resource,
+foreign-key, provisioning, and Backup/Restore policies remain unknown.
+
+The next proposed stage is `42.4-9C-I2 — Source Acquisition and
+Processing/Publication Orchestration`, `READY_PENDING_SEPARATE_APPROVAL`,
+expected mode `IMPLEMENT`; it is not authorized. All technical permissions
+remain false.
+
+## Historical Current Authority — Catalog Lifecycle Integration — 2026-07-29
 
 Implementation Stage `42.4-9B` is completed and accepted; administrative Stage
 `42.4-9B-C` is completed and closed; correction Stage `42.4-9B-C-R1` is
@@ -76,12 +109,8 @@ mutation-free and existing spreadsheet contracts remain unchanged.
 The integration is inert: no worker, claim, source acquisition, processing,
 publication, startup recovery, or frontend descriptor is active. Production row
 population, runtime behavior, executor policy, existing-catalog backfill, and
-Backup/Restore integration remain unknown or separately gated. The next stage,
-`42.4-9C — Bounded Executor and Recovery Integration`, is
-`READY_PENDING_SEPARATE_APPROVAL`; no technical permission is granted.
-The recorded Project OS reconciliation baseline is
-`35196dbec9753e552f19f09fc5433e8f3831b1c9`; the application/source baseline
-remains `ce44fc4e197c6f177c8922238d0a2bfb1b10db3d`.
+Backup/Restore integration remain unknown or separately gated. This historical
+section is superseded by the bounded executor authority above.
 
 Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
 Stage `42.4-8C` is `COMPLETED_AND_CLOSED`; Stage `42.4-8D` is
@@ -1341,9 +1370,23 @@ repeated-slot tokens, deterministic retirement, and no immutable-file deletion.
 Preview, Apply, final validation, rollback, and spreadsheet contracts remain
 protected.
 
-The next proposed stage is `42.4-9C — Bounded Executor and Recovery
-Integration`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`.
-It is not active or authorized. All technical permissions remain false.
+Stage `42.4-9C-A — Executor and Recovery Implementation Readiness Audit` and
+implementation Stage `42.4-9C-I1 — Bounded Executor Core` are
+`COMPLETED_AND_ACCEPTED`; `42.4-9C-I1-P` and `42.4-9C-I1-C` are
+`COMPLETED_AND_CLOSED`. The accepted implementation baseline is
+`3050667ae47477a09073d0a95683b52dfafe750b`, parent
+`e6164edcdff975a2b51b41ed241e1afb5efc7931`.
+
+The executor remains `INERT_BOUNDED_EXECUTOR_CORE`: bounded discovery,
+claim/reclaim, renewal, ownership guards, persisted serialization, and an
+injected one-cycle boundary are accepted as `REPORTED_BY_CODEX`. It does not
+acquire sources, invoke processing/publication/recovery, activate runtime,
+modify managed files, or change frontend behavior.
+
+The next proposed stage is `42.4-9C-I2 — Source Acquisition and
+Processing/Publication Orchestration`, `READY_PENDING_SEPARATE_APPROVAL`,
+expected mode `IMPLEMENT`. I2 is not active or authorized. All technical
+permissions remain false.
 
 **Accepted Stage Results**
 
