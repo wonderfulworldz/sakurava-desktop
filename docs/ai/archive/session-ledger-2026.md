@@ -484,3 +484,37 @@ three bounding-box tiers, family ceilings, source-size eligibility, no-upscale
 behavior, native fallback, related-square exclusion, and active Standard `4:3`
 related content. This earlier architecture-pending statement is historical and
 superseded by the accepted Stage 42.4-4/42.4-5 foundation.
+
+---
+
+## 2026-07-26 — Batch 42.4 Managed Media Foundation Implemented
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_FOUNDATION_RESULT_RECONCILIATION
+pre_reconciliation_repository_head: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+pre_reconciliation_parent: 7b36534674910930cda41a04c3e8052ab9ae5e71
+implementation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
+stage_42_4_4_status: COMPLETED_AND_ACCEPTED
+stage_42_4_5_status: COMPLETED_AND_ACCEPTED
+stage_42_4_5c_status: COMPLETED_AND_CLOSED
+architecture_id: RUST_MANAGED_MEDIA_SERVICE_WITH_HYBRID_SQLITE_METADATA_AND_IMMUTABLE_FILES
+publication_model: JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION
+schema_tables: managed_media_items; managed_media_variants; managed_media_operations
+shared_contract: FOUR_FAMILIES; THREE_TIERS; TWENTY_ROLES; TYPESCRIPT_AND_RUST_VALIDATION
+protected_foundation: APP_DATA_MANAGED_MEDIA_V1; IMMUTABLE_PATHS; VALIDATED_IDENTITIES
+verification: TS_5; RUST_FOCUSED_18; RUST_FULL_145; BUILD; FORMAT; DIFF; DISPOSABLE_DB
+limitation: WINDOWS_REPARSE_SETUP_NOT_MEASURABLE_OS_1314
+foundation_state: INERT_NON_OPERATIONAL
+next_proposed_stage: 42.4-6 — Managed Media Processor Dependency and Decode/Encode Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+tests_and_builds_allowed: false
+runtime_allowed: false
+database_allowed: false
+dependency_allowed: false
+manual_smoke_allowed: false
+
+Stage 42.4-4 architecture and Stage 42.4-5 implementation were accepted. The
+foundation records the shared contract, three additive tables, protected root,
+and deterministic identity models without operational processing or runtime
+integration. All technical permissions return to false.

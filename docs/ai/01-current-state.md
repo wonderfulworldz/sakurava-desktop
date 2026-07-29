@@ -8,11 +8,11 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-07-29
 repository_state_recorded_at: 2026-07-29
-repository_state_status: LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_8C_RESULT
+repository_state_status: LIFECYCLE_FINAL_ARCHITECTURE_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_8E_CLOSURE
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 1
+untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
@@ -36,9 +36,9 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
-current_stage: 42.4-8C — Managed Media Catalog Lifecycle Product Decision and Architecture Guardrail Reconciliation
-completed_current_stage: 42.4-8C — Managed Media Catalog Lifecycle Product Decision and Architecture Guardrail Reconciliation
+active_batch_phase: LIFECYCLE_FINAL_ARCHITECTURE_RECONCILED
+current_stage: 42.4-8E — Managed Media Lifecycle Final Architecture Decision Reconciliation
+completed_current_stage: 42.4-8E — Managed Media Lifecycle Final Architecture Decision Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_7_status: COMPLETED_AND_ACCEPTED
 stage_42_4_7p_status: COMPLETED_AND_CLOSED
@@ -47,6 +47,15 @@ stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_result: MANAGED_MEDIA_CATALOG_LIFECYCLE_PLAN_COMPLETE
 stage_42_4_8c_status: COMPLETED_AND_CLOSED
+stage_42_4_8d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8d_verdict: MANAGED_MEDIA_LIFECYCLE_ARCHITECTURE_REVALIDATION_COMPLETE
+stage_42_4_8d_result_review: MANAGED_MEDIA_LIFECYCLE_ARCHITECTURE_REVALIDATION_ACCEPTED
+stage_42_4_8e_status: COMPLETED_AND_CLOSED
+stage_42_4_8e_architecture: ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED_AND_ACCEPTED
+stage_42_4_8e_architecture_id: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
+managed_media_operations_responsibility: PUBLICATION_JOURNAL_ONLY
+lifecycle_intent_target_direction: DEDICATED_ADDITIVE_SCHEMA
+generation_finalization_boundary: REQUIRED_TARGETS_COMPLETE_BEFORE_PROMOTION
 operator_architecture_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
 plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
@@ -99,9 +108,16 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
+next_proposed_stage: 42.4-9A — Lifecycle Schema and State-Machine Foundation
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_stage_mode: AUDIT ONLY
+next_stage_mode: IMPLEMENT
+stage_42_4_9a_implementation_allowed: false
+stage_42_4_9a_tests_builds_allowed: false
+stage_42_4_9a_runtime_allowed: false
+stage_42_4_9a_database_allowed: false
+stage_42_4_9a_schema_migration_allowed: false
+stage_42_4_9a_live_appdata_allowed: false
+stage_42_4_9a_manual_smoke_allowed: false
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
 missing_source_events: 142_MEASURED
@@ -156,6 +172,16 @@ managed_mini_media_manual_smoke_allowed: false
 managed_mini_media_architecture_planning_allowed: false
 architecture_revalidation_allowed: false
 lifecycle_implementation_allowed: false
+lifecycle_schema_allowed: false
+migration_approved: false
+crud_hooks_allowed: false
+generation_allowed: false
+executor_allowed: false
+frontend_descriptor_allowed: false
+ratio_correction_allowed: false
+retention_cleanup_allowed: false
+backup_restore_allowed: false
+security_remediation_allowed: false
 managed_mini_media_canonical_ratio_families: LANDSCAPE_16_9; STANDARD_4_3; SQUARE_1_1; PORTRAIT_4_5
 managed_mini_media_invalid_source_ratios: 5:3; 11:14
 managed_mini_media_dormant_ratio_excluded: 3:2
@@ -232,9 +258,38 @@ active_batch_file: docs/ai/03-active-batch.md
 manual_smoke_evidence_policy: LOCAL_AND_UNTRACKED  
 last_manual_smoke_used_live_appdata: false  
 project_os_tracking_policy: TRACK_IN_REPOSITORY
-project_os_tracking_status: RECONCILED_BY_BATCH_42_4_0_DOCUMENTATION_CLOSURE
+project_os_tracking_status: RECONCILED_BY_BATCH_42_4_8E_DOCUMENTATION_CLOSURE
 
-## Stage 42.4-8C Architecture Guardrail Closure
+## Stage 42.4-8E Final Architecture Decision Closure
+
+Stages `42.4-8D` and administrative Stage `42.4-8E` are respectively
+`COMPLETED_AND_ACCEPTED` and `COMPLETED_AND_CLOSED`. The accepted final
+architecture is `ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED_AND_ACCEPTED` with
+architecture ID `ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION`.
+
+The four internal layers are the catalog transaction layer, lifecycle
+intent/target layer, processing and immutable publication layer, and generation
+finalization layer. `managed_media_operations` remains publication-journal-only;
+lifecycle intents and targets require dedicated additive structures. The
+processor, shared contract, managed root/path model, fingerprinting,
+owner/source-slot model, immutable variants, and immutable publication remain
+retained. Descriptor activation, publication recovery linkage, desired-revision
+semantics, source-changing catalog transactions, and stable array-slot
+reconciliation require targeted refactoring.
+
+The visible frontend interface, workflow, terminology, and experience remain
+protected. Generation promotion waits for all required targets for the desired
+revision; partial or failed generations preserve the previous valid generation.
+No technical implementation is authorized.
+
+The next proposed stage is `42.4-9A — Lifecycle Schema and State-Machine
+Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, `IMPLEMENT` in a future
+separately approved stage. All technical permissions remain false. Exact table
+names, columns, indexes, migration versioning, retry policy, worker policy,
+existing-catalog provisioning, and Backup/Restore implications remain deferred
+or `UNKNOWN`.
+
+## Historical Stage 42.4-8C Architecture Guardrail Closure
 
 Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
 Stage `42.4-8C` is `COMPLETED_AND_CLOSED`. The operator decision is
@@ -246,11 +301,10 @@ existing frontend interface and experience.
 The 8B lifecycle plan is planning input only. Schema reuse is provisional
 (`SCHEMA_REUSE_NOT_PREAPPROVED`), and controlled internal architecture
 replacement may be recommended only after the 8D audit and separate approval.
-Stage 42.4-8D must compare integration, targeted catalog-mutation refactoring,
-lifecycle/outbox/orchestration replacement retaining the processor/publication
-foundation, and any demonstrably safer alternative. No implementation,
-migration, runtime, test, build, dependency, package, database, Backup/Restore,
-or UI/UX work is authorized. The next stage is audit-only and separately gated.
+Stage 42.4-8D subsequently performed that comparison and was accepted by Result
+Review. This block is retained as historical guardrail context; no
+implementation, migration, runtime, test, build, dependency, package, database,
+Backup/Restore, or UI/UX work was authorized by 8C.
 
 ## Stage 42.4-7C Publication Foundation Closure
 

@@ -22,7 +22,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
+batch_42_4_status: ACTIVE_LIFECYCLE_FINAL_ARCHITECTURE_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -41,34 +41,49 @@ batch_42_4_stage_42_4_7_implementation_baseline: f4ac546e8930b37b1091f694b9660d2
 batch_42_4_stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_8c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_8d_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_8d_verdict: MANAGED_MEDIA_LIFECYCLE_ARCHITECTURE_REVALIDATION_COMPLETE
+batch_42_4_stage_42_4_8d_result_review: MANAGED_MEDIA_LIFECYCLE_ARCHITECTURE_REVALIDATION_ACCEPTED
+batch_42_4_stage_42_4_8e_status: COMPLETED_AND_CLOSED
+batch_42_4_final_architecture: ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED_AND_ACCEPTED
+batch_42_4_architecture_id: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
+batch_42_4_operations_responsibility: PUBLICATION_JOURNAL_ONLY
+batch_42_4_lifecycle_direction: DEDICATED_ADDITIVE_INTENT_AND_TARGET_TABLES
 batch_42_4_operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
 batch_42_4_plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
 batch_42_4_schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 batch_42_4_frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
-batch_42_4_next_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
+batch_42_4_next_stage: 42.4-9A — Lifecycle Schema and State-Machine Foundation
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_4_next_stage_mode: AUDIT ONLY
+batch_42_4_next_stage_mode: IMPLEMENT
 
 ## Current Authority — 2026-07-29
 
 Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
-Stage `42.4-8C` is `COMPLETED_AND_CLOSED`. The operator decision is
-`APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS`.
+Stage `42.4-8C` is `COMPLETED_AND_CLOSED`; Stage `42.4-8D` is
+`COMPLETED_AND_ACCEPTED`; and Stage `42.4-8E` is `COMPLETED_AND_CLOSED`.
+The operator decision is `APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS`.
 
 The five principles are rigorous analysis, audit before implementation, no
 forced legacy integration, preference for a demonstrably better architecture
 when supported, and preservation of the existing frontend interface and
-experience. The 8B plan is planning input only. Schema reuse is provisional,
-and controlled internal architecture replacement may be recommended only
-after the 8D audit and separate approval.
+experience. The 8B plan was planning input only. Result Review accepted
+`ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED` as the final direction.
 
-Stage `42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final
-Mapping Audit` is `READY_PENDING_SEPARATE_APPROVAL` and `AUDIT ONLY`. It must
-compare controlled integration, targeted catalog-mutation refactoring,
-lifecycle/outbox/orchestration replacement retaining processor/publication,
-and any demonstrably safer design. No technical implementation, migration,
-runtime, tests, builds, dependency, package, database, Backup/Restore, or
-UI/UX work is authorized.
+The accepted architecture ID is
+`ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION`. The four
+layers are catalog transaction, dedicated lifecycle intent/target, processing
+and immutable publication, and generation finalization. The current operations
+table remains publication-journal-only; processor, contract, protected paths,
+owner/source-slot identity, immutable variants, and immutable publication are
+retained. Descriptor activation, publication recovery linkage, desired revision,
+source-changing catalog transactions, and stable-slot reconciliation require
+targeted refactoring.
+
+Stage `42.4-9A — Lifecycle Schema and State-Machine Foundation` is
+`READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`, and remains
+inactive. No technical implementation, migration, runtime, tests, builds,
+dependency, package, database, Backup/Restore, or UI/UX work is authorized.
 
 ## Current Authority — 2026-07-26
 
@@ -1221,24 +1236,34 @@ Audit, reconcile, and later—only after separate approval—create reliable,
 portable managed media while preserving approved slot geometry and protected
 asset lifecycle behavior.
 
-**Current Lifecycle Guardrail Closure**
+**Current Lifecycle Final Architecture Closure**
 
-Stages `42.4-8A` and `42.4-8B` are accepted and Stage `42.4-8C` is completed
-and closed. The five approved principles require rigorous analysis, audit
-before implementation, no forced legacy integration, preference for the better
-architecture when supported, and preservation of the existing frontend
-interface and experience. The 8B lifecycle plan remains planning input only;
-schema reuse is not pre-approved, and controlled internal replacement may be
-recommended only after a revalidation audit and separate approval.
+Stage `42.4-8D` is accepted and administrative Stage `42.4-8E` is completed
+and closed. The final accepted direction is
+`ADDITIVE_LIFECYCLE_SCHEMA_RECOMMENDED_AND_ACCEPTED` with architecture ID
+`ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION`.
 
-The next proposed stage is `42.4-8D — Managed Media Lifecycle Architecture
-Revalidation and Final Mapping Audit`, `READY_PENDING_SEPARATE_APPROVAL`,
-`AUDIT ONLY`. It must compare controlled integration, targeted catalog-mutation
-refactoring, lifecycle/outbox/orchestration replacement retaining the
-processor/publication foundation, and any demonstrably safer alternative.
-No technical implementation, migration, runtime, tests, builds, dependency,
-package, database, Backup/Restore, or UI/UX work is authorized. The visible
-frontend interface and experience remain protected.
+The four layers are catalog transaction, dedicated lifecycle intent/target,
+processing and immutable publication, and generation finalization. The current
+operations table remains publication-journal-only. Lifecycle intents and
+targets require dedicated additive structures with structural desired revision,
+claim/lease, retry, cancellation, supersession, retirement, target, and
+publication linkage semantics. Promotion waits for all required targets; a
+partial or failed generation preserves the previous valid generation.
+
+The processor, shared contract, protected paths, owner/source-slot model,
+immutable variants, immutable publication, Import Preview, atomic Apply, and
+visible frontend interface/workflow remain protected. Descriptor activation,
+publication recovery linkage, item revision, source-changing catalog
+transactions, and stable-slot reconciliation require targeted refactoring.
+Visible ratio correction and retention cleanup remain separate. Backup/Restore
+remains assigned to Batches 42.6/42.7.
+
+The next proposed stage is `42.4-9A — Lifecycle Schema and State-Machine
+Foundation`, `READY_PENDING_SEPARATE_APPROVAL`, expected mode `IMPLEMENT`.
+It is not active or authorized. Exact schema, migration, numeric retry/worker
+policy, existing-catalog provisioning, package compatibility, and runtime
+behavior remain separately gated or `UNKNOWN`.
 
 **Accepted Stage Results**
 
