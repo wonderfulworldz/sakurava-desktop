@@ -456,3 +456,31 @@ from managed-media profiles, separates full cards from mini/lite cards, limits
 the foundation to three standard tiers, and records targeted safe regeneration.
 Exact dimensions and architecture remained pending at the time of this
 historical entry; Stage 42.4-3 was measurement-only and separately gated.
+
+---
+
+## 2026-07-26 — Batch 42.4 Standard Managed Media Dimensions Approved
+
+date: 2026-07-26
+session_type: PROJECT_OS_BATCH_42_4_STANDARD_DIMENSION_RECONCILIATION
+status: HISTORICAL_SUPERSEDED_BY_42_4_5D
+pre_reconciliation_repository_head: d1f79861b869256d53a4c6cc317d870bd82f2676
+stage_42_4_3_result_review: CANONICAL_SLOT_MEASUREMENT_PARTIAL_ACCEPTED_TIER_LADDER_REVISED_BY_OPERATOR
+stage_42_4_3_status: PARTIAL_RESULT_ACCEPTED_AND_CLOSED
+stage_42_4_3c_status: COMPLETED_AND_CLOSED
+active_batch: 42.4 — Managed Mini Media Foundation
+approved_family_names: LANDSCAPE_16_9; STANDARD_4_3; SQUARE_1_1; PORTRAIT_4_5
+standard_bounding_boxes: THUMBNAIL_320X320; MEDIUM_1280X1280; LARGE_1920X1920
+derived_dimensions: LANDSCAPE_320X180_1280X720_1920X1080; STANDARD_320X240_1280X960; SQUARE_320X320_1280X1280; PORTRAIT_256X320_1024X1280_1536X1920
+measurement_limitations: HOST_CAP_1600X900_AND_1920X1080; RELATED_SQUARE_UNROUTED; EMULATED_DPR_NOT_NATIVE_TAURI_WEBVIEW
+source_size_policy: BOTH_DIMENSIONS_AFTER_CROP; NO_UPSCALE
+native_fallback: NATIVE_FALLBACK_NOT_A_FOURTH_TIER
+next_proposed_stage: 42.4-4 — Managed Media Architecture and Implementation Plan
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+implementation_allowed: false
+
+The accepted partial measurement established the approved familiar ratio names,
+three bounding-box tiers, family ceilings, source-size eligibility, no-upscale
+behavior, native fallback, related-square exclusion, and active Standard `4:3`
+related content. This earlier architecture-pending statement is historical and
+superseded by the accepted Stage 42.4-4/42.4-5 foundation.

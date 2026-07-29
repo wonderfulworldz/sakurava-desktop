@@ -22,7 +22,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_PUBLICATION_FOUNDATION_RECONCILED
+batch_42_4_status: ACTIVE_LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -38,8 +38,37 @@ batch_42_4_stage_42_4_7_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_7p_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_7c_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_7_implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
-batch_42_4_next_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
+batch_42_4_stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_8c_status: COMPLETED_AND_CLOSED
+batch_42_4_operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
+batch_42_4_plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
+batch_42_4_schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
+batch_42_4_frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
+batch_42_4_next_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_4_next_stage_mode: AUDIT ONLY
+
+## Current Authority — 2026-07-29
+
+Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
+Stage `42.4-8C` is `COMPLETED_AND_CLOSED`. The operator decision is
+`APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS`.
+
+The five principles are rigorous analysis, audit before implementation, no
+forced legacy integration, preference for a demonstrably better architecture
+when supported, and preservation of the existing frontend interface and
+experience. The 8B plan is planning input only. Schema reuse is provisional,
+and controlled internal architecture replacement may be recommended only
+after the 8D audit and separate approval.
+
+Stage `42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final
+Mapping Audit` is `READY_PENDING_SEPARATE_APPROVAL` and `AUDIT ONLY`. It must
+compare controlled integration, targeted catalog-mutation refactoring,
+lifecycle/outbox/orchestration replacement retaining processor/publication,
+and any demonstrably safer design. No technical implementation, migration,
+runtime, tests, builds, dependency, package, database, Backup/Restore, or
+UI/UX work is authorized.
 
 ## Current Authority — 2026-07-26
 
@@ -185,11 +214,13 @@ operator-observed push reported 12 default-branch vulnerability alerts (4
 high, 5 moderate, 3 low); reachability is `UNKNOWN`, no remediation occurred,
 and triage remains assigned to Batch `42.13`.
 
-The next proposed stage is `42.4-8 — Managed Media Catalog Lifecycle
-Integration Audit and Plan`, `READY_PENDING_SEPARATE_APPROVAL`, and must begin
-as `AUDIT ONLY`. It may later plan only if justified; no technical permission
-is granted here. Batch 42.4 must not absorb Backup/Restore, Import/Export,
-Translation, dependency, UI/UX, or security-remediation work.
+Historical next-stage text at 2026-07-26 named the former `42.4-8 — Managed
+Media Catalog Lifecycle Integration Audit and Plan`. Current authority is the
+separately gated `42.4-8D — Managed Media Lifecycle Architecture Revalidation
+and Final Mapping Audit`, `READY_PENDING_SEPARATE_APPROVAL`, audit-only; no
+technical permission is granted here. Batch 42.4 must not absorb
+Backup/Restore, Import/Export, Translation, dependency, UI/UX, or
+security-remediation work.
 
 ---
 
@@ -1189,6 +1220,25 @@ No optimization or media implementation is authorized.
 Audit, reconcile, and later—only after separate approval—create reliable,
 portable managed media while preserving approved slot geometry and protected
 asset lifecycle behavior.
+
+**Current Lifecycle Guardrail Closure**
+
+Stages `42.4-8A` and `42.4-8B` are accepted and Stage `42.4-8C` is completed
+and closed. The five approved principles require rigorous analysis, audit
+before implementation, no forced legacy integration, preference for the better
+architecture when supported, and preservation of the existing frontend
+interface and experience. The 8B lifecycle plan remains planning input only;
+schema reuse is not pre-approved, and controlled internal replacement may be
+recommended only after a revalidation audit and separate approval.
+
+The next proposed stage is `42.4-8D — Managed Media Lifecycle Architecture
+Revalidation and Final Mapping Audit`, `READY_PENDING_SEPARATE_APPROVAL`,
+`AUDIT ONLY`. It must compare controlled integration, targeted catalog-mutation
+refactoring, lifecycle/outbox/orchestration replacement retaining the
+processor/publication foundation, and any demonstrably safer alternative.
+No technical implementation, migration, runtime, tests, builds, dependency,
+package, database, Backup/Restore, or UI/UX work is authorized. The visible
+frontend interface and experience remain protected.
 
 **Accepted Stage Results**
 

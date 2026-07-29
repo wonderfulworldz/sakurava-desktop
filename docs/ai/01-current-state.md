@@ -6,13 +6,13 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-07-27
-repository_state_recorded_at: 2026-07-27
-repository_state_status: MANAGED_MEDIA_PUBLICATION_FOUNDATION_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_7C_RESULT
+product_state_updated_at: 2026-07-29
+repository_state_recorded_at: 2026-07-29
+repository_state_status: LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_8C_RESULT
 remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
 tracked_worktree_clean: true  
-untracked_entry_count: 9101
+untracked_entry_count: 1
 
 default_branch: main  
 remote_branch: origin/main  
@@ -36,13 +36,22 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: PUBLICATION_FOUNDATION_RECONCILED
-current_stage: 42.4-7C — Managed Media Publication and Recovery Result Reconciliation
-completed_current_stage: 42.4-7C — Managed Media Publication and Recovery Result Reconciliation
+active_batch_phase: LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
+current_stage: 42.4-8C — Managed Media Catalog Lifecycle Product Decision and Architecture Guardrail Reconciliation
+completed_current_stage: 42.4-8C — Managed Media Catalog Lifecycle Product Decision and Architecture Guardrail Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_7_status: COMPLETED_AND_ACCEPTED
 stage_42_4_7p_status: COMPLETED_AND_CLOSED
 stage_42_4_7c_status: COMPLETED_AND_CLOSED
+stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8b_result: MANAGED_MEDIA_CATALOG_LIFECYCLE_PLAN_COMPLETE
+stage_42_4_8c_status: COMPLETED_AND_CLOSED
+operator_architecture_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
+plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
+schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
+architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
+frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
 stage_42_4_7_implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
 stage_42_4_7_parent: f2aa8eafa6f2a4d650bc491aacee97c38e074dc9
 stage_42_4_6_status: COMPLETED_AND_ACCEPTED
@@ -90,9 +99,9 @@ measurement_fixture_or_harness_integrity_gap: FIXTURE_OR_HARNESS_REOPEN_STATE_CO
 measurement_final_remote_state: REPORTED_BY_CODEX_FRESHLY_RECONFIRMED
 measurement_implementation_performed: false
 measurement_remaining_gaps: EXACT_R2_GENERATOR; HISTORICAL_CONFLICT_CAUSE; INVALID_CREDIT_ROWS_FROM_R2; PRODUCTION_EQUIVALENT_CLASSIFIER_COMPARISON; PRODUCTION_INTERNAL_STARTUP_PHASES; PHASE_RECONCILIATION; DETAIL_WATERFALL_FIXTURE; GALLERY; IMAGE_TIMING; PHASE_MEMORY; MISSING_SOURCE_REPEATS; METADATA_PRESERVATION
-next_proposed_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
+next_proposed_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_stage_mode: AUDIT_ONLY_THEN_PLAN_ONLY_IF_JUSTIFIED
+next_stage_mode: AUDIT ONLY
 startup_internal_phase_root_cause: UNKNOWN
 page_size_256_runtime_state: SUPPORTED_BY_STATIC_SOURCE_R2_HARNESS_FAILURE
 missing_source_events: 142_MEASURED
@@ -145,6 +154,8 @@ managed_mini_media_implementation_allowed: false
 managed_mini_media_measurement_allowed: false
 managed_mini_media_manual_smoke_allowed: false
 managed_mini_media_architecture_planning_allowed: false
+architecture_revalidation_allowed: false
+lifecycle_implementation_allowed: false
 managed_mini_media_canonical_ratio_families: LANDSCAPE_16_9; STANDARD_4_3; SQUARE_1_1; PORTRAIT_4_5
 managed_mini_media_invalid_source_ratios: 5:3; 11:14
 managed_mini_media_dormant_ratio_excluded: 3:2
@@ -223,6 +234,24 @@ last_manual_smoke_used_live_appdata: false
 project_os_tracking_policy: TRACK_IN_REPOSITORY
 project_os_tracking_status: RECONCILED_BY_BATCH_42_4_0_DOCUMENTATION_CLOSURE
 
+## Stage 42.4-8C Architecture Guardrail Closure
+
+Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
+Stage `42.4-8C` is `COMPLETED_AND_CLOSED`. The operator decision is
+`APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS`. The five principles are
+rigorous analysis, audit before implementation, no forced legacy integration,
+preference for the better architecture when supported, and preservation of the
+existing frontend interface and experience.
+
+The 8B lifecycle plan is planning input only. Schema reuse is provisional
+(`SCHEMA_REUSE_NOT_PREAPPROVED`), and controlled internal architecture
+replacement may be recommended only after the 8D audit and separate approval.
+Stage 42.4-8D must compare integration, targeted catalog-mutation refactoring,
+lifecycle/outbox/orchestration replacement retaining the processor/publication
+foundation, and any demonstrably safer alternative. No implementation,
+migration, runtime, test, build, dependency, package, database, Backup/Restore,
+or UI/UX work is authorized. The next stage is audit-only and separately gated.
+
 ## Stage 42.4-7C Publication Foundation Closure
 
 Stage `42.4-7 — Managed Media Journaled Publication and Recovery Foundation`
@@ -265,8 +294,11 @@ automatic generation, startup recovery, queue, frontend descriptor/rendering,
 cleanup, or Backup/Restore integration. The observed GitHub push reported 12
 default-branch vulnerability alerts (4 high, 5 moderate, 3 low); reachability
 is `UNKNOWN`, no remediation occurred, and triage remains in Batch 42.13.
-Stage `42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan` is
-`READY_PENDING_SEPARATE_APPROVAL`; all technical permissions remain false.
+The historical 2026-07-26 next-stage record named the former `42.4-8 —
+Managed Media Catalog Lifecycle Integration Audit and Plan`. Current authority
+is Stage `42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final
+Mapping Audit`, `READY_PENDING_SEPARATE_APPROVAL`, audit-only; all technical
+permissions remain false.
 
 ## Stage 42.4-6C Processor Foundation Closure
 

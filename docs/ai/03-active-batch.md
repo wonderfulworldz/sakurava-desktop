@@ -5,18 +5,23 @@
 batch: 42.4
 title: Managed Mini Media Foundation
 status: ACTIVE
-phase: PUBLICATION_FOUNDATION_RECONCILED
-current_administrative_stage: 42.4-7C — Managed Media Publication and Recovery Result Reconciliation
+phase: LIFECYCLE_ARCHITECTURE_GUARDRAILS_RECONCILED
+current_administrative_stage: 42.4-8C — Managed Media Catalog Lifecycle Product Decision and Architecture Guardrail Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
-stage_42_4_7_status: COMPLETED_AND_ACCEPTED
-stage_42_4_7p_status: COMPLETED_AND_CLOSED
-stage_42_4_7c_status: COMPLETED_AND_CLOSED
+stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_8c_status: COMPLETED_AND_CLOSED
+operator_decision: APPROVED_WITH_ARCHITECTURE_REVALIDATION_GUARDRAILS
 recorded_application_source_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
 prior_processor_baseline: a6a629dd39175a77ec6f96d62ac222a672a7640c
 prior_contract_schema_storage_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
-next_technical_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
+plan_authority: PLANNING_INPUT_NOT_MANDATORY_IMPLEMENTATION_ARCHITECTURE
+schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
+architecture_replacement_status: CONTROLLED_INTERNAL_ARCHITECTURE_REPLACEMENT_PERMITTED_AFTER_AUDIT_AND_APPROVAL
+frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
+next_technical_stage: 42.4-8D — Managed Media Lifecycle Architecture Revalidation and Final Mapping Audit
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_stage_mode: AUDIT_ONLY_THEN_PLAN_ONLY_IF_JUSTIFIED
+next_stage_mode: AUDIT ONLY
 
 implementation_allowed: false
 audit_allowed: false
@@ -31,62 +36,30 @@ dependency_allowed: false
 ui_ux_allowed: false
 live_appdata_allowed: false
 manual_smoke_allowed: false
+architecture_replacement_allowed: false
 
-## Accepted Stage 42.4-7 Result
+## Accepted Stage 42.4-8 Decision
 
-Stage `42.4-7 — Managed Media Journaled Publication and Recovery Foundation`
-is accepted from implementation commit
-`f4ac546e8930b37b1091f694b9660d2d3b639c91` (parent
-`f2aa8eafa6f2a4d650bc491aacee97c38e074dc9`). The pure injected Rust service
-records journal intent, operation-specific staging, flush and checksum
-validation, processor reopen validation, immutable same-root publication,
-exact idempotency, collision rejection, short descriptor activation, bounded
-compensation, and explicit bounded recovery.
+Stages `42.4-8A` and `42.4-8B` are accepted, and administrative Stage
+`42.4-8C` is completed and closed. The 8B lifecycle plan is retained as
+planning input only; it is not mandatory implementation architecture.
 
-The existing `managed_media_items`, `managed_media_variants`, and
-`managed_media_operations` schema is sufficient. No DDL, migration, trigger,
-index, or database-initialization change occurred. The publication model is
-`JOURNALED_FILESYSTEM_FIRST_IMMUTABLE_PUBLICATION`; file writing occurs outside
-the SQLite transaction. Previous-current fingerprints, descriptors, and files
-remain available until successful activation, and old records/files are not
-deleted.
+The operator-approved guardrails are: rigorous analysis; audit before
+implementation; no forced legacy integration; preference for a demonstrably
+better architecture when supported; and preservation of the existing frontend
+interface and experience. Stage 42.4-8D must compare controlled integration,
+targeted catalog-mutation refactoring, lifecycle/outbox/orchestration
+replacement while retaining the processor/publication foundation, and any
+other demonstrably safer design. It must assess transaction safety, ownership,
+slot identity, schema, recovery, stale work, concurrency, shutdown,
+testability, maintainability, compatibility, frontend stability, and
+regression surface.
 
-The implemented state machine covers `running/staging`, `running/validated`,
-`running/publishing`, `recovery_required/published`, `completed/published`,
-and fail-closed `failed/failed`. Recovery accepts one operation ID or at most
-256 nonterminal operations, is explicit and idempotent, and does not run at
-startup or scan the full catalog/root. Conflicting bytes, paths, identities,
-or metadata require intervention.
+Schema reuse remains provisional (`SCHEMA_REUSE_NOT_PREAPPROVED`). Controlled
+internal architecture replacement may be recommended only after the 8D audit
+and separate approval. No implementation, migration, runtime, tests, builds,
+dependency, package, database, Backup/Restore, or UI/UX work is authorized.
 
-## Verification and Limitations
-
-`REPORTED_BY_CODEX`: 11 focused publication tests and 175 full Rust tests
-passed; cargo check, final formatting, regular and staged diff checks, and the
-exact five-path implementation allowlist passed. `MEASURED` synthetic test
-timings were 150,367 µs first publication, 1,830 µs descriptor activation,
-30,645 µs and 23,813 µs recovery probes, and 5,248,509 µs for sequential
-20-result processing/publication. These are environment-specific test
-measurements, not product budgets or throughput/concurrency proof. Memory is
-`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`; production lifecycle, throughput,
-concurrency, and operational memory are `UNKNOWN`. Windows privileged reparse
-creation is not measurable and directory durability is platform-dependent.
-
-The foundation is intentionally inert: no catalog source ownership, CRUD
-hooks, automatic generation, startup recovery, queue, frontend descriptor or
-rendering, retention cleanup, Backup/Restore integration, or package behavior
-exists. Current application rendering remains unchanged. The observed 12
-default-branch vulnerability alerts (4 high, 5 moderate, 3 low) received no
-remediation; reachability is `UNKNOWN` and triage remains assigned to Batch
-42.13.
-
-Stage `42.4-8` may later audit current catalog lifecycle integration, source
-ownership and fingerprints, transaction boundaries, generation triggers,
-Import/Restore boundaries, fallback, queue/retry/concurrency requirements,
-frontend descriptors, and cleanup requirements. It must begin as audit-only
-and remains separately gated; no CRUD hook, generation, startup recovery,
-queue, rendering, cleanup, Backup/Restore, dependency, or live-data work is
-authorized by this record.
-
-Stage `42.4-7` was not manually smoked, and no live AppData, operator media,
-database, package, or manual-smoke evidence was used. All technical
-permissions remain false.
+Stage 42.4-8D is the next proposed audit-only stage and remains separately
+gated. The application/source baseline remains
+`f4ac546e8930b37b1091f694b9660d2d3b639c91`.
