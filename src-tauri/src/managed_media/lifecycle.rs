@@ -428,7 +428,18 @@ pub fn queue_intent(
     require_timestamp(now)?;
     schema::validate_schema(connection).map_err(|_| LifecycleError::SchemaConflict)?;
     let transaction = connection.unchecked_transaction()?;
-    let (locator_hash, lifecycle_state): (String, String) = transaction
+    queue_intent_in_transaction(&transaction, input, now)?;
+    transaction.commit()?;
+    Ok(())
+}
+
+pub(crate) fn queue_intent_in_transaction(
+    connection: &Connection,
+    input: &NewLifecycleIntent,
+    now: &str,
+) -> Result<(), LifecycleError> {
+    require_timestamp(now)?;
+    let (locator_hash, lifecycle_state): (String, String) = connection
         .query_row(
             "SELECT locator_hash, lifecycle_state FROM managed_media_items WHERE item_id = ?1",
             [input.item_id.as_str()],
@@ -444,7 +455,7 @@ pub fn queue_intent(
     {
         return Err(LifecycleError::IdentityConflict);
     }
-    let (current_revision, desired_revision): (i64, i64) = transaction
+    let (current_revision, desired_revision): (i64, i64) = connection
         .query_row(
             "SELECT current_revision, desired_revision
              FROM managed_media_item_generations WHERE managed_item_id = ?1",
@@ -456,12 +467,12 @@ pub fn queue_intent(
     if input.revision.as_i64() <= current_revision || input.revision.as_i64() <= desired_revision {
         return Err(LifecycleError::StaleRevision);
     }
-    transaction.execute(
+    connection.execute(
         "UPDATE managed_media_item_generations
          SET desired_revision = ?2, updated_at = ?3 WHERE managed_item_id = ?1",
         (input.item_id.as_str(), input.revision.as_i64(), now),
     )?;
-    transaction.execute(
+    connection.execute(
         "INSERT INTO managed_media_lifecycle_intents (
            intent_id, managed_item_id, desired_revision, lifecycle_action,
            expected_locator_hash, lifecycle_state, created_at, updated_at
@@ -475,7 +486,7 @@ pub fn queue_intent(
             now
         ],
     )?;
-    transaction.execute(
+    connection.execute(
         "UPDATE managed_media_lifecycle_intents
          SET lifecycle_state = 'superseded', claim_token = NULL, claim_expires_at = NULL,
              retry_eligible_at = NULL, superseded_by_intent_id = ?1,
@@ -490,7 +501,7 @@ pub fn queue_intent(
             now,
         ),
     )?;
-    transaction.execute(
+    connection.execute(
         "UPDATE managed_media_lifecycle_targets
          SET target_state = 'superseded', failure_class = 'stale',
              failure_summary = 'superseded by newer revision', updated_at = ?3
@@ -498,7 +509,6 @@ pub fn queue_intent(
            AND target_state IN ('pending', 'claimed', 'retryable_failure', 'recovery_required')",
         (input.item_id.as_str(), input.revision.as_i64(), now),
     )?;
-    transaction.commit()?;
     Ok(())
 }
 

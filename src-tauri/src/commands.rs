@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -46,6 +47,7 @@ use crate::database::{
     BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
     DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
 };
+use crate::managed_media::catalog_lifecycle::{reconcile_owner_mutation, OwnerSources};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 const IMPORT_PLAN_PROCESSING_FAILURE: &str =
@@ -851,7 +853,10 @@ pub fn video_create(
 ) -> Result<Video, String> {
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
-        create_video(connection, input)
+        let video = create_video(connection, input)?;
+        reconcile_catalog_lifecycle(connection, None, Some(owner_sources_from_video(&video)))?;
+        require_migrated_sakurava_refs(connection)?;
+        Ok(video)
     })
 }
 
@@ -878,10 +883,20 @@ pub fn video_update(
     id: String,
     patch: VideoPatch,
 ) -> Result<Option<Video>, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
-        update_video(connection, &id, patch)
+        let previous = get_video(connection, &id)?.map(|video| owner_sources_from_video(&video));
+        let updated = update_video(connection, &id, patch)?;
+        if let Some(updated) = &updated {
+            reconcile_catalog_lifecycle(
+                connection,
+                previous,
+                Some(owner_sources_from_video(updated)),
+            )?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(updated)
     })
 }
 
@@ -893,7 +908,13 @@ pub fn video_delete(
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
-        delete_catalog_entity_in_transaction(connection, "videos", id)
+        let previous = get_video(connection, &id)?.map(|video| owner_sources_from_video(&video));
+        let result = delete_catalog_entity_in_transaction(connection, "videos", id)?;
+        if result.deleted {
+            reconcile_catalog_lifecycle(connection, previous, None)?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(result)
     })
 }
 
@@ -904,7 +925,10 @@ pub fn image_create(
 ) -> Result<Image, String> {
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
-        create_image(connection, input)
+        let image = create_image(connection, input)?;
+        reconcile_catalog_lifecycle(connection, None, Some(owner_sources_from_image(&image)))?;
+        require_migrated_sakurava_refs(connection)?;
+        Ok(image)
     })
 }
 
@@ -931,10 +955,20 @@ pub fn image_update(
     id: String,
     patch: ImagePatch,
 ) -> Result<Option<Image>, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
-        update_image(connection, &id, patch)
+        let previous = get_image(connection, &id)?.map(|image| owner_sources_from_image(&image));
+        let updated = update_image(connection, &id, patch)?;
+        if let Some(updated) = &updated {
+            reconcile_catalog_lifecycle(
+                connection,
+                previous,
+                Some(owner_sources_from_image(updated)),
+            )?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(updated)
     })
 }
 
@@ -946,7 +980,13 @@ pub fn image_delete(
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
-        delete_catalog_entity_in_transaction(connection, "images", id)
+        let previous = get_image(connection, &id)?.map(|image| owner_sources_from_image(&image));
+        let result = delete_catalog_entity_in_transaction(connection, "images", id)?;
+        if result.deleted {
+            reconcile_catalog_lifecycle(connection, previous, None)?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(result)
     })
 }
 
@@ -957,7 +997,14 @@ pub fn performer_create(
 ) -> Result<Performer, String> {
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
-        create_performer(connection, input)
+        let performer = create_performer(connection, input)?;
+        reconcile_catalog_lifecycle(
+            connection,
+            None,
+            Some(owner_sources_from_performer(&performer)),
+        )?;
+        require_migrated_sakurava_refs(connection)?;
+        Ok(performer)
     })
 }
 
@@ -984,10 +1031,21 @@ pub fn performer_update(
     id: String,
     patch: PerformerPatch,
 ) -> Result<Option<Performer>, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
-        update_performer(connection, &id, patch)
+        let previous = get_performer(connection, &id)?
+            .map(|performer| owner_sources_from_performer(&performer));
+        let updated = update_performer(connection, &id, patch)?;
+        if let Some(updated) = &updated {
+            reconcile_catalog_lifecycle(
+                connection,
+                previous,
+                Some(owner_sources_from_performer(updated)),
+            )?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(updated)
     })
 }
 
@@ -999,7 +1057,14 @@ pub fn performer_delete(
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
-        delete_catalog_entity_in_transaction(connection, "performers", id)
+        let previous = get_performer(connection, &id)?
+            .map(|performer| owner_sources_from_performer(&performer));
+        let result = delete_catalog_entity_in_transaction(connection, "performers", id)?;
+        if result.deleted {
+            reconcile_catalog_lifecycle(connection, previous, None)?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(result)
     })
 }
 
@@ -1010,7 +1075,14 @@ pub fn managed_category_create(
 ) -> Result<ManagedCategory, String> {
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
-        create_managed_category(connection, input)
+        let category = create_managed_category(connection, input)?;
+        reconcile_catalog_lifecycle(
+            connection,
+            None,
+            Some(owner_sources_from_category(&category)),
+        )?;
+        require_migrated_sakurava_refs(connection)?;
+        Ok(category)
     })
 }
 
@@ -1039,10 +1111,21 @@ pub fn managed_category_update(
     key: String,
     patch: ManagedCategoryPatch,
 ) -> Result<Option<ManagedCategory>, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
-        update_managed_category(connection, &key, patch)
+        let previous = get_managed_category(connection, &key)?
+            .map(|category| owner_sources_from_category(&category));
+        let updated = update_managed_category(connection, &key, patch)?;
+        if let Some(updated) = &updated {
+            reconcile_catalog_lifecycle(
+                connection,
+                previous,
+                Some(owner_sources_from_category(updated)),
+            )?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(updated)
     })
 }
 
@@ -1051,9 +1134,17 @@ pub fn managed_category_delete(
     database: State<'_, RuntimeDatabase>,
     key: String,
 ) -> Result<ManagedCategoryDeleteResult, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
         let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
-        delete_managed_category_if_unused(connection, key)
+        let previous = get_managed_category(connection, &key)?
+            .map(|category| owner_sources_from_category(&category));
+        let result = delete_managed_category_if_unused(connection, key)?;
+        if result.deleted {
+            reconcile_catalog_lifecycle(connection, previous, None)?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(result)
     })
 }
 
@@ -1064,7 +1155,10 @@ pub fn glossary_create(
 ) -> Result<GlossaryEntry, String> {
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
-        create_glossary_entry(connection, input)
+        let entry = create_glossary_entry(connection, input)?;
+        reconcile_catalog_lifecycle(connection, None, Some(owner_sources_from_glossary(&entry)))?;
+        require_migrated_sakurava_refs(connection)?;
+        Ok(entry)
     })
 }
 
@@ -1079,10 +1173,21 @@ pub fn glossary_update(
     id: String,
     patch: GlossaryEntryPatch,
 ) -> Result<Option<GlossaryEntry>, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "G", "glossary_entries", "id", &id)?;
-        update_glossary_entry(connection, &id, patch)
+        let previous =
+            get_glossary_entry(connection, &id)?.map(|entry| owner_sources_from_glossary(&entry));
+        let updated = update_glossary_entry(connection, &id, patch)?;
+        if let Some(updated) = &updated {
+            reconcile_catalog_lifecycle(
+                connection,
+                previous,
+                Some(owner_sources_from_glossary(updated)),
+            )?;
+            require_migrated_sakurava_refs(connection)?;
+        }
+        Ok(updated)
     })
 }
 
@@ -1091,10 +1196,10 @@ pub fn glossary_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
-    with_connection(&database, |connection| {
+    with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "G", "glossary_entries", "id", &id)?;
-        let Some(_) = get_glossary_entry(connection, &id)? else {
+        let Some(entry) = get_glossary_entry(connection, &id)? else {
             return Err("Glossary entry was not found".to_string());
         };
         if glossary_child_count(connection, &id)? > 0 {
@@ -1104,6 +1209,14 @@ pub fn glossary_delete(
             .execute("DELETE FROM glossary_entries WHERE id = ?1", [&id])
             .map_err(database_error)?
             > 0;
+        if deleted {
+            reconcile_catalog_lifecycle(
+                connection,
+                Some(owner_sources_from_glossary(&entry)),
+                None,
+            )?;
+            require_migrated_sakurava_refs(connection)?;
+        }
         Ok(DeleteResult { id, deleted })
     })
 }
@@ -1270,6 +1383,71 @@ fn with_creation_transaction<T>(
     let result = action(&transaction)?;
     transaction.commit().map_err(database_error)?;
     Ok(result)
+}
+
+fn owner_sources_from_video(video: &Video) -> OwnerSources {
+    OwnerSources::video(video.id.clone(), video.cover_path.clone())
+}
+
+fn owner_sources_from_image(image: &Image) -> OwnerSources {
+    OwnerSources::image(
+        image.id.clone(),
+        image.cover_path.clone(),
+        image.gallery_image_paths_json.clone(),
+    )
+}
+
+fn owner_sources_from_performer(performer: &Performer) -> OwnerSources {
+    OwnerSources::performer(
+        performer.id.clone(),
+        performer.cover_path.clone(),
+        performer.performer_thumbnail_paths_json.clone(),
+    )
+}
+
+fn owner_sources_from_category(category: &ManagedCategory) -> OwnerSources {
+    OwnerSources::category(category.key.clone(), category.thumbnail_path.clone())
+}
+
+fn owner_sources_from_glossary(entry: &GlossaryEntry) -> OwnerSources {
+    OwnerSources::glossary(entry.id.clone(), entry.thumbnail_path.clone())
+}
+
+fn load_owner_sources(
+    connection: &Connection,
+    section: &str,
+    id: &str,
+) -> Result<Option<OwnerSources>, String> {
+    match section {
+        "videos" => Ok(get_video(connection, id)?.map(|value| owner_sources_from_video(&value))),
+        "images" => Ok(get_image(connection, id)?.map(|value| owner_sources_from_image(&value))),
+        "performers" => {
+            Ok(get_performer(connection, id)?.map(|value| owner_sources_from_performer(&value)))
+        }
+        "categories" => {
+            Ok(get_managed_category(connection, id)?
+                .map(|value| owner_sources_from_category(&value)))
+        }
+        "glossary" => Ok(
+            get_glossary_entry(connection, id)?.map(|value| owner_sources_from_glossary(&value))
+        ),
+        _ => Ok(None),
+    }
+}
+
+fn reconcile_catalog_lifecycle(
+    connection: &Connection,
+    previous: Option<OwnerSources>,
+    final_state: Option<OwnerSources>,
+) -> Result<(), String> {
+    let mut token_generator = || Ok(new_id("media_slot"));
+    reconcile_owner_mutation(
+        connection,
+        previous.as_ref(),
+        final_state.as_ref(),
+        &mut token_generator,
+        &current_timestamp(),
+    )
 }
 
 fn resolve_identity_or_technical(
@@ -3856,6 +4034,7 @@ fn apply_import_operations(
     let mut cleared = 0usize;
     let mut deleted = 0usize;
     let mut generated_ids = std::collections::HashMap::<String, String>::new();
+    let mut lifecycle_mutations = BTreeMap::<(String, String), PendingLifecycleMutation>::new();
     // Credit Adds must evaluate the final Work/Performer capacity. Execute
     // explicit Credit Deletes first so a same-plan Delete can free a slot,
     // while the enclosing transaction preserves full rollback semantics.
@@ -3879,7 +4058,15 @@ fn apply_import_operations(
         .iter()
         .filter(|operation| operation.section != "glossary")
     {
-        apply_import_create(connection, operation, &generated_ids, issuance_yymm)?;
+        let created_id = apply_import_create(connection, operation, &generated_ids, issuance_yymm)?;
+        if let Some(created_id) = created_id {
+            record_import_created_owner(
+                connection,
+                &mut lifecycle_mutations,
+                &operation.section,
+                &created_id,
+            )?;
+        }
         created += 1;
         cleared += operation.cleared_fields.len();
     }
@@ -3902,6 +4089,14 @@ fn apply_import_operations(
             }
             let created_id =
                 apply_import_create(connection, &operation, &generated_ids, issuance_yymm)?;
+            if let Some(created_id) = created_id.as_deref() {
+                record_import_created_owner(
+                    connection,
+                    &mut lifecycle_mutations,
+                    "glossary",
+                    created_id,
+                )?;
+            }
             if let (Some(temporary), Some(id)) = (&operation.temporary_identifier, created_id) {
                 generated_ids.insert(temporary.clone(), id);
             }
@@ -3921,7 +4116,9 @@ fn apply_import_operations(
         .collect::<Vec<_>>();
     updates.sort_by_key(|operation| operation.source_row_number);
     for operation in updates {
+        record_import_owner_before(connection, &mut lifecycle_mutations, operation)?;
         apply_import_update(connection, operation, &generated_ids)?;
+        record_import_owner_after(connection, &mut lifecycle_mutations, operation)?;
         updated += 1;
         cleared += operation.cleared_fields.len();
     }
@@ -3941,10 +4138,114 @@ fn apply_import_operations(
             .then(left.source_row_number.cmp(&right.source_row_number))
     });
     for operation in deletes {
+        record_import_owner_before(connection, &mut lifecycle_mutations, operation)?;
         apply_import_delete(connection, operation)?;
+        record_import_owner_after(connection, &mut lifecycle_mutations, operation)?;
         deleted += 1;
     }
+    reconcile_import_lifecycle(connection, lifecycle_mutations)?;
     Ok((created, updated, cleared, deleted))
+}
+
+#[derive(Debug)]
+struct PendingLifecycleMutation {
+    previous: Option<OwnerSources>,
+    final_state: Option<OwnerSources>,
+}
+
+fn lifecycle_section(section: &str) -> bool {
+    matches!(
+        section,
+        "videos" | "images" | "performers" | "categories" | "glossary"
+    )
+}
+
+fn record_import_created_owner(
+    connection: &Connection,
+    mutations: &mut BTreeMap<(String, String), PendingLifecycleMutation>,
+    section: &str,
+    id: &str,
+) -> Result<(), String> {
+    if !lifecycle_section(section) {
+        return Ok(());
+    }
+    let final_state = load_owner_sources(connection, section, id)?.ok_or_else(|| {
+        "Created catalog owner could not be read for lifecycle planning.".to_string()
+    })?;
+    mutations.insert(
+        (section.to_string(), id.to_string()),
+        PendingLifecycleMutation {
+            previous: None,
+            final_state: Some(final_state),
+        },
+    );
+    Ok(())
+}
+
+fn record_import_owner_before(
+    connection: &Connection,
+    mutations: &mut BTreeMap<(String, String), PendingLifecycleMutation>,
+    operation: &ImportCatalogPlanOperation,
+) -> Result<(), String> {
+    if !lifecycle_section(&operation.section) {
+        return Ok(());
+    }
+    let id = operation
+        .record_id
+        .as_deref()
+        .ok_or_else(|| "Catalog owner was not resolved for lifecycle planning.".to_string())?;
+    let key = (operation.section.clone(), id.to_string());
+    if mutations.contains_key(&key) {
+        return Ok(());
+    }
+    let previous = load_owner_sources(connection, &operation.section, id)?;
+    mutations.insert(
+        key,
+        PendingLifecycleMutation {
+            final_state: previous.clone(),
+            previous,
+        },
+    );
+    Ok(())
+}
+
+fn record_import_owner_after(
+    connection: &Connection,
+    mutations: &mut BTreeMap<(String, String), PendingLifecycleMutation>,
+    operation: &ImportCatalogPlanOperation,
+) -> Result<(), String> {
+    if !lifecycle_section(&operation.section) {
+        return Ok(());
+    }
+    let id = operation
+        .record_id
+        .as_deref()
+        .ok_or_else(|| "Catalog owner was not resolved for lifecycle planning.".to_string())?;
+    let final_state = load_owner_sources(connection, &operation.section, id)?;
+    let key = (operation.section.clone(), id.to_string());
+    let mutation = mutations
+        .get_mut(&key)
+        .ok_or_else(|| "Catalog lifecycle mutation was not initialized.".to_string())?;
+    mutation.final_state = final_state;
+    Ok(())
+}
+
+fn reconcile_import_lifecycle(
+    connection: &Connection,
+    mutations: BTreeMap<(String, String), PendingLifecycleMutation>,
+) -> Result<(), String> {
+    let now = current_timestamp();
+    let mut token_generator = || Ok(new_id("media_slot"));
+    for mutation in mutations.into_values() {
+        reconcile_owner_mutation(
+            connection,
+            mutation.previous.as_ref(),
+            mutation.final_state.as_ref(),
+            &mut token_generator,
+            &now,
+        )?;
+    }
+    Ok(())
 }
 
 fn delete_phase(section: &str) -> usize {
@@ -9136,6 +9437,546 @@ mod tests {
             .expect("preserved Video")
             .is_some());
         require_migrated_sakurava_refs(&connection).expect("valid no-op state");
+    }
+
+    #[test]
+    fn catalog_lifecycle_create_update_and_delete_cover_all_supported_owner_types() {
+        let mut connection = test_connection();
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("create transaction");
+        let video = create_video(
+            &transaction,
+            VideoInput {
+                title: "Lifecycle Video".to_string(),
+                cover_path: Some("video-cover.jpg".to_string()),
+                ..empty_video_input()
+            },
+        )
+        .expect("video");
+        reconcile_catalog_lifecycle(&transaction, None, Some(owner_sources_from_video(&video)))
+            .expect("video lifecycle");
+        let image = create_image(
+            &transaction,
+            ImageInput {
+                title: "Lifecycle Image".to_string(),
+                cover_path: Some("image-cover.jpg".to_string()),
+                gallery_image_paths_json: Some(r#"["gallery.jpg"]"#.to_string()),
+                ..empty_image_input()
+            },
+        )
+        .expect("image");
+        reconcile_catalog_lifecycle(&transaction, None, Some(owner_sources_from_image(&image)))
+            .expect("image lifecycle");
+        let performer = create_performer(
+            &transaction,
+            PerformerInput {
+                name: "Lifecycle Performer".to_string(),
+                cover_path: Some("performer-cover.jpg".to_string()),
+                performer_thumbnail_paths_json: Some(r#"["mini.jpg"]"#.to_string()),
+                ..empty_performer_input()
+            },
+        )
+        .expect("performer");
+        reconcile_catalog_lifecycle(
+            &transaction,
+            None,
+            Some(owner_sources_from_performer(&performer)),
+        )
+        .expect("performer lifecycle");
+        let category = create_managed_category(
+            &transaction,
+            ManagedCategoryInput {
+                issuance_yymm: Some("2607".to_string()),
+                key: Some("lifecycle-category".to_string()),
+                name: "Lifecycle Category".to_string(),
+                parent_key: None,
+                description: None,
+                thumbnail_path: Some("category.jpg".to_string()),
+                show_in_videos: None,
+                show_in_images: None,
+                show_in_performers: None,
+                show_in_credits: None,
+            },
+        )
+        .expect("category");
+        reconcile_catalog_lifecycle(
+            &transaction,
+            None,
+            Some(owner_sources_from_category(&category)),
+        )
+        .expect("category lifecycle");
+        let glossary = create_glossary_entry(
+            &transaction,
+            GlossaryEntryInput {
+                issuance_yymm: Some("2607".to_string()),
+                term: "Lifecycle Glossary".to_string(),
+                definition: "Definition".to_string(),
+                synonyms_json: None,
+                category: None,
+                parent_id: None,
+                thumbnail_path: Some("glossary.jpg".to_string()),
+                favorite: None,
+                source_title: None,
+                source_url: None,
+            },
+        )
+        .expect("glossary");
+        reconcile_catalog_lifecycle(
+            &transaction,
+            None,
+            Some(owner_sources_from_glossary(&glossary)),
+        )
+        .expect("glossary lifecycle");
+        transaction.commit().expect("create commit");
+
+        let item_count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM managed_media_items", [], |row| {
+                row.get(0)
+            })
+            .expect("item count");
+        assert_eq!(item_count, 7);
+        let initial_intents: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                [],
+                |row| row.get(0),
+            )
+            .expect("intent count");
+        assert_eq!(initial_intents, 7);
+
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("update transaction");
+        let previous = get_video(&transaction, &video.id)
+            .expect("video read")
+            .map(|value| owner_sources_from_video(&value));
+        let updated = update_video(
+            &transaction,
+            &video.id,
+            serde_json::from_value(json!({ "notes": "metadata only" })).expect("metadata patch"),
+        )
+        .expect("metadata update")
+        .expect("video exists");
+        reconcile_catalog_lifecycle(
+            &transaction,
+            previous,
+            Some(owner_sources_from_video(&updated)),
+        )
+        .expect("metadata reconciliation");
+        transaction.commit().expect("update commit");
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("intent count"),
+            initial_intents
+        );
+
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("delete transaction");
+        let previous = Some(owner_sources_from_category(&category));
+        let deleted = delete_managed_category_if_unused(&transaction, category.key.clone())
+            .expect("delete category");
+        assert!(deleted.deleted);
+        reconcile_catalog_lifecycle(&transaction, previous, None).expect("retire category");
+        transaction.commit().expect("delete commit");
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents
+                     WHERE lifecycle_action = 'retire'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("retirement count"),
+            1
+        );
+    }
+
+    #[test]
+    fn import_apply_preview_stale_and_rollback_boundaries_do_not_leak_lifecycle_rows() {
+        let (root, database) = import_test_database("managed-lifecycle-boundaries");
+        let plan = signed_import_plan(
+            &database,
+            vec![plan_operation(
+                "videos",
+                "create",
+                2,
+                json!({ "title": "Lifecycle Video", "coverPath": "cover.jpg" }),
+            )],
+        );
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            assert_eq!(
+                connection
+                    .query_row("SELECT COUNT(*) FROM managed_media_items", [], |row| {
+                        row.get::<_, i64>(0)
+                    })
+                    .expect("preview item count"),
+                0
+            );
+        }
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        assert!(result.backup_package_name.is_some());
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("database lock");
+            assert_eq!(
+                connection
+                    .query_row("SELECT COUNT(*) FROM managed_media_items", [], |row| {
+                        row.get::<_, i64>(0)
+                    })
+                    .expect("committed item count"),
+                1
+            );
+            assert_eq!(
+                connection
+                    .query_row(
+                        "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .expect("committed intent count"),
+                1
+            );
+        }
+
+        let existing_video = {
+            let connection = database.connection();
+            let video = list_videos(&connection.lock().expect("database lock"))
+                .expect("videos")
+                .into_iter()
+                .next()
+                .expect("created video");
+            video
+        };
+        let mut stale_update =
+            plan_operation("videos", "update", 3, json!({ "title": "Stale Update" }));
+        stale_update.record_id = Some(existing_video.id.clone());
+        stale_update.current_record =
+            Some(serde_json::to_value(&existing_video).expect("video value"));
+        let stale_plan = signed_import_plan(&database, vec![stale_update]);
+        {
+            let connection = database.connection();
+            update_video(
+                &connection.lock().expect("database lock"),
+                &existing_video.id,
+                serde_json::from_value(json!({ "title": "Changed elsewhere" }))
+                    .expect("video patch"),
+            )
+            .expect("snapshot mutation")
+            .expect("video exists");
+        }
+        let stale_result = apply_import_catalog_plan(&database, stale_plan);
+        assert_eq!(stale_result.transaction_status, "blocked");
+        assert_eq!(stale_result.failure_stage.as_deref(), Some("stalePreview"));
+
+        let rollback_plan = signed_import_plan(
+            &database,
+            vec![
+                plan_operation(
+                    "images",
+                    "create",
+                    4,
+                    json!({ "title": "Would Roll Back", "coverPath": "rollback.jpg" }),
+                ),
+                plan_operation("videos", "create", 5, json!({ "title": "" })),
+            ],
+        );
+        let rollback_result = apply_import_catalog_plan(&database, rollback_plan);
+        assert_eq!(rollback_result.transaction_status, "rolledBack");
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        assert_eq!(
+            connection
+                .query_row("SELECT COUNT(*) FROM managed_media_items", [], |row| {
+                    row.get::<_, i64>(0)
+                })
+                .expect("final item count"),
+            1
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("final intent count"),
+            1
+        );
+        drop(connection);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_coalesces_multiple_source_updates_to_final_state() {
+        let mut connection = test_connection();
+        let image = create_image(
+            &connection,
+            ImageInput {
+                title: "Existing Image".to_string(),
+                cover_path: Some("before.jpg".to_string()),
+                ..empty_image_input()
+            },
+        )
+        .expect("existing image");
+        let mut first = plan_operation(
+            "images",
+            "update",
+            2,
+            json!({ "coverPath": "intermediate.jpg" }),
+        );
+        first.record_id = Some(image.id.clone());
+        let mut second = plan_operation("images", "update", 3, json!({ "coverPath": "final.jpg" }));
+        second.record_id = Some(image.id.clone());
+
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("apply transaction");
+        let counts = apply_import_operations(&transaction, &[first, second], "2607")
+            .expect("coalesced apply");
+        assert_eq!(counts, (0, 2, 0, 0));
+        transaction.commit().expect("commit");
+
+        assert_eq!(
+            get_image(&connection, &image.id)
+                .expect("image read")
+                .expect("image exists")
+                .cover_path,
+            "final.jpg"
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("intent count"),
+            1
+        );
+        let desired_revision: i64 = connection
+            .query_row(
+                "SELECT desired_revision FROM managed_media_item_generations",
+                [],
+                |row| row.get(0),
+            )
+            .expect("desired revision");
+        assert_eq!(desired_revision, 1);
+    }
+
+    #[test]
+    fn import_apply_add_update_and_add_delete_use_only_final_owner_state() {
+        let mut connection = test_connection();
+        let create_key = "coalesced-category";
+        let delete_key = "ephemeral-category";
+        let create = plan_operation(
+            "categories",
+            "create",
+            2,
+            json!({
+                "key": create_key,
+                "name": "Coalesced Category",
+                "thumbnailPath": "initial.jpg"
+            }),
+        );
+        let mut update = plan_operation(
+            "categories",
+            "update",
+            3,
+            json!({ "thumbnailPath": "final.jpg" }),
+        );
+        update.record_id = Some(create_key.to_string());
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("coalesced create update");
+        assert_eq!(
+            apply_import_operations(&transaction, &[create, update], "2607")
+                .expect("create then update"),
+            (1, 1, 0, 0)
+        );
+        transaction.commit().expect("commit create update");
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("intent count"),
+            1
+        );
+        assert_eq!(
+            get_managed_category(&connection, create_key)
+                .expect("category read")
+                .expect("category exists")
+                .thumbnail_path,
+            "final.jpg"
+        );
+
+        let create_then_delete = plan_operation(
+            "categories",
+            "create",
+            4,
+            json!({
+                "key": delete_key,
+                "name": "Ephemeral Category",
+                "thumbnailPath": "ephemeral.jpg"
+            }),
+        );
+        let mut delete =
+            plan_operation("categories", "delete", 5, Value::Object(Default::default()));
+        delete.record_id = Some(delete_key.to_string());
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("coalesced create delete");
+        assert_eq!(
+            apply_import_operations(&transaction, &[create_then_delete, delete], "2607")
+                .expect("create then delete"),
+            (1, 0, 0, 1)
+        );
+        transaction.commit().expect("commit create delete");
+        assert!(get_managed_category(&connection, delete_key)
+            .expect("category read")
+            .is_none());
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("intent count"),
+            1
+        );
+    }
+
+    #[test]
+    fn import_apply_reorder_is_inert_and_repeated_removal_retires_one_slot() {
+        let mut connection = test_connection();
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("create image");
+        let image = create_image(
+            &transaction,
+            ImageInput {
+                title: "Repeated Image".to_string(),
+                gallery_image_paths_json: Some(r#"["one.jpg","two.jpg"]"#.to_string()),
+                ..empty_image_input()
+            },
+        )
+        .expect("image");
+        reconcile_catalog_lifecycle(&transaction, None, Some(owner_sources_from_image(&image)))
+            .expect("image lifecycle");
+        transaction.commit().expect("create commit");
+        let initial_intents: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                [],
+                |row| row.get(0),
+            )
+            .expect("initial intents");
+
+        let mut reorder = plan_operation(
+            "images",
+            "update",
+            2,
+            json!({
+                "galleryImagePathsJson": "[\"two.jpg\",\"one.jpg\"]",
+                "notes": "metadata"
+            }),
+        );
+        reorder.record_id = Some(image.id.clone());
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("reorder transaction");
+        apply_import_operations(&transaction, &[reorder], "2607").expect("reorder apply");
+        transaction.commit().expect("reorder commit");
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("reorder intent count"),
+            initial_intents
+        );
+
+        let mut remove = plan_operation(
+            "images",
+            "update",
+            3,
+            json!({ "galleryImagePathsJson": "[\"two.jpg\"]" }),
+        );
+        remove.record_id = Some(image.id.clone());
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("remove transaction");
+        apply_import_operations(&transaction, &[remove], "2607").expect("remove apply");
+        transaction.commit().expect("remove commit");
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM managed_media_lifecycle_intents
+                     WHERE lifecycle_action = 'retire'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("retirement count"),
+            1
+        );
+    }
+
+    #[test]
+    fn import_lifecycle_persistence_failure_rolls_back_catalog_alias_and_counter() {
+        let mut connection = test_connection();
+        connection
+            .execute_batch(
+                "CREATE TEMP TRIGGER reject_catalog_lifecycle_item
+                 BEFORE INSERT ON managed_media_items
+                 BEGIN
+                   SELECT RAISE(ABORT, 'induced lifecycle failure');
+                 END;",
+            )
+            .expect("failure trigger");
+        let create = plan_operation(
+            "videos",
+            "create",
+            2,
+            json!({ "title": "Rollback Video", "coverPath": "rollback.jpg" }),
+        );
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .expect("apply transaction");
+        let error = apply_import_operations(&transaction, &[create], "2607")
+            .expect_err("lifecycle insert must fail");
+        assert!(error.contains("induced lifecycle failure"));
+        drop(transaction);
+        assert!(list_videos(&connection).expect("videos").is_empty());
+        for table in [
+            "managed_media_items",
+            "managed_media_item_generations",
+            "managed_media_lifecycle_intents",
+            "managed_media_lifecycle_targets",
+            "sakuravaRefAliases",
+            "sakuravaRefCounters",
+        ] {
+            let row_count: i64 = connection
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("row count");
+            assert_eq!(row_count, 0, "{table}");
+        }
     }
 
     fn empty_image_input() -> ImageInput {
