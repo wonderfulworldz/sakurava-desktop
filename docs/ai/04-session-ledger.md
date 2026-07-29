@@ -73,6 +73,24 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-07-29 — Catalog Lifecycle Project OS Status Corrected
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9B_C_R1_STATUS_CORRECTION
+prior_project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
+application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
+authority_conflict: CORRECTED
+next_stage: 42.4-9C — Bounded Executor and Recovery Integration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The implementation acceptance and administrative closure states are now
+separated in Project OS. No source or technical verification was performed;
+9C remains pending separate approval and all technical permissions remain false.
+
 ## 2026-07-29 — Catalog Lifecycle Intent Integration Accepted
 
 date: 2026-07-29
@@ -159,35 +177,6 @@ better architecture when supported, and preservation of the existing frontend
 interface and experience. The 8B plan is planning input only; schema reuse is
 provisional, controlled internal replacement may be recommended only after 8D
 audit and approval, and no technical work is authorized.
-
-# Latest Session
-
-## 2026-07-27 — Managed Media Journaled Publication Foundation Accepted
-
-date: 2026-07-27
-session_type: PROJECT_OS_BATCH_42_4_7C_RESULT_RECONCILIATION
-implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
-implementation_parent: f2aa8eafa6f2a4d650bc491aacee97c38e074dc9
-stage_42_4_7_status: COMPLETED_AND_ACCEPTED
-stage_42_4_7p_status: COMPLETED_AND_CLOSED
-stage_42_4_7c_status: COMPLETED_AND_CLOSED
-next_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The accepted foundation uses journaled filesystem-first immutable publication:
-intent and staging are validated before immutable publication, descriptor
-activation is short and transactional, previous-valid descriptors/fingerprints/
-files are preserved, and explicit recovery is bounded to one operation or 256
-nonterminal operations. Recovery is idempotent and not startup-registered. The
-11 focused and 175 full Rust tests, checks, and exact-path review are
-`REPORTED_BY_CODEX`; synthetic timings are `MEASURED` only. Memory is not
-measurable, Windows reparse setup and platform durability remain limited, and
-production lifecycle/throughput/concurrency remain unknown. The foundation is
-inert and disconnected from catalog CRUD, generation, frontend, cleanup, and
-Backup/Restore. The operator observed 12 GitHub default-branch vulnerability
-alerts (4 high, 5 moderate, 3 low); no remediation occurred and triage remains
-in Batch 42.13. This documentation-only reconciliation closes the stage.
 
 ## Archived Session History
 

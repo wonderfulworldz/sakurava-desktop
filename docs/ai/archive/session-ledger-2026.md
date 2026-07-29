@@ -35,6 +35,35 @@ Stage 42.4-6 is accepted and Stage 42.4-6C is closed. The processor remains
 disconnected from generation, publication, recovery, CRUD, frontend, and
 Backup/Restore. No technical work is authorized.
 
+---
+
+## 2026-07-27 — Managed Media Journaled Publication Foundation Accepted
+
+date: 2026-07-27
+session_type: PROJECT_OS_BATCH_42_4_7C_RESULT_RECONCILIATION
+implementation_baseline: f4ac546e8930b37b1091f694b9660d2d3b639c91
+implementation_parent: f2aa8eafa6f2a4d650bc491aacee97c38e074dc9
+stage_42_4_7_status: COMPLETED_AND_ACCEPTED
+stage_42_4_7p_status: COMPLETED_AND_CLOSED
+stage_42_4_7c_status: COMPLETED_AND_CLOSED
+next_stage: 42.4-8 — Managed Media Catalog Lifecycle Integration Audit and Plan
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The accepted foundation uses journaled filesystem-first immutable publication:
+intent and staging are validated before immutable publication, descriptor
+activation is short and transactional, previous-valid descriptors/fingerprints/
+files are preserved, and explicit recovery is bounded to one operation or 256
+nonterminal operations. Recovery is idempotent and not startup-registered. The
+11 focused and 175 full Rust tests, checks, and exact-path review are
+`REPORTED_BY_CODEX`; synthetic timings are `MEASURED` only. Memory is not
+measurable, Windows reparse setup and platform durability remain limited, and
+production lifecycle/throughput/concurrency remain unknown. The foundation is
+inert and disconnected from catalog CRUD, generation, frontend, cleanup, and
+Backup/Restore. The operator observed 12 GitHub default-branch vulnerability
+alerts (4 high, 5 moderate, 3 low); no remediation occurred and triage remains
+in Batch 42.13. This documentation-only reconciliation closes the stage.
+
 ## 2026-07-26 — R3-R1 Bounded Instrumentation Partial Result Accepted
 
 date: 2026-07-26

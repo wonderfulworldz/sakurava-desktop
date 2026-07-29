@@ -20,6 +20,8 @@ last_recorded_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 baseline_label: Batch 42.4-9B Catalog Lifecycle Intent Integration
 application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
+project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
+project_os_reconciliation_parent: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -38,8 +40,8 @@ active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
 active_batch_phase: CATALOG_LIFECYCLE_INTENT_INTEGRATION
-current_stage: 42.4-9B-C — Catalog Lifecycle Intent Integration Result Reconciliation
-completed_current_stage: 42.4-9B-C — Catalog Lifecycle Intent Integration Result Reconciliation
+current_stage: 42.4-9B-C-R1 — Project OS Status and Baseline Consistency Correction
+completed_current_stage: 42.4-9B-C-R1 — Project OS Status and Baseline Consistency Correction
 current_stage_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
@@ -49,6 +51,8 @@ stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9b_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
 stage_42_4_9b_architecture: CATALOG_LIFECYCLE_INTEGRATION_INERT
+stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
+stage_42_4_9b_c_r1_reason: IMPLEMENTATION_ACCEPTANCE_AND_ADMINISTRATIVE_CLOSURE_STATUS_SEPARATED
 stage_42_4_9a_architecture: ADDITIVE_LIFECYCLE_SCHEMA_WITH_RETAINED_IMMUTABLE_PUBLICATION
 stage_42_4_9a_lifecycle_tables: managed_media_item_generations; managed_media_lifecycle_intents; managed_media_lifecycle_targets
 stage_42_4_9a_operations_responsibility: PUBLICATION_JOURNAL_ONLY

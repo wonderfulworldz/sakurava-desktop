@@ -9,7 +9,7 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+last_recorded_git_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
 last_recorded_git_baseline_status: CATALOG_LIFECYCLE_INTENT_INTEGRATION_RECONCILED
 application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
@@ -55,6 +55,7 @@ batch_42_4_schema_reuse_status: SCHEMA_REUSE_NOT_PREAPPROVED
 batch_42_4_frontend_protection: VISIBLE_FRONTEND_INTERFACE_AND_EXPERIENCE_PRESERVED
 batch_42_4_stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_9b_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 batch_42_4_stage_42_4_9b_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
 batch_42_4_next_stage: 42.4-9C — Bounded Executor and Recovery Integration
@@ -63,7 +64,9 @@ batch_42_4_next_stage_mode: IMPLEMENT
 
 ## Current Authority — 2026-07-29
 
-Stage `42.4-9B` and closure Stage `42.4-9B-C` are completed and accepted.
+Implementation Stage `42.4-9B` is completed and accepted; administrative Stage
+`42.4-9B-C` is completed and closed; correction Stage `42.4-9B-C-R1` is
+completed and closed.
 Catalog CRUD and final-state Import planning create lifecycle intents
 atomically, use stable internal owner identities and opaque repeated-slot
 tokens, and retire removed work without deleting immutable files. Import
@@ -76,6 +79,9 @@ population, runtime behavior, executor policy, existing-catalog backfill, and
 Backup/Restore integration remain unknown or separately gated. The next stage,
 `42.4-9C — Bounded Executor and Recovery Integration`, is
 `READY_PENDING_SEPARATE_APPROVAL`; no technical permission is granted.
+The recorded Project OS reconciliation baseline is
+`35196dbec9753e552f19f09fc5433e8f3831b1c9`; the application/source baseline
+remains `ce44fc4e197c6f177c8922238d0a2bfb1b10db3d`.
 
 Stages `42.4-8A` and `42.4-8B` are `COMPLETED_AND_ACCEPTED`; administrative
 Stage `42.4-8C` is `COMPLETED_AND_CLOSED`; Stage `42.4-8D` is
@@ -1323,8 +1329,10 @@ active. Production row population, runtime foreign-key enforcement, runtime
 behavior, numeric worker/retry policy, existing-catalog provisioning, and
 package/Backup integration remain unknown or separately gated.
 
-Stage `42.4-9B — Catalog Mutation and Import Intent Integration` and closure
-Stage `42.4-9B-C` are `COMPLETED_AND_CLOSED` with verdict
+Implementation Stage `42.4-9B — Catalog Mutation and Import Intent Integration`
+is `COMPLETED_AND_ACCEPTED`; administrative Stage `42.4-9B-C` is
+`COMPLETED_AND_CLOSED`; correction Stage `42.4-9B-C-R1` is
+`COMPLETED_AND_CLOSED`, with verdict
 `MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED` at baseline
 `ce44fc4e197c6f177c8922238d0a2bfb1b10db3d` (parent
 `e1bf3506670cccf73ea09dea94b586831d8fcb9d`). Catalog CRUD and final-state

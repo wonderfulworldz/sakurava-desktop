@@ -6,13 +6,18 @@ batch: 42.4
 title: Managed Mini Media Foundation
 status: ACTIVE_INTEGRATION_RECONCILED
 phase: CATALOG_LIFECYCLE_INTENT_INTEGRATION
-current_administrative_stage: 42.4-9B-C — Catalog Lifecycle Intent Integration Result Reconciliation
+current_administrative_stage: 42.4-9B-C-R1 — Project OS Status and Baseline Consistency Correction
 current_stage_status: COMPLETED_AND_CLOSED
+stage_42_4_9b_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9b_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9b_c_r1_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
 implementation_parent: e1bf3506670cccf73ea09dea94b586831d8fcb9d
+application_source_baseline: ce44fc4e197c6f177c8922238d0a2bfb1b10db3d
+prior_project_os_reconciliation_baseline: 35196dbec9753e552f19f09fc5433e8f3831b1c9
 implementation_verdict: MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED
 foundation_state: CATALOG_LIFECYCLE_INTEGRATION_INERT
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
@@ -65,7 +70,9 @@ security_remediation_allowed: false
 
 ## Closed Stage 42.4-9B Integration Reconciliation
 
-Stage `42.4-9B` and closure Stage `42.4-9B-C` are `COMPLETED_AND_CLOSED`.
+Implementation Stage `42.4-9B` is `COMPLETED_AND_ACCEPTED`; administrative
+Stage `42.4-9B-C` is `COMPLETED_AND_CLOSED`; correction Stage
+`42.4-9B-C-R1` is `COMPLETED_AND_CLOSED`.
 The accepted verdict is `MANAGED_MEDIA_CATALOG_LIFECYCLE_INTENT_INTEGRATION_ACCEPTED`.
 The implementation baseline is `ce44fc4e197c6f177c8922238d0a2bfb1b10db3d`,
 parent `e1bf3506670cccf73ea09dea94b586831d8fcb9d`.
