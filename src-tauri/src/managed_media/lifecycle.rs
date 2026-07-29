@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
@@ -246,6 +246,145 @@ pub struct LifecycleTargetRecord {
     pub result_variant_id: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutorTimestamp {
+    encoded: String,
+    millis: u64,
+}
+
+impl ExecutorTimestamp {
+    pub fn from_millis(millis: u64) -> Result<Self, LifecycleError> {
+        if millis > i64::MAX as u64 {
+            return Err(LifecycleError::InvalidTimestamp);
+        }
+        Ok(Self {
+            encoded: millis.to_string(),
+            millis,
+        })
+    }
+
+    pub fn parse(value: &str) -> Result<Self, LifecycleError> {
+        if value.is_empty()
+            || !value.bytes().all(|byte| byte.is_ascii_digit())
+            || (value.len() > 1 && value.starts_with('0'))
+        {
+            return Err(LifecycleError::InvalidTimestamp);
+        }
+        let millis = value
+            .parse::<u64>()
+            .map_err(|_| LifecycleError::InvalidTimestamp)?;
+        let timestamp = Self::from_millis(millis)?;
+        if timestamp.encoded != value {
+            return Err(LifecycleError::InvalidTimestamp);
+        }
+        Ok(timestamp)
+    }
+
+    pub fn checked_add_millis(&self, duration_millis: u64) -> Result<Self, LifecycleError> {
+        self.millis
+            .checked_add(duration_millis)
+            .ok_or(LifecycleError::InvalidTimestamp)
+            .and_then(Self::from_millis)
+    }
+
+    pub const fn as_millis(&self) -> u64 {
+        self.millis
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.encoded
+    }
+}
+
+impl PartialOrd for ExecutorTimestamp {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ExecutorTimestamp {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.millis.cmp(&other.millis)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkClaimKind {
+    Initial,
+    ReclaimExpired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LifecycleWorkCandidate {
+    pub intent_id: LifecycleIntentIdentity,
+    pub item_id: ValidatedSha256,
+    pub revision: ItemRevision,
+    pub action: LifecycleAction,
+    pub state: LifecycleState,
+    pub effective_due_at: ExecutorTimestamp,
+    pub claim_kind: WorkClaimKind,
+    previous_claim_token: Option<LifecycleClaimToken>,
+    previous_claim_expires_at: Option<ExecutorTimestamp>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaimedIntentSnapshot {
+    pub intent_id: LifecycleIntentIdentity,
+    pub item_id: ValidatedSha256,
+    pub revision: ItemRevision,
+    pub action: LifecycleAction,
+    pub claim_token: LifecycleClaimToken,
+    pub claim_expires_at: ExecutorTimestamp,
+    pub attempt_count: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClaimLossReason {
+    LostRace,
+    Cancelled,
+    StaleRevision,
+    Superseded,
+    Retired,
+    Expired,
+    InvalidState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClaimAttemptOutcome {
+    Claimed(ClaimedIntentSnapshot),
+    NotClaimed(ClaimLossReason),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClaimOwnershipStatus {
+    Owned,
+    LostOwnership,
+    Cancelled,
+    StaleRevision,
+    Superseded,
+    Retired,
+    Expired,
+    InvalidState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClaimRenewalOutcome {
+    Renewed,
+    LostOwnership,
+    Cancelled,
+    StaleRevision,
+    Superseded,
+    Retired,
+    Expired,
+    InvalidState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PersistedWriteOutcome {
+    Applied,
+    AlreadyApplied,
+}
+
 #[derive(Debug, Clone)]
 pub struct TargetOutcome {
     pub state: TargetState,
@@ -273,10 +412,17 @@ pub enum LifecycleError {
     StaleRevision,
     InvalidTransition,
     ClaimUnavailable,
+    LostOwnership,
+    Cancelled,
+    Superseded,
+    Retired,
+    ClaimExpired,
+    InvalidPolicy,
     InvalidTimestamp,
     InvalidFailure,
     InvalidPublicationLink,
     FinalizationNotReady,
+    StructuralConflict,
     UnknownStoredValue,
 }
 
@@ -293,12 +439,21 @@ impl fmt::Display for LifecycleError {
             Self::StaleRevision => "The managed-media lifecycle revision is stale.",
             Self::InvalidTransition => "The managed-media lifecycle transition is invalid.",
             Self::ClaimUnavailable => "The managed-media lifecycle intent cannot be claimed.",
+            Self::LostOwnership => "The managed-media lifecycle claim is no longer owned.",
+            Self::Cancelled => "The managed-media lifecycle intent was cancelled.",
+            Self::Superseded => "The managed-media lifecycle intent was superseded.",
+            Self::Retired => "The managed-media item was retired.",
+            Self::ClaimExpired => "The managed-media lifecycle claim expired.",
+            Self::InvalidPolicy => "The managed-media executor policy is invalid.",
             Self::InvalidTimestamp => "The managed-media lifecycle timestamp is invalid.",
             Self::InvalidFailure => "The managed-media lifecycle failure result is invalid.",
             Self::InvalidPublicationLink => {
                 "The managed-media lifecycle publication evidence is invalid."
             }
             Self::FinalizationNotReady => "The managed-media lifecycle generation is not ready.",
+            Self::StructuralConflict => {
+                "The managed-media lifecycle state conflicts with the requested result."
+            }
             Self::UnknownStoredValue => {
                 "The managed-media lifecycle row contains an unknown value."
             }
@@ -543,151 +698,302 @@ pub fn add_target(
     Ok(())
 }
 
+pub fn discover_lifecycle_work(
+    connection: &Connection,
+    now: &ExecutorTimestamp,
+    limit: u32,
+) -> Result<Vec<LifecycleWorkCandidate>, LifecycleError> {
+    if limit == 0 {
+        return Err(LifecycleError::InvalidPolicy);
+    }
+    schema::validate_schema(connection).map_err(|_| LifecycleError::SchemaConflict)?;
+    let now_millis =
+        i64::try_from(now.as_millis()).map_err(|_| LifecycleError::InvalidTimestamp)?;
+    let mut statement = connection.prepare(
+        "SELECT i.intent_id, i.managed_item_id, i.desired_revision, i.lifecycle_action,
+                i.lifecycle_state,
+                CASE
+                  WHEN i.lifecycle_state = 'retry_wait' THEN i.retry_eligible_at
+                  WHEN i.lifecycle_state = 'claimed' THEN i.claim_expires_at
+                  ELSE i.created_at
+                END AS effective_due_at,
+                i.created_at, i.claim_token, i.claim_expires_at
+         FROM managed_media_lifecycle_intents i
+         JOIN managed_media_items item ON item.item_id = i.managed_item_id
+         JOIN managed_media_item_generations generation
+           ON generation.managed_item_id = i.managed_item_id
+         WHERE (
+             i.lifecycle_state IN ('queued', 'recovery_required')
+             OR (
+               i.lifecycle_state = 'retry_wait'
+               AND i.retry_eligible_at IS NOT NULL
+               AND CAST(i.retry_eligible_at AS INTEGER) <= ?1
+             )
+             OR (
+               i.lifecycle_state = 'claimed'
+               AND i.claim_expires_at IS NOT NULL
+               AND CAST(i.claim_expires_at AS INTEGER) <= ?1
+             )
+           )
+           AND i.cancellation_requested = 0
+           AND i.superseded_by_intent_id IS NULL
+           AND item.lifecycle_state IN ('active', 'pending')
+           AND i.desired_revision = generation.desired_revision
+           AND NOT EXISTS (
+             SELECT 1
+             FROM managed_media_lifecycle_intents active_claim
+             WHERE active_claim.managed_item_id = i.managed_item_id
+               AND active_claim.intent_id <> i.intent_id
+               AND active_claim.lifecycle_state = 'claimed'
+               AND active_claim.claim_expires_at IS NOT NULL
+               AND CAST(active_claim.claim_expires_at AS INTEGER) > ?1
+           )
+         ORDER BY CAST(effective_due_at AS INTEGER), CAST(i.created_at AS INTEGER), i.intent_id
+         LIMIT ?2",
+    )?;
+    let rows = statement.query_map((now_millis, i64::from(limit)), |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, String>(4)?,
+            row.get::<_, String>(5)?,
+            row.get::<_, String>(6)?,
+            row.get::<_, Option<String>>(7)?,
+            row.get::<_, Option<String>>(8)?,
+        ))
+    })?;
+    rows.map(|row| parse_work_candidate(row?)).collect()
+}
+
 pub fn claim_intent(
     connection: &Connection,
     intent_id: &LifecycleIntentIdentity,
     claim_token: &LifecycleClaimToken,
-    now: &str,
-    expires_at: &str,
-) -> Result<(), LifecycleError> {
-    require_timestamp(now)?;
-    require_timestamp(expires_at)?;
+    now: &ExecutorTimestamp,
+    expires_at: &ExecutorTimestamp,
+) -> Result<ClaimAttemptOutcome, LifecycleError> {
+    let candidate = match load_claim_candidate(connection, intent_id, now)? {
+        Some(candidate) => candidate,
+        None => {
+            let context = load_claim_context(connection, intent_id.as_str())?;
+            return Ok(ClaimAttemptOutcome::NotClaimed(claim_loss_reason(
+                &context, now,
+            )));
+        }
+    };
+    claim_discovered_intent(connection, &candidate, claim_token, now, expires_at)
+}
+
+pub fn claim_discovered_intent(
+    connection: &Connection,
+    candidate: &LifecycleWorkCandidate,
+    claim_token: &LifecycleClaimToken,
+    now: &ExecutorTimestamp,
+    expires_at: &ExecutorTimestamp,
+) -> Result<ClaimAttemptOutcome, LifecycleError> {
     if expires_at <= now {
         return Err(LifecycleError::InvalidTimestamp);
     }
     let transaction = connection.unchecked_transaction()?;
-    let record = load_intent_in_transaction(&transaction, intent_id.as_str())?;
-    if record.cancellation_requested
-        || !matches!(
-            record.state,
-            LifecycleState::Queued | LifecycleState::RetryWait | LifecycleState::RecoveryRequired
-        )
-    {
-        return Err(LifecycleError::ClaimUnavailable);
+    let context = load_claim_context(&transaction, candidate.intent_id.as_str())?;
+    if let Some(reason) = claim_candidate_rejection(&context, candidate, now)? {
+        transaction.commit()?;
+        return Ok(ClaimAttemptOutcome::NotClaimed(reason));
     }
-    if record.state == LifecycleState::RetryWait {
-        let eligible: Option<String> = transaction.query_row(
-            "SELECT retry_eligible_at FROM managed_media_lifecycle_intents WHERE intent_id = ?1",
-            [intent_id.as_str()],
-            |row| row.get(0),
-        )?;
-        if eligible.as_deref().is_none_or(|eligible| eligible > now) {
-            return Err(LifecycleError::ClaimUnavailable);
-        }
-    }
-    let updated = transaction.execute(
-        "UPDATE managed_media_lifecycle_intents
-         SET lifecycle_state = 'claimed', claim_token = ?2, claim_expires_at = ?3,
-             retry_eligible_at = NULL, attempt_count = attempt_count + 1,
-             failure_class = NULL, failure_summary = NULL, updated_at = ?4
-         WHERE intent_id = ?1 AND lifecycle_state = ?5",
+    let active_same_item: bool = transaction.query_row(
+        "SELECT EXISTS(
+           SELECT 1 FROM managed_media_lifecycle_intents
+           WHERE managed_item_id = ?1 AND intent_id <> ?2
+             AND lifecycle_state = 'claimed' AND claim_expires_at IS NOT NULL
+             AND CAST(claim_expires_at AS INTEGER) > ?3
+         )",
         (
-            intent_id.as_str(),
-            claim_token.as_str(),
-            expires_at,
-            now,
-            record.state.as_str(),
+            candidate.item_id.as_str(),
+            candidate.intent_id.as_str(),
+            i64::try_from(now.as_millis()).map_err(|_| LifecycleError::InvalidTimestamp)?,
         ),
+        |row| row.get(0),
     )?;
-    if updated != 1 {
-        return Err(LifecycleError::ClaimUnavailable);
+    if active_same_item {
+        transaction.commit()?;
+        return Ok(ClaimAttemptOutcome::NotClaimed(ClaimLossReason::LostRace));
     }
+    let updated = match candidate.claim_kind {
+        WorkClaimKind::Initial => transaction.execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'claimed', claim_token = ?2, claim_expires_at = ?3,
+                 retry_eligible_at = NULL, attempt_count = attempt_count + 1,
+                 failure_class = NULL, failure_summary = NULL, updated_at = ?4
+             WHERE intent_id = ?1 AND lifecycle_state = ?5
+               AND cancellation_requested = 0 AND superseded_by_intent_id IS NULL",
+            (
+                candidate.intent_id.as_str(),
+                claim_token.as_str(),
+                expires_at.as_str(),
+                now.as_str(),
+                candidate.state.as_str(),
+            ),
+        )?,
+        WorkClaimKind::ReclaimExpired => transaction.execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET claim_token = ?2, claim_expires_at = ?3,
+                 attempt_count = attempt_count + 1, failure_class = NULL,
+                 failure_summary = NULL, updated_at = ?4
+             WHERE intent_id = ?1 AND lifecycle_state = 'claimed'
+               AND claim_token = ?5 AND claim_expires_at = ?6
+               AND cancellation_requested = 0 AND superseded_by_intent_id IS NULL",
+            (
+                candidate.intent_id.as_str(),
+                claim_token.as_str(),
+                expires_at.as_str(),
+                now.as_str(),
+                candidate
+                    .previous_claim_token
+                    .as_ref()
+                    .map(LifecycleClaimToken::as_str),
+                candidate
+                    .previous_claim_expires_at
+                    .as_ref()
+                    .map(ExecutorTimestamp::as_str),
+            ),
+        )?,
+    };
+    if updated != 1 {
+        let latest = load_claim_context(&transaction, candidate.intent_id.as_str())?;
+        let reason = claim_loss_reason(&latest, now);
+        transaction.commit()?;
+        return Ok(ClaimAttemptOutcome::NotClaimed(reason));
+    }
+    let attempt_count = context
+        .attempt_count
+        .checked_add(1)
+        .ok_or(LifecycleError::StructuralConflict)?;
     transaction.commit()?;
-    Ok(())
+    Ok(ClaimAttemptOutcome::Claimed(ClaimedIntentSnapshot {
+        intent_id: candidate.intent_id.clone(),
+        item_id: candidate.item_id.clone(),
+        revision: candidate.revision,
+        action: candidate.action,
+        claim_token: claim_token.clone(),
+        claim_expires_at: expires_at.clone(),
+        attempt_count,
+    }))
 }
 
 pub fn reclaim_expired_intent(
     connection: &Connection,
     intent_id: &LifecycleIntentIdentity,
     claim_token: &LifecycleClaimToken,
-    now: &str,
-    expires_at: &str,
-) -> Result<(), LifecycleError> {
-    require_timestamp(now)?;
-    require_timestamp(expires_at)?;
-    if expires_at <= now {
+    now: &ExecutorTimestamp,
+    expires_at: &ExecutorTimestamp,
+) -> Result<ClaimAttemptOutcome, LifecycleError> {
+    let candidate = match load_claim_candidate(connection, intent_id, now)? {
+        Some(candidate) if candidate.claim_kind == WorkClaimKind::ReclaimExpired => candidate,
+        _ => {
+            let context = load_claim_context(connection, intent_id.as_str())?;
+            return Ok(ClaimAttemptOutcome::NotClaimed(claim_loss_reason(
+                &context, now,
+            )));
+        }
+    };
+    claim_discovered_intent(connection, &candidate, claim_token, now, expires_at)
+}
+
+pub fn renew_claim(
+    connection: &Connection,
+    claimed: &mut ClaimedIntentSnapshot,
+    now: &ExecutorTimestamp,
+    new_expires_at: &ExecutorTimestamp,
+) -> Result<ClaimRenewalOutcome, LifecycleError> {
+    if new_expires_at <= now || new_expires_at <= &claimed.claim_expires_at {
         return Err(LifecycleError::InvalidTimestamp);
     }
     let transaction = connection.unchecked_transaction()?;
-    let (state, current_expiry, cancellation_requested): (String, Option<String>, bool) =
-        transaction
-            .query_row(
-                "SELECT lifecycle_state, claim_expires_at, cancellation_requested
-                 FROM managed_media_lifecycle_intents WHERE intent_id = ?1",
-                [intent_id.as_str()],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .optional()?
-            .ok_or(LifecycleError::IntentNotFound)?;
-    if state != LifecycleState::Claimed.as_str()
-        || cancellation_requested
-        || current_expiry.as_deref().is_none_or(|expiry| expiry > now)
-    {
-        return Err(LifecycleError::ClaimUnavailable);
+    let status = validate_claim_ownership_in_connection(
+        &transaction,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )?;
+    if status != ClaimOwnershipStatus::Owned {
+        transaction.commit()?;
+        return Ok(renewal_outcome(status));
     }
     let updated = transaction.execute(
         "UPDATE managed_media_lifecycle_intents
-         SET claim_token = ?2, claim_expires_at = ?3, attempt_count = attempt_count + 1,
-             failure_class = NULL, failure_summary = NULL, updated_at = ?4
-         WHERE intent_id = ?1 AND lifecycle_state = 'claimed' AND claim_expires_at = ?5",
+         SET claim_expires_at = ?2, updated_at = ?3
+         WHERE intent_id = ?1 AND lifecycle_state = 'claimed'
+           AND claim_token = ?4 AND claim_expires_at = ?5",
         (
-            intent_id.as_str(),
-            claim_token.as_str(),
-            expires_at,
-            now,
-            current_expiry.as_deref(),
+            claimed.intent_id.as_str(),
+            new_expires_at.as_str(),
+            now.as_str(),
+            claimed.claim_token.as_str(),
+            claimed.claim_expires_at.as_str(),
         ),
     )?;
     if updated != 1 {
-        return Err(LifecycleError::ClaimUnavailable);
+        transaction.commit()?;
+        return Ok(ClaimRenewalOutcome::LostOwnership);
     }
     transaction.commit()?;
-    Ok(())
+    claimed.claim_expires_at = new_expires_at.clone();
+    Ok(ClaimRenewalOutcome::Renewed)
 }
 
 pub fn release_claim_for_retry(
     connection: &Connection,
-    intent_id: &LifecycleIntentIdentity,
-    claim_token: &LifecycleClaimToken,
-    retry_eligible_at: &str,
+    claimed: &ClaimedIntentSnapshot,
+    retry_eligible_at: &ExecutorTimestamp,
     summary: &str,
-    now: &str,
+    now: &ExecutorTimestamp,
 ) -> Result<(), LifecycleError> {
-    require_timestamp(retry_eligible_at)?;
-    require_timestamp(now)?;
     require_summary(summary)?;
-    let updated = connection.execute(
+    let transaction = connection.unchecked_transaction()?;
+    require_owned(validate_claim_ownership_in_connection(
+        &transaction,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )?)?;
+    let updated = transaction.execute(
         "UPDATE managed_media_lifecycle_intents
          SET lifecycle_state = 'retry_wait', claim_token = NULL, claim_expires_at = NULL,
              retry_eligible_at = ?3, failure_class = 'retryable',
              failure_summary = ?4, updated_at = ?5
          WHERE intent_id = ?1 AND lifecycle_state = 'claimed' AND claim_token = ?2",
         (
-            intent_id.as_str(),
-            claim_token.as_str(),
-            retry_eligible_at,
+            claimed.intent_id.as_str(),
+            claimed.claim_token.as_str(),
+            retry_eligible_at.as_str(),
             summary,
-            now,
+            now.as_str(),
         ),
     )?;
     if updated != 1 {
-        return Err(LifecycleError::InvalidTransition);
+        return Err(LifecycleError::LostOwnership);
     }
+    transaction.commit()?;
     Ok(())
 }
 
 pub fn request_cancellation(
     connection: &Connection,
     intent_id: &LifecycleIntentIdentity,
-    now: &str,
+    now: &ExecutorTimestamp,
 ) -> Result<(), LifecycleError> {
-    require_timestamp(now)?;
     let updated = connection.execute(
         "UPDATE managed_media_lifecycle_intents
          SET cancellation_requested = 1, updated_at = ?2
          WHERE intent_id = ?1
            AND lifecycle_state IN ('queued', 'claimed', 'retry_wait', 'recovery_required')",
-        (intent_id.as_str(), now),
+        (intent_id.as_str(), now.as_str()),
     )?;
     if updated != 1 {
         return Err(LifecycleError::InvalidTransition);
@@ -702,9 +1008,8 @@ pub fn transition_intent(
     next: LifecycleState,
     failure_class: Option<FailureClass>,
     failure_summary: Option<&str>,
-    now: &str,
+    now: &ExecutorTimestamp,
 ) -> Result<(), LifecycleError> {
-    require_timestamp(now)?;
     if let Some(summary) = failure_summary {
         require_summary(summary)?;
     }
@@ -745,7 +1050,7 @@ pub fn transition_intent(
     {
         return Err(LifecycleError::ClaimUnavailable);
     }
-    let finished_at = next.is_terminal().then_some(now);
+    let finished_at = next.is_terminal().then_some(now.as_str());
     let updated = transaction.execute(
         "UPDATE managed_media_lifecycle_intents
          SET lifecycle_state = ?2, claim_token = NULL, claim_expires_at = NULL,
@@ -757,7 +1062,7 @@ pub fn transition_intent(
             next.as_str(),
             failure_class.map(FailureClass::as_str),
             failure_summary,
-            now,
+            now.as_str(),
             finished_at,
             record.state.as_str()
         ],
@@ -771,28 +1076,48 @@ pub fn transition_intent(
 
 pub fn record_desired_fingerprint(
     connection: &Connection,
-    intent_id: &LifecycleIntentIdentity,
+    claimed: &ClaimedIntentSnapshot,
     fingerprint: &ValidatedSha256,
-    now: &str,
-) -> Result<(), LifecycleError> {
-    require_timestamp(now)?;
+    now: &ExecutorTimestamp,
+) -> Result<PersistedWriteOutcome, LifecycleError> {
     let transaction = connection.unchecked_transaction()?;
-    let record = load_intent_in_transaction(&transaction, intent_id.as_str())?;
-    if record.state.is_terminal() {
-        return Err(LifecycleError::InvalidTransition);
-    }
-    let desired_revision: i64 = transaction.query_row(
-        "SELECT desired_revision FROM managed_media_item_generations WHERE managed_item_id = ?1",
-        [&record.item_id],
-        |row| row.get(0),
+    require_owned(validate_claim_ownership_in_connection(
+        &transaction,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )?)?;
+    let (stored_fingerprint, pending_fingerprint): (Option<String>, Option<String>) = transaction
+        .query_row(
+        "SELECT intent.desired_source_fingerprint, item.pending_source_fingerprint
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_items item ON item.item_id = intent.managed_item_id
+             WHERE intent.intent_id = ?1",
+        [claimed.intent_id.as_str()],
+        |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
-    if desired_revision != record.revision.as_i64() {
-        return Err(LifecycleError::StaleRevision);
+    if stored_fingerprint.as_deref() == Some(fingerprint.as_str())
+        && pending_fingerprint.as_deref() == Some(fingerprint.as_str())
+    {
+        transaction.commit()?;
+        return Ok(PersistedWriteOutcome::AlreadyApplied);
     }
-    transaction.execute(
+    if stored_fingerprint.is_some() {
+        return Err(LifecycleError::StructuralConflict);
+    }
+    let updated_intent = transaction.execute(
         "UPDATE managed_media_lifecycle_intents
-         SET desired_source_fingerprint = ?2, updated_at = ?3 WHERE intent_id = ?1",
-        (intent_id.as_str(), fingerprint.as_str(), now),
+         SET desired_source_fingerprint = ?2, updated_at = ?3
+         WHERE intent_id = ?1 AND lifecycle_state = 'claimed' AND claim_token = ?4
+           AND desired_source_fingerprint IS NULL",
+        (
+            claimed.intent_id.as_str(),
+            fingerprint.as_str(),
+            now.as_str(),
+            claimed.claim_token.as_str(),
+        ),
     )?;
     let updated = transaction.execute(
         "UPDATE managed_media_items
@@ -801,40 +1126,99 @@ pub fn record_desired_fingerprint(
            SELECT expected_locator_hash FROM managed_media_lifecycle_intents WHERE intent_id = ?4
          )",
         (
-            &record.item_id,
+            claimed.item_id.as_str(),
             fingerprint.as_str(),
-            now,
-            intent_id.as_str(),
+            now.as_str(),
+            claimed.intent_id.as_str(),
         ),
     )?;
-    if updated != 1 {
+    if updated_intent != 1 || updated != 1 {
         return Err(LifecycleError::IdentityConflict);
     }
     transaction.commit()?;
-    Ok(())
+    Ok(PersistedWriteOutcome::Applied)
 }
 
 pub fn record_target_outcome(
     connection: &Connection,
+    claimed: &ClaimedIntentSnapshot,
     target_id: &LifecycleTargetIdentity,
     outcome: &TargetOutcome,
-    now: &str,
-) -> Result<(), LifecycleError> {
-    require_timestamp(now)?;
+    now: &ExecutorTimestamp,
+) -> Result<PersistedWriteOutcome, LifecycleError> {
     if let Some(summary) = outcome.failure_summary.as_deref() {
         require_summary(summary)?;
     }
     let transaction = connection.unchecked_transaction()?;
+    require_owned(validate_claim_ownership_in_connection(
+        &transaction,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )?)?;
     let target = load_target_in_transaction(&transaction, target_id.as_str())?;
+    if target.intent_id != claimed.intent_id.as_str()
+        || target.item_id != claimed.item_id.as_str()
+        || target.revision != claimed.revision
+    {
+        return Err(LifecycleError::IdentityConflict);
+    }
+    let stored_outcome: (
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = transaction.query_row(
+        "SELECT target_state, publication_operation_id, result_variant_id,
+                failure_class, failure_summary
+         FROM managed_media_lifecycle_targets WHERE target_id = ?1",
+        [target_id.as_str()],
+        |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+            ))
+        },
+    )?;
+    let requested_outcome = (
+        outcome.state.as_str().to_string(),
+        outcome.publication_operation_id.clone(),
+        outcome
+            .result_variant_id
+            .as_ref()
+            .map(|value| value.as_str().to_string()),
+        outcome
+            .failure_class
+            .map(FailureClass::as_str)
+            .map(str::to_string),
+        outcome.failure_summary.clone(),
+    );
+    if stored_outcome == requested_outcome {
+        transaction.commit()?;
+        return Ok(PersistedWriteOutcome::AlreadyApplied);
+    }
+    if target.state == outcome.state || target.state.is_terminal() {
+        return Err(LifecycleError::StructuralConflict);
+    }
     if !target_transition_allowed(target.state, outcome.state) {
         return Err(LifecycleError::InvalidTransition);
     }
     validate_target_outcome(&transaction, &target, outcome)?;
-    transaction.execute(
+    let updated = transaction.execute(
         "UPDATE managed_media_lifecycle_targets
          SET target_state = ?2, publication_operation_id = ?3, result_variant_id = ?4,
              failure_class = ?5, failure_summary = ?6, updated_at = ?7
-         WHERE target_id = ?1 AND target_state = ?8",
+         WHERE target_id = ?1 AND target_state = ?8
+           AND EXISTS (
+             SELECT 1 FROM managed_media_lifecycle_intents
+             WHERE intent_id = ?9 AND lifecycle_state = 'claimed' AND claim_token = ?10
+           )",
         params![
             target_id.as_str(),
             outcome.state.as_str(),
@@ -845,12 +1229,17 @@ pub fn record_target_outcome(
                 .map(ValidatedSha256::as_str),
             outcome.failure_class.map(FailureClass::as_str),
             outcome.failure_summary.as_deref(),
-            now,
-            target.state.as_str()
+            now.as_str(),
+            target.state.as_str(),
+            claimed.intent_id.as_str(),
+            claimed.claim_token.as_str()
         ],
     )?;
+    if updated != 1 {
+        return Err(LifecycleError::LostOwnership);
+    }
     transaction.commit()?;
-    Ok(())
+    Ok(PersistedWriteOutcome::Applied)
 }
 
 pub fn finalize_generation(
@@ -859,9 +1248,8 @@ pub fn finalize_generation(
     revision: ItemRevision,
     intent_id: &LifecycleIntentIdentity,
     claim_token: &LifecycleClaimToken,
-    now: &str,
+    now: &ExecutorTimestamp,
 ) -> Result<FinalizationOutcome, LifecycleError> {
-    require_timestamp(now)?;
     let transaction = connection.unchecked_transaction()?;
     let intent = load_intent_in_transaction(&transaction, intent_id.as_str())?;
     if intent.item_id != item_id.as_str() || intent.revision != revision {
@@ -877,6 +1265,14 @@ pub fn finalize_generation(
         transaction.commit()?;
         return Ok(FinalizationOutcome::AlreadyFinalized);
     }
+    require_owned(validate_claim_ownership_in_connection(
+        &transaction,
+        intent_id,
+        item_id,
+        revision,
+        claim_token,
+        now,
+    )?)?;
     if desired_revision != intent.revision.as_i64()
         || intent.state != LifecycleState::Claimed
         || intent.action == LifecycleAction::Retire
@@ -935,13 +1331,13 @@ pub fn finalize_generation(
          SET current_source_fingerprint = ?2, pending_source_fingerprint = NULL,
              lifecycle_state = 'active', updated_at = ?3
          WHERE item_id = ?1 AND pending_source_fingerprint = ?2",
-        (&intent.item_id, desired_fingerprint, now),
+        (&intent.item_id, desired_fingerprint, now.as_str()),
     )?;
     let updated_generation = transaction.execute(
         "UPDATE managed_media_item_generations
          SET current_revision = desired_revision, updated_at = ?2
          WHERE managed_item_id = ?1 AND desired_revision = ?3",
-        (&intent.item_id, now, intent.revision.as_i64()),
+        (&intent.item_id, now.as_str(), intent.revision.as_i64()),
     )?;
     let updated_intent = transaction.execute(
         "UPDATE managed_media_lifecycle_intents
@@ -949,7 +1345,7 @@ pub fn finalize_generation(
              retry_eligible_at = NULL, failure_class = NULL, failure_summary = NULL,
              updated_at = ?3, finished_at = ?3
          WHERE intent_id = ?1 AND lifecycle_state = 'claimed' AND claim_token = ?2",
-        (intent_id.as_str(), claim_token.as_str(), now),
+        (intent_id.as_str(), claim_token.as_str(), now.as_str()),
     )?;
     if updated_item != 1 || updated_generation != 1 || updated_intent != 1 {
         return Err(LifecycleError::FinalizationNotReady);
@@ -964,9 +1360,8 @@ pub fn complete_retirement(
     revision: ItemRevision,
     intent_id: &LifecycleIntentIdentity,
     claim_token: &LifecycleClaimToken,
-    now: &str,
+    now: &ExecutorTimestamp,
 ) -> Result<FinalizationOutcome, LifecycleError> {
-    require_timestamp(now)?;
     let transaction = connection.unchecked_transaction()?;
     let intent = load_intent_in_transaction(&transaction, intent_id.as_str())?;
     if intent.item_id != item_id.as_str()
@@ -985,6 +1380,14 @@ pub fn complete_retirement(
         transaction.commit()?;
         return Ok(FinalizationOutcome::AlreadyFinalized);
     }
+    require_owned(validate_claim_ownership_in_connection(
+        &transaction,
+        intent_id,
+        item_id,
+        revision,
+        claim_token,
+        now,
+    )?)?;
     let target_count: i64 = transaction.query_row(
         "SELECT COUNT(*) FROM managed_media_lifecycle_targets WHERE intent_id = ?1",
         [intent_id.as_str()],
@@ -1006,13 +1409,13 @@ pub fn complete_retirement(
         "UPDATE managed_media_items
          SET pending_source_fingerprint = NULL, lifecycle_state = 'retired', updated_at = ?2
          WHERE item_id = ?1 AND lifecycle_state IN ('active', 'pending')",
-        (item_id.as_str(), now),
+        (item_id.as_str(), now.as_str()),
     )?;
     let updated_generation = transaction.execute(
         "UPDATE managed_media_item_generations
          SET current_revision = desired_revision, updated_at = ?2
          WHERE managed_item_id = ?1 AND desired_revision = ?3",
-        (item_id.as_str(), now, revision.as_i64()),
+        (item_id.as_str(), now.as_str(), revision.as_i64()),
     )?;
     let updated_intent = transaction.execute(
         "UPDATE managed_media_lifecycle_intents
@@ -1020,7 +1423,7 @@ pub fn complete_retirement(
              retry_eligible_at = NULL, failure_class = NULL, failure_summary = NULL,
              updated_at = ?3, finished_at = ?3
          WHERE intent_id = ?1 AND lifecycle_state = 'claimed' AND claim_token = ?2",
-        (intent_id.as_str(), claim_token.as_str(), now),
+        (intent_id.as_str(), claim_token.as_str(), now.as_str()),
     )?;
     if updated_item != 1 || updated_generation != 1 || updated_intent != 1 {
         return Err(LifecycleError::FinalizationNotReady);
@@ -1041,6 +1444,352 @@ pub fn load_target(
     target_id: &LifecycleTargetIdentity,
 ) -> Result<LifecycleTargetRecord, LifecycleError> {
     load_target_from_connection(connection, target_id.as_str())
+}
+
+pub fn validate_claim_ownership(
+    connection: &Connection,
+    claimed: &ClaimedIntentSnapshot,
+    now: &ExecutorTimestamp,
+) -> Result<ClaimOwnershipStatus, LifecycleError> {
+    validate_claim_ownership_in_connection(
+        connection,
+        &claimed.intent_id,
+        &claimed.item_id,
+        claimed.revision,
+        &claimed.claim_token,
+        now,
+    )
+}
+
+#[derive(Debug)]
+struct ClaimContext {
+    intent_id: LifecycleIntentIdentity,
+    item_id: ValidatedSha256,
+    revision: ItemRevision,
+    action: LifecycleAction,
+    state: LifecycleState,
+    attempt_count: u64,
+    cancellation_requested: bool,
+    superseded_by_intent_id: Option<String>,
+    retry_eligible_at: Option<ExecutorTimestamp>,
+    claim_token: Option<LifecycleClaimToken>,
+    claim_expires_at: Option<ExecutorTimestamp>,
+    created_at: ExecutorTimestamp,
+    item_state: String,
+    current_desired_revision: ItemRevision,
+}
+
+fn load_claim_context(
+    connection: &Connection,
+    intent_id: &str,
+) -> Result<ClaimContext, LifecycleError> {
+    let value = connection
+        .query_row(
+            "SELECT intent.intent_id, intent.managed_item_id, intent.desired_revision,
+                    intent.lifecycle_action, intent.lifecycle_state, intent.attempt_count,
+                    intent.cancellation_requested, intent.superseded_by_intent_id,
+                    intent.retry_eligible_at, intent.claim_token, intent.claim_expires_at,
+                    intent.created_at, item.lifecycle_state, generation.desired_revision
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_items item ON item.item_id = intent.managed_item_id
+             JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = intent.managed_item_id
+             WHERE intent.intent_id = ?1",
+            [intent_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, bool>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, Option<String>>(9)?,
+                    row.get::<_, Option<String>>(10)?,
+                    row.get::<_, String>(11)?,
+                    row.get::<_, String>(12)?,
+                    row.get::<_, i64>(13)?,
+                ))
+            },
+        )
+        .optional()?
+        .ok_or(LifecycleError::IntentNotFound)?;
+    if value.5 < 0 {
+        return Err(LifecycleError::UnknownStoredValue);
+    }
+    Ok(ClaimContext {
+        intent_id: LifecycleIntentIdentity::new(value.0)
+            .map_err(|_| LifecycleError::UnknownStoredValue)?,
+        item_id: ValidatedSha256::new(value.1).map_err(|_| LifecycleError::UnknownStoredValue)?,
+        revision: ItemRevision::from_i64(value.2)?,
+        action: LifecycleAction::parse(&value.3)?,
+        state: LifecycleState::parse(&value.4)?,
+        attempt_count: value.5 as u64,
+        cancellation_requested: value.6,
+        superseded_by_intent_id: value.7,
+        retry_eligible_at: value
+            .8
+            .as_deref()
+            .map(ExecutorTimestamp::parse)
+            .transpose()?,
+        claim_token: value
+            .9
+            .map(LifecycleClaimToken::new)
+            .transpose()
+            .map_err(|_| LifecycleError::UnknownStoredValue)?,
+        claim_expires_at: value
+            .10
+            .as_deref()
+            .map(ExecutorTimestamp::parse)
+            .transpose()?,
+        created_at: ExecutorTimestamp::parse(&value.11)?,
+        item_state: value.12,
+        current_desired_revision: ItemRevision::from_i64(value.13)?,
+    })
+}
+
+fn parse_work_candidate(
+    value: (
+        String,
+        String,
+        i64,
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+    ),
+) -> Result<LifecycleWorkCandidate, LifecycleError> {
+    let state = LifecycleState::parse(&value.4)?;
+    let previous_claim_token = value
+        .7
+        .map(LifecycleClaimToken::new)
+        .transpose()
+        .map_err(|_| LifecycleError::UnknownStoredValue)?;
+    let previous_claim_expires_at = value
+        .8
+        .as_deref()
+        .map(ExecutorTimestamp::parse)
+        .transpose()?;
+    let claim_kind = if state == LifecycleState::Claimed {
+        if previous_claim_token.is_none() || previous_claim_expires_at.is_none() {
+            return Err(LifecycleError::StructuralConflict);
+        }
+        WorkClaimKind::ReclaimExpired
+    } else {
+        WorkClaimKind::Initial
+    };
+    ExecutorTimestamp::parse(&value.6)?;
+    Ok(LifecycleWorkCandidate {
+        intent_id: LifecycleIntentIdentity::new(value.0)
+            .map_err(|_| LifecycleError::UnknownStoredValue)?,
+        item_id: ValidatedSha256::new(value.1).map_err(|_| LifecycleError::UnknownStoredValue)?,
+        revision: ItemRevision::from_i64(value.2)?,
+        action: LifecycleAction::parse(&value.3)?,
+        state,
+        effective_due_at: ExecutorTimestamp::parse(&value.5)?,
+        claim_kind,
+        previous_claim_token,
+        previous_claim_expires_at,
+    })
+}
+
+fn load_claim_candidate(
+    connection: &Connection,
+    intent_id: &LifecycleIntentIdentity,
+    now: &ExecutorTimestamp,
+) -> Result<Option<LifecycleWorkCandidate>, LifecycleError> {
+    let context = load_claim_context(connection, intent_id.as_str())?;
+    let claim_kind = match context.state {
+        LifecycleState::Queued | LifecycleState::RecoveryRequired => WorkClaimKind::Initial,
+        LifecycleState::RetryWait
+            if context
+                .retry_eligible_at
+                .as_ref()
+                .is_some_and(|eligible| eligible <= now) =>
+        {
+            WorkClaimKind::Initial
+        }
+        LifecycleState::Claimed
+            if context
+                .claim_expires_at
+                .as_ref()
+                .is_some_and(|expiry| expiry <= now) =>
+        {
+            WorkClaimKind::ReclaimExpired
+        }
+        _ => return Ok(None),
+    };
+    if context.cancellation_requested
+        || context.superseded_by_intent_id.is_some()
+        || !matches!(context.item_state.as_str(), "active" | "pending")
+        || context.revision != context.current_desired_revision
+    {
+        return Ok(None);
+    }
+    let effective_due_at = match context.state {
+        LifecycleState::RetryWait => context.retry_eligible_at.clone(),
+        LifecycleState::Claimed => context.claim_expires_at.clone(),
+        _ => Some(context.created_at.clone()),
+    }
+    .ok_or(LifecycleError::StructuralConflict)?;
+    Ok(Some(LifecycleWorkCandidate {
+        intent_id: context.intent_id,
+        item_id: context.item_id,
+        revision: context.revision,
+        action: context.action,
+        state: context.state,
+        effective_due_at,
+        claim_kind,
+        previous_claim_token: context.claim_token,
+        previous_claim_expires_at: context.claim_expires_at,
+    }))
+}
+
+fn claim_candidate_rejection(
+    context: &ClaimContext,
+    candidate: &LifecycleWorkCandidate,
+    now: &ExecutorTimestamp,
+) -> Result<Option<ClaimLossReason>, LifecycleError> {
+    if context.intent_id != candidate.intent_id
+        || context.item_id != candidate.item_id
+        || context.revision != candidate.revision
+        || context.action != candidate.action
+        || context.state != candidate.state
+    {
+        return Ok(Some(ClaimLossReason::LostRace));
+    }
+    let reason = claim_loss_reason(context, now);
+    let eligible = match candidate.claim_kind {
+        WorkClaimKind::Initial => {
+            matches!(
+                context.state,
+                LifecycleState::Queued
+                    | LifecycleState::RetryWait
+                    | LifecycleState::RecoveryRequired
+            ) && (context.state != LifecycleState::RetryWait
+                || context
+                    .retry_eligible_at
+                    .as_ref()
+                    .is_some_and(|eligible| eligible <= now))
+        }
+        WorkClaimKind::ReclaimExpired => {
+            context.state == LifecycleState::Claimed
+                && context.claim_token == candidate.previous_claim_token
+                && context.claim_expires_at == candidate.previous_claim_expires_at
+                && context
+                    .claim_expires_at
+                    .as_ref()
+                    .is_some_and(|expiry| expiry <= now)
+        }
+    };
+    if eligible
+        && !context.cancellation_requested
+        && context.superseded_by_intent_id.is_none()
+        && matches!(context.item_state.as_str(), "active" | "pending")
+        && context.revision == context.current_desired_revision
+    {
+        Ok(None)
+    } else {
+        Ok(Some(reason))
+    }
+}
+
+fn claim_loss_reason(context: &ClaimContext, now: &ExecutorTimestamp) -> ClaimLossReason {
+    if context.cancellation_requested {
+        ClaimLossReason::Cancelled
+    } else if context.state == LifecycleState::Superseded
+        || context.superseded_by_intent_id.is_some()
+    {
+        ClaimLossReason::Superseded
+    } else if context.item_state == "retired" {
+        ClaimLossReason::Retired
+    } else if context.revision != context.current_desired_revision {
+        ClaimLossReason::StaleRevision
+    } else if context.state == LifecycleState::Claimed
+        && context
+            .claim_expires_at
+            .as_ref()
+            .is_some_and(|expiry| expiry > now)
+    {
+        ClaimLossReason::LostRace
+    } else if context.state == LifecycleState::Claimed {
+        ClaimLossReason::Expired
+    } else {
+        ClaimLossReason::InvalidState
+    }
+}
+
+fn validate_claim_ownership_in_connection(
+    connection: &Connection,
+    intent_id: &LifecycleIntentIdentity,
+    item_id: &ValidatedSha256,
+    revision: ItemRevision,
+    claim_token: &LifecycleClaimToken,
+    now: &ExecutorTimestamp,
+) -> Result<ClaimOwnershipStatus, LifecycleError> {
+    let context = load_claim_context(connection, intent_id.as_str())?;
+    if context.item_id != *item_id
+        || context.revision != revision
+        || context.current_desired_revision != revision
+    {
+        return Ok(ClaimOwnershipStatus::StaleRevision);
+    }
+    if context.cancellation_requested {
+        return Ok(ClaimOwnershipStatus::Cancelled);
+    }
+    if context.state == LifecycleState::Superseded || context.superseded_by_intent_id.is_some() {
+        return Ok(ClaimOwnershipStatus::Superseded);
+    }
+    if context.item_state == "retired" {
+        return Ok(ClaimOwnershipStatus::Retired);
+    }
+    if !matches!(context.item_state.as_str(), "active" | "pending")
+        || context.state != LifecycleState::Claimed
+    {
+        return Ok(ClaimOwnershipStatus::InvalidState);
+    }
+    if context.claim_token.as_ref() != Some(claim_token) {
+        return Ok(ClaimOwnershipStatus::LostOwnership);
+    }
+    if context
+        .claim_expires_at
+        .as_ref()
+        .is_none_or(|expiry| expiry <= now)
+    {
+        return Ok(ClaimOwnershipStatus::Expired);
+    }
+    Ok(ClaimOwnershipStatus::Owned)
+}
+
+fn require_owned(status: ClaimOwnershipStatus) -> Result<(), LifecycleError> {
+    match status {
+        ClaimOwnershipStatus::Owned => Ok(()),
+        ClaimOwnershipStatus::LostOwnership => Err(LifecycleError::LostOwnership),
+        ClaimOwnershipStatus::Cancelled => Err(LifecycleError::Cancelled),
+        ClaimOwnershipStatus::StaleRevision => Err(LifecycleError::StaleRevision),
+        ClaimOwnershipStatus::Superseded => Err(LifecycleError::Superseded),
+        ClaimOwnershipStatus::Retired => Err(LifecycleError::Retired),
+        ClaimOwnershipStatus::Expired => Err(LifecycleError::ClaimExpired),
+        ClaimOwnershipStatus::InvalidState => Err(LifecycleError::InvalidTransition),
+    }
+}
+
+fn renewal_outcome(status: ClaimOwnershipStatus) -> ClaimRenewalOutcome {
+    match status {
+        ClaimOwnershipStatus::Owned => ClaimRenewalOutcome::Renewed,
+        ClaimOwnershipStatus::LostOwnership => ClaimRenewalOutcome::LostOwnership,
+        ClaimOwnershipStatus::Cancelled => ClaimRenewalOutcome::Cancelled,
+        ClaimOwnershipStatus::StaleRevision => ClaimRenewalOutcome::StaleRevision,
+        ClaimOwnershipStatus::Superseded => ClaimRenewalOutcome::Superseded,
+        ClaimOwnershipStatus::Retired => ClaimRenewalOutcome::Retired,
+        ClaimOwnershipStatus::Expired => ClaimRenewalOutcome::Expired,
+        ClaimOwnershipStatus::InvalidState => ClaimRenewalOutcome::InvalidState,
+    }
 }
 
 fn load_intent_from_connection(

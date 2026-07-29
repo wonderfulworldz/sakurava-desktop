@@ -1,5 +1,6 @@
 pub mod catalog_lifecycle;
 pub mod contract;
+pub mod executor;
 pub mod fingerprint;
 pub mod identity;
 pub mod lifecycle;
@@ -11,6 +12,8 @@ pub mod schema;
 
 #[cfg(test)]
 mod catalog_lifecycle_tests;
+#[cfg(test)]
+mod executor_tests;
 #[cfg(test)]
 mod lifecycle_tests;
 #[cfg(test)]
