@@ -19,7 +19,7 @@ remote_branch: origin/main
 last_recorded_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 baseline_label: Batch 42.4 Final Descriptor Correction Delivery
 application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+pre_reconciliation_repository_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 prior_project_os_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
 project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
 prior_project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
@@ -38,16 +38,25 @@ new_roadmap_series: 42.x
 last_completed_roadmap_batch: 42.4
 last_completed_roadmap_batch_title: Managed Mini Media Foundation
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
-active_batch: NONE
-active_batch_title: NONE
+active_batch: 42.5
+active_batch_title: Catalog and Database Performance
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: NONE
-current_stage: 42.4-CLOSE — Final Result Reconciliation and Batch Closure
-completed_current_stage: 42.4-CLOSE — Final Result Reconciliation and Batch Closure
-current_stage_status: COMPLETED_AND_CLOSED
+active_batch_phase: PLANNING
+current_stage: 42.5-1 — Audit, Measurement, and Final Plan
+completed_current_stage: NONE
+current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 decision_stage: 42.4-CLOSE
 decision_stage_status: COMPLETED_AND_CLOSED
 decision_verdict: 42_4_9E_FINAL_DELIVERY_ACCEPTED
+project_control_standard: APPROVED_PENDING_DOCUMENTATION_RECONCILIATION
+quota_policy: LIMITED_PROJECT_BUDGET
+future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
+future_stage_identifiers: 42.x-1_TO_42.x-3_ONLY
+nested_sub_stages: PROHIBITED
+maximum_execution_attempts_per_failure_class: TWO
+systemic_redesign: ANALYSIS_AND_SEPARATE_APPROVAL_REQUIRED
+operator_progress_reporting: FIXED_OUTCOMES_AND_SIMPLE_STATUS
+temporary_task_n_of_50_metric: RETIRED_NOT_FORMALIZED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -147,9 +156,16 @@ stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITAT
 current_documentation_stage: 42.4-CLOSE
 next_technical_stage: NONE
 next_technical_stage_status: NONE
-next_governance_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+next_governance_stage: 42.5-1 — Audit, Measurement, and Final Plan
 next_governance_stage_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5_status: NOT_AUTHORIZED
+batch_42_5_status: PLANNED_NOT_STARTED
+batch_42_5_title: Catalog and Database Performance
+batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
+batch_42_5_stage_1_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_2: 42.5-2 — Implementation and Verification
+batch_42_5_stage_2_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
+batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
 technical_permissions: false
 next_technical_stage_approved: false
 production_runtime_activation_allowed: false
@@ -217,7 +233,25 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
+## Current Project Control and Batch 42.5 Planning Authority — 2026-08-01
+
+The post-42.4 Project Control Standard is approved and awaits this
+documentation reconciliation until committed. Quota and total-cost discipline
+is active; future technical batches have at most three main stages; nested
+sub-stages and retry suffix branches are prohibited; and no failure class may
+have more than two execution attempts. Systemic redesign may be proposed only
+after supported analysis and separate approval. Operator-facing progress uses
+fixed outcomes and simple status; the temporary Task N/50 metric is retired
+and not formalized.
+
+Batch 42.4 remains the last completed batch. The application/source baseline
+remains `a98c9036c9a05b86eb429f11cfb7e746b62e10d8`; the pre-reconciliation
+repository baseline is `682ad3905a0acf2c5ca975b34f5488af70bcd171`. Batch 42.5
+is planned but technical execution remains unapproved. Its next proposed stage
+is `42.5-1 — Audit, Measurement, and Final Plan`, with status
+`READY_PENDING_SEPARATE_APPROVAL`. All technical permissions remain false.
+
+## Historical Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
 
 Batch 42.4 is `COMPLETED_AND_CLOSED`. Stage `42.4-9E-FINAL` is
 `COMPLETED_AND_ACCEPTED`, and `42.4-CLOSE` is `COMPLETED_AND_CLOSED`. The

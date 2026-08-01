@@ -73,6 +73,30 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-01 — Project Control Standard Approved and Batch 42.5 Planned
+
+date: 2026-08-01
+session_type: PROJECT_CONTROL_STANDARD_AND_BATCH_42_5_INITIAL_PLANNING
+operator_decision: APPROVED
+quota: LIMITED_PROJECT_BUDGET
+stage_maximum: THREE_MAIN_STAGES
+allowed_identifiers: 42_X_1_TO_42_X_3_ONLY
+nested_sub_stages: PROHIBITED
+maximum_attempts: TWO_PER_FAILURE_CLASS
+correction_requirement: SUPPORTED_ROOT_CAUSE_OR_PROVEN_FAILURE_BOUNDARY
+after_second_failure: EVIDENCE_SUFFICIENCY_DEFER_REDESIGN_OR_STOP
+redesign: ALLOWED_ONLY_AFTER_ANALYSIS_AND_SEPARATE_APPROVAL
+reporting: OPERATOR_FRIENDLY_FIXED_OUTCOMES
+next_batch: 42.5 — Catalog and Database Performance
+next_stage: 42.5-1 — Audit, Measurement, and Final Plan
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+pre_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
+
+The Project Control Standard is approved and is being reconciled into the
+permanent Project OS. Batch 42.5 is planned but not technically started; only
+42.5-1 may later be considered for separate approval.
+
 ## 2026-08-01 — Batch 42.4 Managed Mini Media Foundation Closed
 
 date: 2026-08-01
@@ -160,29 +184,6 @@ technical_permissions: false
 D2-C was reconciled as a documentation-only closure. Internal phases and
 checkpoints remain inside one future implementation stage; no technical work,
 tests, builds, runtime, or manual smoke occurred.
-
-## 2026-07-29 — Temporary Git Delivery Policy Approved
-
-date: 2026-07-29
-session_type: PROJECT_OS_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILIATION
-pre_reconciliation_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
-application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-decision_status: COMPLETED_AND_ACCEPTED
-decision: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
-policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
-reconciliation_status: COMPLETED_AND_CLOSED
-persistent_proxy_source: UNKNOWN
-normal_fetch: AVAILABLE_REPORTED_BY_CODEX
-normal_push: DEGRADED_LOOPBACK_ROUTE_REPORTED_BY_CODEX
-approved_fallback: PROCESS_SCOPED_ORIGIN_ONLY_NORMAL_PATH_FIRST
-persistent_mutation: PROHIBITED
-next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The temporary policy applies only to approved Git closure. It requires exact
-preflight, a fresh read-only remote gate, secret-safe handling, and one
-non-force push; it does not authorize I3-I1 or any technical work.
 
 ---
 

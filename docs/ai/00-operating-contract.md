@@ -86,21 +86,19 @@ In summary:
 
 Do not treat recorded historical state as freshly proven.
 
-Classify important technical claims as:
+Classify important claims using only:
 
-- `PROVEN`
-- `REPORTED`
-- `OBSERVED`
+- `OBSERVED_BY_OPERATOR`
+- `REPORTED_BY_CODEX`
+- `MEASURED`
+- `PROVEN_BY_STATIC_SOURCE`
+- `REPORTED_HISTORICAL`
 - `INFERRED`
 - `UNKNOWN`
+- `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`
 
-Definitions:
-
-- `PROVEN` — verified through current code, Git, tests, builds, inspectors, or manual smoke evidence;
-- `REPORTED` — stated by Codex or another tool but not independently verified;
-- `OBSERVED` — directly seen by the operator;
-- `INFERRED` — concluded from available evidence but not directly proven;
-- `UNKNOWN` — insufficient reliable evidence.
+Do not elevate evidence. A report, inference, historical record, or
+environmental limitation must not be presented as a stronger label.
 
 Do not present anything except `PROVEN` as independently verified fact.
 
@@ -305,40 +303,83 @@ Every executable stage must include:
 - stop condition;
 - output to send back.
 
-## Delivery Efficiency and Anti-Overengineering
+## Delivery Efficiency, Prevention, and Batch Control
 
-Plan future roadmap, batch, and stage work with the minimum necessary stage
-structure while preserving full quality, safety, approval, evidence, and
-completion gates. Combine coupled work when it shares one objective, risk
-domain, mutation boundary, and compatible verification. Split work only when
-results change later instructions, independent approval is required, risk or
-data-safety boundaries materially differ, evidence cannot be collected
-together, or a stop condition requires reassessment.
+Treat Codex quota, operator time, execution time, correction cycles, and
+verification effort as limited project resources. Choose the smallest
+sufficient evidence set and least costly model likely to finish correctly in
+one controlled cycle. Do not pursue unlimited theoretical perfection. Further
+audit, testing, build, runtime, or retry work is allowed only when it can
+materially change a decision or reduce a relevant risk. Reuse accepted
+evidence while it remains applicable. ChatGPT must reject a technically
+possible plan when a shorter, equally safe, sufficiently proven route exists.
 
-Internal phases and checkpoints may organize one approved stage; they are not
-independent approval stages. Fewer stages must never mean weaker locks, data
-protection, focused tests, integration or regression verification, Result
-Review, or Git safety. Prefer reuse and bounded extension over speculative
-abstraction, future-proofing, general frameworks, duplicate audits,
-repetitive planning, ceremonial reconciliation, or stage proliferation. Use
-the simplest design that satisfies the approved behavior and safety contract,
-and optimize total delivery cost without reducing control or evidence quality.
+Every future technical batch may use zero to three main stages. The only
+future main-stage identifiers are `42.x-1`, `42.x-2`, and `42.x-3`.
+Letter suffixes, R/C/I/P suffixes, stages inside stages, nested sub-stages,
+administrative sub-stages, and retry branches are prohibited. Identifiers such
+as `42.4-9E`, `42.4-9E-R1`, and `42.4-9E-R7F` are not valid future stages.
+Internal preparation, audit, checkpoints, corrections, verification, Result
+Review preparation, Git delivery, and documentation belong to the relevant
+main stage and are not separately numbered. Fewer than three stages is
+preferred when sufficient.
 
----
+When all three stages are needed, use:
 
-### Prevention-First and Anti-Loop Delivery Rule
+- `42.x-1` — Audit, Evidence, and Final Plan;
+- `42.x-2` — Implementation and Verification;
+- `42.x-3` — Final Validation and Closure.
 
-Keep execution focused on the approved end goal. Gather relevant facts and
-evidence before execution, and perform a bounded audit or analysis before
-action when uncertainty could create a predictable or preventable failure.
-Base correction plans on a supported root cause rather than speculative retry;
-use the minimum necessary stage structure, keep internal checkpoints inside
-their approved stage, and use bounded retries rather than endless
-implementation or harness branches. Repeated tooling or environment failure
-must end in one explicit evidence-sufficiency, defer, or stop decision.
-Address predictable setup, input, path, fixture, and launch-contract failures
-through stage preconditions where reasonably knowable. Safety and approval
-boundaries remain mandatory.
+Before implementation or runtime execution, establish all reasonably knowable
+facts: the goal, architecture and affected boundary, data flow, repository and
+baseline, exact mutation scope, inputs and fixtures, paths and storage roots,
+commands and working directory, environment bindings, dependencies, expected
+behavior, failure modes, data and compatibility risks, rollback or safe-stop
+behavior, verification, and Git and cleanup plans. Unknowns that could
+reasonably cause failure require bounded audit or analysis first. Do not use
+execution merely to discover facts that could have been established earlier.
+
+For one objective and one failure class, allow at most two execution attempts.
+Attempt 1 requires complete readiness and must not be speculative. Attempt 2
+is allowed only when Attempt 1 produces new material evidence and a supported
+root cause or proven failure boundary justifies one bounded correction. After
+Attempt 2 fails, stop. Do not create a third retry or renamed retry stage.
+Choose one explicit outcome: evidence sufficient with a documented
+limitation, defer, systemic redesign review, scope or approval change, or stop
+the batch.
+
+When evidence shows recurring failures arise from an unsuitable system
+boundary, architecture, harness, workflow, or control model, consider
+systemic redesign. Recommend it only when supported by analysis and expected
+to strengthen control, remove failure sources, reduce complexity and
+corrective work, lower total cost, or improve testability and predictability.
+Redesign is never automatic permission. Before it, explain why patching is
+inferior, define protected and changed areas, assess data, compatibility, UI,
+package, dependency, and rollback impact, and obtain separate explicit
+operator approval.
+
+Reject or rewrite plans that are unnecessarily long, create avoidable stages,
+repeat accepted evidence, use Codex without repository need, run broad tests
+without relevant risk, retry without new evidence, patch without root-cause
+support, make tooling more complex than the product objective, consume quota
+without increasing decision confidence, or drift from the approved goal.
+
+Operator-facing reports use plain language and prioritize Goal, What is already
+known, What is still uncertain, Main risk, Shortest safe plan, Result, Decision,
+and Next action. Use simple statuses: `READY`, `RUNNING`, `BLOCKED`,
+`DECISION_REQUIRED`, `COMPLETED`, `COMPLETED_WITH_LIMITATION`, and `STOPPED`.
+Progress reflects fixed batch outcomes, not prompts, retries, checkpoints,
+files, tests, or stage proliferation. Use:
+
+`BATCH OUTCOMES: <completed>/<fixed total>`
+
+`CURRENT STAGE: <simple status>`
+
+`CONFIDENCE: HIGH | MEDIUM | LOW`
+
+Do not formalize the temporary Task N/50 metric. A retry does not increase
+progress, and an accepted outcome remains valid unless newer evidence
+invalidates it. Safety and approval boundaries remain mandatory.
 
 ## 7. Feedback and Adaptive Planning
 

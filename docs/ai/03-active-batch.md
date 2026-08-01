@@ -2,14 +2,14 @@
 
 ## Batch Metadata
 
-batch: 42.4
-title: Managed Mini Media Foundation
-status: COMPLETED_AND_CLOSED
-phase: FINAL_RESULT_RECONCILIATION_AND_BATCH_CLOSURE
-current_administrative_stage: 42.4-CLOSE — Final Result Reconciliation and Batch Closure
-current_stage_status: COMPLETED_AND_CLOSED
-decision_status: COMPLETED_AND_ACCEPTED
-decision_verdict: 42_4_9E_FINAL_DELIVERY_ACCEPTED
+batch: 42.5
+title: Catalog and Database Performance
+status: PLANNED_NOT_STARTED
+phase: PLANNING
+current_stage: 42.5-1 — Audit, Measurement, and Final Plan
+current_stage_status: READY_PENDING_SEPARATE_APPROVAL
+decision_status: APPROVED_DOCUMENTATION_ONLY
+decision_verdict: PROJECT_CONTROL_STANDARD_RECONCILIATION_PENDING_COMMIT
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -27,7 +27,7 @@ stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
 application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+pre_reconciliation_repository_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
 implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 implementation_verdict: DESCRIPTOR_ADAPTER_AND_DATE_SAFE_TEST_COMPLETED
@@ -97,11 +97,32 @@ stage_42_4_technical_commit_message: fix(media): validate original availability 
 stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
 next_technical_stage: NONE
 next_stage_status: NONE
-next_governance_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+next_governance_stage: 42.5-1 — Audit, Measurement, and Final Plan
 next_governance_stage_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5_status: NOT_AUTHORIZED
+batch_42_5_status: PLANNED_NOT_STARTED
+batch_42_5_title: Catalog and Database Performance
+batch_42_5_goal: Improve catalog and database performance through measured, root-cause-supported changes while preserving data safety, existing behavior, and UI/UX.
+batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
+batch_42_5_stage_1_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_2: 42.5-2 — Implementation and Verification
+batch_42_5_stage_2_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
+batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
 no_source_handoff: true
 all_technical_permissions: false
+implementation_allowed: false
+audit_allowed: false
+measurement_allowed: false
+tests_and_builds_allowed: false
+runtime_allowed: false
+database_mutation_allowed: false
+schema_change_allowed: false
+index_change_allowed: false
+cache_change_allowed: false
+dependency_allowed: false
+ui_ux_allowed: false
+live_appdata_allowed: false
+manual_smoke_allowed: false
 next_stage_approved: false
 stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i3_a_verdict: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
@@ -131,7 +152,35 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Current Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
+## Batch 42.5 Initial Planning Boundary
+
+The maximum structure is exactly:
+
+- `42.5-1 — Audit, Measurement, and Final Plan`
+- `42.5-2 — Implementation and Verification`
+- `42.5-3 — Final Validation and Closure`
+
+Only 42.5-1 may later be considered for separate approval. 42.5-2 and 42.5-3
+are structural placeholders, not approvals, and no other numbered or
+suffixed stage may be added.
+
+Accepted carry-forward is limited to valid R2 outer database-preparation and
+Home scaling, comparatively small direct SQL timings at the accepted dataset,
+comparatively small measured frontend transform cost, repeated rapid-search
+pipeline behavior, stable page-size-32 scrolling, and source-supported
+page-size-256 availability. R3 timing is not optimization evidence; invalid
+fixture traces and fixture/application conflict are not production defects;
+assumed schema, index, cache, pagination, memoization, virtualization, or
+debounce implementation is excluded; and no performance budget is approved.
+
+Stage 42.5-1 will freshly verify architecture, map the affected startup,
+catalog, query, search, paging, memory, and managed-media boundaries, establish
+deterministic inputs and measurement preconditions, collect only decision-
+relevant minimum measurements, and produce one final implementation plan for
+operator approval. No technical execution is authorized by this documentation
+stage.
+
+## Historical Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
 
 Batch 42.4 is `COMPLETED_AND_CLOSED`. The final technical decision is
 `COMPLETED_AND_ACCEPTED` at baseline `a98c9036c9a05b86eb429f11cfb7e746b62e10d8`,

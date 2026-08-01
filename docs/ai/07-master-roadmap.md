@@ -1777,32 +1777,27 @@ All technical permissions remain false.
 
 ### Batch 42.5 — Catalog and Database Performance
 
-**Goal**
+status: `PLANNED_NOT_STARTED`
 
-Maintain usable performance on 4 GB RAM devices and growing catalogs.
+**Title**
 
-**In Scope**
+Catalog and Database Performance
 
-* lazy image loading;
-* asynchronous decoding;
-* render isolation;
-* search debounce;
-* query improvement;
-* database indexes;
-* incremental loading when proven necessary;
-* pagination or virtualization only when proven necessary;
-* representative performance regression data.
+**Maximum Three-Stage Structure**
 
-**Out of Scope**
+1. `42.5-1 — Audit, Measurement, and Final Plan`
+2. `42.5-2 — Implementation and Verification`
+3. `42.5-3 — Final Validation and Closure`
 
-* speculative caching;
-* application-wide state-management replacement;
-* generalized low-resource architecture;
-* unrelated database migration.
-
-**Expected Result**
-
-Startup, search, filtering, scrolling, and navigation meet the approved performance budget.
+42.5-1 is `READY_PENDING_SEPARATE_APPROVAL`. 42.5-2 and 42.5-3 are not
+approved. Implementation is not authorized. Accepted carry-forward is limited
+to valid Batch 42.3 R2 evidence. R3 timing and fixture conflict cannot guide
+optimization. No schema, index, cache, pagination, virtualization,
+memoization, search debounce, UI, dependency, package, Backup/Restore, or
+runtime activation change is preapproved. A systemic redesign may be
+recommended by 42.5-1 only when supported by current evidence and remains
+subject to separate approval. Batch 42.5 must use the shortest safe route and
+may close with fewer than three stages.
 
 ---
 
@@ -2559,6 +2554,19 @@ The following must not be represented as proven until audited:
 ---
 
 ## 19. Roadmap Governance
+
+### Project Control Standard — 2026-08-01
+
+Quota and total-cost discipline are permanent project rules. Every future
+technical batch has at most three main stages, using only `42.x-1`, `42.x-2`,
+and `42.x-3`; nested sub-stages and retry branches are prohibited. Each
+failure class permits at most two attempts, and a correction requires a
+supported root cause or proven failure boundary. After the second failure,
+stop and choose evidence sufficiency, defer, systemic redesign review, scope
+or approval change, or batch stop. Systemic redesign is eligible only after
+analysis and separate operator approval. Inefficient or repetitive plans must
+be rejected. Operator reporting uses plain language, fixed outcomes, and
+simple statuses rather than activity volume or the temporary Task N/50 metric.
 
 Each technical batch must define:
 

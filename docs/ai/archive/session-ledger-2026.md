@@ -11,6 +11,31 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-07-29 — Temporary Git Delivery Policy Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_TEMPORARY_GIT_DELIVERY_POLICY_RECONCILIATION
+pre_reconciliation_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+decision_status: COMPLETED_AND_ACCEPTED
+decision: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
+policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
+reconciliation_status: COMPLETED_AND_CLOSED
+persistent_proxy_source: UNKNOWN
+normal_fetch: AVAILABLE_REPORTED_BY_CODEX
+normal_push: DEGRADED_LOOPBACK_ROUTE_REPORTED_BY_CODEX
+approved_fallback: PROCESS_SCOPED_ORIGIN_ONLY_NORMAL_PATH_FIRST
+persistent_mutation: PROHIBITED
+next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The temporary policy applies only to approved Git closure. It requires exact
+preflight, a fresh read-only remote gate, secret-safe handling, and one
+non-force push; it does not authorize I3-I1 or any technical work.
+
+---
+
 ## 2026-07-27 — Managed Media Processor Foundation Accepted
 
 date: 2026-07-27
