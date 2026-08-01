@@ -736,6 +736,31 @@ gated and has not started.
 
 ---
 
+## 2026-07-29 — Runtime Activation Policy Approved
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9C_I3_D_DECISION_RECONCILIATION
+repository_pre_reconciliation_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
+application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_d_c_status: COMPLETED_AND_CLOSED
+audit_result: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
+decision_result: MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED
+policy_state: INERT_RUNTIME_SUPERVISION_POLICY_APPROVED
+production_numeric_policies: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
+next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The dedicated supervisor, durable SQLite authority, coalesced wake plus
+earliest-due timer and safety recheck, bounded recovery ordering, graceful
+shutdown, fail-safe containment, unchanged FK policy, disabled remote access,
+and excluded provisioning decision were reconciled. I3-I1 remains inert and
+separately gated; no source or technical verification was performed.
+
+---
+
 ## 2026-07-29 — Local Generation Orchestration Accepted
 
 date: 2026-07-29

@@ -326,6 +326,20 @@ and optimize total delivery cost without reducing control or evidence quality.
 
 ---
 
+### Prevention-First and Anti-Loop Delivery Rule
+
+Keep execution focused on the approved end goal. Gather relevant facts and
+evidence before execution, and perform a bounded audit or analysis before
+action when uncertainty could create a predictable or preventable failure.
+Base correction plans on a supported root cause rather than speculative retry;
+use the minimum necessary stage structure, keep internal checkpoints inside
+their approved stage, and use bounded retries rather than endless
+implementation or harness branches. Repeated tooling or environment failure
+must end in one explicit evidence-sufficiency, defer, or stop decision.
+Address predictable setup, input, path, fixture, and launch-contract failures
+through stage preconditions where reasonably knowable. Safety and approval
+boundaries remain mandatory.
+
 ## 7. Feedback and Adaptive Planning
 
 Operator feedback does not automatically mean immediate implementation.

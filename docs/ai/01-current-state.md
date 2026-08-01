@@ -8,22 +8,22 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-01
 repository_state_recorded_at: 2026-08-01
-repository_state_status: DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9D_R3_RESULT_REVIEW
+repository_state_status: BATCH_42_4_COMPLETED_AND_CLOSED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_FINAL_RESULT_REVIEW
 remote_main_verified: IMPLEMENTATION_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-baseline_label: Batch 42.4-9D Descriptor Resolution and Invisible Frontend Adapter
-application_source_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-pre_reconciliation_repository_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+last_recorded_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+baseline_label: Batch 42.4 Final Descriptor Correction Delivery
+application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+pre_reconciliation_repository_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 prior_project_os_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
-project_os_reconciliation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
-implementation_parent: a611eaa2379e3f915a1b38095299047ceaaae348
+project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+prior_project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -35,19 +35,19 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.3
-last_completed_roadmap_batch_title: Catalog Performance and Media Audit
-last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
-active_batch: 42.4
-active_batch_title: Managed Mini Media Foundation
+last_completed_roadmap_batch: 42.4
+last_completed_roadmap_batch_title: Managed Mini Media Foundation
+last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
+active_batch: NONE
+active_batch_title: NONE
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_RECONCILED
-current_stage: 42.4-9D-C — Descriptor Resolution and Invisible Frontend Adapter Reconciliation
-completed_current_stage: 42.4-9D-C — Descriptor Resolution and Invisible Frontend Adapter Reconciliation
+active_batch_phase: NONE
+current_stage: 42.4-CLOSE — Final Result Reconciliation and Batch Closure
+completed_current_stage: 42.4-CLOSE — Final Result Reconciliation and Batch Closure
 current_stage_status: COMPLETED_AND_CLOSED
-decision_stage: 42.4-9D-C
+decision_stage: 42.4-CLOSE
 decision_stage_status: COMPLETED_AND_CLOSED
-decision_verdict: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED
+decision_verdict: 42_4_9E_FINAL_DELIVERY_ACCEPTED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -133,9 +133,24 @@ stage_42_4_9d_paths: src-tauri/src/commands.rs; src-tauri/src/lib.rs; src-tauri/
 stage_42_4_9d_runtime: INERT_UNREGISTERED
 stage_42_4_9d_source_handoff: NONE_PENDING
 stage_42_4_9d_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
-current_documentation_stage: 42.4-9D-C
-next_technical_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
-next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_9e_final_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9e_final_verdict: EVIDENCE_SUFFICIENT_FOCUSED_GUARD_PASSED_CORRECTION_DELIVERED
+stage_42_4_9e_final_limitation: MANUAL_UI_LIFECYCLE_SMOKE_PARTIAL_DUE_TO_EXTERNAL_HARNESS_LIMITATION
+stage_42_4_close_status: COMPLETED_AND_CLOSED
+stage_42_4_close_result: BATCH_42_4_MANAGED_MINI_MEDIA_FOUNDATION_COMPLETED_AND_CLOSED
+stage_42_4_technical_commit: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+stage_42_4_technical_commit_message: fix(media): validate original availability for viewer fallback
+stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
+stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
+stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
+current_documentation_stage: 42.4-CLOSE
+next_technical_stage: NONE
+next_technical_stage_status: NONE
+next_governance_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+next_governance_stage_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_status: NOT_AUTHORIZED
+technical_permissions: false
 next_technical_stage_approved: false
 production_runtime_activation_allowed: false
 production_numeric_policy_allowed: false
@@ -202,7 +217,28 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Descriptor Resolution Adapter Authority — 2026-08-01
+## Current Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
+
+Batch 42.4 is `COMPLETED_AND_CLOSED`. Stage `42.4-9E-FINAL` is
+`COMPLETED_AND_ACCEPTED`, and `42.4-CLOSE` is `COMPLETED_AND_CLOSED`. The
+application/source baseline is `a98c9036c9a05b86eb429f11cfb7e746b62e10d8`,
+with implementation parent `7acc600c8ff5ae7065fcf2efc53d11d173f5da58` and
+technical commit `fix(media): validate original availability for viewer fallback`.
+The technical scope is exactly the two descriptor files recorded above.
+
+The accepted technical verdict is
+`EVIDENCE_SUFFICIENT_FOCUSED_GUARD_PASSED_CORRECTION_DELIVERED`. Focused Rust
+descriptor tests were 9/9, frontend adapter tests 2/2, `cargo check`, format,
+diff checks, and Git synchronization passed. Smoke 1 is accepted operator
+evidence; Smoke 2–7 are not operator-verified because of the external harness
+limitation and are not claimed as passed. External harness failures are not
+proven production defects. Runtime activation, numeric policies,
+existing-catalog provisioning, and Backup/Restore remain unapproved. No active
+technical stage exists; Batch 42.5 is planned but unauthorized. The next
+governance action is a separately approved post-42.4 project-control standards
+review. Technical permissions remain false.
+
+## Historical Superseded Descriptor Resolution Adapter Authority — 2026-08-01
 
 Stage `42.4-9D` is `COMPLETED_AND_ACCEPTED`; R1 is
 `COMPLETED_SUPERSEDED_BY_R2_R3`, R2 is `COMPLETED_SUPERSEDED_BY_R3`, R3 is

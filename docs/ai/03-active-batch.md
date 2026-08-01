@@ -4,12 +4,12 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
-phase: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_RECONCILIATION
-current_administrative_stage: 42.4-9D-C — Descriptor Resolution and Invisible Frontend Adapter Reconciliation
+status: COMPLETED_AND_CLOSED
+phase: FINAL_RESULT_RECONCILIATION_AND_BATCH_CLOSURE
+current_administrative_stage: 42.4-CLOSE — Final Result Reconciliation and Batch Closure
 current_stage_status: COMPLETED_AND_CLOSED
 decision_status: COMPLETED_AND_ACCEPTED
-decision_verdict: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED
+decision_verdict: 42_4_9E_FINAL_DELIVERY_ACCEPTED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -25,11 +25,11 @@ stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_parent: a611eaa2379e3f915a1b38095299047ceaaae348
-application_source_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 pre_reconciliation_repository_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
 prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
-implementation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 implementation_verdict: DESCRIPTOR_ADAPTER_AND_DATE_SAFE_TEST_COMPLETED
 result_review_verdict: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED
 foundation_state: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETE
@@ -88,8 +88,20 @@ stage_42_4_9d_scope: 14_EXACT_DESCRIPTOR_RESOLUTION_PATHS
 stage_42_4_9d_paths: src-tauri/src/commands.rs; src-tauri/src/lib.rs; src-tauri/src/managed_media/mod.rs; src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs; src/shared/managedMediaDescriptor.ts; src/runtime/managedMediaDescriptors.ts; src/runtime/managedMediaDescriptors.test.ts; src/components/CategoryManagementPanel.tsx; src/pages/DetailPage.tsx; src/pages/GlossaryPage.tsx; src/pages/ImageCollectionPage.tsx; src/pages/PerformerCollectionPage.tsx; src/pages/VideoCollectionPage.tsx
 stage_42_4_9d_runtime: INERT_UNREGISTERED
 stage_42_4_9d_source_handoff: NONE_PENDING
-next_technical_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_4_9e_final_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9e_final_verdict: EVIDENCE_SUFFICIENT_FOCUSED_GUARD_PASSED_CORRECTION_DELIVERED
+stage_42_4_9e_final_limitation: MANUAL_UI_LIFECYCLE_SMOKE_PARTIAL_DUE_TO_EXTERNAL_HARNESS_LIMITATION
+stage_42_4_close_status: COMPLETED_AND_CLOSED
+stage_42_4_technical_commit: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+stage_42_4_technical_commit_message: fix(media): validate original availability for viewer fallback
+stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
+next_technical_stage: NONE
+next_stage_status: NONE
+next_governance_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+next_governance_stage_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_status: NOT_AUTHORIZED
+no_source_handoff: true
+all_technical_permissions: false
 next_stage_approved: false
 stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i3_a_verdict: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
@@ -119,7 +131,22 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Current Authority — 2026-08-01 — Descriptor Resolution Adapter Reconciliation
+## Current Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
+
+Batch 42.4 is `COMPLETED_AND_CLOSED`. The final technical decision is
+`COMPLETED_AND_ACCEPTED` at baseline `a98c9036c9a05b86eb429f11cfb7e746b62e10d8`,
+parent `7acc600c8ff5ae7065fcf2efc53d11d173f5da58`. Stage `42.4-9E-FINAL` is
+`COMPLETED_AND_ACCEPTED`; `42.4-CLOSE` is `COMPLETED_AND_CLOSED`. The exact
+technical correction is limited to the two descriptor paths and preserves
+original-first viewer behavior with managed fallback when the original is
+unavailable. Smoke 1 is accepted operator evidence; Smoke 2–7 remain
+unverified due to the external harness limitation. Runtime activation,
+numeric policies, existing-catalog provisioning, and Backup/Restore remain
+unapproved. No active technical stage exists. Batch 42.5 is not authorized.
+The next governance action is a separately approved post-42.4 project-control
+standards review; technical permissions remain false.
+
+## Historical Superseded Authority — 2026-08-01 — Descriptor Resolution Adapter Reconciliation
 
 Stage `42.4-9D` is `COMPLETED_AND_ACCEPTED`; R1 is
 `COMPLETED_SUPERSEDED_BY_R2_R3`; R2 is `COMPLETED_SUPERSEDED_BY_R3`; R3 is

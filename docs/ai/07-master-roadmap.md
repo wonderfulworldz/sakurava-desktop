@@ -9,24 +9,35 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-last_recorded_git_baseline_status: DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
-application_source_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-pre_reconciliation_repository_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
-prior_project_os_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
-project_os_reconciliation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+last_recorded_git_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+last_recorded_git_baseline_status: BATCH_42_4_COMPLETED_AND_CLOSED
+application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+pre_reconciliation_repository_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+prior_project_os_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
-last_completed_batch: 42.3
-active_batch: 42.4
+last_completed_batch: 42.4
+active_batch: NONE
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
+batch_42_4_status: COMPLETED_AND_CLOSED
+batch_42_4_application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+batch_42_4_stage_42_4_9e_final_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9e_final_verdict: EVIDENCE_SUFFICIENT_FOCUSED_GUARD_PASSED_CORRECTION_DELIVERED
+batch_42_4_stage_42_4_9e_final_limitation: MANUAL_UI_LIFECYCLE_SMOKE_PARTIAL_DUE_TO_EXTERNAL_HARNESS_LIMITATION
+batch_42_4_stage_42_4_close_status: COMPLETED_AND_CLOSED
+batch_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
+batch_42_4_technical_commit: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+batch_42_4_technical_commit_message: fix(media): validate original availability for viewer fallback
+batch_42_4_next_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_4_next_stage_authorized: false
+batch_42_5_status: NOT_AUTHORIZED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -117,16 +128,31 @@ batch_42_4_stage_42_4_9d_paths: src-tauri/src/commands.rs; src-tauri/src/lib.rs;
 batch_42_4_stage_42_4_9d_runtime: INERT_UNREGISTERED
 batch_42_4_stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
 batch_42_4_stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
-batch_42_4_next_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
-batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_4_next_stage_mode: IMPLEMENT
+historical_batch_42_4_next_stage_before_closure: 42.4-9E — Disposable Lifecycle Verification and Result Review
+historical_batch_42_4_next_stage_before_closure_status: READY_PENDING_SEPARATE_APPROVAL
+historical_batch_42_4_next_stage_before_closure_mode: IMPLEMENT
 batch_42_4_git_decision_status: COMPLETED_AND_ACCEPTED
 batch_42_4_git_decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
 batch_42_4_git_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 batch_42_4_git_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 batch_42_4_persistent_proxy_root_cause: UNKNOWN
 
-## Current Authority — 2026-07-29 — Phased Runtime Scope and Efficient Delivery Reconciliation
+## Current Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
+
+Batch 42.4 is `COMPLETED_AND_CLOSED`; the active batch and active technical
+batch are `NONE`. The application/source baseline is
+`a98c9036c9a05b86eb429f11cfb7e746b62e10d8`. Stage `42.4-9E-FINAL` is
+`COMPLETED_AND_ACCEPTED` and `42.4-CLOSE` is `COMPLETED_AND_CLOSED`. The
+accepted missing-original correction was delivered in the exact two descriptor
+paths with focused guard and synchronized Git delivery. Smoke 1 is accepted
+operator evidence; Smoke 2–7 remain unavailable because of the external
+harness limitation, so no full manual lifecycle claim is made. Runtime
+activation, numeric policies, existing-catalog provisioning, and Backup/Restore
+remain unapproved. Batch 42.5 remains planned and unauthorized. A separately
+approved post-42.4 project-control standards review is required before any
+Batch 42.5 approval.
+
+## Historical Superseded Authority — 2026-07-29 — Phased Runtime Scope and Efficient Delivery Reconciliation
 
 Stage `42.4-9C-I3-D2` is `COMPLETED_AND_ACCEPTED`; D2-C is
 `COMPLETED_AND_CLOSED`. The accepted Option C architecture is

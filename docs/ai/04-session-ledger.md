@@ -73,6 +73,30 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-01 — Batch 42.4 Managed Mini Media Foundation Closed
+
+date: 2026-08-01
+session_type: PROJECT_OS_BATCH_42_4_FINAL_CLOSURE
+implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+technical_stage: 42.4-9E-FINAL COMPLETED_AND_ACCEPTED
+closure_stage: 42.4-CLOSE COMPLETED_AND_CLOSED
+result: BATCH_42_4_MANAGED_MINI_MEDIA_FOUNDATION_COMPLETED_AND_CLOSED
+verification: REPORTED_BY_CODEX_FOCUSED_RUST_9_FRONTEND_2_CHECK_FMT_DIFF
+operator_evidence: Smoke 1 PASS
+limitation: Smoke 2–7 NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
+git_state: TECHNICAL_COMMIT_SYNCHRONIZED_0_0_BEFORE_DOCUMENTATION_CLOSURE
+runtime_and_deferred_areas: UNAPPROVED
+next_action: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5: NOT_AUTHORIZED
+technical_permissions: false
+
+Batch 42.4 is closed with the preserved two-file missing-original correction
+delivered. Smoke 1 remains accepted operator evidence; no manual PASS is
+claimed for Smoke 2–7. Runtime activation and deferred policy areas remain
+separately gated.
+
 ## 2026-08-01 — Descriptor Resolution Adapter Accepted
 
 date: 2026-08-01
@@ -161,29 +185,6 @@ preflight, a fresh read-only remote gate, secret-safe handling, and one
 non-force push; it does not authorize I3-I1 or any technical work.
 
 ---
-
-## 2026-07-29 — Runtime Activation Policy Approved
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_9C_I3_D_DECISION_RECONCILIATION
-repository_pre_reconciliation_baseline: 3de83fbe2cafb9c2b92149076fa81b9955cfe050
-application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9c_i3_d_c_status: COMPLETED_AND_CLOSED
-audit_result: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
-decision_result: MANAGED_MEDIA_RUNTIME_ACTIVATION_POLICY_APPROVED
-policy_state: INERT_RUNTIME_SUPERVISION_POLICY_APPROVED
-production_numeric_policies: DEFERRED_PENDING_DISPOSABLE_EVIDENCE
-next_stage: 42.4-9C-I3-I1 — Inert Runtime Supervision and Policy Injection Foundation
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The dedicated supervisor, durable SQLite authority, coalesced wake plus
-earliest-due timer and safety recheck, bounded recovery ordering, graceful
-shutdown, fail-safe containment, unchanged FK policy, disabled remote access,
-and excluded provisioning decision were reconciled. I3-I1 remains inert and
-separately gated; no source or technical verification was performed.
 
 ## Archived Session History
 
