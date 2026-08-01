@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, path::Path};
+use std::{
+    cmp::Ordering,
+    fs,
+    path::{Component, Path},
+};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -74,7 +78,7 @@ struct ValidatedRequest {
 struct ManagedItem {
     item_id: String,
     lifecycle_state: String,
-    source_availability_state: String,
+    locator_hash: String,
 }
 
 #[derive(Debug, Clone)]
@@ -129,11 +133,10 @@ fn resolve_one(
         return placeholder(&request.request_id, "owner_or_slot_retired");
     }
 
-    let original_available = request
-        .source_path
-        .as_deref()
-        .is_some_and(|path| !path.trim().is_empty())
-        && item.source_availability_state != "missing";
+    let original_available = original_path_is_available(
+        request.source_path.as_deref(),
+        Some(item.locator_hash.as_str()),
+    );
     let current = match load_current_variants(connection, &item.item_id, request.role) {
         Ok(variants) => variants,
         Err(_) => return placeholder(&request.request_id, "descriptor_lookup_failed"),
@@ -149,7 +152,9 @@ fn resolve_one(
 
     if request.intent == RenderingIntent::OrdinaryRole {
         if let Some(candidate) = choose_smallest_sufficient(&current, &request, false) {
-            if let Some(descriptor) = managed_descriptor(&request, root, candidate, false) {
+            if let Some(descriptor) =
+                managed_descriptor(&request, root, candidate, false, original_available)
+            {
                 return descriptor;
             }
         }
@@ -157,32 +162,42 @@ fn resolve_one(
             return original_descriptor(&request, "current_original");
         }
         if let Some(candidate) = choose_largest(&last_valid, false) {
-            if let Some(descriptor) = managed_descriptor(&request, root, candidate, true) {
+            if let Some(descriptor) =
+                managed_descriptor(&request, root, candidate, true, original_available)
+            {
                 return descriptor;
             }
         }
         if let Some(candidate) =
             choose_largest(&current, true).or_else(|| choose_largest(&last_valid, true))
         {
-            if let Some(descriptor) = managed_descriptor(&request, root, candidate, false) {
+            if let Some(descriptor) =
+                managed_descriptor(&request, root, candidate, false, original_available)
+            {
                 return descriptor;
             }
         }
     } else {
         if let Some(candidate) = choose_largest(&current, false) {
-            if let Some(descriptor) = managed_descriptor(&request, root, candidate, false) {
+            if let Some(descriptor) =
+                managed_descriptor(&request, root, candidate, false, original_available)
+            {
                 return descriptor;
             }
         }
         if let Some(candidate) = choose_largest(&last_valid, false) {
-            if let Some(descriptor) = managed_descriptor(&request, root, candidate, true) {
+            if let Some(descriptor) =
+                managed_descriptor(&request, root, candidate, true, original_available)
+            {
                 return descriptor;
             }
         }
         if let Some(candidate) =
             choose_largest(&current, true).or_else(|| choose_largest(&last_valid, true))
         {
-            if let Some(descriptor) = managed_descriptor(&request, root, candidate, false) {
+            if let Some(descriptor) =
+                managed_descriptor(&request, root, candidate, false, original_available)
+            {
                 return descriptor;
             }
         }
@@ -297,7 +312,7 @@ fn load_item(
     if let Some(slot_token) = request.slot_token.as_deref() {
         return connection
             .query_row(
-                "SELECT item_id, lifecycle_state, source_availability_state
+                "SELECT item_id, lifecycle_state, locator_hash
                  FROM managed_media_items
                  WHERE owner_kind = ?1 AND owner_id = ?2 AND slot_kind = ?3 AND slot_token = ?4",
                 params![
@@ -312,7 +327,7 @@ fn load_item(
     }
     connection
         .query_row(
-            "SELECT item_id, lifecycle_state, source_availability_state
+            "SELECT item_id, lifecycle_state, locator_hash
              FROM managed_media_items
              WHERE owner_kind = ?1 AND owner_id = ?2 AND slot_kind = ?3 AND locator_hash = ?4",
             params![
@@ -330,7 +345,7 @@ fn read_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ManagedItem> {
     Ok(ManagedItem {
         item_id: row.get(0)?,
         lifecycle_state: row.get(1)?,
-        source_availability_state: row.get(2)?,
+        locator_hash: row.get(2)?,
     })
 }
 
@@ -437,6 +452,7 @@ fn managed_descriptor(
     root: &ManagedMediaRoot,
     candidate: &VariantCandidate,
     stale_last_valid: bool,
+    original_available: bool,
 ) -> Option<ManagedMediaDescriptor> {
     let path = root.resolve(Path::new(&candidate.relative_path)).ok()?;
     if !path.is_file() {
@@ -455,7 +471,7 @@ fn managed_descriptor(
         width: Some(candidate.width),
         height: Some(candidate.height),
         media_kind: "image".to_string(),
-        original_available: request.source_path.is_some(),
+        original_available,
         managed_available: true,
         fallback_reason: if stale_last_valid {
             "last_valid_managed".to_string()
@@ -472,11 +488,33 @@ fn original_or_placeholder(
     request: &ValidatedRequest,
     reason: &'static str,
 ) -> ManagedMediaDescriptor {
-    if request.source_path.is_some() {
+    if original_path_is_available(request.source_path.as_deref(), None) {
         original_descriptor(request, reason)
     } else {
         placeholder(&request.request_id, reason)
     }
+}
+
+fn original_path_is_available(path: Option<&str>, expected_locator_hash: Option<&str>) -> bool {
+    let Some(raw_path) = path else {
+        return false;
+    };
+    let path = Path::new(raw_path);
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+        || expected_locator_hash.is_some_and(|expected| hash_locator(raw_path) != expected)
+    {
+        return false;
+    }
+
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return false;
+    };
+    metadata.file_type().is_file()
+        && !metadata.file_type().is_symlink()
+        && fs::File::open(path).is_ok()
 }
 
 fn original_descriptor(request: &ValidatedRequest, reason: &'static str) -> ManagedMediaDescriptor {
