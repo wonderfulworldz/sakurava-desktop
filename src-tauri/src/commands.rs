@@ -48,6 +48,12 @@ use crate::database::{
     DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
 };
 use crate::managed_media::catalog_lifecycle::{reconcile_owner_mutation, OwnerSources};
+use crate::managed_media::{
+    descriptors::{
+        resolve_descriptor_batch, ManagedMediaDescriptor, ManagedMediaDescriptorRequest,
+    },
+    path::ManagedMediaRoot,
+};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 const IMPORT_PLAN_PROCESSING_FAILURE: &str =
@@ -844,6 +850,38 @@ pub fn media_asset_allow_root(
         root_path: root_path.display().to_string(),
         success: true,
     })
+}
+
+#[tauri::command]
+pub fn managed_media_descriptor_resolve_batch(
+    database: State<'_, RuntimeDatabase>,
+    scopes: State<'_, Scopes>,
+    requests: Vec<ManagedMediaDescriptorRequest>,
+) -> Result<Vec<ManagedMediaDescriptor>, String> {
+    let root = ManagedMediaRoot::from_app_data_dir(&database.paths.app_data_dir)?;
+    let descriptors = with_connection(&database, |connection| {
+        Ok(resolve_descriptor_batch(connection, &root, requests))
+    })?;
+
+    for descriptor in &descriptors {
+        if matches!(
+            descriptor.selected_source_class.as_str(),
+            "managed_standard" | "managed_native_fallback"
+        ) {
+            let Some(asset_path) = descriptor.asset_path.as_deref() else {
+                continue;
+            };
+            let validated =
+                root.resolve(Path::new(asset_path).strip_prefix(root.as_path()).map_err(
+                    |_| "Managed descriptor asset path escaped its protected root.".to_string(),
+                )?)?;
+            scopes
+                .allow_file(&validated)
+                .map_err(|error| format!("Unable to allow managed media asset: {error}"))?;
+        }
+    }
+
+    Ok(descriptors)
 }
 
 #[tauri::command]
@@ -7815,6 +7853,10 @@ mod tests {
                 create_credit(&connection, input("Delete me")).expect("deleted credit");
             (work, performer, updated_credit, deleted_credit)
         };
+        let credit_issuance_yymm = updated_credit
+            .sakurava_ref
+            .get(1..5)
+            .expect("credit R Ref has a YYMM namespace");
 
         let mut update = plan_operation(
             "credits",
@@ -7848,7 +7890,9 @@ mod tests {
                 "roleImportanceCategoryId": null
             }),
         );
-        let plan = signed_import_plan(&database, vec![update, delete, create]);
+        let mut plan = signed_import_plan(&database, vec![update, delete, create]);
+        plan.issuance_yymm = credit_issuance_yymm.to_string();
+        plan.operation_fingerprint = import_plan_fingerprint(&plan);
         let result = apply_import_catalog_plan(&database, plan);
         assert_eq!(result.transaction_status, "committed");
         assert_eq!(result.created_count, 1);
@@ -7870,7 +7914,7 @@ mod tests {
             .iter()
             .find(|credit| credit.id != updated_credit.id)
             .expect("created row");
-        assert_eq!(created.sakurava_ref, "R26070003");
+        assert_eq!(created.sakurava_ref, format!("R{credit_issuance_yymm}0003"));
         assert_ne!(created.sakurava_ref, deleted_credit.sakurava_ref);
         let _ = fs::remove_dir_all(root);
     }

@@ -4,6 +4,11 @@ import type { CollectionConfig } from "../lib/collectionData";
 import { buildImageCollectionConfig } from "../lib/imageIntegration";
 import CollectionPage from "./CollectionPage";
 import { isImageRuntimeAvailable, listImages, updateImage } from "../runtime/imageCommands";
+import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../runtime/managedMediaDescriptors";
 
 function ImageCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -21,9 +26,32 @@ function ImageCollectionPage() {
     }
 
     listImages()
-      .then((images) => {
+      .then(async (images) => {
         if (!cancelled) {
-          setConfig(buildImageCollectionConfig(images));
+          const descriptors = await resolveManagedMediaDescriptors(
+            images.map((image) =>
+              primaryVisualDescriptorRequest({
+                requestId: `image-collection-${image.id}`,
+                ownerKind: "image",
+                ownerId: image.id,
+                sourcePath: image.coverPath,
+                roleId: "image_collection_full_card",
+                cssWidth: 320,
+                cssHeight: 180,
+              }),
+            ),
+          );
+          if (!cancelled) {
+            setConfig(
+              buildImageCollectionConfig(
+                images.map((image) => ({
+                  ...image,
+                  coverPath:
+                    descriptorAssetPath(descriptors.get(`image-collection-${image.id}`)) ?? "",
+                })),
+              ),
+            );
+          }
         }
       })
       .catch(() => {

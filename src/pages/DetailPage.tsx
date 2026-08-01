@@ -31,6 +31,7 @@ import {
   type ReactNode,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -53,6 +54,13 @@ import type { HomeRecentItem } from "../lib/homeData";
 import { calculateAverageRating } from "../lib/ratingSummary";
 import { updateImage } from "../runtime/imageCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
+import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  repeatedVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../runtime/managedMediaDescriptors";
+import type { ManagedMediaDescriptor } from "../shared/managedMediaDescriptor";
 import {
   createGlobalImageViewerWindowPayload,
   openGlobalImageViewerWindow,
@@ -116,10 +124,138 @@ type DetailFavoriteAction = {
 const DETAIL_CHIP_VISIBLE_LIMIT = 5;
 const RELATED_CAROUSEL_VISIBLE_COUNT = 5;
 
+function buildDetailDescriptorRequests(config: DetailConfig) {
+  const ownerKind =
+    config.kind === "videos"
+      ? "video"
+      : config.kind === "images"
+        ? "image"
+        : "performer";
+  const primaryRole =
+    config.kind === "videos"
+      ? "video_detail_primary"
+      : config.kind === "images"
+        ? "image_detail_primary"
+        : "performer_detail_primary";
+  const primaryHeight = config.kind === "performers" ? 500 : 225;
+  if (!config.recordId) {
+    return [];
+  }
+  const requests = [
+    primaryVisualDescriptorRequest({
+      requestId: "detail-primary",
+      ownerKind,
+      ownerId: config.recordId,
+      sourcePath: config.coverPath,
+      roleId: primaryRole,
+      cssWidth: 400,
+      cssHeight: primaryHeight,
+    }),
+    primaryVisualDescriptorRequest({
+      requestId: "detail-primary-viewer",
+      ownerKind,
+      ownerId: config.recordId,
+      sourcePath: config.coverPath,
+      roleId: primaryRole,
+      intent: "full_viewer",
+      cssWidth: 1,
+      cssHeight: 1,
+    }),
+  ];
+  if (config.kind === "images") {
+    config.galleryImagePaths.forEach((path, index) => {
+      requests.push(
+        repeatedVisualDescriptorRequest(
+          {
+            requestId: `detail-gallery-${index}`,
+            ownerKind: "image",
+            ownerId: config.recordId ?? "",
+            sourcePath: path,
+            roleId: "image_gallery_tile",
+            cssWidth: 320,
+            cssHeight: 320,
+          },
+          "gallery_tile",
+        ),
+        repeatedVisualDescriptorRequest(
+          {
+            requestId: `detail-gallery-viewer-${index}`,
+            ownerKind: "image",
+            ownerId: config.recordId ?? "",
+            sourcePath: path,
+            roleId: "image_gallery_tile",
+            intent: "full_viewer",
+            cssWidth: 1,
+            cssHeight: 1,
+          },
+          "gallery_tile",
+        ),
+      );
+    });
+  }
+  if (config.kind === "performers") {
+    config.thumbnailPaths.forEach((path, index) => {
+      requests.push(
+        repeatedVisualDescriptorRequest(
+          {
+            requestId: `detail-mini-${index}`,
+            ownerKind: "performer",
+            ownerId: config.recordId ?? "",
+            sourcePath: path,
+            roleId: "performer_mini_row",
+            cssWidth: 96,
+            cssHeight: 96,
+          },
+          "mini_row",
+        ),
+        repeatedVisualDescriptorRequest(
+          {
+            requestId: `detail-mini-viewer-${index}`,
+            ownerKind: "performer",
+            ownerId: config.recordId ?? "",
+            sourcePath: path,
+            roleId: "performer_mini_row",
+            intent: "full_viewer",
+            cssWidth: 1,
+            cssHeight: 1,
+          },
+          "mini_row",
+        ),
+      );
+    });
+  }
+  return requests;
+}
+
 function DetailPage({ config }: DetailPageProps) {
   const [favorite, setFavorite] = useState(config.favorite);
   const [favoritePending, setFavoritePending] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  const [mediaDescriptors, setMediaDescriptors] = useState<
+    Map<string, ManagedMediaDescriptor>
+  >(() => new Map());
+  const descriptorRequests = useMemo(
+    () => buildDetailDescriptorRequests(config),
+    [
+      config.kind,
+      config.recordId,
+      config.coverPath,
+      config.kind === "images" ? config.galleryImagePaths.join("\u0000") : "",
+      config.kind === "performers" ? config.thumbnailPaths.join("\u0000") : "",
+    ],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveManagedMediaDescriptors(descriptorRequests).then((descriptors) => {
+      if (!cancelled) {
+        setMediaDescriptors(descriptors);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [descriptorRequests]);
 
   useEffect(() => {
     setFavorite(config.favorite);
@@ -178,6 +314,7 @@ function DetailPage({ config }: DetailPageProps) {
       <PerformerDetailPage
         config={localConfig}
         favoriteAction={favoriteAction}
+        mediaDescriptors={mediaDescriptors}
       />
     );
   }
@@ -186,6 +323,7 @@ function DetailPage({ config }: DetailPageProps) {
     <CatalogDetailPage
       config={localConfig}
       favoriteAction={favoriteAction}
+      mediaDescriptors={mediaDescriptors}
     />
   );
 }
@@ -227,14 +365,20 @@ function DetailHeader({ config }: DetailPageProps) {
 function CatalogDetailPage({
   config,
   favoriteAction,
+  mediaDescriptors,
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
+  mediaDescriptors: Map<string, ManagedMediaDescriptor>;
 }) {
   const t = useTranslation();
   const heroSection = (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(360px,0.9fr)_1.1fr]">
-        <LargePlaceholder config={config} />
+        <LargePlaceholder
+          config={config}
+          displayDescriptor={mediaDescriptors.get("detail-primary")}
+          viewerDescriptor={mediaDescriptors.get("detail-primary-viewer")}
+        />
         <CatalogIdentity config={config} favoriteAction={favoriteAction} />
       </div>
     </section>
@@ -257,7 +401,7 @@ function CatalogDetailPage({
       <div className="space-y-5">
         <DetailHeader config={config} />
         {heroSection}
-        <GalleryGrid paths={config.galleryImagePaths} />
+        <GalleryGrid paths={config.galleryImagePaths} descriptors={mediaDescriptors} />
         {detailSummarySection}
         <NotesCard notes={config.notes} />
         <RelatedRows sections={config.relatedSections} />
@@ -353,9 +497,11 @@ function CatalogIdentity({
 function PerformerDetailPage({
   config,
   favoriteAction,
+  mediaDescriptors,
 }: {
   config: PerformerDetailConfig;
   favoriteAction: DetailFavoriteAction;
+  mediaDescriptors: Map<string, ManagedMediaDescriptor>;
 }) {
   const t = useTranslation();
   const physicalItems = [
@@ -374,6 +520,7 @@ function PerformerDetailPage({
         <PerformerProfileCard
           config={config}
           favoriteAction={favoriteAction}
+          mediaDescriptors={mediaDescriptors}
         />
 
         <div className="min-w-0 space-y-5">
@@ -397,15 +544,21 @@ function PerformerDetailPage({
 function PerformerProfileCard({
   config,
   favoriteAction,
+  mediaDescriptors,
 }: {
   config: PerformerDetailConfig;
   favoriteAction: DetailFavoriteAction;
+  mediaDescriptors: Map<string, ManagedMediaDescriptor>;
 }) {
   const t = useTranslation();
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="relative">
-        <LargePlaceholder config={config} />
+        <LargePlaceholder
+          config={config}
+          displayDescriptor={mediaDescriptors.get("detail-primary")}
+          viewerDescriptor={mediaDescriptors.get("detail-primary-viewer")}
+        />
         <div className="absolute right-3 top-3 z-10">
           <MainFavoriteButton
             favorite={config.favorite}
@@ -431,6 +584,8 @@ function PerformerProfileCard({
               path={config.thumbnailPaths[index]}
               paths={config.thumbnailPaths}
               index={index}
+              displayDescriptor={mediaDescriptors.get(`detail-mini-${index}`)}
+              viewerDescriptor={mediaDescriptors.get(`detail-mini-viewer-${index}`)}
             />
           );
         })}
@@ -597,7 +752,14 @@ function PerformerSummaryCards({ config }: { config: PerformerDetailConfig }) {
   );
 }
 
-function LargePlaceholder({ config }: DetailPageProps) {
+function LargePlaceholder({
+  config,
+  displayDescriptor,
+  viewerDescriptor,
+}: DetailPageProps & {
+  displayDescriptor?: ManagedMediaDescriptor;
+  viewerDescriptor?: ManagedMediaDescriptor;
+}) {
   const aspectClass =
     config.kind === "performers" ? "aspect-[4/5]" : "aspect-video";
   const [imageFailed, setImageFailed] = useState(false);
@@ -605,7 +767,11 @@ function LargePlaceholder({ config }: DetailPageProps) {
     useState<GlobalImageViewerWindowPayload | null>(null);
   const previewOpeningRef = useRef(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(config.coverPath);
+  const displayPath = displayDescriptor?.placeholder
+    ? undefined
+    : descriptorAssetPath(displayDescriptor) ?? config.coverPath;
+  const viewerPath = descriptorAssetPath(viewerDescriptor) ?? config.coverPath;
+  const assetSrc = localImagePathToAssetSrc(displayPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
   const previewTitle = coverPreviewTitle(config.kind);
   const imageAlt = `${config.displayTitle} ${
@@ -626,7 +792,7 @@ function LargePlaceholder({ config }: DetailPageProps) {
     previewOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: previewTitle,
-      images: [{ path: config.coverPath ?? "", title: previewTitle }],
+      images: [{ path: viewerPath ?? "", title: previewTitle }],
       initialIndex: 0,
     });
     try {
@@ -696,18 +862,26 @@ function SmallThumbnail({
   label,
   path,
   paths = path ? [path] : [],
+  displayDescriptor,
+  viewerDescriptor,
 }: {
   index?: number;
   label: string;
   path?: string;
   paths?: string[];
+  displayDescriptor?: ManagedMediaDescriptor;
+  viewerDescriptor?: ManagedMediaDescriptor;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [previewPayload, setPreviewPayload] =
     useState<GlobalImageViewerWindowPayload | null>(null);
   const previewOpeningRef = useRef(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(path);
+  const displayPath = displayDescriptor?.placeholder
+    ? undefined
+    : descriptorAssetPath(displayDescriptor) ?? path;
+  const viewerPath = descriptorAssetPath(viewerDescriptor) ?? path;
+  const assetSrc = localImagePathToAssetSrc(displayPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   useEffect(() => {
@@ -724,14 +898,14 @@ function SmallThumbnail({
     previewOpeningRef.current = true;
     const viewerImages = paths
       .map((thumbnailPath, thumbnailIndex) => ({
-        path: thumbnailPath,
+        path: thumbnailIndex === index ? viewerPath ?? thumbnailPath : thumbnailPath,
         title: `Performer Thumbnail ${thumbnailIndex + 1}`,
       }))
       .filter((image) => image.path.trim());
-    const initialIndex = Math.max(
-      0,
-      viewerImages.findIndex((image) => image.path === path),
-    );
+    const initialIndex =
+      typeof index === "number"
+        ? Math.min(Math.max(index, 0), Math.max(viewerImages.length - 1, 0))
+        : Math.max(0, viewerImages.findIndex((image) => image.path === viewerPath));
     const payload = createGlobalImageViewerWindowPayload({
       ariaLabel: label,
       images: viewerImages.length > 0
@@ -3466,7 +3640,13 @@ function RelatedEmptyState({
 
 const GALLERY_BATCH_SIZE = 15;
 
-function GalleryGrid({ paths }: { paths: string[] }) {
+function GalleryGrid({
+  paths,
+  descriptors,
+}: {
+  paths: string[];
+  descriptors: Map<string, ManagedMediaDescriptor>;
+}) {
   const t = useTranslation();
   const [visibleCount, setVisibleCount] = useState(GALLERY_BATCH_SIZE);
   const [viewerPayload, setViewerPayload] =
@@ -3488,7 +3668,11 @@ function GalleryGrid({ paths }: { paths: string[] }) {
 
     viewerOpeningRef.current = true;
     const payload = createGlobalImageViewerWindowPayload({
-      images: paths.map((path) => ({ path })),
+      images: paths.map((path, imageIndex) => ({
+        path:
+          descriptorAssetPath(descriptors.get(`detail-gallery-viewer-${imageIndex}`)) ??
+          path,
+      })),
       initialIndex: index,
     });
     try {
@@ -3532,6 +3716,7 @@ function GalleryGrid({ paths }: { paths: string[] }) {
                   key={`${path}-${index}`}
                   path={path}
                   label={`Gallery image ${index + 1}`}
+                  descriptor={descriptors.get(`detail-gallery-${index}`)}
                   onPreview={() => void handlePreviewOpen(index)}
                 />
               ))}
@@ -3576,14 +3761,19 @@ function GalleryImageTile({
   path,
   label,
   onPreview,
+  descriptor,
 }: {
   path: string;
   label: string;
   onPreview: () => void;
+  descriptor?: ManagedMediaDescriptor;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(path);
+  const selectedPath = descriptor?.placeholder
+    ? undefined
+    : descriptorAssetPath(descriptor) ?? path;
+  const assetSrc = localImagePathToAssetSrc(selectedPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
 
   useEffect(() => {

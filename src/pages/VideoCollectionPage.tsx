@@ -4,6 +4,11 @@ import type { CollectionConfig } from "../lib/collectionData";
 import { buildVideoCollectionConfig } from "../lib/videoIntegration";
 import CollectionPage from "./CollectionPage";
 import { isVideoRuntimeAvailable, listVideos, updateVideo } from "../runtime/videoCommands";
+import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../runtime/managedMediaDescriptors";
 
 function VideoCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -21,9 +26,32 @@ function VideoCollectionPage() {
     }
 
     listVideos()
-      .then((videos) => {
+      .then(async (videos) => {
         if (!cancelled) {
-          setConfig(buildVideoCollectionConfig(videos));
+          const descriptors = await resolveManagedMediaDescriptors(
+            videos.map((video) =>
+              primaryVisualDescriptorRequest({
+                requestId: `video-collection-${video.id}`,
+                ownerKind: "video",
+                ownerId: video.id,
+                sourcePath: video.coverPath,
+                roleId: "video_collection_full_card",
+                cssWidth: 320,
+                cssHeight: 180,
+              }),
+            ),
+          );
+          if (!cancelled) {
+            setConfig(
+              buildVideoCollectionConfig(
+                videos.map((video) => ({
+                  ...video,
+                  coverPath:
+                    descriptorAssetPath(descriptors.get(`video-collection-${video.id}`)) ?? "",
+                })),
+              ),
+            );
+          }
         }
       })
       .catch(() => {

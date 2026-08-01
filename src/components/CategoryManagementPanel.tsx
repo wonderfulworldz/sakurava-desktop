@@ -35,6 +35,12 @@ import { getStoredManagedCategories, storeManagedCategories } from "../lib/manag
 import { selectLocalImageFile } from "../runtime/dialogCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../runtime/managedMediaDescriptors";
+import type { ManagedMediaDescriptor } from "../shared/managedMediaDescriptor";
+import {
   createManagedCategory,
   deleteManagedCategory,
   listManagedCategories,
@@ -226,6 +232,11 @@ function CategoryManagementPanel() {
   const isDesktopRuntime = isTauriRuntimeAvailable();
   const initialFilters = initialCategoryManagementFilters();
   const [categories, setCategories] = useState<ManagedCategory[]>([]);
+  const [categoryThumbnailPaths, setCategoryThumbnailPaths] = useState<
+    Map<string, ManagedMediaDescriptor>
+  >(
+    () => new Map(),
+  );
   const [records, setRecords] = useState(emptyRecords);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formVisible, setFormVisible] = useState(false);
@@ -489,6 +500,38 @@ function CategoryManagementPanel() {
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveManagedMediaDescriptors(
+      categories.map((category) =>
+        primaryVisualDescriptorRequest({
+          requestId: `category-active-${category.key}`,
+          ownerKind: "category",
+          ownerId: category.key,
+          sourcePath: category.thumbnailPath,
+          roleId: "category_active_card",
+          cssWidth: 320,
+          cssHeight: 320,
+        }),
+      ),
+    ).then((descriptors) => {
+      if (cancelled) {
+        return;
+      }
+      setCategoryThumbnailPaths(
+        new Map(
+          categories.map((category) => [
+            category.key,
+            descriptors.get(`category-active-${category.key}`),
+          ]).filter((entry): entry is [string, ManagedMediaDescriptor] => Boolean(entry[1])),
+        ),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [categories]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1443,7 +1486,10 @@ function CategoryManagementPanel() {
                           name: category.name,
                           parentName: parent?.name ?? null,
                           description: category.description,
-                          thumbnailPath: category.thumbnailPath,
+                          thumbnailPath: resolvedCategoryThumbnailPath(
+                            category.thumbnailPath,
+                            categoryThumbnailPaths.get(category.key),
+                          ),
                           childCount,
                           videos: usage.videos,
                           images: usage.images,
@@ -1528,6 +1574,10 @@ function CategoryManagementPanel() {
                       key={`${row.kind}-${row.category.key}`}
                       row={row}
                       expanded={expandedParentKeys.has(row.category.key)}
+                      thumbnailPath={resolvedCategoryThumbnailPath(
+                        row.category.thumbnailPath,
+                        categoryThumbnailPaths.get(row.category.key),
+                      )}
                       onToggleParent={toggleParentExpansion}
                       onEdit={handleEdit}
                     />
@@ -2119,11 +2169,13 @@ function CategoryTableRow({
   expanded,
   onToggleParent,
   onEdit,
+  thumbnailPath,
 }: {
   row: CategoryTableDisplayRow;
   expanded: boolean;
   onToggleParent: (key: string) => void;
   onEdit: (category: ManagedCategory) => void;
+  thumbnailPath: string;
 }) {
   const t = useTranslation();
   const hasChildren = row.childCount > 0;
@@ -2173,7 +2225,7 @@ function CategoryTableRow({
         </span>
       </td>
       <td className={`px-3 py-3 ${childContentIndentClass}`}>
-        <ThumbnailPreview category={row.category} />
+        <ThumbnailPreview category={row.category} thumbnailPath={thumbnailPath} />
       </td>
       <td className={`px-3 py-3 overflow-hidden ${childContentIndentClass}`}>
         <div className="flex min-w-0 items-start gap-2 overflow-hidden">
@@ -2303,16 +2355,32 @@ function categoryUsageLink(
   return `/${kind}?category=${encodeURIComponent(category)}`;
 }
 
-function ThumbnailPreview({ category }: { category: ManagedCategory }) {
+function resolvedCategoryThumbnailPath(
+  originalPath: string,
+  descriptor: ManagedMediaDescriptor | undefined,
+) {
+  if (descriptor?.placeholder) {
+    return "";
+  }
+  return descriptorAssetPath(descriptor) ?? originalPath;
+}
+
+function ThumbnailPreview({
+  category,
+  thumbnailPath = category.thumbnailPath,
+}: {
+  category: ManagedCategory;
+  thumbnailPath?: string;
+}) {
   const t = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
-  const assetSrc = localImagePathToAssetSrc(category.thumbnailPath);
+  const assetSrc = localImagePathToAssetSrc(thumbnailPath);
 
   useEffect(() => {
     setImageFailed(false);
   }, [assetSrc]);
 
-  if (!category.thumbnailPath.trim()) {
+  if (!thumbnailPath.trim()) {
     return (
       <div
         aria-label={t("category.thumbnailPlaceholder")}

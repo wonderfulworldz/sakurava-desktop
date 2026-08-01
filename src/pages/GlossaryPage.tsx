@@ -14,6 +14,12 @@ import {
   updateGlossaryEntry,
 } from "../runtime/glossaryCommands";
 import { selectLocalImageFile } from "../runtime/dialogCommands";
+import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../runtime/managedMediaDescriptors";
+import type { ManagedMediaDescriptor } from "../shared/managedMediaDescriptor";
 import ConfirmDialog from "../components/ConfirmDialog";
 import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import SakuravaSelect from "../components/SakuravaSelect";
@@ -300,6 +306,11 @@ function GlossaryPage() {
   const [entries, setEntries] = useState<GlossaryEntry[]>(() =>
     isGlossaryRuntimeAvailable() ? [] : sampleGlossaryEntries,
   );
+  const [thumbnailPaths, setThumbnailPaths] = useState<
+    Map<string, ManagedMediaDescriptor>
+  >(
+    () => new Map(),
+  );
   const [isRuntimeMode, setIsRuntimeMode] = useState(() =>
     isGlossaryRuntimeAvailable(),
   );
@@ -381,6 +392,37 @@ function GlossaryPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveManagedMediaDescriptors(
+      entries.map((entry) =>
+        primaryVisualDescriptorRequest({
+          requestId: `glossary-${entry.id}`,
+          ownerKind: "glossary",
+          ownerId: entry.id,
+          sourcePath: entry.thumbnailPath,
+          roleId: "glossary_table",
+          cssWidth: 44,
+          cssHeight: 44,
+        }),
+      ),
+    ).then((descriptors) => {
+      if (cancelled) {
+        return;
+      }
+      setThumbnailPaths(
+        new Map(
+          entries
+            .map((entry) => [entry.id, descriptors.get(`glossary-${entry.id}`)])
+            .filter((entry): entry is [string, ManagedMediaDescriptor] => Boolean(entry[1])),
+        ),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entries]);
 
   const entryById = useMemo(
     () => new Map(entries.map((entry) => [entry.id, entry])),
@@ -1332,6 +1374,10 @@ function GlossaryPage() {
                       onEdit={openEditForm}
                       onFavorite={toggleFavorite}
                       onToggleExpansion={toggleEntryExpansion}
+                      thumbnailPath={resolvedGlossaryThumbnailPath(
+                        row.entry.thumbnailPath,
+                        thumbnailPaths.get(row.entry.id),
+                      )}
                     />
                   ))}
                 </tbody>
@@ -1376,12 +1422,14 @@ function GlossaryTableRow({
   onEdit,
   onFavorite,
   onToggleExpansion,
+  thumbnailPath,
 }: {
   row: GlossaryTableDisplayRow;
   entryById: Map<string, GlossaryEntry>;
   onEdit: (entry: GlossaryEntry) => void;
   onFavorite: (entry: GlossaryEntry) => void;
   onToggleExpansion: (entryId: string) => void;
+  thumbnailPath?: string;
 }) {
   const t = useTranslation();
   const { entry, depth, childCount, expanded } = row;
@@ -1445,7 +1493,7 @@ function GlossaryTableRow({
       </td>
       <td className="w-16 px-3 py-2.5">
         <div className={`inline-flex size-11 shrink-0 ${childIndentClass}`}>
-          <ThumbnailPreview entry={entry} />
+          <ThumbnailPreview entry={entry} thumbnailPath={thumbnailPath} />
         </div>
       </td>
       <td className="px-3 py-2.5">
@@ -1561,8 +1609,14 @@ function glossaryAriaSort(
   return tableSort?.value === sortValue ? tableSort.direction : undefined;
 }
 
-function ThumbnailPreview({ entry }: { entry: GlossaryEntry }) {
-  const src = thumbnailSrc(entry.thumbnailPath);
+function ThumbnailPreview({
+  entry,
+  thumbnailPath = entry.thumbnailPath,
+}: {
+  entry: GlossaryEntry;
+  thumbnailPath?: string;
+}) {
+  const src = thumbnailSrc(thumbnailPath);
   if (src) {
     return (
       <img
@@ -2415,6 +2469,16 @@ function shortSourceUrl(sourceUrl: string) {
   } catch {
     return sourceUrl;
   }
+}
+
+function resolvedGlossaryThumbnailPath(
+  originalPath: string,
+  descriptor: ManagedMediaDescriptor | undefined,
+) {
+  if (descriptor?.placeholder) {
+    return "";
+  }
+  return descriptorAssetPath(descriptor) ?? originalPath;
 }
 
 function thumbnailSrc(path: string) {

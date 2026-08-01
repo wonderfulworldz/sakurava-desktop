@@ -8,6 +8,11 @@ import {
   listPerformers,
   updatePerformer,
 } from "../runtime/performerCommands";
+import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../runtime/managedMediaDescriptors";
 
 function PerformerCollectionPage() {
   const [config, setConfig] = useState<CollectionConfig>(() =>
@@ -25,9 +30,34 @@ function PerformerCollectionPage() {
     }
 
     listPerformers()
-      .then((performers) => {
+      .then(async (performers) => {
         if (!cancelled) {
-          setConfig(buildPerformerCollectionConfig(performers));
+          const descriptors = await resolveManagedMediaDescriptors(
+            performers.map((performer) =>
+              primaryVisualDescriptorRequest({
+                requestId: `performer-collection-${performer.id}`,
+                ownerKind: "performer",
+                ownerId: performer.id,
+                sourcePath: performer.coverPath,
+                roleId: "performer_collection_full_card",
+                cssWidth: 320,
+                cssHeight: 320,
+              }),
+            ),
+          );
+          if (!cancelled) {
+            setConfig(
+              buildPerformerCollectionConfig(
+                performers.map((performer) => ({
+                  ...performer,
+                  coverPath:
+                    descriptorAssetPath(
+                      descriptors.get(`performer-collection-${performer.id}`),
+                    ) ?? "",
+                })),
+              ),
+            );
+          }
         }
       })
       .catch(() => {
