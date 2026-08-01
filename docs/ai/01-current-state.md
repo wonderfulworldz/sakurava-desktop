@@ -8,21 +8,22 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-01
 repository_state_recorded_at: 2026-08-01
-repository_state_status: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9C_I3_I2_RESULT_REVIEW
+repository_state_status: DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9D_R3_RESULT_REVIEW
 remote_main_verified: IMPLEMENTATION_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
 untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
-baseline_label: Batch 42.4-9C-I3-I2 Phased Inert Runtime Foundation
-application_source_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
-pre_reconciliation_repository_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
-prior_project_os_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
-project_os_reconciliation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
-implementation_parent: c53542397117c415039312d3de6e6fc5962d9bf1
+last_recorded_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+baseline_label: Batch 42.4-9D Descriptor Resolution and Invisible Frontend Adapter
+application_source_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+pre_reconciliation_repository_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+prior_project_os_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+project_os_reconciliation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+implementation_parent: a611eaa2379e3f915a1b38095299047ceaaae348
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -40,19 +41,19 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
-current_stage: 42.4-9C-I3-I2-C — Phased Inert Runtime Foundation Reconciliation
-completed_current_stage: 42.4-9C-I3-I2-C — Phased Inert Runtime Foundation Reconciliation
+active_batch_phase: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_RECONCILED
+current_stage: 42.4-9D-C — Descriptor Resolution and Invisible Frontend Adapter Reconciliation
+completed_current_stage: 42.4-9D-C — Descriptor Resolution and Invisible Frontend Adapter Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
-decision_stage: LOCAL_GIT_PROXY_CONFIGURATION_DECISION
-decision_stage_status: COMPLETED_AND_ACCEPTED
-decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
+decision_stage: 42.4-9D-C
+decision_stage_status: COMPLETED_AND_CLOSED
+decision_verdict: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
 normal_fetch_state: AVAILABLE_REPORTED_BY_CODEX
-normal_push_state: DEGRADED_LOOPBACK_ROUTE_REPORTED_BY_CODEX
-process_scoped_fallback_state: APPROVED_WITH_EXACT_PREFLIGHT_AND_STOP_CONDITIONS
+normal_push_state: AVAILABLE_REPORTED_BY_CODEX
+process_scoped_fallback_state: HISTORICAL_APPROVED_WITH_EXACT_PREFLIGHT_AND_STOP_CONDITIONS
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
@@ -120,8 +121,20 @@ stage_42_4_9c_i3_i2_runtime: INERT_UNREGISTERED_NO_PRODUCTION_CALLER
 stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
 stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_9c_i3_i2_protected_untracked: 9101_MANUAL_SMOKE_ONLY
-current_documentation_stage: 42.4-9C-I3-I2-C
-next_technical_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
+stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9d_r1_status: COMPLETED_SUPERSEDED_BY_R2_R3
+stage_42_4_9d_r2_status: COMPLETED_SUPERSEDED_BY_R3
+stage_42_4_9d_r3_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9d_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9d_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+stage_42_4_9d_parent: a611eaa2379e3f915a1b38095299047ceaaae348
+stage_42_4_9d_scope: 14_EXACT_DESCRIPTOR_RESOLUTION_PATHS
+stage_42_4_9d_paths: src-tauri/src/commands.rs; src-tauri/src/lib.rs; src-tauri/src/managed_media/mod.rs; src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs; src/shared/managedMediaDescriptor.ts; src/runtime/managedMediaDescriptors.ts; src/runtime/managedMediaDescriptors.test.ts; src/components/CategoryManagementPanel.tsx; src/pages/DetailPage.tsx; src/pages/GlossaryPage.tsx; src/pages/ImageCollectionPage.tsx; src/pages/PerformerCollectionPage.tsx; src/pages/VideoCollectionPage.tsx
+stage_42_4_9d_runtime: INERT_UNREGISTERED
+stage_42_4_9d_source_handoff: NONE_PENDING
+stage_42_4_9d_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+current_documentation_stage: 42.4-9D-C
+next_technical_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
 next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_technical_stage_approved: false
 production_runtime_activation_allowed: false
@@ -189,7 +202,54 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Phased Inert Runtime Foundation Authority — 2026-08-01
+## Current Descriptor Resolution Adapter Authority — 2026-08-01
+
+Stage `42.4-9D` is `COMPLETED_AND_ACCEPTED`; R1 is
+`COMPLETED_SUPERSEDED_BY_R2_R3`, R2 is `COMPLETED_SUPERSEDED_BY_R3`, R3 is
+`COMPLETED_AND_ACCEPTED`, and reconciliation Stage `42.4-9D-C` is
+`COMPLETED_AND_CLOSED`. The accepted Result Review verdict is
+`DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED`.
+The implementation baseline is `b389e8b0686cffb023b3ba25ce3bea79bb4c63a1`,
+parent `a611eaa2379e3f915a1b38095299047ceaaae348`, with exactly fourteen
+committed paths: thirteen descriptor/backend/frontend paths plus
+`src-tauri/src/commands.rs`, which contains the descriptor batch command and
+the R3 test-only date-safety correction.
+
+R1 preserved the partial implementation while classifying baseline frontend
+debt but left an unresolved timeout and source-integrity concern. R2 resolved
+the source-integrity concern and did not reproduce the timeout, but closure
+stopped on an unrelated date-sensitive Rust test. R3 made that fixture
+deterministic without changing production behavior and completed delivery.
+
+Descriptor resolution is backend-owned. Typed owner, slot, role, rendering
+intent, dimensions, and DPR requests are resolved through bounded batching;
+equivalent requests may be deduplicated, responses remain compact, and
+frontend consumers do not construct managed filesystem paths or issue one
+command per card. Managed-root containment, traversal rejection, protected
+field exclusion, smallest-sufficient current selection, next-larger fallback,
+original, last-valid, native fallback, placeholder fallback, retirement, and
+opaque revision invalidation remain enforced. The full viewer remains
+original-first and natural-ratio. No general cache, polling, or descriptor
+event framework was added.
+
+R3 corrected only a date-sensitive test fixture: the Import namespace is
+derived from Credits created in the same test, preserving exact identity,
+high-water, non-reuse, and atomic Apply assertions. Production Credit
+allocation, R Ref format, Import Apply, and transaction behavior are unchanged.
+Verification is `REPORTED_BY_CODEX`: 4 focused Credit/Import tests, 267 full
+Rust tests, `cargo check`, formatting, production TypeScript/Vite build (Vite
+7.3.5), diff checks, and final Git synchronization 0/0 passed. The accepted
+R2 frontend run retained 1,078 passes and 24 baseline-equivalent or unrelated
+failures; it was not fully green. Runtime remains inert and unregistered; all
+technical permissions remain false.
+
+The next proposed stage is `42.4-9E — Disposable Lifecycle Verification and
+Result Review`, `READY_PENDING_SEPARATE_APPROVAL`. Production activation,
+numeric policies, existing-catalog population, platform asset behavior,
+performance, memory, and operator-observed lifecycle behavior remain unknown
+or separately gated.
+
+## Historical Superseded Phased Inert Runtime Foundation Authority — 2026-08-01
 
 Stage `42.4-9C-I3-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
 `42.4-9C-I3-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation

@@ -9,12 +9,13 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
-last_recorded_git_baseline_status: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
-application_source_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
-pre_reconciliation_repository_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
-prior_project_os_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
-project_os_reconciliation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+last_recorded_git_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+last_recorded_git_baseline_status: DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
+application_source_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+pre_reconciliation_repository_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+prior_project_os_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+project_os_reconciliation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -25,7 +26,7 @@ active_batch: 42.4
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
-batch_42_4_status: ACTIVE_PHASED_RUNTIME_SCOPE_RECONCILED
+batch_42_4_status: ACTIVE_DESCRIPTOR_RESOLUTION_ADAPTER_RECONCILED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -104,9 +105,19 @@ batch_42_4_stage_42_4_9c_i3_i2_scope: 14_EXACT_MANAGED_MEDIA_PATHS
 batch_42_4_stage_42_4_9c_i3_i2_paths: mod.rs; runtime.rs; runtime_tests.rs; executor.rs; executor_tests.rs; acquisition.rs; acquisition_tests.rs; lifecycle.rs; lifecycle_tests.rs; catalog_lifecycle.rs; catalog_lifecycle_tests.rs; publication.rs; publication_tests.rs; recovery.rs
 batch_42_4_stage_42_4_9c_i3_i2_verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
 batch_42_4_stage_42_4_9c_i3_i2_runtime: INERT_UNREGISTERED_NO_PRODUCTION_CALLER
+batch_42_4_stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9d_r1_status: COMPLETED_SUPERSEDED_BY_R2_R3
+batch_42_4_stage_42_4_9d_r2_status: COMPLETED_SUPERSEDED_BY_R3
+batch_42_4_stage_42_4_9d_r3_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9d_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9d_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+batch_42_4_stage_42_4_9d_parent: a611eaa2379e3f915a1b38095299047ceaaae348
+batch_42_4_stage_42_4_9d_scope: 14_EXACT_DESCRIPTOR_RESOLUTION_PATHS
+batch_42_4_stage_42_4_9d_paths: src-tauri/src/commands.rs; src-tauri/src/lib.rs; src-tauri/src/managed_media/mod.rs; src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs; src/shared/managedMediaDescriptor.ts; src/runtime/managedMediaDescriptors.ts; src/runtime/managedMediaDescriptors.test.ts; src/components/CategoryManagementPanel.tsx; src/pages/DetailPage.tsx; src/pages/GlossaryPage.tsx; src/pages/ImageCollectionPage.tsx; src/pages/PerformerCollectionPage.tsx; src/pages/VideoCollectionPage.tsx
+batch_42_4_stage_42_4_9d_runtime: INERT_UNREGISTERED
 batch_42_4_stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
 batch_42_4_stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
-batch_42_4_next_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
+batch_42_4_next_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 batch_42_4_git_decision_status: COMPLETED_AND_ACCEPTED
@@ -1452,7 +1463,40 @@ No optimization or media implementation is authorized.
 
 ---
 
-### Batch 42.4 — Managed Mini Media Foundation (Current Authority — 2026-08-01)
+### Batch 42.4 — Managed Mini Media Foundation (Current Authority — 2026-08-01 — 9D Reconciliation)
+
+Stage `42.4-9D` is `COMPLETED_AND_ACCEPTED`; R1 is
+`COMPLETED_SUPERSEDED_BY_R2_R3`; R2 is `COMPLETED_SUPERSEDED_BY_R3`; R3 is
+`COMPLETED_AND_ACCEPTED`; and `42.4-9D-C` is `COMPLETED_AND_CLOSED`.
+The implementation baseline is `b389e8b0686cffb023b3ba25ce3bea79bb4c63a1`,
+parent `a611eaa2379e3f915a1b38095299047ceaaae348`, with exactly fourteen
+committed paths. Thirteen paths provide descriptor/backend/frontend support;
+`src-tauri/src/commands.rs` also contains the descriptor batch command and
+the bounded R3 date-safe test correction.
+
+Descriptor resolution is backend-owned and bounded. Typed requests are
+batched and may be deduplicated; managed-root containment, traversal rejection,
+protected-field exclusion, revision invalidation, current/next-larger/original/
+last-valid/native/placeholder fallback, retirement, and original-first viewer
+behavior remain explicit. Frontend components do not construct managed paths or
+invoke one command per card. Runtime supervision remains inert and unregistered.
+
+R3 corrected only the test fixture's wall-clock/import YYMM mismatch. The exact
+high-water, non-reuse, identity, and atomic Apply assertions remain. Production
+Credit allocation and Import behavior are unchanged. Verification is
+`REPORTED_BY_CODEX`: 4 focused Credit/Import tests, 267 full Rust tests,
+`cargo check`, formatting, production TypeScript/Vite build, diff checks, and
+final Git synchronization 0/0 passed. The accepted R2 frontend evidence retains
+1,078 passes and 24 baseline-equivalent or unrelated failures; the frontend
+suite is not described as fully green.
+
+The next proposed stage is `42.4-9E — Disposable Lifecycle Verification and
+Result Review`, `READY_PENDING_SEPARATE_APPROVAL`. Production activation,
+numeric policy, existing-catalog provisioning, Backup/Restore, performance,
+memory, and platform asset behavior remain separately gated or unknown. No
+technical permission is granted here.
+
+### Batch 42.4 — Managed Mini Media Foundation (Historical Superseded I3-I2 Closure — 2026-08-01)
 
 Stage `42.4-9C-I3-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
 `42.4-9C-I3-I2-C` is `COMPLETED_AND_CLOSED`. The implementation baseline is
