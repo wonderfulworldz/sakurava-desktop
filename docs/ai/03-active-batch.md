@@ -4,9 +4,9 @@
 
 batch: 42.4
 title: Managed Mini Media Foundation
-status: ACTIVE_PHASED_RUNTIME_SCOPE_RECONCILED
-phase: PHASED_RUNTIME_SCOPE_AND_EFFICIENT_DELIVERY_RECONCILIATION
-current_administrative_stage: 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery Reconciliation
+status: ACTIVE_PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
+phase: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILIATION
+current_administrative_stage: 42.4-9C-I3-I2-C — Phased Inert Runtime Foundation Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 decision_status: COMPLETED_AND_ACCEPTED
 decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPROVED
@@ -25,13 +25,14 @@ stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
-application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
+implementation_parent: c53542397117c415039312d3de6e6fc5962d9bf1
+application_source_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
 pre_reconciliation_repository_baseline: 857667981d36100b66e80784b014f158a7848341
 prior_project_os_reconciliation_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
-implementation_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-implementation_verdict: MANAGED_MEDIA_LOCAL_GENERATION_ORCHESTRATION_ACCEPTED_WITH_LIMITATIONS
-foundation_state: INERT_LOCAL_ONLY_GENERATION_ORCHESTRATION
+implementation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+implementation_verdict: PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE
+result_review_verdict: I3_I2_IMPLEMENTATION_COMPLETED_AND_ACCEPTED
+foundation_state: PHASED_INERT_RUNTIME_FOUNDATION_COMPLETE
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8c_status: COMPLETED_AND_CLOSED
@@ -62,11 +63,22 @@ stage_42_4_9c_i3_d2_phases: P1_DATABASE_PREPARATION; P2_FILESYSTEM_EXECUTION; P3
 stage_42_4_9c_i3_d2_runtime: INERT_NOT_REGISTERED
 stage_42_4_9c_i3_d2_schema: NO_CHANGE_REQUIRED
 stage_42_4_9c_i3_d2_database_rs: NO_CHANGE_REQUIRED
-stage_42_4_9c_i3_d2_source_handoff: SEVEN_PATH_DIRTY_HANDOFF_PRESERVED_UNACCEPTED
-next_technical_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
+stage_42_4_9c_i3_d2_source_handoff: HISTORICAL_HANDOFF_RESOLVED_IN_I3_I2
+stage_42_4_9c_i3_i2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_i2_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i3_i2_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+stage_42_4_9c_i3_i2_parent: c53542397117c415039312d3de6e6fc5962d9bf1
+stage_42_4_9c_i3_i2_scope: 14_EXACT_MANAGED_MEDIA_PATHS
+stage_42_4_9c_i3_i2_paths: mod.rs; runtime.rs; runtime_tests.rs; executor.rs; executor_tests.rs; acquisition.rs; acquisition_tests.rs; lifecycle.rs; lifecycle_tests.rs; catalog_lifecycle.rs; catalog_lifecycle_tests.rs; publication.rs; publication_tests.rs; recovery.rs
+stage_42_4_9c_i3_i2_verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
+stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
+next_technical_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_stage_mode: IMPLEMENT
 next_stage_approved: false
+production_activation_allowed: false
+production_numeric_policy_allowed: false
 stage_42_4_9c_i3_a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i3_a_verdict: MANAGED_MEDIA_RUNTIME_INTEGRATION_READINESS_AUDIT_ACCEPTED
 stage_42_4_9c_i3_d_status: COMPLETED_AND_ACCEPTED
@@ -95,7 +107,37 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Current Decision 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery
+## Current Authority — 2026-08-01 — Phased Inert Runtime Foundation Reconciliation
+
+Stage `42.4-9C-I3-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
+`42.4-9C-I3-I2-C` is `COMPLETED_AND_CLOSED`. The implementation baseline is
+`0284d6608e2fe6bd3d405556ab678dbcbaabfa48`, parent
+`c53542397117c415039312d3de6e6fc5962d9bf1`, and the accepted verdict is
+`PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE`.
+
+The exact fourteen-path implementation records owned-plan phased publication
+and recovery: P1–P4 publication, R1–R4 recovery, short SQLite boundaries,
+atomic descriptor/journal/target/conditional finalization, stale-work rejection,
+and previous-valid preservation. The inert runtime foundation provides a
+dedicated bounded supervisor and workers, advisory coalesced wake, independent
+token-guarded renewal, bounded caller-side shutdown, and fail-safe panic
+containment. It has no production caller or registration.
+
+Verification is `REPORTED_BY_CODEX`: 13 publication/recovery, 15 acquisition,
+25 lifecycle, 15 catalog lifecycle, 5 executor, 16 runtime, 130 managed-media,
+and 263 full-Rust tests passed; `cargo check`, formatting, and diff checks
+passed. The worktree and staging are clean, the final Git state is synchronized
+at 0/0, and no source handoff remains pending.
+
+Production activation, numeric policies, startup/exit/command wiring,
+performance, memory, existing-catalog provisioning, Backup/Restore integration,
+operator-data behavior, and platform durability beyond tested sync/rename
+boundaries remain separately gated or unknown. The next proposed stage is
+`42.4-9D — Descriptor Resolution and Invisible Frontend Adapter`,
+`READY_PENDING_SEPARATE_APPROVAL`; 9E remains later and separately gated. All
+technical permissions are false.
+
+## Historical Superseded Decision 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery
 
 Stage D2 is `COMPLETED_AND_ACCEPTED` and D2-C is `COMPLETED_AND_CLOSED`.
 Option C, `OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY`, is approved with the

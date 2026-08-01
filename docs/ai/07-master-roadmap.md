@@ -9,12 +9,12 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
-last_recorded_git_baseline_status: PHASED_RUNTIME_SCOPE_AND_EFFICIENT_DELIVERY_RECONCILED
-application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-pre_reconciliation_repository_baseline: 857667981d36100b66e80784b014f158a7848341
-prior_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
-project_os_reconciliation_baseline: 857667981d36100b66e80784b014f158a7848341
+last_recorded_git_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+last_recorded_git_baseline_status: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
+application_source_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+pre_reconciliation_repository_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
+prior_project_os_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
+project_os_reconciliation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
@@ -95,7 +95,18 @@ batch_42_4_stage_42_4_9c_i3_d2_scope: EXPANDED_14_PATH_SCOPE_APPROVED
 batch_42_4_stage_42_4_9c_i3_d2_runtime: INERT_NOT_REGISTERED
 batch_42_4_stage_42_4_9c_i3_d2_schema: NO_CHANGE_REQUIRED
 batch_42_4_stage_42_4_9c_i3_d2_database_rs: NO_CHANGE_REQUIRED
-batch_42_4_next_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
+batch_42_4_stage_42_4_9c_i3_i2_status: COMPLETED_AND_ACCEPTED
+batch_42_4_stage_42_4_9c_i3_i2_c_status: COMPLETED_AND_CLOSED
+batch_42_4_stage_42_4_9c_i3_i2_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+batch_42_4_stage_42_4_9c_i3_i2_parent: c53542397117c415039312d3de6e6fc5962d9bf1
+batch_42_4_stage_42_4_9c_i3_i2_verdict: PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE
+batch_42_4_stage_42_4_9c_i3_i2_scope: 14_EXACT_MANAGED_MEDIA_PATHS
+batch_42_4_stage_42_4_9c_i3_i2_paths: mod.rs; runtime.rs; runtime_tests.rs; executor.rs; executor_tests.rs; acquisition.rs; acquisition_tests.rs; lifecycle.rs; lifecycle_tests.rs; catalog_lifecycle.rs; catalog_lifecycle_tests.rs; publication.rs; publication_tests.rs; recovery.rs
+batch_42_4_stage_42_4_9c_i3_i2_verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
+batch_42_4_stage_42_4_9c_i3_i2_runtime: INERT_UNREGISTERED_NO_PRODUCTION_CALLER
+batch_42_4_stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
+batch_42_4_stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+batch_42_4_next_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_mode: IMPLEMENT
 batch_42_4_git_decision_status: COMPLETED_AND_ACCEPTED
@@ -1441,7 +1452,37 @@ No optimization or media implementation is authorized.
 
 ---
 
-### Batch 42.4 — Managed Mini Media Foundation (Active Documentation Closure)
+### Batch 42.4 — Managed Mini Media Foundation (Current Authority — 2026-08-01)
+
+Stage `42.4-9C-I3-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
+`42.4-9C-I3-I2-C` is `COMPLETED_AND_CLOSED`. The implementation baseline is
+`0284d6608e2fe6bd3d405556ab678dbcbaabfa48`, parent
+`c53542397117c415039312d3de6e6fc5962d9bf1`, with verdict
+`PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE`.
+
+The exact fourteen-path foundation completes owned-plan phased publication and
+recovery: P1–P4 publication, R1–R4 recovery, short SQLite boundaries, atomic
+descriptor/journal/target/conditional finalization, stale-work rejection, and
+last-valid preservation. The runtime foundation is inert and unregistered, with
+a dedicated bounded supervisor and workers, coalesced advisory wake,
+independent token-guarded renewal, bounded shutdown, and fail-safe containment.
+
+Verification is `REPORTED_BY_CODEX`: 13 publication/recovery, 15 acquisition,
+25 lifecycle, 15 catalog lifecycle, 5 executor, 16 runtime, 130 managed-media,
+and 263 full-Rust tests passed; `cargo check`, formatting, and diff checks
+passed. The final Git state is synchronized at 0/0, and no source handoff
+remains pending.
+
+Production activation, Tauri/startup/exit/command wiring, numeric policy,
+performance, memory, existing-catalog provisioning, Backup/Restore integration,
+operator-data behavior, and platform durability beyond tested sync/rename
+boundaries remain separately gated or unknown. The next proposed stage is
+`42.4-9D — Descriptor Resolution and Invisible Frontend Adapter`,
+`READY_PENDING_SEPARATE_APPROVAL`; after its Result Review and reconciliation,
+`42.4-9E — Disposable Lifecycle Verification and Result Review` remains later
+and separately gated. No technical permission is granted here.
+
+### Batch 42.4 — Managed Mini Media Foundation (Historical Pre-I3-I2 Closure)
 
 **Goal**
 

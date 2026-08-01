@@ -73,6 +73,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-01 — Phased Inert Runtime Foundation Accepted
+
+date: 2026-08-01
+session_type: PROJECT_OS_BATCH_42_4_9C_I3_I2_RESULT_RECONCILIATION
+implementation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+implementation_parent: c53542397117c415039312d3de6e6fc5962d9bf1
+stage_42_4_9c_i3_i2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_i2_c_status: COMPLETED_AND_CLOSED
+result: PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE
+verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
+runtime: INERT_UNREGISTERED
+git_state: SYNCHRONIZED_0_0
+untracked: PROTECTED_MANUAL_SMOKE_ONLY_9101
+next_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+I3-I2 was accepted and I3-I2-C is closed. The phased publication/recovery
+foundation and inert runtime supervision are recorded without production
+activation or numeric policy selection. No source handoff remains pending.
+
 ## 2026-07-29 — Phased Runtime Scope and Efficient Delivery Rule Approved
 
 date: 2026-07-29
@@ -82,7 +103,7 @@ application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
 d2_status: COMPLETED_AND_ACCEPTED
 architecture: OPTION_C_OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY
 scope: 14_EXACT_MANAGED_MEDIA_PATHS
-source_handoff: SEVEN_PATH_PARTIAL_PRESERVED_UNACCEPTED
+source_handoff: HISTORICAL_SEVEN_PATH_PARTIAL_PRESERVED_UNACCEPTED
 efficient_delivery_rule: MINIMUM_NECESSARY_STAGE_STRUCTURE_WITH_FULL_QUALITY_GATES
 next_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
@@ -160,27 +181,6 @@ I2 was accepted and I2-C is closed. Local generation orchestration remains
 explicitly invoked and runtime-inert; production policies, Windows reparse
 fixture coverage, and I3-I1 behavior remain separately gated. This entry records
 the documentation-only reconciliation after the pushed implementation.
-
-## 2026-07-29 — Bounded Executor Core Accepted
-
-date: 2026-07-29
-session_type: PROJECT_OS_BATCH_42_4_9C_I1_RESULT_RECONCILIATION
-implementation_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
-implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
-stage_42_4_9c_a_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
-stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
-result: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
-executor_state: INERT_BOUNDED_EXECUTOR_CORE
-verification: REPORTED_BY_CODEX_223_FULL_RUST_90_MANAGED_MEDIA
-next_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-Stage 42.4-9C-I1 was accepted and pushed. The bounded executor remains inert;
-I2 source acquisition and processing/publication orchestration is separately
-gated and has not started.
 
 ## Archived Session History
 

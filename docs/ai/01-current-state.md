@@ -6,23 +6,23 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-07-29
-repository_state_recorded_at: 2026-07-29
-repository_state_status: PHASED_RUNTIME_SCOPE_AND_EFFICIENT_DELIVERY_RECONCILED
-repository_state_evidence: OPERATOR_APPROVED_WITH_REPORTED_BY_CODEX_PROXY_RECOVERY
-remote_main_verified: FRESH_PREFLIGHT_MATCHED_PROJECT_OS_BASELINE
-tracked_worktree_clean: false
-untracked_entry_count: 9103
+product_state_updated_at: 2026-08-01
+repository_state_recorded_at: 2026-08-01
+repository_state_status: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
+repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_9C_I3_I2_RESULT_REVIEW
+remote_main_verified: IMPLEMENTATION_BASELINE_SYNCHRONIZED
+tracked_worktree_clean: true
+untracked_entry_count: 9101
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-baseline_label: Batch 42.4-9C-I3-D Runtime Activation Policy Decision
-application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-pre_reconciliation_repository_baseline: 857667981d36100b66e80784b014f158a7848341
-prior_project_os_baseline: 9e604cf9c55244696c385e7576b00004e34904a2
-project_os_reconciliation_baseline: 857667981d36100b66e80784b014f158a7848341
-implementation_parent: 3c6601367625ae118a7f85b85586a2662cc132b0
+last_recorded_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+baseline_label: Batch 42.4-9C-I3-I2 Phased Inert Runtime Foundation
+application_source_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+pre_reconciliation_repository_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
+prior_project_os_baseline: c53542397117c415039312d3de6e6fc5962d9bf1
+project_os_reconciliation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+implementation_parent: c53542397117c415039312d3de6e6fc5962d9bf1
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -40,9 +40,9 @@ last_completed_roadmap_batch_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 active_batch: 42.4
 active_batch_title: Managed Mini Media Foundation
 active_batch_mode: DOCUMENTATION_ONLY
-active_batch_phase: PHASED_RUNTIME_SCOPE_AND_EFFICIENT_DELIVERY_RECONCILIATION
-current_stage: 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery Reconciliation
-completed_current_stage: 42.4-9C-I3-D2-C — Phased Runtime Scope and Efficient Delivery Reconciliation
+active_batch_phase: PHASED_INERT_RUNTIME_FOUNDATION_RECONCILED
+current_stage: 42.4-9C-I3-I2-C — Phased Inert Runtime Foundation Reconciliation
+completed_current_stage: 42.4-9C-I3-I2-C — Phased Inert Runtime Foundation Reconciliation
 current_stage_status: COMPLETED_AND_CLOSED
 decision_stage: LOCAL_GIT_PROXY_CONFIGURATION_DECISION
 decision_stage_status: COMPLETED_AND_ACCEPTED
@@ -104,13 +104,28 @@ stage_42_4_9c_i3_d2_stale_work: STALE_WORK_CANNOT_ACTIVATE_COMPLETE_OR_FINALIZE
 stage_42_4_9c_i3_d2_runtime: INERT_NOT_REGISTERED
 stage_42_4_9c_i3_d2_schema: NO_CHANGE_REQUIRED
 stage_42_4_9c_i3_d2_database_rs: NO_CHANGE_REQUIRED
-stage_42_4_9c_i3_d2_source_handoff: SEVEN_PATH_DIRTY_HANDOFF_PRESERVED_UNACCEPTED
+stage_42_4_9c_i3_d2_source_handoff: HISTORICAL_SEVEN_PATH_HANDOFF_RESOLVED_IN_I3_I2
 stage_42_4_9c_i3_d2_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9c_i3_d2_c_policy: MINIMUM_NECESSARY_STAGE_STRUCTURE_WITH_FULL_QUALITY_GATES
-current_documentation_stage: 42.4-9C-I3-D2-C
-next_technical_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
+stage_42_4_9c_i3_i2_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_i2_c_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i3_i2_verdict: PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE
+stage_42_4_9c_i3_i2_result_review: I3_I2_IMPLEMENTATION_COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i3_i2_implementation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
+stage_42_4_9c_i3_i2_parent: c53542397117c415039312d3de6e6fc5962d9bf1
+stage_42_4_9c_i3_i2_scope: 14_EXACT_MANAGED_MEDIA_PATHS
+stage_42_4_9c_i3_i2_paths: mod.rs; runtime.rs; runtime_tests.rs; executor.rs; executor_tests.rs; acquisition.rs; acquisition_tests.rs; lifecycle.rs; lifecycle_tests.rs; catalog_lifecycle.rs; catalog_lifecycle_tests.rs; publication.rs; publication_tests.rs; recovery.rs
+stage_42_4_9c_i3_i2_verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
+stage_42_4_9c_i3_i2_runtime: INERT_UNREGISTERED_NO_PRODUCTION_CALLER
+stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
+stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+stage_42_4_9c_i3_i2_protected_untracked: 9101_MANUAL_SMOKE_ONLY
+current_documentation_stage: 42.4-9C-I3-I2-C
+next_technical_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
 next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
 next_technical_stage_approved: false
+production_runtime_activation_allowed: false
+production_numeric_policy_allowed: false
 stage_42_4_9c_i3_i1_status: HISTORICAL_SUPERSEDED_BY_D2_COMPRESSION
 stage_42_4_9c_i3_i1_mode: IMPLEMENT
 stage_42_4_9c_i3_i1_approved: false
@@ -174,7 +189,41 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Phased Runtime Scope and Efficient Delivery Authority — 2026-07-29
+## Current Phased Inert Runtime Foundation Authority — 2026-08-01
+
+Stage `42.4-9C-I3-I2` is `COMPLETED_AND_ACCEPTED`; reconciliation Stage
+`42.4-9C-I3-I2-C` is `COMPLETED_AND_CLOSED`. The accepted implementation
+baseline is `0284d6608e2fe6bd3d405556ab678dbcbaabfa48`, parent
+`c53542397117c415039312d3de6e6fc5962d9bf1`, with Result Review verdict
+`I3_I2_IMPLEMENTATION_COMPLETED_AND_ACCEPTED` and implementation verdict
+`PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE`.
+
+The accepted architecture is `OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY`:
+P1 database preparation, P2 filesystem execution, P3 guarded database
+activation, P4 exact cleanup, and R1–R4 bounded recovery. SQLite durable state
+remains authoritative; publication journal authority remains publication-only;
+descriptor, journal, target, and conditional generation finalization are one
+guarded transition. Stale work cannot activate, complete, or finalize, and the
+previous valid output is preserved.
+
+The dedicated supervisor, bounded workers, coalesced advisory wake, independent
+token-guarded renewal, bounded shutdown, and fail-safe panic containment are
+implemented as an inert unregistered foundation. No production caller,
+startup/exit hook, Tauri command, numeric production policy, or runtime
+activation exists. Verification is `REPORTED_BY_CODEX`: 13 publication/recovery,
+15 acquisition, 25 lifecycle, 15 catalog lifecycle, 5 executor, 16 runtime,
+130 managed-media, and 263 full-Rust tests passed; `cargo check`, formatting,
+and diff checks passed.
+
+Production runtime behavior, numeric suitability, performance, memory,
+existing-catalog provisioning, Backup/Restore integration, operator-data
+behavior, and platform durability beyond tested sync/rename boundaries remain
+`UNKNOWN` or `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`. No source handoff remains
+pending. The next proposed stage is `42.4-9D — Descriptor Resolution and
+Invisible Frontend Adapter`, `READY_PENDING_SEPARATE_APPROVAL`; all technical
+permissions remain false.
+
+## Historical Superseded Phased Runtime Scope and Efficient Delivery Authority — 2026-07-29
 
 Stage `42.4-9C-I3-D2` is `COMPLETED_AND_ACCEPTED` with verdict
 `PHASED_PUBLICATION_RECOVERY_SCOPE_READY_FOR_OPERATOR_DECISION` and operator

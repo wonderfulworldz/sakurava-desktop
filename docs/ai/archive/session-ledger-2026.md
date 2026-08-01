@@ -710,3 +710,26 @@ technical_permissions: false
 The implementation acceptance and administrative closure states are now
 separated in Project OS. No source or technical verification was performed;
 9C remains pending separate approval and all technical permissions remain false.
+
+---
+
+## 2026-07-29 — Bounded Executor Core Accepted
+
+date: 2026-07-29
+session_type: PROJECT_OS_BATCH_42_4_9C_I1_RESULT_RECONCILIATION
+implementation_baseline: 3050667ae47477a09073d0a95683b52dfafe750b
+implementation_parent: e6164edcdff975a2b51b41ed241e1afb5efc7931
+stage_42_4_9c_a_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9c_i1_p_status: COMPLETED_AND_CLOSED
+stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
+result: MANAGED_MEDIA_BOUNDED_EXECUTOR_CORE_ACCEPTED
+executor_state: INERT_BOUNDED_EXECUTOR_CORE
+verification: REPORTED_BY_CODEX_223_FULL_RUST_90_MANAGED_MEDIA
+next_stage: 42.4-9C-I2 — Source Acquisition and Processing/Publication Orchestration
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.4-9C-I1 was accepted and pushed. The bounded executor remains inert;
+I2 source acquisition and processing/publication orchestration is separately
+gated and has not started.
