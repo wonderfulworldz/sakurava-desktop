@@ -4,12 +4,12 @@
 
 batch: 42.5
 title: Catalog and Database Performance
-status: PLANNED_NOT_STARTED
+status: IN_PROGRESS
 phase: PLANNING
-current_stage: 42.5-1 — Audit, Measurement, and Final Plan
+current_stage: 42.5-2 — Implementation and Verification
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_status: APPROVED_DOCUMENTATION_ONLY
-decision_verdict: PROJECT_CONTROL_STANDARD_RECONCILIATION_PENDING_COMMIT
+decision_status: ACCEPTED_WITH_LIMITATION
+decision_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -27,8 +27,8 @@ stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
 application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
-prior_project_os_reconciliation_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
+pre_reconciliation_repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+prior_project_os_reconciliation_baseline: 256824fff15a89efca568f9c4856651d0cab4431
 implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 implementation_verdict: DESCRIPTOR_ADAPTER_AND_DATE_SAFE_TEST_COMPLETED
 result_review_verdict: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED
@@ -95,17 +95,25 @@ stage_42_4_close_status: COMPLETED_AND_CLOSED
 stage_42_4_technical_commit: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 stage_42_4_technical_commit_message: fix(media): validate original availability for viewer fallback
 stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
-next_technical_stage: NONE
-next_stage_status: NONE
-next_governance_stage: 42.5-1 — Audit, Measurement, and Final Plan
-next_governance_stage_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5_status: PLANNED_NOT_STARTED
+next_technical_stage: 42.5-2 — Implementation and Verification
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_42_5_2
+next_governance_action_status: DECISION_REQUIRED
+batch_42_5_status: IN_PROGRESS
 batch_42_5_title: Catalog and Database Performance
 batch_42_5_goal: Improve catalog and database performance through measured, root-cause-supported changes while preserving data safety, existing behavior, and UI/UX.
 batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
-batch_42_5_stage_1_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_1_status: COMPLETED_WITH_LIMITATION
+batch_42_5_stage_1_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+batch_42_5_stage_1_direction: NARROW_CORRECTION
+batch_42_5_stage_1_dominant_cost: SAKURAVA_REF_MIGRATION_STATUS_VALIDATION
+batch_42_5_stage_1_database_preparation_a_median: 721_MS_MEASURED
+batch_42_5_stage_1_reference_status_a_median: 1666_MS_MEASURED
+batch_42_5_stage_1_representative_list_sql: BELOW_1_2_MS_MEASURED
+batch_42_5_stage_1_credits_by_work_sql: APPROXIMATELY_0_6_MS_MEASURED
+batch_42_5_stage_1_limitation: NO_FULL_TAURI_WEBVIEW_HOME_USABLE_FRONTEND_DESCRIPTOR_OR_PHASE_MEMORY_MEASUREMENT
 batch_42_5_stage_2: 42.5-2 — Implementation and Verification
-batch_42_5_stage_2_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
 batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
 no_source_handoff: true
@@ -152,7 +160,7 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Batch 42.5 Initial Planning Boundary
+## Batch 42.5 Stage 42.5-1 Result and Stage 42.5-2 Planning Boundary
 
 The maximum structure is exactly:
 
@@ -160,25 +168,40 @@ The maximum structure is exactly:
 - `42.5-2 — Implementation and Verification`
 - `42.5-3 — Final Validation and Closure`
 
-Only 42.5-1 may later be considered for separate approval. 42.5-2 and 42.5-3
-are structural placeholders, not approvals, and no other numbered or
-suffixed stage may be added.
+Stage 42.5-1 is `COMPLETED_WITH_LIMITATION`. Only 42.5-2 may now be considered
+for separate approval. 42.5-3 remains a structural placeholder, not an
+approval, and no other numbered or suffixed stage may be added.
 
-Accepted carry-forward is limited to valid R2 outer database-preparation and
-Home scaling, comparatively small direct SQL timings at the accepted dataset,
-comparatively small measured frontend transform cost, repeated rapid-search
-pipeline behavior, stable page-size-32 scrolling, and source-supported
-page-size-256 availability. R3 timing is not optimization evidence; invalid
-fixture traces and fixture/application conflict are not production defects;
-assumed schema, index, cache, pagination, memoization, virtualization, or
-debounce implementation is excluded; and no performance budget is approved.
+Accepted `MEASURED` evidence is limited to deterministic current-schema
+fixtures and current production database functions. Dataset A database
+preparation had an approximately 721 ms median; Sakurava Ref migration-status
+had an approximately 1.666 s median; representative list SQL remained below
+1.2 ms; and Credits-by-work SQL was near 0.6 ms. The dominant measured cost in
+the database startup boundary is Sakurava Ref migration-status validation.
+`PROVEN_BY_STATIC_SOURCE` supports per-record alias queries and duplicate
+base-section validation as the narrow correction target.
 
-Stage 42.5-1 will freshly verify architecture, map the affected startup,
-catalog, query, search, paging, memory, and managed-media boundaries, establish
-deterministic inputs and measurement preconditions, collect only decision-
-relevant minimum measurements, and produce one final implementation plan for
-operator approval. No technical execution is authorized by this documentation
-stage.
+This evidence is not an operator-catalog benchmark, full application startup
+benchmark, OS cold-cache proof, historical R2-equivalent measurement, or
+performance budget. Full Tauri/WebView startup, Home-usable timing, IPC,
+frontend transform/rendering, populated managed-media descriptors,
+phase-specific memory, actual catalog distribution, and alias-history density
+remain limitations or unknowns.
+
+The accepted Stage 42.5-2 planning boundary is limited to equivalent set-based
+alias checks, removal of duplicate base-section validation, preservation of
+exhaustive Credit and identity safety, focused regression coverage, and bounded
+remeasurement using the same fixture and method. Its acceptance gate requires
+identical classification, issue list, counts, alias behavior, and database
+identity; removal of the query-per-record loop through static and bounded
+query-count or trace evidence; Dataset A median improvement beyond baseline
+variation; and no material database-preparation regression. No permanent
+product performance budget is created.
+
+No schema, index, cache, pagination, virtualization, memoization, debounce,
+dependency, frontend, UI/UX, package, runtime activation, live AppData,
+Backup/Restore, Translation, or Import/Export work is approved. All technical
+permissions remain false until separate operator approval for Stage 42.5-2.
 
 ## Historical Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
 

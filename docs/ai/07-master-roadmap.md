@@ -9,19 +9,19 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-last_recorded_git_baseline_status: BATCH_42_4_COMPLETED_AND_CLOSED
+last_recorded_git_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+last_recorded_git_baseline_status: BATCH_42_5_STAGE_1_ACCEPTED_WITH_LIMITATION
 application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-prior_project_os_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
-project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+pre_reconciliation_repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+prior_project_os_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.4
-active_batch: NONE
+active_batch: 42.5
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
@@ -37,7 +37,14 @@ batch_42_4_technical_commit_message: fix(media): validate original availability 
 batch_42_4_next_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_authorized: false
-batch_42_5_status: NOT_AUTHORIZED
+batch_42_5_status: IN_PROGRESS
+batch_42_5_stage_1_status: COMPLETED_WITH_LIMITATION
+batch_42_5_stage_1_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+batch_42_5_direction: NARROW_CORRECTION
+batch_42_5_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_2_approved: false
+batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_technical_permissions: false
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -1777,7 +1784,7 @@ All technical permissions remain false.
 
 ### Batch 42.5 — Catalog and Database Performance
 
-status: `PLANNED_NOT_STARTED`
+status: `IN_PROGRESS`
 
 **Title**
 
@@ -1789,15 +1796,33 @@ Catalog and Database Performance
 2. `42.5-2 — Implementation and Verification`
 3. `42.5-3 — Final Validation and Closure`
 
-42.5-1 is `READY_PENDING_SEPARATE_APPROVAL`. 42.5-2 and 42.5-3 are not
-approved. Implementation is not authorized. Accepted carry-forward is limited
-to valid Batch 42.3 R2 evidence. R3 timing and fixture conflict cannot guide
-optimization. No schema, index, cache, pagination, virtualization,
-memoization, search debounce, UI, dependency, package, Backup/Restore, or
-runtime activation change is preapproved. A systemic redesign may be
-recommended by 42.5-1 only when supported by current evidence and remains
-subject to separate approval. Batch 42.5 must use the shortest safe route and
-may close with fewer than three stages.
+42.5-1 is `COMPLETED_WITH_LIMITATION` under verdict
+`42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED`. Its accepted
+`MEASURED` database-boundary evidence includes an approximately 721 ms Dataset
+A database-preparation median, an approximately 1.666 s Sakurava Ref
+migration-status median, representative list SQL below 1.2 ms, and
+Credits-by-work SQL near 0.6 ms. The dominant measured cost is Sakurava Ref
+migration-status validation; direct list SQL is not the dominant current
+database cost. `PROVEN_BY_STATIC_SOURCE` supports per-record alias queries and
+duplicate base-section validation as the narrow correction target.
+
+The accepted direction is `NARROW_CORRECTION`, limited in planning to
+equivalent set-based alias checks, removal of duplicate base-section
+validation, preservation of exhaustive Credit and identity safety, focused
+regression coverage, and bounded remeasurement. 42.5-2 is
+`READY_PENDING_SEPARATE_APPROVAL`; 42.5-3 remains an unapproved structural
+placeholder. Implementation is not authorized.
+
+Full Tauri/WebView startup, Home-usable timing, IPC, frontend processing,
+populated managed-media descriptor processing, phase-specific memory, actual
+catalog distribution, and alias-history density remain limitations or
+unknowns. The accepted measurements are not a live-catalog benchmark, OS
+cold-cache proof, historical R2-equivalent measurement, or performance budget.
+No schema, index, cache, pagination, virtualization, memoization, search
+debounce, frontend, UI/UX, dependency, package, Backup/Restore, Translation,
+Import/Export, runtime activation, or live-data change is approved. Batch 42.5
+must continue through the shortest safe route and may close with fewer than
+three stages.
 
 ---
 

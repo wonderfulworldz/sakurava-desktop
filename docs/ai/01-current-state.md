@@ -8,21 +8,21 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-01
 repository_state_recorded_at: 2026-08-01
-repository_state_status: BATCH_42_4_COMPLETED_AND_CLOSED
-repository_state_evidence: REPORTED_BY_CODEX_STAGE_42_4_FINAL_RESULT_REVIEW
-remote_main_verified: IMPLEMENTATION_BASELINE_SYNCHRONIZED
+repository_state_status: BATCH_42_5_STAGE_1_ACCEPTED_WITH_LIMITATION
+repository_state_evidence: OBSERVED_BY_OPERATOR
+remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
-untracked_entry_count: 9101
+untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-baseline_label: Batch 42.4 Final Descriptor Correction Delivery
+last_recorded_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+baseline_label: Batch 42.5 Stage 1 Pre-Reconciliation Repository Baseline
 application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
-prior_project_os_baseline: a611eaa2379e3f915a1b38095299047ceaaae348
-project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
-prior_project_os_reconciliation_baseline: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+pre_reconciliation_repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+prior_project_os_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
+prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
@@ -42,13 +42,13 @@ active_batch: 42.5
 active_batch_title: Catalog and Database Performance
 active_batch_mode: DOCUMENTATION_ONLY
 active_batch_phase: PLANNING
-current_stage: 42.5-1 — Audit, Measurement, and Final Plan
-completed_current_stage: NONE
+current_stage: 42.5-2 — Implementation and Verification
+completed_current_stage: 42.5-1 — Audit, Measurement, and Final Plan
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_stage: 42.4-CLOSE
-decision_stage_status: COMPLETED_AND_CLOSED
-decision_verdict: 42_4_9E_FINAL_DELIVERY_ACCEPTED
-project_control_standard: APPROVED_PENDING_DOCUMENTATION_RECONCILIATION
+decision_stage: 42.5-1
+decision_stage_status: COMPLETED_WITH_LIMITATION
+decision_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+project_control_standard: RECONCILED
 quota_policy: LIMITED_PROJECT_BUDGET
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
 future_stage_identifiers: 42.x-1_TO_42.x-3_ONLY
@@ -153,17 +153,25 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_stage: 42.4-CLOSE
-next_technical_stage: NONE
-next_technical_stage_status: NONE
-next_governance_stage: 42.5-1 — Audit, Measurement, and Final Plan
-next_governance_stage_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5_status: PLANNED_NOT_STARTED
+current_documentation_action: STAGE_42_5_1_INTERNAL_CLOSURE
+next_technical_stage: 42.5-2 — Implementation and Verification
+next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_42_5_2
+next_governance_action_status: DECISION_REQUIRED
+batch_42_5_status: IN_PROGRESS
 batch_42_5_title: Catalog and Database Performance
 batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
-batch_42_5_stage_1_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_1_status: COMPLETED_WITH_LIMITATION
+batch_42_5_stage_1_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+batch_42_5_stage_1_direction: NARROW_CORRECTION
+batch_42_5_stage_1_database_preparation_a_median: 721_MS_MEASURED
+batch_42_5_stage_1_reference_status_a_median: 1666_MS_MEASURED
+batch_42_5_stage_1_representative_list_sql: BELOW_1_2_MS_MEASURED
+batch_42_5_stage_1_credits_by_work_sql: APPROXIMATELY_0_6_MS_MEASURED
+batch_42_5_stage_1_dominant_cost: SAKURAVA_REF_MIGRATION_STATUS_VALIDATION
+batch_42_5_stage_1_limitation: NO_FULL_TAURI_WEBVIEW_HOME_USABLE_FRONTEND_DESCRIPTOR_OR_PHASE_MEMORY_MEASUREMENT
 batch_42_5_stage_2: 42.5-2 — Implementation and Verification
-batch_42_5_stage_2_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
 batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
 technical_permissions: false
@@ -233,23 +241,39 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Project Control and Batch 42.5 Planning Authority — 2026-08-01
+## Current Batch 42.5 Stage 42.5-1 Result Review Authority — 2026-08-01
 
-The post-42.4 Project Control Standard is approved and awaits this
-documentation reconciliation until committed. Quota and total-cost discipline
-is active; future technical batches have at most three main stages; nested
-sub-stages and retry suffix branches are prohibited; and no failure class may
-have more than two execution attempts. Systemic redesign may be proposed only
-after supported analysis and separate approval. Operator-facing progress uses
-fixed outcomes and simple status; the temporary Task N/50 metric is retired
-and not formalized.
+Stage `42.5-1 — Audit, Measurement, and Final Plan` is
+`COMPLETED_WITH_LIMITATION` under operator verdict
+`42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED`. The accepted
+direction is `NARROW_CORRECTION`; Batch 42.5 is in progress, but implementation
+has not started.
 
-Batch 42.4 remains the last completed batch. The application/source baseline
-remains `a98c9036c9a05b86eb429f11cfb7e746b62e10d8`; the pre-reconciliation
-repository baseline is `682ad3905a0acf2c5ca975b34f5488af70bcd171`. Batch 42.5
-is planned but technical execution remains unapproved. Its next proposed stage
-is `42.5-1 — Audit, Measurement, and Final Plan`, with status
-`READY_PENDING_SEPARATE_APPROVAL`. All technical permissions remain false.
+Accepted `MEASURED` database-boundary evidence for deterministic current-schema
+fixtures includes an approximately 721 ms Dataset A database-preparation
+median, an approximately 1.666 s Dataset A Sakurava Ref migration-status
+median, representative list SQL below 1.2 ms, and Credits-by-work SQL near
+0.6 ms. The dominant measured cost is Sakurava Ref migration-status validation.
+`PROVEN_BY_STATIC_SOURCE` supports per-record alias queries and duplicate
+base-section validation as the narrow correction target. This is not an
+operator-catalog benchmark, full application startup benchmark, OS cold-cache
+proof, historical R2-equivalent measurement, performance budget, or proof of
+complete startup resolution.
+
+Full Tauri/WebView startup, Home-usable timing, IPC serialization, frontend
+transform and rendering, populated managed-media descriptor processing,
+phase-specific memory, operator hardware, actual catalog distribution, and
+actual alias-history density remain `UNKNOWN` or
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` as recorded by the accepted report.
+
+The next proposed stage is `42.5-2 — Implementation and Verification`, with
+status `READY_PENDING_SEPARATE_APPROVAL`. Its accepted planning boundary is
+limited to equivalent set-based alias checks, removal of duplicate base-section
+validation, preservation of exhaustive Credit and identity safety, focused
+regression coverage, and bounded remeasurement. Stage 42.5-2 is not approved;
+all technical permissions remain false. No schema, index, cache, dependency,
+frontend, UI/UX, runtime activation, live AppData, package, Backup/Restore,
+Translation, or Import/Export work is authorized.
 
 ## Historical Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
 
@@ -969,35 +993,35 @@ This file records approved product state and the latest reported repository stat
 
 ### Current repository record
 
-The Batch 42.4-2 documentation reconciliation begins from local `main` at
-the required pre-reconciliation HEAD:
+This Batch 42.5 Stage 42.5-1 internal documentation closure begins from local
+`main` at the required pre-reconciliation HEAD:
 
-`9fbfa3883ff2408f6763df3b7fa0ca94443757a3`
+`256824fff15a89efca568f9c4856651d0cab4431`
 
 Fresh `origin/main` matched that required baseline before mutation.
 
-The measurement report states that the primary tracked worktree and staging
-remained clean and all untracked entries remained beneath `manual-smoke/`. The
-R2, R3-R1, and R3-R2 technical records are Codex-reported evidence. Therefore:
+The accepted Stage 42.5-1 report states that tracked worktree and staging
+remained clean and the only untracked top-level entry was protected
+`manual-smoke/`. Therefore:
 
-- local repository state is `REPORTED_UNCHANGED_BY_CODEX_MEASUREMENT`;
-- the starting remote match is `REPORTED_BY_CODEX`; the post-push remote will
-  be recorded in the closure report after verification;
-- this documentation closure records the accepted Stage 42.4-1 audit and
-  reconciles the approved product decision before any new technical stage;
-- the recorded untracked count is 9,084 and remains informational while all
-  entries stay beneath `manual-smoke/`.
+- local repository state is `REPORTED_BY_CODEX` and was freshly checked before
+  documentation mutation;
+- the starting remote match is `REPORTED_BY_CODEX` and requires a fresh
+  post-push check;
+- this closure records the operator-accepted Stage 42.5-1 result before any
+  Stage 42.5-2 technical authorization;
+- no child count or content beneath protected `manual-smoke/` is part of this
+  documentation reconciliation.
 
 The approved documentation closure modifies only:
 
 - `docs/ai/01-current-state.md`;
-- `docs/ai/02-active-locks.md`;
 - `docs/ai/03-active-batch.md`;
 - `docs/ai/04-session-ledger.md`;
 - `docs/ai/07-master-roadmap.md`;
 - `docs/ai/archive/session-ledger-2026.md`.
 
-These six documentation paths are reconciled and committed through the
+These five documentation paths are reconciled and committed through the
 approved controlled Project OS closure. No technical stage is authorized by
 this record.
 

@@ -73,6 +73,36 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-01 — Batch 42.5 Stage 1 Accepted with Limitation
+
+date: 2026-08-01
+session_type: BATCH_42_5_STAGE_1_RESULT_RECONCILIATION
+operator_decision: ACCEPTED_WITH_LIMITATION
+verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+stage_42_5_1_status: COMPLETED_WITH_LIMITATION
+batch_outcomes: 1_OF_3
+confidence: MEDIUM
+measurement_scope: DETERMINISTIC_CURRENT_SCHEMA_DATABASE_BOUNDARY
+database_preparation_a_median: 721_MS_MEASURED
+reference_status_a_median: 1666_MS_MEASURED
+representative_list_sql: BELOW_1_2_MS_MEASURED
+credits_by_work_sql: APPROXIMATELY_0_6_MS_MEASURED
+dominant_measured_cost: SAKURAVA_REF_MIGRATION_STATUS_VALIDATION
+direction: NARROW_CORRECTION
+limitation: NO_FULL_TAURI_WEBVIEW_HOME_USABLE_FRONTEND_DESCRIPTOR_OR_PHASE_MEMORY_MEASUREMENT
+next_stage: 42.5-2 — Implementation and Verification
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The operator accepted the bounded measurement and the narrow plan to replace
+per-record alias validation with equivalent set-based checks and remove
+duplicate base-section validation while preserving exhaustive Credit and
+identity safety. Stage 42.5-2 remains unapproved; schema, index, cache,
+dependency, frontend, runtime activation, live-data, and manual-smoke work are
+not authorized.
+
 ## 2026-08-01 — Project Control Standard Approved and Batch 42.5 Planned
 
 date: 2026-08-01
@@ -165,25 +195,6 @@ technical_permissions: false
 I3-I2 was accepted and I3-I2-C is closed. The phased publication/recovery
 foundation and inert runtime supervision are recorded without production
 activation or numeric policy selection. No source handoff remains pending.
-
-## 2026-07-29 — Phased Runtime Scope and Efficient Delivery Rule Approved
-
-date: 2026-07-29
-session_type: PROJECT_OS_D2_SCOPE_AND_DELIVERY_EFFICIENCY_RECONCILIATION
-pre_reconciliation_baseline: 857667981d36100b66e80784b014f158a7848341
-application_source_baseline: 235ae605e7156cfe00ca4b59dc0e53b7395acd64
-d2_status: COMPLETED_AND_ACCEPTED
-architecture: OPTION_C_OWNED_PLAN_PHASED_PUBLICATION_AND_RECOVERY
-scope: 14_EXACT_MANAGED_MEDIA_PATHS
-source_handoff: HISTORICAL_SEVEN_PATH_PARTIAL_PRESERVED_UNACCEPTED
-efficient_delivery_rule: MINIMUM_NECESSARY_STAGE_STRUCTURE_WITH_FULL_QUALITY_GATES
-next_stage: 42.4-9C-I3-I2 — Phased Publication, Recovery, and Inert Runtime Completion
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-D2-C was reconciled as a documentation-only closure. Internal phases and
-checkpoints remain inside one future implementation stage; no technical work,
-tests, builds, runtime, or manual smoke occurred.
 
 ---
 
