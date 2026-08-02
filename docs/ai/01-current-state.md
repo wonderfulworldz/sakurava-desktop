@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-02
 repository_state_recorded_at: 2026-08-02
-repository_state_status: BATCH_42_5_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+repository_state_status: STAGE_42_7_1_COMPLETED_AND_ACCEPTED_STAGE_42_7_2_READY
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,14 +16,15 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
-baseline_label: Batch 42.6 Audit Closure and Batch 42.7 Activation Pre-Documentation Baseline
-application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-pre_reconciliation_repository_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
-prior_project_os_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
-project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
+last_recorded_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
+baseline_label: Stage 42.7-1 Accepted and Stage 42.7-2 Readiness Documentation Baseline
+application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
+source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
+pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
+prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
+project_os_reconciliation_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
-implementation_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+implementation_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 
 legacy_batch_series: 41.x  
@@ -40,14 +41,21 @@ last_completed_roadmap_batch_title: Backup and Restore Audit
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: 42.7
 active_batch_title: Backup and Restore Hardening
-active_batch_mode: IMPLEMENTATION_PREPARATION
-active_batch_phase: IMPLEMENTATION_PREPARATION
-current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-completed_current_stage: 42.6-1 — Audit, Evidence, and Final Plan
+active_batch_mode: RESTORE_IMPLEMENTATION_PREPARATION
+active_batch_phase: RESTORE_IMPLEMENTATION_PREPARATION
+batch_outcomes: 1_OF_3
+current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
+completed_current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
 current_stage_status: READY_APPROVED_PENDING_EXECUTION
-decision_stage: 42.7-1
+decision_stage: 42.7-2
 decision_stage_status: READY_APPROVED_PENDING_EXECUTION
-decision_verdict: BATCH_42_7_SCOPE_APPROVED_STAGE_1_EXECUTION_PENDING_SEPARATE_PROMPT
+decision_verdict: BATCH_42_7_STAGE_2_APPROVED_PENDING_EXECUTION
+current_stage_scope_approval: APPROVED
+current_stage_execution_approval: APPROVED
+current_stage_execution_started: false
+separate_stage_42_7_2_codex_prompt_required: true
+stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_7_3_execution_allowed: false
 project_control_standard: RECONCILED
 quota_policy: LIMITED_PROJECT_BUDGET
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
