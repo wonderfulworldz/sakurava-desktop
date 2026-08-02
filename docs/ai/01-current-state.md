@@ -1742,15 +1742,97 @@ The following five operator-approved decisions are active:
    is approved.
 
 Batch `42.7 — Backup and Restore Hardening` is `ACTIVE` with product scope
-`APPROVED`, phase `IMPLEMENTATION_PREPARATION`, and fixed outcomes `3`.
+`APPROVED`, phase `RESTORE_IMPLEMENTATION_PREPARATION`, and fixed outcomes
+`3`; outcomes are currently `1_OF_3`.
 The exact structure is:
 
 1. `42.7-1 — Versioned .skv Package and Compatibility Foundation`
 2. `42.7-2 — Staged Restore, Rollback, and Crash Recovery`
 3. `42.7-3 — Final Validation and Closure`
 
-Stage 42.7-1 is `READY_APPROVED_PENDING_EXECUTION`; execution is approved at
-batch level but requires a separate Stage 42.7-1 Codex prompt. Stages 42.7-2
-and 42.7-3 are scope-approved but execution-gated behind their prior Result
-Reviews. No source implementation was performed by this documentation action;
-all technical permissions for this action remain false.
+Stage 42.7-1 is `COMPLETED_AND_ACCEPTED` at source baseline
+`e90e30d9c25f71087c7d7074015f8950cba22ab1`. Stage 42.7-2 is
+`READY_APPROVED_PENDING_EXECUTION` and requires a separate Codex prompt;
+Stage 42.7-3 remains execution-gated behind the 42.7-2 Result Review. No
+source implementation was performed by this documentation action; all
+technical permissions for this action remain false.
+
+## Current Batch 42.7 Stage 42.7-1 Result Reconciliation — 2026-08-02
+
+The recorded repository and application/source baselines are now
+`e90e30d9c25f71087c7d7074015f8950cba22ab1` and its parent
+`1016511e0e134fccbf5fbfcc075d3351bc650a2c`. Stage
+`42.7-1 — Versioned .skv Package and Compatibility Foundation` is
+`COMPLETED_AND_ACCEPTED`, with verdict
+`VALIDATED_ROOT_CAPABILITY_IMPLEMENTED_STAGE_42_7_1_VERIFIED`, Result Review
+`42_7_1_ACCEPTED_VERSIONED_SKV_FOUNDATION_COMPLETE_WITH_PLATFORM_LIMITATIONS`,
+and Batch 42.7 outcomes `1_OF_3`.
+
+The accepted source scope is exactly:
+
+1. `src-tauri/src/lib.rs`
+2. `src-tauri/src/skv_package.rs`
+3. `src-tauri/src/skv_package_tests.rs`
+4. `src/shared/backupStateSnapshot.ts`
+5. `src/lib/backupStateSnapshot.ts`
+6. `src/lib/backupStateSnapshot.test.ts`
+7. `src/runtime/mediaAssetScope.ts`
+
+The package foundation is a custom uncompressed framed `.skv` v2 container
+with identity `SAKURAVA-SKV2`, `sakurava-skv` format metadata, version 2,
+manual/automatic/safety package types, caller-injected timestamps,
+application/database compatibility metadata, and exact entries
+`catalog/sakurava.sqlite`, `managed-media/v1/...`, and
+`state/protected-state.v1.json`. Exact allowlists, normalized relative paths,
+size and SHA-256 validation, bounded manifest/entry/content limits, and
+truncation, corruption, semantic inconsistency, trailing-data, absolute,
+drive, traversal, malformed, duplicate, and alternate-normalized duplicate
+rejection are accepted. Full external media remains excluded; directory-v1
+remains independent read-only input; raw SQLite commands are unchanged and
+not the visible Settings workflow; no archive dependency or lockfile change
+was made; and v2 remains production-inert.
+
+The accepted validated-root capability consists of
+`ValidatedPackageOutputRoot`, `ValidatedExtractionRoot`, a private shared
+owned-root capability, complete validation constructors, centralized ordinary,
+`\\?\` drive and `\\?\UNC\` normalization, component equality and ancestry,
+equal/below/above live-AppData rejection, similarly prefixed sibling
+preservation, and fail-closed symlink/reparse protection. Package creation and
+extraction cannot receive unchecked raw root authority. This is the accepted
+systemic correction, not a third attempt of one-sided normalization.
+
+The snapshot foundation retains existing ownership and does not migrate
+Settings or Translation into Rust or SQLite. It preserves absent versus
+explicit values for Settings, automatic Backup settings, catalog preferences,
+saved filters, pagination preferences, media asset scope, explicit feature
+state, selected language, custom-language metadata, Translation overrides,
+and Translation recovery/journal state. English remains the sole built-in
+language; catalog data is not translated or mutated; validation and import
+preparation do not currently mutate production storage.
+
+Accepted verification is `REPORTED_BY_CODEX`: Rust formatting; diff checks;
+10 focused validated-root/package tests; 5 focused frontend snapshot tests;
+284 full offline Rust tests; 206 relevant frontend regressions; production
+TypeScript/Vite build with 1,880 modules transformed; static production-inert
+proof; seven-path allowlist review; and synchronized Git state at `e90e30d...`
+with divergence `0/0`, clean worktree/staging, protected top-level
+`manual-smoke/` only, and no persistent Git configuration mutation. The
+initial external-target compilation timeout is recorded as a harness event
+before test execution; no source correction followed it and the redesign
+passed on Attempt 1.
+
+Limitations remain explicit: no visible workflow activation, production
+Backup, Restore apply, durable Restore journal, rollback, crash/restart
+recovery, live AppData, operator package, Tauri runtime, or manual smoke;
+real remote UNC behavior was not exercised; privileged reparse creation is
+conditionally measurable; actual production catalog size and package
+performance are `UNKNOWN`; disk-full, antivirus-lock, power-loss, and
+interruption behavior are `UNKNOWN`; named limits are safety limits rather
+than product capacity or performance budgets; actual Codex model/reasoning
+remain `UNKNOWN`; and no Verified Performance Registry entry exists.
+
+Stage `42.7-2 — Staged Restore, Rollback, and Crash Recovery` is
+`READY_APPROVED_PENDING_EXECUTION`, approved and pending a separate Codex
+prompt. Stage `42.7-3 — Final Validation and Closure` remains execution-gated.
+No production activation occurred, and all technical permissions are false
+for this documentation action.

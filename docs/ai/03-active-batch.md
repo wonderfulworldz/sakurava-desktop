@@ -5,9 +5,9 @@
 batch: 42.7
 title: Backup and Restore Hardening
 status: ACTIVE
-phase: IMPLEMENTATION_PREPARATION
+phase: RESTORE_IMPLEMENTATION_PREPARATION
 fixed_outcomes: 3
-current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
+current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
 current_stage_status: READY_APPROVED_PENDING_EXECUTION
 decision_status: BATCH_42_7_SCOPE_APPROVED
 decision_verdict: BATCH_42_7_BACKUP_AND_RESTORE_HARDENING_APPROVED
@@ -26,11 +26,11 @@ stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-pre_reconciliation_repository_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+implementation_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
+application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
+pre_reconciliation_repository_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 prior_project_os_reconciliation_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-implementation_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+implementation_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 implementation_verdict: SET_BASED_ALIAS_VALIDATION_AND_DUPLICATE_BASE_VALIDATION_REMOVAL_ACCEPTED
 result_review_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
 foundation_state: STAGE_42_5_2_COMPLETED_WITH_LIMITATION
@@ -79,9 +79,16 @@ next_stage_approved: true
 stage_42_7_1_execution_approved: true
 stage_42_7_1_implementation_allowed_in_this_documentation_action: false
 stage_42_7_1_separate_codex_prompt_required: true
-stage_42_7_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_7_1_status: COMPLETED_AND_ACCEPTED
+stage_42_7_1_source_commit: e90e30d9c25f71087c7d7074015f8950cba22ab1
+stage_42_7_1_source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
+stage_42_7_1_outcomes: 1_OF_3
+stage_42_7_1_verdict: VALIDATED_ROOT_CAPABILITY_IMPLEMENTED_STAGE_42_7_1_VERIFIED
+stage_42_7_2_status: READY_APPROVED_PENDING_EXECUTION
 stage_42_7_2_scope_approved: true
-stage_42_7_2_execution_allowed: false
+stage_42_7_2_execution_allowed: true
+stage_42_7_2_execution_started: false
+stage_42_7_2_separate_codex_prompt_required: true
 stage_42_7_2_gate: 42.7-1_RESULT_REVIEW_ACCEPTED
 stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
 stage_42_7_3_scope_approved: true
@@ -621,8 +628,8 @@ or `UNKNOWN`; all technical permissions are false.
 ## Current Batch 42.7 Activation Authority — 2026-08-02
 
 Batch `42.7 — Backup and Restore Hardening` is `ACTIVE` in
-`IMPLEMENTATION_PREPARATION` with fixed outcomes `3` and product scope
-`APPROVED`.
+`RESTORE_IMPLEMENTATION_PREPARATION` with fixed outcomes `3`, current
+outcomes `1_OF_3`, and product scope `APPROVED`.
 
 Approved package decisions:
 
@@ -646,12 +653,13 @@ Exact stage structure:
 2. `42.7-2 — Staged Restore, Rollback, and Crash Recovery`
 3. `42.7-3 — Final Validation and Closure`
 
-Stage 42.7-1 is `READY_APPROVED_PENDING_EXECUTION`; its execution is approved
-but requires a separate Codex prompt. This documentation action does not grant
-implementation permission. Stage 42.7-2 is
-`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` and requires an accepted 42.7-1 Result
-Review. Stage 42.7-3 has the same status and requires an accepted 42.7-2 Result
-Review. No suffix, nested, retry, or administrative stage may be added.
+Stage 42.7-1 is `COMPLETED_AND_ACCEPTED` at source baseline
+`e90e30d9c25f71087c7d7074015f8950cba22ab1`. Stage 42.7-2 is
+`READY_APPROVED_PENDING_EXECUTION`; its scope and execution are approved, but
+execution has not started and a separate Codex prompt is required. Stage 42.7-3
+remains `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` and requires an accepted
+42.7-2 Result Review. No suffix, nested, retry, or administrative stage may be
+added.
 
 The batch is governed by LOCK-UI-001, LOCK-UI-002 where applicable,
 LOCK-UI-003, LOCK-TRANSLATION-001, LOCK-MEDIA-001, LOCK-BACKUP-001,
@@ -662,3 +670,41 @@ LOCK-PROJECTOS-001. Active Locks are unchanged.
 No implementation, dependency, schema, frontend, runtime, test, build, Backup,
 Restore, live-AppData, package, or manual-smoke action was performed by this
 documentation reconciliation.
+
+## Current Batch 42.7 Stage 42.7-1 Acceptance and Stage 42.7-2 Readiness — 2026-08-02
+
+Stage `42.7-1 — Versioned .skv Package and Compatibility Foundation` is
+`COMPLETED_AND_ACCEPTED` with verdict
+`VALIDATED_ROOT_CAPABILITY_IMPLEMENTED_STAGE_42_7_1_VERIFIED` and Result Review
+verdict `42_7_1_ACCEPTED_VERSIONED_SKV_FOUNDATION_COMPLETE_WITH_PLATFORM_LIMITATIONS`.
+Batch outcomes are `1_OF_3`. The accepted source baseline is
+`e90e30d9c25f71087c7d7074015f8950cba22ab1`, parent
+`1016511e0e134fccbf5fbfcc075d3351bc650a2c`.
+
+The accepted foundation is a custom uncompressed framed `.skv` v2 container
+with identity `SAKURAVA-SKV2`, exact allowlisted catalog, managed-media, and
+protected-state entries, normalized-path, size, hash, count, and aggregate
+limits, and fail-closed corruption and semantic validation. Extensionless
+directory-v1 remains independent, read-only compatible input. No archive
+dependency, schema, lockfile, or production activation was added.
+
+The accepted systemic correction is the private validated-root capability
+design: `ValidatedPackageOutputRoot` and `ValidatedExtractionRoot`, centralized
+Windows path normalization, component equality and ancestry checks, symmetric
+candidate/live-root validation, sibling preservation, and fail-closed
+symlink/reparse handling. Raw paths cannot bypass complete validation.
+
+Stage `42.7-2 — Staged Restore, Rollback, and Crash Recovery` is
+`READY_APPROVED_PENDING_EXECUTION`; scope and execution are approved, but
+execution has not started and a separate Codex prompt is required. Its exact
+scope is staged Restore preparation, a complete pre-apply safety package,
+durable phase journal, coordinated database/managed-media/persistent-state
+apply, failure rollback, restart recovery, post-restart validation, and
+production integration only after exact acceptance gates pass. Stage 42.7-3
+remains `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` behind the 42.7-2 Result
+Review. No Stage 42.7-2 work was performed by this documentation action.
+
+All technical permissions for this documentation action remain false. The
+protected contracts listed above remain unchanged, and no additional stage,
+dependency, schema, frontend, runtime, Backup, Restore, or live-data action is
+authorized here.

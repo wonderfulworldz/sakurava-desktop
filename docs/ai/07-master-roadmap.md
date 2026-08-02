@@ -2748,9 +2748,34 @@ The exact maximum structure is:
 2. `42.7-2 — Staged Restore, Rollback, and Crash Recovery`
 3. `42.7-3 — Final Validation and Closure`
 
-Stage 42.7-1 is `READY_APPROVED_PENDING_EXECUTION` and is the only next
-executable stage, after a separate Codex prompt. Stage 42.7-2 is
-`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` until the 42.7-1 Result Review accepts
-the package and compatibility foundation. Stage 42.7-3 has the same gate after
-the 42.7-2 Result Review. No additional, nested, suffix, retry, or
-administrative stage is allowed. Later roadmap order remains unchanged.
+Stage 42.7-1 is `COMPLETED_AND_ACCEPTED` at source baseline
+`e90e30d9c25f71087c7d7074015f8950cba22ab1`. Stage 42.7-2 is
+`READY_APPROVED_PENDING_EXECUTION` and is the next executable stage after a
+separate prompt. Stage 42.7-3 remains
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` behind the 42.7-2 Result Review. No
+additional, nested, suffix, retry, or administrative stage is allowed. Later
+roadmap order remains unchanged.
+
+## Current Batch 42.7 Stage 42.7-1 Acceptance and Stage 42.7-2 Readiness — 2026-08-02
+
+Stage `42.7-1 — Versioned .skv Package and Compatibility Foundation` is
+`COMPLETED_AND_ACCEPTED` with outcomes `1_OF_3`, source baseline
+`e90e30d9c25f71087c7d7074015f8950cba22ab1`, and Result Review verdict
+`42_7_1_ACCEPTED_VERSIONED_SKV_FOUNDATION_COMPLETE_WITH_PLATFORM_LIMITATIONS`.
+The accepted implementation is the exact seven-path source scope, a custom
+uncompressed `.skv` v2 foundation with no archive dependency or schema
+change, retained read-only directory-v1 compatibility, and the validated-root
+capability redesign with symmetric Windows identity and ancestry validation.
+
+The accepted foundation remains production-inert. Its limitations include no
+visible workflow activation, Backup or Restore operation, durable journal,
+rollback, crash/restart recovery, live AppData, operator package, Tauri
+runtime, manual smoke, or real remote UNC exercise; actual production catalog
+and package performance and interruption behavior remain unknown or not
+measurable in the current environment.
+
+Stage `42.7-2 — Staged Restore, Rollback, and Crash Recovery` is
+`READY_APPROVED_PENDING_EXECUTION` and approved for a separate controlled
+prompt. Stage `42.7-3 — Final Validation and Closure` remains
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` behind the 42.7-2 Result Review. No
+additional stage is allowed, and roadmap order after Batch 42.7 is unchanged.

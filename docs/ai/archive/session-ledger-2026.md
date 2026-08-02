@@ -11,6 +11,30 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-01 — Project Control Standard Approved and Batch 42.5 Planned
+
+date: 2026-08-01
+session_type: PROJECT_CONTROL_STANDARD_AND_BATCH_42_5_INITIAL_PLANNING
+operator_decision: APPROVED
+quota: LIMITED_PROJECT_BUDGET
+stage_maximum: THREE_MAIN_STAGES
+allowed_identifiers: 42_X_1_TO_42_X_3_ONLY
+nested_sub_stages: PROHIBITED
+maximum_attempts: TWO_PER_FAILURE_CLASS
+correction_requirement: SUPPORTED_ROOT_CAUSE_OR_PROVEN_FAILURE_BOUNDARY
+after_second_failure: EVIDENCE_SUFFICIENCY_DEFER_REDESIGN_OR_STOP
+redesign: ALLOWED_ONLY_AFTER_ANALYSIS_AND_SEPARATE_APPROVAL
+reporting: OPERATOR_FRIENDLY_FIXED_OUTCOMES
+next_batch: 42.5 — Catalog and Database Performance
+next_stage: 42.5-1 — Audit, Measurement, and Final Plan
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+pre_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
+
+The Project Control Standard is approved and is being reconciled into the
+permanent Project OS. Batch 42.5 is planned but not technically started; only
+42.5-1 may later be considered for separate approval.
+
 ## 2026-08-01 — Descriptor Resolution Adapter Accepted
 
 date: 2026-08-01

@@ -73,6 +73,32 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-02 — Stage 42.7-1 .skv Foundation Accepted
+
+date: 2026-08-02
+session_type: BATCH_42_7_STAGE_1_RESULT_RECONCILIATION_AND_STAGE_2_READINESS
+operator_decision: ACCEPTED
+verdict: 42_7_1_ACCEPTED_VERSIONED_SKV_FOUNDATION_COMPLETE_WITH_PLATFORM_LIMITATIONS
+source_commit: e90e30d9c25f71087c7d7074015f8950cba22ab1
+source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
+batch_outcomes: 1_OF_3
+source_scope: SEVEN_ACCEPTED_PATHS
+package_foundation: CUSTOM_UNCOMPRESSED_SKV_V2
+root_capability: VALIDATED_PACKAGE_OUTPUT_AND_EXTRACTION_ROOTS_WITH_SYMMETRIC_IDENTITY_VALIDATION
+dependency_and_schema_change: NONE
+verification: REPORTED_BY_CODEX_10_FOCUSED_PACKAGE_ROOT_5_FRONTEND_284_FULL_RUST_206_FRONTEND_RELEVANT_BUILD_PASSED
+limitations: PLATFORM_RUNTIME_AND_OPERATOR_ENVIRONMENT_BEHAVIOR_REMAIN_UNKNOWN_OR_NOT_MEASURABLE
+stage_42_7_2: READY_APPROVED_PENDING_EXECUTION
+stage_42_7_3: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+technical_work_by_reconciliation: false
+next_action: SEPARATE_STAGE_42_7_2_CODEX_PROMPT_AFTER_RECONCILIATION_RESULT_REVIEW
+
+Stage 42.7-1 is accepted with platform and runtime limitations. The custom
+uncompressed `.skv` v2 foundation, validated-root capability, and seven-path
+source scope are recorded without dependency or schema change. Stage 42.7-2
+is ready and approved but requires a separate prompt; Stage 42.7-3 remains
+gated. No technical work occurred in this reconciliation.
+
 ## 2026-08-02 — Batch 42.6 Audit Closed and Batch 42.7 Approved
 
 date: 2026-08-02
@@ -182,30 +208,6 @@ duplicate base-section validation while preserving exhaustive Credit and
 identity safety. Stage 42.5-2 remains unapproved; schema, index, cache,
 dependency, frontend, runtime activation, live-data, and manual-smoke work are
 not authorized.
-
-## 2026-08-01 — Project Control Standard Approved and Batch 42.5 Planned
-
-date: 2026-08-01
-session_type: PROJECT_CONTROL_STANDARD_AND_BATCH_42_5_INITIAL_PLANNING
-operator_decision: APPROVED
-quota: LIMITED_PROJECT_BUDGET
-stage_maximum: THREE_MAIN_STAGES
-allowed_identifiers: 42_X_1_TO_42_X_3_ONLY
-nested_sub_stages: PROHIBITED
-maximum_attempts: TWO_PER_FAILURE_CLASS
-correction_requirement: SUPPORTED_ROOT_CAUSE_OR_PROVEN_FAILURE_BOUNDARY
-after_second_failure: EVIDENCE_SUFFICIENCY_DEFER_REDESIGN_OR_STOP
-redesign: ALLOWED_ONLY_AFTER_ANALYSIS_AND_SEPARATE_APPROVAL
-reporting: OPERATOR_FRIENDLY_FIXED_OUTCOMES
-next_batch: 42.5 — Catalog and Database Performance
-next_stage: 42.5-1 — Audit, Measurement, and Final Plan
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-pre_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
-
-The Project Control Standard is approved and is being reconciled into the
-permanent Project OS. Batch 42.5 is planned but not technically started; only
-42.5-1 may later be considered for separate approval.
 
 ## Archived Session History
 
