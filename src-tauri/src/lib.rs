@@ -1,6 +1,11 @@
 mod commands;
 pub mod database;
 pub mod managed_media;
+#[allow(dead_code)]
+pub(crate) mod skv_package;
+
+#[cfg(test)]
+mod skv_package_tests;
 
 use tauri::Manager;
 

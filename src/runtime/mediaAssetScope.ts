@@ -1,6 +1,6 @@
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
 
-const MEDIA_ASSET_ROOTS_STORAGE_KEY = "sakurava.mediaAssetRoots.v1";
+export const MEDIA_ASSET_ROOTS_STORAGE_KEY = "sakurava.mediaAssetRoots.v1";
 
 export type MediaAssetRootResult = {
   rootPath: string;
