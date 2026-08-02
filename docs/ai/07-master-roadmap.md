@@ -9,11 +9,11 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 256824fff15a89efca568f9c4856651d0cab4431
-last_recorded_git_baseline_status: BATCH_42_5_STAGE_1_ACCEPTED_WITH_LIMITATION
-application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
-prior_project_os_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+last_recorded_git_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+last_recorded_git_baseline_status: BATCH_42_5_STAGE_2_COMPLETED_WITH_LIMITATION
+application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+pre_reconciliation_repository_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+prior_project_os_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
 project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
@@ -41,9 +41,13 @@ batch_42_5_status: IN_PROGRESS
 batch_42_5_stage_1_status: COMPLETED_WITH_LIMITATION
 batch_42_5_stage_1_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
 batch_42_5_direction: NARROW_CORRECTION
-batch_42_5_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5_stage_2_approved: false
-batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_stage_2_status: COMPLETED_WITH_LIMITATION
+batch_42_5_stage_2_approved: true
+batch_42_5_stage_2_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+batch_42_5_stage_2_source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+batch_42_5_stage_2_source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+batch_42_5_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_3_approved: false
 batch_42_5_technical_permissions: false
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
@@ -1796,22 +1800,39 @@ Catalog and Database Performance
 2. `42.5-2 — Implementation and Verification`
 3. `42.5-3 — Final Validation and Closure`
 
-42.5-1 is `COMPLETED_WITH_LIMITATION` under verdict
+42.5-1 remains `COMPLETED_WITH_LIMITATION` under verdict
 `42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED`. Its accepted
-`MEASURED` database-boundary evidence includes an approximately 721 ms Dataset
-A database-preparation median, an approximately 1.666 s Sakurava Ref
-migration-status median, representative list SQL below 1.2 ms, and
-Credits-by-work SQL near 0.6 ms. The dominant measured cost is Sakurava Ref
-migration-status validation; direct list SQL is not the dominant current
-database cost. `PROVEN_BY_STATIC_SOURCE` supports per-record alias queries and
-duplicate base-section validation as the narrow correction target.
+evidence identified Sakurava Ref migration-status validation as the dominant
+measured database-boundary cost and supported the narrow correction target.
 
-The accepted direction is `NARROW_CORRECTION`, limited in planning to
-equivalent set-based alias checks, removal of duplicate base-section
-validation, preservation of exhaustive Credit and identity safety, focused
-regression coverage, and bounded remeasurement. 42.5-2 is
-`READY_PENDING_SEPARATE_APPROVAL`; 42.5-3 remains an unapproved structural
-placeholder. Implementation is not authorized.
+42.5-2 is `COMPLETED_WITH_LIMITATION` under Result Review verdict
+`42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED`.
+The accepted `NARROW_CORRECTION` was delivered in
+`src-tauri/src/database.rs` at source commit
+`db7bdd4c9dd5c79abff848bd71d849192d783dc0` (parent
+`b0011495ea7d23af952c42f43d6ee02e882dc8fd`). It replaces per-record alias
+queries with set-based validation, removes duplicate base-section validation,
+and preserves exhaustive Credit and identity safety. Focused migration-status
+tests (5), the empty migrated catalog test (1), formatting, diff checks, and
+the release harness build passed.
+
+Accepted `MEASURED` corrected reference-status medians are approximately
+1.6893 ms for S and 18.4357 ms for A. Accepted test-only query evidence is 12
+alias-validation SELECTs for both S and A, bounded independently of tested
+record count. The result is deterministic current-schema database-boundary
+evidence only; it is not full application startup, operator-catalog, or OS
+cold-cache evidence. Actual catalog and alias distribution remain `UNKNOWN`.
+
+The first direct-allocation three-run measurement set is excluded. The
+corrected public-allocator three-run set is accepted with limitation after six
+total executions per dataset; no further measurement is authorized.
+Database-preparation timings are not accepted as cross-stage comparable or as
+attributable implementation improvement. No Verified Performance Registry entry
+is created.
+
+42.5-3 is `READY_PENDING_SEPARATE_APPROVAL`, remains unapproved, and is the
+only next stage that may be considered after separate operator approval.
+Implementation is not authorized.
 
 Full Tauri/WebView startup, Home-usable timing, IPC, frontend processing,
 populated managed-media descriptor processing, phase-specific memory, actual

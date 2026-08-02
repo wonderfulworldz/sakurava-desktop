@@ -73,6 +73,35 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-02 — Batch 42.5 Stage 2 Accepted and Source Delivered
+
+date: 2026-08-02
+session_type: BATCH_42_5_STAGE_2_RESULT_RECONCILIATION_AND_SOURCE_DELIVERY
+operator_decision: ACCEPTED_WITH_LIMITATION
+verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+source_path: src-tauri/src/database.rs
+stage_42_5_2_status: COMPLETED_WITH_LIMITATION
+batch_outcomes: 2_OF_3
+direction: NARROW_CORRECTION
+verification: REPORTED_BY_CODEX_5_MIGRATION_STATUS_1_EMPTY_CATALOG_RELEASE_BUILD_FMT_DIFF
+query_evidence: TEST_ONLY_S_12_A_12_BOUNDED_BY_SECTION_COUNT
+reference_status_medians: S_1_6893_MS_A_18_4357_MS_MEASURED_ACCEPTED_WITH_LIMITATION
+governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
+database_preparation_comparability: NOT_ACCEPTED_NOT_ATTRIBUTABLE
+next_stage: 42.5-3 — Final Validation and Closure
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The accepted change uses set-based alias validation and removes duplicate base
+validation while retaining exhaustive Credit and identity safety. The accepted
+measurements apply only to deterministic current-schema database fixtures, not
+full application startup, operator catalog, or OS cold-cache behavior. Actual
+implementation model and reasoning are `UNKNOWN`; no Verified Performance
+Registry entry is created. Stage 42.5-3 remains unapproved pending separate
+operator approval.
+
 ## 2026-08-01 — Batch 42.5 Stage 1 Accepted with Limitation
 
 date: 2026-08-01
@@ -174,27 +203,6 @@ Stage 9D was accepted after R1/R2 recovery and the R3 date-safe test-only
 correction. The exact fourteen-path descriptor scope is complete; production
 Credit and Import behavior, runtime activation, and numeric policies remain
 unchanged or separately gated.
-
-## 2026-08-01 — Phased Inert Runtime Foundation Accepted
-
-date: 2026-08-01
-session_type: PROJECT_OS_BATCH_42_4_9C_I3_I2_RESULT_RECONCILIATION
-implementation_baseline: 0284d6608e2fe6bd3d405556ab678dbcbaabfa48
-implementation_parent: c53542397117c415039312d3de6e6fc5962d9bf1
-stage_42_4_9c_i3_i2_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9c_i3_i2_c_status: COMPLETED_AND_CLOSED
-result: PHASED_PUBLICATION_RECOVERY_AND_INERT_RUNTIME_COMPLETE
-verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
-runtime: INERT_UNREGISTERED
-git_state: SYNCHRONIZED_0_0
-untracked: PROTECTED_MANUAL_SMOKE_ONLY_9101
-next_stage: 42.4-9D — Descriptor Resolution and Invisible Frontend Adapter
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-I3-I2 was accepted and I3-I2-C is closed. The phased publication/recovery
-foundation and inert runtime supervision are recorded without production
-activation or numeric policy selection. No source handoff remains pending.
 
 ---
 

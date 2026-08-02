@@ -5,11 +5,11 @@
 batch: 42.5
 title: Catalog and Database Performance
 status: IN_PROGRESS
-phase: PLANNING
-current_stage: 42.5-2 — Implementation and Verification
+phase: CLOSURE
+current_stage: 42.5-3 — Final Validation and Closure
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 decision_status: ACCEPTED_WITH_LIMITATION
-decision_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+decision_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -25,14 +25,14 @@ stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
-application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-pre_reconciliation_repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
-prior_project_os_reconciliation_baseline: 256824fff15a89efca568f9c4856651d0cab4431
-implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-implementation_verdict: DESCRIPTOR_ADAPTER_AND_DATE_SAFE_TEST_COMPLETED
-result_review_verdict: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETED_AND_ACCEPTED
-foundation_state: DESCRIPTOR_RESOLUTION_AND_INVISIBLE_FRONTEND_ADAPTER_COMPLETE
+implementation_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+pre_reconciliation_repository_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+prior_project_os_reconciliation_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+implementation_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+implementation_verdict: SET_BASED_ALIAS_VALIDATION_AND_DUPLICATE_BASE_VALIDATION_REMOVAL_ACCEPTED
+result_review_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+foundation_state: STAGE_42_5_2_COMPLETED_WITH_LIMITATION
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8c_status: COMPLETED_AND_CLOSED
@@ -95,9 +95,9 @@ stage_42_4_close_status: COMPLETED_AND_CLOSED
 stage_42_4_technical_commit: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 stage_42_4_technical_commit_message: fix(media): validate original availability for viewer fallback
 stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
-next_technical_stage: 42.5-2 — Implementation and Verification
+next_technical_stage: 42.5-3 — Final Validation and Closure
 next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_42_5_2
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_42_5_3
 next_governance_action_status: DECISION_REQUIRED
 batch_42_5_status: IN_PROGRESS
 batch_42_5_title: Catalog and Database Performance
@@ -113,9 +113,22 @@ batch_42_5_stage_1_representative_list_sql: BELOW_1_2_MS_MEASURED
 batch_42_5_stage_1_credits_by_work_sql: APPROXIMATELY_0_6_MS_MEASURED
 batch_42_5_stage_1_limitation: NO_FULL_TAURI_WEBVIEW_HOME_USABLE_FRONTEND_DESCRIPTOR_OR_PHASE_MEMORY_MEASUREMENT
 batch_42_5_stage_2: 42.5-2 — Implementation and Verification
-batch_42_5_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_2_status: COMPLETED_WITH_LIMITATION
+batch_42_5_stage_2_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+batch_42_5_stage_2_direction: NARROW_CORRECTION
+batch_42_5_stage_2_source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+batch_42_5_stage_2_source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+batch_42_5_stage_2_source_path: src-tauri/src/database.rs
+batch_42_5_stage_2_query_count_s: 12_TEST_ONLY_MEASURED
+batch_42_5_stage_2_query_count_a: 12_TEST_ONLY_MEASURED
+batch_42_5_stage_2_reference_status_s_median: 1_6893_MS_MEASURED_ACCEPTED_WITH_LIMITATION
+batch_42_5_stage_2_reference_status_a_median: 18_4357_MS_MEASURED_ACCEPTED_WITH_LIMITATION
+batch_42_5_stage_2_database_preparation_comparability: NOT_ACCEPTED_NOT_ATTRIBUTABLE
+batch_42_5_stage_2_governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
+batch_42_5_stage_2_requested_model: SOL_HIGH
+batch_42_5_stage_2_actual_model_and_reasoning: UNKNOWN
 batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
-batch_42_5_stage_3_status: NOT_APPROVED_PLACEHOLDER
+batch_42_5_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
 no_source_handoff: true
 all_technical_permissions: false
 implementation_allowed: false
@@ -160,7 +173,42 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Batch 42.5 Stage 42.5-1 Result and Stage 42.5-2 Planning Boundary
+## Batch 42.5 Stage 42.5-2 Accepted Result and Stage 42.5-3 Approval Boundary
+
+Stage `42.5-2 — Implementation and Verification` is
+`COMPLETED_WITH_LIMITATION` under Result Review verdict
+`42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED`.
+The accepted `NARROW_CORRECTION` is confined to
+`src-tauri/src/database.rs`, delivered at
+`db7bdd4c9dd5c79abff848bd71d849192d783dc0` with parent
+`b0011495ea7d23af952c42f43d6ee02e882dc8fd`. It uses set-based alias
+validation, removes duplicate base-section validation, and preserves
+exhaustive Credit and identity safety.
+
+Focused migration-status tests (5), the empty migrated catalog test (1),
+formatting, diff checks, and the release harness build are recorded as passed.
+Accepted test-only query evidence is 12 alias-validation SELECTs for S and 12
+for A, bounded independently of tested record count. Accepted corrected
+database-boundary reference-status medians are approximately 1.6893 ms for S
+and 18.4357 ms for A.
+
+The result is limited to deterministic current-schema database fixtures. It is
+not full application startup, operator-catalog, or OS cold-cache evidence;
+actual catalog and alias distribution remain `UNKNOWN`. The first direct
+allocation three-run set is excluded. The corrected public-allocator three-run
+set is accepted with limitation after six total executions per dataset; no
+further measurement is authorized. Database-preparation timing is not accepted
+as cross-stage comparable or attributable improvement. Requested implementation
+model was Sol/High; actual implementation model and reasoning are `UNKNOWN`.
+No Verified Performance Registry entry is authorized.
+
+Only `42.5-3 — Final Validation and Closure` may now be considered for
+separate approval. It is `READY_PENDING_SEPARATE_APPROVAL`, not approved, and
+all technical permissions remain false. No schema, index, cache, dependency,
+frontend, UI/UX, runtime activation, live AppData, package, Backup/Restore,
+Translation, Import/Export, or manual smoke is authorized.
+
+## Historical Batch 42.5 Stage 42.5-1 Result and Stage 42.5-2 Planning Boundary
 
 The maximum structure is exactly:
 
@@ -168,9 +216,10 @@ The maximum structure is exactly:
 - `42.5-2 — Implementation and Verification`
 - `42.5-3 — Final Validation and Closure`
 
-Stage 42.5-1 is `COMPLETED_WITH_LIMITATION`. Only 42.5-2 may now be considered
-for separate approval. 42.5-3 remains a structural placeholder, not an
-approval, and no other numbered or suffixed stage may be added.
+At the Stage 42.5-1 Result Review, Stage 42.5-1 was
+`COMPLETED_WITH_LIMITATION`, 42.5-2 was the next stage for separate approval,
+and 42.5-3 was an unapproved structural placeholder. No other numbered or
+suffixed stage may be added.
 
 Accepted `MEASURED` evidence is limited to deterministic current-schema
 fixtures and current production database functions. Dataset A database
