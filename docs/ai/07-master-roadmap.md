@@ -9,20 +9,20 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: f1513ee96e28264893163338aa679c072f43ab53
-last_recorded_git_baseline_status: BATCH_42_5_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+last_recorded_git_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
+last_recorded_git_baseline_status: BATCH_42_6_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-pre_reconciliation_repository_baseline: f1513ee96e28264893163338aa679c072f43ab53
-prior_project_os_baseline: f1513ee96e28264893163338aa679c072f43ab53
+pre_reconciliation_repository_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
+prior_project_os_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
 project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
-last_completed_batch: 42.5
-active_batch: NONE
-active_technical_batch: NONE
+last_completed_batch: 42.6
+active_batch: 42.7
+active_technical_batch: 42.7 — Backup and Restore Hardening
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 batch_42_4_status: COMPLETED_AND_CLOSED
@@ -49,9 +49,29 @@ batch_42_5_stage_2_source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
 batch_42_5_stage_3_status: COMPLETED_AND_CLOSED
 batch_42_5_stage_3_approved: true
 batch_42_5_technical_permissions: false
-next_proposed_batch: 42.6
-next_proposed_batch_title: Backup and Restore Audit
-next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_6_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_42_6_outcomes: 1_OF_1
+batch_42_6_stage_1_status: COMPLETED_WITH_LIMITATION
+batch_42_6_stage_1_verdict: BACKUP_RESTORE_AUDIT_COMPLETE_HARDENING_PLAN_READY
+batch_42_6_result_review_verdict: 42_6_1_AUDIT_ACCEPTED_WITH_LIMITATIONS_PACKAGE_DECISIONS_REQUIRED
+batch_42_6_final_verdict: BATCH_42_6_BACKUP_RESTORE_AUDIT_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_42_7_status: ACTIVE
+batch_42_7_title: Backup and Restore Hardening
+batch_42_7_fixed_outcomes: 3
+batch_42_7_scope_approval: APPROVED
+batch_42_7_stage_1: 42.7-1 — Versioned .skv Package and Compatibility Foundation
+batch_42_7_stage_1_status: READY_APPROVED_PENDING_EXECUTION
+batch_42_7_stage_1_execution_approved: true
+batch_42_7_stage_1_prompt_required: true
+batch_42_7_stage_2: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
+batch_42_7_stage_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_7_stage_2_execution_allowed: false
+batch_42_7_stage_3: 42.7-3 — Final Validation and Closure
+batch_42_7_stage_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_7_stage_3_execution_allowed: false
+next_proposed_batch: 42.8
+next_proposed_batch_title: Explicit Catalog Feature Configuration
+next_proposed_batch_status: FUTURE_ROADMAP_ORDER_UNCHANGED
 next_proposed_batch_approved: false
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
@@ -2687,3 +2707,50 @@ This sequence prioritizes:
 7. safe Windows distribution.
 
 Translation remains necessary corrective work, but it is not the central product objective.
+
+## Current Batch 42.6 Closure and Batch 42.7 Activation — 2026-08-02
+
+Batch 42.6 — Backup and Restore Audit is
+`COMPLETED_AND_CLOSED_WITH_LIMITATIONS`, with outcomes `1_OF_1`, Stage 42.6-1
+`COMPLETED_WITH_LIMITATION`, audit verdict
+`BACKUP_RESTORE_AUDIT_COMPLETE_HARDENING_PLAN_READY`, Result Review verdict
+`42_6_1_AUDIT_ACCEPTED_WITH_LIMITATIONS_PACKAGE_DECISIONS_REQUIRED`, and final
+verdict `BATCH_42_6_BACKUP_RESTORE_AUDIT_COMPLETED_AND_CLOSED_WITH_LIMITATIONS`.
+Its accepted result remains static-audit evidence only, with no package/runtime
+operation, live AppData, operator package, or manual smoke. The current v1
+directory package, missing protected non-database state, absent durable Restore
+journal, and legacy raw SQLite paths remain recorded limitations.
+
+Batch `42.7 — Backup and Restore Hardening` is now `ACTIVE` with product and
+architecture scope `APPROVED`, fixed outcomes `3`, and execution model
+`ONE_STAGE_AT_A_TIME_WITH_RESULT_REVIEW`.
+
+Approved decisions are:
+
+1. Write a single-file versioned `.skv` v2 archive/container with recognizable
+   identity, compatibility metadata, exact entries, normalized paths, sizes,
+   and integrity hashes; full external media remains excluded.
+2. Preserve current extensionless directory-v1 packages as read-only legacy
+   import inputs; do not reinterpret or rewrite them.
+3. Preserve current Settings, filters, feature-state, and Translation ownership
+   and add versioned adapters coordinated by the package and Restore journal;
+   no backend ownership migration is approved.
+4. Keep raw `.sqlite` commands as legacy/internal compatibility paths pending
+   Stage 42.7-1 caller audit; they may not bypass visible `.skv` validation.
+5. Permit one minimal archive dependency only when Stage 42.7-1 proves it is
+   necessary and verifies its safety, bounded extraction, compatibility,
+   maintenance, and offline-build properties. Broad dependency upgrades remain
+   out of scope.
+
+The exact maximum structure is:
+
+1. `42.7-1 — Versioned .skv Package and Compatibility Foundation`
+2. `42.7-2 — Staged Restore, Rollback, and Crash Recovery`
+3. `42.7-3 — Final Validation and Closure`
+
+Stage 42.7-1 is `READY_APPROVED_PENDING_EXECUTION` and is the only next
+executable stage, after a separate Codex prompt. Stage 42.7-2 is
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` until the 42.7-1 Result Review accepts
+the package and compatibility foundation. Stage 42.7-3 has the same gate after
+the 42.7-2 Result Review. No additional, nested, suffix, retry, or
+administrative stage is allowed. Later roadmap order remains unchanged.

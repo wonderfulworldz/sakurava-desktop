@@ -16,11 +16,11 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: f1513ee96e28264893163338aa679c072f43ab53
-baseline_label: Batch 42.5 Stage 3 Final Validation Pre-Documentation Baseline
+last_recorded_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
+baseline_label: Batch 42.6 Audit Closure and Batch 42.7 Activation Pre-Documentation Baseline
 application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-pre_reconciliation_repository_baseline: f1513ee96e28264893163338aa679c072f43ab53
-prior_project_os_baseline: f1513ee96e28264893163338aa679c072f43ab53
+pre_reconciliation_repository_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
+prior_project_os_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
 project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 implementation_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
@@ -35,19 +35,19 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.5
-last_completed_roadmap_batch_title: Catalog and Database Performance
-last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
-active_batch: NONE
-active_batch_title: No Active Technical Batch
-active_batch_mode: NONE
-active_batch_phase: CLOSED
-current_stage: NONE
-completed_current_stage: 42.5-3 — Final Validation and Closure
-current_stage_status: COMPLETED_AND_CLOSED
-decision_stage: 42.5-3
-decision_stage_status: COMPLETED_AND_CLOSED
-decision_verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+last_completed_roadmap_batch: 42.6
+last_completed_roadmap_batch_title: Backup and Restore Audit
+last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+active_batch: 42.7
+active_batch_title: Backup and Restore Hardening
+active_batch_mode: IMPLEMENTATION_PREPARATION
+active_batch_phase: IMPLEMENTATION_PREPARATION
+current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
+completed_current_stage: 42.6-1 — Audit, Evidence, and Final Plan
+current_stage_status: READY_APPROVED_PENDING_EXECUTION
+decision_stage: 42.7-1
+decision_stage_status: READY_APPROVED_PENDING_EXECUTION
+decision_verdict: BATCH_42_7_SCOPE_APPROVED_STAGE_1_EXECUTION_PENDING_SEPARATE_PROMPT
 project_control_standard: RECONCILED
 quota_policy: LIMITED_PROJECT_BUDGET
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
@@ -153,11 +153,11 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: BATCH_42_5_FINAL_CLOSURE_PENDING_THIS_DOCUMENTATION_COMMIT
-next_technical_stage: NONE
-next_technical_stage_status: NONE
-next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_BATCH_42_6_AUDIT
-next_governance_action_status: READY_PENDING_SEPARATE_APPROVAL
+current_documentation_action: BATCH_42_6_CLOSURE_AND_BATCH_42_7_ACTIVATION_PENDING_THIS_DOCUMENTATION_COMMIT
+next_technical_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
+next_technical_stage_status: READY_APPROVED_PENDING_EXECUTION
+next_governance_action: SEPARATE_STAGE_42_7_1_CODEX_PROMPT_AND_EXECUTION
+next_governance_action_status: REQUIRED
 batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
 batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
@@ -252,7 +252,7 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Batch 42.5 Final Closure Authority — 2026-08-02
+## Historical Batch 42.5 Final Closure Authority — 2026-08-02
 
 Batch 42.5 is `COMPLETED_AND_CLOSED` with outcomes `3_OF_3` under final
 verdict `BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS`.
@@ -1691,3 +1691,66 @@ verification. It must not add CRUD hooks, queues, operational regeneration,
 publication switching, startup recovery, frontend descriptors, table-ratio
 correction, UI, Translation keys, cleanup lifecycle, Backup/Restore/package
 integration, live AppData, or manual smoke.
+
+## Current Batch 42.6 Closure and Batch 42.7 Activation Authority — 2026-08-02
+
+The final recorded repository baseline before this reconciliation is
+`059c116ad1683b679c1150bdd2dc3ac28271ad97`. The application/source baseline is
+`db7bdd4c9dd5c79abff848bd71d849192d783dc0`.
+
+Batch `42.6 — Backup and Restore Audit` is
+`COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with outcomes `1_OF_1` and final
+verdict `BATCH_42_6_BACKUP_RESTORE_AUDIT_COMPLETED_AND_CLOSED_WITH_LIMITATIONS`.
+Stage `42.6-1 — Audit, Evidence, and Final Plan` is
+`COMPLETED_WITH_LIMITATION` under audit verdict
+`BACKUP_RESTORE_AUDIT_COMPLETE_HARDENING_PLAN_READY` and Result Review verdict
+`42_6_1_AUDIT_ACCEPTED_WITH_LIMITATIONS_PACKAGE_DECISIONS_REQUIRED`.
+
+Accepted findings are that the current package is an extensionless directory
+v1 containing `manifest.json` and `sakurava.sqlite`; SQLite uses the online
+Backup API; Restore has preview, a mandatory database safety Backup,
+revalidation, post-apply validation, and a database rollback attempt; and the
+current flow lacks a coordinated complete-state transaction. Managed mini-image
+files are excluded. Settings, filters, feature state, and user-managed
+Translation state are excluded or unresolved. No durable Restore phase journal
+or startup crash recovery exists. Raw SQLite commands remain registered as
+legacy/internal paths.
+
+The accepted limitations remain static audit only: no package was generated or
+restored, no operator package or live AppData was used, no runtime/test/build or
+manual smoke occurred, no crash/restart/disk-full/antivirus-lock/power-loss
+behavior was measured, actual catalog distribution is `UNKNOWN`, historical
+compatibility beyond current source is unproven, actual audit model and
+reasoning are `UNKNOWN`, and no Verified Performance Registry entry exists.
+
+The following five operator-approved decisions are active:
+
+1. New Backup format is a single-file, versioned `.skv` v2 archive/container;
+   extension alone is insufficient, and full external media remains excluded.
+2. Current extensionless directory-v1 packages remain read-only legacy import
+   inputs; new Backup creation writes v2 only after accepted implementation.
+3. Current Settings, filter, feature-state, and Translation ownership remains
+   unchanged; versioned snapshot/export and restore/import adapters coordinate
+   through `.skv` and a durable Restore journal. No backend ownership migration
+   is approved.
+4. Raw `.sqlite` commands are legacy/internal compatibility paths and may not
+   bypass `.skv` validation in visible Settings workflows; Stage 42.7-1 must
+   audit callers before restriction or removal.
+5. Stage 42.7-1 may add one minimal archive dependency only when necessary and
+   only with path-safety, bounded-extraction, duplicate-entry, compatibility,
+   maintenance, and offline-build justification. No broad dependency upgrade
+   is approved.
+
+Batch `42.7 — Backup and Restore Hardening` is `ACTIVE` with product scope
+`APPROVED`, phase `IMPLEMENTATION_PREPARATION`, and fixed outcomes `3`.
+The exact structure is:
+
+1. `42.7-1 — Versioned .skv Package and Compatibility Foundation`
+2. `42.7-2 — Staged Restore, Rollback, and Crash Recovery`
+3. `42.7-3 — Final Validation and Closure`
+
+Stage 42.7-1 is `READY_APPROVED_PENDING_EXECUTION`; execution is approved at
+batch level but requires a separate Stage 42.7-1 Codex prompt. Stages 42.7-2
+and 42.7-3 are scope-approved but execution-gated behind their prior Result
+Reviews. No source implementation was performed by this documentation action;
+all technical permissions for this action remain false.

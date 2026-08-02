@@ -876,3 +876,29 @@ I2 was accepted and I2-C is closed. Local generation orchestration remains
 explicitly invoked and runtime-inert; production policies, Windows reparse
 fixture coverage, and I3-I1 behavior remain separately gated. This entry records
 the documentation-only reconciliation after the pushed implementation.
+
+---
+
+## 2026-08-01 — Batch 42.4 Managed Mini Media Foundation Closed
+
+date: 2026-08-01
+session_type: PROJECT_OS_BATCH_42_4_FINAL_CLOSURE
+implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
+technical_stage: 42.4-9E-FINAL COMPLETED_AND_ACCEPTED
+closure_stage: 42.4-CLOSE COMPLETED_AND_CLOSED
+result: BATCH_42_4_MANAGED_MINI_MEDIA_FOUNDATION_COMPLETED_AND_CLOSED
+verification: REPORTED_BY_CODEX_FOCUSED_RUST_9_FRONTEND_2_CHECK_FMT_DIFF
+operator_evidence: Smoke 1 PASS
+limitation: Smoke 2–7 NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
+git_state: TECHNICAL_COMMIT_SYNCHRONIZED_0_0_BEFORE_DOCUMENTATION_CLOSURE
+runtime_and_deferred_areas: UNAPPROVED
+next_action: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5: NOT_AUTHORIZED
+technical_permissions: false
+
+Batch 42.4 is closed with the preserved two-file missing-original correction
+delivered. Smoke 1 remains accepted operator evidence; no manual PASS is
+claimed for Smoke 2–7. Runtime activation and deferred policy areas remain
+separately gated.

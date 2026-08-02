@@ -73,6 +73,34 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-02 — Batch 42.6 Audit Closed and Batch 42.7 Approved
+
+date: 2026-08-02
+session_type: BATCH_42_6_AUDIT_CLOSURE_AND_BATCH_42_7_ACTIVATION_RECONCILIATION
+operator_decision: APPROVED
+batch_42_6_verdict: BATCH_42_6_BACKUP_RESTORE_AUDIT_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_42_6_stage_1_status: COMPLETED_WITH_LIMITATION
+batch_42_6_audit_verdict: BACKUP_RESTORE_AUDIT_COMPLETE_HARDENING_PLAN_READY
+batch_42_6_result_review_verdict: 42_6_1_AUDIT_ACCEPTED_WITH_LIMITATIONS_PACKAGE_DECISIONS_REQUIRED
+batch_42_6_outcomes: 1_OF_1
+limitation: STATIC_AUDIT_ONLY_NO_PACKAGE_RUNTIME_LIVE_APPDATA_OR_CRASH_VERIFICATION
+approved_decisions: SINGLE_FILE_SKV_V2; LEGACY_DIRECTORY_V1_READ_ONLY_IMPORT; STATE_ADAPTERS_WITHOUT_OWNERSHIP_MIGRATION; RAW_SQLITE_LEGACY_INTERNAL_ONLY; ONE_MINIMAL_ARCHIVE_DEPENDENCY_WITH_GUARDRAILS
+batch_42_7: ACTIVE_BACKUP_AND_RESTORE_HARDENING
+batch_42_7_stages: 42.7-1_VERSIONED_SKV_PACKAGE_AND_COMPATIBILITY_FOUNDATION; 42.7-2_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY; 42.7-3_FINAL_VALIDATION_AND_CLOSURE
+stage_42_7_1_status: READY_APPROVED_PENDING_EXECUTION
+stage_42_7_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+repository_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
+application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+source_mutation: false
+technical_permissions_for_this_reconciliation: false
+next_action: SEPARATE_STAGE_42_7_1_CODEX_IMPLEMENTATION_PROMPT_AFTER_RESULT_REVIEW
+
+Batch 42.6 is closed with explicit static-audit limitations. Batch 42.7 is
+active with approved product scope; only Stage 42.7-1 is executable after a
+separate prompt, while Stages 42.7-2 and 42.7-3 remain gated by prior Result
+Reviews. No source mutation occurred.
+
 ## 2026-08-02 — Batch 42.5 Catalog and Database Performance Closed
 
 date: 2026-08-02
@@ -178,30 +206,6 @@ pre_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 The Project Control Standard is approved and is being reconciled into the
 permanent Project OS. Batch 42.5 is planned but not technically started; only
 42.5-1 may later be considered for separate approval.
-
-## 2026-08-01 — Batch 42.4 Managed Mini Media Foundation Closed
-
-date: 2026-08-01
-session_type: PROJECT_OS_BATCH_42_4_FINAL_CLOSURE
-implementation_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-implementation_parent: 7acc600c8ff5ae7065fcf2efc53d11d173f5da58
-technical_stage: 42.4-9E-FINAL COMPLETED_AND_ACCEPTED
-closure_stage: 42.4-CLOSE COMPLETED_AND_CLOSED
-result: BATCH_42_4_MANAGED_MINI_MEDIA_FOUNDATION_COMPLETED_AND_CLOSED
-verification: REPORTED_BY_CODEX_FOCUSED_RUST_9_FRONTEND_2_CHECK_FMT_DIFF
-operator_evidence: Smoke 1 PASS
-limitation: Smoke 2–7 NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-git_state: TECHNICAL_COMMIT_SYNCHRONIZED_0_0_BEFORE_DOCUMENTATION_CLOSURE
-runtime_and_deferred_areas: UNAPPROVED
-next_action: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5: NOT_AUTHORIZED
-technical_permissions: false
-
-Batch 42.4 is closed with the preserved two-file missing-original correction
-delivered. Smoke 1 remains accepted operator evidence; no manual PASS is
-claimed for Smoke 2–7. Runtime activation and deferred policy areas remain
-separately gated.
 
 ## Archived Session History
 

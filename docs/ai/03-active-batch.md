@@ -2,14 +2,15 @@
 
 ## Batch Metadata
 
-batch: NONE
-title: No Active Technical Batch
-status: NO_ACTIVE_TECHNICAL_BATCH
-phase: CLOSED
-current_stage: NONE
-current_stage_status: COMPLETED_AND_CLOSED
-decision_status: BATCH_42_5_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-decision_verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch: 42.7
+title: Backup and Restore Hardening
+status: ACTIVE
+phase: IMPLEMENTATION_PREPARATION
+fixed_outcomes: 3
+current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
+current_stage_status: READY_APPROVED_PENDING_EXECUTION
+decision_status: BATCH_42_7_SCOPE_APPROVED
+decision_verdict: BATCH_42_7_BACKUP_AND_RESTORE_HARDENING_APPROVED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -74,7 +75,18 @@ stage_42_4_9c_i3_i2_verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_R
 stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
 next_stage_mode: IMPLEMENT
-next_stage_approved: false
+next_stage_approved: true
+stage_42_7_1_execution_approved: true
+stage_42_7_1_implementation_allowed_in_this_documentation_action: false
+stage_42_7_1_separate_codex_prompt_required: true
+stage_42_7_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_7_2_scope_approved: true
+stage_42_7_2_execution_allowed: false
+stage_42_7_2_gate: 42.7-1_RESULT_REVIEW_ACCEPTED
+stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_7_3_scope_approved: true
+stage_42_7_3_execution_allowed: false
+stage_42_7_3_gate: 42.7-2_RESULT_REVIEW_ACCEPTED
 production_activation_allowed: false
 production_numeric_policy_allowed: false
 stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
@@ -173,7 +185,7 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Batch 42.5 Final Closure Authority — 2026-08-02
+## Historical Batch 42.5 Final Closure Authority — 2026-08-02
 
 Batch 42.5 — Catalog and Database Performance is `COMPLETED_AND_CLOSED` with
 outcomes `3_OF_3` under verdict
@@ -605,3 +617,48 @@ and 42.4-9A-C reconciliation above. The current next proposal is 42.4-9B,
 which remains separately gated. Exact retry policy, worker policy,
 existing-catalog provisioning, and Backup/Restore implications remain deferred
 or `UNKNOWN`; all technical permissions are false.
+
+## Current Batch 42.7 Activation Authority — 2026-08-02
+
+Batch `42.7 — Backup and Restore Hardening` is `ACTIVE` in
+`IMPLEMENTATION_PREPARATION` with fixed outcomes `3` and product scope
+`APPROVED`.
+
+Approved package decisions:
+
+1. New Backup output is a single-file versioned `.skv` v2 archive/container;
+   extension alone is not validation and external media remains excluded.
+2. Extensionless directory-v1 packages remain read-only legacy import inputs;
+   new Backup creation writes v2 only after accepted implementation.
+3. Settings, filters, feature state, and user-managed Translation retain their
+   current ownership; versioned snapshot/export and restore/import adapters are
+   coordinated through `.skv` and a durable Restore journal. Backend ownership
+   migration is not approved.
+4. Raw `.sqlite` commands remain legacy/internal compatibility paths and may not
+   bypass `.skv` validation in visible Settings workflows.
+5. One minimal archive dependency may be added only in Stage 42.7-1 when
+   necessary and justified; broad upgrades and unrelated remediation are not
+   approved.
+
+Exact stage structure:
+
+1. `42.7-1 — Versioned .skv Package and Compatibility Foundation`
+2. `42.7-2 — Staged Restore, Rollback, and Crash Recovery`
+3. `42.7-3 — Final Validation and Closure`
+
+Stage 42.7-1 is `READY_APPROVED_PENDING_EXECUTION`; its execution is approved
+but requires a separate Codex prompt. This documentation action does not grant
+implementation permission. Stage 42.7-2 is
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` and requires an accepted 42.7-1 Result
+Review. Stage 42.7-3 has the same status and requires an accepted 42.7-2 Result
+Review. No suffix, nested, retry, or administrative stage may be added.
+
+The batch is governed by LOCK-UI-001, LOCK-UI-002 where applicable,
+LOCK-UI-003, LOCK-TRANSLATION-001, LOCK-MEDIA-001, LOCK-BACKUP-001,
+LOCK-FEATURE-001, LOCK-CREDITS-001 through LOCK-CREDITS-004, LOCK-REF-001,
+LOCK-DATA-001, LOCK-PACKAGE-001, LOCK-DEPENDENCY-001, LOCK-EVIDENCE-001, and
+LOCK-PROJECTOS-001. Active Locks are unchanged.
+
+No implementation, dependency, schema, frontend, runtime, test, build, Backup,
+Restore, live-AppData, package, or manual-smoke action was performed by this
+documentation reconciliation.
