@@ -2639,9 +2639,10 @@ fn classify_sakurava_ref_migration_state(
     if !credit_column || !credit_index || !credit_ledger {
         return Ok(SakuravaRefMigrationState::Invalid);
     }
-    if validate_sakurava_ref_schema(connection).is_err()
-        || validate_sakurava_ref_counters(connection).is_err()
-        || validate_sakurava_ref_aliases_complete(connection).is_err()
+    let credit_sections = &SAKURAVA_REF_SECTIONS[BASE_SAKURAVA_REF_SECTION_COUNT..];
+    if validate_sakurava_ref_values_for_sections(connection, credit_sections).is_err()
+        || validate_sakurava_ref_counters_for_sections(connection, credit_sections).is_err()
+        || validate_sakurava_ref_aliases_complete_for_sections(connection, credit_sections).is_err()
     {
         return Ok(SakuravaRefMigrationState::Invalid);
     }
@@ -2696,6 +2697,26 @@ fn sakurava_ref_indexes_valid_for_sections(
     Ok(true)
 }
 
+#[cfg(test)]
+thread_local! {
+    static ALIAS_VALIDATION_QUERY_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_alias_validation_query() {
+    ALIAS_VALIDATION_QUERY_COUNT.with(|count| count.set(count.get() + 1));
+}
+
+#[cfg(test)]
+fn reset_alias_validation_query_count() {
+    ALIAS_VALIDATION_QUERY_COUNT.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+fn alias_validation_query_count() -> usize {
+    ALIAS_VALIDATION_QUERY_COUNT.with(std::cell::Cell::get)
+}
+
 fn validate_sakurava_ref_aliases_complete_for_sections(
     connection: &Connection,
     sections: &[(&str, &str, &str, &str)],
@@ -2711,24 +2732,56 @@ fn validate_sakurava_ref_aliases_complete_for_sections(
             .map_err(|error| error.to_string())?
             .collect::<rusqlite::Result<Vec<_>>>()
             .map_err(|error| error.to_string())?;
+        #[cfg(test)]
+        record_alias_validation_query();
+
+        let mut alias_statement = connection
+            .prepare(
+                "SELECT alias, sakuravaRef, aliasKind FROM sakuravaRefAliases WHERE sectionCode = ?1",
+            )
+            .map_err(|error| error.to_string())?;
+        let aliases = alias_statement
+            .query_map([section], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|error| error.to_string())?;
+        #[cfg(test)]
+        record_alias_validation_query();
+
+        let mut exact_alias_counts =
+            std::collections::HashMap::<(String, String, String), usize>::new();
+        let mut legacy_alias_counts = std::collections::HashMap::<String, usize>::new();
+        for (alias, reference, kind) in aliases {
+            *exact_alias_counts
+                .entry((alias.to_ascii_lowercase(), reference.clone(), kind.clone()))
+                .or_default() += 1;
+            if kind == "legacyTechnicalId" {
+                *legacy_alias_counts.entry(reference).or_default() += 1;
+            }
+        }
+
         for (technical_id, reference) in records {
-            let current_aliases: i64 = connection
-                .query_row(
-                    "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND alias = ?2 COLLATE NOCASE AND aliasKind = 'currentCanonicalRef' AND sakuravaRef = ?2",
-                    params![section, reference],
-                    |row| row.get(0),
-                )
-                .map_err(|error| error.to_string())?;
+            let current_aliases = exact_alias_counts
+                .get(&(
+                    reference.to_ascii_lowercase(),
+                    reference.clone(),
+                    "currentCanonicalRef".to_string(),
+                ))
+                .copied()
+                .unwrap_or_default();
             if current_aliases != 1 {
                 return Err("Catalog reference aliases are incomplete.".to_string());
             }
-            let legacy_aliases: i64 = connection
-                .query_row(
-                    "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND sakuravaRef = ?2 AND aliasKind = 'legacyTechnicalId'",
-                    params![section, reference],
-                    |row| row.get(0),
-                )
-                .map_err(|error| error.to_string())?;
+            let legacy_aliases = legacy_alias_counts
+                .get(&reference)
+                .copied()
+                .unwrap_or_default();
             // Records created after migration have no legacy identity history.
             if legacy_aliases == 0 {
                 continue;
@@ -2746,13 +2799,14 @@ fn validate_sakurava_ref_aliases_complete_for_sections(
                 aliases.push((legacy_ref.as_str(), "contractV2Ref"));
             }
             for (alias, kind) in aliases {
-                let matches: i64 = connection
-                    .query_row(
-                        "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = ?1 AND alias = ?2 COLLATE NOCASE AND aliasKind = ?3 AND sakuravaRef = ?4",
-                        params![section, alias, kind, reference],
-                        |row| row.get(0),
-                    )
-                    .map_err(|error| error.to_string())?;
+                let matches = exact_alias_counts
+                    .get(&(
+                        alias.to_ascii_lowercase(),
+                        reference.clone(),
+                        kind.to_string(),
+                    ))
+                    .copied()
+                    .unwrap_or_default();
                 if matches != 1 {
                     return Err("Catalog reference aliases are incomplete.".to_string());
                 }
@@ -3171,6 +3225,14 @@ fn validate_sakurava_ref_schema_for_sections(
     connection: &Connection,
     sections: &[(&str, &str, &str, &str)],
 ) -> Result<(), String> {
+    validate_sakurava_ref_values_for_sections(connection, sections)?;
+    validate_sakurava_ref_alias_ambiguity(connection)
+}
+
+fn validate_sakurava_ref_values_for_sections(
+    connection: &Connection,
+    sections: &[(&str, &str, &str, &str)],
+) -> Result<(), String> {
     for &(section, table, _, _) in sections {
         if !table_has_column(connection, table, "sakuravaRef").map_err(|error| error.to_string())? {
             return Err(format!("{table} is missing Sakurava Ref storage."));
@@ -3190,6 +3252,10 @@ fn validate_sakurava_ref_schema_for_sections(
             return Err(format!("{table} contains duplicate Sakurava Refs."));
         }
     }
+    Ok(())
+}
+
+fn validate_sakurava_ref_alias_ambiguity(connection: &Connection) -> Result<(), String> {
     let ambiguous_aliases: i64 = connection
         .query_row(
             "SELECT COUNT(*) FROM (
@@ -4485,6 +4551,202 @@ mod tests {
         std::env::temp_dir().join(format!("sakurava-{name}-{}", std::process::id()))
     }
 
+    fn insert_alias(
+        connection: &Connection,
+        section: &str,
+        alias: &str,
+        reference: &str,
+        kind: &str,
+    ) {
+        connection
+            .execute(
+                "INSERT INTO sakuravaRefAliases (sectionCode, alias, sakuravaRef, aliasKind) VALUES (?1, ?2, ?3, ?4)",
+                params![section, alias, reference, kind],
+            )
+            .expect("identity alias");
+    }
+
+    fn insert_legacy_alias_set(
+        connection: &Connection,
+        section: &str,
+        technical_id: &str,
+        reference: &str,
+        legacy_prefix: &str,
+    ) {
+        insert_alias(
+            connection,
+            section,
+            technical_id,
+            reference,
+            "legacyTechnicalId",
+        );
+        if section != "R" {
+            let legacy_ref = legacy_derived_ref(legacy_prefix, technical_id);
+            insert_alias(connection, section, &legacy_ref, reference, "contractV1Ref");
+            insert_alias(connection, section, &legacy_ref, reference, "contractV2Ref");
+        }
+    }
+
+    fn complete_current_identity_fixture() -> Connection {
+        let connection = Connection::open_in_memory().expect("identity database");
+        initialize_schema(&connection).expect("identity schema");
+
+        let video_ref = allocate_sakurava_ref(&connection, "V", "2608").expect("video ref");
+        connection.execute(
+            "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('video-current', ?1, 'Video', '1', '1')",
+            [&video_ref],
+        ).expect("video identity");
+        register_current_sakurava_ref_alias(&connection, "V", &video_ref)
+            .expect("video current alias");
+
+        let image_ref = allocate_sakurava_ref(&connection, "I", "2608").expect("image ref");
+        connection.execute(
+            "INSERT INTO images (id, sakuravaRef, title, createdAt, updatedAt) VALUES ('image-current', ?1, 'Image', '1', '1')",
+            [&image_ref],
+        ).expect("image identity");
+        register_current_sakurava_ref_alias(&connection, "I", &image_ref)
+            .expect("image current alias");
+
+        let performer_ref = allocate_sakurava_ref(&connection, "P", "2608").expect("performer ref");
+        connection.execute(
+            "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt) VALUES ('performer-current', ?1, 'Performer', '1', '1')",
+            [&performer_ref],
+        ).expect("performer identity");
+        register_current_sakurava_ref_alias(&connection, "P", &performer_ref)
+            .expect("performer current alias");
+
+        let category_ref = allocate_sakurava_ref(&connection, "C", "2608").expect("category ref");
+        connection.execute(
+            "INSERT INTO managedCategories (key, sakuravaRef, name, createdAt, updatedAt) VALUES ('category-current', ?1, 'Category', '1', '1')",
+            [&category_ref],
+        ).expect("category identity");
+        register_current_sakurava_ref_alias(&connection, "C", &category_ref)
+            .expect("category current alias");
+
+        let glossary_ref = allocate_sakurava_ref(&connection, "G", "2608").expect("glossary ref");
+        connection.execute(
+            "INSERT INTO glossary_entries (id, sakuravaRef, term, definition, created_at, updated_at) VALUES ('glossary-current', ?1, 'Term', 'Definition', 1, 1)",
+            [&glossary_ref],
+        ).expect("glossary identity");
+        register_current_sakurava_ref_alias(&connection, "G", &glossary_ref)
+            .expect("glossary current alias");
+
+        let credit_ref = allocate_sakurava_ref(&connection, "R", "2608").expect("credit ref");
+        connection.execute(
+            "INSERT INTO credits (id, sakuravaRef, workType, workId, performerId, characterName, createdAt, updatedAt) VALUES ('credit-current', ?1, 'video', 'video-current', 'performer-current', 'Role', '1', '1')",
+            [&credit_ref],
+        ).expect("credit identity");
+        register_current_sakurava_ref_alias(&connection, "R", &credit_ref)
+            .expect("credit current alias");
+
+        connection
+    }
+
+    fn scaled_current_identity_fixture(
+        videos: usize,
+        images: usize,
+        performers: usize,
+        credits: usize,
+    ) -> Connection {
+        let mut connection = Connection::open_in_memory().expect("scaled identity database");
+        initialize_schema(&connection).expect("scaled identity schema");
+        let transaction = connection
+            .transaction()
+            .expect("scaled identity transaction");
+
+        for index in 0..videos {
+            let id = format!("video-{index:04}");
+            let reference = format!("V2608{:04}", index + 1);
+            transaction.execute(
+                "INSERT INTO videos (id, sakuravaRef, title, createdAt, updatedAt) VALUES (?1, ?2, ?1, '1', '1')",
+                params![id, reference],
+            ).expect("scaled video");
+            insert_alias(
+                &transaction,
+                "V",
+                &reference,
+                &reference,
+                "currentCanonicalRef",
+            );
+        }
+        for index in 0..images {
+            let id = format!("image-{index:04}");
+            let reference = format!("I2608{:04}", index + 1);
+            transaction.execute(
+                "INSERT INTO images (id, sakuravaRef, title, createdAt, updatedAt) VALUES (?1, ?2, ?1, '1', '1')",
+                params![id, reference],
+            ).expect("scaled image");
+            insert_alias(
+                &transaction,
+                "I",
+                &reference,
+                &reference,
+                "currentCanonicalRef",
+            );
+        }
+        for index in 0..performers {
+            let id = format!("performer-{index:04}");
+            let reference = format!("P2608{:04}", index + 1);
+            transaction.execute(
+                "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt) VALUES (?1, ?2, ?1, '1', '1')",
+                params![id, reference],
+            ).expect("scaled performer");
+            insert_alias(
+                &transaction,
+                "P",
+                &reference,
+                &reference,
+                "currentCanonicalRef",
+            );
+        }
+        for index in 0..credits {
+            let id = format!("credit-{index:04}");
+            let reference = format!("R2608{:04}", index + 1);
+            let (work_type, work_id) = if index % 2 == 0 {
+                ("video", format!("video-{:04}", index % videos))
+            } else {
+                ("image", format!("image-{:04}", index % images))
+            };
+            let performer_id = format!("performer-{:04}", index % performers);
+            transaction.execute(
+                "INSERT INTO credits (id, sakuravaRef, workType, workId, performerId, characterName, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, 'Role', '1', '1')",
+                params![id, reference, work_type, work_id, performer_id],
+            ).expect("scaled credit");
+            insert_alias(
+                &transaction,
+                "R",
+                &reference,
+                &reference,
+                "currentCanonicalRef",
+            );
+        }
+        for (section, last_sequence) in [
+            ("V", videos),
+            ("I", images),
+            ("P", performers),
+            ("R", credits),
+        ] {
+            transaction.execute(
+                "INSERT INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES (?1, '2608', ?2)",
+                params![section, last_sequence as i64],
+            ).expect("scaled counter");
+        }
+        transaction.commit().expect("scaled identity commit");
+        connection
+    }
+
+    fn assert_invalid_migration_status(connection: &Connection) {
+        let status = sakurava_ref_migration_status_for_connection(connection)
+            .expect("invalid migration status");
+        assert_eq!(status.state, SakuravaRefMigrationState::Invalid);
+        assert!(!status.required);
+        assert!(!status.preconditions_valid);
+        assert_eq!(
+            status.issues,
+            vec!["Catalog reference infrastructure could not be verified."]
+        );
+    }
+
     fn create_external_backup_package(
         database: &RuntimeDatabase,
         external_root: &Path,
@@ -5153,6 +5415,158 @@ mod tests {
 
         let _ = fs::remove_dir_all(counter_dir);
         let _ = fs::remove_dir_all(malformed_dir);
+    }
+
+    #[test]
+    fn migration_status_set_based_alias_validation_preserves_alias_contracts() {
+        let current_only = complete_current_identity_fixture();
+        let current_status = sakurava_ref_migration_status_for_connection(&current_only)
+            .expect("current-only migration status");
+        assert_eq!(current_status.state, SakuravaRefMigrationState::Migrated);
+        assert!(current_status.issues.is_empty());
+        assert_eq!(current_status.counts.videos, 1);
+        assert_eq!(current_status.counts.images, 1);
+        assert_eq!(current_status.counts.performers, 1);
+        assert_eq!(current_status.counts.categories, 1);
+        assert_eq!(current_status.counts.glossary, 1);
+
+        let legacy_coexistence = complete_current_identity_fixture();
+        insert_legacy_alias_set(
+            &legacy_coexistence,
+            "V",
+            "video-current",
+            "V26080001",
+            "VID",
+        );
+        insert_legacy_alias_set(
+            &legacy_coexistence,
+            "R",
+            "credit-current",
+            "R26080001",
+            "CRD",
+        );
+        assert_eq!(
+            sakurava_ref_migration_status_for_connection(&legacy_coexistence)
+                .expect("legacy coexistence status")
+                .state,
+            SakuravaRefMigrationState::Migrated,
+        );
+
+        let missing_current = complete_current_identity_fixture();
+        missing_current
+            .execute(
+                "DELETE FROM sakuravaRefAliases WHERE sectionCode = 'V' AND aliasKind = 'currentCanonicalRef'",
+                [],
+            )
+            .expect("remove current alias");
+        assert_eq!(
+            validate_sakurava_ref_aliases_complete(&missing_current)
+                .expect_err("missing current alias"),
+            "Catalog reference aliases are incomplete.",
+        );
+        assert_invalid_migration_status(&missing_current);
+
+        let missing_legacy_contract = complete_current_identity_fixture();
+        insert_legacy_alias_set(
+            &missing_legacy_contract,
+            "V",
+            "video-current",
+            "V26080001",
+            "VID",
+        );
+        missing_legacy_contract
+            .execute(
+                "DELETE FROM sakuravaRefAliases WHERE sectionCode = 'V' AND sakuravaRef = 'V26080001' AND aliasKind = 'contractV1Ref'",
+                [],
+            )
+            .expect("remove legacy contract alias");
+        assert_invalid_migration_status(&missing_legacy_contract);
+
+        let ambiguous_legacy = complete_current_identity_fixture();
+        insert_legacy_alias_set(&ambiguous_legacy, "V", "video-current", "V26080001", "VID");
+        insert_alias(
+            &ambiguous_legacy,
+            "V",
+            "video-current-duplicate",
+            "V26080001",
+            "legacyTechnicalId",
+        );
+        assert_eq!(
+            validate_sakurava_ref_aliases_complete(&ambiguous_legacy)
+                .expect_err("ambiguous legacy alias"),
+            "Catalog reference aliases are ambiguous.",
+        );
+        assert_invalid_migration_status(&ambiguous_legacy);
+
+        let legacy_only = complete_current_identity_fixture();
+        insert_legacy_alias_set(&legacy_only, "V", "video-current", "V26080001", "VID");
+        legacy_only
+            .execute(
+                "DELETE FROM sakuravaRefAliases WHERE sectionCode = 'V' AND aliasKind = 'currentCanonicalRef'",
+                [],
+            )
+            .expect("remove canonical alias");
+        assert_invalid_migration_status(&legacy_only);
+
+        let deleted_record_history = complete_current_identity_fixture();
+        insert_legacy_alias_set(
+            &deleted_record_history,
+            "I",
+            "image-current",
+            "I26080001",
+            "IMG",
+        );
+        deleted_record_history
+            .execute("DELETE FROM images WHERE id = 'image-current'", [])
+            .expect("delete image record");
+        assert_eq!(
+            sakurava_ref_migration_status_for_connection(&deleted_record_history)
+                .expect("deleted-record history status")
+                .state,
+            SakuravaRefMigrationState::Migrated,
+        );
+        let retained_aliases: i64 = deleted_record_history
+            .query_row(
+                "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'I' AND sakuravaRef = 'I26080001'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("retained deleted-record aliases");
+        assert_eq!(retained_aliases, 4);
+
+        for (section, reference) in [
+            ("V", "V26080001"),
+            ("I", "I26080001"),
+            ("P", "P26080001"),
+            ("R", "R26080001"),
+        ] {
+            let identity = complete_current_identity_fixture();
+            identity
+                .execute(
+                    "DELETE FROM sakuravaRefAliases WHERE sectionCode = ?1 AND sakuravaRef = ?2 AND aliasKind = 'currentCanonicalRef'",
+                    params![section, reference],
+                )
+                .expect("remove identity alias");
+            assert_invalid_migration_status(&identity);
+        }
+    }
+
+    #[test]
+    fn migration_status_alias_query_count_is_bounded_for_s_and_a() {
+        for (name, videos, images, performers, credits) in
+            [("S", 16, 16, 16, 64), ("A", 500, 500, 320, 4000)]
+        {
+            let connection = scaled_current_identity_fixture(videos, images, performers, credits);
+            reset_alias_validation_query_count();
+            let status = sakurava_ref_migration_status_for_connection(&connection)
+                .expect("scaled migration status");
+            assert_eq!(status.state, SakuravaRefMigrationState::Migrated, "{name}");
+            assert!(status.issues.is_empty(), "{name}");
+            assert_eq!(status.counts.videos, videos as i64, "{name}");
+            assert_eq!(status.counts.images, images as i64, "{name}");
+            assert_eq!(status.counts.performers, performers as i64, "{name}");
+            assert_eq!(alias_validation_query_count(), 12, "{name}");
+        }
     }
 
     #[test]
