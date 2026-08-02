@@ -9,19 +9,19 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-last_recorded_git_baseline_status: BATCH_42_5_STAGE_2_COMPLETED_WITH_LIMITATION
+last_recorded_git_baseline: f1513ee96e28264893163338aa679c072f43ab53
+last_recorded_git_baseline_status: BATCH_42_5_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-pre_reconciliation_repository_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-prior_project_os_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+pre_reconciliation_repository_baseline: f1513ee96e28264893163338aa679c072f43ab53
+prior_project_os_baseline: f1513ee96e28264893163338aa679c072f43ab53
 project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
 legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
-last_completed_batch: 42.4
-active_batch: 42.5
+last_completed_batch: 42.5
+active_batch: NONE
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
@@ -37,7 +37,7 @@ batch_42_4_technical_commit_message: fix(media): validate original availability 
 batch_42_4_next_stage: POST-42.4 PROJECT CONTROL STANDARDS REVIEW
 batch_42_4_next_stage_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_4_next_stage_authorized: false
-batch_42_5_status: IN_PROGRESS
+batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_stage_1_status: COMPLETED_WITH_LIMITATION
 batch_42_5_stage_1_verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
 batch_42_5_direction: NARROW_CORRECTION
@@ -46,9 +46,13 @@ batch_42_5_stage_2_approved: true
 batch_42_5_stage_2_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
 batch_42_5_stage_2_source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
 batch_42_5_stage_2_source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-batch_42_5_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_5_stage_3_approved: false
+batch_42_5_stage_3_status: COMPLETED_AND_CLOSED
+batch_42_5_stage_3_approved: true
 batch_42_5_technical_permissions: false
+next_proposed_batch: 42.6
+next_proposed_batch_title: Backup and Restore Audit
+next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
+next_proposed_batch_approved: false
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -1788,7 +1792,7 @@ All technical permissions remain false.
 
 ### Batch 42.5 — Catalog and Database Performance
 
-status: `IN_PROGRESS`
+status: `COMPLETED_AND_CLOSED`
 
 **Title**
 
@@ -1830,9 +1834,12 @@ Database-preparation timings are not accepted as cross-stage comparable or as
 attributable implementation improvement. No Verified Performance Registry entry
 is created.
 
-42.5-3 is `READY_PENDING_SEPARATE_APPROVAL`, remains unapproved, and is the
-only next stage that may be considered after separate operator approval.
-Implementation is not authorized.
+42.5-3 is `COMPLETED_AND_CLOSED`. Final committed-baseline validation reported
+formatting and diff checks passed, five focused migration-status tests passed,
+the exact empty migrated-catalog test passed, and the full offline Rust suite
+passed 274 tests. Batch 42.5 is therefore closed with outcomes `3_OF_3` under
+`BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS`.
+This closure does not add a performance claim or authorize another measurement.
 
 Full Tauri/WebView startup, Home-usable timing, IPC, frontend processing,
 populated managed-media descriptor processing, phase-specific memory, actual
@@ -1842,8 +1849,10 @@ cold-cache proof, historical R2-equivalent measurement, or performance budget.
 No schema, index, cache, pagination, virtualization, memoization, search
 debounce, frontend, UI/UX, dependency, package, Backup/Restore, Translation,
 Import/Export, runtime activation, or live-data change is approved. Batch 42.5
-must continue through the shortest safe route and may close with fewer than
-three stages.
+used the shortest safe route and is closed after its three-stage maximum
+structure. Batch 42.6 — Backup and Restore Audit is the next proposed work,
+`READY_PENDING_SEPARATE_APPROVAL`, unapproved, and without technical
+permission.
 
 ---
 

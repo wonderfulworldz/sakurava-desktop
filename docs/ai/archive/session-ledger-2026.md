@@ -11,6 +11,32 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-01 — Descriptor Resolution Adapter Accepted
+
+date: 2026-08-01
+session_type: PROJECT_OS_BATCH_42_4_9D_RESULT_RECONCILIATION
+implementation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
+implementation_parent: a611eaa2379e3f915a1b38095299047ceaaae348
+stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9d_r3_status: COMPLETED_AND_ACCEPTED
+stage_42_4_9d_c_status: COMPLETED_AND_CLOSED
+result: DESCRIPTOR_ADAPTER_AND_DATE_SAFE_TEST_COMPLETED
+verification: REPORTED_BY_CODEX_267_FULL_RUST_PRODUCTION_BUILD
+descriptor: BACKEND_OWNED_BATCHED_INVISIBLE_FRONTEND_ADAPTER
+runtime: INERT_UNREGISTERED
+git_state: SYNCHRONIZED_0_0
+untracked: PROTECTED_MANUAL_SMOKE_ONLY
+next_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 9D was accepted after R1/R2 recovery and the R3 date-safe test-only
+correction. The exact fourteen-path descriptor scope is complete; production
+Credit and Import behavior, runtime activation, and numeric policies remain
+unchanged or separately gated.
+
+---
+
 ## 2026-08-01 — Phased Inert Runtime Foundation Accepted
 
 date: 2026-08-01

@@ -2,14 +2,14 @@
 
 ## Batch Metadata
 
-batch: 42.5
-title: Catalog and Database Performance
-status: IN_PROGRESS
-phase: CLOSURE
-current_stage: 42.5-3 — Final Validation and Closure
-current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_status: ACCEPTED_WITH_LIMITATION
-decision_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+batch: NONE
+title: No Active Technical Batch
+status: NO_ACTIVE_TECHNICAL_BATCH
+phase: CLOSED
+current_stage: NONE
+current_stage_status: COMPLETED_AND_CLOSED
+decision_status: BATCH_42_5_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+decision_verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -95,11 +95,11 @@ stage_42_4_close_status: COMPLETED_AND_CLOSED
 stage_42_4_technical_commit: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
 stage_42_4_technical_commit_message: fix(media): validate original availability for viewer fallback
 stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-tauri/src/managed_media/descriptors_tests.rs
-next_technical_stage: 42.5-3 — Final Validation and Closure
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_42_5_3
-next_governance_action_status: DECISION_REQUIRED
-batch_42_5_status: IN_PROGRESS
+next_technical_stage: NONE
+next_stage_status: NONE
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_BATCH_42_6_AUDIT
+next_governance_action_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
 batch_42_5_goal: Improve catalog and database performance through measured, root-cause-supported changes while preserving data safety, existing behavior, and UI/UX.
 batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
@@ -128,7 +128,7 @@ batch_42_5_stage_2_governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EX
 batch_42_5_stage_2_requested_model: SOL_HIGH
 batch_42_5_stage_2_actual_model_and_reasoning: UNKNOWN
 batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
-batch_42_5_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_3_status: COMPLETED_AND_CLOSED
 no_source_handoff: true
 all_technical_permissions: false
 implementation_allowed: false
@@ -173,7 +173,30 @@ stage_42_4_9c_i2_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9c_i2_c_status: COMPLETED_AND_CLOSED
 next_stage_42_4_9c_i3_approved: false
 
-## Batch 42.5 Stage 42.5-2 Accepted Result and Stage 42.5-3 Approval Boundary
+## Batch 42.5 Final Closure Authority — 2026-08-02
+
+Batch 42.5 — Catalog and Database Performance is `COMPLETED_AND_CLOSED` with
+outcomes `3_OF_3` under verdict
+`BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS`.
+42.5-1 and 42.5-2 remain `COMPLETED_WITH_LIMITATION`; 42.5-3 is
+`COMPLETED_AND_CLOSED`. Final validation on committed baseline
+`db7bdd4c9dd5c79abff848bd71d849192d783dc0` reported formatting/diff checks,
+five migration-status tests, the exact empty migrated-catalog test, and the
+full offline Rust suite (274 passed) as passed.
+
+The accepted result remains the narrow `src-tauri/src/database.rs` correction:
+set-based alias validation, duplicate base-section validation removal, and
+preserved exhaustive Credit and identity safety. The test-only query count of
+12 for S and A, deterministic-fixture limitation, excluded first measurement
+set, six-execution governance deviation, and non-comparable database-preparation
+timing remain recorded without a performance claim. No further measurement or
+Verified Performance Registry entry is authorized.
+
+No technical stage is active. Batch 42.6 — Backup and Restore Audit is only
+`READY_PENDING_SEPARATE_APPROVAL`; it is unapproved, unplanned beyond its
+roadmap scope, and all technical permissions are false.
+
+## Historical Batch 42.5 Stage 42.5-2 Accepted Result and Stage 42.5-3 Approval Boundary
 
 Stage `42.5-2 — Implementation and Verification` is
 `COMPLETED_WITH_LIMITATION` under Result Review verdict

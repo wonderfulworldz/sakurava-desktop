@@ -73,6 +73,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-02 — Batch 42.5 Catalog and Database Performance Closed
+
+date: 2026-08-02
+session_type: BATCH_42_5_STAGE_3_FINAL_VALIDATION_AND_CLOSURE
+operator_decision: APPROVED_TO_START
+verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+stage_42_5_3_status: COMPLETED_AND_CLOSED
+batch_outcomes: 3_OF_3
+source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+project_os_preclosure_baseline: f1513ee96e28264893163338aa679c072f43ab53
+validation: REPORTED_BY_CODEX_FMT_DIFF_5_MIGRATION_STATUS_1_EMPTY_CATALOG_274_FULL_RUST
+limitation: DETERMINISTIC_DATABASE_BOUNDARY_ONLY_NO_FULL_APP_OR_OPERATOR_CATALOG_CLAIM
+governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
+next_batch: 42.6 — Backup and Restore Audit
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The accepted narrow correction remains confined to `src-tauri/src/database.rs`:
+set-based alias validation and duplicate base-section validation removal while
+preserving exhaustive Credit and identity safety. Database-preparation timing
+is not attributable or cross-stage comparable. No technical stage is active;
+Batch 42.6 remains unapproved and all technical permissions are false.
+
 ## 2026-08-02 — Batch 42.5 Stage 2 Accepted and Source Delivered
 
 date: 2026-08-02
@@ -179,32 +202,6 @@ Batch 42.4 is closed with the preserved two-file missing-original correction
 delivered. Smoke 1 remains accepted operator evidence; no manual PASS is
 claimed for Smoke 2–7. Runtime activation and deferred policy areas remain
 separately gated.
-
-## 2026-08-01 — Descriptor Resolution Adapter Accepted
-
-date: 2026-08-01
-session_type: PROJECT_OS_BATCH_42_4_9D_RESULT_RECONCILIATION
-implementation_baseline: b389e8b0686cffb023b3ba25ce3bea79bb4c63a1
-implementation_parent: a611eaa2379e3f915a1b38095299047ceaaae348
-stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9d_r3_status: COMPLETED_AND_ACCEPTED
-stage_42_4_9d_c_status: COMPLETED_AND_CLOSED
-result: DESCRIPTOR_ADAPTER_AND_DATE_SAFE_TEST_COMPLETED
-verification: REPORTED_BY_CODEX_267_FULL_RUST_PRODUCTION_BUILD
-descriptor: BACKEND_OWNED_BATCHED_INVISIBLE_FRONTEND_ADAPTER
-runtime: INERT_UNREGISTERED
-git_state: SYNCHRONIZED_0_0
-untracked: PROTECTED_MANUAL_SMOKE_ONLY
-next_stage: 42.4-9E — Disposable Lifecycle Verification and Result Review
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-Stage 9D was accepted after R1/R2 recovery and the R3 date-safe test-only
-correction. The exact fourteen-path descriptor scope is complete; production
-Credit and Import behavior, runtime activation, and numeric policies remain
-unchanged or separately gated.
-
----
 
 ## Archived Session History
 

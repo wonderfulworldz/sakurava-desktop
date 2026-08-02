@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-02
 repository_state_recorded_at: 2026-08-02
-repository_state_status: BATCH_42_5_STAGE_2_COMPLETED_WITH_LIMITATION
+repository_state_status: BATCH_42_5_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,11 +16,11 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-baseline_label: Batch 42.5 Stage 2 Source Delivery Baseline
+last_recorded_baseline: f1513ee96e28264893163338aa679c072f43ab53
+baseline_label: Batch 42.5 Stage 3 Final Validation Pre-Documentation Baseline
 application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-pre_reconciliation_repository_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-prior_project_os_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+pre_reconciliation_repository_baseline: f1513ee96e28264893163338aa679c072f43ab53
+prior_project_os_baseline: f1513ee96e28264893163338aa679c072f43ab53
 project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 implementation_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
@@ -35,19 +35,19 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.4
-last_completed_roadmap_batch_title: Managed Mini Media Foundation
+last_completed_roadmap_batch: 42.5
+last_completed_roadmap_batch_title: Catalog and Database Performance
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED
-active_batch: 42.5
-active_batch_title: Catalog and Database Performance
-active_batch_mode: CLOSURE
-active_batch_phase: CLOSURE
-current_stage: 42.5-3 — Final Validation and Closure
-completed_current_stage: 42.5-2 — Implementation and Verification
-current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_stage: 42.5-2
-decision_stage_status: COMPLETED_WITH_LIMITATION
-decision_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+active_batch: NONE
+active_batch_title: No Active Technical Batch
+active_batch_mode: NONE
+active_batch_phase: CLOSED
+current_stage: NONE
+completed_current_stage: 42.5-3 — Final Validation and Closure
+current_stage_status: COMPLETED_AND_CLOSED
+decision_stage: 42.5-3
+decision_stage_status: COMPLETED_AND_CLOSED
+decision_verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 project_control_standard: RECONCILED
 quota_policy: LIMITED_PROJECT_BUDGET
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
@@ -153,12 +153,12 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: STAGE_42_5_2_RESULT_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
-next_technical_stage: 42.5-3 — Final Validation and Closure
-next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_42_5_3
-next_governance_action_status: DECISION_REQUIRED
-batch_42_5_status: IN_PROGRESS
+current_documentation_action: BATCH_42_5_FINAL_CLOSURE_PENDING_THIS_DOCUMENTATION_COMMIT
+next_technical_stage: NONE
+next_technical_stage_status: NONE
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_BATCH_42_6_AUDIT
+next_governance_action_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
 batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
 batch_42_5_stage_1_status: COMPLETED_WITH_LIMITATION
@@ -184,7 +184,7 @@ batch_42_5_stage_2_query_count_a: 12_TEST_ONLY_MEASURED
 batch_42_5_stage_2_database_preparation_comparability: NOT_ACCEPTED_NOT_ATTRIBUTABLE
 batch_42_5_stage_2_governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
 batch_42_5_stage_3: 42.5-3 — Final Validation and Closure
-batch_42_5_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_5_stage_3_status: COMPLETED_AND_CLOSED
 technical_permissions: false
 next_technical_stage_approved: false
 production_runtime_activation_allowed: false
@@ -252,7 +252,33 @@ stage_42_4_7_approval: completed
 codex_capacity_status: AVAILABLE_FOR_APPROVED_DOCUMENTATION_ONLY
 manual_project_os_update_status: COMPLETED_BY_DOCUMENTATION_CLOSURE
 
-## Current Batch 42.5 Stage 42.5-2 Result Review Authority — 2026-08-02
+## Current Batch 42.5 Final Closure Authority — 2026-08-02
+
+Batch 42.5 is `COMPLETED_AND_CLOSED` with outcomes `3_OF_3` under final
+verdict `BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS`.
+Stage 42.5-1 and Stage 42.5-2 remain `COMPLETED_WITH_LIMITATION`; Stage
+42.5-3 is `COMPLETED_AND_CLOSED`. Fresh final validation of committed source
+baseline `db7bdd4c9dd5c79abff848bd71d849192d783dc0`, from Project OS baseline
+`f1513ee96e28264893163338aa679c072f43ab53`, reported formatting and diff
+checks passed, 5 focused migration-status tests passed, the exact empty
+migrated-catalog test passed, and the full offline Rust suite passed 274 tests.
+
+The accepted narrow correction remains only `src-tauri/src/database.rs`:
+set-based alias validation and duplicate base-section validation removal while
+preserving exhaustive Credit and identity safety. The deterministic
+database-boundary measurements, test-only S/A query count of 12, excluded first
+measurement set, six-execution governance deviation, and non-comparable
+database-preparation timing remain limitations. No further performance
+measurement is authorized; no performance registry entry is created. Actual
+implementation and closure model/reasoning are `UNKNOWN`.
+
+No technical batch is active. The next proposed work is Batch 42.6 — Backup
+and Restore Audit, `READY_PENDING_SEPARATE_APPROVAL` and unapproved. All
+technical permissions remain false; no schema, index, cache, dependency,
+frontend, UI/UX, runtime activation, live AppData, package, Backup/Restore,
+Translation, Import/Export, or manual smoke work is authorized by this closure.
+
+## Historical Batch 42.5 Stage 42.5-2 Result Review Authority — 2026-08-02
 
 Stage `42.5-2 — Implementation and Verification` is
 `COMPLETED_WITH_LIMITATION` under operator verdict
