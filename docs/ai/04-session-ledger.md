@@ -73,6 +73,41 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-03 — Batch 42.7 Backup and Restore Hardening Closed
+
+date: 2026-08-03
+session_type: BATCH_42_7_STAGE_3_FINAL_VALIDATION_AND_CLOSURE
+operator_decision: ACCEPTED
+verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
+batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_outcomes: 3_OF_3
+stage_42_7_3_status: COMPLETED_WITH_LIMITATIONS
+stage_42_7_3_progress: 6_OF_6_TASKS_100_PERCENT
+repository_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
+application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+evidence: REPORTED_BY_CODEX_ACCEPTED_PACKAGE_PROTECTED_STATE_ROLLBACK_RESTART_EQUIVALENT_AND_EXTERNAL_MEDIA_BOUNDARIES
+product_defect_proven: false
+source_correction_required: false
+source_mutation: NONE
+limitations: VITEST_SPAWN_EPERM_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT_AND_PLATFORM_RUNTIME_UNKNOWN
+git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+next_batch: 42.8 — Explicit Catalog Feature Configuration
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.7-3 mapped all 38 closure requirements to sufficient accepted
+evidence; no new disposable execution was required. Package integrity,
+protected-state and managed-media handling, coordinated rollback,
+restart-equivalent recovery, and exclusion of full external media were
+accepted. No source correction or product defect was proven. Operator data,
+live AppData, real operator Backup/Restore, remote UNC behavior, uncontrolled
+termination, operating-system crash, physical power-loss durability, and
+complete real-world crash recovery remain unknown or not measurable. No
+technical work is authorized; the next action is separate approval for Batch
+42.8 or separately scoped platform/release validation.
+
+---
+
 ## 2026-08-03 — Stage 42.7-2 Staged Restore and Recovery Accepted
 
 date: 2026-08-03
@@ -182,29 +217,6 @@ Batch 42.6 is closed with explicit static-audit limitations. Batch 42.7 is
 active with approved product scope; only Stage 42.7-1 is executable after a
 separate prompt, while Stages 42.7-2 and 42.7-3 remain gated by prior Result
 Reviews. No source mutation occurred.
-
-## 2026-08-02 — Batch 42.5 Catalog and Database Performance Closed
-
-date: 2026-08-02
-session_type: BATCH_42_5_STAGE_3_FINAL_VALIDATION_AND_CLOSURE
-operator_decision: APPROVED_TO_START
-verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-stage_42_5_3_status: COMPLETED_AND_CLOSED
-batch_outcomes: 3_OF_3
-source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-project_os_preclosure_baseline: f1513ee96e28264893163338aa679c072f43ab53
-validation: REPORTED_BY_CODEX_FMT_DIFF_5_MIGRATION_STATUS_1_EMPTY_CATALOG_274_FULL_RUST
-limitation: DETERMINISTIC_DATABASE_BOUNDARY_ONLY_NO_FULL_APP_OR_OPERATOR_CATALOG_CLAIM
-governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
-next_batch: 42.6 — Backup and Restore Audit
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The accepted narrow correction remains confined to `src-tauri/src/database.rs`:
-set-based alias validation and duplicate base-section validation removal while
-preserving exhaustive Credit and identity safety. Database-preparation timing
-is not attributable or cross-stage comparable. No technical stage is active;
-Batch 42.6 remains unapproved and all technical permissions are false.
 
 ## Archived Session History
 

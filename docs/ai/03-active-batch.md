@@ -4,13 +4,13 @@
 
 batch: 42.7
 title: Backup and Restore Hardening
-status: ACTIVE
-phase: STAGE_42_7_2_ACCEPTED_STAGE_42_7_3_APPROVAL_PENDING
+status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+phase: BATCH_42_7_FINAL_VALIDATION_ACCEPTED_AND_CLOSED
 fixed_outcomes: 3
-batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
-current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
-current_stage_status: COMPLETED_AND_ACCEPTED
-current_stage_progress: 10_OF_10_TASKS_100_PERCENT
+batch_progress: 3_OF_3_OUTCOMES_100_PERCENT
+current_stage: 42.7-3 — Final Validation and Closure
+current_stage_status: COMPLETED_WITH_LIMITATIONS
+current_stage_progress: 6_OF_6_TASKS_100_PERCENT
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 fixed_numeric_attempt_cap: NONE
 repeated_low_value_execution: PROHIBITED
@@ -33,6 +33,7 @@ stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+repository_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
 application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 pre_reconciliation_repository_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 prior_project_os_reconciliation_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
@@ -80,8 +81,8 @@ stage_42_4_9c_i3_i2_paths: mod.rs; runtime.rs; runtime_tests.rs; executor.rs; ex
 stage_42_4_9c_i3_i2_verification: REPORTED_BY_CODEX_130_MANAGED_MEDIA_263_FULL_RUST
 stage_42_4_9c_i3_i2_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_9c_i3_i2_source_handoff: NONE_PENDING
-next_stage_mode: IMPLEMENT
-next_stage_approved: true
+next_stage_mode: READY_PENDING_SEPARATE_APPROVAL
+next_stage_approved: false
 stage_42_7_1_execution_approved: true
 stage_42_7_1_implementation_allowed_in_this_documentation_action: false
 stage_42_7_1_separate_codex_prompt_required: true
@@ -99,12 +100,20 @@ stage_42_7_2_execution_allowed: false
 stage_42_7_2_execution_started: true
 stage_42_7_2_separate_codex_prompt_required: false
 stage_42_7_2_gate: 42.7-1_RESULT_REVIEW_ACCEPTED
-stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_7_3_status: COMPLETED_WITH_LIMITATIONS
 stage_42_7_3_scope_approved: true
 stage_42_7_3_execution_allowed: false
-stage_42_7_3_gate: 42.7-2_RESULT_REVIEW_ACCEPTED
-next_stage: 42.7-3 — Final Validation and Closure
+stage_42_7_3_gate: 42.7_3_RESULT_REVIEW_ACCEPTED
+stage_42_7_3_progress: 6_OF_6_TASKS_100_PERCENT
+stage_42_7_3_source_mutation: NONE
+stage_42_7_3_source_correction_required: false
+stage_42_7_3_product_defect_proven: false
+final_batch_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
+next_batch: 42.8 — Explicit Catalog Feature Configuration
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+next_batch_approved: false
 next_stage_approved: false
+all_technical_permissions: false
 production_activation_allowed: false
 production_numeric_policy_allowed: false
 stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
@@ -720,7 +729,7 @@ protected contracts listed above remain unchanged, and no additional stage,
 dependency, schema, frontend, runtime, Backup, Restore, or live-data action is
 authorized here.
 
-## Current Stage 42.7-2 Acceptance and Stage 42.7-3 Readiness — 2026-08-03
+## Historical Superseded Stage 42.7-2 Acceptance and Stage 42.7-3 Readiness — 2026-08-03
 
 The permanent operator decision (`OBSERVED_BY_OPERATOR`) replaces the active
 hard numeric attempt cap with quota-aware expected-value execution control.
@@ -764,3 +773,31 @@ false, and the gate is `42.7-2_RESULT_REVIEW_ACCEPTED`. No runtime, manual
 smoke, live-AppData, operator-catalog, uncontrolled termination, power-loss,
 or complete real-world crash-recovery claim is made. All technical permissions
 remain false; this reconciliation does not authorize Stage 42.7-3.
+
+## Current Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
+
+Batch 42.7 is `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`, with fixed outcomes `3`
+and progress `3_OF_3_OUTCOMES_100_PERCENT`.
+
+Final verdict:
+`BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS`.
+
+Stage 42.7-1 and Stage 42.7-2 remain `COMPLETED_AND_ACCEPTED`. Stage 42.7-3
+is `COMPLETED_WITH_LIMITATIONS` at `6_OF_6_TASKS_100_PERCENT`; it made no
+source mutation, requires no source correction, and no product defect was
+proven.
+
+Accepted closure evidence covers `.skv` compatibility and corruption
+rejection, protected state, managed media, coordinated rollback,
+restart-equivalent recovery, and full external-media exclusion. The latest
+focused Vitest `spawn EPERM` startup result remains an environment limitation,
+not a failed assertion.
+
+Operator data, live AppData, real operator Backup/Restore, remote UNC behavior,
+uncontrolled termination, operating-system crash, physical power-loss
+durability, filesystem metadata durability, and complete real-world recovery
+remain unknown. No active technical stage remains and all technical permission
+flags remain false.
+
+Batch 42.8 — Explicit Catalog Feature Configuration is
+`READY_PENDING_SEPARATE_APPROVAL`; it is not active and execution is false.

@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-03
 repository_state_recorded_at: 2026-08-03
-repository_state_status: STAGE_42_7_2_COMPLETED_AND_ACCEPTED_STAGE_42_7_3_READY
+repository_state_status: BATCH_42_7_COMPLETED_AND_CLOSED_WITH_LIMITATIONS_BATCH_42_8_READY
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,8 +16,8 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
-baseline_label: Stage 42.7-2 Source Delivery Baseline
+last_recorded_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
+baseline_label: Batch 42.7 Closure Repository Baseline
 application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -39,25 +39,28 @@ new_roadmap_series: 42.x
 last_completed_roadmap_batch: 42.6
 last_completed_roadmap_batch_title: Backup and Restore Audit
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-active_batch: 42.7
-active_batch_title: Backup and Restore Hardening
-active_batch_mode: STAGE_42_7_2_ACCEPTED_STAGE_42_7_3_APPROVAL_PENDING
-active_batch_phase: STAGE_42_7_2_ACCEPTED_STAGE_42_7_3_APPROVAL_PENDING
-batch_outcomes: 2_OF_3
-batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
-current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
-completed_current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-current_stage_status: COMPLETED_AND_ACCEPTED
-current_stage_progress: 10_OF_10_TASKS_100_PERCENT
-decision_stage: 42.7-2
-decision_stage_status: COMPLETED_AND_ACCEPTED
-decision_verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
+active_batch: 42.8
+active_batch_title: Explicit Catalog Feature Configuration
+active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
+active_batch_phase: BATCH_42_7_CLOSED_BATCH_42_8_APPROVAL_PENDING
+batch_outcomes: 3_OF_3
+batch_progress: 3_OF_3_OUTCOMES_100_PERCENT
+current_stage: 42.7-3 — Final Validation and Closure
+completed_current_stage: 42.7-3 — Final Validation and Closure
+current_stage_status: COMPLETED_WITH_LIMITATIONS
+current_stage_progress: 6_OF_6_TASKS_100_PERCENT
+decision_stage: 42.7-3
+decision_stage_status: COMPLETED_WITH_LIMITATIONS
+decision_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
 current_stage_scope_approval: APPROVED
-current_stage_execution_approval: ACCEPTED_AND_DELIVERED
+current_stage_execution_approval: COMPLETED_WITH_LIMITATIONS
 current_stage_execution_started: true
 separate_stage_42_7_2_codex_prompt_required: false
-stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_7_3_status: COMPLETED_WITH_LIMITATIONS
 stage_42_7_3_execution_allowed: false
+stage_42_7_3_source_mutation: NONE
+stage_42_7_3_source_correction_required: false
+stage_42_7_3_product_defect_proven: false
 project_control_standard: RECONCILED
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
@@ -164,10 +167,10 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: STAGE_42_7_2_ACCEPTANCE_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
-next_technical_stage: 42.7-3 — Final Validation and Closure
+current_documentation_action: BATCH_42_7_CLOSURE_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
+next_technical_stage: 42.8 — Explicit Catalog Feature Configuration
 next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_7_3
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_BATCH_42_8_OR_PLATFORM_RELEASE_VALIDATION
 next_governance_action_status: REQUIRED
 batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
@@ -1848,7 +1851,7 @@ prompt. Stage `42.7-3 — Final Validation and Closure` remains execution-gated.
 No production activation occurred, and all technical permissions are false
 for this documentation action.
 
-## Current Stage 42.7-2 Acceptance and Stage 42.7-3 Readiness — 2026-08-03
+## Historical Superseded Stage 42.7-2 Acceptance and Stage 42.7-3 Readiness — 2026-08-03
 
 The operator permanently superseded the active hard numeric attempt cap with
 quota-aware expected-value execution control (`OBSERVED_BY_OPERATOR`). There is
@@ -1891,3 +1894,36 @@ Stage 42.7-3 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`. All
 technical permissions remain false; the next action is separate operator
 approval for Stage 42.7-3. This documentation action authorizes no technical
 work.
+
+## Current Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
+
+Batch 42.7 — Backup and Restore Hardening is
+`COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with outcomes `3_OF_3` and progress
+`3_OF_3_OUTCOMES_100_PERCENT`.
+
+Final verdict:
+`BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS`.
+
+Stage 42.7-1 is `COMPLETED_AND_ACCEPTED`; Stage 42.7-2 is
+`COMPLETED_AND_ACCEPTED`; and Stage 42.7-3 is `COMPLETED_WITH_LIMITATIONS` at
+`6_OF_6_TASKS_100_PERCENT`. Stage 42.7-3 made no source mutation, requires no
+source correction, and no product defect was proven.
+
+The accepted closure covers package integrity and corruption rejection,
+protected-state and managed-media handling, coordinated rollback,
+restart-equivalent recovery, and exclusion of full external media. The
+latest focused Vitest startup limitation remains
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` because of `spawn EPERM`.
+
+The following remain `UNKNOWN`: operator catalog scale and data, live AppData,
+real operator Backup/Restore, remote UNC semantics, uncontrolled termination,
+operating-system crash, physical power-loss and filesystem metadata durability,
+and complete real-world crash recovery. Deterministic tests and static
+boundaries are sufficient for technical closure but are not manual runtime
+evidence.
+
+Batch 42.8 — Explicit Catalog Feature Configuration is
+`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. No active technical
+stage remains; all technical permissions remain false. The next action is
+separate operator approval for Batch 42.8 or separately scoped platform/release
+validation.

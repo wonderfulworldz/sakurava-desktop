@@ -42,6 +42,31 @@ operator approval.
 
 ---
 
+## 2026-08-02 — Batch 42.5 Catalog and Database Performance Closed
+
+date: 2026-08-02
+session_type: BATCH_42_5_STAGE_3_FINAL_VALIDATION_AND_CLOSURE
+operator_decision: APPROVED_TO_START
+verdict: BATCH_42_5_CATALOG_AND_DATABASE_PERFORMANCE_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+stage_42_5_3_status: COMPLETED_AND_CLOSED
+batch_outcomes: 3_OF_3
+source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+project_os_preclosure_baseline: f1513ee96e28264893163338aa679c072f43ab53
+validation: REPORTED_BY_CODEX_FMT_DIFF_5_MIGRATION_STATUS_1_EMPTY_CATALOG_274_FULL_RUST
+limitation: DETERMINISTIC_DATABASE_BOUNDARY_ONLY_NO_FULL_APP_OR_OPERATOR_CATALOG_CLAIM
+governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
+next_batch: 42.6 — Backup and Restore Audit
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The accepted narrow correction remains confined to `src-tauri/src/database.rs`:
+set-based alias validation and duplicate base-section validation removal while
+preserving exhaustive Credit and identity safety. Database-preparation timing
+is not attributable or cross-stage comparable. No technical stage is active;
+Batch 42.6 remains unapproved and all technical permissions are false.
+
+---
+
 ## 2026-08-01 — Batch 42.5 Stage 1 Accepted with Limitation
 
 date: 2026-08-01

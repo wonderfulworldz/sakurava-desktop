@@ -9,8 +9,8 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
-last_recorded_git_baseline_status: STAGE_42_7_2_COMPLETED_AND_ACCEPTED
+last_recorded_git_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
+last_recorded_git_baseline_status: BATCH_42_7_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -22,8 +22,8 @@ legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.6
-active_batch: 42.7
-active_technical_batch: 42.7 — Backup and Restore Hardening
+active_batch: 42.8
+active_technical_batch: NONE_PENDING_SEPARATE_APPROVAL
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 batch_42_4_status: COMPLETED_AND_CLOSED
@@ -56,13 +56,13 @@ batch_42_6_stage_1_status: COMPLETED_WITH_LIMITATION
 batch_42_6_stage_1_verdict: BACKUP_RESTORE_AUDIT_COMPLETE_HARDENING_PLAN_READY
 batch_42_6_result_review_verdict: 42_6_1_AUDIT_ACCEPTED_WITH_LIMITATIONS_PACKAGE_DECISIONS_REQUIRED
 batch_42_6_final_verdict: BATCH_42_6_BACKUP_RESTORE_AUDIT_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-batch_42_7_status: ACTIVE
+batch_42_7_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 batch_42_7_title: Backup and Restore Hardening
 batch_42_7_fixed_outcomes: 3
 batch_42_7_scope_approval: APPROVED
 batch_42_7_stage_1: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-batch_42_7_outcomes: 2_OF_3
-batch_42_7_progress: 2_OF_3_OUTCOMES_67_PERCENT
+batch_42_7_outcomes: 3_OF_3
+batch_42_7_progress: 3_OF_3_OUTCOMES_100_PERCENT
 batch_42_7_stage_1_status: COMPLETED_AND_ACCEPTED
 batch_42_7_stage_1_execution_approved: true
 batch_42_7_stage_1_execution_completed: true
@@ -76,12 +76,19 @@ batch_42_7_stage_2_verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RE
 batch_42_7_stage_2_execution_allowed: false
 batch_42_7_stage_2_execution_started: true
 batch_42_7_stage_3: 42.7-3 — Final Validation and Closure
-batch_42_7_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_7_stage_3_status: COMPLETED_WITH_LIMITATIONS
+batch_42_7_stage_3_progress: 6_OF_6_TASKS_100_PERCENT
 batch_42_7_stage_3_execution_allowed: false
+batch_42_7_stage_3_source_mutation: NONE
+batch_42_7_stage_3_source_correction_required: false
+batch_42_7_stage_3_product_defect_proven: false
+batch_42_7_final_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
 next_proposed_batch: 42.8
 next_proposed_batch_title: Explicit Catalog Feature Configuration
 next_proposed_batch_status: FUTURE_ROADMAP_ORDER_UNCHANGED
 next_proposed_batch_approved: false
+batch_42_8_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_8_execution_allowed: false
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -2801,7 +2808,7 @@ prompt. Stage `42.7-3 — Final Validation and Closure` remains
 `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` behind the 42.7-2 Result Review. No
 additional stage is allowed, and roadmap order after Batch 42.7 is unchanged.
 
-## Current Batch 42.7 Stage 42.7-2 Acceptance — 2026-08-03
+## Historical Superseded Batch 42.7 Stage 42.7-2 Acceptance — 2026-08-03
 
 The accepted Stage 42.7-2 Result Review records
 `COMPLETED_AND_ACCEPTED`, verdict
@@ -2823,3 +2830,33 @@ and complete real-world crash recovery remain `UNKNOWN` or
 Stage 42.7-3 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
 The roadmap order after Batch 42.7, including proposed Batch 42.8, is
 unchanged and no implementation permission is granted by this reconciliation.
+
+## Current Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
+
+Batch 42.7 — Backup and Restore Hardening is
+`COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with outcomes `3_OF_3` and progress
+`3_OF_3_OUTCOMES_100_PERCENT`.
+
+Final verdict:
+`BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS`.
+
+Stage 42.7-1 and Stage 42.7-2 are `COMPLETED_AND_ACCEPTED`. Stage 42.7-3 is
+`COMPLETED_WITH_LIMITATIONS` at `6_OF_6_TASKS_100_PERCENT`. Stage 42.7-3 made
+no source mutation, requires no source correction, and no product defect was
+proven.
+
+The accepted closure covers package compatibility and corruption rejection,
+protected-state and managed-media handling, coordinated rollback,
+restart-equivalent recovery, and exclusion of full external media. The latest
+focused Vitest startup remains `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` because
+of `spawn EPERM`.
+
+Operator data and catalog scale, live AppData, real operator Backup/Restore,
+remote UNC semantics, uncontrolled termination, operating-system crash,
+physical power-loss and filesystem metadata durability, and complete
+real-world crash recovery remain `UNKNOWN`. These limitations do not change
+the technical closure recommendation and do not authorize platform validation.
+
+Batch 42.8 — Explicit Catalog Feature Configuration remains
+`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. Roadmap order and
+scope are unchanged, and roadmap implementation permission remains false.
