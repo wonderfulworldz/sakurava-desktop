@@ -89,15 +89,19 @@ Recorded state must not be described as currently proven until it has been verif
 
 ## 4. Evidence Discipline
 
-Classify important technical claims as:
+Use only these evidence labels:
 
-- `PROVEN` — verified by current code, Git, tests, build, inspector, or manual smoke evidence
-- `REPORTED` — stated by Codex or another tool but not independently verified
-- `OBSERVED` — directly seen by the operator
-- `INFERRED` — concluded from evidence but not directly proven
-- `UNKNOWN` — insufficient evidence
+- `OBSERVED_BY_OPERATOR`
+- `REPORTED_BY_CODEX`
+- `MEASURED`
+- `PROVEN_BY_STATIC_SOURCE`
+- `REPORTED_HISTORICAL`
+- `INFERRED`
+- `UNKNOWN`
+- `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`
 
-Do not present `REPORTED`, `INFERRED`, or `UNKNOWN` information as `PROVEN`.
+Do not elevate evidence. Repository state obtained from a Codex execution is
+`REPORTED_BY_CODEX` unless a higher allowed class is independently justified.
 
 When repository access is unavailable, state that the recorded project state has not been independently verified.
 
@@ -121,7 +125,56 @@ Use Codex only when repository inspection, code modification, tests, builds, or 
 
 Preserve working behavior and do not silently expand scope.
 
-## 6. Bootstrap Output
+## 6. Quota-Aware Execution and Progress Control
+
+There is no fixed numeric execution-attempt limit. Codex quota, operator time,
+execution time, test/build cost, and correction effort remain limited project
+resources. Every execution must have defined expected value: produce new
+evidence, narrow or prove a root cause, safely complete approved work, remove a
+material blocker, reduce relevant risk, or deliver an approved outcome.
+
+Allow additional execution only while it remains the shortest safe and
+quota-efficient route. Prohibit substantially repeated commands or corrections
+without new evidence, speculative scope expansion, low-information work,
+repetition likely to reproduce executor misunderstanding, and work whose quota
+cost is disproportionate to remaining value. Report executor noncompliance,
+lost output, incorrect approval interpretation, harness failure, test debt,
+technical failure, and missing evidence as distinct conditions.
+
+Every substantial Codex prompt and result report must include:
+
+1. Batch outcomes: `completed / total — percentage`;
+2. current-stage predefined tasks: `completed / total — percentage`;
+3. current-execution predefined gates: `completed / total — percentage`.
+
+Keep denominators stable. Commands, retries, prompts, and test counts are not
+tasks. Blocked or partial work is not complete. If a denominator changes,
+report the previous and new denominators, reason, previous progress, and
+rebased progress. Report completed, remaining, and blocked tasks, quota posture
+(`CONSERVATIVE`, `NORMAL`, `HIGH_COST`, or `CRITICAL`), and the next
+highest-value action.
+
+Prompts and reports must use plain direct language, one primary execution
+objective, non-contradictory approval and stop conditions, and only the
+governance detail needed for safe execution. Prefer a shorter deterministic
+solution over repeated exploration. The maximum-three-main-stage rule,
+prohibition on nested/suffix/retry/administrative stages, approvals, Result
+Reviews, Git safety, data safety, `manual-smoke/` protection, and Active Locks
+remain unchanged.
+
+### Current Stage 42.7-2 Continuation Record — 2026-08-03
+
+Batch 42.7 is `1/3 outcomes — 33%`. Stage 42.7-2 is `5/10 tasks — 50%` and
+`BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
+The undelivered twelve-path source handoff remains uncommitted and unstaged.
+`src/App.test.tsx` has byte-level line-ending drift at SHA-256
+`0c7ceece182d93f8d309c5cd6d5012171c526a0d95533b2db6a635fa6477afdf`.
+Two Restore integration assertions and Rust, safety, build, static-audit,
+commit, and delivery gates remain incomplete. No technical recovery is
+authorized until the quota-aware documentation reconciliation receives Result
+Review.
+
+## 7. Bootstrap Output
 
 After reading the required files, return one concise Project Checkpoint containing:
 
@@ -130,6 +183,8 @@ After reading the required files, return one concise Project Checkpoint containi
 - last completed batch;
 - active or next batch;
 - current stage and implementation permission;
+- Batch, Stage-task, and current-execution progress with stable denominators and percentages;
+- quota posture and next highest-value action;
 - most important applicable Active Locks;
 - open feedback or blockers;
 - main current risk;

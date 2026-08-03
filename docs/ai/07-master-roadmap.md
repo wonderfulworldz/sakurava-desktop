@@ -9,8 +9,8 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
-last_recorded_git_baseline_status: STAGE_42_7_1_COMPLETED_AND_ACCEPTED_STAGE_42_7_2_READY
+last_recorded_git_baseline: 43b8f2dabdc7605b3b6fc95117e50d8ee6d08543
+last_recorded_git_baseline_status: STAGE_42_7_2_BLOCKED_WITH_UNDELIVERED_SOURCE_HANDOFF
 application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -62,14 +62,16 @@ batch_42_7_fixed_outcomes: 3
 batch_42_7_scope_approval: APPROVED
 batch_42_7_stage_1: 42.7-1 — Versioned .skv Package and Compatibility Foundation
 batch_42_7_outcomes: 1_OF_3
+batch_42_7_progress: 1_OF_3_OUTCOMES_33_PERCENT
 batch_42_7_stage_1_status: COMPLETED_AND_ACCEPTED
 batch_42_7_stage_1_execution_approved: true
 batch_42_7_stage_1_execution_completed: true
 batch_42_7_stage_1_prompt_required: false
 batch_42_7_stage_2: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
-batch_42_7_stage_2_status: READY_APPROVED_PENDING_EXECUTION
-batch_42_7_stage_2_execution_allowed: true
-batch_42_7_stage_2_execution_started: false
+batch_42_7_stage_2_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+batch_42_7_stage_2_progress: 5_OF_10_TASKS_50_PERCENT
+batch_42_7_stage_2_execution_allowed: false
+batch_42_7_stage_2_execution_started: true
 batch_42_7_stage_3: 42.7-3 — Final Validation and Closure
 batch_42_7_stage_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
 batch_42_7_stage_3_execution_allowed: false
@@ -2636,16 +2638,28 @@ The following must not be represented as proven until audited:
 
 ### Project Control Standard — 2026-08-01
 
-Quota and total-cost discipline are permanent project rules. Every future
-technical batch has at most three main stages, using only `42.x-1`, `42.x-2`,
-and `42.x-3`; nested sub-stages and retry branches are prohibited. Each
-failure class permits at most two attempts, and a correction requires a
-supported root cause or proven failure boundary. After the second failure,
-stop and choose evidence sufficiency, defer, systemic redesign review, scope
-or approval change, or batch stop. Systemic redesign is eligible only after
-analysis and separate operator approval. Inefficient or repetitive plans must
-be rejected. Operator reporting uses plain language, fixed outcomes, and
-simple statuses rather than activity volume or the temporary Task N/50 metric.
+Quota and total-cost discipline are permanent project rules. There is no fixed
+numeric execution-attempt cap. Each additional execution requires an
+evidence-supported expected value: produce new evidence, narrow or prove a root
+cause, complete approved work safely, remove a blocker, reduce risk, or deliver
+an approved outcome. Repetitive plans, speculative expansion, and execution
+whose expected quota cost is disproportionate to remaining project value must
+be rejected.
+
+Progress reporting uses three stable levels: fixed Batch outcomes, predefined
+current-stage task outcomes, and predefined current-execution gates. Each level
+reports completed/total and percentage. Commands, retries, prompts, test counts,
+and activity volume do not increase progress. Denominator changes require the
+previous and new denominators, reason, previous progress, and rebased progress.
+Reports also state completed, remaining, and blocked tasks, quota posture, and
+the next highest-value action.
+
+Every future technical batch still has at most three main stages, using only
+`42.x-1`, `42.x-2`, and `42.x-3`; nested, suffix, retry, and administrative
+stages remain prohibited. Supported analysis remains required for corrections
+and systemic redesign, and redesign still needs separate operator approval.
+Approval, Result Review, Git, data, evidence, and Active Lock gates are
+unchanged.
 
 Each technical batch must define:
 
@@ -2783,3 +2797,19 @@ Stage `42.7-2 — Staged Restore, Rollback, and Crash Recovery` is
 prompt. Stage `42.7-3 — Final Validation and Closure` remains
 `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` behind the 42.7-2 Result Review. No
 additional stage is allowed, and roadmap order after Batch 42.7 is unchanged.
+
+## Current Batch 42.7 Quota-Aware Progress Position — 2026-08-03
+
+The newer operator decision supersedes the preceding readiness wording for the
+current execution state without changing approved product scope or roadmap
+order. Batch 42.7 is `1/3 outcomes — 33%`. Stage 42.7-2 is `5/10 tasks — 50%`
+and `BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
+The stable ten-task detail is owned by Current State and Active Batch.
+
+Stage 42.7-2 remains undelivered with an uncommitted twelve-path source
+handoff, `src/App.test.tsx` byte-level line-ending drift, two unresolved
+Restore integration assertions, and incomplete Rust, safety, build,
+static-audit, commit, and delivery gates. This documentation reconciliation
+does not authorize technical recovery. Stage 42.7-3 remains
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`, and all later roadmap ordering remains
+unchanged.

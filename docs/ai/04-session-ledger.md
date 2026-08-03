@@ -73,6 +73,32 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-03 — Quota-Aware Progress Control Approved
+
+date: 2026-08-03
+session_type: PROJECT_GOVERNANCE_QUOTA_AWARE_PROGRESS_CONTROL_RECONCILIATION
+operator_decision: OBSERVED_BY_OPERATOR_APPROVED
+hard_attempt_cap: SUPERSEDED_NO_FIXED_NUMERIC_LIMIT
+execution_control: QUOTA_AWARE_EXPECTED_VALUE
+progress_standard: BATCH_STAGE_EXECUTION_STABLE_DENOMINATORS_AND_PERCENTAGES
+batch_42_7_progress: 1_OF_3_OUTCOMES_33_PERCENT
+stage_42_7_2_progress: 5_OF_10_TASKS_50_PERCENT
+stage_42_7_2_state: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+documentation_only: true
+source_handoff: PRESERVED_UNCOMMITTED_UNSTAGED
+documentation_commit: PENDING_THIS_RECONCILIATION
+technical_permissions: false
+next_action: RESULT_REVIEW_OF_DOCUMENTATION_COMMIT
+
+The operator permanently replaced the active hard numeric attempt cap with
+quota-aware expected-value execution control. Reports now use stable Batch,
+Stage-task, and execution-gate denominators with percentages, quota posture,
+and the next highest-value action. This reconciliation is documentation only;
+the undelivered twelve-path Stage 42.7-2 handoff remains preserved and no
+technical recovery is authorized.
+
+---
+
 ## 2026-08-02 — Stage 42.7-1 .skv Foundation Accepted
 
 date: 2026-08-02

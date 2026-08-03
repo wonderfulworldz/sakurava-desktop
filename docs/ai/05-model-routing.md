@@ -45,6 +45,31 @@ Older models may be preferred when they are:
 
 Model capability does not grant additional implementation authority.
 
+### Quota-Aware Routing Control
+
+There is no fixed numeric execution-attempt limit. Select the least costly
+model and reasoning level likely to complete the approved task safely. Escalate
+only when complexity, risk, expected information gain, and remaining project
+value justify the additional quota cost.
+
+Reuse accepted evidence while relevant. Avoid repeated expensive suites,
+commands, or corrections when they are unlikely to change a decision or
+increase confidence. Executor noncompliance, lost output, or incorrect approval
+interpretation should first trigger clearer and shorter instructions, not an
+automatic expensive rerun.
+
+Every substantial recommendation and result must report:
+
+- batch outcome progress with a stable denominator and percentage;
+- current-stage task progress with a predefined stable denominator and percentage;
+- current-execution gate progress with a predefined denominator and percentage;
+- quota posture: `CONSERVATIVE`, `NORMAL`, `HIGH_COST`, or `CRITICAL`;
+- the next highest-value action.
+
+Commands, retries, prompts, and test counts are not progress tasks. If a
+denominator must change, report the previous and new denominators, the reason,
+previous progress, and rebased progress.
+
 ---
 
 ## 2. Routing Inputs
@@ -452,6 +477,11 @@ Why this model:
 - reversibility;
 - verification strength;
 - expected correction cost.
+
+The prompt and final report must accompany model metadata with Batch, current
+Stage-task, and current-execution gate progress, including percentages and
+quota posture. Model selection must remain subordinate to approval, scope,
+Active Locks, and expected-value execution control.
 
 Example:
 

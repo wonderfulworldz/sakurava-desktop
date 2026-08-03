@@ -6,18 +6,18 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-08-02
-repository_state_recorded_at: 2026-08-02
-repository_state_status: STAGE_42_7_1_COMPLETED_AND_ACCEPTED_STAGE_42_7_2_READY
+product_state_updated_at: 2026-08-03
+repository_state_recorded_at: 2026-08-03
+repository_state_status: STAGE_42_7_2_BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
-tracked_worktree_clean: true
-untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
+tracked_worktree_clean: false
+untracked_top_level: PROTECTED_MANUAL_SMOKE_AND_TWO_EXPECTED_COORDINATOR_SOURCE_FILES
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
-baseline_label: Stage 42.7-1 Accepted and Stage 42.7-2 Readiness Documentation Baseline
+last_recorded_baseline: 43b8f2dabdc7605b3b6fc95117e50d8ee6d08543
+baseline_label: Quota-Aware Project Control Pre-Reconciliation Baseline With Undelivered Stage 42.7-2 Handoff
 application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -41,30 +41,33 @@ last_completed_roadmap_batch_title: Backup and Restore Audit
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: 42.7
 active_batch_title: Backup and Restore Hardening
-active_batch_mode: RESTORE_IMPLEMENTATION_PREPARATION
-active_batch_phase: RESTORE_IMPLEMENTATION_PREPARATION
+active_batch_mode: BLOCKED_PENDING_TECHNICAL_RECOVERY_DECISION
+active_batch_phase: BLOCKED_PENDING_TECHNICAL_RECOVERY_DECISION
 batch_outcomes: 1_OF_3
+batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
 current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
 completed_current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-current_stage_status: READY_APPROVED_PENDING_EXECUTION
+current_stage_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+current_stage_progress: 5_OF_10_TASKS_50_PERCENT
 decision_stage: 42.7-2
-decision_stage_status: READY_APPROVED_PENDING_EXECUTION
-decision_verdict: BATCH_42_7_STAGE_2_APPROVED_PENDING_EXECUTION
+decision_stage_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+decision_verdict: TECHNICAL_RECOVERY_REQUIRES_RESULT_REVIEW_AFTER_GOVERNANCE_RECONCILIATION
 current_stage_scope_approval: APPROVED
-current_stage_execution_approval: APPROVED
-current_stage_execution_started: false
+current_stage_execution_approval: NOT_GRANTED_BY_THIS_DOCUMENTATION_ACTION
+current_stage_execution_started: true
 separate_stage_42_7_2_codex_prompt_required: true
 stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
 stage_42_7_3_execution_allowed: false
 project_control_standard: RECONCILED
-quota_policy: LIMITED_PROJECT_BUDGET
+quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
 future_stage_identifiers: 42.x-1_TO_42.x-3_ONLY
 nested_sub_stages: PROHIBITED
-maximum_execution_attempts_per_failure_class: TWO
+maximum_execution_attempts_per_failure_class: NO_FIXED_NUMERIC_CAP
 systemic_redesign: ANALYSIS_AND_SEPARATE_APPROVAL_REQUIRED
-operator_progress_reporting: FIXED_OUTCOMES_AND_SIMPLE_STATUS
-temporary_task_n_of_50_metric: RETIRED_NOT_FORMALIZED
+operator_progress_reporting: BATCH_STAGE_AND_EXECUTION_STABLE_DENOMINATORS_WITH_PERCENTAGES
+task_progress_policy: PREDEFINED_STABLE_TASK_DENOMINATOR_REQUIRED
+quota_posture_values: CONSERVATIVE_NORMAL_HIGH_COST_CRITICAL
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -1844,3 +1847,42 @@ Stage `42.7-2 — Staged Restore, Rollback, and Crash Recovery` is
 prompt. Stage `42.7-3 — Final Validation and Closure` remains execution-gated.
 No production activation occurred, and all technical permissions are false
 for this documentation action.
+
+## Current Quota-Aware Project Control and Stage 42.7-2 Progress — 2026-08-03
+
+The operator permanently superseded the active hard numeric attempt cap with
+quota-aware expected-value execution control (`OBSERVED_BY_OPERATOR`). There is
+no fixed numeric attempt limit. Each execution must produce new evidence,
+narrow or prove a root cause, safely complete an approved task, remove a
+material blocker, reduce relevant risk, or deliver an approved outcome.
+Repeated low-value execution remains prohibited. Executor noncompliance, lost
+output, incorrect approval interpretation, and redundant execution are
+efficiency failures rather than technical product failures.
+
+Batch 42.7 progress is `1/3 outcomes — 33%`. Stage 42.7-2 progress is `5/10
+tasks — 50%` under this stable task baseline:
+
+1. `HANDOFF_IDENTITY_AND_SAFETY_BOUNDARIES` — `COMPLETE`
+2. `SAFETY_PACKAGE_AND_STAGING_IMPLEMENTATION` — `COMPLETE_REPORTED`
+3. `DURABLE_JOURNAL_AND_STARTUP_RECOVERY_IMPLEMENTATION` — `COMPLETE_REPORTED`
+4. `COORDINATED_DATABASE_MEDIA_STATE_APPLY_AND_ROLLBACK` — `COMPLETE_REPORTED`
+5. `LEGACY_V1_RAW_SQLITE_AND_OWNERSHIP_BOUNDARIES` — `COMPLETE_REPORTED`
+6. `FRONTEND_REQUEST_CONSTRUCTION_BOUNDARY` — `PARTIAL`
+7. `APP_TEST_BYTE_INTEGRITY` — `BLOCKED`
+8. `STAGE_RELATED_FRONTEND_VERIFICATION` — `PARTIAL`
+9. `RUST_SAFETY_BUILD_AND_STATIC_VERIFICATION` — `NOT_COMPLETE`
+10. `SOURCE_COMMIT_AND_DELIVERY` — `NOT_COMPLETE`
+
+The `5/10` count records completed working-level task outcomes only. Stage
+42.7-2 remains undelivered and unaccepted. Fresh repository state is
+`REPORTED_BY_CODEX`: an uncommitted twelve-path source handoff remains, and
+`src/App.test.tsx` has the accepted current byte-drift hash
+`0c7ceece182d93f8d309c5cd6d5012171c526a0d95533b2db6a635fa6477afdf`.
+Two Restore integration assertions and Rust, safety, build, static-audit,
+commit, and delivery gates remain incomplete.
+
+Current stage state is
+`BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
+This documentation action authorizes no source recovery, test, build, runtime,
+Backup, Restore, staging, or source delivery. The next action is Result Review
+of the quota-aware documentation commit.

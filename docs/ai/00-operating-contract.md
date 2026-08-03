@@ -339,14 +339,27 @@ behavior, verification, and Git and cleanup plans. Unknowns that could
 reasonably cause failure require bounded audit or analysis first. Do not use
 execution merely to discover facts that could have been established earlier.
 
-For one objective and one failure class, allow at most two execution attempts.
-Attempt 1 requires complete readiness and must not be speculative. Attempt 2
-is allowed only when Attempt 1 produces new material evidence and a supported
-root cause or proven failure boundary justifies one bounded correction. After
-Attempt 2 fails, stop. Do not create a third retry or renamed retry stage.
-Choose one explicit outcome: evidence sufficient with a documented
-limitation, defer, systemic redesign review, scope or approval change, or stop
-the batch.
+There is no fixed numeric execution-attempt limit. Every execution must have a
+defined expected value: produce new evidence, prove or narrow a root cause,
+safely complete an approved task, remove a material blocker, reduce a relevant
+risk, or deliver an approved outcome. Additional execution is allowed only
+while it remains the shortest safe and quota-efficient route to the approved
+outcome.
+
+Prohibit repetition when it would substantially repeat the same command or
+correction without new evidence, root-cause confidence has not improved, scope
+would expand speculatively, likely information gain is low, a deterministic
+lower-cost solution exists, executor misunderstanding would likely recur, or
+expected quota cost is disproportionate to remaining project value. A failed
+execution is not automatically wasted when it creates reusable evidence or a
+supported decision.
+
+Classify executor noncompliance, lost output, incorrect approval
+interpretation, and redundant execution separately as efficiency failures.
+Do not disguise them as technical product failures. When execution stops,
+choose an evidence-supported outcome such as proceed with a deterministic
+correction, accept a documented limitation, defer, request scope or approval,
+review systemic redesign, or stop the batch.
 
 When evidence shows recurring failures arise from an unsuitable system
 boundary, architecture, harness, workflow, or control model, consider
@@ -368,18 +381,32 @@ Operator-facing reports use plain language and prioritize Goal, What is already
 known, What is still uncertain, Main risk, Shortest safe plan, Result, Decision,
 and Next action. Use simple statuses: `READY`, `RUNNING`, `BLOCKED`,
 `DECISION_REQUIRED`, `COMPLETED`, `COMPLETED_WITH_LIMITATION`, and `STOPPED`.
-Progress reflects fixed batch outcomes, not prompts, retries, checkpoints,
-files, tests, or stage proliferation. Use:
 
-`BATCH OUTCOMES: <completed>/<fixed total>`
+Every substantial Codex prompt and result report must define and report three
+progress levels:
 
-`CURRENT STAGE: <simple status>`
+1. batch outcomes: `completed outcomes / total outcomes — percentage`;
+2. current-stage tasks: `completed tasks / total predefined tasks — percentage`;
+3. current-execution gates: `completed gates / total predefined gates — percentage`.
 
-`CONFIDENCE: HIGH | MEDIUM | LOW`
+Denominators must be predefined and stable. Commands, retries, prompts, test
+counts, checkpoints, files changed, and activity volume are not tasks and do
+not increase progress. Blocked or partial tasks do not count as complete. Do
+not estimate a percentage without a denominator. If a denominator changes,
+report the previous and new denominators, the reason, previous progress, and
+rebased progress.
 
-Do not formalize the temporary Task N/50 metric. A retry does not increase
-progress, and an accepted outcome remains valid unless newer evidence
-invalidates it. Safety and approval boundaries remain mandatory.
+Result reports must state tasks completed in the execution, remaining tasks,
+blocked tasks, quota posture, and the next highest-value action. Allowed quota
+postures are `CONSERVATIVE`, `NORMAL`, `HIGH_COST`, and `CRITICAL`.
+
+Instructions and reports must use one primary execution objective, avoid
+contradictory approval and stop conditions, avoid unnecessary repetition of
+governance text, and distinguish technical failure, test debt, harness failure,
+executor noncompliance, and missing evidence. Prefer a shorter deterministic
+solution over repeated exploratory execution. An accepted outcome remains
+valid unless newer evidence invalidates it. Safety, approval, Result Review,
+Git, data, evidence, and Active Lock boundaries remain mandatory.
 
 ## 7. Feedback and Adaptive Planning
 

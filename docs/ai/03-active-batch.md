@@ -5,10 +5,16 @@
 batch: 42.7
 title: Backup and Restore Hardening
 status: ACTIVE
-phase: RESTORE_IMPLEMENTATION_PREPARATION
+phase: BLOCKED_PENDING_TECHNICAL_RECOVERY_DECISION
 fixed_outcomes: 3
+batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
 current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
-current_stage_status: READY_APPROVED_PENDING_EXECUTION
+current_stage_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+current_stage_progress: 5_OF_10_TASKS_50_PERCENT
+quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
+fixed_numeric_attempt_cap: NONE
+repeated_low_value_execution: PROHIBITED
+documentation_reconciliation_technical_recovery_allowed: false
 decision_status: BATCH_42_7_SCOPE_APPROVED
 decision_verdict: BATCH_42_7_BACKUP_AND_RESTORE_HARDENING_APPROVED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
@@ -84,10 +90,10 @@ stage_42_7_1_source_commit: e90e30d9c25f71087c7d7074015f8950cba22ab1
 stage_42_7_1_source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 stage_42_7_1_outcomes: 1_OF_3
 stage_42_7_1_verdict: VALIDATED_ROOT_CAPABILITY_IMPLEMENTED_STAGE_42_7_1_VERIFIED
-stage_42_7_2_status: READY_APPROVED_PENDING_EXECUTION
+stage_42_7_2_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
 stage_42_7_2_scope_approved: true
-stage_42_7_2_execution_allowed: true
-stage_42_7_2_execution_started: false
+stage_42_7_2_execution_allowed: false
+stage_42_7_2_execution_started: true
 stage_42_7_2_separate_codex_prompt_required: true
 stage_42_7_2_gate: 42.7-1_RESULT_REVIEW_ACCEPTED
 stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
@@ -708,3 +714,42 @@ All technical permissions for this documentation action remain false. The
 protected contracts listed above remain unchanged, and no additional stage,
 dependency, schema, frontend, runtime, Backup, Restore, or live-data action is
 authorized here.
+
+## Current Stage 42.7-2 Quota-Aware Progress Authority — 2026-08-03
+
+The permanent operator decision (`OBSERVED_BY_OPERATOR`) replaces the active
+hard numeric attempt cap with quota-aware expected-value execution control.
+There is no fixed numeric attempt limit. Each additional execution must remain
+the shortest safe and quota-efficient route and must be expected to produce
+new evidence, narrow or prove a root cause, complete an approved task, remove a
+material blocker, reduce risk, or deliver an approved outcome. Substantially
+repeated commands or corrections without improved evidence are prohibited.
+
+Batch progress is `1/3 outcomes — 33%`. Stage 42.7-2 uses the following stable
+ten-task denominator and is `5/10 tasks — 50%`:
+
+1. `HANDOFF_IDENTITY_AND_SAFETY_BOUNDARIES` — `COMPLETE`
+2. `SAFETY_PACKAGE_AND_STAGING_IMPLEMENTATION` — `COMPLETE_REPORTED`
+3. `DURABLE_JOURNAL_AND_STARTUP_RECOVERY_IMPLEMENTATION` — `COMPLETE_REPORTED`
+4. `COORDINATED_DATABASE_MEDIA_STATE_APPLY_AND_ROLLBACK` — `COMPLETE_REPORTED`
+5. `LEGACY_V1_RAW_SQLITE_AND_OWNERSHIP_BOUNDARIES` — `COMPLETE_REPORTED`
+6. `FRONTEND_REQUEST_CONSTRUCTION_BOUNDARY` — `PARTIAL`
+7. `APP_TEST_BYTE_INTEGRITY` — `BLOCKED`
+8. `STAGE_RELATED_FRONTEND_VERIFICATION` — `PARTIAL`
+9. `RUST_SAFETY_BUILD_AND_STATIC_VERIFICATION` — `NOT_COMPLETE`
+10. `SOURCE_COMMIT_AND_DELIVERY` — `NOT_COMPLETE`
+
+The completed count does not accept or deliver Stage 42.7-2. The current state
+is `BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
+The blockers are the uncommitted twelve-path source handoff,
+`src/App.test.tsx` byte-level line-ending drift, two unresolved Restore
+integration assertions, and incomplete Rust, safety, build, static-audit,
+commit, and delivery gates.
+
+Executor noncompliance, lost output, incorrect approval interpretation, and
+redundant execution must be reported as efficiency failures, not technical
+product failures. Every substantial prompt and result must report batch
+outcomes, stable stage tasks, and predefined execution gates with percentages,
+plus quota posture and next highest-value action. Stage 42.7-3 remains
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`. This documentation reconciliation
+does not authorize technical recovery or any Stage 42.7-2 execution.
