@@ -9,10 +9,10 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 43b8f2dabdc7605b3b6fc95117e50d8ee6d08543
-last_recorded_git_baseline_status: STAGE_42_7_2_BLOCKED_WITH_UNDELIVERED_SOURCE_HANDOFF
-application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
-source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
+last_recorded_git_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+last_recorded_git_baseline_status: STAGE_42_7_2_COMPLETED_AND_ACCEPTED
+application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 project_os_reconciliation_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -61,19 +61,22 @@ batch_42_7_title: Backup and Restore Hardening
 batch_42_7_fixed_outcomes: 3
 batch_42_7_scope_approval: APPROVED
 batch_42_7_stage_1: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-batch_42_7_outcomes: 1_OF_3
-batch_42_7_progress: 1_OF_3_OUTCOMES_33_PERCENT
+batch_42_7_outcomes: 2_OF_3
+batch_42_7_progress: 2_OF_3_OUTCOMES_67_PERCENT
 batch_42_7_stage_1_status: COMPLETED_AND_ACCEPTED
 batch_42_7_stage_1_execution_approved: true
 batch_42_7_stage_1_execution_completed: true
 batch_42_7_stage_1_prompt_required: false
 batch_42_7_stage_2: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
-batch_42_7_stage_2_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
-batch_42_7_stage_2_progress: 5_OF_10_TASKS_50_PERCENT
+batch_42_7_stage_2_status: COMPLETED_AND_ACCEPTED
+batch_42_7_stage_2_progress: 10_OF_10_TASKS_100_PERCENT
+batch_42_7_stage_2_source_commit: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+batch_42_7_stage_2_source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+batch_42_7_stage_2_verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
 batch_42_7_stage_2_execution_allowed: false
 batch_42_7_stage_2_execution_started: true
 batch_42_7_stage_3: 42.7-3 — Final Validation and Closure
-batch_42_7_stage_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_7_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_7_stage_3_execution_allowed: false
 next_proposed_batch: 42.8
 next_proposed_batch_title: Explicit Catalog Feature Configuration
@@ -2726,7 +2729,7 @@ This sequence prioritizes:
 
 Translation remains necessary corrective work, but it is not the central product objective.
 
-## Current Batch 42.6 Closure and Batch 42.7 Activation — 2026-08-02
+## Historical Superseded Batch 42.6 Closure and Batch 42.7 Activation — 2026-08-02
 
 Batch 42.6 — Backup and Restore Audit is
 `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`, with outcomes `1_OF_1`, Stage 42.6-1
@@ -2774,7 +2777,7 @@ separate prompt. Stage 42.7-3 remains
 additional, nested, suffix, retry, or administrative stage is allowed. Later
 roadmap order remains unchanged.
 
-## Current Batch 42.7 Stage 42.7-1 Acceptance and Stage 42.7-2 Readiness — 2026-08-02
+## Historical Superseded Batch 42.7 Stage 42.7-1 Acceptance and Stage 42.7-2 Readiness — 2026-08-02
 
 Stage `42.7-1 — Versioned .skv Package and Compatibility Foundation` is
 `COMPLETED_AND_ACCEPTED` with outcomes `1_OF_3`, source baseline
@@ -2798,18 +2801,25 @@ prompt. Stage `42.7-3 — Final Validation and Closure` remains
 `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` behind the 42.7-2 Result Review. No
 additional stage is allowed, and roadmap order after Batch 42.7 is unchanged.
 
-## Current Batch 42.7 Quota-Aware Progress Position — 2026-08-03
+## Current Batch 42.7 Stage 42.7-2 Acceptance — 2026-08-03
 
-The newer operator decision supersedes the preceding readiness wording for the
-current execution state without changing approved product scope or roadmap
-order. Batch 42.7 is `1/3 outcomes — 33%`. Stage 42.7-2 is `5/10 tasks — 50%`
-and `BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
-The stable ten-task detail is owned by Current State and Active Batch.
+The accepted Stage 42.7-2 Result Review records
+`COMPLETED_AND_ACCEPTED`, verdict
+`42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS`,
+Batch progress `2/3 outcomes — 67%`, and Stage progress `10/10 tasks — 100%`.
+Source commit `d96d0d0d167c8ee6f35425cb2420fa79391c6204` has parent
+`c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb` and was delivered with exact
+13-path scope.
 
-Stage 42.7-2 remains undelivered with an uncommitted twelve-path source
-handoff, `src/App.test.tsx` byte-level line-ending drift, two unresolved
-Restore integration assertions, and incomplete Rust, safety, build,
-static-audit, commit, and delivery gates. This documentation reconciliation
-does not authorize technical recovery. Stage 42.7-3 remains
-`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`, and all later roadmap ordering remains
-unchanged.
+Production build, accepted focused frontend and Rust evidence, cargo check,
+bounded static integration audit, and synchronized Git delivery passed. The
+latest focused Vitest startup `spawn EPERM` remains
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`, not a failed assertion or proven
+product defect. Runtime Backup/Restore, manual smoke, live AppData, operator
+catalog behavior, uncontrolled termination, physical power-loss durability,
+and complete real-world crash recovery remain `UNKNOWN` or
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`.
+
+Stage 42.7-3 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
+The roadmap order after Batch 42.7, including proposed Batch 42.8, is
+unchanged and no implementation permission is granted by this reconciliation.

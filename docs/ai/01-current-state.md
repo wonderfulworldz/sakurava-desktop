@@ -8,21 +8,21 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-03
 repository_state_recorded_at: 2026-08-03
-repository_state_status: STAGE_42_7_2_BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+repository_state_status: STAGE_42_7_2_COMPLETED_AND_ACCEPTED_STAGE_42_7_3_READY
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
-tracked_worktree_clean: false
-untracked_top_level: PROTECTED_MANUAL_SMOKE_AND_TWO_EXPECTED_COORDINATOR_SOURCE_FILES
+tracked_worktree_clean: true
+untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 43b8f2dabdc7605b3b6fc95117e50d8ee6d08543
-baseline_label: Quota-Aware Project Control Pre-Reconciliation Baseline With Undelivered Stage 42.7-2 Handoff
-application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
-source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
+last_recorded_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+baseline_label: Stage 42.7-2 Source Delivery Baseline
+application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
-prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
-project_os_reconciliation_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
+prior_project_os_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
 prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 implementation_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
@@ -41,22 +41,22 @@ last_completed_roadmap_batch_title: Backup and Restore Audit
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: 42.7
 active_batch_title: Backup and Restore Hardening
-active_batch_mode: BLOCKED_PENDING_TECHNICAL_RECOVERY_DECISION
-active_batch_phase: BLOCKED_PENDING_TECHNICAL_RECOVERY_DECISION
-batch_outcomes: 1_OF_3
-batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
+active_batch_mode: STAGE_42_7_2_ACCEPTED_STAGE_42_7_3_APPROVAL_PENDING
+active_batch_phase: STAGE_42_7_2_ACCEPTED_STAGE_42_7_3_APPROVAL_PENDING
+batch_outcomes: 2_OF_3
+batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
 current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
 completed_current_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-current_stage_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
-current_stage_progress: 5_OF_10_TASKS_50_PERCENT
+current_stage_status: COMPLETED_AND_ACCEPTED
+current_stage_progress: 10_OF_10_TASKS_100_PERCENT
 decision_stage: 42.7-2
-decision_stage_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
-decision_verdict: TECHNICAL_RECOVERY_REQUIRES_RESULT_REVIEW_AFTER_GOVERNANCE_RECONCILIATION
+decision_stage_status: COMPLETED_AND_ACCEPTED
+decision_verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
 current_stage_scope_approval: APPROVED
-current_stage_execution_approval: NOT_GRANTED_BY_THIS_DOCUMENTATION_ACTION
+current_stage_execution_approval: ACCEPTED_AND_DELIVERED
 current_stage_execution_started: true
-separate_stage_42_7_2_codex_prompt_required: true
-stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+separate_stage_42_7_2_codex_prompt_required: false
+stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
 stage_42_7_3_execution_allowed: false
 project_control_standard: RECONCILED
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
@@ -164,10 +164,10 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: BATCH_42_6_CLOSURE_AND_BATCH_42_7_ACTIVATION_PENDING_THIS_DOCUMENTATION_COMMIT
-next_technical_stage: 42.7-1 — Versioned .skv Package and Compatibility Foundation
-next_technical_stage_status: READY_APPROVED_PENDING_EXECUTION
-next_governance_action: SEPARATE_STAGE_42_7_1_CODEX_PROMPT_AND_EXECUTION
+current_documentation_action: STAGE_42_7_2_ACCEPTANCE_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
+next_technical_stage: 42.7-3 — Final Validation and Closure
+next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_7_3
 next_governance_action_status: REQUIRED
 batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
@@ -1703,7 +1703,7 @@ publication switching, startup recovery, frontend descriptors, table-ratio
 correction, UI, Translation keys, cleanup lifecycle, Backup/Restore/package
 integration, live AppData, or manual smoke.
 
-## Current Batch 42.6 Closure and Batch 42.7 Activation Authority — 2026-08-02
+## Historical Superseded Batch 42.6 Closure and Batch 42.7 Activation Authority — 2026-08-02
 
 The final recorded repository baseline before this reconciliation is
 `059c116ad1683b679c1150bdd2dc3ac28271ad97`. The application/source baseline is
@@ -1768,7 +1768,7 @@ Stage 42.7-3 remains execution-gated behind the 42.7-2 Result Review. No
 source implementation was performed by this documentation action; all
 technical permissions for this action remain false.
 
-## Current Batch 42.7 Stage 42.7-1 Result Reconciliation — 2026-08-02
+## Historical Superseded Batch 42.7 Stage 42.7-1 Result Reconciliation — 2026-08-02
 
 The recorded repository and application/source baselines are now
 `e90e30d9c25f71087c7d7074015f8950cba22ab1` and its parent
@@ -1848,7 +1848,7 @@ prompt. Stage `42.7-3 — Final Validation and Closure` remains execution-gated.
 No production activation occurred, and all technical permissions are false
 for this documentation action.
 
-## Current Quota-Aware Project Control and Stage 42.7-2 Progress — 2026-08-03
+## Current Stage 42.7-2 Acceptance and Stage 42.7-3 Readiness — 2026-08-03
 
 The operator permanently superseded the active hard numeric attempt cap with
 quota-aware expected-value execution control (`OBSERVED_BY_OPERATOR`). There is
@@ -1859,30 +1859,35 @@ Repeated low-value execution remains prohibited. Executor noncompliance, lost
 output, incorrect approval interpretation, and redundant execution are
 efficiency failures rather than technical product failures.
 
-Batch 42.7 progress is `1/3 outcomes — 33%`. Stage 42.7-2 progress is `5/10
-tasks — 50%` under this stable task baseline:
+Batch 42.7 progress is `2/3 outcomes — 67%`. Stage 42.7-2 progress is `10/10
+tasks — 100%` under this stable task baseline:
 
 1. `HANDOFF_IDENTITY_AND_SAFETY_BOUNDARIES` — `COMPLETE`
 2. `SAFETY_PACKAGE_AND_STAGING_IMPLEMENTATION` — `COMPLETE_REPORTED`
 3. `DURABLE_JOURNAL_AND_STARTUP_RECOVERY_IMPLEMENTATION` — `COMPLETE_REPORTED`
 4. `COORDINATED_DATABASE_MEDIA_STATE_APPLY_AND_ROLLBACK` — `COMPLETE_REPORTED`
 5. `LEGACY_V1_RAW_SQLITE_AND_OWNERSHIP_BOUNDARIES` — `COMPLETE_REPORTED`
-6. `FRONTEND_REQUEST_CONSTRUCTION_BOUNDARY` — `PARTIAL`
-7. `APP_TEST_BYTE_INTEGRITY` — `BLOCKED`
-8. `STAGE_RELATED_FRONTEND_VERIFICATION` — `PARTIAL`
-9. `RUST_SAFETY_BUILD_AND_STATIC_VERIFICATION` — `NOT_COMPLETE`
-10. `SOURCE_COMMIT_AND_DELIVERY` — `NOT_COMPLETE`
+6. `FRONTEND_REQUEST_CONSTRUCTION_BOUNDARY` — `COMPLETE`
+7. `APP_TEST_BYTE_INTEGRITY` — `COMPLETE`
+8. `STAGE_RELATED_FRONTEND_VERIFICATION` — `COMPLETE_WITH_EXECUTION_ENVIRONMENT_LIMITATION`
+9. `RUST_SAFETY_BUILD_AND_STATIC_VERIFICATION` — `COMPLETE`
+10. `SOURCE_COMMIT_AND_DELIVERY` — `COMPLETE`
 
-The `5/10` count records completed working-level task outcomes only. Stage
-42.7-2 remains undelivered and unaccepted. Fresh repository state is
-`REPORTED_BY_CODEX`: an uncommitted twelve-path source handoff remains, and
-`src/App.test.tsx` has the accepted current byte-drift hash
-`0c7ceece182d93f8d309c5cd6d5012171c526a0d95533b2db6a635fa6477afdf`.
-Two Restore integration assertions and Rust, safety, build, static-audit,
-commit, and delivery gates remain incomplete.
+Stage 42.7-2 is `COMPLETED_AND_ACCEPTED` under Result Review verdict
+`42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS`.
+The accepted source commit is `d96d0d0d167c8ee6f35425cb2420fa79391c6204`,
+parent `c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb`, delivered across exactly 13
+paths with synchronized Git state at `0/0`.
 
-Current stage state is
-`BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
-This documentation action authorizes no source recovery, test, build, runtime,
-Backup, Restore, staging, or source delivery. The next action is Result Review
-of the quota-aware documentation commit.
+Production build, focused frontend and Rust verification, cargo check, bounded
+static integration audit, and final delivery passed. The latest focused
+Vitest startup `spawn EPERM` is `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`, not a
+failed assertion or proven product defect. Runtime Backup/Restore, manual
+smoke, live AppData, operator catalog behavior, uncontrolled termination,
+power-loss durability, and complete real-world crash recovery remain `UNKNOWN`
+or `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`.
+
+Stage 42.7-3 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`. All
+technical permissions remain false; the next action is separate operator
+approval for Stage 42.7-3. This documentation action authorizes no technical
+work.

@@ -5,12 +5,12 @@
 batch: 42.7
 title: Backup and Restore Hardening
 status: ACTIVE
-phase: BLOCKED_PENDING_TECHNICAL_RECOVERY_DECISION
+phase: STAGE_42_7_2_ACCEPTED_STAGE_42_7_3_APPROVAL_PENDING
 fixed_outcomes: 3
-batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
+batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
 current_stage: 42.7-2 — Staged Restore, Rollback, and Crash Recovery
-current_stage_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
-current_stage_progress: 5_OF_10_TASKS_50_PERCENT
+current_stage_status: COMPLETED_AND_ACCEPTED
+current_stage_progress: 10_OF_10_TASKS_100_PERCENT
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 fixed_numeric_attempt_cap: NONE
 repeated_low_value_execution: PROHIBITED
@@ -32,13 +32,13 @@ stage_42_4_9c_i1_c_status: COMPLETED_AND_CLOSED
 stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
-implementation_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
-application_source_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
+implementation_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 pre_reconciliation_repository_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 prior_project_os_reconciliation_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-implementation_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
+implementation_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 implementation_verdict: SET_BASED_ALIAS_VALIDATION_AND_DUPLICATE_BASE_VALIDATION_REMOVAL_ACCEPTED
-result_review_verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+result_review_verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
 foundation_state: STAGE_42_5_2_COMPLETED_WITH_LIMITATION
 stage_42_4_8a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_8b_status: COMPLETED_AND_ACCEPTED
@@ -90,16 +90,21 @@ stage_42_7_1_source_commit: e90e30d9c25f71087c7d7074015f8950cba22ab1
 stage_42_7_1_source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 stage_42_7_1_outcomes: 1_OF_3
 stage_42_7_1_verdict: VALIDATED_ROOT_CAPABILITY_IMPLEMENTED_STAGE_42_7_1_VERIFIED
-stage_42_7_2_status: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
+stage_42_7_2_status: COMPLETED_AND_ACCEPTED
+stage_42_7_2_source_commit: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+stage_42_7_2_source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+stage_42_7_2_progress: 10_OF_10_TASKS_100_PERCENT
 stage_42_7_2_scope_approved: true
 stage_42_7_2_execution_allowed: false
 stage_42_7_2_execution_started: true
-stage_42_7_2_separate_codex_prompt_required: true
+stage_42_7_2_separate_codex_prompt_required: false
 stage_42_7_2_gate: 42.7-1_RESULT_REVIEW_ACCEPTED
-stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
 stage_42_7_3_scope_approved: true
 stage_42_7_3_execution_allowed: false
 stage_42_7_3_gate: 42.7-2_RESULT_REVIEW_ACCEPTED
+next_stage: 42.7-3 — Final Validation and Closure
+next_stage_approved: false
 production_activation_allowed: false
 production_numeric_policy_allowed: false
 stage_42_4_9d_status: COMPLETED_AND_ACCEPTED
@@ -631,7 +636,7 @@ which remains separately gated. Exact retry policy, worker policy,
 existing-catalog provisioning, and Backup/Restore implications remain deferred
 or `UNKNOWN`; all technical permissions are false.
 
-## Current Batch 42.7 Activation Authority — 2026-08-02
+## Historical Superseded Batch 42.7 Activation Authority — 2026-08-02
 
 Batch `42.7 — Backup and Restore Hardening` is `ACTIVE` in
 `RESTORE_IMPLEMENTATION_PREPARATION` with fixed outcomes `3`, current
@@ -677,7 +682,7 @@ No implementation, dependency, schema, frontend, runtime, test, build, Backup,
 Restore, live-AppData, package, or manual-smoke action was performed by this
 documentation reconciliation.
 
-## Current Batch 42.7 Stage 42.7-1 Acceptance and Stage 42.7-2 Readiness — 2026-08-02
+## Historical Superseded Batch 42.7 Stage 42.7-1 Acceptance and Stage 42.7-2 Readiness — 2026-08-02
 
 Stage `42.7-1 — Versioned .skv Package and Compatibility Foundation` is
 `COMPLETED_AND_ACCEPTED` with verdict
@@ -715,7 +720,7 @@ protected contracts listed above remain unchanged, and no additional stage,
 dependency, schema, frontend, runtime, Backup, Restore, or live-data action is
 authorized here.
 
-## Current Stage 42.7-2 Quota-Aware Progress Authority — 2026-08-03
+## Current Stage 42.7-2 Acceptance and Stage 42.7-3 Readiness — 2026-08-03
 
 The permanent operator decision (`OBSERVED_BY_OPERATOR`) replaces the active
 hard numeric attempt cap with quota-aware expected-value execution control.
@@ -725,31 +730,37 @@ new evidence, narrow or prove a root cause, complete an approved task, remove a
 material blocker, reduce risk, or deliver an approved outcome. Substantially
 repeated commands or corrections without improved evidence are prohibited.
 
-Batch progress is `1/3 outcomes — 33%`. Stage 42.7-2 uses the following stable
-ten-task denominator and is `5/10 tasks — 50%`:
+Batch progress is `2/3 outcomes — 67%`. Stage 42.7-2 completed `10/10 tasks —
+100%` under the stable ten-task denominator. The accepted source commit is
+`d96d0d0d167c8ee6f35425cb2420fa79391c6204`, parent
+`c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb`, delivered across exactly 13 paths.
 
 1. `HANDOFF_IDENTITY_AND_SAFETY_BOUNDARIES` — `COMPLETE`
 2. `SAFETY_PACKAGE_AND_STAGING_IMPLEMENTATION` — `COMPLETE_REPORTED`
 3. `DURABLE_JOURNAL_AND_STARTUP_RECOVERY_IMPLEMENTATION` — `COMPLETE_REPORTED`
 4. `COORDINATED_DATABASE_MEDIA_STATE_APPLY_AND_ROLLBACK` — `COMPLETE_REPORTED`
 5. `LEGACY_V1_RAW_SQLITE_AND_OWNERSHIP_BOUNDARIES` — `COMPLETE_REPORTED`
-6. `FRONTEND_REQUEST_CONSTRUCTION_BOUNDARY` — `PARTIAL`
-7. `APP_TEST_BYTE_INTEGRITY` — `BLOCKED`
-8. `STAGE_RELATED_FRONTEND_VERIFICATION` — `PARTIAL`
-9. `RUST_SAFETY_BUILD_AND_STATIC_VERIFICATION` — `NOT_COMPLETE`
-10. `SOURCE_COMMIT_AND_DELIVERY` — `NOT_COMPLETE`
+6. `FRONTEND_REQUEST_CONSTRUCTION_BOUNDARY` — `COMPLETE`
+7. `APP_TEST_BYTE_INTEGRITY` — `COMPLETE`
+8. `STAGE_RELATED_FRONTEND_VERIFICATION` — `COMPLETE_WITH_EXECUTION_ENVIRONMENT_LIMITATION`
+9. `RUST_SAFETY_BUILD_AND_STATIC_VERIFICATION` — `COMPLETE`
+10. `SOURCE_COMMIT_AND_DELIVERY` — `COMPLETE`
 
-The completed count does not accept or deliver Stage 42.7-2. The current state
-is `BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.
-The blockers are the uncommitted twelve-path source handoff,
-`src/App.test.tsx` byte-level line-ending drift, two unresolved Restore
-integration assertions, and incomplete Rust, safety, build, static-audit,
-commit, and delivery gates.
+Stage 42.7-2 is `COMPLETED_AND_ACCEPTED` under Result Review verdict
+`42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS`.
+Production build, focused frontend and Rust verification, cargo check, bounded
+static integration audit, exact 13-path delivery, and Git synchronization
+passed. The latest focused Vitest startup `spawn EPERM` is
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` and is not a failed assertion or
+proven product defect.
 
 Executor noncompliance, lost output, incorrect approval interpretation, and
 redundant execution must be reported as efficiency failures, not technical
 product failures. Every substantial prompt and result must report batch
 outcomes, stable stage tasks, and predefined execution gates with percentages,
 plus quota posture and next highest-value action. Stage 42.7-3 remains
-`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`. This documentation reconciliation
-does not authorize technical recovery or any Stage 42.7-2 execution.
+`READY_PENDING_SEPARATE_APPROVAL`. Its scope remains approved, execution is
+false, and the gate is `42.7-2_RESULT_REVIEW_ACCEPTED`. No runtime, manual
+smoke, live-AppData, operator-catalog, uncontrolled termination, power-loss,
+or complete real-world crash-recovery claim is made. All technical permissions
+remain false; this reconciliation does not authorize Stage 42.7-3.

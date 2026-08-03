@@ -11,6 +11,69 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-02 — Batch 42.5 Stage 2 Accepted and Source Delivered
+
+date: 2026-08-02
+session_type: BATCH_42_5_STAGE_2_RESULT_RECONCILIATION_AND_SOURCE_DELIVERY
+operator_decision: ACCEPTED_WITH_LIMITATION
+verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
+source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
+source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
+source_path: src-tauri/src/database.rs
+stage_42_5_2_status: COMPLETED_WITH_LIMITATION
+batch_outcomes: 2_OF_3
+direction: NARROW_CORRECTION
+verification: REPORTED_BY_CODEX_5_MIGRATION_STATUS_1_EMPTY_CATALOG_RELEASE_BUILD_FMT_DIFF
+query_evidence: TEST_ONLY_S_12_A_12_BOUNDED_BY_SECTION_COUNT
+reference_status_medians: S_1_6893_MS_A_18_4357_MS_MEASURED_ACCEPTED_WITH_LIMITATION
+governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
+database_preparation_comparability: NOT_ACCEPTED_NOT_ATTRIBUTABLE
+next_stage: 42.5-3 — Final Validation and Closure
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The accepted change uses set-based alias validation and removes duplicate base
+validation while retaining exhaustive Credit and identity safety. The accepted
+measurements apply only to deterministic current-schema database fixtures, not
+full application startup, operator catalog, or OS cold-cache behavior. Actual
+implementation model and reasoning are `UNKNOWN`; no Verified Performance
+Registry entry is created. Stage 42.5-3 remains unapproved pending separate
+operator approval.
+
+---
+
+## 2026-08-01 — Batch 42.5 Stage 1 Accepted with Limitation
+
+date: 2026-08-01
+session_type: BATCH_42_5_STAGE_1_RESULT_RECONCILIATION
+operator_decision: ACCEPTED_WITH_LIMITATION
+verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
+repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
+application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
+stage_42_5_1_status: COMPLETED_WITH_LIMITATION
+batch_outcomes: 1_OF_3
+confidence: MEDIUM
+measurement_scope: DETERMINISTIC_CURRENT_SCHEMA_DATABASE_BOUNDARY
+database_preparation_a_median: 721_MS_MEASURED
+reference_status_a_median: 1666_MS_MEASURED
+representative_list_sql: BELOW_1_2_MS_MEASURED
+credits_by_work_sql: APPROXIMATELY_0_6_MS_MEASURED
+dominant_measured_cost: SAKURAVA_REF_MIGRATION_STATUS_VALIDATION
+direction: NARROW_CORRECTION
+limitation: NO_FULL_TAURI_WEBVIEW_HOME_USABLE_FRONTEND_DESCRIPTOR_OR_PHASE_MEMORY_MEASUREMENT
+next_stage: 42.5-2 — Implementation and Verification
+next_stage_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+The operator accepted the bounded measurement and the narrow plan to replace
+per-record alias validation with equivalent set-based checks and remove
+duplicate base-section validation while preserving exhaustive Credit and
+identity safety. Stage 42.5-2 remains unapproved; schema, index, cache,
+dependency, frontend, runtime activation, live-data, and manual-smoke work are
+not authorized.
+
+---
+
 ## 2026-08-01 — Project Control Standard Approved and Batch 42.5 Planned
 
 date: 2026-08-01

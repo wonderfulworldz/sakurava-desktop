@@ -73,8 +73,38 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-03 — Stage 42.7-2 Staged Restore and Recovery Accepted
+
+date: 2026-08-03
+session_type: BATCH_42_7_STAGE_2_RESULT_RECONCILIATION_AND_DELIVERY
+operator_decision: ACCEPTED
+verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
+source_commit: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+batch_outcomes: 2_OF_3
+stage_42_7_2_status: COMPLETED_AND_ACCEPTED
+stage_42_7_2_progress: 10_OF_10_TASKS_100_PERCENT
+stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_7_3_execution_allowed: false
+verification: REPORTED_BY_CODEX_BUILD_RESTORE_APP_3_NON_RESTORE_APP_4_REQUEST_BUILDER_11_PROTECTED_STATE_7_FOCUSED_RUST_10_COORDINATOR_12_FULL_RUST_296_CARGO_CHECK_STATIC_AUDIT
+git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+limitation: VITEST_SPAWN_EPERM_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+runtime_claims: UNKNOWN_OR_NOT_MEASURABLE
+technical_permissions: false
+next_action: SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_7_3
+
+Stage 42.7-2 was accepted and delivered with exact 13-path scope. The
+production build, accepted focused frontend and Rust evidence, cargo check,
+and bounded static integration audit passed. The latest focused Vitest startup
+limitation was not a failed assertion or proven product defect. No runtime,
+manual smoke, live AppData, real Backup/Restore, uncontrolled termination,
+power-loss, or complete real-world crash-recovery claim is made.
+
+---
+
 ## 2026-08-03 — Quota-Aware Progress Control Approved
 
+record_status: HISTORICAL_SUPERSEDED_BY_STAGE_42_7_2_ACCEPTANCE
 date: 2026-08-03
 session_type: PROJECT_GOVERNANCE_QUOTA_AWARE_PROGRESS_CONTROL_RECONCILIATION
 operator_decision: OBSERVED_BY_OPERATOR_APPROVED
@@ -175,65 +205,6 @@ set-based alias validation and duplicate base-section validation removal while
 preserving exhaustive Credit and identity safety. Database-preparation timing
 is not attributable or cross-stage comparable. No technical stage is active;
 Batch 42.6 remains unapproved and all technical permissions are false.
-
-## 2026-08-02 — Batch 42.5 Stage 2 Accepted and Source Delivered
-
-date: 2026-08-02
-session_type: BATCH_42_5_STAGE_2_RESULT_RECONCILIATION_AND_SOURCE_DELIVERY
-operator_decision: ACCEPTED_WITH_LIMITATION
-verdict: 42_5_2_IMPLEMENTATION_ACCEPTED_WITH_LIMITATION_GOVERNANCE_DEVIATION_RECORDED
-source_commit: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-source_parent: b0011495ea7d23af952c42f43d6ee02e882dc8fd
-source_path: src-tauri/src/database.rs
-stage_42_5_2_status: COMPLETED_WITH_LIMITATION
-batch_outcomes: 2_OF_3
-direction: NARROW_CORRECTION
-verification: REPORTED_BY_CODEX_5_MIGRATION_STATUS_1_EMPTY_CATALOG_RELEASE_BUILD_FMT_DIFF
-query_evidence: TEST_ONLY_S_12_A_12_BOUNDED_BY_SECTION_COUNT
-reference_status_medians: S_1_6893_MS_A_18_4357_MS_MEASURED_ACCEPTED_WITH_LIMITATION
-governance_deviation: SIX_EXECUTIONS_PER_DATASET_FIRST_SET_EXCLUDED_NO_FURTHER_MEASUREMENT
-database_preparation_comparability: NOT_ACCEPTED_NOT_ATTRIBUTABLE
-next_stage: 42.5-3 — Final Validation and Closure
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The accepted change uses set-based alias validation and removes duplicate base
-validation while retaining exhaustive Credit and identity safety. The accepted
-measurements apply only to deterministic current-schema database fixtures, not
-full application startup, operator catalog, or OS cold-cache behavior. Actual
-implementation model and reasoning are `UNKNOWN`; no Verified Performance
-Registry entry is created. Stage 42.5-3 remains unapproved pending separate
-operator approval.
-
-## 2026-08-01 — Batch 42.5 Stage 1 Accepted with Limitation
-
-date: 2026-08-01
-session_type: BATCH_42_5_STAGE_1_RESULT_RECONCILIATION
-operator_decision: ACCEPTED_WITH_LIMITATION
-verdict: 42_5_1_ACCEPTED_WITH_LIMITATION_NARROW_CORRECTION_SUPPORTED
-repository_baseline: 256824fff15a89efca568f9c4856651d0cab4431
-application_source_baseline: a98c9036c9a05b86eb429f11cfb7e746b62e10d8
-stage_42_5_1_status: COMPLETED_WITH_LIMITATION
-batch_outcomes: 1_OF_3
-confidence: MEDIUM
-measurement_scope: DETERMINISTIC_CURRENT_SCHEMA_DATABASE_BOUNDARY
-database_preparation_a_median: 721_MS_MEASURED
-reference_status_a_median: 1666_MS_MEASURED
-representative_list_sql: BELOW_1_2_MS_MEASURED
-credits_by_work_sql: APPROXIMATELY_0_6_MS_MEASURED
-dominant_measured_cost: SAKURAVA_REF_MIGRATION_STATUS_VALIDATION
-direction: NARROW_CORRECTION
-limitation: NO_FULL_TAURI_WEBVIEW_HOME_USABLE_FRONTEND_DESCRIPTOR_OR_PHASE_MEMORY_MEASUREMENT
-next_stage: 42.5-2 — Implementation and Verification
-next_stage_status: READY_PENDING_SEPARATE_APPROVAL
-technical_permissions: false
-
-The operator accepted the bounded measurement and the narrow plan to replace
-per-record alias validation with equivalent set-based checks and remove
-duplicate base-section validation while preserving exhaustive Credit and
-identity safety. Stage 42.5-2 remains unapproved; schema, index, cache,
-dependency, frontend, runtime activation, live-data, and manual-smoke work are
-not authorized.
 
 ## Archived Session History
 
