@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildRestoreBackupPackageRequest,
   createBackupPackage,
   deleteBackupPackage,
   exportBackupPackage,
@@ -33,6 +34,7 @@ describe("backup package runtime wrappers", () => {
     expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_create", {
       backupType: "manual",
       note: "My note",
+      protectedState: expect.stringContaining('"format":"sakurava-protected-state"'),
     });
   });
 
@@ -84,6 +86,28 @@ describe("backup package runtime wrappers", () => {
     });
   });
 
+  it("builds a deterministic Restore request from an explicit date", () => {
+    const packageName = "sakurava-backup-20260706-120000-manual";
+    const protectedState = '{"format":"sakurava-protected-state","version":1}';
+    const date = new Date(2026, 6, 6, 12, 0, 0);
+
+    const request = buildRestoreBackupPackageRequest(
+      packageName,
+      protectedState,
+      date,
+    );
+
+    expect(request).toEqual({
+      packageName,
+      migrationYymm: "2607",
+      currentProtectedState: protectedState,
+    });
+    expect(request).not.toHaveProperty("sourcePath");
+    expect(
+      buildRestoreBackupPackageRequest(packageName, protectedState, date),
+    ).toEqual(request);
+  });
+
   it("restores a package by name only and returns the structured result", async () => {
     const result = {
       restoredPackageName: "sakurava-backup-20260706-120000-manual",
@@ -95,7 +119,40 @@ describe("backup package runtime wrappers", () => {
       warnings: [],
       errors: [],
     };
-    tauriMocks.invoke.mockResolvedValue(result);
+    tauriMocks.invoke
+      .mockResolvedValueOnce({
+        operationId: "a".repeat(64),
+        mode: "restore",
+        protectedState: JSON.stringify({
+          format: "sakurava-protected-state",
+          version: 1,
+          appearance: { version: 1, values: {
+            "sakurava.appearance.theme.v1": { present: false, raw: null },
+            "sakurava.appearance.accent.v1": { present: false, raw: null },
+            "sakurava.appearance.density.v1": { present: false, raw: null },
+            "sakurava.appearance.uiScale.v1": { present: false, raw: null },
+          } },
+          automaticBackup: { version: 1, values: {
+            "sakurava.backupRecovery.v1": { present: false, raw: null },
+          } },
+          catalogPreferences: { version: 1, values: {
+            "sakurava.catalogPreferences.v1": { present: false, raw: null },
+          } },
+          catalogPagination: { version: 1, values: {} },
+          mediaAssetScope: { version: 1, values: {
+            "sakurava.mediaAssetRoots.v1": { present: false, raw: null },
+          } },
+          featureState: { version: 1, values: {} },
+          translation: { version: 1, values: {
+            "sakurava.language.selected.v1": { present: false, raw: null },
+            "sakurava.customLanguages.v1": { present: false, raw: null },
+            "sakurava.languageOverrides.v1": { present: false, raw: null },
+            "sakurava.translationTransaction.v1": { present: false, raw: null },
+          } },
+        }),
+        expectedStateSha256: "b".repeat(64),
+      })
+      .mockResolvedValueOnce(result);
 
     await expect(
       restoreBackupPackage("sakurava-backup-20260706-120000-manual"),
@@ -103,7 +160,14 @@ describe("backup package runtime wrappers", () => {
     expect(tauriMocks.invoke).toHaveBeenCalledWith("backup_package_restore", {
       packageName: "sakurava-backup-20260706-120000-manual",
       migrationYymm: expect.stringMatching(/^\d{4}$/),
+      currentProtectedState: expect.stringContaining(
+        '"format":"sakurava-protected-state"',
+      ),
     });
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "backup_package_restore_complete",
+      { operationId: "a".repeat(64), appliedStateSha256: "b".repeat(64) },
+    );
   });
 
   it("propagates typed package restore errors", async () => {

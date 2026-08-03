@@ -6256,7 +6256,7 @@ describe("App", () => {
     expect(dialogMocks.save).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_create",
-      { backupType: "manual", note: null },
+      expect.objectContaining({ backupType: "manual", note: null }),
       undefined,
     );
     expect(invoke).not.toHaveBeenCalledWith("database_backup", expect.anything(), undefined);
@@ -6324,7 +6324,7 @@ describe("App", () => {
     await screen.findByText("Backup created");
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_create",
-      { backupType: "manual", note: "Before cleanup" },
+      expect.objectContaining({ backupType: "manual", note: "Before cleanup" }),
       undefined,
     );
     expect(screen.getByRole("textbox", { name: "Optional note" })).toHaveValue("");
@@ -6757,7 +6757,13 @@ describe("App", () => {
     ));
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_restore",
-      { packageName, migrationYymm: "2607" },
+      expect.objectContaining({
+        packageName,
+        migrationYymm: expect.stringMatching(/^\d{4}$/),
+        currentProtectedState: expect.stringContaining(
+          '"format":"sakurava-protected-state"',
+        ),
+      }),
       undefined,
     );
     expect(invoke).not.toHaveBeenCalledWith(
@@ -6852,7 +6858,7 @@ describe("App", () => {
     );
     expect(invoke).toHaveBeenCalledWith(
       "backup_package_create",
-      { backupType: "automatic", note: null },
+      expect.objectContaining({ backupType: "automatic", note: null }),
       undefined,
     );
     await waitFor(() => {
@@ -6975,7 +6981,7 @@ describe("App", () => {
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith(
         "backup_package_create",
-        { backupType: "automatic", note: null },
+        expect.objectContaining({ backupType: "automatic", note: null }),
         undefined,
       ),
     );
@@ -7098,11 +7104,19 @@ describe("App", () => {
     });
     expect(screen.queryByRole("region", { name: "Backup Preview" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Rollback:/)).not.toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith(
-      "backup_package_restore",
-      { packageName, migrationYymm: "2607" },
-      undefined,
+    const restoreRequest = invoke.mock.calls.find(
+      ([command]) => command === "backup_package_restore",
+    )?.[1];
+    expect(restoreRequest).toEqual(
+      expect.objectContaining({
+        packageName,
+        migrationYymm: expect.stringMatching(/^[0-9]{2}(0[1-9]|1[0-2])$/),
+        currentProtectedState: expect.stringContaining(
+          '"format":"sakurava-protected-state"',
+        ),
+      }),
     );
+    expect(restoreRequest).not.toHaveProperty("sourcePath");
     expect(listCalls).toBeGreaterThanOrEqual(2);
   });
 
@@ -7352,11 +7366,19 @@ describe("App", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Backup package restore failed.",
     );
-    expect(invoke).toHaveBeenCalledWith(
-      "backup_package_restore",
-      { packageName, migrationYymm: "2607" },
-      undefined,
+    const restoreRequest = invoke.mock.calls.find(
+      ([command]) => command === "backup_package_restore",
+    )?.[1];
+    expect(restoreRequest).toEqual(
+      expect.objectContaining({
+        packageName,
+        migrationYymm: expect.stringMatching(/^[0-9]{2}(0[1-9]|1[0-2])$/),
+        currentProtectedState: expect.stringContaining(
+          '"format":"sakurava-protected-state"',
+        ),
+      }),
     );
+    expect(restoreRequest).not.toHaveProperty("sourcePath");
   });
 
   it("keeps restore disabled after preview failure and never calls restore", async () => {

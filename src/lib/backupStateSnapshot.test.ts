@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyProtectedStateSnapshot,
   decodeProtectedStateSnapshot,
   encodeProtectedStateSnapshot,
   exportProtectedStateSnapshot,
@@ -139,5 +140,59 @@ describe("protected Backup state snapshot", () => {
         featureState: { "invalid feature key": true },
       }),
     ).toMatchObject({ ok: false, code: "invalid_snapshot" });
+  });
+
+  it("applies owner values idempotently and returns a verified receipt", () => {
+    const source = validStorage();
+    const exported = exportProtectedStateSnapshot(source);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const encoded = encodeProtectedStateSnapshot(exported.value);
+    expect(encoded.ok).toBe(true);
+    if (!encoded.ok) return;
+    const target = storage({ "sakurava.appearance.theme.v1": "light" });
+    const applied = applyProtectedStateSnapshot(target, encoded.value, {
+      expectedStateSha256: "a".repeat(64),
+    });
+    expect(applied).toMatchObject({
+      ok: true,
+      value: { expectedStateSha256: "a".repeat(64) },
+    });
+    expect(target.getItem("sakurava.appearance.theme.v1")).toBe("dark");
+    expect(
+      applyProtectedStateSnapshot(target, encoded.value, {
+        expectedStateSha256: "a".repeat(64),
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("rolls storage entries back when a protected-state write fails", () => {
+    const source = validStorage();
+    const exported = exportProtectedStateSnapshot(source);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const encoded = encodeProtectedStateSnapshot(exported.value);
+    expect(encoded.ok).toBe(true);
+    if (!encoded.ok) return;
+    const target = storage({ "sakurava.appearance.theme.v1": "light" });
+    let failed = false;
+    (target.setItem as ReturnType<typeof vi.fn>).mockImplementation(
+      (key: string, value: string) => {
+        if (!failed && key === "sakurava.appearance.accent.v1") {
+          failed = true;
+          throw new Error("injected write failure");
+        }
+        return undefined;
+      },
+    );
+    expect(
+      applyProtectedStateSnapshot(target, encoded.value, {
+        expectedStateSha256: "b".repeat(64),
+      }),
+    ).toMatchObject({ ok: false, code: "state_apply_failed" });
+    expect(target.setItem).toHaveBeenCalledWith(
+      "sakurava.appearance.theme.v1",
+      "light",
+    );
   });
 });

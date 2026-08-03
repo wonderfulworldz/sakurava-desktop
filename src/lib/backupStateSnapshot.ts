@@ -23,6 +23,7 @@ import {
   type FeatureStateSnapshot,
   type OwnedStorageSnapshot,
   type PreparedProtectedStateImport,
+  type ProtectedStateApplyReceipt,
   type ProtectedStateSnapshotV1,
   type RawOwnedStorageValue,
 } from "../shared/backupStateSnapshot";
@@ -51,6 +52,10 @@ const translationKeys = Object.freeze([
 ] as const);
 
 export type BackupStateReadStorage = Pick<TranslationStorage, "getItem">;
+export type BackupStateWriteStorage = Pick<
+  TranslationStorage,
+  "getItem" | "setItem" | "removeItem"
+>;
 
 export type ProtectedStateExportOptions = {
   readonly paginationStorageKeys?: readonly string[];
@@ -184,7 +189,11 @@ function validateCatalogPreferences(snapshot: OwnedStorageSnapshot) {
 
 function validatePagination(snapshot: OwnedStorageSnapshot) {
   for (const [key, value] of Object.entries(snapshot.values)) {
-    if (!/^sakurava\.[A-Za-z0-9._-]+\.v\d+$/.test(key)) {
+    if (
+      !/^sakurava\.catalog\.(videos|images|performers|categories|categoryManagement|glossary)\.pageSize\.v1$/.test(
+        key,
+      )
+    ) {
       return fail("invalid_pagination_key", `Pagination key ${key} is not stable.`);
     }
     if (value.raw !== null && !CATALOG_PAGE_SIZE_OPTIONS.includes(value.raw as never)) {
@@ -254,6 +263,12 @@ function validateOwnedSnapshot(value: unknown): value is OwnedStorageSnapshot {
   );
 }
 
+function hasExactKeys(snapshot: OwnedStorageSnapshot, expected: readonly string[]) {
+  const actual = Object.keys(snapshot.values).sort();
+  const allowed = [...expected].sort();
+  return actual.length === allowed.length && actual.every((key, index) => key === allowed[index]);
+}
+
 function validateFeatureSnapshot(value: unknown): value is FeatureStateSnapshot {
   return (
     isRecord(value) &&
@@ -297,6 +312,15 @@ export function validateProtectedStateSnapshot(
     return fail("invalid_snapshot", "Protected state shape or version is unsupported.");
   }
   const snapshot = value as unknown as ProtectedStateSnapshotV1;
+  if (
+    !hasExactKeys(snapshot.appearance, appearanceKeys) ||
+    !hasExactKeys(snapshot.automaticBackup, automaticBackupKeys) ||
+    !hasExactKeys(snapshot.catalogPreferences, catalogPreferenceKeys) ||
+    !hasExactKeys(snapshot.mediaAssetScope, mediaAssetScopeKeys) ||
+    !hasExactKeys(snapshot.translation, translationKeys)
+  ) {
+    return fail("invalid_snapshot", "Protected state contains an unknown owner key.");
+  }
   for (const validation of [
     validateAppearance(snapshot.appearance),
     validateAutomaticBackup(snapshot.automaticBackup),
@@ -378,4 +402,85 @@ export function prepareProtectedStateImport(
       featureState: { ...validated.value.featureState.values },
     },
   };
+}
+
+export type ProtectedStateApplyOptions = {
+  readonly expectedStateSha256: string;
+  readonly applyFeatureState?: (
+    values: Readonly<Record<string, boolean>>,
+  ) => void;
+};
+
+export function applyPreparedProtectedStateImport(
+  storage: BackupStateWriteStorage,
+  prepared: PreparedProtectedStateImport,
+  options: ProtectedStateApplyOptions,
+): ProtectedStateAdapterResult<ProtectedStateApplyReceipt> {
+  if (!/^[0-9a-f]{64}$/.test(options.expectedStateSha256)) {
+    return fail("invalid_state_identity", "Protected-state identity is invalid.");
+  }
+  const featureEntries = Object.entries(prepared.featureState);
+  if (featureEntries.length > 0 && !options.applyFeatureState) {
+    return fail(
+      "feature_state_owner_unavailable",
+      "The protected feature-state owner is unavailable.",
+    );
+  }
+  const previous = new Map<string, string | null>();
+  try {
+    for (const entry of prepared.storageEntries) {
+      if (previous.has(entry.key)) {
+        throw new Error(`Duplicate protected-state key: ${entry.key}`);
+      }
+      previous.set(entry.key, storage.getItem(entry.key));
+    }
+    for (const entry of prepared.storageEntries) {
+      if (entry.value === null) storage.removeItem(entry.key);
+      else storage.setItem(entry.key, entry.value);
+    }
+    options.applyFeatureState?.(prepared.featureState);
+    for (const entry of prepared.storageEntries) {
+      if (storage.getItem(entry.key) !== entry.value) {
+        throw new Error(`Protected-state verification failed for ${entry.key}.`);
+      }
+    }
+  } catch (error) {
+    try {
+      for (const [key, value] of previous) {
+        if (value === null) storage.removeItem(key);
+        else storage.setItem(key, value);
+      }
+    } catch {
+      return fail(
+        "state_apply_and_rollback_failed",
+        "Protected state could not be applied or rolled back.",
+      );
+    }
+    return fail(
+      "state_apply_failed",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+  return {
+    ok: true,
+    value: {
+      version: 1,
+      expectedStateSha256: options.expectedStateSha256,
+      appliedStorageEntryCount: prepared.storageEntries.length,
+      appliedFeatureStateCount: featureEntries.length,
+    },
+  };
+}
+
+export function applyProtectedStateSnapshot(
+  storage: BackupStateWriteStorage,
+  serialized: string,
+  options: ProtectedStateApplyOptions,
+): ProtectedStateAdapterResult<ProtectedStateApplyReceipt> {
+  const decoded = decodeProtectedStateSnapshot(serialized);
+  if (!decoded.ok) return decoded;
+  const prepared = prepareProtectedStateImport(decoded.value);
+  return prepared.ok
+    ? applyPreparedProtectedStateImport(storage, prepared.value, options)
+    : prepared;
 }

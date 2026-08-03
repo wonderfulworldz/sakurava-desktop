@@ -39,3 +39,10 @@ export type PreparedProtectedStateImport = {
   readonly storageEntries: readonly ProtectedStateEntry[];
   readonly featureState: Readonly<Record<string, boolean>>;
 };
+
+export type ProtectedStateApplyReceipt = {
+  readonly version: 1;
+  readonly expectedStateSha256: string;
+  readonly appliedStorageEntryCount: number;
+  readonly appliedFeatureStateCount: number;
+};

@@ -157,12 +157,16 @@ pub(crate) struct ValidatedExtractionRoot {
 }
 
 impl ValidatedPackageOutputRoot {
-    fn as_path(&self) -> &Path {
+    pub(crate) fn as_path(&self) -> &Path {
         &self.owned.path
     }
 }
 
 impl ValidatedExtractionRoot {
+    pub(crate) fn as_path(&self) -> &Path {
+        &self.owned.path
+    }
+
     fn materialize(&self) -> Result<&Path, SkvError> {
         match fs::symlink_metadata(&self.owned.path) {
             Ok(_) => {
@@ -588,6 +592,12 @@ fn extract_payloads(
 fn validate_extracted_package(root: &Path, manifest: &SkvManifest) -> Result<(), SkvError> {
     let database_path = root.join(SKV_V2_DATABASE_ENTRY);
     let database = validate_database_snapshot(&database_path)?;
+    if database_compatibility(&database)? != manifest.compatibility {
+        return Err(SkvError::new(
+            "compatibility_mismatch",
+            "Package compatibility metadata does not match its catalog database.",
+        ));
+    }
     let managed_root = ManagedMediaRoot::from_app_data_dir(root)
         .map_err(|error| SkvError::new("managed_root_invalid", error))?;
     let expected: BTreeSet<String> = managed_file_records(&database, &managed_root)?
@@ -609,6 +619,33 @@ fn validate_extracted_package(root: &Path, manifest: &SkvManifest) -> Result<(),
     let state = fs::read(root.join(SKV_V2_STATE_ENTRY))
         .map_err(|error| SkvError::new("state_read_failed", error.to_string()))?;
     validate_protected_state_snapshot(&state)
+}
+
+pub(crate) fn validate_database_and_managed_media(
+    database_path: &Path,
+    app_data_dir: &Path,
+) -> Result<(), SkvError> {
+    let database = validate_database_snapshot(database_path)?;
+    let managed_root = ManagedMediaRoot::from_app_data_dir(app_data_dir)
+        .map_err(|error| SkvError::new("managed_root_invalid", error))?;
+    for record in managed_file_records(&database, &managed_root)? {
+        validate_regular_file(&record.source_path, MAX_MANAGED_FILE_BYTES)?;
+        let (size, hash) = hash_file(&record.source_path)?;
+        if size != record.expected_size || hash != record.expected_sha256 {
+            return Err(SkvError::new(
+                "managed_media_identity_mismatch",
+                format!(
+                    "Managed-media file {} failed identity validation.",
+                    record.relative_path
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_protected_state_bytes(bytes: &[u8]) -> Result<(), SkvError> {
+    validate_protected_state_snapshot(bytes)
 }
 
 fn prepare_file_entry(

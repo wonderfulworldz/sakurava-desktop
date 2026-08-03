@@ -1,11 +1,15 @@
 mod commands;
 pub mod database;
 pub mod managed_media;
+pub(crate) mod restore_coordinator;
 #[allow(dead_code)]
 pub(crate) mod skv_package;
 
 #[cfg(test)]
 mod skv_package_tests;
+
+#[cfg(test)]
+mod restore_coordinator_tests;
 
 use tauri::Manager;
 
@@ -30,6 +34,10 @@ pub fn run() {
             commands::backup_package_list,
             commands::backup_package_preview,
             commands::backup_package_restore,
+            commands::backup_package_restore_complete,
+            commands::backup_package_restore_rollback,
+            commands::backup_restore_recovery_status,
+            commands::backup_restore_recovery_complete,
             commands::sakurava_ref_migration_get_status,
             commands::sakurava_ref_migration_apply,
             commands::backup_package_rotate_automatic,

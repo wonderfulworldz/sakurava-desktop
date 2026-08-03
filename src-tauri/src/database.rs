@@ -340,6 +340,7 @@ pub struct BackupPackageManifest {
 #[serde(rename_all = "camelCase")]
 pub struct BackupPackageInfo {
     pub package_name: String,
+    #[serde(skip_serializing)]
     pub package_path: String,
     pub manifest: BackupPackageManifest,
 }
@@ -426,7 +427,7 @@ pub struct BackupPackageRestoreError {
 }
 
 impl BackupPackageRestoreError {
-    fn new(
+    pub(crate) fn new(
         code: &str,
         message: impl Into<String>,
         restored_package_name: impl Into<String>,
@@ -469,6 +470,7 @@ pub struct BackupPackageDeleteResult {
 pub struct BackupPackageExportResult {
     pub package_name: String,
     pub exported: bool,
+    #[serde(skip_serializing)]
     pub exported_path: String,
 }
 
@@ -495,6 +497,7 @@ impl RuntimeDatabase {
     }
 
     pub(crate) fn lock_package_operation(&self) -> Result<MutexGuard<'_, ()>, String> {
+        self.ensure_restore_resolved()?;
         match self.package_operation.try_lock() {
             Ok(guard) => Ok(guard),
             Err(TryLockError::WouldBlock) => {
@@ -503,6 +506,26 @@ impl RuntimeDatabase {
             Err(TryLockError::Poisoned(_)) => {
                 Err("Backup and restore package operations are unavailable".to_string())
             }
+        }
+    }
+
+    pub(crate) fn lock_restore_operation(&self) -> Result<MutexGuard<'_, ()>, String> {
+        match self.package_operation.try_lock() {
+            Ok(guard) => Ok(guard),
+            Err(TryLockError::WouldBlock) => {
+                Err("Another backup or restore package operation is already running".to_string())
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                Err("Backup and restore package operations are unavailable".to_string())
+            }
+        }
+    }
+
+    pub fn ensure_restore_resolved(&self) -> Result<(), String> {
+        if crate::restore_coordinator::has_unresolved_restore(&self.paths.app_data_dir)? {
+            Err("Restore recovery must complete before data can be changed".to_string())
+        } else {
+            Ok(())
         }
     }
 }
@@ -808,7 +831,7 @@ impl BackupPackageImportError {
     }
 }
 
-fn preview_backup_package_directory(
+pub(crate) fn preview_backup_package_directory(
     package_name: &str,
     canonical_package_path: &Path,
 ) -> Result<BackupPackagePreview, BackupPackagePreviewError> {
@@ -1280,7 +1303,7 @@ pub(crate) fn create_import_safety_backup_package(
     create_safety_backup_package(database, connection, "catalog import", SystemTime::now())
 }
 
-fn validate_restored_connection(connection: &Connection) -> Result<(), String> {
+pub(crate) fn validate_restored_connection(connection: &Connection) -> Result<(), String> {
     let quick_check: String = connection
         .query_row("PRAGMA quick_check", [], |row| row.get(0))
         .map_err(|error| format!("Unable to validate restored database integrity: {error}"))?;
@@ -1644,7 +1667,7 @@ fn backup_timestamp(time: SystemTime) -> Result<String, String> {
     ))
 }
 
-fn backup_created_at(time: SystemTime) -> Result<String, String> {
+pub(crate) fn backup_created_at(time: SystemTime) -> Result<String, String> {
     let (year, month, day, hour, minute, second) = utc_time_parts(time)?;
     Ok(format!(
         "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z"
@@ -1803,7 +1826,7 @@ pub fn restore_backup_package_with_sakurava_refs(
     )
 }
 
-fn upgrade_restored_identity(
+pub(crate) fn upgrade_restored_identity(
     connection: &mut Connection,
     safety_database_path: &Path,
     migration_yymm: &str,
@@ -3381,12 +3404,28 @@ pub fn open_runtime_database(paths: RuntimeDatabasePaths) -> rusqlite::Result<Ru
     })
 }
 
+fn open_runtime_database_without_startup_mutation(
+    paths: RuntimeDatabasePaths,
+) -> rusqlite::Result<RuntimeDatabase> {
+    let connection = Connection::open(&paths.database_file)?;
+    Ok(RuntimeDatabase {
+        paths,
+        connection: Arc::new(Mutex::new(connection)),
+        package_operation: Arc::new(Mutex::new(())),
+    })
+}
+
 pub fn prepare_database(app_data_dir: impl AsRef<Path>) -> Result<RuntimeDatabase, String> {
     let paths = prepare_database_paths(app_data_dir)
         .map_err(|error| format!("Unable to prepare database directory: {error}"))?;
 
-    open_runtime_database(paths)
-        .map_err(|error| format!("Unable to open or initialize SQLite database: {error}"))
+    let unresolved = crate::restore_coordinator::has_unresolved_restore(&paths.app_data_dir)?;
+    let opened = if unresolved {
+        open_runtime_database_without_startup_mutation(paths)
+    } else {
+        open_runtime_database(paths)
+    };
+    opened.map_err(|error| format!("Unable to open or initialize SQLite database: {error}"))
 }
 
 #[cfg(any(debug_assertions, test))]
@@ -4327,6 +4366,7 @@ pub fn prepare_tauri_database<R: tauri::Runtime>(
         );
     }
 
+    crate::restore_coordinator::recover_before_database_open(&app_data_dir)?;
     prepare_database(app_data_dir)
 }
 

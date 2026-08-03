@@ -33,19 +33,19 @@ use windows::{
     },
 };
 
+#[cfg(test)]
+use crate::database::preview_backup_package;
 use crate::database::{
     allocate_sakurava_ref, backup_runtime_database, clear_app_generated_cache,
-    create_backup_package, create_import_safety_backup_package, credit_ref_yymm,
-    delete_backup_package, export_backup_package, import_selected_backup_package,
-    list_backup_packages, migrate_sakurava_refs, open_default_backup_folder,
-    preview_backup_package, register_current_sakurava_ref_alias, require_migrated_sakurava_refs,
-    resolve_sakurava_ref, restore_backup_package, restore_backup_package_with_sakurava_refs,
-    restore_runtime_database, rotate_automatic_backup_packages, sakurava_ref_migration_status,
-    BackupFolderOpenResult, BackupPackageDeleteResult, BackupPackageExportResult,
-    BackupPackageImportError, BackupPackageImportResult, BackupPackageInfo, BackupPackagePreview,
-    BackupPackagePreviewError, BackupPackageRestoreError, BackupPackageRestoreResult,
-    BackupPackageRotationResult, BackupPackageType, ClearCacheResult, DatabaseBackupResult,
-    DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
+    create_import_safety_backup_package, credit_ref_yymm, migrate_sakurava_refs,
+    open_default_backup_folder, register_current_sakurava_ref_alias,
+    require_migrated_sakurava_refs, resolve_sakurava_ref, restore_runtime_database,
+    sakurava_ref_migration_status, BackupFolderOpenResult, BackupPackageDeleteResult,
+    BackupPackageExportResult, BackupPackageImportError, BackupPackageImportResult,
+    BackupPackageInfo, BackupPackagePreviewError, BackupPackageRestoreError,
+    BackupPackageRestoreResult, BackupPackageRotationResult, BackupPackageType, ClearCacheResult,
+    DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult,
+    SakuravaRefMigrationStatus,
 };
 use crate::managed_media::catalog_lifecycle::{reconcile_owner_mutation, OwnerSources};
 use crate::managed_media::{
@@ -53,6 +53,14 @@ use crate::managed_media::{
         resolve_descriptor_batch, ManagedMediaDescriptor, ManagedMediaDescriptorRequest,
     },
     path::ManagedMediaRoot,
+};
+use crate::restore_coordinator::{
+    begin_restore, complete_recovery, complete_restore, create_backup_package_v2,
+    delete_backup_package_v2_or_legacy, export_backup_package_v2_or_legacy,
+    import_selected_backup_package_v2_or_legacy, list_backup_packages_v2_and_legacy,
+    preview_backup_package_v2_or_legacy, recovery_status, rollback_after_state_failure,
+    rotate_automatic_backup_packages_v2_and_legacy, RestorePackagePreview, RestoreRecoveryStatus,
+    RestoreRollbackTransition, RestoreStateTransition,
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -670,6 +678,7 @@ pub fn database_backup(
     database: State<'_, RuntimeDatabase>,
     destination_path: String,
 ) -> Result<DatabaseBackupResult, String> {
+    database.ensure_restore_resolved()?;
     backup_runtime_database(&database, destination_path)
 }
 
@@ -678,6 +687,7 @@ pub fn database_restore(
     database: State<'_, RuntimeDatabase>,
     source_path: String,
 ) -> Result<DatabaseRestoreResult, String> {
+    database.ensure_restore_resolved()?;
     restore_runtime_database(&database, source_path)
 }
 
@@ -686,36 +696,73 @@ pub fn backup_package_create(
     database: State<'_, RuntimeDatabase>,
     backup_type: BackupPackageType,
     note: Option<String>,
+    protected_state: String,
 ) -> Result<BackupPackageInfo, String> {
-    create_backup_package(&database, backup_type, note)
+    create_backup_package_v2(&database, backup_type, note, protected_state)
 }
 
 #[tauri::command]
 pub fn backup_package_list(
     database: State<'_, RuntimeDatabase>,
 ) -> Result<Vec<BackupPackageInfo>, String> {
-    list_backup_packages(&database)
+    list_backup_packages_v2_and_legacy(&database)
 }
 
 #[tauri::command]
 pub fn backup_package_preview(
     database: State<'_, RuntimeDatabase>,
     package_name: String,
-) -> Result<BackupPackagePreview, BackupPackagePreviewError> {
-    preview_backup_package(&database, &package_name)
+) -> Result<RestorePackagePreview, BackupPackagePreviewError> {
+    preview_backup_package_v2_or_legacy(&database, &package_name)
 }
 
 #[tauri::command]
 pub fn backup_package_restore(
     database: State<'_, RuntimeDatabase>,
     package_name: String,
-    migration_yymm: Option<String>,
+    migration_yymm: String,
+    current_protected_state: String,
+) -> Result<RestoreStateTransition, BackupPackageRestoreError> {
+    begin_restore(
+        &database,
+        &package_name,
+        &migration_yymm,
+        current_protected_state,
+    )
+}
+
+#[tauri::command]
+pub fn backup_package_restore_complete(
+    database: State<'_, RuntimeDatabase>,
+    operation_id: String,
+    applied_state_sha256: String,
 ) -> Result<BackupPackageRestoreResult, BackupPackageRestoreError> {
-    if let Some(migration_yymm) = migration_yymm {
-        restore_backup_package_with_sakurava_refs(&database, &package_name, &migration_yymm)
-    } else {
-        restore_backup_package(&database, &package_name)
-    }
+    complete_restore(&database, &operation_id, &applied_state_sha256)
+}
+
+#[tauri::command]
+pub fn backup_package_restore_rollback(
+    database: State<'_, RuntimeDatabase>,
+    operation_id: String,
+) -> Result<RestoreRollbackTransition, BackupPackageRestoreError> {
+    rollback_after_state_failure(&database, &operation_id)
+}
+
+#[tauri::command]
+pub fn backup_restore_recovery_status(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<RestoreRecoveryStatus, BackupPackageRestoreError> {
+    recovery_status(&database)
+}
+
+#[tauri::command]
+pub fn backup_restore_recovery_complete(
+    database: State<'_, RuntimeDatabase>,
+    operation_id: String,
+    mode: String,
+    applied_state_sha256: String,
+) -> Result<Option<BackupPackageRestoreResult>, BackupPackageRestoreError> {
+    complete_recovery(&database, &operation_id, &mode, &applied_state_sha256)
 }
 
 #[tauri::command]
@@ -730,6 +777,7 @@ pub fn sakurava_ref_migration_apply(
     database: State<'_, RuntimeDatabase>,
     migration_yymm: String,
 ) -> Result<SakuravaRefMigrationResult, String> {
+    database.ensure_restore_resolved()?;
     migrate_sakurava_refs(&database, &migration_yymm)
 }
 
@@ -738,7 +786,7 @@ pub fn backup_package_rotate_automatic(
     database: State<'_, RuntimeDatabase>,
     keep_count: usize,
 ) -> Result<BackupPackageRotationResult, String> {
-    rotate_automatic_backup_packages(&database, keep_count)
+    rotate_automatic_backup_packages_v2_and_legacy(&database, keep_count)
 }
 
 #[tauri::command]
@@ -746,7 +794,7 @@ pub fn backup_package_delete(
     database: State<'_, RuntimeDatabase>,
     package_name: String,
 ) -> Result<BackupPackageDeleteResult, String> {
-    delete_backup_package(&database, &package_name)
+    delete_backup_package_v2_or_legacy(&database, &package_name)
 }
 
 #[tauri::command]
@@ -755,7 +803,7 @@ pub fn backup_package_export(
     package_name: String,
     destination_root: String,
 ) -> Result<BackupPackageExportResult, String> {
-    export_backup_package(&database, &package_name, destination_root)
+    export_backup_package_v2_or_legacy(&database, &package_name, Path::new(&destination_root))
 }
 
 #[tauri::command]
@@ -767,7 +815,8 @@ pub async fn backup_package_import_selected(
         .dialog()
         .file()
         .set_title("Restore from Sakurava Backup")
-        .blocking_pick_folder();
+        .add_filter("Sakurava Backup", &["skv"])
+        .blocking_pick_file();
     let selected_path = selected
         .map(|path| {
             path.into_path().map_err(|error| BackupPackageImportError {
@@ -776,7 +825,7 @@ pub async fn backup_package_import_selected(
             })
         })
         .transpose()?;
-    import_selected_backup_package(&database, selected_path)
+    import_selected_backup_package_v2_or_legacy(&database, selected_path)
 }
 
 #[tauri::command]
@@ -788,6 +837,7 @@ pub fn backup_folder_open(
 
 #[tauri::command]
 pub fn clear_app_cache(database: State<'_, RuntimeDatabase>) -> Result<ClearCacheResult, String> {
+    database.ensure_restore_resolved()?;
     clear_app_generated_cache(&database)
 }
 
@@ -833,14 +883,26 @@ pub fn import_catalog_apply(
     database: State<'_, RuntimeDatabase>,
     plan: ImportCatalogApplyPlan,
 ) -> ImportCatalogApplyResult {
+    if let Err(message) = database.ensure_restore_resolved() {
+        return import_apply_failure(
+            "blocked",
+            "restore_recovery",
+            &message,
+            false,
+            None,
+            plan.operations.len(),
+        );
+    }
     apply_import_catalog_plan(&database, plan)
 }
 
 #[tauri::command]
 pub fn media_asset_allow_root(
+    database: State<'_, RuntimeDatabase>,
     scopes: State<'_, Scopes>,
     root_path: String,
 ) -> Result<MediaAssetRootResult, String> {
+    database.ensure_restore_resolved()?;
     let root_path = validate_media_asset_root(&root_path)?;
     scopes
         .allow_directory(&root_path, true)
@@ -889,6 +951,7 @@ pub fn video_create(
     database: State<'_, RuntimeDatabase>,
     input: VideoInput,
 ) -> Result<Video, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let video = create_video(connection, input)?;
@@ -921,6 +984,7 @@ pub fn video_update(
     id: String,
     patch: VideoPatch,
 ) -> Result<Option<Video>, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
@@ -943,6 +1007,7 @@ pub fn video_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
@@ -961,6 +1026,7 @@ pub fn image_create(
     database: State<'_, RuntimeDatabase>,
     input: ImageInput,
 ) -> Result<Image, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let image = create_image(connection, input)?;
@@ -993,6 +1059,7 @@ pub fn image_update(
     id: String,
     patch: ImagePatch,
 ) -> Result<Option<Image>, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
@@ -1015,6 +1082,7 @@ pub fn image_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
@@ -1033,6 +1101,7 @@ pub fn performer_create(
     database: State<'_, RuntimeDatabase>,
     input: PerformerInput,
 ) -> Result<Performer, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let performer = create_performer(connection, input)?;
@@ -1069,6 +1138,7 @@ pub fn performer_update(
     id: String,
     patch: PerformerPatch,
 ) -> Result<Option<Performer>, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
@@ -1092,6 +1162,7 @@ pub fn performer_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
@@ -1111,6 +1182,7 @@ pub fn managed_category_create(
     database: State<'_, RuntimeDatabase>,
     input: ManagedCategoryInput,
 ) -> Result<ManagedCategory, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let category = create_managed_category(connection, input)?;
@@ -1149,6 +1221,7 @@ pub fn managed_category_update(
     key: String,
     patch: ManagedCategoryPatch,
 ) -> Result<Option<ManagedCategory>, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
@@ -1172,6 +1245,7 @@ pub fn managed_category_delete(
     database: State<'_, RuntimeDatabase>,
     key: String,
 ) -> Result<ManagedCategoryDeleteResult, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let key = resolve_identity_or_technical(connection, "C", "managedCategories", "key", &key)?;
@@ -1191,6 +1265,7 @@ pub fn glossary_create(
     database: State<'_, RuntimeDatabase>,
     input: GlossaryEntryInput,
 ) -> Result<GlossaryEntry, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let entry = create_glossary_entry(connection, input)?;
@@ -1211,6 +1286,7 @@ pub fn glossary_update(
     id: String,
     patch: GlossaryEntryPatch,
 ) -> Result<Option<GlossaryEntry>, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "G", "glossary_entries", "id", &id)?;
@@ -1234,6 +1310,7 @@ pub fn glossary_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
+    database.ensure_restore_resolved()?;
     with_creation_transaction(&database, |connection| {
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "G", "glossary_entries", "id", &id)?;
@@ -1306,6 +1383,7 @@ pub fn credit_create(
     database: State<'_, RuntimeDatabase>,
     input: CreditInput,
 ) -> Result<Credit, String> {
+    database.ensure_restore_resolved()?;
     with_connection(&database, |connection| create_credit(connection, input))
 }
 
@@ -1328,6 +1406,7 @@ pub fn credit_update(
     id: String,
     patch: CreditPatch,
 ) -> Result<Option<Credit>, String> {
+    database.ensure_restore_resolved()?;
     with_connection(&database, |connection| {
         update_credit(connection, &id, patch)
     })
@@ -1338,6 +1417,7 @@ pub fn credit_delete(
     database: State<'_, RuntimeDatabase>,
     id: String,
 ) -> Result<DeleteResult, String> {
+    database.ensure_restore_resolved()?;
     with_connection(&database, |connection| delete_credit(connection, id))
 }
 
