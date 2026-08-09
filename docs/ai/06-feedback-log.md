@@ -178,16 +178,18 @@ contracts must remain intact.
 date: 2026-08-10
 batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
 type: CORRECTION
-status: BLOCKING
+status: APPROVED
 risk: HIGH
-placement: DEEP_AUDIT_REQUIRED_BEFORE_SAFE_FILTER_WORK
+placement: PRE_42_9_CORRECTIVE_IMPLEMENTATION_AFTER_APPROVED_EXECUTION_GATE
 evidence: OBSERVED_BY_OPERATOR
 
-The operator clarified that R+ is a direct record marker, without Glossary or
-Category inheritance for Video/Image/Performer classification. Safe Filter
-must also hide explicit/adult-only user-facing feature surfaces while
-remaining non-destructive. `LOCK-SAFEFILTER-001` remains unchanged and is an
-active historical contract requiring reconciliation before further work.
+The approved replacement contract makes R+ direct-only on Video, Image,
+Performer, Category, and Glossary, with no Category or Glossary inheritance.
+Safe Filter hides directly R+ records and the Censorship, Measurements, and
+Cup Size surfaces while remaining non-destructive. Body Type is not
+automatically sensitive; Height, Weight, Gender, Age, and Attraction Rating
+remain normal by default. Import/Export follows the approved safe-visibility
+contract, Backup/Restore remains complete, and implementation has NOT occurred.
 
 ### FEEDBACK-2026-08-10-CATALOG-COLUMNS — Minimal Consistent Catalog Columns
 

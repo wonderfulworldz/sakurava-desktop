@@ -825,28 +825,89 @@ A lock remains active until the Project OS explicitly records its replacement or
 
 ---
 
-## LOCK-SAFEFILTER-001 — Non-Destructive Safe Filter and R+ Classification
+## LOCK-SAFEFILTER-001 — Non-Destructive Safe Filter and Direct R+ Classification
 
 **Status:** ACTIVE
 
-Safe Filter defaults ON and missing, invalid, corrupt, or absent state fails
-safe to ON. Direct persistent R+ classification is limited to Video, Image,
-Performer, Category, and Glossary. Video, Image, and Performer may inherit
-exactly one hop from directly linked R+ Category or Glossary; transitive graph
-propagation, automatic classification, inferred semantics, and Force Safe are
-prohibited.
+### Purpose
 
-Classification persists independently from visibility. Safe Filter toggling
-must never delete, clear, detach, rewrite, or silently remove hidden catalog
-data or relationships. ON -> OFF requires acknowledgement only; no PIN,
-account, parental-control, identity, or age-verification architecture may be
-introduced. No R+ card badge, icon, overlay, special color, border, blur,
-metadata, or geometry is allowed.
+Safe Filter is a global visibility filter for sensitive content. R+ is only a
+direct marker indicating that the individual record itself is sensitive. R+ has
+no inheritance, propagation, inference, or secondary classification meaning.
 
-Backup remains complete and Restore returns complete data, including filter
-state. Safe-ON Import masks R+ details, preserves aggregate mutation
-disclosure, permits valid R+ storage, and blocks atomic Apply on blocking
-validation errors. Safe-ON Export is safe-only and dependency-closed; Safe-OFF
-Export may include all data through existing formats. Package format,
-dependency, schema, and frontend ownership must not be redefined. No live
+### Global Safe Filter State
+
+- Safe Filter is globally ON/OFF in Settings.
+- Default state remains ON; missing, corrupt, invalid, inaccessible, or absent
+  state fails safe to ON.
+- ON -> OFF may require the existing acknowledgement only.
+- No PIN, account, parental-control, identity, age-verification, or remote
+  permission architecture may be introduced.
+
+### Direct R+ Record Types
+
+Direct persistent R+ remains available independently on Video, Image,
+Performer, Category, and Glossary. For every record type, `rPlus = true` means
+only: THIS RECORD IS SENSITIVE.
+
+### No Inheritance
+
+Category and Glossary relationships do not classify Video, Image, or Performer.
+Category and Glossary entries are R+ only when their own direct marker is true.
+Category -> media/Performer inheritance, Glossary -> media/Performer
+inheritance, transitive propagation, automatic, inferred, semantic, AI, and
+Force Safe classification are prohibited.
+
+Relationships remain independent data. Existing persisted Glossary-reference
+compatibility data must not be deleted, cleared, migrated, or rewritten merely
+to remove its old classification role. Glossary references are not an R+
+classification mechanism; destructive removal requires a separate decision.
+
+### Safe Filter Visibility
+
+When ON, directly R+ Video, Image, Performer, Category, and Glossary records
+are hidden from catalog/list/card surfaces, search, Detail, related content,
+filter options, counts, and relationship presentation that would disclose
+hidden content. Visible non-R+ records must not expose a hidden R+ Category or
+Glossary label, detail, or relationship presentation. Stored data and
+relationships remain complete and non-destructive.
+
+When OFF, normal complete catalog visibility returns and stored relationships
+remain unchanged.
+
+### Sensitive Feature Surfaces
+
+The initial approved sensitive surfaces are Censorship, Measurements/body
+measurements, and Cup Size. When ON, applicable Form fields, Detail
+presentation, Catalog presentation, and filter controls/options are hidden by
+visibility only; values are not deleted, cleared, rewritten, detached,
+migrated, or excluded from Backup.
+
+Height, Weight, Gender, Age, Attraction Rating, and Body Type remain visible by
+default. Body Type is not automatically sensitive. Adding more sensitive
+surfaces requires a separate product decision.
+
+### Forms, Import, and Export
+
+Applicable Forms require the record's own direct R+ control; it does not
+require Category or Glossary relationships. Safe-ON Import may store valid R+
+and sensitive values while masking them in Preview, retaining aggregate
+disclosure, blocking invalid input, stale Preview protection, and one atomic
+Apply. Safe-OFF Import is normal complete behavior.
+
+Safe-ON Export excludes directly R+ records and sensitive feature fields and
+remains dependency/reference closed without leaking hidden R+ records or
+labels. Safe-OFF Export remains complete through existing formats. Credits and
+public-reference contracts are unchanged.
+
+### Backup, Restore, and Visual Behavior
+
+Backup and Restore are always complete regardless of Safe Filter state and
+preserve all R+ records, sensitive values, hidden relationships, filter state,
+and other protected state. Do not add R+ badges, icons, overlays, blur, special
+border/color, or geometry changes.
+
+This contract does not authorize schema/data removal or migration, deletion of
+legacy Glossary-reference data, package/version changes, Import/Export version
+bumps, or dependency changes. Prefer compatible inert retention. No live
 AppData mutation testing is authorized by this lock.

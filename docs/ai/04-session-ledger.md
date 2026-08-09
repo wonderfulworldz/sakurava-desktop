@@ -94,6 +94,27 @@ active, and the corrective audit remains separately gated.
 
 ---
 
+## 2026-08-10 — Deep Corrective Audit Accepted and Safe Filter Contract Replaced
+
+date: 2026-08-10
+session_type: PRE_42_9_CORRECTIVE_AUDIT_ACCEPTANCE_AND_SAFE_FILTER_CONTRACT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+audit: PRE_42_9_DEEP_CORRECTIVE_AUDIT_ACCEPTED_WITH_DECISIONS_REQUIRED
+backup_restore: ROOT_CAUSE_NARROWED_RUNTIME_REPRODUCTION_REQUIRED
+media_cover: ROOT_CAUSE_NARROWED
+xlsx_findings: EMPTY_SECTION_AND_EXISTING_DESTINATION_ROOT_CAUSE_PROVEN
+safe_filter_contract: APPROVED_DIRECT_ONLY_R_PLUS
+sensitive_surfaces: CENSORSHIP; MEASUREMENTS; CUP_SIZE
+body_type: NOT_AUTOMATICALLY_SENSITIVE
+import_export: APPROVED_SAFE_VISIBILITY_POLICY
+backup_restore_policy: COMPLETE
+application_source_mutation: NONE
+next_action: SEPARATE_APPROVAL_FOR_BACKUP_RESTORE_DISPOSABLE_RUNTIME_REPRODUCTION
+batch_42_9: BLOCKED
+technical_permissions: false
+
+---
+
 ## 2026-08-10 — Product Acceptance Defects and Deep-Audit Standard Approved
 
 date: 2026-08-10
@@ -179,37 +200,6 @@ visible/hidden/missing Detail semantics, masked Safe-ON Import, dependency-
 closed Safe-ON Export, complete Backup/Restore, English-only bundled
 Translation values, and V3-compatible optional R+/Glossary columns. No
 technical work occurred in this documentation reconciliation.
-
----
-
-## 2026-08-09 — Stage 42.8-2 Implementation Accepted and Stage 42.8-3 Readiness
-
-date: 2026-08-09
-session_type: BATCH_42_8_STAGE_2_IMPLEMENTATION_ACCEPTANCE_AND_STAGE_3_READINESS
-operator_decision: ACCEPTED_WITH_GOVERNANCE_LIMITATION
-verdict: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
-batch_status: IN_PROGRESS
-batch_outcomes: 2_OF_3_OUTCOMES_67_PERCENT
-application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
-source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
-stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
-stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
-stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
-stage_42_8_2_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
-stage_42_8_2_progress: 12_OF_12_TASKS_100_PERCENT
-stage_42_8_2_execution_gates: 6_OF_6_100_PERCENT
-stage_42_8_3_status: READY_PENDING_SEPARATE_APPROVAL
-stage_42_8_3_execution: false
-verification: REPORTED_BY_CODEX_297_FULL_RUST_192_IMPORT_EXPORT_FOCUSED_SAFE_FILTER_STATE_CATALOG_TRANSLATION_BUILD_CHECK_FMT_GIT_SYNC
-governance_limitation: EXECUTOR_NONCOMPLIANCE_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
-technical_permissions: false
-next_action: CHATGPT_RESULT_REVIEW_THEN_SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_8_3
-
-Stage 42.8-2 implementation was accepted with the historical executor
-noncompliance recorded separately from product correctness. The implementation
-preserves complete-data authority, Safe Filter visibility projection, V3
-Import/Export compatibility, complete Backup/Restore, and English-only bundled
-Translation additions. Stage 42.8-3 remains separately gated.
 
 ---
 

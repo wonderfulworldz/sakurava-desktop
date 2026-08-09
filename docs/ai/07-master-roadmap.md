@@ -2888,26 +2888,21 @@ physical power-loss and filesystem metadata durability, and complete
 real-world crash recovery remain `UNKNOWN`. These limitations do not change
 the technical closure recommendation and do not authorize platform validation.
 
-## Current Pre-42.9 Product Acceptance Gate — 2026-08-10
+## Current Pre-42.9 Corrective Gate — 2026-08-10
 
 Batch 42.8 remains historically closed as
 `COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with `3_OF_3_OUTCOMES_100_PERCENT`.
-Fresh `OBSERVED_BY_OPERATOR` evidence now requires a pre-42.9 corrective audit
-and decision: Backup/Restore snapshot behavior is the highest-priority
-blocking finding, with additional Media Cover, empty Export section,
-same-file re-export, and Safe Filter/R+ contract findings. Product Acceptance
-for 42.0–42.8 is `FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION`.
+The deep corrective audit is completed and accepted; the Safe Filter product
+decision is resolved by the approved direct-only contract. Product Acceptance
+for 42.0–42.8 remains `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`.
+The next highest-priority action is
+`BACKUP_RESTORE_DISPOSABLE_RUNTIME_REPRODUCTION`,
+`READY_PENDING_SEPARATE_APPROVAL`.
 
-The active Safe Filter lock remains unchanged and authoritative, while the
-operator's clarified direct-marker and feature-surface intent is recorded as a
-blocking reconciliation requirement before further Safe Filter work. The
-former Explicit Catalog Feature Configuration work, including Cup and Body
-configuration, remains deferred and was not completed by Batch 42.8.
-
-Batch 42.9 remains `BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION`,
-unapproved with technical permissions false. The future Sakurava Video Player
-and Contact Sheet request is recorded separately and has no selected
-dependency or implementation batch.
+Batch 42.9 remains
+`BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved
+with technical permissions false. No technical batch is active, and the
+former Explicit Catalog Feature Configuration work remains deferred.
 
 ## Historical Current Batch 42.8 Authority — Stage 42.8-1 Accepted — 2026-08-09
 

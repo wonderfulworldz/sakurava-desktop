@@ -1196,3 +1196,34 @@ Batch 42.4 is closed with the preserved two-file missing-original correction
 delivered. Smoke 1 remains accepted operator evidence; no manual PASS is
 claimed for Smoke 2–7. Runtime activation and deferred policy areas remain
 separately gated.
+
+---
+
+## 2026-08-09 — Stage 42.8-2 Implementation Accepted and Stage 42.8-3 Readiness
+
+date: 2026-08-09
+session_type: BATCH_42_8_STAGE_2_IMPLEMENTATION_ACCEPTANCE_AND_STAGE_3_READINESS
+operator_decision: ACCEPTED_WITH_GOVERNANCE_LIMITATION
+verdict: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
+batch_status: IN_PROGRESS
+batch_outcomes: 2_OF_3_OUTCOMES_67_PERCENT
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
+stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
+stage_42_8_2_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
+stage_42_8_2_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_2_execution_gates: 6_OF_6_100_PERCENT
+stage_42_8_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_3_execution: false
+verification: REPORTED_BY_CODEX_297_FULL_RUST_192_IMPORT_EXPORT_FOCUSED_SAFE_FILTER_STATE_CATALOG_TRANSLATION_BUILD_CHECK_FMT_GIT_SYNC
+governance_limitation: EXECUTOR_NONCOMPLIANCE_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
+technical_permissions: false
+next_action: CHATGPT_RESULT_REVIEW_THEN_SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_8_3
+
+Stage 42.8-2 implementation was accepted with the historical executor
+noncompliance recorded separately from product correctness. The implementation
+preserves complete-data authority, Safe Filter visibility projection, V3
+Import/Export compatibility, complete Backup/Restore, and English-only bundled
+Translation additions. Stage 42.8-3 remains separately gated.
