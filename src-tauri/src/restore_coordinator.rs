@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rusqlite::{Connection, DatabaseName, OpenFlags};
+use rusqlite::{types::ValueRef, Connection, DatabaseName, OpenFlags};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -402,6 +402,125 @@ fn hash_file(path: &Path) -> Result<String, String> {
         }
         hasher.update(&buffer[..read]);
     }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn hash_logical_bytes(hasher: &mut Sha256, bytes: &[u8]) {
+    hasher.update((bytes.len() as u64).to_be_bytes());
+    hasher.update(bytes);
+}
+
+fn encode_logical_value(value: ValueRef<'_>, encoded: &mut Vec<u8>) {
+    match value {
+        ValueRef::Null => encoded.push(0),
+        ValueRef::Integer(value) => {
+            encoded.push(1);
+            encoded.extend_from_slice(&value.to_be_bytes());
+        }
+        ValueRef::Real(value) => {
+            encoded.push(2);
+            encoded.extend_from_slice(&value.to_bits().to_be_bytes());
+        }
+        ValueRef::Text(value) => {
+            encoded.push(3);
+            encoded.extend_from_slice(&(value.len() as u64).to_be_bytes());
+            encoded.extend_from_slice(value);
+        }
+        ValueRef::Blob(value) => {
+            encoded.push(4);
+            encoded.extend_from_slice(&(value.len() as u64).to_be_bytes());
+            encoded.extend_from_slice(value);
+        }
+    }
+}
+
+fn logical_database_fingerprint(connection: &Connection) -> Result<String, String> {
+    validate_restored_connection(connection)?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"sakurava-logical-database-v1\0");
+
+    for pragma in ["application_id", "user_version", "encoding"] {
+        let value: String = connection
+            .query_row(
+                &format!("SELECT CAST({pragma} AS TEXT) FROM pragma_{pragma}"),
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| format!("Unable to read SQLite {pragma}: {error}"))?;
+        hash_logical_bytes(&mut hasher, pragma.as_bytes());
+        hash_logical_bytes(&mut hasher, value.as_bytes());
+    }
+
+    let mut schema_statement = connection
+        .prepare(
+            "SELECT type, name, tbl_name, COALESCE(sql, '')
+             FROM sqlite_schema
+             ORDER BY type, name, tbl_name, COALESCE(sql, '')",
+        )
+        .map_err(|error| format!("Unable to inspect SQLite schema: {error}"))?;
+    let schema_objects = schema_statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(|error| format!("Unable to read SQLite schema: {error}"))?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| format!("Unable to read SQLite schema: {error}"))?;
+    drop(schema_statement);
+    for (object_type, name, table_name, sql) in &schema_objects {
+        for value in [object_type, name, table_name, sql] {
+            hash_logical_bytes(&mut hasher, value.as_bytes());
+        }
+    }
+
+    let table_names = schema_objects
+        .iter()
+        .filter(|(object_type, _, _, _)| object_type == "table")
+        .map(|(_, name, _, _)| name.clone())
+        .collect::<Vec<_>>();
+    for table_name in table_names {
+        hash_logical_bytes(&mut hasher, table_name.as_bytes());
+        let quoted_table = format!("\"{}\"", table_name.replace('"', "\"\""));
+        let mut statement = connection
+            .prepare(&format!("SELECT * FROM {quoted_table}"))
+            .map_err(|error| format!("Unable to inspect SQLite table {table_name}: {error}"))?;
+        for index in 0..statement.column_count() {
+            let column_name = statement
+                .column_name(index)
+                .map_err(|error| format!("Unable to inspect {table_name} columns: {error}"))?;
+            hash_logical_bytes(&mut hasher, column_name.as_bytes());
+        }
+        let column_count = statement.column_count();
+        let mut rows = statement
+            .query([])
+            .map_err(|error| format!("Unable to read SQLite table {table_name}: {error}"))?;
+        let mut row_hashes: Vec<[u8; 32]> = Vec::new();
+        while let Some(row) = rows
+            .next()
+            .map_err(|error| format!("Unable to read SQLite table {table_name}: {error}"))?
+        {
+            let mut encoded = Vec::new();
+            for index in 0..column_count {
+                encode_logical_value(
+                    row.get_ref(index).map_err(|error| {
+                        format!("Unable to read SQLite table {table_name}: {error}")
+                    })?,
+                    &mut encoded,
+                );
+            }
+            row_hashes.push(Sha256::digest(&encoded).into());
+        }
+        row_hashes.sort_unstable();
+        hasher.update((row_hashes.len() as u64).to_be_bytes());
+        for row_hash in row_hashes {
+            hasher.update(row_hash);
+        }
+    }
+
     Ok(format!("{:x}", hasher.finalize()))
 }
 
@@ -1292,23 +1411,24 @@ fn validate_live_target(
         &database.paths.app_data_dir,
     )
     .map_err(|error| error.to_string())?;
-    let database_snapshot = active_root(&database.paths.app_data_dir).join("post-apply.sqlite");
-    if database_snapshot.exists() {
-        fs::remove_file(&database_snapshot).map_err(|error| error.to_string())?;
-    }
-    {
+    let target_database = active_root(&database.paths.app_data_dir)
+        .join(TARGET_DIRECTORY)
+        .join(SKV_V2_DATABASE_ENTRY);
+    let target_connection = Connection::open_with_flags(
+        &target_database,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| format!("Unable to open staged Restore database: {error}"))?;
+    let target_fingerprint = logical_database_fingerprint(&target_connection)?;
+    let live_fingerprint = {
         let connection = database.connection();
         let connection = connection
             .lock()
             .map_err(|_| "Database connection is unavailable".to_string())?;
-        connection
-            .backup(DatabaseName::Main, &database_snapshot, None)
-            .map_err(|error| error.to_string())?;
-    }
-    let hash = hash_file(&database_snapshot)?;
-    fs::remove_file(&database_snapshot).map_err(|error| error.to_string())?;
-    if hash != journal.target_database_sha256 {
-        return Err("Post-apply database identity does not match the staged target".to_string());
+        logical_database_fingerprint(&connection)?
+    };
+    if live_fingerprint != target_fingerprint {
+        return Err("Post-apply database content does not match the staged target".to_string());
     }
     let managed = ManagedMediaRoot::from_app_data_dir(&database.paths.app_data_dir)?;
     if hash_directory(managed.as_path())? != journal.target_managed_media_sha256 {

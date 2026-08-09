@@ -10,14 +10,15 @@ use sha2::{Digest, Sha256};
 use crate::{
     database::{
         allocate_sakurava_ref, create_backup_package, prepare_database,
-        register_current_sakurava_ref_alias, BackupPackageType, RuntimeDatabase,
+        register_current_sakurava_ref_alias, BackupPackagePreviewCounts, BackupPackageType,
+        RuntimeDatabase,
     },
     managed_media::path::ManagedMediaRoot,
     restore_coordinator::{
         active_journal_for_test, begin_restore, complete_recovery, complete_restore,
         create_backup_package_v2, has_unresolved_restore,
-        import_selected_backup_package_v2_or_legacy, recover_before_database_open, recovery_status,
-        rollback_after_state_failure,
+        import_selected_backup_package_v2_or_legacy, preview_backup_package_v2_or_legacy,
+        recover_before_database_open, recovery_status, rollback_after_state_failure,
     },
 };
 
@@ -110,6 +111,174 @@ fn video_exists(database: &RuntimeDatabase, id: &str) -> bool {
             |row| row.get(0),
         )
         .expect("video exists")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CatalogSnapshot {
+    counts: [i64; 6],
+    identities: Vec<String>,
+}
+
+impl CatalogSnapshot {
+    fn empty() -> Self {
+        Self {
+            counts: [0; 6],
+            identities: Vec::new(),
+        }
+    }
+}
+
+fn catalog_snapshot(database: &RuntimeDatabase) -> CatalogSnapshot {
+    let connection = database.connection();
+    let connection = connection.lock().expect("connection");
+    let tables = [
+        ("videos", "id"),
+        ("images", "id"),
+        ("performers", "id"),
+        ("managedCategories", "key"),
+        ("glossary_entries", "id"),
+        ("credits", "id"),
+    ];
+    let mut counts = [0; 6];
+    let mut identities = Vec::new();
+    for (index, (table, identity_column)) in tables.iter().enumerate() {
+        counts[index] = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .expect("catalog count");
+        let mut statement = connection
+            .prepare(&format!(
+                "SELECT {identity_column} || ':' || sakuravaRef FROM {table} ORDER BY {identity_column}"
+            ))
+            .expect("identity statement");
+        identities.extend(
+            statement
+                .query_map([], |row| row.get::<_, String>(0))
+                .expect("identity query")
+                .map(|row| format!("{table}:{}", row.expect("identity row"))),
+        );
+    }
+    CatalogSnapshot { counts, identities }
+}
+
+fn preview_counts(counts: &BackupPackagePreviewCounts) -> [i64; 6] {
+    [
+        counts.videos,
+        counts.images,
+        counts.performers,
+        counts.categories,
+        counts.glossary,
+        counts.credits,
+    ]
+}
+
+fn allocate_fixture_ref(connection: &rusqlite::Connection, section: &str) -> String {
+    let reference = allocate_sakurava_ref(connection, section, "2608").expect("allocate ref");
+    register_current_sakurava_ref_alias(connection, section, &reference).expect("register ref");
+    reference
+}
+
+fn populate_exact_snapshot_fixture(database: &RuntimeDatabase) -> CatalogSnapshot {
+    let connection = database.connection();
+    let connection = connection.lock().expect("connection");
+    let category_ref = allocate_fixture_ref(&connection, "C");
+    let glossary_ref = allocate_fixture_ref(&connection, "G");
+    let performer_ref = allocate_fixture_ref(&connection, "P");
+    let video_ref = allocate_fixture_ref(&connection, "V");
+    let image_ref = allocate_fixture_ref(&connection, "I");
+    let credit_ref = allocate_fixture_ref(&connection, "R");
+    let timestamp = "2026-08-10T00:00:00Z";
+
+    connection
+        .execute(
+            "INSERT INTO managedCategories (key, sakuravaRef, name, rPlus, createdAt, updatedAt)
+             VALUES ('fixture-category', ?1, 'Fixture Category', 0, ?2, ?2)",
+            params![category_ref, timestamp],
+        )
+        .expect("insert category");
+    connection
+        .execute(
+            "INSERT INTO glossary_entries (id, sakuravaRef, term, definition, rPlus, created_at, updated_at)
+             VALUES ('fixture-glossary', ?1, 'Fixture Term', 'Fixture Definition', 0, 1, 1)",
+            [glossary_ref.clone()],
+        )
+        .expect("insert glossary");
+    connection
+        .execute(
+            "INSERT INTO performers (id, sakuravaRef, name, categoriesJson, glossaryRefsJson, rPlus, createdAt, updatedAt)
+             VALUES ('fixture-performer', ?1, 'Fixture Performer', '[\"Fixture Category\"]', ?2, 0, ?3, ?3)",
+            params![performer_ref, serde_json::json!([glossary_ref]).to_string(), timestamp],
+        )
+        .expect("insert performer");
+    connection
+        .execute(
+            "INSERT INTO videos (id, sakuravaRef, title, categoriesJson, relatedPerformersJson, glossaryRefsJson, rPlus, createdAt, updatedAt)
+             VALUES ('fixture-video', ?1, 'Fixture Video', '[\"Fixture Category\"]', '[\"fixture-performer\"]', ?2, 0, ?3, ?3)",
+            params![video_ref, serde_json::json!([glossary_ref]).to_string(), timestamp],
+        )
+        .expect("insert video");
+    connection
+        .execute(
+            "INSERT INTO images (id, sakuravaRef, title, categoriesJson, relatedPerformersJson, relatedVideosJson, glossaryRefsJson, rPlus, createdAt, updatedAt)
+             VALUES ('fixture-image', ?1, 'Fixture Image', '[\"Fixture Category\"]', '[\"fixture-performer\"]', '[\"fixture-video\"]', ?2, 0, ?3, ?3)",
+            params![image_ref, serde_json::json!([glossary_ref]).to_string(), timestamp],
+        )
+        .expect("insert image");
+    connection
+        .execute(
+            "INSERT INTO credits (id, sakuravaRef, workType, workId, performerId, characterName, billingOrder, createdAt, updatedAt)
+             VALUES ('fixture-credit', ?1, 'video', 'fixture-video', 'fixture-performer', 'Fixture Role', 1, ?2, ?2)",
+            params![credit_ref, timestamp],
+        )
+        .expect("insert credit");
+    drop(connection);
+    catalog_snapshot(database)
+}
+
+fn clear_exact_snapshot_fixture(database: &RuntimeDatabase) -> CatalogSnapshot {
+    let connection = database.connection();
+    let connection = connection.lock().expect("connection");
+    connection
+        .execute_batch(
+            "DELETE FROM credits;
+             DELETE FROM videos;
+             DELETE FROM images;
+             DELETE FROM performers;
+             DELETE FROM managedCategories;
+             DELETE FROM glossary_entries;",
+        )
+        .expect("clear catalog fixture");
+    drop(connection);
+    catalog_snapshot(database)
+}
+
+fn sha256_file(path: &Path) -> String {
+    format!(
+        "{:x}",
+        Sha256::digest(fs::read(path).expect("package bytes"))
+    )
+}
+
+fn restore_exact_package(
+    database: &RuntimeDatabase,
+    package_name: &str,
+) -> crate::database::BackupPackageRestoreResult {
+    let transition = begin_restore(database, package_name, "2608", protected_state(Some("fr")))
+        .expect("begin exact snapshot restore");
+    assert_eq!(transition.protected_state, protected_state(Some("ja")));
+    let result = complete_restore(
+        database,
+        &transition.operation_id,
+        &transition.expected_state_sha256,
+    )
+    .expect("complete exact snapshot restore");
+    assert!(result.database_restored);
+    assert!(!result.rollback_attempted);
+    assert!(!result.rollback_succeeded);
+    assert!(result.errors.is_empty());
+    assert!(!has_unresolved_restore(&database.paths.app_data_dir).expect("restore resolved"));
+    result
 }
 
 fn install_managed_media(database: &RuntimeDatabase, bytes: &[u8]) -> PathBuf {
@@ -232,6 +401,114 @@ fn valid_v2_restore_coordinates_database_state_and_completion_cleanup() {
 }
 
 #[test]
+fn populated_backup_restores_exact_snapshot() {
+    let root = unique_root("populated-exact-snapshot");
+    fs::create_dir_all(&root).expect("root");
+    let database = prepare_database(&root).expect("database");
+    let backup_state = populate_exact_snapshot_fixture(&database);
+    assert_eq!(backup_state.counts, [1, 1, 1, 1, 1, 1]);
+
+    let package = create_backup_package_v2(
+        &database,
+        BackupPackageType::Manual,
+        Some("populated exact snapshot".to_string()),
+        protected_state(Some("ja")),
+    )
+    .expect("populated package");
+    let package_path = PathBuf::from(&package.package_path);
+    let package_sha256 = sha256_file(&package_path);
+    let preview = preview_backup_package_v2_or_legacy(&database, &package.package_name)
+        .expect("populated preview");
+    assert_eq!(
+        preview_counts(&preview.database.counts),
+        backup_state.counts
+    );
+    assert_eq!(preview.database.quick_check, "ok");
+    assert!(preview.database.required_schema_present);
+
+    let mutated_state = clear_exact_snapshot_fixture(&database);
+    assert_eq!(mutated_state, CatalogSnapshot::empty());
+    let result = restore_exact_package(&database, &package.package_name);
+    let immediate_state = catalog_snapshot(&database);
+    assert_eq!(immediate_state, backup_state);
+
+    println!(
+        "scenario=A root={} package={} package_sha256={} package_version={} before={:?} mutated={:?} immediate={:?} restored_package={}",
+        root.display(),
+        package_path.display(),
+        package_sha256,
+        package.manifest.version,
+        backup_state,
+        mutated_state,
+        immediate_state,
+        result.restored_package_name
+    );
+
+    drop(database);
+    recover_before_database_open(&root).expect("reopen recovery");
+    let reopened = prepare_database(&root).expect("reopened database");
+    let reopened_state = catalog_snapshot(&reopened);
+    assert_eq!(reopened_state, backup_state);
+    println!("scenario=A reopened={reopened_state:?}");
+    drop(reopened);
+    fs::remove_dir_all(root).expect("fixture cleanup");
+}
+
+#[test]
+fn empty_backup_removes_later_catalog_state() {
+    let root = unique_root("empty-exact-snapshot");
+    fs::create_dir_all(&root).expect("root");
+    let database = prepare_database(&root).expect("database");
+    let backup_state = catalog_snapshot(&database);
+    assert_eq!(backup_state, CatalogSnapshot::empty());
+
+    let package = create_backup_package_v2(
+        &database,
+        BackupPackageType::Manual,
+        Some("empty exact snapshot".to_string()),
+        protected_state(Some("ja")),
+    )
+    .expect("empty package");
+    let package_path = PathBuf::from(&package.package_path);
+    let package_sha256 = sha256_file(&package_path);
+    let preview = preview_backup_package_v2_or_legacy(&database, &package.package_name)
+        .expect("empty preview");
+    assert_eq!(
+        preview_counts(&preview.database.counts),
+        backup_state.counts
+    );
+    assert_eq!(preview.database.quick_check, "ok");
+    assert!(preview.database.required_schema_present);
+
+    let populated_state = populate_exact_snapshot_fixture(&database);
+    assert_eq!(populated_state.counts, [1, 1, 1, 1, 1, 1]);
+    let result = restore_exact_package(&database, &package.package_name);
+    let immediate_state = catalog_snapshot(&database);
+    assert_eq!(immediate_state, backup_state);
+
+    println!(
+        "scenario=B root={} package={} package_sha256={} package_version={} before={:?} populated={:?} immediate={:?} restored_package={}",
+        root.display(),
+        package_path.display(),
+        package_sha256,
+        package.manifest.version,
+        backup_state,
+        populated_state,
+        immediate_state,
+        result.restored_package_name
+    );
+
+    drop(database);
+    recover_before_database_open(&root).expect("reopen recovery");
+    let reopened = prepare_database(&root).expect("reopened database");
+    let reopened_state = catalog_snapshot(&reopened);
+    assert_eq!(reopened_state, backup_state);
+    println!("scenario=B reopened={reopened_state:?}");
+    drop(reopened);
+    fs::remove_dir_all(root).expect("fixture cleanup");
+}
+
+#[test]
 fn protected_state_failure_rolls_database_and_media_back_to_safety_state() {
     let fixture = fixture("state-rollback");
     insert_video(&fixture.database, "original", "Original");
@@ -336,6 +613,66 @@ fn failed_post_apply_validation_can_roll_back_all_backend_domains() {
         fs::read(original_media).expect("rolled-back media"),
         b"original managed mini image"
     );
+}
+
+#[test]
+fn logical_database_mismatch_fails_and_remains_rollback_capable() {
+    let fixture = fixture("logical-database-mismatch");
+    insert_video(&fixture.database, "original", "Original");
+    let package = create_backup_package_v2(
+        &fixture.database,
+        BackupPackageType::Manual,
+        Some("logical mismatch target".to_string()),
+        protected_state(Some("ja")),
+    )
+    .expect("target package");
+    clear_exact_snapshot_fixture(&fixture.database);
+    insert_video(&fixture.database, "current", "Current safety state");
+    let transition = begin_restore(
+        &fixture.database,
+        &package.package_name,
+        "2608",
+        protected_state(Some("fr")),
+    )
+    .expect("begin logical mismatch restore");
+    assert!(video_exists(&fixture.database, "original"));
+    assert!(!video_exists(&fixture.database, "current"));
+    {
+        let connection = fixture.database.connection();
+        let connection = connection.lock().expect("connection");
+        assert_eq!(
+            connection
+                .execute(
+                    "UPDATE videos SET title = 'Unexpected post-apply mutation' WHERE id = 'original'",
+                    [],
+                )
+                .expect("change authoritative field"),
+            1
+        );
+    }
+
+    let error = complete_restore(
+        &fixture.database,
+        &transition.operation_id,
+        &transition.expected_state_sha256,
+    )
+    .expect_err("logical database mismatch must fail");
+    assert_eq!(error.code, "post_apply_validation_failed");
+    assert!(error.message.contains("database content"));
+
+    let rollback = rollback_after_state_failure(&fixture.database, &transition.operation_id)
+        .expect("rollback after logical mismatch");
+    assert!(rollback.rollback_succeeded);
+    assert!(!video_exists(&fixture.database, "original"));
+    assert!(video_exists(&fixture.database, "current"));
+    complete_recovery(
+        &fixture.database,
+        &rollback.transition.operation_id,
+        "rollback",
+        &rollback.transition.expected_state_sha256,
+    )
+    .expect("rollback completion");
+    assert!(!has_unresolved_restore(&fixture.database.paths.app_data_dir).expect("resolved"));
 }
 
 #[test]
