@@ -21,7 +21,9 @@ legacy_batch_series: 41.x
 legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
-last_completed_batch: 42.6
+last_completed_batch: 42.8
+last_completed_batch_title: Safe Filter and R+ Content Classification
+last_completed_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: NONE
 active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
@@ -83,9 +85,9 @@ batch_42_7_stage_3_source_mutation: NONE
 batch_42_7_stage_3_source_correction_required: false
 batch_42_7_stage_3_product_defect_proven: false
 batch_42_7_final_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
-next_proposed_batch: 42.8
-next_proposed_batch_title: Safe Filter and R+ Content Classification
-next_proposed_batch_status: FUTURE_ROADMAP_ORDER_UNCHANGED
+next_proposed_batch: 42.9
+next_proposed_batch_title: Design System and Iconography Foundation
+next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
 next_proposed_batch_approved: false
 batch_42_8_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 batch_42_8_execution_allowed: false
@@ -2742,7 +2744,7 @@ Batch 42.0 — Master Roadmap and Project OS Baseline
 → Batch 42.5 — Catalog and Database Performance
 → Batch 42.6 — Backup and Restore Audit
 → Batch 42.7 — .skv Backup and Atomic Restore Hardening
-→ Batch 42.8 — Explicit Catalog Feature Configuration
+→ Batch 42.8 — Safe Filter and R+ Content Classification
 → Batch 42.9 — Design System and Iconography Foundation
 → Batch 42.10 — Controlled UI Polish
 → Batch 42.11 — Translation Release Completion
@@ -2885,7 +2887,28 @@ physical power-loss and filesystem metadata durability, and complete
 real-world crash recovery remain `UNKNOWN`. These limitations do not change
 the technical closure recommendation and do not authorize platform validation.
 
-## Current Batch 42.8 Authority — Stage 42.8-1 Accepted — 2026-08-09
+## Current Pre-42.9 Product Acceptance Gate — 2026-08-10
+
+Batch 42.8 remains historically closed as
+`COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with `3_OF_3_OUTCOMES_100_PERCENT`.
+Fresh `OBSERVED_BY_OPERATOR` evidence now requires a pre-42.9 corrective audit
+and decision: Backup/Restore snapshot behavior is the highest-priority
+blocking finding, with additional Media Cover, empty Export section,
+same-file re-export, and Safe Filter/R+ contract findings. Product Acceptance
+for 42.0–42.8 is `FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION`.
+
+The active Safe Filter lock remains unchanged and authoritative, while the
+operator's clarified direct-marker and feature-surface intent is recorded as a
+blocking reconciliation requirement before further Safe Filter work. The
+former Explicit Catalog Feature Configuration work, including Cup and Body
+configuration, remains deferred and was not completed by Batch 42.8.
+
+Batch 42.9 remains `BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION`,
+unapproved with technical permissions false. The future Sakurava Video Player
+and Contact Sheet request is recorded separately and has no selected
+dependency or implementation batch.
+
+## Historical Current Batch 42.8 Authority — Stage 42.8-1 Accepted — 2026-08-09
 
 The current accepted Batch 42.8 state supersedes the Stage 42.8-1 readiness
 metadata below: Batch progress is `2_OF_3_OUTCOMES_67_PERCENT`. Stage 42.8-2 —

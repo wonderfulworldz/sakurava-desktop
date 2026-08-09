@@ -1,7 +1,7 @@
 # Sakurava Feedback Log
 
-active_count: 4
-last_updated: 2026-07-22  
+active_count: 11
+last_updated: 2026-08-10
 
 ## Active Feedback
 
@@ -76,23 +76,24 @@ Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed d
 ### FEEDBACK-2026-07-22-EXPORT-EMPTY-SECTIONS — Empty Selected Export Sections
 
 date: 2026-07-22
-batch: FUTURE_IMPORT_EXPORT_WORK
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
 type: PROBLEM_REPORT
 status: PLANNED
 risk: MEDIUM
-placement: FUTURE_SEPARATE_BATCH / BACKLOG
+placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
 
 ### Operator Feedback
 
-When all Export sections are selected, an empty selected section such as
-Credits blocks the entire Export. The desired future behavior is to export the
-selected section with valid empty headers or sheet structure while preserving
-populated sections.
+When a selected XLSX Export section has zero records, it must not block the
+whole Export. The selected sheet must still be produced with valid headers and
+zero data rows, while populated selected sections export normally and no fake
+rows are created.
 
 ### Decision
 
-Record for later. This is not a Batch 42.3A blocker; no implementation or
-automatic deselection is authorized, and no data may be fabricated.
+This is current pre-42.9 corrective Product Acceptance scope. No
+implementation or automatic deselection is authorized here, and no data may be
+fabricated. Preserve Credits and public-reference contracts.
 
 ### FEEDBACK-2026-07-22-SPREADSHEET-UX-TERMINOLOGY — Spreadsheet UX and Terminology
 
@@ -114,6 +115,108 @@ Record for later. A dedicated product and compatibility decision is required;
 current headers, ordering, sheet names, public references, internal Category
 identity, and other spreadsheet contracts remain unchanged. No implementation
 or Active Lock change is authorized.
+
+### FEEDBACK-2026-08-10-BACKUP-RESTORE-SNAPSHOT — Backup/Restore Snapshot Failure
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: PROBLEM_REPORT
+status: BLOCKING
+risk: HIGH
+placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+evidence: OBSERVED_BY_OPERATOR
+
+Restore did not return a full catalog to a backed-up full state after bulk
+deletion, and did not return a later catalog to an empty backed-up state.
+Category data apparently returned while the complete catalog did not. Root
+cause is `UNKNOWN`; this does not rewrite Batch 42.7 technical closure.
+
+### FEEDBACK-2026-08-10-MEDIA-COVER — Image Detail Cover Missing
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: PROBLEM_REPORT
+status: PLANNED
+risk: MEDIUM-HIGH
+placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+evidence: OBSERVED_BY_OPERATOR
+
+A valid image path was visible in the Image form and Gallery images rendered,
+but Image Detail Cover rendered a placeholder. Other media surfaces remain
+`UNKNOWN`; no path ownership is inferred.
+
+### FEEDBACK-2026-08-10-EXPORT-REEXPORT — Re-export Same XLSX Failure
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: PROBLEM_REPORT
+status: PLANNED
+risk: MEDIUM
+placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+evidence: OBSERVED_BY_OPERATOR
+
+Export to `skv-all-master.xlsx` succeeded once, then failed after bulk deletion
+when exporting to the same name. Root cause is `UNKNOWN`. Audit must determine
+the cause and provide safe replacement or a clear actionable locked-file error.
+
+### FEEDBACK-2026-08-10-XLSX-SHEET-SELECTION — Select Sheets Before Preview
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: NEW_REQUEST
+status: APPROVED
+risk: MEDIUM
+placement: FUTURE_CORRECTIVE_WORKFLOW_AFTER_AUDIT
+
+The operator requests Choose XLSX -> choose sheets/sections -> build Preview
+for those sections -> validate -> Apply. Preview, blocking validation, stale
+Preview protection, safety Backup, atomic Apply, rollback, and integrity
+contracts must remain intact.
+
+### FEEDBACK-2026-08-10-SAFEFILTER-CONTRACT — Safe Filter/R+ Contract Correction
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: CORRECTION
+status: BLOCKING
+risk: HIGH
+placement: DEEP_AUDIT_REQUIRED_BEFORE_SAFE_FILTER_WORK
+evidence: OBSERVED_BY_OPERATOR
+
+The operator clarified that R+ is a direct record marker, without Glossary or
+Category inheritance for Video/Image/Performer classification. Safe Filter
+must also hide explicit/adult-only user-facing feature surfaces while
+remaining non-destructive. `LOCK-SAFEFILTER-001` remains unchanged and is an
+active historical contract requiring reconciliation before further work.
+
+### FEEDBACK-2026-08-10-CATALOG-COLUMNS — Minimal Consistent Catalog Columns
+
+date: 2026-08-10
+batch: FUTURE_UI_WORK
+type: NEW_REQUEST
+status: APPROVED
+risk: MEDIUM
+placement: FUTURE_UI_WORK_AFTER_CORRECTIVE_FOUNDATION
+
+The operator requests simpler, more minimal, and more consistent visible
+columns for Video, Image, Performer, Category, Glossary, and Credits. Exact
+columns are intentionally deferred.
+
+### FEEDBACK-2026-08-10-VIDEO-PLAYER — Built-in Video Player and Contact Sheet
+
+date: 2026-08-10
+batch: FUTURE_SEPARATE_FEATURE_BATCH
+type: NEW_REQUEST
+status: APPROVED
+risk: HIGH
+placement: ROADMAP_REVIEW_REQUIRED
+
+The operator requests a separate lightweight Sakurava Video Player with
+playback controls, 0.25x–16x speed, seek jumps, looping, per-Video resume, and
+Video Contact Sheet generation with timestamps and safely available metadata.
+No dependency or library is selected; audit must establish platform, codec,
+security, multi-window, persistence, performance, licensing, packaging, and
+accessibility facts first.
 
 ## Resolved Feedback
 

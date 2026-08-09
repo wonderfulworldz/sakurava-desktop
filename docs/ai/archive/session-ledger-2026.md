@@ -11,6 +11,41 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-03 — Batch 42.7 Backup and Restore Hardening Closed
+
+date: 2026-08-03
+session_type: BATCH_42_7_STAGE_3_FINAL_VALIDATION_AND_CLOSURE
+operator_decision: ACCEPTED
+verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
+batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_outcomes: 3_OF_3
+stage_42_7_3_status: COMPLETED_WITH_LIMITATIONS
+stage_42_7_3_progress: 6_OF_6_TASKS_100_PERCENT
+repository_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
+application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+evidence: REPORTED_BY_CODEX_ACCEPTED_PACKAGE_PROTECTED_STATE_ROLLBACK_RESTART_EQUIVALENT_AND_EXTERNAL_MEDIA_BOUNDARIES
+product_defect_proven: false
+source_correction_required: false
+source_mutation: NONE
+limitations: VITEST_SPAWN_EPERM_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT_AND_PLATFORM_RUNTIME_UNKNOWN
+git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+next_batch: 42.8 — Explicit Catalog Feature Configuration
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Stage 42.7-3 mapped all 38 closure requirements to sufficient accepted
+evidence; no new disposable execution was required. Package integrity,
+protected-state and managed-media handling, coordinated rollback,
+restart-equivalent recovery, and exclusion of full external media were
+accepted. No source correction or product defect was proven. Operator data,
+live AppData, real operator Backup/Restore, remote UNC behavior, uncontrolled
+termination, operating-system crash, physical power-loss durability, and
+complete real-world crash recovery remain unknown or not measurable. No
+technical work is authorized; the next action is separate approval for Batch
+42.8 or separately scoped platform/release validation.
+
+---
+
 ## 2026-08-03 — Stage 42.7-2 Staged Restore and Recovery Accepted
 
 date: 2026-08-03

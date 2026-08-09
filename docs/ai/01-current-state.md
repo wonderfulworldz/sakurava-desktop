@@ -87,8 +87,10 @@ batch_42_8_source_inspection_allowed: false
 batch_42_8_implementation_allowed: false
 stage_42_8_governance_limitation: EXECUTOR_NONCOMPLIANCE_RECORDED_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
 
+product_acceptance_42_0_to_42_8: FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION
+fresh_operator_evidence: BACKUP_RESTORE_BLOCKING; MEDIA_COVER; EXPORT_EMPTY_SECTION; EXPORT_REEXPORT_SAME_FILE; SAFEFILTER_PRODUCT_CONTRACT_CONFLICT
 next_proposed_batch: 42.9 — Design System and Iconography Foundation
-next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
+next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
 next_proposed_batch_approved: false
 all_technical_permissions: false
 
@@ -106,6 +108,19 @@ invalidation and WebView restart observation remain
 technical closure. The earlier Stage 42.8-2 executor noncompliance remains a
 separate historical governance record. Batch 42.9 is only proposed and remains
 unapproved with all technical permissions false.
+
+## Current Product Acceptance Gate — 2026-08-10
+
+Batch 42.8 remains historically closed at `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`
+and `3_OF_3_OUTCOMES_100_PERCENT`, with application/source baseline
+`2edb0a491b9854758fe4c8bf04b88e4463b1e769`. Fresh operator evidence means
+Product Acceptance for 42.0–42.8 is
+`FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION`; no product root cause is
+claimed here. Backup/Restore is the highest-priority blocking finding, with
+additional Cover, Export, and Safe Filter/R+ contract findings recorded in the
+Feedback Log. Active technical batch is `NONE`; all technical permissions are
+false. Stage 42.8-3 is historically completed with limitation, not pending.
+Batch 42.9 is blocked pending a pre-42.9 corrective audit and decision.
 
 ## Current Accepted Batch 42.8 Result — 2026-08-09
 

@@ -305,6 +305,31 @@ Every executable stage must include:
 
 ## Delivery Efficiency, Prevention, and Batch Control
 
+### Deep Terrain Analysis and Plain-Language Communication
+
+Permanent standard: `DEEP_TERRAIN_ANALYSIS_BEFORE_CORRECTION_OR_IMPLEMENTATION`.
+
+For medium- and high-risk work, establish all reasonably knowable facts before
+source mutation or implementation. This includes the operator's real goal,
+current user-visible behavior, architecture and ownership boundaries, data
+flow, storage and restart behavior, Import/Export and Backup/Restore boundaries,
+media/runtime paths, dependencies and platform capabilities, fixture and
+harness behavior, working directory and data roots, compatibility contracts,
+failure modes, rollback, likely mutation scope, focused verification, and manual
+product acceptance requirements. If an important unknown could materially
+change the solution, do not begin implementation. Use the bounded sequence
+`UNDERSTAND -> DESIGN -> IMPLEMENT -> PROVE`; analysis must stop once evidence
+is sufficient for a deterministic safe solution, so this is not unlimited
+theoretical analysis.
+
+ChatGPT must explain substantial technical work in the simplest practical
+language for a non-programmer operator: what is being done, why, what a good
+result looks like, whether the result is acceptable, and what remains
+uncertain. Use technical terms only with a short plain-language explanation
+when needed. A technically closed batch does not prove full product acceptance
+when important real-user or runtime behavior was not observed; fresh operator
+evidence may create corrective work without rewriting historical closure.
+
 Treat Codex quota, operator time, execution time, correction cycles, and
 verification effort as limited project resources. Choose the smallest
 sufficient evidence set and least costly model likely to finish correctly in
