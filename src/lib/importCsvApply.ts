@@ -648,8 +648,13 @@ function applySimpleField({
   if (
     internalField === "categoriesJson" ||
     internalField === "aliasesJson" ||
-    internalField === "synonymsJson"
+    internalField === "synonymsJson" ||
+    internalField === "glossaryRefsJson"
   ) {
+    if (internalField === "glossaryRefsJson") {
+      patch.glossaryRefsJson = JSON.stringify(resolveGlossaryRefs(clearValue(value), context));
+      return;
+    }
     patch[internalField] = JSON.stringify(parseSemicolonList(clearValue(value)));
     return;
   }
@@ -682,13 +687,28 @@ function applySimpleField({
     internalField === "showInImages" ||
     internalField === "showInPerformers" ||
     internalField === "showInCredits" ||
-    internalField === "favorite"
+    internalField === "favorite" ||
+    internalField === "rPlus"
   ) {
     patch[internalField] = parseBooleanCsvCell(value, false);
     return;
   }
 
   patch[internalField] = clearValue(value);
+}
+
+function resolveGlossaryRefs(value: string, context: ImportCsvPreviewContext) {
+  return parseSemicolonList(value).map((item) => {
+    const resolution = resolveSakuravaIdentity(
+      "G",
+      item.split("|")[0].trim(),
+      context.glossary ?? [],
+    );
+    if (resolution.status !== "resolved") {
+      throw new Error(`Glossary Ref was not found or is ambiguous: ${item}.`);
+    }
+    return resolution.record.id;
+  });
 }
 
 function applyRatingFields(

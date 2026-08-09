@@ -84,6 +84,7 @@ export type FormConfig = {
   initialPerformerRelatedImages?: Record<FormMode, RelatedCatalogRecordFormValue[]>;
   initialGalleryImagePaths?: Record<FormMode, string[]>;
   initialSourceLinks?: Record<FormMode, SourceLinkFormValue[]>;
+  initialGlossaryRefs?: Record<FormMode, string[]>;
 };
 
 const availabilityOptions = ["Owned", "Not Owned", "Missing"];
@@ -160,6 +161,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         originalTitle: "",
         code: "",
         favorite: false,
+        rPlus: false,
         availability: "Owned",
         censorship: "Censored",
         coverPath: "",
@@ -183,6 +185,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         originalTitle: "Original Title Placeholder",
         code: "CODE-001",
         favorite: true,
+        rPlus: false,
         availability: "Owned",
         censorship: "Censored",
         coverPath: "D:/Videos/Sample Video/cover.jpg",
@@ -222,6 +225,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialGlossaryRefs: { create: [], edit: [] },
   },
   images: {
     kind: "images",
@@ -282,6 +286,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         originalTitle: "",
         code: "",
         favorite: false,
+        rPlus: false,
         availability: "Owned",
         censorship: "Censored",
         coverPath: "",
@@ -305,6 +310,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         originalTitle: "Original Title Placeholder",
         code: "CODE-001",
         favorite: true,
+        rPlus: false,
         availability: "Owned",
         censorship: "Censored",
         coverPath: "D:/Images/Sample Set/cover.jpg",
@@ -340,6 +346,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialGlossaryRefs: { create: [], edit: [] },
   },
   performers: {
     kind: "performers",
@@ -426,6 +433,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         name: "",
         originalName: "",
         favorite: false,
+        rPlus: false,
         gender: "",
         coverPath: "",
         thumbnail1: "",
@@ -455,6 +463,7 @@ export const formConfigs: Record<FormKind, FormConfig> = {
         name: "Sample Performer Name",
         originalName: "Original Name Placeholder",
         favorite: true,
+        rPlus: false,
         gender: "",
         coverPath: "D:/Images/Performers/sample_cover.jpg",
         thumbnail1: "",
@@ -501,5 +510,6 @@ export const formConfigs: Record<FormKind, FormConfig> = {
       create: [],
       edit: [],
     },
+    initialGlossaryRefs: { create: [], edit: [] },
   },
 };

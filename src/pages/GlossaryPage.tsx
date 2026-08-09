@@ -68,6 +68,7 @@ type GlossaryFormState = {
   parentId: string;
   thumbnailPath: string;
   favorite: boolean;
+  rPlus: boolean;
   sourceTitle: string;
   sourceUrl: string;
   definition: string;
@@ -224,6 +225,7 @@ const emptyFormState: GlossaryFormState = {
   parentId: "",
   thumbnailPath: "",
   favorite: false,
+  rPlus: false,
   sourceTitle: "",
   sourceUrl: "",
   definition: "",
@@ -236,6 +238,7 @@ function entryToFormState(entry: GlossaryEntry): GlossaryFormState {
     parentId: entry.parentId,
     thumbnailPath: entry.thumbnailPath,
     favorite: entry.favorite,
+    rPlus: entry.rPlus ?? false,
     sourceTitle: entry.sourceTitle,
     sourceUrl: entry.sourceUrl,
     definition: entry.definition,
@@ -251,6 +254,7 @@ function formStateToInput(formState: GlossaryFormState): NewGlossaryEntry {
     parentId: formState.parentId,
     thumbnailPath: formState.thumbnailPath.trim(),
     favorite: formState.favorite,
+    rPlus: formState.rPlus,
     sourceTitle: formState.sourceTitle.trim(),
     sourceUrl: formState.sourceUrl.trim(),
   };
@@ -1099,6 +1103,15 @@ function GlossaryPage() {
                   ariaLabel="Search glossary parent terms"
                   placeholder={t("glossary.parentPlaceholder")}
                 />
+              </label>
+
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={formState.rPlus}
+                  onChange={(event) => updateFormField("rPlus", event.target.checked)}
+                />
+                {t("safeFilter.form.directRPlus")}
               </label>
 
               <FieldErrorLabel label={t("glossary.sourceUrl")} error={formErrors.sourceUrl}>

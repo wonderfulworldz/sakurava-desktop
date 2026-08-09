@@ -163,6 +163,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
         performerRelatedVideos,
         performerRelatedImages,
         sourceLinks,
+        glossaryRefs,
       }) => {
         if (!isPerformerRuntimeAvailable()) {
           return {
@@ -181,6 +182,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
               performerRelatedVideos,
               performerRelatedImages,
               sourceLinks,
+              glossaryRefs,
             ),
           );
           navigate(`/performers/${created.id}`);
@@ -200,6 +202,7 @@ function PerformerFormPage({ mode }: PerformerFormPageProps) {
             performerRelatedVideos,
             performerRelatedImages,
             sourceLinks,
+            glossaryRefs,
           ),
         );
         if (!updated) {

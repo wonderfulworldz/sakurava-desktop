@@ -16,8 +16,10 @@ export interface BaseCatalogRecord {
   categoriesJson: JsonText;
   ratingJson: JsonText;
   sourceLinksJson: JsonText;
+  glossaryRefsJson?: JsonText;
   notes: string;
   favorite: boolean;
+  rPlus?: boolean;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 }
@@ -94,6 +96,7 @@ export interface ManagedCategory {
   showInImages: boolean;
   showInPerformers: boolean;
   showInCredits: boolean;
+  rPlus?: boolean;
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 }
@@ -132,6 +135,7 @@ export interface GlossaryEntry {
   favorite: boolean;
   sourceTitle: string;
   sourceUrl: string;
+  rPlus?: boolean;
   createdAt: number;
   updatedAt: number;
 }

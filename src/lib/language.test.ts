@@ -88,6 +88,23 @@ describe("language", () => {
     expect(builtInLanguages.map((language) => language.code)).toEqual(["en"]);
   });
 
+  it("includes Safe Filter text only in the bundled English baseline", () => {
+    const required = [
+      "safeFilter.unavailable",
+      "safeFilter.form.directRPlus",
+      "safeFilter.form.glossaryRefs",
+      "settings.safeFilter.title",
+      "settings.safeFilter.enabled",
+      "settings.safeFilter.disableTitle",
+    ];
+    for (const key of required) {
+      expect(getAllTranslationKeys()).toContain(key);
+      expect(getBuiltInText("en", key)).toEqual(expect.any(String));
+      expect(getBuiltInText("en", key)).not.toBe("");
+      expect(getBuiltInText("id", key)).toBeUndefined();
+    }
+  });
+
   it("uses the approved Category wording without changing stable keys", () => {
     const keys = getAllTranslationKeys();
     expect(getBuiltInText("en", "categoryManagement.title")).toBe("Category");

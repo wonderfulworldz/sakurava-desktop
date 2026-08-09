@@ -163,6 +163,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
         relatedCatalogRecords,
         galleryImagePaths,
         sourceLinks,
+        glossaryRefs,
         credits,
       }) => {
         if (!isImageRuntimeAvailable()) {
@@ -183,6 +184,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
               relatedCatalogRecords,
               galleryImagePaths,
               sourceLinks,
+              glossaryRefs,
             ),
           );
           try {
@@ -211,6 +213,7 @@ function ImageFormPage({ mode }: ImageFormPageProps) {
             relatedCatalogRecords,
             galleryImagePaths,
             sourceLinks,
+            glossaryRefs,
           ),
         );
         if (!updated) {

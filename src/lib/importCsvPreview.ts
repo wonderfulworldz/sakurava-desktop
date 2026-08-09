@@ -543,6 +543,7 @@ function previewRow({
   const currentRow = currentRowsByRef.get(canonicalImportIdentity(ref));
   validateCategories(values, definition, currentRow, context, changes, warnings, errors);
   validateRelated(values, definition, currentRow, context, changes, warnings, errors);
+  validateGlossaryRefs(values, definition, currentRow, context, changes, warnings, errors);
   validateManagedCategoryParent(values, definition, context, warnings);
   validateGlossaryFields(values, definition, ref, context, warnings);
 
@@ -980,6 +981,10 @@ function validateEditableFields(
     if (column?.valueType === "boolean") {
       const normalized = normalizeBooleanCell(value);
       if (normalized === null) {
+        if (header === "R+") {
+          errors.push("R+ must be true or false.");
+          continue;
+        }
         warnings.push(mode === "update"
           ? `${header} is invalid. The existing value will be preserved.`
           : `${header} is invalid and will use the default value false.`);
@@ -1278,6 +1283,38 @@ function relatedRecords(
     sakuravaRef: record.sakuravaRef,
     label: record.title,
   }));
+}
+
+function validateGlossaryRefs(
+  values: Record<string, string>,
+  definition: EntityDefinition,
+  currentRow: Record<string, string> | undefined,
+  context: ImportCsvPreviewContext,
+  changes: string[],
+  warnings: string[],
+  errors: string[],
+) {
+  if (!("Glossary Refs" in values)) return;
+  const value = values["Glossary Refs"].trim();
+  if (currentRow && (!value || value === SAKURAVA_CLEAR_VALUE)) return;
+  const items = parseSemicolonList(value);
+  const valid: string[] = [];
+  for (const item of items) {
+    const resolution = resolveSakuravaIdentity("G", item.split("|")[0].trim(), context.glossary ?? []);
+    if (resolution.status !== "resolved") {
+      errors.push(`Glossary Ref was not found or is ambiguous: ${item}.`);
+    } else {
+      valid.push(item);
+    }
+  }
+  values["Glossary Refs"] = valid.join("; ");
+  const current = parseSemicolonList(currentRow?.["Glossary Refs"] ?? "");
+  if (valid.length !== current.length || valid.some((entry, index) => entry !== current[index])) {
+    changes.push("Glossary Refs");
+  }
+  if (!value && current.length > 0) {
+    warnings.push("This will remove all Glossary Refs from this record if applied.");
+  }
 }
 
 function parseRelatedItem(item: string) {

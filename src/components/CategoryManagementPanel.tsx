@@ -78,6 +78,7 @@ type FormState = {
   showInImages: boolean;
   showInPerformers: boolean;
   showInCredits: boolean;
+  rPlus: boolean;
 };
 
 type StatusState =
@@ -196,6 +197,7 @@ const emptyForm: FormState = {
   showInImages: false,
   showInPerformers: false,
   showInCredits: false,
+  rPlus: false,
 };
 
 const emptyRecords = {
@@ -690,6 +692,7 @@ function CategoryManagementPanel() {
           showInImages: form.showInImages,
           showInPerformers: form.showInPerformers,
           showInCredits: form.showInCredits,
+          rPlus: form.rPlus,
         });
         await refreshCategories("Data updated successfully.");
         resetFormAfterSuccessfulSave();
@@ -703,6 +706,7 @@ function CategoryManagementPanel() {
           showInImages: form.showInImages,
           showInPerformers: form.showInPerformers,
           showInCredits: form.showInCredits,
+          rPlus: form.rPlus,
         });
         await refreshCategories("Data created successfully.");
         resetFormAfterSuccessfulSave();
@@ -1105,6 +1109,14 @@ function CategoryManagementPanel() {
                   {formErrors.description}
                 </p>
               )}
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.rPlus}
+                onChange={(event) => setForm((current) => ({ ...current, rPlus: event.target.checked }))}
+              />
+              R+
             </label>
           </div>
 
@@ -1930,6 +1942,7 @@ function categoryToFormState(category: ManagedCategory): FormState {
     showInImages: category.showInImages,
     showInPerformers: category.showInPerformers,
     showInCredits: category.showInCredits,
+    rPlus: category.rPlus ?? false,
   };
 }
 

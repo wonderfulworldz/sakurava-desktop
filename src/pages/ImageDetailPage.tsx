@@ -6,7 +6,7 @@ import type { DetailConfig } from "../lib/detailData";
 import type { Credit, ManagedCategory, Performer, Video } from "../backend/types";
 import { buildImageDetailConfig } from "../lib/imageIntegration";
 import DetailPage from "./DetailPage";
-import { getImage, isImageRuntimeAvailable } from "../runtime/imageCommands";
+import { getImageVisible, isImageRuntimeAvailable } from "../runtime/imageCommands";
 import {
   isPerformerRuntimeAvailable,
   listPerformers,
@@ -23,6 +23,7 @@ function ImageDetailPage() {
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.images);
   const [missing, setMissing] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isImageRuntimeAvailable()),
   );
@@ -38,19 +39,22 @@ function ImageDetailPage() {
     }
 
     setLoading(true);
-    getImage(itemKey)
-      .then(async (image) => {
+    getImageVisible(itemKey)
+      .then(async (result) => {
         if (cancelled) {
           return;
         }
 
-        if (!image) {
+        if (result.state !== "visible" || !result.record) {
           setMissing(true);
+          setHidden(result.state === "hidden");
           setLoading(false);
           return;
         }
+        const image = result.record;
 
         setMissing(false);
+        setHidden(false);
         let performers: Performer[] = [];
         let videos: Video[] = [];
         let credits: Credit[] = [];
@@ -123,7 +127,7 @@ function ImageDetailPage() {
           {t("detail.imageTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          {t("detail.imageMissing")}
+          {hidden ? t("safeFilter.unavailable") : t("detail.imageMissing")}
         </p>
       </section>
     );

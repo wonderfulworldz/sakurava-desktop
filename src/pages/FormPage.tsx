@@ -49,9 +49,10 @@ import {
 } from "../runtime/performerCommands";
 import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
+import { listGlossaryEntries } from "../runtime/glossaryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
-import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
 import {
   detectImageTechInfo,
   detectVideoTechInfo,
@@ -107,6 +108,7 @@ type FormSubmitData = {
   performerRelatedImages: RelatedCatalogRecordFormValue[];
   galleryImagePaths: string[];
   sourceLinks: SourceLinkFormValue[];
+  glossaryRefs: string[];
   credits: CreditFormValue[];
 };
 
@@ -189,6 +191,9 @@ function FormPage({
   const [sourceLinks, setSourceLinks] = useState<SourceLinkFormValue[]>(
     config.initialSourceLinks?.[mode] ?? [],
   );
+  const [glossaryRefs, setGlossaryRefs] = useState<string[]>(
+    config.initialGlossaryRefs?.[mode] ?? [],
+  );
   const [aliasDraft, setAliasDraft] = useState("");
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [managedCategoryRecords, setManagedCategoryRecords] = useState<
@@ -199,6 +204,7 @@ function FormPage({
     useState<RelatedPerformerLoadState>("idle");
   const [availableRelatedImages, setAvailableRelatedImages] = useState<Image[]>([]);
   const [availableRelatedVideos, setAvailableRelatedVideos] = useState<Video[]>([]);
+  const [availableGlossary, setAvailableGlossary] = useState<GlossaryEntry[]>([]);
   const [performerSuggestionOptions, setPerformerSuggestionOptions] = useState<
     Record<string, string[]>
   >({});
@@ -223,6 +229,7 @@ function FormPage({
       performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
       galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
       sourceLinks: config.initialSourceLinks?.[mode] ?? [],
+      glossaryRefs: config.initialGlossaryRefs?.[mode] ?? [],
       credits:
         initialCredits.length
           ? initialCredits
@@ -261,6 +268,7 @@ function FormPage({
     setPerformerRelatedImages(config.initialPerformerRelatedImages?.[mode] ?? []);
     setGalleryImagePaths(config.initialGalleryImagePaths?.[mode] ?? []);
     setSourceLinks(config.initialSourceLinks?.[mode] ?? []);
+    setGlossaryRefs(config.initialGlossaryRefs?.[mode] ?? []);
     setAliasDraft("");
     setSaveState("idle");
     setSaveMessage("");
@@ -280,6 +288,7 @@ function FormPage({
         performerRelatedImages: config.initialPerformerRelatedImages?.[mode] ?? [],
         galleryImagePaths: config.initialGalleryImagePaths?.[mode] ?? [],
         sourceLinks: config.initialSourceLinks?.[mode] ?? [],
+        glossaryRefs: config.initialGlossaryRefs?.[mode] ?? [],
         credits:
           initialCredits.length
             ? initialCredits
@@ -321,6 +330,17 @@ function FormPage({
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isTauriRuntimeAvailable()) return undefined;
+    void listGlossaryEntries().then((entries) => {
+      if (!cancelled) setAvailableGlossary(entries);
+    }).catch(() => {
+      if (!cancelled) setAvailableGlossary([]);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -525,6 +545,7 @@ function FormPage({
     performerRelatedImages,
     galleryImagePaths,
     sourceLinks,
+    glossaryRefs,
     credits,
   });
   const isDirty = currentSnapshot !== cleanSnapshot;
@@ -755,6 +776,7 @@ function FormPage({
         performerRelatedImages,
         galleryImagePaths,
         sourceLinks,
+        glossaryRefs,
         credits,
       });
       setSaveState(result.state);
@@ -1187,6 +1209,37 @@ function FormPage({
           managedCategoryRecords={managedCategoryRecords}
           onChange={setCategories}
         />
+        <div className="mt-5 grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={Boolean(values.rPlus)}
+              onChange={(event) => updateValue("rPlus", event.target.checked)}
+            />
+            {t("safeFilter.form.directRPlus")}
+          </label>
+          <fieldset>
+            <legend className="text-sm font-semibold text-slate-700">{t("safeFilter.form.glossaryRefs")}</legend>
+            {availableGlossary.length === 0 ? (
+              <p className="mt-2 text-xs font-medium text-slate-500">{t("safeFilter.form.noGlossary")}</p>
+            ) : (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {availableGlossary.map((entry) => (
+                  <label key={entry.id} className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={glossaryRefs.includes(entry.id)}
+                      onChange={(event) => setGlossaryRefs((current) => event.target.checked
+                        ? [...current, entry.id]
+                        : current.filter((id) => id !== entry.id))}
+                    />
+                    <span className="truncate">{entry.term}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
+        </div>
       </FormSection>
 
       <FormSection index={6} title={t("form.rating")}>

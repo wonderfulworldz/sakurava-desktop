@@ -144,6 +144,10 @@ export const videoCsvSchema: CsvSchemaColumn<Video>[] = [
   listColumn("Categories", "categoriesJson", (record) =>
     parseTextLabelArray(record.categoriesJson),
   ),
+  booleanColumn("R+", "rPlus"),
+  listColumn("Glossary Refs", "glossaryRefsJson", (record) =>
+    parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
+  ),
   listColumn("Related Performers", "relatedPerformersJson", (record) =>
     parseRelatedPerformerArray(record.relatedPerformersJson).map((reference) =>
       relatedDisplay("PER", reference.performerId, reference.nameSnapshot),
@@ -176,6 +180,10 @@ export const imageCsvSchema: CsvSchemaColumn<Image>[] = [
   textColumn("Code", "code"),
   listColumn("Categories", "categoriesJson", (record) =>
     parseTextLabelArray(record.categoriesJson),
+  ),
+  booleanColumn("R+", "rPlus"),
+  listColumn("Glossary Refs", "glossaryRefsJson", (record) =>
+    parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
   ),
   listColumn("Related Performers", "relatedPerformersJson", (record) =>
     parseRelatedPerformerArray(record.relatedPerformersJson).map((reference) =>
@@ -211,6 +219,10 @@ export const performerCsvSchema: CsvSchemaColumn<Performer>[] = [
   ),
   listColumn("Categories", "categoriesJson", (record) =>
     parseTextLabelArray(record.categoriesJson),
+  ),
+  booleanColumn("R+", "rPlus"),
+  listColumn("Glossary Refs", "glossaryRefsJson", (record) =>
+    parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
   ),
   listColumn("Related Videos", "relatedVideosJson", (record) =>
     parseRelatedCatalogRecordArray(record.relatedVideosJson).map((reference) =>
@@ -255,6 +267,7 @@ export const categoryCsvSchema: CsvSchemaColumn<CategoryCsvRecord>[] = [
     example: "CAT-EXAMPLE-PARENT",
   },
   multilineTextColumn("Description", "description"),
+  booleanColumn("R+", "rPlus"),
   booleanColumn("Show in Videos", "showInVideos"),
   booleanColumn("Show in Images", "showInImages"),
   booleanColumn("Show in Performers", "showInPerformers"),
@@ -280,6 +293,7 @@ export const glossaryCsvSchema: CsvSchemaColumn<GlossaryEntry>[] = [
     parseTextLabelArray(record.synonymsJson),
   ),
   textColumn("Category", "category"),
+  booleanColumn("R+", "rPlus"),
   booleanColumn("Favorite", "favorite"),
   textColumn("Source Title", "sourceTitle"),
   textColumn("Source URL", "sourceUrl"),

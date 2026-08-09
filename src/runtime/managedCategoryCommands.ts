@@ -5,10 +5,18 @@ import type {
 } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
 import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
 
 export { isTauriRuntimeAvailable as isManagedCategoryRuntimeAvailable };
 
 export function listManagedCategories() {
+  return invokeTauriCommand<ManagedCategory[]>(
+    getSafeFilterEnabled() ? "managed_category_list_visible" : "managed_category_list",
+  );
+}
+
+/** Complete authoritative data for Import/Export planning only. */
+export function listManagedCategoriesComplete() {
   return invokeTauriCommand<ManagedCategory[]>("managed_category_list");
 }
 

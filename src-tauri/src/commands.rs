@@ -62,6 +62,7 @@ use crate::restore_coordinator::{
     rotate_automatic_backup_packages_v2_and_legacy, RestorePackagePreview, RestoreRecoveryStatus,
     RestoreRollbackTransition, RestoreStateTransition,
 };
+use crate::safe_filter::{sanitize_related_json, visible_catalog_ids, VisibleCatalogIds};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 const IMPORT_PLAN_PROCESSING_FAILURE: &str =
@@ -89,7 +90,9 @@ pub struct Video {
     pub related_performers_json: String,
     pub related_images_json: String,
     pub source_links_json: String,
+    pub glossary_refs_json: String,
     pub rating_json: String,
+    pub r_plus: bool,
     pub notes: String,
     pub favorite: bool,
     pub created_at: String,
@@ -117,7 +120,9 @@ pub struct VideoInput {
     pub related_performers_json: Option<String>,
     pub related_images_json: Option<String>,
     pub source_links_json: Option<String>,
+    pub glossary_refs_json: Option<String>,
     pub rating_json: Option<String>,
+    pub r_plus: Option<bool>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
 }
@@ -142,7 +147,9 @@ pub struct VideoPatch {
     pub related_performers_json: Option<String>,
     pub related_images_json: Option<String>,
     pub source_links_json: Option<String>,
+    pub glossary_refs_json: Option<String>,
     pub rating_json: Option<String>,
+    pub r_plus: Option<bool>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
 }
@@ -170,7 +177,9 @@ pub struct Image {
     pub related_performers_json: String,
     pub related_videos_json: String,
     pub source_links_json: String,
+    pub glossary_refs_json: String,
     pub rating_json: String,
+    pub r_plus: bool,
     pub notes: String,
     pub favorite: bool,
     pub created_at: String,
@@ -199,7 +208,9 @@ pub struct ImageInput {
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
     pub source_links_json: Option<String>,
+    pub glossary_refs_json: Option<String>,
     pub rating_json: Option<String>,
+    pub r_plus: Option<bool>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
 }
@@ -225,7 +236,9 @@ pub struct ImagePatch {
     pub related_performers_json: Option<String>,
     pub related_videos_json: Option<String>,
     pub source_links_json: Option<String>,
+    pub glossary_refs_json: Option<String>,
     pub rating_json: Option<String>,
+    pub r_plus: Option<bool>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
 }
@@ -257,8 +270,10 @@ pub struct Performer {
     pub related_videos_json: String,
     pub related_images_json: String,
     pub source_links_json: String,
+    pub glossary_refs_json: String,
     pub categories_json: String,
     pub rating_json: String,
+    pub r_plus: bool,
     pub notes: String,
     pub favorite: bool,
     pub created_at: String,
@@ -291,8 +306,10 @@ pub struct PerformerInput {
     pub related_videos_json: Option<String>,
     pub related_images_json: Option<String>,
     pub source_links_json: Option<String>,
+    pub glossary_refs_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
+    pub r_plus: Option<bool>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
 }
@@ -322,8 +339,10 @@ pub struct PerformerPatch {
     pub related_videos_json: Option<String>,
     pub related_images_json: Option<String>,
     pub source_links_json: Option<String>,
+    pub glossary_refs_json: Option<String>,
     pub categories_json: Option<String>,
     pub rating_json: Option<String>,
+    pub r_plus: Option<bool>,
     pub notes: Option<String>,
     pub favorite: Option<bool>,
 }
@@ -333,6 +352,13 @@ pub struct PerformerPatch {
 pub struct DeleteResult {
     pub id: String,
     pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SafeFilterRecord<T> {
+    pub state: String,
+    pub record: Option<T>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -349,6 +375,7 @@ pub struct GlossaryEntry {
     pub favorite: bool,
     pub source_title: String,
     pub source_url: String,
+    pub r_plus: bool,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -366,6 +393,7 @@ pub struct GlossaryEntryInput {
     pub favorite: Option<bool>,
     pub source_title: Option<String>,
     pub source_url: Option<String>,
+    pub r_plus: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -380,6 +408,7 @@ pub struct GlossaryEntryPatch {
     pub favorite: Option<bool>,
     pub source_title: Option<String>,
     pub source_url: Option<String>,
+    pub r_plus: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -395,6 +424,7 @@ pub struct ManagedCategory {
     pub show_in_images: bool,
     pub show_in_performers: bool,
     pub show_in_credits: bool,
+    pub r_plus: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -412,6 +442,7 @@ pub struct ManagedCategoryInput {
     pub show_in_images: Option<bool>,
     pub show_in_performers: Option<bool>,
     pub show_in_credits: Option<bool>,
+    pub r_plus: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -425,6 +456,7 @@ pub struct ManagedCategoryPatch {
     pub show_in_images: Option<bool>,
     pub show_in_performers: Option<bool>,
     pub show_in_credits: Option<bool>,
+    pub r_plus: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -967,6 +999,18 @@ pub fn video_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<Video>, St
 }
 
 #[tauri::command]
+pub fn video_list_visible(database: State<'_, RuntimeDatabase>) -> Result<Vec<Video>, String> {
+    with_connection(&database, |connection| {
+        let visible = visible_catalog_ids(connection)?;
+        Ok(list_videos(connection)?
+            .into_iter()
+            .filter(|video| visible.videos.contains(&video.id))
+            .map(|video| sanitize_video(video, &visible))
+            .collect())
+    })
+}
+
+#[tauri::command]
 pub fn video_get(
     database: State<'_, RuntimeDatabase>,
     id: String,
@@ -975,6 +1019,35 @@ pub fn video_get(
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
         get_video(connection, &id)
+    })
+}
+
+#[tauri::command]
+pub fn video_get_visible(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<SafeFilterRecord<Video>, String> {
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "V", "videos", "id", &id)?;
+        let Some(video) = get_video(connection, &id)? else {
+            return Ok(SafeFilterRecord {
+                state: "missing".to_string(),
+                record: None,
+            });
+        };
+        let visible = visible_catalog_ids(connection)?;
+        Ok(if visible.videos.contains(&video.id) {
+            SafeFilterRecord {
+                state: "visible".to_string(),
+                record: Some(sanitize_video(video, &visible)),
+            }
+        } else {
+            SafeFilterRecord {
+                state: "hidden".to_string(),
+                record: None,
+            }
+        })
     })
 }
 
@@ -1042,6 +1115,18 @@ pub fn image_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<Image>, St
 }
 
 #[tauri::command]
+pub fn image_list_visible(database: State<'_, RuntimeDatabase>) -> Result<Vec<Image>, String> {
+    with_connection(&database, |connection| {
+        let visible = visible_catalog_ids(connection)?;
+        Ok(list_images(connection)?
+            .into_iter()
+            .filter(|image| visible.images.contains(&image.id))
+            .map(|image| sanitize_image(image, &visible))
+            .collect())
+    })
+}
+
+#[tauri::command]
 pub fn image_get(
     database: State<'_, RuntimeDatabase>,
     id: String,
@@ -1050,6 +1135,35 @@ pub fn image_get(
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
         get_image(connection, &id)
+    })
+}
+
+#[tauri::command]
+pub fn image_get_visible(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<SafeFilterRecord<Image>, String> {
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "I", "images", "id", &id)?;
+        let Some(image) = get_image(connection, &id)? else {
+            return Ok(SafeFilterRecord {
+                state: "missing".to_string(),
+                record: None,
+            });
+        };
+        let visible = visible_catalog_ids(connection)?;
+        Ok(if visible.images.contains(&image.id) {
+            SafeFilterRecord {
+                state: "visible".to_string(),
+                record: Some(sanitize_image(image, &visible)),
+            }
+        } else {
+            SafeFilterRecord {
+                state: "hidden".to_string(),
+                record: None,
+            }
+        })
     })
 }
 
@@ -1121,6 +1235,20 @@ pub fn performer_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<Perfor
 }
 
 #[tauri::command]
+pub fn performer_list_visible(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<Vec<Performer>, String> {
+    with_connection(&database, |connection| {
+        let visible = visible_catalog_ids(connection)?;
+        Ok(list_performers(connection)?
+            .into_iter()
+            .filter(|performer| visible.performers.contains(&performer.id))
+            .map(|performer| sanitize_performer(performer, &visible))
+            .collect())
+    })
+}
+
+#[tauri::command]
 pub fn performer_get(
     database: State<'_, RuntimeDatabase>,
     id: String,
@@ -1129,6 +1257,35 @@ pub fn performer_get(
         require_migrated_sakurava_refs(connection)?;
         let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
         get_performer(connection, &id)
+    })
+}
+
+#[tauri::command]
+pub fn performer_get_visible(
+    database: State<'_, RuntimeDatabase>,
+    id: String,
+) -> Result<SafeFilterRecord<Performer>, String> {
+    with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(connection, "P", "performers", "id", &id)?;
+        let Some(performer) = get_performer(connection, &id)? else {
+            return Ok(SafeFilterRecord {
+                state: "missing".to_string(),
+                record: None,
+            });
+        };
+        let visible = visible_catalog_ids(connection)?;
+        Ok(if visible.performers.contains(&performer.id) {
+            SafeFilterRecord {
+                state: "visible".to_string(),
+                record: Some(sanitize_performer(performer, &visible)),
+            }
+        } else {
+            SafeFilterRecord {
+                state: "hidden".to_string(),
+                record: None,
+            }
+        })
     })
 }
 
@@ -1201,6 +1358,19 @@ pub fn managed_category_list(
     database: State<'_, RuntimeDatabase>,
 ) -> Result<Vec<ManagedCategory>, String> {
     with_connection(&database, list_managed_categories)
+}
+
+#[tauri::command]
+pub fn managed_category_list_visible(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<Vec<ManagedCategory>, String> {
+    with_connection(&database, |connection| {
+        let visible = visible_catalog_ids(connection)?;
+        Ok(list_managed_categories(connection)?
+            .into_iter()
+            .filter(|category| visible.categories.contains(&category.key))
+            .collect())
+    })
 }
 
 #[tauri::command]
@@ -1278,6 +1448,19 @@ pub fn glossary_create(
 #[tauri::command]
 pub fn glossary_list(database: State<'_, RuntimeDatabase>) -> Result<Vec<GlossaryEntry>, String> {
     with_connection(&database, list_glossary_entries)
+}
+
+#[tauri::command]
+pub fn glossary_list_visible(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<Vec<GlossaryEntry>, String> {
+    with_connection(&database, |connection| {
+        let visible = visible_catalog_ids(connection)?;
+        Ok(list_glossary_entries(connection)?
+            .into_iter()
+            .filter(|entry| visible.glossary.contains(&entry.id))
+            .collect())
+    })
 }
 
 #[tauri::command]
@@ -1620,7 +1803,9 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
         related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_images_json: normalize_related_catalog_records_json(input.related_images_json),
         source_links_json: normalize_source_links_json(input.source_links_json),
+        glossary_refs_json: normalize_string_array_json(input.glossary_refs_json),
         rating_json: normalize_object_json(input.rating_json),
+        r_plus: input.r_plus.unwrap_or(false),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
         created_at: timestamp.clone(),
@@ -1633,8 +1818,8 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 id, sakuravaRef, title, originalTitle, code, censorship, availability, releaseDate,
                 durationMinutes, resolution, fileSizeBytes, fileType,
                 publisherLabel, coverPath, mediaPath, categoriesJson,
-                relatedPerformersJson, relatedImagesJson, source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+                relatedPerformersJson, relatedImagesJson, source_links_json, glossaryRefsJson, ratingJson, rPlus, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
             params![
                 video.id,
                 video.sakurava_ref,
@@ -1655,7 +1840,9 @@ fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, Str
                 video.related_performers_json,
                 video.related_images_json,
                 video.source_links_json,
+                video.glossary_refs_json,
                 video.rating_json,
+                bool_to_int(video.r_plus),
                 video.notes,
                 bool_to_int(video.favorite),
                 video.created_at,
@@ -1729,12 +1916,18 @@ fn update_video(
     if patch.source_links_json.is_some() {
         video.source_links_json = normalize_source_links_json(patch.source_links_json);
     }
+    if patch.glossary_refs_json.is_some() {
+        video.glossary_refs_json = normalize_string_array_json(patch.glossary_refs_json);
+    }
     if patch.rating_json.is_some() {
         video.rating_json = normalize_object_json(patch.rating_json);
     }
     apply_text(&mut video.notes, patch.notes);
     if let Some(favorite) = patch.favorite {
         video.favorite = favorite;
+    }
+    if let Some(r_plus) = patch.r_plus {
+        video.r_plus = r_plus;
     }
     video.updated_at = current_timestamp();
 
@@ -1746,9 +1939,9 @@ fn update_video(
                 resolution = ?9, fileSizeBytes = ?10, fileType = ?11,
                 publisherLabel = ?12, coverPath = ?13, mediaPath = ?14,
                 categoriesJson = ?15, relatedPerformersJson = ?16,
-                relatedImagesJson = ?17, source_links_json = ?18,
-                ratingJson = ?19, notes = ?20,
-                favorite = ?21, updatedAt = ?22
+                relatedImagesJson = ?17, source_links_json = ?18, glossaryRefsJson = ?19,
+                ratingJson = ?20, rPlus = ?21, notes = ?22,
+                favorite = ?23, updatedAt = ?24
             WHERE id = ?1",
             params![
                 video.id,
@@ -1769,7 +1962,9 @@ fn update_video(
                 video.related_performers_json,
                 video.related_images_json,
                 video.source_links_json,
+                video.glossary_refs_json,
                 video.rating_json,
+                bool_to_int(video.r_plus),
                 video.notes,
                 bool_to_int(video.favorite),
                 video.updated_at
@@ -1814,7 +2009,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
         related_performers_json: normalize_related_performers_json(input.related_performers_json),
         related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
         source_links_json: normalize_source_links_json(input.source_links_json),
+        glossary_refs_json: normalize_string_array_json(input.glossary_refs_json),
         rating_json: normalize_object_json(input.rating_json),
+        r_plus: input.r_plus.unwrap_or(false),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
         created_at: timestamp.clone(),
@@ -1828,8 +2025,8 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 publisherLabel, coverPath, folderPath, imageCount, galleryImagePathsJson,
                 mainResolution, totalFileSizeBytes, mainFileType,
                 categoriesJson, relatedPerformersJson, relatedVideosJson,
-                source_links_json, ratingJson, notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
+                source_links_json, glossaryRefsJson, ratingJson, rPlus, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
             params![
                 image.id,
                 image.sakurava_ref,
@@ -1851,7 +2048,9 @@ fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, Str
                 image.related_performers_json,
                 image.related_videos_json,
                 image.source_links_json,
+                image.glossary_refs_json,
                 image.rating_json,
+                bool_to_int(image.r_plus),
                 image.notes,
                 bool_to_int(image.favorite),
                 image.created_at,
@@ -1929,12 +2128,18 @@ fn update_image(
     if patch.source_links_json.is_some() {
         image.source_links_json = normalize_source_links_json(patch.source_links_json);
     }
+    if patch.glossary_refs_json.is_some() {
+        image.glossary_refs_json = normalize_string_array_json(patch.glossary_refs_json);
+    }
     if patch.rating_json.is_some() {
         image.rating_json = normalize_object_json(patch.rating_json);
     }
     apply_text(&mut image.notes, patch.notes);
     if let Some(favorite) = patch.favorite {
         image.favorite = favorite;
+    }
+    if let Some(r_plus) = patch.r_plus {
+        image.r_plus = r_plus;
     }
     image.updated_at = current_timestamp();
 
@@ -1947,8 +2152,8 @@ fn update_image(
                 galleryImagePathsJson = ?12, mainResolution = ?13,
                 totalFileSizeBytes = ?14, mainFileType = ?15, categoriesJson = ?16,
                 relatedPerformersJson = ?17, relatedVideosJson = ?18,
-                source_links_json = ?19, ratingJson = ?20, notes = ?21,
-                favorite = ?22, updatedAt = ?23
+                source_links_json = ?19, glossaryRefsJson = ?20, ratingJson = ?21,
+                rPlus = ?22, notes = ?23, favorite = ?24, updatedAt = ?25
             WHERE id = ?1",
             params![
                 image.id,
@@ -1970,7 +2175,9 @@ fn update_image(
                 image.related_performers_json,
                 image.related_videos_json,
                 image.source_links_json,
+                image.glossary_refs_json,
                 image.rating_json,
+                bool_to_int(image.r_plus),
                 image.notes,
                 bool_to_int(image.favorite),
                 image.updated_at
@@ -2019,8 +2226,10 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
         related_videos_json: normalize_related_catalog_records_json(input.related_videos_json),
         related_images_json: normalize_related_catalog_records_json(input.related_images_json),
         source_links_json: normalize_source_links_json(input.source_links_json),
+        glossary_refs_json: normalize_string_array_json(input.glossary_refs_json),
         categories_json: normalize_string_array_json(input.categories_json),
         rating_json: normalize_object_json(input.rating_json),
+        r_plus: input.r_plus.unwrap_or(false),
         notes: default_text(input.notes),
         favorite: input.favorite.unwrap_or(false),
         created_at: timestamp.clone(),
@@ -2034,9 +2243,9 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 birthDate, gender, birthplace, nationality, bloodType, heightCm, weightKg,
                 measurements, cupSize, coverPath, performerThumbnailPathsJson,
                 filmographyCount, pictorialsCount, relatedVideosJson,
-                relatedImagesJson, source_links_json, categoriesJson, ratingJson,
-                notes, favorite, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)",
+                relatedImagesJson, source_links_json, glossaryRefsJson, categoriesJson, ratingJson,
+                rPlus, notes, favorite, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)",
             params![
                 performer.id,
                 performer.sakurava_ref,
@@ -2062,8 +2271,10 @@ fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Pe
                 performer.related_videos_json,
                 performer.related_images_json,
                 performer.source_links_json,
+                performer.glossary_refs_json,
                 performer.categories_json,
                 performer.rating_json,
+                bool_to_int(performer.r_plus),
                 performer.notes,
                 bool_to_int(performer.favorite),
                 performer.created_at,
@@ -2154,6 +2365,9 @@ fn update_performer(
     if patch.source_links_json.is_some() {
         performer.source_links_json = normalize_source_links_json(patch.source_links_json);
     }
+    if patch.glossary_refs_json.is_some() {
+        performer.glossary_refs_json = normalize_string_array_json(patch.glossary_refs_json);
+    }
     if patch.categories_json.is_some() {
         performer.categories_json = normalize_string_array_json(patch.categories_json);
     }
@@ -2163,6 +2377,9 @@ fn update_performer(
     apply_text(&mut performer.notes, patch.notes);
     if let Some(favorite) = patch.favorite {
         performer.favorite = favorite;
+    }
+    if let Some(r_plus) = patch.r_plus {
+        performer.r_plus = r_plus;
     }
     performer.updated_at = current_timestamp();
 
@@ -2176,8 +2393,8 @@ fn update_performer(
                 coverPath = ?17, performerThumbnailPathsJson = ?18,
                 filmographyCount = ?19, pictorialsCount = ?20,
                 relatedVideosJson = ?21, relatedImagesJson = ?22,
-                source_links_json = ?23, categoriesJson = ?24, ratingJson = ?25,
-                notes = ?26, favorite = ?27, updatedAt = ?28
+                source_links_json = ?23, glossaryRefsJson = ?24, categoriesJson = ?25,
+                ratingJson = ?26, rPlus = ?27, notes = ?28, favorite = ?29, updatedAt = ?30
             WHERE id = ?1",
             params![
                 performer.id,
@@ -2203,8 +2420,10 @@ fn update_performer(
                 performer.related_videos_json,
                 performer.related_images_json,
                 performer.source_links_json,
+                performer.glossary_refs_json,
                 performer.categories_json,
                 performer.rating_json,
+                bool_to_int(performer.r_plus),
                 performer.notes,
                 bool_to_int(performer.favorite),
                 performer.updated_at
@@ -2253,6 +2472,7 @@ fn create_managed_category(
         show_in_images: input.show_in_images.unwrap_or(true),
         show_in_performers: input.show_in_performers.unwrap_or(true),
         show_in_credits: input.show_in_credits.unwrap_or(false),
+        r_plus: input.r_plus.unwrap_or(false),
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
@@ -2261,8 +2481,8 @@ fn create_managed_category(
         .execute(
             "INSERT INTO managedCategories (
                 key, sakuravaRef, name, parentKey, description, thumbnailPath,
-                showInVideos, showInImages, showInPerformers, showInCredits, createdAt, updatedAt
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                showInVideos, showInImages, showInPerformers, showInCredits, rPlus, createdAt, updatedAt
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 category.key,
                 category.sakurava_ref,
@@ -2274,6 +2494,7 @@ fn create_managed_category(
                 category.show_in_images,
                 category.show_in_performers,
                 category.show_in_credits,
+                bool_to_int(category.r_plus),
                 category.created_at,
                 category.updated_at
             ],
@@ -2348,6 +2569,9 @@ fn update_managed_category(
     if let Some(show_in_credits) = patch.show_in_credits {
         category.show_in_credits = show_in_credits;
     }
+    if let Some(r_plus) = patch.r_plus {
+        category.r_plus = r_plus;
+    }
     category.updated_at = current_timestamp();
 
     connection
@@ -2355,8 +2579,8 @@ fn update_managed_category(
             "UPDATE managedCategories SET
                 name = ?1, parentKey = ?2, description = ?3, thumbnailPath = ?4,
                 showInVideos = ?5, showInImages = ?6, showInPerformers = ?7,
-                showInCredits = ?8, updatedAt = ?9
-             WHERE key = ?10",
+                showInCredits = ?8, rPlus = ?9, updatedAt = ?10
+             WHERE key = ?11",
             params![
                 category.name,
                 category.parent_key,
@@ -2366,6 +2590,7 @@ fn update_managed_category(
                 category.show_in_images,
                 category.show_in_performers,
                 category.show_in_credits,
+                bool_to_int(category.r_plus),
                 category.updated_at,
                 key
             ],
@@ -2609,6 +2834,7 @@ fn create_glossary_entry(
         favorite: input.favorite.unwrap_or(false),
         source_title: default_text(input.source_title),
         source_url,
+        r_plus: input.r_plus.unwrap_or(false),
         created_at: timestamp,
         updated_at: timestamp,
     };
@@ -2617,9 +2843,9 @@ fn create_glossary_entry(
         .execute(
             "INSERT INTO glossary_entries (
                 id, sakuravaRef, term, definition, synonyms_json, category, parent_id,
-                thumbnail_path, favorite, source_title, source_url,
+                thumbnail_path, favorite, source_title, source_url, rPlus,
                 created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 entry.id,
                 entry.sakurava_ref,
@@ -2632,6 +2858,7 @@ fn create_glossary_entry(
                 bool_to_int(entry.favorite),
                 entry.source_title,
                 entry.source_url,
+                bool_to_int(entry.r_plus),
                 entry.created_at,
                 entry.updated_at
             ],
@@ -2736,6 +2963,9 @@ fn update_glossary_entry(
     if patch.source_url.is_some() {
         entry.source_url = normalize_source_url(patch.source_url)?;
     }
+    if let Some(r_plus) = patch.r_plus {
+        entry.r_plus = r_plus;
+    }
     entry.updated_at = current_timestamp_i64();
 
     connection
@@ -2743,7 +2973,7 @@ fn update_glossary_entry(
             "UPDATE glossary_entries SET
                 term = ?2, definition = ?3, synonyms_json = ?4, category = ?5,
                 parent_id = ?6, thumbnail_path = ?7, favorite = ?8,
-                source_title = ?9, source_url = ?10, updated_at = ?11
+                source_title = ?9, source_url = ?10, rPlus = ?11, updated_at = ?12
              WHERE id = ?1",
             params![
                 entry.id,
@@ -2756,6 +2986,7 @@ fn update_glossary_entry(
                 bool_to_int(entry.favorite),
                 entry.source_title,
                 entry.source_url,
+                bool_to_int(entry.r_plus),
                 entry.updated_at
             ],
         )
@@ -5363,6 +5594,36 @@ fn is_filesystem_root(path: &Path) -> bool {
     path.parent().is_none()
 }
 
+fn sanitize_video(mut video: Video, visible: &VisibleCatalogIds) -> Video {
+    video.related_performers_json = sanitize_related_json(
+        &video.related_performers_json,
+        "performerId",
+        &visible.performers,
+    );
+    video.related_images_json =
+        sanitize_related_json(&video.related_images_json, "recordId", &visible.images);
+    video
+}
+
+fn sanitize_image(mut image: Image, visible: &VisibleCatalogIds) -> Image {
+    image.related_performers_json = sanitize_related_json(
+        &image.related_performers_json,
+        "performerId",
+        &visible.performers,
+    );
+    image.related_videos_json =
+        sanitize_related_json(&image.related_videos_json, "recordId", &visible.videos);
+    image
+}
+
+fn sanitize_performer(mut performer: Performer, visible: &VisibleCatalogIds) -> Performer {
+    performer.related_videos_json =
+        sanitize_related_json(&performer.related_videos_json, "recordId", &visible.videos);
+    performer.related_images_json =
+        sanitize_related_json(&performer.related_images_json, "recordId", &visible.images);
+    performer
+}
+
 fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
     Ok(Video {
         id: row.get("id")?,
@@ -5384,7 +5645,9 @@ fn video_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Video> {
         related_performers_json: row.get("relatedPerformersJson")?,
         related_images_json: row.get("relatedImagesJson")?,
         source_links_json: row.get("source_links_json")?,
+        glossary_refs_json: row.get("glossaryRefsJson")?,
         rating_json: row.get("ratingJson")?,
+        r_plus: int_to_bool(row.get("rPlus")?),
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
         created_at: row.get("createdAt")?,
@@ -5414,7 +5677,9 @@ fn image_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Image> {
         related_performers_json: row.get("relatedPerformersJson")?,
         related_videos_json: row.get("relatedVideosJson")?,
         source_links_json: row.get("source_links_json")?,
+        glossary_refs_json: row.get("glossaryRefsJson")?,
         rating_json: row.get("ratingJson")?,
+        r_plus: int_to_bool(row.get("rPlus")?),
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
         created_at: row.get("createdAt")?,
@@ -5448,8 +5713,10 @@ fn performer_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Performer> {
         related_videos_json: row.get("relatedVideosJson")?,
         related_images_json: row.get("relatedImagesJson")?,
         source_links_json: row.get("source_links_json")?,
+        glossary_refs_json: row.get("glossaryRefsJson")?,
         categories_json: row.get("categoriesJson")?,
         rating_json: row.get("ratingJson")?,
+        r_plus: int_to_bool(row.get("rPlus")?),
         notes: row.get("notes")?,
         favorite: int_to_bool(row.get("favorite")?),
         created_at: row.get("createdAt")?,
@@ -5469,6 +5736,7 @@ fn managed_category_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Manage
         show_in_images: row.get("showInImages")?,
         show_in_performers: row.get("showInPerformers")?,
         show_in_credits: row.get("showInCredits")?,
+        r_plus: int_to_bool(row.get("rPlus")?),
         created_at: row.get("createdAt")?,
         updated_at: row.get("updatedAt")?,
     })
@@ -5487,6 +5755,7 @@ fn glossary_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Glossary
         favorite: int_to_bool(row.get("favorite")?),
         source_title: row.get("source_title")?,
         source_url: row.get("source_url")?,
+        r_plus: int_to_bool(row.get("rPlus")?),
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -6099,6 +6368,7 @@ mod tests {
                 favorite: Some(true),
                 source_title: Some("  Safety plan  ".to_string()),
                 source_url: Some(" https://example.invalid/source ".to_string()),
+                r_plus: None,
             },
         )
         .expect("create glossary");
@@ -6137,6 +6407,7 @@ mod tests {
                 favorite: Some(false),
                 source_title: Some("Updated Source".to_string()),
                 source_url: Some("http://example.invalid/updated".to_string()),
+                r_plus: None,
             },
         )
         .expect("update glossary")
@@ -6195,6 +6466,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect_err("term required"),
@@ -6215,6 +6487,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect_err("definition required"),
@@ -6235,6 +6508,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: Some("example.invalid/source".to_string()),
+                    r_plus: None,
                 },
             )
             .expect_err("source url protocol required"),
@@ -6254,6 +6528,7 @@ mod tests {
                 favorite: None,
                 source_title: None,
                 source_url: None,
+                r_plus: None,
             },
         )
         .expect("bad synonyms normalize");
@@ -6276,6 +6551,7 @@ mod tests {
                 favorite: None,
                 source_title: None,
                 source_url: None,
+                r_plus: None,
             },
         )
         .expect("create parent");
@@ -6293,6 +6569,7 @@ mod tests {
                 favorite: None,
                 source_title: None,
                 source_url: None,
+                r_plus: None,
             },
         )
         .expect("create child");
@@ -6316,6 +6593,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect_err("cycle rejected"),
@@ -6353,7 +6631,9 @@ mod tests {
                 source_links_json: Some(
                     r#"[{"title":" Studio ","url":" https://example.invalid/video "},{"title":"","url":""}]"#.to_string(),
                 ),
+                glossary_refs_json: None,
                 rating_json: Some(r#"{"score":4,"source":"manual"}"#.to_string()),
+                r_plus: None,
                 notes: None,
                 favorite: None,
             },
@@ -6410,7 +6690,9 @@ mod tests {
                     r#"[{"recordId":"image-2","titleSnapshot":"Image Two"}]"#.to_string(),
                 ),
                 source_links_json: Some("invalid".to_string()),
+                glossary_refs_json: None,
                 rating_json: Some("invalid".to_string()),
+                r_plus: None,
                 notes: Some("note".to_string()),
                 favorite: Some(true),
             },
@@ -6476,7 +6758,9 @@ mod tests {
                     r#"[{"title":"Image Source","url":"https://example.invalid/image"}]"#
                         .to_string(),
                 ),
+                glossary_refs_json: None,
                 rating_json: Some(r#"{"score":5}"#.to_string()),
+                r_plus: None,
                 notes: None,
                 favorite: None,
             },
@@ -6537,7 +6821,9 @@ mod tests {
                 source_links_json: Some(
                     r#"[{"title":"","url":"https://example.invalid/url-only"}]"#.to_string(),
                 ),
+                glossary_refs_json: None,
                 rating_json: Some(r#"{"quality":"high"}"#.to_string()),
+                r_plus: None,
                 notes: None,
                 favorite: Some(true),
             },
@@ -6660,7 +6946,9 @@ mod tests {
                     r#"[{"title":"Performer Source","url":"https://example.invalid/performer"}]"#.to_string(),
                 ),
                 categories_json: Some(r#"["Featured"]"#.to_string()),
+                glossary_refs_json: None,
                 rating_json: Some(r#"{"score":3}"#.to_string()),
+                r_plus: None,
                 notes: None,
                 favorite: None,
             },
@@ -6731,7 +7019,9 @@ mod tests {
                 ),
                 source_links_json: Some("{bad json".to_string()),
                 categories_json: None,
+                glossary_refs_json: None,
                 rating_json: Some("[]".to_string()),
+                r_plus: None,
                 notes: Some("note".to_string()),
                 favorite: Some(true),
             },
@@ -7313,6 +7603,7 @@ mod tests {
                 show_in_images: Some(false),
                 show_in_performers: Some(false),
                 show_in_credits: Some(true),
+                r_plus: None,
             },
         )
         .expect("create credit category");
@@ -7337,6 +7628,7 @@ mod tests {
                 show_in_images: None,
                 show_in_performers: None,
                 show_in_credits: Some(false),
+                r_plus: None,
             },
         )
         .expect("update category")
@@ -7390,6 +7682,7 @@ mod tests {
                 show_in_images: None,
                 show_in_performers: None,
                 show_in_credits: Some(true),
+                r_plus: None,
             },
         )
         .expect("character-text category");
@@ -7418,6 +7711,7 @@ mod tests {
                 show_in_images: None,
                 show_in_performers: None,
                 show_in_credits: Some(true),
+                r_plus: None,
             },
         )
         .expect("role category");
@@ -7771,7 +8065,9 @@ mod tests {
             related_performers_json: None,
             related_images_json: None,
             source_links_json: None,
+            glossary_refs_json: None,
             rating_json: None,
+            r_plus: None,
             notes: None,
             favorite: None,
         }
@@ -8176,6 +8472,7 @@ mod tests {
                     show_in_images: None,
                     show_in_performers: None,
                     show_in_credits: Some(true),
+                    r_plus: None,
                 },
             )
             .expect("category")
@@ -8289,6 +8586,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect("parent")
@@ -8506,6 +8804,7 @@ mod tests {
                     show_in_images: None,
                     show_in_performers: None,
                     show_in_credits: None,
+                    r_plus: None,
                 },
             )
             .expect("category");
@@ -8609,6 +8908,7 @@ mod tests {
                     show_in_images: None,
                     show_in_performers: None,
                     show_in_credits: None,
+                    r_plus: None,
                 },
             )
             .expect("category");
@@ -8625,6 +8925,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect("glossary");
@@ -8730,6 +9031,7 @@ mod tests {
                 show_in_images: None,
                 show_in_performers: None,
                 show_in_credits: None,
+                r_plus: None,
             },
         )
         .expect("new category");
@@ -8746,6 +9048,7 @@ mod tests {
                 favorite: None,
                 source_title: None,
                 source_url: None,
+                r_plus: None,
             },
         )
         .expect("new glossary");
@@ -8777,6 +9080,7 @@ mod tests {
                     show_in_images: None,
                     show_in_performers: None,
                     show_in_credits: None,
+                    r_plus: None,
                 },
             )
             .expect("cleanup category");
@@ -8893,6 +9197,7 @@ mod tests {
                         show_in_images: None,
                         show_in_performers: None,
                         show_in_credits: None,
+                        r_plus: None,
                     },
                 )
                 .expect("category");
@@ -8916,6 +9221,7 @@ mod tests {
                         favorite: None,
                         source_title: None,
                         source_url: None,
+                        r_plus: None,
                     },
                 )
                 .expect("glossary");
@@ -9009,6 +9315,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect("parent");
@@ -9025,6 +9332,7 @@ mod tests {
                     favorite: None,
                     source_title: None,
                     source_url: None,
+                    r_plus: None,
                 },
             )
             .expect("child");
@@ -9621,6 +9929,7 @@ mod tests {
                 show_in_images: None,
                 show_in_performers: None,
                 show_in_credits: None,
+                r_plus: None,
             },
         )
         .expect("category");
@@ -9643,6 +9952,7 @@ mod tests {
                 favorite: None,
                 source_title: None,
                 source_url: None,
+                r_plus: None,
             },
         )
         .expect("glossary");
@@ -10124,7 +10434,9 @@ mod tests {
             related_performers_json: None,
             related_videos_json: None,
             source_links_json: None,
+            glossary_refs_json: None,
             rating_json: None,
+            r_plus: None,
             notes: None,
             favorite: None,
         }
@@ -10156,7 +10468,9 @@ mod tests {
             related_images_json: None,
             source_links_json: None,
             categories_json: None,
+            glossary_refs_json: None,
             rating_json: None,
+            r_plus: None,
             notes: None,
             favorite: None,
         }

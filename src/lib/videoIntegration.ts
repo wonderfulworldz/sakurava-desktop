@@ -139,6 +139,11 @@ export function buildVideoFormConfig(video: Video | null, mode: FormMode): FormC
       edit: formConfigs.videos.initialSourceLinks?.edit ?? [],
       [mode]: parseSourceLinkArray(video.sourceLinksJson),
     },
+    initialGlossaryRefs: {
+      create: formConfigs.videos.initialGlossaryRefs?.create ?? [],
+      edit: formConfigs.videos.initialGlossaryRefs?.edit ?? [],
+      [mode]: parseTextLabelArray(video.glossaryRefsJson ?? "[]"),
+    },
   };
 }
 
@@ -148,6 +153,7 @@ export function videoFormToCreateInput(
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
   sourceLinks: SourceLinkFormValue[] = [],
+  glossaryRefs: string[] = [],
 ): NewVideo {
   return {
     title: textValue(values.title),
@@ -165,6 +171,8 @@ export function videoFormToCreateInput(
     fileType: textValue(values.fileType),
     publisherLabel: textValue(values.publisherLabel),
     categoriesJson: stringifyTextLabelArray(categories),
+    rPlus: Boolean(values.rPlus),
+    glossaryRefsJson: stringifyTextLabelArray(glossaryRefs),
     relatedPerformersJson: normalizeRelatedPerformersJson(
       JSON.stringify(relatedPerformers),
     ),
@@ -183,6 +191,7 @@ export function videoFormToPatch(
   relatedPerformers: RelatedPerformerFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
   sourceLinks: SourceLinkFormValue[] = [],
+  glossaryRefs: string[] = [],
 ): VideoPatch {
   return videoFormToCreateInput(
     values,
@@ -190,6 +199,7 @@ export function videoFormToPatch(
     relatedPerformers,
     relatedImages,
     sourceLinks,
+    glossaryRefs,
   );
 }
 
@@ -229,6 +239,7 @@ function videoToFormValues(video: Video): FormValues {
     originalTitle: video.originalTitle,
     code: video.code,
     favorite: video.favorite,
+    rPlus: video.rPlus ?? false,
     availability: video.availability || "Owned",
     censorship: video.censorship || "Censored",
     coverPath: video.coverPath,

@@ -7,6 +7,10 @@ import {
   exportProtectedStateSnapshot,
   prepareProtectedStateImport,
 } from "../lib/backupStateSnapshot";
+import {
+  applySafeFilterFeatureState,
+  safeFilterFeatureState,
+} from "../lib/safeFilterState";
 
 export { isTauriRuntimeAvailable as isDatabaseRuntimeAvailable };
 
@@ -317,7 +321,9 @@ function currentProtectedState() {
   if (typeof window === "undefined") {
     throw new Error("Protected state is unavailable outside the application window.");
   }
-  const exported = exportProtectedStateSnapshot(window.localStorage);
+  const exported = exportProtectedStateSnapshot(window.localStorage, {
+    featureState: safeFilterFeatureState(),
+  });
   if (!exported.ok) throw new Error(exported.message);
   const encoded = encodeProtectedStateSnapshot(exported.value);
   if (!encoded.ok) throw new Error(encoded.message);
@@ -328,7 +334,10 @@ function applyTransition(transition: RestoreStateTransition) {
   const applied = applyProtectedStateSnapshot(
     window.localStorage,
     transition.protectedState,
-    { expectedStateSha256: transition.expectedStateSha256 },
+    {
+      expectedStateSha256: transition.expectedStateSha256,
+      applyFeatureState: applySafeFilterFeatureState,
+    },
   );
   if (applied.ok) {
     window.dispatchEvent(new Event("sakurava-protected-state-restored"));

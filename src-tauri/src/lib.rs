@@ -1,7 +1,11 @@
 mod commands;
 pub mod database;
 pub mod managed_media;
+pub(crate) mod safe_filter;
+
 pub(crate) mod restore_coordinator;
+#[cfg(test)]
+mod safe_filter_tests;
 #[allow(dead_code)]
 pub(crate) mod skv_package;
 
@@ -63,17 +67,23 @@ pub fn run() {
             commands::gallery_folder_images_list,
             commands::video_create,
             commands::video_list,
+            commands::video_list_visible,
             commands::video_get,
+            commands::video_get_visible,
             commands::video_update,
             commands::video_delete,
             commands::image_create,
             commands::image_list,
+            commands::image_list_visible,
             commands::image_get,
+            commands::image_get_visible,
             commands::image_update,
             commands::image_delete,
             commands::performer_create,
             commands::performer_list,
+            commands::performer_list_visible,
             commands::performer_get,
+            commands::performer_get_visible,
             commands::performer_update,
             commands::performer_delete,
             commands::credit_create,
@@ -85,11 +95,13 @@ pub fn run() {
             commands::credit_list_by_performer,
             commands::managed_category_create,
             commands::managed_category_list,
+            commands::managed_category_list_visible,
             commands::managed_category_get,
             commands::managed_category_update,
             commands::managed_category_delete,
             commands::glossary_create,
             commands::glossary_list,
+            commands::glossary_list_visible,
             commands::glossary_update,
             commands::glossary_delete
         ])

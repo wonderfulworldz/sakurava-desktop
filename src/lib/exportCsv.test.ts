@@ -58,6 +58,8 @@ describe("export CSV helpers", () => {
         "Original Title",
         "Code",
         "Categories",
+        "R+",
+        "Glossary Refs",
         "Related Performers",
         "Related Images",
         "Favorite",
@@ -90,6 +92,8 @@ describe("export CSV helpers", () => {
         "Original Title",
         "Code",
         "Categories",
+        "R+",
+        "Glossary Refs",
         "Related Performers",
         "Related Videos",
         "Favorite",
@@ -122,6 +126,8 @@ describe("export CSV helpers", () => {
         "Original Name",
         "Aliases",
         "Categories",
+        "R+",
+        "Glossary Refs",
         "Related Videos",
         "Related Images",
         "Favorite",
@@ -156,6 +162,7 @@ describe("export CSV helpers", () => {
         "Category Name",
         "Parent Ref",
         "Description",
+        "R+",
         "Show in Videos",
         "Show in Images",
         "Show in Performers",
@@ -238,14 +245,14 @@ describe("export CSV helpers", () => {
 
   it("covers every persisted user-editable field and excludes generated, derived, and path state", () => {
     expect(editableFields(videoCsvSchema)).toEqual([
-      "title", "originalTitle", "code", "categoriesJson", "relatedPerformersJson",
+      "title", "originalTitle", "code", "categoriesJson", "rPlus", "glossaryRefsJson", "relatedPerformersJson",
       "relatedImagesJson", "favorite", "availability", "censorship", "releaseDate",
       "publisherLabel", "durationMinutes", "resolution", "fileSizeBytes", "fileType",
       "sourceLinksJson", "ratingJson.rewatch", "ratingJson.performance", "ratingJson.visual",
       "ratingJson.intensity", "ratingJson.story", "ratingJson.chemistry", "notes",
     ]);
     expect(editableFields(imageCsvSchema)).toEqual([
-      "title", "originalTitle", "code", "categoriesJson", "relatedPerformersJson",
+      "title", "originalTitle", "code", "categoriesJson", "rPlus", "glossaryRefsJson", "relatedPerformersJson",
       "relatedVideosJson", "favorite", "availability", "censorship", "releaseDate",
       "publisherLabel", "imageCount", "mainResolution", "totalFileSizeBytes",
       "mainFileType", "sourceLinksJson", "ratingJson.memorability", "ratingJson.visual",
@@ -253,7 +260,7 @@ describe("export CSV helpers", () => {
       "ratingJson.signature", "notes",
     ]);
     expect(editableFields(performerCsvSchema)).toEqual([
-      "name", "originalName", "aliasesJson", "categoriesJson", "relatedVideosJson",
+      "name", "originalName", "aliasesJson", "categoriesJson", "rPlus", "glossaryRefsJson", "relatedVideosJson",
       "relatedImagesJson", "favorite", "gender", "birthDate", "debutDate", "retiredDate",
       "birthplace", "nationality", "bloodType", "heightCm", "weightKg", "measurements",
       "cupSize", "sourceLinksJson", "ratingJson.attraction", "ratingJson.visual",
@@ -261,11 +268,11 @@ describe("export CSV helpers", () => {
       "ratingJson.versatility", "notes",
     ]);
     expect(editableFields(categoryCsvSchema)).toEqual([
-      "name", "parentCategoryRef", "description", "showInVideos", "showInImages",
+      "name", "parentCategoryRef", "description", "rPlus", "showInVideos", "showInImages",
       "showInPerformers", "showInCredits",
     ]);
     expect(editableFields(glossaryCsvSchema)).toEqual([
-      "term", "definition", "parentId", "synonymsJson", "category", "favorite",
+      "term", "definition", "parentId", "synonymsJson", "category", "rPlus", "favorite",
       "sourceTitle", "sourceUrl",
     ]);
 

@@ -281,6 +281,11 @@ export function buildPerformerFormConfig(
       edit: formConfigs.performers.initialSourceLinks?.edit ?? [],
       [mode]: parseSourceLinkArray(performer.sourceLinksJson),
     },
+    initialGlossaryRefs: {
+      create: formConfigs.performers.initialGlossaryRefs?.create ?? [],
+      edit: formConfigs.performers.initialGlossaryRefs?.edit ?? [],
+      [mode]: parseTextLabelArray(performer.glossaryRefsJson ?? "[]"),
+    },
   };
 }
 
@@ -291,6 +296,7 @@ export function performerFormToCreateInput(
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
   sourceLinks: SourceLinkFormValue[] = [],
+  glossaryRefs: string[] = [],
 ): NewPerformer {
   return {
     name: textValue(values.name),
@@ -324,6 +330,8 @@ export function performerFormToCreateInput(
     ),
     sourceLinksJson: stringifySourceLinkArray(sourceLinks),
     categoriesJson: stringifyTextLabelArray(categories),
+    rPlus: Boolean(values.rPlus),
+    glossaryRefsJson: stringifyTextLabelArray(glossaryRefs),
     ratingJson: JSON.stringify(formRating(values)),
     notes: textValue(values.notes),
   };
@@ -336,6 +344,7 @@ export function performerFormToPatch(
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   relatedImages: RelatedCatalogRecordFormValue[] = [],
   sourceLinks: SourceLinkFormValue[] = [],
+  glossaryRefs: string[] = [],
 ): PerformerPatch {
   return performerFormToCreateInput(
     values,
@@ -344,6 +353,7 @@ export function performerFormToPatch(
     relatedVideos,
     relatedImages,
     sourceLinks,
+    glossaryRefs,
   );
 }
 
@@ -400,6 +410,7 @@ function performerToFormValues(performer: Performer): FormValues {
     name: performer.name,
     originalName: performer.originalName,
     favorite: performer.favorite,
+    rPlus: performer.rPlus ?? false,
     gender: performer.gender ?? "",
     debutDate: performer.debutDate,
     retiredDate: performer.retiredDate,

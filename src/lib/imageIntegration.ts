@@ -148,6 +148,11 @@ export function buildImageFormConfig(image: Image | null, mode: FormMode): FormC
       edit: formConfigs.images.initialSourceLinks?.edit ?? [],
       [mode]: parseSourceLinkArray(image.sourceLinksJson),
     },
+    initialGlossaryRefs: {
+      create: formConfigs.images.initialGlossaryRefs?.create ?? [],
+      edit: formConfigs.images.initialGlossaryRefs?.edit ?? [],
+      [mode]: parseTextLabelArray(image.glossaryRefsJson ?? "[]"),
+    },
   };
 }
 
@@ -158,6 +163,7 @@ export function imageFormToCreateInput(
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   galleryImagePaths: string[] = [],
   sourceLinks: SourceLinkFormValue[] = [],
+  glossaryRefs: string[] = [],
 ): NewImage {
   return {
     title: textValue(values.title),
@@ -176,6 +182,8 @@ export function imageFormToCreateInput(
     publisherLabel: textValue(values.publisherLabel),
     galleryImagePathsJson: stringifyGalleryImagePathArray(galleryImagePaths),
     categoriesJson: stringifyTextLabelArray(categories),
+    rPlus: Boolean(values.rPlus),
+    glossaryRefsJson: stringifyTextLabelArray(glossaryRefs),
     relatedPerformersJson: normalizeRelatedPerformersJson(
       JSON.stringify(relatedPerformers),
     ),
@@ -195,6 +203,7 @@ export function imageFormToPatch(
   relatedVideos: RelatedCatalogRecordFormValue[] = [],
   galleryImagePaths: string[] = [],
   sourceLinks: SourceLinkFormValue[] = [],
+  glossaryRefs: string[] = [],
 ): ImagePatch {
   return imageFormToCreateInput(
     values,
@@ -203,6 +212,7 @@ export function imageFormToPatch(
     relatedVideos,
     galleryImagePaths,
     sourceLinks,
+    glossaryRefs,
   );
 }
 
@@ -242,6 +252,7 @@ function imageToFormValues(image: Image): FormValues {
     originalTitle: image.originalTitle,
     code: image.code,
     favorite: image.favorite,
+    rPlus: image.rPlus ?? false,
     availability: image.availability || "Owned",
     censorship: image.censorship || "Censored",
     coverPath: image.coverPath,

@@ -50,6 +50,7 @@ import {
   AUTOMATIC_BACKUP_SETTINGS_EVENT,
   runAutomaticBackupIfDue,
 } from "./lib/automaticBackup";
+import { SAFE_FILTER_STATE_EVENT } from "./lib/safeFilterState";
 
 function App() {
   const isImageViewerWindow =
@@ -143,6 +144,12 @@ function App() {
     const showUpgradePrompt = () => setRefUpgradePromptDismissed(false);
     window.addEventListener("sakurava-ref-upgrade-requested", showUpgradePrompt);
     return () => window.removeEventListener("sakurava-ref-upgrade-requested", showUpgradePrompt);
+  }, []);
+
+  useEffect(() => {
+    const refreshVisibilityProjection = () => setDatabaseEpoch((current) => current + 1);
+    window.addEventListener(SAFE_FILTER_STATE_EVENT, refreshVisibilityProjection);
+    return () => window.removeEventListener(SAFE_FILTER_STATE_EVENT, refreshVisibilityProjection);
   }, []);
 
   const applyRefMigration = async () => {

@@ -17,6 +17,7 @@ import type {
 } from "../backend/types";
 import type { CreditCsvRecord } from "./exportCsv";
 import { formatSakuravaRef } from "./sakuravaRef";
+import { parseRelatedCatalogRecordArray, parseRelatedPerformerArray, parseTextLabelArray } from "../backend/json";
 
 export function prepareSelectionsWithPublicRefs(
   selections: ExportDataSelection[],
@@ -26,6 +27,7 @@ export function prepareSelectionsWithPublicRefs(
     videos: recordRefMap(byType.get("videos") ?? []),
     images: recordRefMap(byType.get("images") ?? []),
     performers: recordRefMap(byType.get("performers") ?? []),
+    glossary: recordRefMap(byType.get("glossary") ?? []),
   };
   const categoryRefsByName = new Map(
     (byType.get("categories") ?? []).flatMap((record) => {
@@ -45,6 +47,7 @@ export function prepareSelectionsWithPublicRefs(
           categoriesJson: replaceCategoryLabels(video.categoriesJson, categoryRefsByName),
           relatedPerformersJson: replaceRelationshipIds(video.relatedPerformersJson, "performerId", publicRefMaps.performers),
           relatedImagesJson: replaceRelationshipIds(video.relatedImagesJson, "recordId", publicRefMaps.images),
+          glossaryRefsJson: replaceReferenceIds(video.glossaryRefsJson ?? "[]", publicRefMaps.glossary),
         };
       }
       if (selection.dataType === "images") {
@@ -54,6 +57,7 @@ export function prepareSelectionsWithPublicRefs(
           categoriesJson: replaceCategoryLabels(image.categoriesJson, categoryRefsByName),
           relatedPerformersJson: replaceRelationshipIds(image.relatedPerformersJson, "performerId", publicRefMaps.performers),
           relatedVideosJson: replaceRelationshipIds(image.relatedVideosJson, "recordId", publicRefMaps.videos),
+          glossaryRefsJson: replaceReferenceIds(image.glossaryRefsJson ?? "[]", publicRefMaps.glossary),
         };
       }
       if (selection.dataType === "performers") {
@@ -63,6 +67,7 @@ export function prepareSelectionsWithPublicRefs(
           categoriesJson: replaceCategoryLabels(performer.categoriesJson, categoryRefsByName),
           relatedVideosJson: replaceRelationshipIds(performer.relatedVideosJson, "recordId", publicRefMaps.videos),
           relatedImagesJson: replaceRelationshipIds(performer.relatedImagesJson, "recordId", publicRefMaps.images),
+          glossaryRefsJson: replaceReferenceIds(performer.glossaryRefsJson ?? "[]", publicRefMaps.glossary),
         };
       }
       if (selection.dataType === "credits") {
@@ -141,6 +146,92 @@ function replaceRelationshipIds(
       ...value,
       [field]: references.get(String(value[field] ?? "")) ?? value[field],
     })));
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * Safe Filter's export projection.  It is deliberately applied after the
+ * complete authoritative catalog is loaded and before public references are
+ * serialized.  No source record is changed by this projection.
+ */
+export function projectSafeExportSelections(
+  selections: ExportDataSelection[],
+  selectedTypes: ExportCsvEntity[],
+): ExportDataSelection[] {
+  const all = new Map(selections.map((selection) => [selection.dataType, selection.records]));
+  const categories = (all.get("categories") ?? []) as ManagedCategory[];
+  const glossary = (all.get("glossary") ?? []) as Array<{ id: string; rPlus?: boolean; parentId: string }>;
+  const restrictedCategoryNames = new Set(categories
+    .filter((category) => category.rPlus === true)
+    .map((category) => category.name.trim().toLowerCase()));
+  const restrictedGlossaryIds = new Set(glossary.filter((entry) => entry.rPlus === true).map((entry) => entry.id));
+  const isRestricted = (record: { rPlus?: boolean; categoriesJson: string; glossaryRefsJson?: string }) =>
+    record.rPlus === true
+      || parseTextLabelArray(record.categoriesJson).some((name) => restrictedCategoryNames.has(name.trim().toLowerCase()))
+      || parseTextLabelArray(record.glossaryRefsJson ?? "[]").some((id) => restrictedGlossaryIds.has(id));
+  const videos = ((all.get("videos") ?? []) as Video[]).filter((record) => !isRestricted(record));
+  const images = ((all.get("images") ?? []) as Image[]).filter((record) => !isRestricted(record));
+  const performers = ((all.get("performers") ?? []) as Performer[]).filter((record) => !isRestricted(record));
+  const videoIds = new Set(videos.map((record) => record.id));
+  const imageIds = new Set(images.map((record) => record.id));
+  const performerIds = new Set(performers.map((record) => record.id));
+  const visibleGlossary = glossary.filter((entry) => !entry.rPlus);
+  const glossaryIds = new Set(visibleGlossary.map((entry) => entry.id));
+  const visibleCategories = categories.filter((category) => !category.rPlus);
+  const categoryKeys = new Set(visibleCategories.map((category) => category.key));
+  const pruneCatalog = <T extends Video | Image | Performer>(record: T): T => ({
+    ...record,
+    glossaryRefsJson: JSON.stringify(parseTextLabelArray(record.glossaryRefsJson ?? "[]").filter((id) => glossaryIds.has(id))),
+    ...("relatedPerformersJson" in record ? {
+      relatedPerformersJson: JSON.stringify(parseRelatedPerformerArray(record.relatedPerformersJson)
+        .filter((relation) => performerIds.has(relation.performerId))),
+    } : {}),
+    ...("relatedVideosJson" in record ? {
+      relatedVideosJson: JSON.stringify(parseRelatedCatalogRecordArray(record.relatedVideosJson)
+        .filter((relation) => videoIds.has(relation.recordId))),
+    } : {}),
+    ...("relatedImagesJson" in record ? {
+      relatedImagesJson: JSON.stringify(parseRelatedCatalogRecordArray(record.relatedImagesJson)
+        .filter((relation) => imageIds.has(relation.recordId))),
+    } : {}),
+  });
+  const safeCredits = ((all.get("credits") ?? []) as Credit[])
+    .filter((credit) =>
+      (credit.workType === "video" ? videoIds.has(credit.workId) : imageIds.has(credit.workId))
+        && performerIds.has(credit.performerId),
+    )
+    .map((credit) => ({
+      ...credit,
+      roleImportanceCategoryId: credit.roleImportanceCategoryId && categoryKeys.has(credit.roleImportanceCategoryId)
+        ? credit.roleImportanceCategoryId
+        : null,
+    }));
+  const projected = new Map<ExportCsvEntity, unknown[]>([
+    ["videos", videos.map(pruneCatalog)],
+    ["images", images.map(pruneCatalog)],
+    ["performers", performers.map(pruneCatalog)],
+    ["categories", visibleCategories.map((category) => ({
+      ...category,
+      parentKey: category.parentKey && categoryKeys.has(category.parentKey) ? category.parentKey : null,
+    }))],
+    ["glossary", visibleGlossary.map((entry) => ({
+      ...entry,
+      parentId: entry.parentId && glossaryIds.has(entry.parentId) ? entry.parentId : "",
+    }))],
+    ["credits", safeCredits],
+  ]);
+  return selectedTypes.map((dataType) => ({ dataType, records: projected.get(dataType) ?? [] }));
+}
+
+function replaceReferenceIds(text: string, references: Map<string, string>) {
+  try {
+    const values = JSON.parse(text) as unknown;
+    if (!Array.isArray(values)) return text;
+    return JSON.stringify(values.map((value) =>
+      typeof value === "string" ? formatSakuravaRef(references.get(value) ?? value) : value,
+    ));
   } catch {
     return text;
   }

@@ -69,7 +69,7 @@ import {
   type ExportCsvEntity,
   type ExportFormat,
 } from "../lib/exportCsv";
-import { exportSelectionSummary, prepareSelectionsWithPublicRefs } from "../lib/exportArtifacts";
+import { exportSelectionSummary, prepareSelectionsWithPublicRefs, projectSafeExportSelections } from "../lib/exportArtifacts";
 import type { ExportDataSelection } from "../lib/exportWorkbook";
 import { normalizeLanguageCode, type LanguageCode } from "../lib/language";
 import {
@@ -141,7 +141,7 @@ import {
   requireMigratedSakuravaRefs,
   type SakuravaRefMigrationStatus,
 } from "../runtime/sakuravaRefCommands";
-import { listGlossaryEntries } from "../runtime/glossaryCommands";
+import { listGlossaryEntries, listGlossaryEntriesComplete } from "../runtime/glossaryCommands";
 import {
   applyFullEnglishResetPreview,
   applySafeLanguageCsvPreview,
@@ -186,18 +186,23 @@ import {
   type AutomaticBackupFrequency,
   type AutomaticBackupResultDetail,
 } from "../lib/automaticBackup";
-import { listImages, updateImage } from "../runtime/imageCommands";
+import { listImages, listImagesComplete, updateImage } from "../runtime/imageCommands";
 import {
   listManagedCategories,
+  listManagedCategoriesComplete,
 } from "../runtime/managedCategoryCommands";
 import {
   allowMediaAssetRoot,
   getStoredMediaAssetRoots,
   storeMediaAssetRoots,
 } from "../runtime/mediaAssetScope";
-import { listPerformers, updatePerformer } from "../runtime/performerCommands";
+import { listPerformers, listPerformersComplete, updatePerformer } from "../runtime/performerCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
-import { listVideos, updateVideo } from "../runtime/videoCommands";
+import { listVideos, listVideosComplete, updateVideo } from "../runtime/videoCommands";
+import {
+  getSafeFilterEnabled,
+  setSafeFilterEnabled,
+} from "../lib/safeFilterState";
 
 type SettingsRow = {
   label: string;
@@ -457,6 +462,8 @@ function SettingsPage() {
     useState<AppearanceDensity>(() => getStoredAppearanceDensity());
   const [appearanceUiScale, setAppearanceUiScale] =
     useState<AppearanceUiScale>(() => getStoredAppearanceUiScale());
+  const [safeFilterEnabled, setSafeFilterEnabledState] = useState(() => getSafeFilterEnabled());
+  const [safeFilterDisableConfirmOpen, setSafeFilterDisableConfirmOpen] = useState(false);
   const [catalogPreferenceToggles, setCatalogPreferenceToggles] =
     useState<CatalogPreferenceToggles>(() => getCatalogPreferenceToggles());
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
@@ -1488,15 +1495,15 @@ function SettingsPage() {
   async function loadExportSelection(entity: ExportCsvEntity): Promise<ExportDataSelection> {
     const records =
       entity === "videos"
-        ? await listVideos()
+        ? await listVideosComplete()
         : entity === "images"
-          ? await listImages()
+          ? await listImagesComplete()
           : entity === "performers"
-          ? await listPerformers()
+          ? await listPerformersComplete()
             : entity === "categories"
-              ? await listManagedCategories()
+              ? await listManagedCategoriesComplete()
               : entity === "glossary"
-                ? await listGlossaryEntries()
+                ? await listGlossaryEntriesComplete()
                 : await listCredits();
     return { dataType: entity, records };
   }
@@ -1524,14 +1531,21 @@ function SettingsPage() {
     try {
       await requireMigratedSakuravaRefs();
       const operationDate = new Date();
+      const completeSelections = template
+        ? []
+        : await Promise.all(
+            (["videos", "images", "performers", "categories", "glossary", "credits"] as ExportCsvEntity[])
+              .map(loadExportSelection),
+          );
       const selections = template
         ? entities.map((dataType) => ({ dataType, records: [] }))
-        : prepareSelectionsWithPublicRefs(
-            await Promise.all(
-              (["videos", "images", "performers", "categories", "glossary", "credits"] as ExportCsvEntity[])
-                .map(loadExportSelection),
-            ),
-          ).filter((selection) => entities.includes(selection.dataType));
+        : getSafeFilterEnabled()
+          ? prepareSelectionsWithPublicRefs(projectSafeExportSelections(
+              completeSelections,
+              ["videos", "images", "performers", "categories", "glossary", "credits"],
+            )).filter((selection) => entities.includes(selection.dataType))
+          : prepareSelectionsWithPublicRefs(completeSelections)
+            .filter((selection) => entities.includes(selection.dataType));
       const emptySelections = template
         ? []
         : selections.filter((selection) => selection.records.length === 0);
@@ -1611,11 +1625,11 @@ function SettingsPage() {
     const [fileResult, videos, images, performers, categories, glossary, credits] =
       await Promise.all([
         readImportCatalogFile(sourcePath),
-        listVideos(),
-        listImages(),
-        listPerformers(),
-        listManagedCategories(),
-        listGlossaryEntries(),
+        listVideosComplete(),
+        listImagesComplete(),
+        listPerformersComplete(),
+        listManagedCategoriesComplete(),
+        listGlossaryEntriesComplete(),
         listCredits(),
       ]);
     const context = { videos, images, performers, categories, glossary, credits };
@@ -1996,6 +2010,41 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsPanelCard title={t("settings.safeFilter.title")} icon={ShieldCheck} showReset={false}>
+        <p className="mb-3 text-sm text-slate-600">{t("settings.safeFilter.description")}</p>
+        <ControlRow label={t("settings.safeFilter.enabled")}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={safeFilterEnabled}
+            aria-label={t("settings.safeFilter.enabled")}
+            onClick={() => {
+              if (safeFilterEnabled) setSafeFilterDisableConfirmOpen(true);
+              else {
+                setSafeFilterEnabled(true);
+                setSafeFilterEnabledState(true);
+              }
+            }}
+            className={`relative h-6 w-11 rounded-full ${safeFilterEnabled ? "bg-sakura-500" : "bg-slate-300"}`}
+          >
+            <span className={`absolute top-1 size-4 rounded-full bg-white shadow-sm ${safeFilterEnabled ? "left-6" : "left-1"}`} />
+          </button>
+          <p className="mt-2 text-xs font-medium text-slate-500">{t("settings.safeFilter.enabledHelper")}</p>
+        </ControlRow>
+      </SettingsPanelCard>
+      <ConfirmDialog
+        open={safeFilterDisableConfirmOpen}
+        title={t("settings.safeFilter.disableTitle")}
+        description={t("settings.safeFilter.disableBody")}
+        confirmLabel={t("common.confirm")}
+        cancelLabel={t("common.cancel")}
+        onCancel={() => setSafeFilterDisableConfirmOpen(false)}
+        onConfirm={() => {
+          setSafeFilterEnabled(false);
+          setSafeFilterEnabledState(false);
+          setSafeFilterDisableConfirmOpen(false);
+        }}
+      />
       <SettingsSection
         number="1"
         sectionId="overview"

@@ -59,7 +59,9 @@ CREATE TABLE IF NOT EXISTS videos (
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedImagesJson TEXT NOT NULL DEFAULT '[]',
   source_links_json TEXT NOT NULL DEFAULT '[]',
+  glossaryRefsJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
+  rPlus INTEGER NOT NULL DEFAULT 0 CHECK (rPlus IN (0, 1)),
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
   createdAt TEXT NOT NULL,
@@ -89,7 +91,9 @@ CREATE TABLE IF NOT EXISTS images (
   relatedPerformersJson TEXT NOT NULL DEFAULT '[]',
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
   source_links_json TEXT NOT NULL DEFAULT '[]',
+  glossaryRefsJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
+  rPlus INTEGER NOT NULL DEFAULT 0 CHECK (rPlus IN (0, 1)),
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
   createdAt TEXT NOT NULL,
@@ -123,8 +127,10 @@ CREATE TABLE IF NOT EXISTS performers (
   relatedVideosJson TEXT NOT NULL DEFAULT '[]',
   relatedImagesJson TEXT NOT NULL DEFAULT '[]',
   source_links_json TEXT NOT NULL DEFAULT '[]',
+  glossaryRefsJson TEXT NOT NULL DEFAULT '[]',
   categoriesJson TEXT NOT NULL DEFAULT '[]',
   ratingJson TEXT NOT NULL DEFAULT '{}',
+  rPlus INTEGER NOT NULL DEFAULT 0 CHECK (rPlus IN (0, 1)),
   notes TEXT NOT NULL DEFAULT '',
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
   createdAt TEXT NOT NULL,
@@ -144,6 +150,7 @@ CREATE TABLE IF NOT EXISTS managedCategories (
   showInImages INTEGER NOT NULL DEFAULT 1 CHECK (showInImages IN (0, 1)),
   showInPerformers INTEGER NOT NULL DEFAULT 1 CHECK (showInPerformers IN (0, 1)),
   showInCredits INTEGER NOT NULL DEFAULT 0 CHECK (showInCredits IN (0, 1)),
+  rPlus INTEGER NOT NULL DEFAULT 0 CHECK (rPlus IN (0, 1)),
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(name COLLATE NOCASE),
@@ -164,6 +171,7 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
   favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
   source_title TEXT NOT NULL DEFAULT '',
   source_url TEXT NOT NULL DEFAULT '',
+  rPlus INTEGER NOT NULL DEFAULT 0 CHECK (rPlus IN (0, 1)),
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -1760,6 +1768,7 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     ensure_boolean_column(connection, "managedCategories", "showInPerformers", true)?;
     ensure_boolean_column(connection, "managedCategories", "showInCredits", false)?;
     ensure_text_column(connection, "glossary_entries", "parent_id", "")?;
+    apply_safe_filter_schema_migration(connection)?;
     ensure_text_column(connection, "credits", "sakuravaRef", "")?;
     ensure_nullable_text_column(connection, "credits", "creditTypeText")?;
     backfill_legacy_credits(connection)?;
@@ -1799,6 +1808,33 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     crate::managed_media::schema::initialize_schema(connection)?;
 
     Ok(())
+}
+
+/// Batch 42.8 adds only nullable-free, defaulted columns.  The grouped
+/// transaction makes an interrupted upgrade roll back as a unit; every
+/// operation is independently idempotent for databases that already contain
+/// some or all of the fields.
+fn apply_safe_filter_schema_migration(connection: &Connection) -> rusqlite::Result<()> {
+    connection.execute_batch("BEGIN IMMEDIATE")?;
+    let result = (|| {
+        ensure_text_json_column(connection, "videos", "glossaryRefsJson", "[]")?;
+        ensure_boolean_column(connection, "videos", "rPlus", false)?;
+        ensure_text_json_column(connection, "images", "glossaryRefsJson", "[]")?;
+        ensure_boolean_column(connection, "images", "rPlus", false)?;
+        ensure_text_json_column(connection, "performers", "glossaryRefsJson", "[]")?;
+        ensure_boolean_column(connection, "performers", "rPlus", false)?;
+        ensure_boolean_column(connection, "managedCategories", "rPlus", false)?;
+        ensure_boolean_column(connection, "glossary_entries", "rPlus", false)?;
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => connection.execute_batch("COMMIT"),
+        Err(error) => {
+            let _ = connection.execute_batch("ROLLBACK");
+            Err(error)
+        }
+    }
 }
 
 pub fn restore_backup_package_with_sakurava_refs(
@@ -4587,8 +4623,18 @@ mod tests {
     use super::*;
     use rusqlite::OptionalExtension;
 
+    static NEXT_TEST_DIRECTORY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
     fn unique_test_dir(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("sakurava-{name}-{}", std::process::id()))
+        let run_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let sequence = NEXT_TEST_DIRECTORY.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "sakurava-{name}-{}-{run_nanos}-{sequence}",
+            std::process::id()
+        ))
     }
 
     fn insert_alias(

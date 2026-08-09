@@ -5,10 +5,18 @@ import type {
 } from "../backend/types";
 import { invokeTauriCommand, isTauriRuntimeAvailable } from "./tauriClient";
 import { currentSakuravaRefYymm } from "../lib/sakuravaRef";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
 
 export { isTauriRuntimeAvailable as isGlossaryRuntimeAvailable };
 
 export function listGlossaryEntries() {
+  return invokeTauriCommand<GlossaryEntry[]>(
+    getSafeFilterEnabled() ? "glossary_list_visible" : "glossary_list",
+  );
+}
+
+/** Complete authoritative data for Import/Export planning only. */
+export function listGlossaryEntriesComplete() {
   return invokeTauriCommand<GlossaryEntry[]>("glossary_list");
 }
 

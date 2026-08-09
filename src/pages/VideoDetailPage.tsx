@@ -6,7 +6,7 @@ import type { DetailConfig } from "../lib/detailData";
 import type { Credit, Image, ManagedCategory, Performer } from "../backend/types";
 import { buildVideoDetailConfig } from "../lib/videoIntegration";
 import DetailPage from "./DetailPage";
-import { getVideo, isVideoRuntimeAvailable } from "../runtime/videoCommands";
+import { getVideoVisible, isVideoRuntimeAvailable } from "../runtime/videoCommands";
 import {
   isPerformerRuntimeAvailable,
   listPerformers,
@@ -23,6 +23,7 @@ function VideoDetailPage() {
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.videos);
   const [missing, setMissing] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isVideoRuntimeAvailable()),
   );
@@ -38,19 +39,22 @@ function VideoDetailPage() {
     }
 
     setLoading(true);
-    getVideo(itemKey)
-      .then(async (video) => {
+    getVideoVisible(itemKey)
+      .then(async (result) => {
         if (cancelled) {
           return;
         }
 
-        if (!video) {
+        if (result.state !== "visible" || !result.record) {
           setMissing(true);
+          setHidden(result.state === "hidden");
           setLoading(false);
           return;
         }
+        const video = result.record;
 
         setMissing(false);
+        setHidden(false);
         let performers: Performer[] = [];
         let images: Image[] = [];
         let credits: Credit[] = [];
@@ -123,7 +127,7 @@ function VideoDetailPage() {
           {t("detail.videoTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          {t("detail.videoMissing")}
+          {hidden ? t("safeFilter.unavailable") : t("detail.videoMissing")}
         </p>
       </section>
     );

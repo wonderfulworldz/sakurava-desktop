@@ -162,6 +162,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
         relatedPerformers,
         relatedCatalogRecords,
         sourceLinks,
+        glossaryRefs,
         credits,
       }) => {
         if (!isVideoRuntimeAvailable()) {
@@ -181,6 +182,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
               relatedPerformers,
               relatedCatalogRecords,
               sourceLinks,
+              glossaryRefs,
             ),
           );
           try {
@@ -208,6 +210,7 @@ function VideoFormPage({ mode }: VideoFormPageProps) {
             relatedPerformers,
             relatedCatalogRecords,
             sourceLinks,
+            glossaryRefs,
           ),
         );
         if (!updated) {

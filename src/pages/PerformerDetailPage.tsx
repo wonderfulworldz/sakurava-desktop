@@ -12,7 +12,7 @@ import {
   listImages,
 } from "../runtime/imageCommands";
 import {
-  getPerformer,
+  getPerformerVisible,
   isPerformerRuntimeAvailable,
 } from "../runtime/performerCommands";
 import {
@@ -30,6 +30,7 @@ function PerformerDetailPage() {
   const { itemKey } = useParams();
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.performers);
   const [missing, setMissing] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isPerformerRuntimeAvailable()),
   );
@@ -45,19 +46,22 @@ function PerformerDetailPage() {
     }
 
     setLoading(true);
-    getPerformer(itemKey)
-      .then(async (performer) => {
+    getPerformerVisible(itemKey)
+      .then(async (result) => {
         if (cancelled) {
           return;
         }
 
-        if (!performer) {
+        if (result.state !== "visible" || !result.record) {
           setMissing(true);
+          setHidden(result.state === "hidden");
           setLoading(false);
           return;
         }
+        const performer = result.record;
 
         setMissing(false);
+        setHidden(false);
         let videos: Video[] = [];
         let images: Image[] = [];
         let managedCategories: ManagedCategory[] = [];
@@ -140,7 +144,7 @@ function PerformerDetailPage() {
           {t("detail.performerTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          {t("detail.performerMissing")}
+          {hidden ? t("safeFilter.unavailable") : t("detail.performerMissing")}
         </p>
       </section>
     );
