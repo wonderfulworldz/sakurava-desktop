@@ -4,13 +4,18 @@
 
 batch: 42.8
 title: Safe Filter and R+ Content Classification
-status: PLANNED_SCOPE_APPROVED
+status: IN_PROGRESS
 phase: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN
 fixed_outcomes: 3
-batch_progress: 0_OF_3_OUTCOMES_0_PERCENT
-current_stage: 42.8-1 — Audit, Evidence, and Final Plan
+batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
+current_stage: 42.8-2 — Implementation and Verification
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 current_stage_progress: 0_OF_12_TASKS_0_PERCENT
+completed_stage: 42.8-1 — Audit, Evidence, and Final Plan
+completed_stage_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+completed_stage_progress: 12_OF_12_TASKS_100_PERCENT
+completed_stage_result_review: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
+completed_stage_execution_gates: 5_OF_5_100_PERCENT
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 fixed_numeric_attempt_cap: NONE
 repeated_low_value_execution: PROHIBITED
@@ -802,8 +807,8 @@ flags remain false.
 ## Current Batch 42.8 — Safe Filter and R+ Content Classification
 
 Plan verdict: `BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`.
-Status: `PLANNED_SCOPE_APPROVED`. Fixed outcomes: `3`. Progress:
-`0_OF_3_OUTCOMES_0_PERCENT`. All technical permissions are false.
+Status: `IN_PROGRESS`. Fixed outcomes: `3`. Progress:
+`1_OF_3_OUTCOMES_33_PERCENT`. All technical permissions are false.
 
 ### Fixed Product Contract
 
@@ -831,8 +836,35 @@ unchanged.
 ### Fixed Stage Structure
 
 `42.8-1 — Audit, Evidence, and Final Plan` is
-`READY_PENDING_SEPARATE_APPROVAL`, mode `AUDIT ONLY`, high risk, Tier C/high
-reasoning, with exactly 12 tasks:
+`COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS` with `12_OF_12_TASKS_100_PERCENT`.
+The Result Review verdict is
+`42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS`; execution gates are
+`5_OF_5_100_PERCENT`. Its accepted 42.8-2 direction is:
+
+* additive direct R+ state for Video, Image, Performer, Category, and Glossary;
+* additive Video/Image/Performer to Glossary relationship storage;
+* direct R+ false and missing Glossary relationships empty for existing data;
+* no automatic classification;
+* dedicated persistent Safe Filter with missing/invalid/corrupt state ON and
+  explicit OFF persistence;
+* complete-data authority with explicit user-visible visibility projection;
+* bounded/set-based effective R+ classification using direct state or exactly
+  one-hop directly linked R+ Category or Glossary;
+* backend preservation of hidden authoritative relationships during Form Save;
+* visible/hidden/missing Detail semantics without sensitive payload leaks;
+* masked Safe-ON Import with complete validation and atomic Apply;
+* dependency-closed Safe-ON Export and complete Backup/Restore integration;
+* English-only bundled Translation baseline; and
+* V3-compatible optional R+/Glossary Import/Export columns without a version
+  bump, Credits header/order change, or deferred feedback scope expansion.
+
+The completed audit recorded no timing, query-plan, memory, or performance
+claim. Remaining unknowns are operator catalog scale, relationship anomalies,
+runtime UX, cross-window timing, and operator-scale performance. Evidence is
+classified as `PROVEN_BY_STATIC_SOURCE`, `REPORTED_BY_CODEX`, `INFERRED`, or
+`UNKNOWN` as applicable; static evidence is not runtime proof.
+
+The original audit task list was:
 
 1. Repository and authority preflight.
 2. Existing schema and persistence map.
@@ -848,16 +880,11 @@ reasoning, with exactly 12 tasks:
 12. Final exact implementation plan, allowlist, test matrix, migration decision,
     rollback plan, and Stage 42.8-2 readiness report.
 
-Its future execution gates are exactly: safe Git and authority preflight;
-bounded static architecture map; cross-system behavior and risk map;
-option comparison and chosen direction; and complete final audit report.
-Stage 42.8-2 is `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` and Stage 42.8-3 is
-`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`. Neither may start before its required
-Result Review and separate approval.
-
-Architecture, persistence, enforcement boundary, schema, migration, and exact
-file allowlists remain undecided until Stage 42.8-1 evidence. No source
-inspection or technical execution occurred in this reconciliation.
+Stage 42.8-2 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
+Stage 42.8-3 is `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` with execution
+`false`. Neither begins from this reconciliation. Heavy analysis must precede
+heavy process, and no completed 42.8-1 audit is to be repeated without new
+material uncertainty.
 
 ### Anti-Drift and Permission Boundary
 
@@ -867,6 +894,6 @@ Safe, card redesign, Settings redesign, Translation architecture, Import/Export
 redesign, Credits redesign, Backup format changes, dependency upgrades,
 unrelated performance work, or Cup Size / Body Size implementation.
 
-The next action is Result Review of this documentation reconciliation, followed
-by separate approval for Stage 42.8-1. Current implementation compliance is
-`UNKNOWN` until that audit.
+The next action is ChatGPT Result Review of this reconciliation, followed only
+then by separate operator approval for Stage 42.8-2. Stage 42.8-1 is complete;
+Stage 42.8-2 has not started.

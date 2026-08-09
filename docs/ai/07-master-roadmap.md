@@ -87,17 +87,23 @@ next_proposed_batch: 42.8
 next_proposed_batch_title: Safe Filter and R+ Content Classification
 next_proposed_batch_status: FUTURE_ROADMAP_ORDER_UNCHANGED
 next_proposed_batch_approved: false
-batch_42_8_status: PLANNED_SCOPE_APPROVED
+batch_42_8_status: IN_PROGRESS
 batch_42_8_execution_allowed: false
 batch_42_8_plan_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
 batch_42_8_fixed_outcomes: 3
 batch_42_8_stage_1: 42.8-1 — Audit, Evidence, and Final Plan
-batch_42_8_stage_1_status: READY_PENDING_SEPARATE_APPROVAL
-batch_42_8_stage_1_progress: 0_OF_12_TASKS_0_PERCENT
+batch_42_8_stage_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+batch_42_8_stage_1_progress: 12_OF_12_TASKS_100_PERCENT
+batch_42_8_stage_1_result_review: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
+batch_42_8_stage_1_execution_gates: 5_OF_5_100_PERCENT
 batch_42_8_stage_2: 42.8-2 — Implementation and Verification
-batch_42_8_stage_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_8_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_8_stage_2_execution: false
 batch_42_8_stage_3: 42.8-3 — Final Validation and Closure
 batch_42_8_stage_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_8_stage_3_execution: false
+batch_42_8_progress: 1_OF_3_OUTCOMES_33_PERCENT
+batch_42_8_documentation_reconciliation: COMPLETED_5_OF_5_GATES_100_PERCENT
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -2866,18 +2872,20 @@ physical power-loss and filesystem metadata durability, and complete
 real-world crash recovery remain `UNKNOWN`. These limitations do not change
 the technical closure recommendation and do not authorize platform validation.
 
-## Current Batch 42.8 Authority — 2026-08-09
+## Current Batch 42.8 Authority — Stage 42.8-1 Accepted — 2026-08-09
 
-The next planned batch is `42.8 — Safe Filter and R+ Content Classification`.
-Its verdict is `BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`, status
-`PLANNED_SCOPE_APPROVED`, fixed outcomes `3`, and progress
-`0_OF_3_OUTCOMES_0_PERCENT`.
+Batch `42.8 — Safe Filter and R+ Content Classification` has verdict
+`BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`, status `IN_PROGRESS`,
+fixed outcomes `3`, and progress `1_OF_3_OUTCOMES_33_PERCENT`.
 
 Stage 42.8-1 — Audit, Evidence, and Final Plan is
-`READY_PENDING_SEPARATE_APPROVAL` with exactly 12 predefined tasks and five
-future execution gates. Stage 42.8-2 — Implementation and Verification and
-Stage 42.8-3 — Final Validation and Closure are
-`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`.
+`COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS` at `12_OF_12_TASKS_100_PERCENT`
+with Result Review verdict
+`42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS` and execution gates
+`5_OF_5_100_PERCENT`. Stage 42.8-2 — Implementation and Verification is
+`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. Stage 42.8-3 — Final
+Validation and Closure remains `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` with
+execution `false`.
 
 The product authority is Safe Filter with default ON and safe fallback ON,
 persistent direct R+ classification for Video, Image, Performer, Category, and
@@ -2885,14 +2893,23 @@ Glossary, exactly one-hop Category/Glossary inheritance, no automatic or
 transitive classification, no R+ card decoration, acknowledgement-only
 ON -> OFF, masked Safe-ON Import with aggregate disclosure and atomic Apply,
 dependency-closed Safe-ON Export, complete Backup, and complete Restore.
-Package, schema, dependency, Translation, Credits, UI architecture, and
-frontend ownership contracts remain protected. Current implementation
-compliance is `UNKNOWN` until Stage 42.8-1 audit.
+Complete catalog data remains authoritative and Safe Filter is an explicit
+visibility projection. Hidden relationships must be preserved by backend Form
+Save; hidden Detail content must not leak payload; and Backup remains complete.
+Translation is English-only built-in baseline; Indonesian remains user-managed.
+Import/Export uses V3-compatible optional additive R+/Glossary columns without
+a version bump or Credits header/order change. Package, schema, dependency,
+Translation architecture, Credits, UI architecture, and frontend ownership
+contracts remain protected.
 
 Cup Size and Body Size remain deferred future Explicit Catalog Feature
 Configuration work; they are not cancelled, renumbered, or part of Batch 42.8.
 Roadmap order after Batch 42.8 is unchanged. Technical permissions, source
 inspection, implementation, tests, build, runtime, schema/migration,
 Import/Export, Backup/Restore, manual smoke, and live AppData remain false.
-The next action is Result Review of this reconciliation, then separate approval
-for Stage 42.8-1.
+The next action is ChatGPT Result Review of this reconciliation, then separate
+operator approval for Stage 42.8-2. No implementation, tests, build, runtime,
+schema/migration, Import/Export, Backup/Restore, manual smoke, or live AppData
+work occurred in this documentation reconciliation. Heavy analysis must
+precede heavy process; no new broad audit is required solely for the retained
+unknowns.

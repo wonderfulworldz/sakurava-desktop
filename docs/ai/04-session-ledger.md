@@ -73,6 +73,43 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-09 — Stage 42.8-1 Audit Accepted and Final Implementation Direction Locked
+
+date: 2026-08-09
+session_type: BATCH_42_8_STAGE_1_AUDIT_ACCEPTANCE_AND_FINAL_PLAN_RECONCILIATION
+operator_decision: ACCEPTED_DOCUMENTATION_ONLY
+verdict: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
+batch_status: IN_PROGRESS
+batch_outcomes: 1_OF_3_OUTCOMES_33_PERCENT
+stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
+stage_42_8_2_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_2_execution: false
+stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_3_execution: false
+translation_decision: ENGLISH_ONLY_BUILT_IN_BASELINE
+import_export_decision: OPTION_A_V3_COMPATIBLE_ADDITIVE_COLUMNS
+architecture_boundary: COMPLETE_DATA_AUTHORITY_EXPLICIT_VISIBILITY_PROJECTION
+terrain_principle: HEAVY_ANALYSIS_BEFORE_HEAVY_PROCESS
+documentation_only: true
+source_inspection: false
+technical_work: false
+technical_permissions: false
+next_action: CHATGPT_RESULT_REVIEW_THEN_SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_8_2
+
+Result Review accepted all 12 Stage 42.8-1 tasks and 5 execution gates. The
+reconciliation records additive direct R+ state and Video/Image/Performer to
+Glossary links, fail-safe Safe Filter state, bounded one-hop set-based
+classification, complete-data authority with an explicit visibility
+projection, backend hidden-relationship preservation, leak-free
+visible/hidden/missing Detail semantics, masked Safe-ON Import, dependency-
+closed Safe-ON Export, complete Backup/Restore, English-only bundled
+Translation values, and V3-compatible optional R+/Glossary columns. No
+technical work occurred in this documentation reconciliation.
+
+---
+
 ## 2026-08-09 — Batch 42.8 Safe Filter and R+ Fixed Plan Reconciled
 
 date: 2026-08-09
@@ -196,32 +233,6 @@ the undelivered twelve-path Stage 42.7-2 handoff remains preserved and no
 technical recovery is authorized.
 
 ---
-
-## 2026-08-02 — Stage 42.7-1 .skv Foundation Accepted
-
-date: 2026-08-02
-session_type: BATCH_42_7_STAGE_1_RESULT_RECONCILIATION_AND_STAGE_2_READINESS
-operator_decision: ACCEPTED
-verdict: 42_7_1_ACCEPTED_VERSIONED_SKV_FOUNDATION_COMPLETE_WITH_PLATFORM_LIMITATIONS
-source_commit: e90e30d9c25f71087c7d7074015f8950cba22ab1
-source_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
-batch_outcomes: 1_OF_3
-source_scope: SEVEN_ACCEPTED_PATHS
-package_foundation: CUSTOM_UNCOMPRESSED_SKV_V2
-root_capability: VALIDATED_PACKAGE_OUTPUT_AND_EXTRACTION_ROOTS_WITH_SYMMETRIC_IDENTITY_VALIDATION
-dependency_and_schema_change: NONE
-verification: REPORTED_BY_CODEX_10_FOCUSED_PACKAGE_ROOT_5_FRONTEND_284_FULL_RUST_206_FRONTEND_RELEVANT_BUILD_PASSED
-limitations: PLATFORM_RUNTIME_AND_OPERATOR_ENVIRONMENT_BEHAVIOR_REMAIN_UNKNOWN_OR_NOT_MEASURABLE
-stage_42_7_2: READY_APPROVED_PENDING_EXECUTION
-stage_42_7_3: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
-technical_work_by_reconciliation: false
-next_action: SEPARATE_STAGE_42_7_2_CODEX_PROMPT_AFTER_RECONCILIATION_RESULT_REVIEW
-
-Stage 42.7-1 is accepted with platform and runtime limitations. The custom
-uncompressed `.skv` v2 foundation, validated-root capability, and seven-path
-source scope are recorded without dependency or schema change. Stage 42.7-2
-is ready and approved but requires a separate prompt; Stage 42.7-3 remains
-gated. No technical work occurred in this reconciliation.
 
 ## Archived Session History
 

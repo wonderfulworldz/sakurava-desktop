@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-09
 repository_state_recorded_at: 2026-08-09
-repository_state_status: BATCH_42_8_PLANNED_SCOPE_APPROVED_STAGE_42_8_1_PENDING
+repository_state_status: BATCH_42_8_STAGE_42_8_1_ACCEPTED_STAGE_42_8_2_PENDING
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -42,17 +42,17 @@ last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: 42.8
 active_batch_title: Safe Filter and R+ Content Classification
 active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
-active_batch_phase: BATCH_42_8_PLANNED_SCOPE_APPROVED_STAGE_42_8_1_APPROVAL_PENDING
-batch_outcomes: 0_OF_3
-batch_progress: 0_OF_3_OUTCOMES_0_PERCENT
-current_stage: 42.8-1 — Audit, Evidence, and Final Plan
-completed_current_stage: NONE
+active_batch_phase: BATCH_42_8_STAGE_42_8_1_ACCEPTED_STAGE_42_8_2_APPROVAL_PENDING
+batch_outcomes: 1_OF_3
+batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
+current_stage: 42.8-2 — Implementation and Verification
+completed_current_stage: 42.8-1 — Audit, Evidence, and Final Plan
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
 current_stage_progress: 0_OF_12_TASKS_0_PERCENT
 decision_stage: 42.8-1
-decision_stage_status: READY_PENDING_SEPARATE_APPROVAL
-decision_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
-current_stage_scope_approval: PLANNED_SCOPE_APPROVED
+decision_stage_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+decision_verdict: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
+current_stage_scope_approval: READY_PENDING_SEPARATE_APPROVAL
 current_stage_execution_approval: false
 current_stage_execution_started: false
 separate_stage_42_7_2_codex_prompt_required: false
@@ -61,13 +61,18 @@ stage_42_7_3_execution_allowed: false
 stage_42_7_3_source_mutation: NONE
 stage_42_7_3_source_correction_required: false
 stage_42_7_3_product_defect_proven: false
-batch_42_8_status: PLANNED_SCOPE_APPROVED
+batch_42_8_status: IN_PROGRESS
 batch_42_8_title: Safe Filter and R+ Content Classification
 batch_42_8_fixed_outcomes: 3
-stage_42_8_1_status: READY_PENDING_SEPARATE_APPROVAL
-stage_42_8_1_progress: 0_OF_12_TASKS_0_PERCENT
-stage_42_8_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_1_result_review: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
+stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
+stage_42_8_2_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_2_execution: false
 stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_3_execution: false
+batch_42_8_progress: 1_OF_3_OUTCOMES_33_PERCENT
 batch_42_8_technical_permissions: false
 batch_42_8_source_inspection_allowed: false
 batch_42_8_implementation_allowed: false
@@ -177,10 +182,10 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: BATCH_42_8_FIXED_PLAN_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
-next_technical_stage: 42.8-1 — Audit, Evidence, and Final Plan
+current_documentation_action: BATCH_42_8_STAGE_1_ACCEPTANCE_AND_CORRECTED_FINAL_PLAN_RECONCILIATION
+next_technical_stage: 42.8-2 — Implementation and Verification
 next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: RESULT_REVIEW_OF_BATCH_42_8_FIXED_PLAN_RECONCILIATION
+next_governance_action: CHATGPT_RESULT_REVIEW_OF_BATCH_42_8_RECONCILIATION
 next_governance_action_status: REQUIRED
 batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
@@ -1932,10 +1937,10 @@ and complete real-world crash recovery. Deterministic tests and static
 boundaries are sufficient for technical closure but are not manual runtime
 evidence.
 
-## Current Batch 42.8 Planned Authority — 2026-08-09
+## Current Batch 42.8 Stage 42.8-1 Acceptance and Corrected Final Plan — 2026-08-09
 
-Batch 42.8 is `PLANNED_SCOPE_APPROVED` with title `Safe Filter and R+ Content
-Classification`, fixed outcomes `3`, and progress `0_OF_3_OUTCOMES_0_PERCENT`.
+Batch 42.8 is `IN_PROGRESS` with title `Safe Filter and R+ Content
+Classification`, fixed outcomes `3`, and progress `1_OF_3_OUTCOMES_33_PERCENT`.
 The former Explicit Catalog Feature Configuration scope, including Cup Size
 and Body Size, is deferred future work and is not cancelled or mixed into
 Safe Filter.
@@ -1960,8 +1965,36 @@ may export all data through existing formats. Backup remains complete and
 Restore returns complete data, including Safe Filter state. No package, schema,
 dependency, or ownership redesign is authorized here.
 
-Stage 42.8-1 is `READY_PENDING_SEPARATE_APPROVAL` with `0_OF_12_TASKS_0_PERCENT`;
-42.8-2 and 42.8-3 are execution-gated. Source inspection, implementation,
-tests, build, runtime, schema/migration, Import/Export, Backup/Restore, manual
-smoke, and live AppData permissions remain false. Current implementation
-compliance is `UNKNOWN` until Stage 42.8-1 audit.
+Stage 42.8-1 is `COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS` with
+`12_OF_12_TASKS_100_PERCENT`; the Result Review verdict is
+`42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS` and its execution gates
+are `5_OF_5_100_PERCENT`. Stage 42.8-2 is
+`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. Stage 42.8-3 remains
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED` with execution `false`.
+
+Accepted Stage 42.8-2 direction is additive direct R+ state for Video, Image,
+Performer, Category, and Glossary; additive Video/Image/Performer to Glossary
+relationships; false/empty defaults for existing records; no automatic
+classification; fail-safe persistent Safe Filter state; bounded one-hop
+set-based classification; explicit visibility projection over complete
+authoritative data; backend preservation of hidden relationships during Form
+Save; visible/hidden/missing Detail semantics without payload leaks; masked
+Safe-ON Import with complete validation and atomic Apply; dependency-closed
+Safe-ON Export; complete Backup/Restore; and existing Credit/public-reference
+contracts unchanged.
+
+The Translation correction is `ENGLISH_ONLY_BUILT_IN_BASELINE`: stable keys and
+bundled English values only; Indonesian and other languages remain optional
+user-managed data. Import/Export remains V3-compatible with optional additive
+R+/Glossary columns, no version bump, no Credits header/order change, and the
+specified missing-value, preserve-on-update, and blocking-invalid-value
+semantics. If static-source evidence shows the current contract cannot safely
+accept optional columns, implementation must stop before any version change.
+
+Safe Filter does not filter Backup. Old Safe Filter state defaults ON and old
+records default direct R+ false. Heavy analysis must precede heavy process:
+remaining material unknowns may be investigated only when they could change
+architecture, safety, compatibility, scope, verification, rollback, or
+safe-stop decisions. No source inspection, implementation, tests, build,
+runtime, schema/migration, Import/Export, Backup/Restore, manual smoke, or live
+AppData work occurred in this reconciliation.
