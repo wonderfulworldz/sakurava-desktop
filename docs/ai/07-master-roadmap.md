@@ -9,8 +9,8 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
-last_recorded_git_baseline_status: BATCH_42_7_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+last_recorded_git_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
+last_recorded_git_baseline_status: BATCH_42_7_PROJECT_OS_CLOSURE_DELIVERED
 application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -84,11 +84,20 @@ batch_42_7_stage_3_source_correction_required: false
 batch_42_7_stage_3_product_defect_proven: false
 batch_42_7_final_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
 next_proposed_batch: 42.8
-next_proposed_batch_title: Explicit Catalog Feature Configuration
+next_proposed_batch_title: Safe Filter and R+ Content Classification
 next_proposed_batch_status: FUTURE_ROADMAP_ORDER_UNCHANGED
 next_proposed_batch_approved: false
-batch_42_8_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_8_status: PLANNED_SCOPE_APPROVED
 batch_42_8_execution_allowed: false
+batch_42_8_plan_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
+batch_42_8_fixed_outcomes: 3
+batch_42_8_stage_1: 42.8-1 — Audit, Evidence, and Final Plan
+batch_42_8_stage_1_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_8_stage_1_progress: 0_OF_12_TASKS_0_PERCENT
+batch_42_8_stage_2: 42.8-2 — Implementation and Verification
+batch_42_8_stage_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_8_stage_3: 42.8-3 — Final Validation and Closure
+batch_42_8_stage_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED
@@ -2831,7 +2840,7 @@ Stage 42.7-3 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
 The roadmap order after Batch 42.7, including proposed Batch 42.8, is
 unchanged and no implementation permission is granted by this reconciliation.
 
-## Current Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
+## Historical Superseded Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
 
 Batch 42.7 — Backup and Restore Hardening is
 `COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with outcomes `3_OF_3` and progress
@@ -2857,6 +2866,33 @@ physical power-loss and filesystem metadata durability, and complete
 real-world crash recovery remain `UNKNOWN`. These limitations do not change
 the technical closure recommendation and do not authorize platform validation.
 
-Batch 42.8 — Explicit Catalog Feature Configuration remains
-`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. Roadmap order and
-scope are unchanged, and roadmap implementation permission remains false.
+## Current Batch 42.8 Authority — 2026-08-09
+
+The next planned batch is `42.8 — Safe Filter and R+ Content Classification`.
+Its verdict is `BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`, status
+`PLANNED_SCOPE_APPROVED`, fixed outcomes `3`, and progress
+`0_OF_3_OUTCOMES_0_PERCENT`.
+
+Stage 42.8-1 — Audit, Evidence, and Final Plan is
+`READY_PENDING_SEPARATE_APPROVAL` with exactly 12 predefined tasks and five
+future execution gates. Stage 42.8-2 — Implementation and Verification and
+Stage 42.8-3 — Final Validation and Closure are
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`.
+
+The product authority is Safe Filter with default ON and safe fallback ON,
+persistent direct R+ classification for Video, Image, Performer, Category, and
+Glossary, exactly one-hop Category/Glossary inheritance, no automatic or
+transitive classification, no R+ card decoration, acknowledgement-only
+ON -> OFF, masked Safe-ON Import with aggregate disclosure and atomic Apply,
+dependency-closed Safe-ON Export, complete Backup, and complete Restore.
+Package, schema, dependency, Translation, Credits, UI architecture, and
+frontend ownership contracts remain protected. Current implementation
+compliance is `UNKNOWN` until Stage 42.8-1 audit.
+
+Cup Size and Body Size remain deferred future Explicit Catalog Feature
+Configuration work; they are not cancelled, renumbered, or part of Batch 42.8.
+Roadmap order after Batch 42.8 is unchanged. Technical permissions, source
+inspection, implementation, tests, build, runtime, schema/migration,
+Import/Export, Backup/Restore, manual smoke, and live AppData remain false.
+The next action is Result Review of this reconciliation, then separate approval
+for Stage 42.8-1.

@@ -2,21 +2,21 @@
 
 ## Batch Metadata
 
-batch: 42.7
-title: Backup and Restore Hardening
-status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-phase: BATCH_42_7_FINAL_VALIDATION_ACCEPTED_AND_CLOSED
+batch: 42.8
+title: Safe Filter and R+ Content Classification
+status: PLANNED_SCOPE_APPROVED
+phase: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN
 fixed_outcomes: 3
-batch_progress: 3_OF_3_OUTCOMES_100_PERCENT
-current_stage: 42.7-3 — Final Validation and Closure
-current_stage_status: COMPLETED_WITH_LIMITATIONS
-current_stage_progress: 6_OF_6_TASKS_100_PERCENT
+batch_progress: 0_OF_3_OUTCOMES_0_PERCENT
+current_stage: 42.8-1 — Audit, Evidence, and Final Plan
+current_stage_status: READY_PENDING_SEPARATE_APPROVAL
+current_stage_progress: 0_OF_12_TASKS_0_PERCENT
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 fixed_numeric_attempt_cap: NONE
 repeated_low_value_execution: PROHIBITED
 documentation_reconciliation_technical_recovery_allowed: false
-decision_status: BATCH_42_7_SCOPE_APPROVED
-decision_verdict: BATCH_42_7_BACKUP_AND_RESTORE_HARDENING_APPROVED
+decision_status: BATCH_42_8_SCOPE_APPROVED_EXECUTION_GATED
+decision_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
 git_delivery_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 git_delivery_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 persistent_proxy_root_cause: UNKNOWN
@@ -33,7 +33,7 @@ stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
-repository_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
+repository_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
 application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 pre_reconciliation_repository_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 prior_project_os_reconciliation_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
@@ -109,8 +109,8 @@ stage_42_7_3_source_mutation: NONE
 stage_42_7_3_source_correction_required: false
 stage_42_7_3_product_defect_proven: false
 final_batch_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
-next_batch: 42.8 — Explicit Catalog Feature Configuration
-next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+next_batch: NONE
+next_batch_status: NOT_DEFINED_IN_THIS_RECONCILIATION
 next_batch_approved: false
 next_stage_approved: false
 all_technical_permissions: false
@@ -774,7 +774,7 @@ smoke, live-AppData, operator-catalog, uncontrolled termination, power-loss,
 or complete real-world crash-recovery claim is made. All technical permissions
 remain false; this reconciliation does not authorize Stage 42.7-3.
 
-## Current Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
+## Historical Superseded Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
 
 Batch 42.7 is `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`, with fixed outcomes `3`
 and progress `3_OF_3_OUTCOMES_100_PERCENT`.
@@ -799,5 +799,74 @@ durability, filesystem metadata durability, and complete real-world recovery
 remain unknown. No active technical stage remains and all technical permission
 flags remain false.
 
-Batch 42.8 — Explicit Catalog Feature Configuration is
-`READY_PENDING_SEPARATE_APPROVAL`; it is not active and execution is false.
+## Current Batch 42.8 — Safe Filter and R+ Content Classification
+
+Plan verdict: `BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`.
+Status: `PLANNED_SCOPE_APPROVED`. Fixed outcomes: `3`. Progress:
+`0_OF_3_OUTCOMES_0_PERCENT`. All technical permissions are false.
+
+### Fixed Product Contract
+
+Safe Filter defaults ON and fails safe ON for missing or invalid state. ON
+normally shows only safe content while preserving all R+ data; OFF shows all
+normal content and persists across restart. ON -> OFF requires an age
+acknowledgement only, never identity or age verification. No PIN, account,
+parental-control, automated moderation, Force Safe override, or R+ card badge,
+icon, overlay, color, border, blur, metadata, or layout change is authorized.
+
+Direct persistent R+ classification is limited to Video, Image, Performer,
+Category, and Glossary. Video, Image, and Performer may inherit one hop from a
+directly linked R+ Category or Glossary only. No transitive relationships,
+credits, graph traversal, inferred semantics, or automatic classification are
+allowed. Classification is user-directed or explicitly imported.
+
+Safe-ON Import validates the complete file but masks R+ details, discloses
+aggregate mutation information, retains valid R+ data, and blocks atomic Apply
+on hidden blocking errors. Safe-ON Export excludes effective R+ content and
+relationships with dependency closure; Safe-OFF may export all data through the
+existing formats. Backup remains complete and Restore preserves complete data
+and Safe Filter state. Existing Credit and public-reference contracts remain
+unchanged.
+
+### Fixed Stage Structure
+
+`42.8-1 — Audit, Evidence, and Final Plan` is
+`READY_PENDING_SEPARATE_APPROVAL`, mode `AUDIT ONLY`, high risk, Tier C/high
+reasoning, with exactly 12 tasks:
+
+1. Repository and authority preflight.
+2. Existing schema and persistence map.
+3. Video/Image/Performer/Category/Glossary relationship map.
+4. Collection, search, filter, count, sort, and pagination map.
+5. Detail, direct-route, related-content, and stale-state map.
+6. Form loading, hidden-field preservation, validation, and Save map.
+7. Settings persistence, dialog patterns, Translation, and accessibility map.
+8. Import parser, Preview, final-state planner, Apply, and rollback map.
+9. Export dependency-closure and public-reference map.
+10. Backup, Restore, upgrade, and backward-compatibility map.
+11. Architecture-option comparison with cost, risk, and performance analysis.
+12. Final exact implementation plan, allowlist, test matrix, migration decision,
+    rollback plan, and Stage 42.8-2 readiness report.
+
+Its future execution gates are exactly: safe Git and authority preflight;
+bounded static architecture map; cross-system behavior and risk map;
+option comparison and chosen direction; and complete final audit report.
+Stage 42.8-2 is `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` and Stage 42.8-3 is
+`PLANNED_SCOPE_APPROVED_EXECUTION_GATED`. Neither may start before its required
+Result Review and separate approval.
+
+Architecture, persistence, enforcement boundary, schema, migration, and exact
+file allowlists remain undecided until Stage 42.8-1 evidence. No source
+inspection or technical execution occurred in this reconciliation.
+
+### Anti-Drift and Permission Boundary
+
+Do not expand this Batch into parental controls, accounts, PINs, AI or remote
+moderation, generic policy/feature frameworks, graph classification, Force
+Safe, card redesign, Settings redesign, Translation architecture, Import/Export
+redesign, Credits redesign, Backup format changes, dependency upgrades,
+unrelated performance work, or Cup Size / Body Size implementation.
+
+The next action is Result Review of this documentation reconciliation, followed
+by separate approval for Stage 42.8-1. Current implementation compliance is
+`UNKNOWN` until that audit.

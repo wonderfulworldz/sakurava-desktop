@@ -822,3 +822,31 @@ Before repository or GitHub remediation, review at minimum:
 * `LOCK-PROJECTOS-001`.
 
 A lock remains active until the Project OS explicitly records its replacement or removal.
+
+---
+
+## LOCK-SAFEFILTER-001 — Non-Destructive Safe Filter and R+ Classification
+
+**Status:** ACTIVE
+
+Safe Filter defaults ON and missing, invalid, corrupt, or absent state fails
+safe to ON. Direct persistent R+ classification is limited to Video, Image,
+Performer, Category, and Glossary. Video, Image, and Performer may inherit
+exactly one hop from directly linked R+ Category or Glossary; transitive graph
+propagation, automatic classification, inferred semantics, and Force Safe are
+prohibited.
+
+Classification persists independently from visibility. Safe Filter toggling
+must never delete, clear, detach, rewrite, or silently remove hidden catalog
+data or relationships. ON -> OFF requires acknowledgement only; no PIN,
+account, parental-control, identity, or age-verification architecture may be
+introduced. No R+ card badge, icon, overlay, special color, border, blur,
+metadata, or geometry is allowed.
+
+Backup remains complete and Restore returns complete data, including filter
+state. Safe-ON Import masks R+ details, preserves aggregate mutation
+disclosure, permits valid R+ storage, and blocks atomic Apply on blocking
+validation errors. Safe-ON Export is safe-only and dependency-closed; Safe-OFF
+Export may include all data through existing formats. Package format,
+dependency, schema, and frontend ownership must not be redefined. No live
+AppData mutation testing is authorized by this lock.

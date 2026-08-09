@@ -6,9 +6,9 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-08-03
-repository_state_recorded_at: 2026-08-03
-repository_state_status: BATCH_42_7_COMPLETED_AND_CLOSED_WITH_LIMITATIONS_BATCH_42_8_READY
+product_state_updated_at: 2026-08-09
+repository_state_recorded_at: 2026-08-09
+repository_state_status: BATCH_42_8_PLANNED_SCOPE_APPROVED_STAGE_42_8_1_PENDING
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,13 +16,13 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 44eb0a83dac9abba568d0d212e238b5fff8fce39
-baseline_label: Batch 42.7 Closure Repository Baseline
+last_recorded_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
+baseline_label: Batch 42.7 Project OS Closure Commit
 application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 prior_project_os_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
-project_os_reconciliation_baseline: PENDING_THIS_DOCUMENTATION_COMMIT
+project_os_reconciliation_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
 prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
 implementation_parent: 1016511e0e134fccbf5fbfcc075d3351bc650a2c
 prior_contract_schema_storage_foundation_baseline: e1772ea92dac3e59ed533173fb5ed4fbb5acfdc4
@@ -36,31 +36,41 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.6
-last_completed_roadmap_batch_title: Backup and Restore Audit
+last_completed_roadmap_batch: 42.7
+last_completed_roadmap_batch_title: Backup and Restore Hardening
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: 42.8
-active_batch_title: Explicit Catalog Feature Configuration
+active_batch_title: Safe Filter and R+ Content Classification
 active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
-active_batch_phase: BATCH_42_7_CLOSED_BATCH_42_8_APPROVAL_PENDING
-batch_outcomes: 3_OF_3
-batch_progress: 3_OF_3_OUTCOMES_100_PERCENT
-current_stage: 42.7-3 — Final Validation and Closure
-completed_current_stage: 42.7-3 — Final Validation and Closure
-current_stage_status: COMPLETED_WITH_LIMITATIONS
-current_stage_progress: 6_OF_6_TASKS_100_PERCENT
-decision_stage: 42.7-3
-decision_stage_status: COMPLETED_WITH_LIMITATIONS
-decision_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
-current_stage_scope_approval: APPROVED
-current_stage_execution_approval: COMPLETED_WITH_LIMITATIONS
-current_stage_execution_started: true
+active_batch_phase: BATCH_42_8_PLANNED_SCOPE_APPROVED_STAGE_42_8_1_APPROVAL_PENDING
+batch_outcomes: 0_OF_3
+batch_progress: 0_OF_3_OUTCOMES_0_PERCENT
+current_stage: 42.8-1 — Audit, Evidence, and Final Plan
+completed_current_stage: NONE
+current_stage_status: READY_PENDING_SEPARATE_APPROVAL
+current_stage_progress: 0_OF_12_TASKS_0_PERCENT
+decision_stage: 42.8-1
+decision_stage_status: READY_PENDING_SEPARATE_APPROVAL
+decision_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
+current_stage_scope_approval: PLANNED_SCOPE_APPROVED
+current_stage_execution_approval: false
+current_stage_execution_started: false
 separate_stage_42_7_2_codex_prompt_required: false
 stage_42_7_3_status: COMPLETED_WITH_LIMITATIONS
 stage_42_7_3_execution_allowed: false
 stage_42_7_3_source_mutation: NONE
 stage_42_7_3_source_correction_required: false
 stage_42_7_3_product_defect_proven: false
+batch_42_8_status: PLANNED_SCOPE_APPROVED
+batch_42_8_title: Safe Filter and R+ Content Classification
+batch_42_8_fixed_outcomes: 3
+stage_42_8_1_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_1_progress: 0_OF_12_TASKS_0_PERCENT
+stage_42_8_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_8_technical_permissions: false
+batch_42_8_source_inspection_allowed: false
+batch_42_8_implementation_allowed: false
 project_control_standard: RECONCILED
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES
@@ -167,10 +177,10 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: BATCH_42_7_CLOSURE_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
-next_technical_stage: 42.8 — Explicit Catalog Feature Configuration
+current_documentation_action: BATCH_42_8_FIXED_PLAN_RECONCILIATION_PENDING_THIS_DOCUMENTATION_COMMIT
+next_technical_stage: 42.8-1 — Audit, Evidence, and Final Plan
 next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_BATCH_42_8_OR_PLATFORM_RELEASE_VALIDATION
+next_governance_action: RESULT_REVIEW_OF_BATCH_42_8_FIXED_PLAN_RECONCILIATION
 next_governance_action_status: REQUIRED
 batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
@@ -1895,7 +1905,7 @@ technical permissions remain false; the next action is separate operator
 approval for Stage 42.7-3. This documentation action authorizes no technical
 work.
 
-## Current Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
+## Historical Superseded Batch 42.7 Closure and Batch 42.8 Readiness — 2026-08-03
 
 Batch 42.7 — Backup and Restore Hardening is
 `COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with outcomes `3_OF_3` and progress
@@ -1922,8 +1932,36 @@ and complete real-world crash recovery. Deterministic tests and static
 boundaries are sufficient for technical closure but are not manual runtime
 evidence.
 
-Batch 42.8 — Explicit Catalog Feature Configuration is
-`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. No active technical
-stage remains; all technical permissions remain false. The next action is
-separate operator approval for Batch 42.8 or separately scoped platform/release
-validation.
+## Current Batch 42.8 Planned Authority — 2026-08-09
+
+Batch 42.8 is `PLANNED_SCOPE_APPROVED` with title `Safe Filter and R+ Content
+Classification`, fixed outcomes `3`, and progress `0_OF_3_OUTCOMES_0_PERCENT`.
+The former Explicit Catalog Feature Configuration scope, including Cup Size
+and Body Size, is deferred future work and is not cancelled or mixed into
+Safe Filter.
+
+Safe Filter defaults ON and fails safe to ON when missing, invalid, corrupt, or
+never created. ON hides R+ content without deleting or rewriting it; OFF shows
+normal content and persists across restart. ON -> OFF requires acknowledgement
+only; it is not identity or age verification. No PIN, account, parental
+control, automated classification, Force Safe override, or card decoration is
+authorized.
+
+Direct persistent R+ classification applies only to Video, Image, Performer,
+Category, and Glossary. Video, Image, and Performer may inherit exactly one
+hop from directly linked R+ Category or Glossary. No transitive graph
+propagation is allowed. Classification is user-directed or explicitly
+imported, not inferred from names, metadata, media, keywords, AI, or services.
+
+Safe-ON Import masks R+ details while retaining aggregate mutation disclosure
+and atomic validation; valid R+ data may be stored and blocking validation
+errors block Apply. Safe-ON Export is safe-only and dependency-closed; Safe-OFF
+may export all data through existing formats. Backup remains complete and
+Restore returns complete data, including Safe Filter state. No package, schema,
+dependency, or ownership redesign is authorized here.
+
+Stage 42.8-1 is `READY_PENDING_SEPARATE_APPROVAL` with `0_OF_12_TASKS_0_PERCENT`;
+42.8-2 and 42.8-3 are execution-gated. Source inspection, implementation,
+tests, build, runtime, schema/migration, Import/Export, Backup/Restore, manual
+smoke, and live AppData permissions remain false. Current implementation
+compliance is `UNKNOWN` until Stage 42.8-1 audit.

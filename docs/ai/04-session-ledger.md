@@ -73,6 +73,39 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-09 — Batch 42.8 Safe Filter and R+ Fixed Plan Reconciled
+
+date: 2026-08-09
+session_type: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_RECONCILIATION
+operator_decision: APPROVED_DOCUMENTATION_ONLY
+plan_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
+batch_status: PLANNED_SCOPE_APPROVED
+batch_outcomes: 0_OF_3
+batch_title: Safe Filter and R+ Content Classification
+stage_42_8_1_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_1_progress: 0_OF_12_TASKS_0_PERCENT
+stage_42_8_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+documentation_only: true
+technical_permissions: false
+source_inspection: false
+implementation: false
+tests_build_runtime: false
+schema_migration: false
+import_export_backup_restore: false
+manual_smoke_live_appdata: false
+next_action: RESULT_REVIEW_OF_BATCH_42_8_FIXED_PLAN_RECONCILIATION
+
+The operator-approved Batch 42.8 product direction replaces the former
+Explicit Catalog Feature Configuration scope with Safe Filter and persistent
+R+ classification. The fixed contract preserves complete Backup/Restore,
+non-destructive hidden data, one-hop Category/Glossary inheritance, masked
+Safe-ON Import with aggregate disclosure, and dependency-closed Safe-ON
+Export. Cup Size and Body Size remain deferred future work. Stage 42.8-1 has
+not started; no source inspection or technical execution was authorized.
+
+---
+
 ## 2026-08-03 — Batch 42.7 Backup and Restore Hardening Closed
 
 date: 2026-08-03
@@ -189,34 +222,6 @@ uncompressed `.skv` v2 foundation, validated-root capability, and seven-path
 source scope are recorded without dependency or schema change. Stage 42.7-2
 is ready and approved but requires a separate prompt; Stage 42.7-3 remains
 gated. No technical work occurred in this reconciliation.
-
-## 2026-08-02 — Batch 42.6 Audit Closed and Batch 42.7 Approved
-
-date: 2026-08-02
-session_type: BATCH_42_6_AUDIT_CLOSURE_AND_BATCH_42_7_ACTIVATION_RECONCILIATION
-operator_decision: APPROVED
-batch_42_6_verdict: BATCH_42_6_BACKUP_RESTORE_AUDIT_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-batch_42_6_stage_1_status: COMPLETED_WITH_LIMITATION
-batch_42_6_audit_verdict: BACKUP_RESTORE_AUDIT_COMPLETE_HARDENING_PLAN_READY
-batch_42_6_result_review_verdict: 42_6_1_AUDIT_ACCEPTED_WITH_LIMITATIONS_PACKAGE_DECISIONS_REQUIRED
-batch_42_6_outcomes: 1_OF_1
-limitation: STATIC_AUDIT_ONLY_NO_PACKAGE_RUNTIME_LIVE_APPDATA_OR_CRASH_VERIFICATION
-approved_decisions: SINGLE_FILE_SKV_V2; LEGACY_DIRECTORY_V1_READ_ONLY_IMPORT; STATE_ADAPTERS_WITHOUT_OWNERSHIP_MIGRATION; RAW_SQLITE_LEGACY_INTERNAL_ONLY; ONE_MINIMAL_ARCHIVE_DEPENDENCY_WITH_GUARDRAILS
-batch_42_7: ACTIVE_BACKUP_AND_RESTORE_HARDENING
-batch_42_7_stages: 42.7-1_VERSIONED_SKV_PACKAGE_AND_COMPATIBILITY_FOUNDATION; 42.7-2_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY; 42.7-3_FINAL_VALIDATION_AND_CLOSURE
-stage_42_7_1_status: READY_APPROVED_PENDING_EXECUTION
-stage_42_7_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
-stage_42_7_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
-repository_baseline: 059c116ad1683b679c1150bdd2dc3ac28271ad97
-application_source_baseline: db7bdd4c9dd5c79abff848bd71d849192d783dc0
-source_mutation: false
-technical_permissions_for_this_reconciliation: false
-next_action: SEPARATE_STAGE_42_7_1_CODEX_IMPLEMENTATION_PROMPT_AFTER_RESULT_REVIEW
-
-Batch 42.6 is closed with explicit static-audit limitations. Batch 42.7 is
-active with approved product scope; only Stage 42.7-1 is executable after a
-separate prompt, while Stages 42.7-2 and 42.7-3 remain gated by prior Result
-Reviews. No source mutation occurred.
 
 ## Archived Session History
 
