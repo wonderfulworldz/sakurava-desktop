@@ -22,8 +22,8 @@ legacy_batch_series_status: CLOSED
 new_batch_series: 42.x
 completed_baseline_batch: 42.0
 last_completed_batch: 42.6
-active_batch: 42.8
-active_technical_batch: NONE_PENDING_SEPARATE_APPROVAL
+active_batch: NONE
+active_technical_batch: NONE
 batch_42_3_status: PARTIAL_AUDIT_ACCEPTED_AND_CLOSED
 batch_42_3_result: MEASUREMENT_BASELINE_PARTIAL_WITH_EXPLICIT_LIMITATIONS
 batch_42_4_status: COMPLETED_AND_CLOSED
@@ -87,7 +87,7 @@ next_proposed_batch: 42.8
 next_proposed_batch_title: Safe Filter and R+ Content Classification
 next_proposed_batch_status: FUTURE_ROADMAP_ORDER_UNCHANGED
 next_proposed_batch_approved: false
-batch_42_8_status: IN_PROGRESS
+batch_42_8_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 batch_42_8_execution_allowed: false
 batch_42_8_plan_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
 batch_42_8_fixed_outcomes: 3
@@ -100,12 +100,22 @@ batch_42_8_stage_2: 42.8-2 — Implementation and Verification
 batch_42_8_stage_2_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
 batch_42_8_stage_2_execution: false
 batch_42_8_stage_3: 42.8-3 — Final Validation and Closure
-batch_42_8_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_8_stage_3_status: COMPLETED_WITH_LIMITATION
 batch_42_8_stage_3_execution: false
 batch_42_8_stage_2_progress: 12_OF_12_TASKS_100_PERCENT
 batch_42_8_stage_2_execution_gates: 6_OF_6_100_PERCENT
 batch_42_8_stage_2_result_review: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
-batch_42_8_progress: 2_OF_3_OUTCOMES_67_PERCENT
+batch_42_8_stage_3_progress: 6_OF_6_TASKS_100_PERCENT
+batch_42_8_stage_3_execution_gates: 5_OF_5_100_PERCENT
+batch_42_8_stage_3_product_defect_proven: false
+batch_42_8_stage_3_source_correction_required: false
+batch_42_8_stage_3_runtime_limitation: VIEWER_AND_STALE_CONTENT_TAURI_WEBVIEW_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+batch_42_8_progress: 3_OF_3_OUTCOMES_100_PERCENT
+batch_42_8_final_verdict: BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+next_proposed_batch: 42.9
+next_proposed_batch_title: Design System and Iconography Foundation
+next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
+next_proposed_batch_approved: false
 batch_42_8_documentation_reconciliation: COMPLETED_5_OF_5_GATES_100_PERCENT
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED

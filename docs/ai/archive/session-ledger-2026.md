@@ -11,6 +11,35 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-03 — Stage 42.7-2 Staged Restore and Recovery Accepted
+
+date: 2026-08-03
+session_type: BATCH_42_7_STAGE_2_RESULT_RECONCILIATION_AND_DELIVERY
+operator_decision: ACCEPTED
+verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
+source_commit: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+batch_outcomes: 2_OF_3
+stage_42_7_2_status: COMPLETED_AND_ACCEPTED
+stage_42_7_2_progress: 10_OF_10_TASKS_100_PERCENT
+stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_7_3_execution_allowed: false
+verification: REPORTED_BY_CODEX_BUILD_RESTORE_APP_3_NON_RESTORE_APP_4_REQUEST_BUILDER_11_PROTECTED_STATE_7_FOCUSED_RUST_10_COORDINATOR_12_FULL_RUST_296_CARGO_CHECK_STATIC_AUDIT
+git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
+limitation: VITEST_SPAWN_EPERM_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+runtime_claims: UNKNOWN_OR_NOT_MEASURABLE
+technical_permissions: false
+next_action: SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_7_3
+
+Stage 42.7-2 was accepted and delivered with exact 13-path scope. The
+production build, accepted focused frontend and Rust evidence, cargo check,
+and bounded static integration audit passed. The latest focused Vitest startup
+limitation was not a failed assertion or proven product defect. No runtime,
+manual smoke, live AppData, real Backup/Restore, uncontrolled termination,
+power-loss, or complete real-world crash-recovery claim is made.
+
+---
+
 ## 2026-08-03 — Quota-Aware Progress Control Approved
 
 record_status: HISTORICAL_SUPERSEDED_BY_STAGE_42_7_2_ACCEPTANCE

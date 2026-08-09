@@ -73,6 +73,31 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-09 — Batch 42.8 Safe Filter and R+ Closed
+
+date: 2026-08-09
+session_type: BATCH_42_8_STAGE_3_FINAL_VALIDATION_AND_BATCH_CLOSURE
+operator_decision: ACCEPTED_WITH_LIMITATIONS
+verdict: BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_outcomes: 3_OF_3_OUTCOMES_100_PERCENT
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+stage_42_8_3_status: COMPLETED_WITH_LIMITATION
+stage_42_8_3_progress: 6_OF_6_TASKS_100_PERCENT
+stage_42_8_3_execution_gates: 5_OF_5_100_PERCENT
+product_defect_proven: false
+source_correction_required: false
+runtime_limitation: TAURI_WEBVIEW_VIEWER_INVALIDATION_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+historical_governance_limitation: STAGE_42_8_2_EXECUTOR_NONCOMPLIANCE_RECORDED
+next_batch: 42.9 — Design System and Iconography Foundation
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Batch 42.8 is closed with the accepted technical result and explicit runtime
+limitation. Batch 42.9 remains proposed only and separately gated.
+
+---
+
 ## 2026-08-09 — Stage 42.8-1 Audit Accepted and Final Implementation Direction Locked
 
 date: 2026-08-09
@@ -208,33 +233,6 @@ technical work is authorized; the next action is separate approval for Batch
 42.8 or separately scoped platform/release validation.
 
 ---
-
-## 2026-08-03 — Stage 42.7-2 Staged Restore and Recovery Accepted
-
-date: 2026-08-03
-session_type: BATCH_42_7_STAGE_2_RESULT_RECONCILIATION_AND_DELIVERY
-operator_decision: ACCEPTED
-verdict: 42_7_2_ACCEPTED_STAGED_RESTORE_ROLLBACK_AND_CRASH_RECOVERY_COMPLETE_WITH_ENVIRONMENT_LIMITATIONS
-source_commit: d96d0d0d167c8ee6f35425cb2420fa79391c6204
-source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
-batch_outcomes: 2_OF_3
-stage_42_7_2_status: COMPLETED_AND_ACCEPTED
-stage_42_7_2_progress: 10_OF_10_TASKS_100_PERCENT
-stage_42_7_3_status: READY_PENDING_SEPARATE_APPROVAL
-stage_42_7_3_execution_allowed: false
-verification: REPORTED_BY_CODEX_BUILD_RESTORE_APP_3_NON_RESTORE_APP_4_REQUEST_BUILDER_11_PROTECTED_STATE_7_FOCUSED_RUST_10_COORDINATOR_12_FULL_RUST_296_CARGO_CHECK_STATIC_AUDIT
-git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
-limitation: VITEST_SPAWN_EPERM_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
-runtime_claims: UNKNOWN_OR_NOT_MEASURABLE
-technical_permissions: false
-next_action: SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_7_3
-
-Stage 42.7-2 was accepted and delivered with exact 13-path scope. The
-production build, accepted focused frontend and Rust evidence, cargo check,
-and bounded static integration audit passed. The latest focused Vitest startup
-limitation was not a failed assertion or proven product defect. No runtime,
-manual smoke, live AppData, real Backup/Restore, uncontrolled termination,
-power-loss, or complete real-world crash-recovery claim is made.
 
 ---
 

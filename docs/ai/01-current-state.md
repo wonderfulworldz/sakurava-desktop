@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-09
 repository_state_recorded_at: 2026-08-09
-repository_state_status: BATCH_42_8_STAGE_42_8_2_ACCEPTED_STAGE_42_8_3_PENDING
+repository_state_status: BATCH_42_8_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -36,19 +36,19 @@ last_completed_legacy_batch_type: CORRECTIVE_TRANSLATION_REPAIR
 previous_feature_batch: 41.8.5C  
 
 new_roadmap_series: 42.x  
-last_completed_roadmap_batch: 42.7
-last_completed_roadmap_batch_title: Backup and Restore Hardening
+last_completed_roadmap_batch: 42.8
+last_completed_roadmap_batch_title: Safe Filter and R+ Content Classification
 last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
-active_batch: 42.8
+active_batch: NONE
 active_batch_title: Safe Filter and R+ Content Classification
-active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
-active_batch_phase: BATCH_42_8_STAGE_42_8_2_ACCEPTED_STAGE_42_8_3_APPROVAL_PENDING
-batch_outcomes: 2_OF_3
-batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
-current_stage: 42.8-3 — Final Validation and Closure
-completed_current_stage: 42.8-2 — Implementation and Verification
-current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-current_stage_progress: 12_OF_12_TASKS_100_PERCENT
+active_batch_mode: NONE
+active_batch_phase: NONE
+batch_outcomes: 3_OF_3_OUTCOMES_100_PERCENT
+batch_progress: 3_OF_3_OUTCOMES_100_PERCENT
+current_stage: NONE
+completed_current_stage: 42.8-3 — Final Validation and Closure
+current_stage_status: COMPLETED_WITH_LIMITATION
+current_stage_progress: 6_OF_6_TASKS_100_PERCENT
 decision_stage: 42.8-1
 decision_stage_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
 decision_verdict: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
@@ -61,7 +61,7 @@ stage_42_7_3_execution_allowed: false
 stage_42_7_3_source_mutation: NONE
 stage_42_7_3_source_correction_required: false
 stage_42_7_3_product_defect_proven: false
-batch_42_8_status: IN_PROGRESS
+batch_42_8_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 batch_42_8_title: Safe Filter and R+ Content Classification
 batch_42_8_fixed_outcomes: 3
 stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
@@ -73,13 +73,39 @@ stage_42_8_2_execution: false
 stage_42_8_2_progress: 12_OF_12_TASKS_100_PERCENT
 stage_42_8_2_execution_gates: 6_OF_6_100_PERCENT
 stage_42_8_2_result_review: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
-stage_42_8_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_3_status: COMPLETED_WITH_LIMITATION
 stage_42_8_3_execution: false
-batch_42_8_progress: 2_OF_3_OUTCOMES_67_PERCENT
+stage_42_8_3_progress: 6_OF_6_TASKS_100_PERCENT
+stage_42_8_3_execution_gates: 5_OF_5_100_PERCENT
+stage_42_8_3_product_defect_proven: false
+stage_42_8_3_source_correction_required: false
+stage_42_8_3_runtime_limitation: VIEWER_AND_STALE_CONTENT_TAURI_WEBVIEW_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+batch_42_8_progress: 3_OF_3_OUTCOMES_100_PERCENT
+batch_42_8_final_verdict: BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 batch_42_8_technical_permissions: false
 batch_42_8_source_inspection_allowed: false
 batch_42_8_implementation_allowed: false
 stage_42_8_governance_limitation: EXECUTOR_NONCOMPLIANCE_RECORDED_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
+
+next_proposed_batch: 42.9 — Design System and Iconography Foundation
+next_proposed_batch_status: READY_PENDING_SEPARATE_APPROVAL
+next_proposed_batch_approved: false
+all_technical_permissions: false
+
+## Batch 42.8 Final Closure — 2026-08-09
+
+Batch 42.8 — Safe Filter and R+ Content Classification is
+`COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with final verdict
+`BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS` and
+`3_OF_3_OUTCOMES_100_PERCENT`. Stage 42.8-3 completed with 6/6 tasks and 5/5
+execution gates. No product defect or source correction was proven or required.
+
+The retained limitation is that actual Tauri/WebView viewer stale-content
+invalidation and WebView restart observation remain
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`; this does not invalidate the accepted
+technical closure. The earlier Stage 42.8-2 executor noncompliance remains a
+separate historical governance record. Batch 42.9 is only proposed and remains
+unapproved with all technical permissions false.
 
 ## Current Accepted Batch 42.8 Result — 2026-08-09
 
