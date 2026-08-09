@@ -11,6 +11,39 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-09 — Batch 42.8 Safe Filter and R+ Fixed Plan Reconciled
+
+date: 2026-08-09
+session_type: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_RECONCILIATION
+operator_decision: APPROVED_DOCUMENTATION_ONLY
+plan_verdict: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED
+batch_status: PLANNED_SCOPE_APPROVED
+batch_outcomes: 0_OF_3
+batch_title: Safe Filter and R+ Content Classification
+stage_42_8_1_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_1_progress: 0_OF_12_TASKS_0_PERCENT
+stage_42_8_2_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+documentation_only: true
+technical_permissions: false
+source_inspection: false
+implementation: false
+tests_build_runtime: false
+schema_migration: false
+import_export_backup_restore: false
+manual_smoke_live_appdata: false
+next_action: RESULT_REVIEW_OF_BATCH_42_8_FIXED_PLAN_RECONCILIATION
+
+The operator-approved Batch 42.8 product direction replaces the former
+Explicit Catalog Feature Configuration scope with Safe Filter and persistent
+R+ classification. The fixed contract preserves complete Backup/Restore,
+non-destructive hidden data, one-hop Category/Glossary inheritance, masked
+Safe-ON Import with aggregate disclosure, and dependency-closed Safe-ON
+Export. Cup Size and Body Size remain deferred future work. Stage 42.8-1 has
+not started; no source inspection or technical execution was authorized.
+
+---
+
 ## 2026-08-03 — Batch 42.7 Backup and Restore Hardening Closed
 
 date: 2026-08-03

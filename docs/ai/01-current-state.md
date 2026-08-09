@@ -21,6 +21,7 @@ baseline_label: Batch 42.8 Stage 42.8-2 Implementation Commit
 application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
 source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
+repository_documentation_baseline_before_correction: b58cc495ee95ec0f977a3881020c0d5886ecb618
 prior_project_os_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 project_os_reconciliation_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
 prior_project_os_reconciliation_baseline: 682ad3905a0acf2c5ca975b34f5488af70bcd171
@@ -93,6 +94,12 @@ next_proposed_batch: 42.9 — Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
 next_proposed_batch_approved: false
 all_technical_permissions: false
+current_governance_gate: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
+gate_status: READY_PENDING_SEPARATE_APPROVAL
+corrective_audit: READY_PENDING_SEPARATE_APPROVAL
+corrective_audit_approved: false
+corrective_audit_execution_started: false
+corrective_implementation: false
 
 ## Batch 42.8 Final Closure — 2026-08-09
 
@@ -142,7 +149,7 @@ is proven. Later continuations complied with the protected boundary. This is
 recorded as executor noncompliance, not a product defect.
 
 Stage 42.8-3 — Final Validation and Closure is
-`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. All Stage 42.8-3
+`COMPLETED_WITH_LIMITATION` with execution `false`. All Stage 42.8-3
 technical permissions remain false.
 project_control_standard: RECONCILED
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
@@ -250,11 +257,11 @@ stage_42_4_technical_scope: src-tauri/src/managed_media/descriptors.rs; src-taur
 stage_42_4_technical_git_state: SYNCHRONIZED_0_0_WORKTREE_CLEAN_STAGING_CLEAN
 stage_42_4_operator_smoke_1: OBSERVED_BY_OPERATOR_PASS
 stage_42_4_operator_smoke_2_to_7: NOT_OPERATOR_VERIFIED_EXTERNAL_HARNESS_LIMITATION
-current_documentation_action: BATCH_42_8_STAGE_1_ACCEPTANCE_AND_CORRECTED_FINAL_PLAN_RECONCILIATION
-next_technical_stage: 42.8-2 — Implementation and Verification
-next_technical_stage_status: READY_PENDING_SEPARATE_APPROVAL
-next_governance_action: CHATGPT_RESULT_REVIEW_OF_BATCH_42_8_RECONCILIATION
-next_governance_action_status: REQUIRED
+current_documentation_action: PRE_42_9_PRODUCT_ACCEPTANCE_DOCUMENTATION_RECONCILIATION_ACCEPTED
+next_technical_stage: NONE
+next_technical_stage_status: NONE
+next_governance_action: SEPARATE_OPERATOR_APPROVAL_FOR_DEEP_READ_ONLY_CORRECTIVE_AUDIT
+next_governance_action_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_5_status: COMPLETED_AND_CLOSED
 batch_42_5_title: Catalog and Database Performance
 batch_42_5_stage_1: 42.5-1 — Audit, Measurement, and Final Plan
