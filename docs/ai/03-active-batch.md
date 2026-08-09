@@ -7,15 +7,15 @@ title: Safe Filter and R+ Content Classification
 status: IN_PROGRESS
 phase: BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN
 fixed_outcomes: 3
-batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
-current_stage: 42.8-2 — Implementation and Verification
+batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
+current_stage: 42.8-3 — Final Validation and Closure
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-current_stage_progress: 0_OF_12_TASKS_0_PERCENT
-completed_stage: 42.8-1 — Audit, Evidence, and Final Plan
-completed_stage_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+current_stage_progress: 0_OF_0_TASKS_NOT_STARTED
+completed_stage: 42.8-2 — Implementation and Verification
+completed_stage_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
 completed_stage_progress: 12_OF_12_TASKS_100_PERCENT
-completed_stage_result_review: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
-completed_stage_execution_gates: 5_OF_5_100_PERCENT
+completed_stage_result_review: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
+completed_stage_execution_gates: 6_OF_6_100_PERCENT
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 fixed_numeric_attempt_cap: NONE
 repeated_low_value_execution: PROHIBITED
@@ -38,8 +38,9 @@ stage_42_4_9a_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_r1_status: COMPLETED_AND_ACCEPTED
 stage_42_4_9a_c_status: COMPLETED_AND_CLOSED
 implementation_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
-repository_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
-application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
+repository_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
 pre_reconciliation_repository_baseline: e90e30d9c25f71087c7d7074015f8950cba22ab1
 prior_project_os_reconciliation_baseline: b0011495ea7d23af952c42f43d6ee02e882dc8fd
 implementation_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
@@ -806,9 +807,25 @@ flags remain false.
 
 ## Current Batch 42.8 — Safe Filter and R+ Content Classification
 
+Current accepted status: Batch progress `2_OF_3_OUTCOMES_67_PERCENT`.
+Stage 42.8-2 — Implementation and Verification is
+`COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION` at
+`12_OF_12_TASKS_100_PERCENT` and `6_OF_6_EXECUTION_GATES_100_PERCENT` with
+Result Review verdict
+`STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED`.
+The accepted implementation result is recorded as REPORTED_BY_CODEX and is
+not re-verified by this documentation action. Stage 42.8-3 — Final Validation
+and Closure is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
+
+Governance limitation: an earlier continuation enumerated protected
+`manual-smoke/` children through two read-only discovery commands. No child
+content was opened, executed, modified, deleted, moved, staged, or hashed, and
+no evidence corruption is proven. Later continuations complied. This is
+executor noncompliance, not a product defect.
+
 Plan verdict: `BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`.
 Status: `IN_PROGRESS`. Fixed outcomes: `3`. Progress:
-`1_OF_3_OUTCOMES_33_PERCENT`. All technical permissions are false.
+`2_OF_3_OUTCOMES_67_PERCENT`. All technical permissions are false.
 
 ### Fixed Product Contract
 
@@ -880,11 +897,13 @@ The original audit task list was:
 12. Final exact implementation plan, allowlist, test matrix, migration decision,
     rollback plan, and Stage 42.8-2 readiness report.
 
-Stage 42.8-2 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
-Stage 42.8-3 is `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` with execution
-`false`. Neither begins from this reconciliation. Heavy analysis must precede
-heavy process, and no completed 42.8-1 audit is to be repeated without new
-material uncertainty.
+Stage 42.8-2 is `COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION` at
+`12_OF_12_TASKS_100_PERCENT` and `6_OF_6_EXECUTION_GATES_100_PERCENT`, with
+execution complete and Result Review verdict
+`STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED`.
+Stage 42.8-3 is `READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
+Heavy analysis must precede heavy process, and no completed 42.8-1 audit is to
+be repeated without new material uncertainty.
 
 ### Anti-Drift and Permission Boundary
 

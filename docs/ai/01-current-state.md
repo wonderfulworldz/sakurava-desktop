@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-09
 repository_state_recorded_at: 2026-08-09
-repository_state_status: BATCH_42_8_STAGE_42_8_1_ACCEPTED_STAGE_42_8_2_PENDING
+repository_state_status: BATCH_42_8_STAGE_42_8_2_ACCEPTED_STAGE_42_8_3_PENDING
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,10 +16,10 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
-baseline_label: Batch 42.7 Project OS Closure Commit
-application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
-source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+last_recorded_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+baseline_label: Batch 42.8 Stage 42.8-2 Implementation Commit
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 prior_project_os_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
 project_os_reconciliation_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
@@ -42,13 +42,13 @@ last_completed_roadmap_batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 active_batch: 42.8
 active_batch_title: Safe Filter and R+ Content Classification
 active_batch_mode: READY_PENDING_SEPARATE_APPROVAL
-active_batch_phase: BATCH_42_8_STAGE_42_8_1_ACCEPTED_STAGE_42_8_2_APPROVAL_PENDING
-batch_outcomes: 1_OF_3
-batch_progress: 1_OF_3_OUTCOMES_33_PERCENT
-current_stage: 42.8-2 — Implementation and Verification
-completed_current_stage: 42.8-1 — Audit, Evidence, and Final Plan
+active_batch_phase: BATCH_42_8_STAGE_42_8_2_ACCEPTED_STAGE_42_8_3_APPROVAL_PENDING
+batch_outcomes: 2_OF_3
+batch_progress: 2_OF_3_OUTCOMES_67_PERCENT
+current_stage: 42.8-3 — Final Validation and Closure
+completed_current_stage: 42.8-2 — Implementation and Verification
 current_stage_status: READY_PENDING_SEPARATE_APPROVAL
-current_stage_progress: 0_OF_12_TASKS_0_PERCENT
+current_stage_progress: 12_OF_12_TASKS_100_PERCENT
 decision_stage: 42.8-1
 decision_stage_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
 decision_verdict: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
@@ -68,14 +68,41 @@ stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
 stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
 stage_42_8_1_result_review: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
 stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
-stage_42_8_2_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_2_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
 stage_42_8_2_execution: false
-stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+stage_42_8_2_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_2_execution_gates: 6_OF_6_100_PERCENT
+stage_42_8_2_result_review: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
+stage_42_8_3_status: READY_PENDING_SEPARATE_APPROVAL
 stage_42_8_3_execution: false
-batch_42_8_progress: 1_OF_3_OUTCOMES_33_PERCENT
+batch_42_8_progress: 2_OF_3_OUTCOMES_67_PERCENT
 batch_42_8_technical_permissions: false
 batch_42_8_source_inspection_allowed: false
 batch_42_8_implementation_allowed: false
+stage_42_8_governance_limitation: EXECUTOR_NONCOMPLIANCE_RECORDED_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
+
+## Current Accepted Batch 42.8 Result — 2026-08-09
+
+Stage 42.8-2 — Implementation and Verification is
+`COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION` at `12_OF_12_TASKS_100_PERCENT`
+and `6_OF_6_EXECUTION_GATES_100_PERCENT`, with Result Review verdict
+`STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED`.
+The accepted result includes additive R+ and Glossary relationships, fail-safe
+Safe Filter state, one-hop classification, complete-data authority,
+visibility projection, hidden-state preservation, V3-compatible Import/Export,
+complete Backup/Restore, dependency-closed Export, and English-only bundled
+Translation additions. This is recorded technical evidence, not fresh
+technical verification by this documentation action.
+
+During an earlier continuation, protected `manual-smoke/` children were
+enumerated by two read-only discovery commands. No child content was opened,
+executed, modified, deleted, moved, staged, or hashed; no evidence corruption
+is proven. Later continuations complied with the protected boundary. This is
+recorded as executor noncompliance, not a product defect.
+
+Stage 42.8-3 — Final Validation and Closure is
+`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. All Stage 42.8-3
+technical permissions remain false.
 project_control_standard: RECONCILED
 quota_policy: QUOTA_AWARE_EXPECTED_VALUE_EXECUTION_CONTROL
 future_stage_structure: MAXIMUM_THREE_MAIN_STAGES

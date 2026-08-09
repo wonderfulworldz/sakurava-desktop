@@ -110,6 +110,37 @@ technical work occurred in this documentation reconciliation.
 
 ---
 
+## 2026-08-09 — Stage 42.8-2 Implementation Accepted and Stage 42.8-3 Readiness
+
+date: 2026-08-09
+session_type: BATCH_42_8_STAGE_2_IMPLEMENTATION_ACCEPTANCE_AND_STAGE_3_READINESS
+operator_decision: ACCEPTED_WITH_GOVERNANCE_LIMITATION
+verdict: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
+batch_status: IN_PROGRESS
+batch_outcomes: 2_OF_3_OUTCOMES_67_PERCENT
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
+stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
+stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
+stage_42_8_2_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
+stage_42_8_2_progress: 12_OF_12_TASKS_100_PERCENT
+stage_42_8_2_execution_gates: 6_OF_6_100_PERCENT
+stage_42_8_3_status: READY_PENDING_SEPARATE_APPROVAL
+stage_42_8_3_execution: false
+verification: REPORTED_BY_CODEX_297_FULL_RUST_192_IMPORT_EXPORT_FOCUSED_SAFE_FILTER_STATE_CATALOG_TRANSLATION_BUILD_CHECK_FMT_GIT_SYNC
+governance_limitation: EXECUTOR_NONCOMPLIANCE_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
+technical_permissions: false
+next_action: CHATGPT_RESULT_REVIEW_THEN_SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_8_3
+
+Stage 42.8-2 implementation was accepted with the historical executor
+noncompliance recorded separately from product correctness. The implementation
+preserves complete-data authority, Safe Filter visibility projection, V3
+Import/Export compatibility, complete Backup/Restore, and English-only bundled
+Translation additions. Stage 42.8-3 remains separately gated.
+
+---
+
 ## 2026-08-09 — Batch 42.8 Safe Filter and R+ Fixed Plan Reconciled
 
 date: 2026-08-09
@@ -204,33 +235,6 @@ and bounded static integration audit passed. The latest focused Vitest startup
 limitation was not a failed assertion or proven product defect. No runtime,
 manual smoke, live AppData, real Backup/Restore, uncontrolled termination,
 power-loss, or complete real-world crash-recovery claim is made.
-
----
-
-## 2026-08-03 — Quota-Aware Progress Control Approved
-
-record_status: HISTORICAL_SUPERSEDED_BY_STAGE_42_7_2_ACCEPTANCE
-date: 2026-08-03
-session_type: PROJECT_GOVERNANCE_QUOTA_AWARE_PROGRESS_CONTROL_RECONCILIATION
-operator_decision: OBSERVED_BY_OPERATOR_APPROVED
-hard_attempt_cap: SUPERSEDED_NO_FIXED_NUMERIC_LIMIT
-execution_control: QUOTA_AWARE_EXPECTED_VALUE
-progress_standard: BATCH_STAGE_EXECUTION_STABLE_DENOMINATORS_AND_PERCENTAGES
-batch_42_7_progress: 1_OF_3_OUTCOMES_33_PERCENT
-stage_42_7_2_progress: 5_OF_10_TASKS_50_PERCENT
-stage_42_7_2_state: BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION
-documentation_only: true
-source_handoff: PRESERVED_UNCOMMITTED_UNSTAGED
-documentation_commit: PENDING_THIS_RECONCILIATION
-technical_permissions: false
-next_action: RESULT_REVIEW_OF_DOCUMENTATION_COMMIT
-
-The operator permanently replaced the active hard numeric attempt cap with
-quota-aware expected-value execution control. Reports now use stable Batch,
-Stage-task, and execution-gate denominators with percentages, quota posture,
-and the next highest-value action. This reconciliation is documentation only;
-the undelivered twelve-path Stage 42.7-2 handoff remains preserved and no
-technical recovery is authorized.
 
 ---
 

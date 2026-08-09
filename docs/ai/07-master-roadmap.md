@@ -9,10 +9,10 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: a046b34c1343d5c99222d38096e9ff6c9bc54f1d
-last_recorded_git_baseline_status: BATCH_42_7_PROJECT_OS_CLOSURE_DELIVERED
-application_source_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
-source_parent: c6bb9a3c57e2f77caddf0d10a37a8f23bc410ccb
+last_recorded_git_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+last_recorded_git_baseline_status: BATCH_42_8_STAGE_42_8_2_IMPLEMENTATION_DELIVERED
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 project_os_reconciliation_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -97,12 +97,15 @@ batch_42_8_stage_1_progress: 12_OF_12_TASKS_100_PERCENT
 batch_42_8_stage_1_result_review: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
 batch_42_8_stage_1_execution_gates: 5_OF_5_100_PERCENT
 batch_42_8_stage_2: 42.8-2 — Implementation and Verification
-batch_42_8_stage_2_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_8_stage_2_status: COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION
 batch_42_8_stage_2_execution: false
 batch_42_8_stage_3: 42.8-3 — Final Validation and Closure
-batch_42_8_stage_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
+batch_42_8_stage_3_status: READY_PENDING_SEPARATE_APPROVAL
 batch_42_8_stage_3_execution: false
-batch_42_8_progress: 1_OF_3_OUTCOMES_33_PERCENT
+batch_42_8_stage_2_progress: 12_OF_12_TASKS_100_PERCENT
+batch_42_8_stage_2_execution_gates: 6_OF_6_100_PERCENT
+batch_42_8_stage_2_result_review: STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED
+batch_42_8_progress: 2_OF_3_OUTCOMES_67_PERCENT
 batch_42_8_documentation_reconciliation: COMPLETED_5_OF_5_GATES_100_PERCENT
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
@@ -2874,18 +2877,38 @@ the technical closure recommendation and do not authorize platform validation.
 
 ## Current Batch 42.8 Authority — Stage 42.8-1 Accepted — 2026-08-09
 
+The current accepted Batch 42.8 state supersedes the Stage 42.8-1 readiness
+metadata below: Batch progress is `2_OF_3_OUTCOMES_67_PERCENT`. Stage 42.8-2 —
+Implementation and Verification is
+`COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION` at
+`12_OF_12_TASKS_100_PERCENT` and `6_OF_6_EXECUTION_GATES_100_PERCENT`, with
+Result Review verdict
+`STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED`.
+Its accepted verification remains REPORTED_BY_CODEX. Stage 42.8-3 — Final
+Validation and Closure is `READY_PENDING_SEPARATE_APPROVAL` with execution
+`false`; all technical permissions remain false.
+
+The historical governance limitation is recorded accurately: two earlier
+read-only discovery commands enumerated protected `manual-smoke/` children.
+No child content was opened, executed, modified, deleted, moved, staged, or
+hashed, and no evidence corruption is proven. Later continuations complied.
+This is executor noncompliance, not a product defect.
+
 Batch `42.8 — Safe Filter and R+ Content Classification` has verdict
 `BATCH_42_8_FIXED_PRODUCT_AND_EXECUTION_PLAN_APPROVED`, status `IN_PROGRESS`,
-fixed outcomes `3`, and progress `1_OF_3_OUTCOMES_33_PERCENT`.
+fixed outcomes `3`, and progress `2_OF_3_OUTCOMES_67_PERCENT`.
 
 Stage 42.8-1 — Audit, Evidence, and Final Plan is
 `COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS` at `12_OF_12_TASKS_100_PERCENT`
 with Result Review verdict
 `42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS` and execution gates
 `5_OF_5_100_PERCENT`. Stage 42.8-2 — Implementation and Verification is
-`READY_PENDING_SEPARATE_APPROVAL` with execution `false`. Stage 42.8-3 — Final
-Validation and Closure remains `PLANNED_SCOPE_APPROVED_EXECUTION_GATED` with
-execution `false`.
+`COMPLETED_AND_ACCEPTED_WITH_GOVERNANCE_LIMITATION` at
+`12_OF_12_TASKS_100_PERCENT` and `6_OF_6_EXECUTION_GATES_100_PERCENT`, with
+Result Review verdict
+`STAGE_42_8_2_IMPLEMENTATION_ACCEPTED_WITH_EXECUTOR_NONCOMPLIANCE_RECORDED`.
+Stage 42.8-3 — Final Validation and Closure is
+`READY_PENDING_SEPARATE_APPROVAL` with execution `false`.
 
 The product authority is Safe Filter with default ON and safe fallback ON,
 persistent direct R+ classification for Video, Image, Performer, Category, and
