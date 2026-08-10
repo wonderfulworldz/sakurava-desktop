@@ -45,6 +45,17 @@ Older models may be preferred when they are:
 
 Model capability does not grant additional implementation authority.
 
+### Causal-Terrain Routing Rule
+
+Unresolved causal terrain routes work to `AUDIT ONLY`, even when the visible
+symptom appears narrow or the requested correction appears easy. Select
+reasoning strength from causal complexity and coupling, not perceived task
+importance. Do not route to `IMPLEMENT` until the
+`TERRAIN_COMPLETENESS_GATE` passes and no material UNKNOWN could change the
+solution. Do not escalate the model merely to compensate for an incomplete
+audit scope; first complete the bounded causal-depth work with the smallest
+relevant evidence set.
+
 ### Quota-Aware Routing Control
 
 There is no fixed numeric execution-attempt limit. Select the least costly

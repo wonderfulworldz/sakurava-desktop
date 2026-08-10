@@ -322,6 +322,37 @@ change the solution, do not begin implementation. Use the bounded sequence
 is sufficient for a deterministic safe solution, so this is not unlimited
 theoretical analysis.
 
+The companion permanent standard is
+`BOUNDED_CAUSAL_DEPTH_COMPLETENESS_BEFORE_MUTATION`. Start from the observed
+symptom and follow the materially plausible causal path through:
+
+`SYMPTOM -> DIRECT COMPONENT -> DIRECT MECHANISM -> STATE / DATA FLOW -> WORKFLOW -> OWNER SUBSYSTEM -> SHARED INFRASTRUCTURE -> ENVIRONMENT / EXTERNAL BOUNDARY`.
+
+At each relevant level, establish the observed behavior, how that level
+produces it, and whether the next adjacent layer could materially change the
+correction. Before mutation, require the `TERRAIN_COMPLETENESS_GATE`: exact
+symptom and requirement, direct mechanism, relevant state/data flow, affected
+workflow, owner boundary, plausible deeper causes, fixture/harness behavior,
+coupled callers and assertions, protected contracts, persistence/restart or
+platform implications where relevant, failure and rollback behavior, smallest
+safe mutation boundary, focused verification, and no material UNKNOWN that
+could change the solution.
+
+This is proportional depth. Once one or two causally deeper adjacent layers
+have been checked, no material deeper cause remains, coupled workflow effects
+are classified, and no material UNKNOWN can change the solution, the audit may
+stop. Do not inspect unrelated architecture or continue for theoretical
+completeness. Stateful UI and workflow failures require analysis of the whole
+materially affected setup, transitions, predicates, consumers, and assertions
+before any assertion-by-assertion correction.
+
+Every substantial technical execution must have a stated objective,
+prerequisites, expected successful result, progress task/gate, expected audit
+information gain where applicable, and explicit stop condition. Do not run
+commands merely to discover what happens. Do not approve implementation while
+a predictable unresolved causal layer remains. Stop when the shortest safe
+causal chain is closed, not when maximum possible analysis has been performed.
+
 ChatGPT must explain substantial technical work in the simplest practical
 language for a non-programmer operator: what is being done, why, what a good
 result looks like, whether the result is acceptable, and what remains

@@ -125,6 +125,30 @@ Use Codex only when repository inspection, code modification, tests, builds, or 
 
 Preserve working behavior and do not silently expand scope.
 
+## 5A. Causal-Depth Completeness Before Mutation
+
+Before any correction or implementation, enforce
+`DEEP_TERRAIN_ANALYSIS_BEFORE_CORRECTION_OR_IMPLEMENTATION` together with
+`BOUNDED_CAUSAL_DEPTH_COMPLETENESS_BEFORE_MUTATION`. Trace the observed
+symptom through the materially plausible causal ladder:
+
+`SYMPTOM -> DIRECT COMPONENT -> DIRECT MECHANISM -> STATE / DATA FLOW -> WORKFLOW -> OWNER SUBSYSTEM -> SHARED INFRASTRUCTURE -> ENVIRONMENT / EXTERNAL BOUNDARY`.
+
+Pass `TERRAIN_COMPLETENESS_GATE` only after the relevant symptom, requirement,
+mechanism, state flow, workflow, owner boundary, coupled callers/consumers,
+fixture or harness, protected contracts, persistence/platform implications,
+failure handling, mutation boundary, verification path, and material unknowns
+are established. Check normally one or two causally deeper adjacent layers;
+stop when no deeper material cause or solution-changing UNKNOWN remains. Do not
+perform unlimited or unrelated analysis.
+
+For stateful workflow and test failures, audit the affected setup, transitions,
+predicates, downstream consumers, and related assertions together before
+patching. Every substantial technical run must state its objective,
+prerequisites, expected result, progress task/gate, information gain, and stop
+condition. Unresolved causal terrain remains `AUDIT ONLY`; implementation waits
+for the completeness gate.
+
 ## 6. Quota-Aware Execution and Progress Control
 
 There is no fixed numeric execution-attempt limit. Codex quota, operator time,
@@ -162,7 +186,7 @@ prohibition on nested/suffix/retry/administrative stages, approvals, Result
 Reviews, Git safety, data safety, `manual-smoke/` protection, and Active Locks
 remain unchanged.
 
-### Current Stage 42.7-2 Continuation Record — 2026-08-03
+### Historical Stage 42.7-2 Continuation Record — 2026-08-03
 
 Batch 42.7 is `1/3 outcomes — 33%`. Stage 42.7-2 is `5/10 tasks — 50%` and
 `BLOCKED_PENDING_PROJECT_CONTROL_RECONCILIATION_AND_TECHNICAL_RECOVERY_DECISION`.

@@ -1289,3 +1289,29 @@ technical_permissions: false
 
 Batch 42.8 is closed with the accepted technical result and explicit runtime
 limitation. Batch 42.9 remains proposed only and separately gated.
+
+---
+
+## 2026-08-10 — Product Acceptance Defects and Deep-Audit Standard Approved
+
+date: 2026-08-10
+session_type: PRE_42_9_PRODUCT_ACCEPTANCE_AND_DEEP_AUDIT_STANDARD_RECONCILIATION
+operator_decision: ACCEPTED_DOCUMENTATION_ONLY
+batch_42_8_status: HISTORICALLY_CLOSED_WITH_LIMITATIONS
+product_acceptance_42_0_to_42_8: FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION
+highest_priority_finding: BACKUP_RESTORE_BLOCKING_PRODUCT_ACCEPTANCE_PROBLEM
+safe_filter_status: ACTIVE_HISTORICAL_CONTRACT_WITH_OPERATOR_RECONCILIATION_REQUIRED_BEFORE_FURTHER_IMPLEMENTATION
+fresh_operator_findings: MEDIA_COVER; EXPORT_EMPTY_SECTION; EXPORT_REEXPORT_SAME_FILE
+xlsx_sheet_selection: APPROVED_FUTURE_CORRECTIVE_WORKFLOW
+column_consistency: APPROVED_DEFERRED_UI_WORK
+video_player_contact_sheet: APPROVED_FUTURE_SEPARATE_FEATURE_REQUEST
+deep_terrain_analysis_sop: APPROVED_PERMANENT_STANDARD
+next_batch: 42.9 — Design System and Iconography Foundation
+next_batch_status: BLOCKED_PENDING_CORRECTIVE_AUDIT_AND_DECISION
+technical_permissions: false
+next_action: RESULT_REVIEW_THEN_SEPARATE_APPROVAL_FOR_DEEP_READ_ONLY_CORRECTIVE_AUDIT
+
+Fresh operator acceptance evidence does not rewrite Batch 42.8's historical
+technical closure. It creates a corrective gate because important real-user
+Backup/Restore, media, Export, and Safe Filter contract behavior requires
+understanding before further implementation.

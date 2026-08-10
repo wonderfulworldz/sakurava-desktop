@@ -73,6 +73,30 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — Project-Wide Bounded Causal-Depth Audit Standard Approved
+
+date: 2026-08-10
+session_type: PROJECT_GOVERNANCE_CAUSAL_DEPTH_STANDARD_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+governance_standard: DEEP_TERRAIN_ANALYSIS_BEFORE_CORRECTION_OR_IMPLEMENTATION
+causal_depth_rule: BOUNDED_CAUSAL_DEPTH_COMPLETENESS_BEFORE_MUTATION
+terrain_completeness_gate: REQUIRED_BEFORE_FUTURE_TECHNICAL_MUTATION
+proportional_stop_rule: ONE_OR_TWO_ADJACENT_CAUSAL_LAYERS_WITH_NO_SOLUTION_CHANGING_UNKNOWN
+stateful_workflow_rule: COMPLETE_AFFECTED_WORKFLOW_BEFORE_ASSERTION_CORRECTION
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+xlsx_progress: 0_OF_1_OUTCOMES_0_PERCENT; 6_OF_8_TASKS_75_PERCENT; 3_OF_5_GATES_60_PERCENT
+xlsx_first_root_cause: STALE_TEST_EXPECTATION_PROVEN
+xlsx_next_failure: DISABLED_BUTTON_ASSERTION_ROOT_CAUSE_UNKNOWN
+next_action: XLSX_EXPORT_COMPLETE_AFFECTED_WORKFLOW_CAUSAL_AUDIT
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+technical_execution: false
+
+The permanent standard requires enough causal depth for a deterministic safe
+correction without unlimited or unrelated analysis. The next XLSX audit is
+separately gated; no technical execution occurred in this reconciliation.
+
+---
+
 ## 2026-08-10 — Backup/Restore Backend Correction Accepted
 
 date: 2026-08-10
@@ -164,30 +188,6 @@ batch_42_9: BLOCKED
 technical_permissions: false
 
 ---
-
-## 2026-08-10 — Product Acceptance Defects and Deep-Audit Standard Approved
-
-date: 2026-08-10
-session_type: PRE_42_9_PRODUCT_ACCEPTANCE_AND_DEEP_AUDIT_STANDARD_RECONCILIATION
-operator_decision: ACCEPTED_DOCUMENTATION_ONLY
-batch_42_8_status: HISTORICALLY_CLOSED_WITH_LIMITATIONS
-product_acceptance_42_0_to_42_8: FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION
-highest_priority_finding: BACKUP_RESTORE_BLOCKING_PRODUCT_ACCEPTANCE_PROBLEM
-safe_filter_status: ACTIVE_HISTORICAL_CONTRACT_WITH_OPERATOR_RECONCILIATION_REQUIRED_BEFORE_FURTHER_IMPLEMENTATION
-fresh_operator_findings: MEDIA_COVER; EXPORT_EMPTY_SECTION; EXPORT_REEXPORT_SAME_FILE
-xlsx_sheet_selection: APPROVED_FUTURE_CORRECTIVE_WORKFLOW
-column_consistency: APPROVED_DEFERRED_UI_WORK
-video_player_contact_sheet: APPROVED_FUTURE_SEPARATE_FEATURE_REQUEST
-deep_terrain_analysis_sop: APPROVED_PERMANENT_STANDARD
-next_batch: 42.9 — Design System and Iconography Foundation
-next_batch_status: BLOCKED_PENDING_CORRECTIVE_AUDIT_AND_DECISION
-technical_permissions: false
-next_action: RESULT_REVIEW_THEN_SEPARATE_APPROVAL_FOR_DEEP_READ_ONLY_CORRECTIVE_AUDIT
-
-Fresh operator acceptance evidence does not rewrite Batch 42.8's historical
-technical closure. It creates a corrective gate because important real-user
-Backup/Restore, media, Export, and Safe Filter contract behavior requires
-understanding before further implementation.
 
 ---
 
