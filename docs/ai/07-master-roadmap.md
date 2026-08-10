@@ -2915,19 +2915,19 @@ remains deferred until a safe full-app disposable path is available. The XLSX
 failed-focused-verification causal audit is accepted as
 `XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING`.
 The affected-workflow XLSX causal map is retained. The Videos header
-correction was applied and the header assertion passed before a downstream
-missing performer-reference assertion failed. The expected performer
-representation included `PER-… | Performer One`; its exact cause is `UNKNOWN`.
-The selected-empty regression guard was not executed because the first focused
-verification failed. Workbook and selected-empty isolated PASS evidence remain
-accepted, and no workbook or selected-empty rerun is required. The terrain
-completeness gate is `REOPENED_BY_NEW_EVIDENCE`; mutation readiness is
-`NONE_PENDING_VIDEOS_PERFORMER_REFERENCE_CAUSAL_AUDIT`, with continuity
-`BOUNDED_COMPLETION_REQUIRED`. The next executable action is
-`XLSX_VIDEOS_PERFORMER_REFERENCE_FAILURE_CAUSAL_AUDIT` in `AUDIT_ONLY` mode,
-`READY_PENDING_SEPARATE_APPROVAL`, under the permanent bounded causal-depth
-completeness gate. Safe Filter implementation and Media Cover correction remain
-pending.
+correction remains applied and preserved; its focused assertion passed before
+the downstream performer-reference failure. The performer-reference cause is
+now classified as `MOCK_RELATIONSHIP_DATA_GAP_PROVEN`: the test clears local
+storage, Safe Filter starts enabled, the video references `performer-1`, and
+the empty performer mock causes the relationship to be pruned before CSV
+serialization. Production CSV behavior, Safe Filter behavior, and the current
+handoff are not supported as defects by available evidence. The terrain gate is
+`PASS`, mutation readiness is `TEST_ONLY_FIXTURE_CORRECTION_READY`, and
+continuity is `DETERMINISTIC_TEST_FIXTURE_CORRECTION_READY`. The next executable
+action is `XLSX_VIDEOS_PERFORMER_FIXTURE_CORRECTION_AND_BOUNDED_FOCUSED_VERIFICATION`
+in `IMPLEMENT` mode, `READY_PENDING_SEPARATE_APPROVAL`, under the permanent
+bounded causal-depth completeness gate. Safe Filter implementation and Media
+Cover correction remain pending.
 
 Batch 42.9 remains
 `BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved

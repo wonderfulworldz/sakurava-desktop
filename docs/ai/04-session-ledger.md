@@ -73,6 +73,34 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — XLSX Videos Performer Fixture Cause Proven
+
+date: 2026-08-10
+session_type: XLSX_VIDEOS_PERFORMER_REFERENCE_CAUSAL_AUDIT_RESULT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+performer_reference_root_cause: MOCK_RELATIONSHIP_DATA_GAP_PROVEN
+performer_reference_evidence: PROVEN_BY_STATIC_SOURCE
+video_fixture_relation: PERFORMER_1_PERFORMER_ONE
+performer_list_mock: EMPTY
+safe_filter_effect: RELATIONSHIP_PRUNED
+production_csv_defect: NOT_SUPPORTED_BY_AVAILABLE_EVIDENCE
+safe_filter_defect: NOT_SUPPORTED_BY_AVAILABLE_EVIDENCE
+current_handoff_regression: NOT_SUPPORTED_BY_AVAILABLE_EVIDENCE
+terrain_completeness_gate: PASS
+mutation_readiness: TEST_ONLY_FIXTURE_CORRECTION_READY
+continuity_decision: DETERMINISTIC_TEST_FIXTURE_CORRECTION_READY
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_VIDEOS_PERFORMER_FIXTURE_CORRECTION_AND_BOUNDED_FOCUSED_VERIFICATION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: IMPLEMENT
+
+The performer-reference causal audit is accepted. The exact Videos fixture
+correction is separately gated; no technical execution occurred in this
+reconciliation.
+
+---
+
 ## 2026-08-10 — XLSX Videos Header Corrected; Performer Reference Failure Exposed
 
 date: 2026-08-10
@@ -167,29 +195,6 @@ next_action_mode: VERIFY
 The causal audit classified the three failed verification boundaries. One
 isolated evidence run remains separately gated; no technical execution or
 mutation occurred in this reconciliation.
-
----
-
-## 2026-08-10 — XLSX Correction Stopped on Focused Verification
-
-date: 2026-08-10
-session_type: XLSX_FOCUSED_VERIFICATION_FAILURE_STATE_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-technical_result: XLSX_EXPORT_CORRECTION_STOPPED_ON_FOCUSED_VERIFICATION
-focused_result: 4_PASS_3_FAIL
-failure_boundaries: VIDEOS_CSV_HEADER; SELECTED_EMPTY_XLSX_UI_COMPLETION; MULTI_TYPE_WORKBOOK_TIMEOUT
-failure_root_causes: UNKNOWN
-terrain_completeness_gate: REOPENED_BY_NEW_EVIDENCE
-continuity_decision: BOUNDED_COMPLETION_REQUIRED
-xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
-git_delivery: NONE
-next_action: XLSX_EXPORT_FAILED_FOCUSED_VERIFICATION_CAUSAL_AUDIT
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-technical_execution: false
-
-The focused verification stopped correctly after three unresolved in-scope
-boundaries. The technical handoff remains preserved and uncommitted. No retry,
-timeout change, technical follow-up, or Git delivery occurred.
 
 ---
 
