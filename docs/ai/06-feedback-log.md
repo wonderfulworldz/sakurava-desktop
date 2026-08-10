@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 11
+active_count: 9
 last_updated: 2026-08-10
 
 ## Active Feedback
@@ -78,9 +78,9 @@ Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed d
 date: 2026-07-22
 batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
 type: PROBLEM_REPORT
-status: BLOCKING
+status: RESOLVED
 risk: MEDIUM
-placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+placement: RESOLVED / XLSX_CORRECTIVE_TECHNICAL_DELIVERY
 
 accepted_audit_status: ROOT_CAUSE_PROVEN
 
@@ -93,9 +93,11 @@ rows are created.
 
 ### Decision
 
-This is current pre-42.9 corrective Product Acceptance scope. No
-implementation or automatic deselection is authorized here, and no data may be
-fabricated. Preserve Credits and public-reference contracts.
+This was current pre-42.9 corrective Product Acceptance scope. The XLSX
+correction was delivered in technical commit
+`276b55f900e94955740af9f49d53e6439d5dd348`. Selected empty XLSX sections remain
+valid with normal headers and zero data rows; the selected-empty regression
+guard passed as `REPORTED_BY_CODEX`, and no fake rows were introduced.
 
 ### FEEDBACK-2026-07-22-SPREADSHEET-UX-TERMINOLOGY — Spreadsheet UX and Terminology
 
@@ -162,9 +164,9 @@ but Image Detail Cover rendered a placeholder. Other media surfaces remain
 date: 2026-08-10
 batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
 type: PROBLEM_REPORT
-status: PLANNED
+status: RESOLVED
 risk: MEDIUM
-placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+placement: RESOLVED / XLSX_CORRECTIVE_TECHNICAL_DELIVERY
 evidence: OBSERVED_BY_OPERATOR
 
 Export to `skv-all-master.xlsx` succeeded once, then failed after bulk deletion
@@ -174,6 +176,13 @@ already-existing destination. Future correction must safely replace an
 existing destination when permitted and return a clear actionable error when
 replacement is prevented, such as by a file lock. Actual Excel-lock behavior
 has not been measured.
+
+### Completion Evidence
+
+Safe XLSX replacement was delivered in technical commit
+`276b55f900e94955740af9f49d53e6439d5dd348`, including deterministic
+replacement-failure coverage and preservation of the previous destination.
+Actual Excel-held-file behavior remains `UNKNOWN`.
 
 ### FEEDBACK-2026-08-10-XLSX-SHEET-SELECTION — Select Sheets Before Preview
 

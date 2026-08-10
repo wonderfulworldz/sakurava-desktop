@@ -9,9 +9,9 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 209c219821511037800f5196cba5cba7a5826d32
+last_recorded_git_baseline: 276b55f900e94955740af9f49d53e6439d5dd348
 last_recorded_git_baseline_status: BATCH_42_8_STAGE_42_8_2_IMPLEMENTATION_DELIVERED
-application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+application_source_baseline: 276b55f900e94955740af9f49d53e6439d5dd348
 source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
 pre_reconciliation_repository_baseline: 209c219821511037800f5196cba5cba7a5826d32
 prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -90,15 +90,20 @@ next_proposed_batch_title: Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE
 next_proposed_batch_approved: false
 pre_42_9_corrective_gate: READY_PENDING_SEPARATE_APPROVAL
-xlsx_export_next_corrective_action: XLSX_VIDEOS_PERFORMER_FIXTURE_CORRECTION_AND_BOUNDED_FOCUSED_VERIFICATION
+xlsx_export_next_corrective_action: MEDIA_COVER_BOUNDED_CAUSAL_COMPLETION_AUDIT
 xlsx_export_next_corrective_action_status: READY_PENDING_SEPARATE_APPROVAL
-xlsx_export_next_corrective_action_mode: IMPLEMENT
+xlsx_export_next_corrective_action_mode: AUDIT_ONLY
 xlsx_causal_audit_result: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT_ACCEPTED
 xlsx_all_materially_coupled_export_tests: CLASSIFIED
-xlsx_latest_technical_result: XLSX_EXPORT_CORRECTION_STOPPED_ON_FOCUSED_VERIFICATION
-xlsx_focused_result: 4_PASS_3_FAIL
+xlsx_latest_technical_result: COMPLETED_AND_DELIVERED_WITH_RUNTIME_LIMITATION
+xlsx_technical_commit: 276b55f900e94955740af9f49d53e6439d5dd348
+xlsx_focused_result: VIDEOS_AND_SELECTED_EMPTY_PASS_REPORTED_BY_CODEX
+xlsx_four_file_handoff: RESOLVED_DELIVERED
+xlsx_excel_real_lock_behavior: UNKNOWN
+xlsx_additional_technical_mutation_currently_required: false
+xlsx_solution_changing_unknowns: NONE_FOR_COMPLETED_TECHNICAL_CORRECTION
 xlsx_terrain_completeness_gate: PASS
-xlsx_executor_continuity_decision: DETERMINISTIC_TEST_FIXTURE_CORRECTION_READY
+xlsx_executor_continuity_decision: TECHNICAL_CORRECTION_DELIVERED
 causal_depth_standard: BOUNDED_CAUSAL_DEPTH_COMPLETENESS_BEFORE_MUTATION
 terrain_completeness_gate: REQUIRED_BEFORE_FUTURE_TECHNICAL_MUTATION
 batch_42_8_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
@@ -2912,22 +2917,20 @@ disposable verification. Product Acceptance for 42.0–42.8 remains
 `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`.
 The Backup/Restore backend correction is accepted, while real-app acceptance
 remains deferred until a safe full-app disposable path is available. The XLSX
-failed-focused-verification causal audit is accepted as
-`XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING`.
-The affected-workflow XLSX causal map is retained. The Videos header
-correction remains applied and preserved; its focused assertion passed before
-the downstream performer-reference failure. The performer-reference cause is
-now classified as `MOCK_RELATIONSHIP_DATA_GAP_PROVEN`: the test clears local
-storage, Safe Filter starts enabled, the video references `performer-1`, and
-the empty performer mock causes the relationship to be pruned before CSV
-serialization. Production CSV behavior, Safe Filter behavior, and the current
-handoff are not supported as defects by available evidence. The terrain gate is
-`PASS`, mutation readiness is `TEST_ONLY_FIXTURE_CORRECTION_READY`, and
-continuity is `DETERMINISTIC_TEST_FIXTURE_CORRECTION_READY`. The next executable
-action is `XLSX_VIDEOS_PERFORMER_FIXTURE_CORRECTION_AND_BOUNDED_FOCUSED_VERIFICATION`
-in `IMPLEMENT` mode, `READY_PENDING_SEPARATE_APPROVAL`, under the permanent
-bounded causal-depth completeness gate. Safe Filter implementation and Media
-Cover correction remain pending.
+technical corrective scope is now
+`COMPLETED_AND_DELIVERED_WITH_RUNTIME_LIMITATION` in commit
+`276b55f900e94955740af9f49d53e6439d5dd348`. The four-file XLSX handoff is
+`RESOLVED_DELIVERED`; Videos and selected-empty XLSX focused verification both
+PASS as `REPORTED_BY_CODEX`. The performer fixture correction completed from
+the proven `MOCK_RELATIONSHIP_DATA_GAP_PROVEN` boundary. Safe XLSX replacement
+and deterministic replacement-failure handling were delivered. Actual
+Excel-held-file lock behavior remains `UNKNOWN` and was not measured. The
+terrain gate remains `PASS`; no additional XLSX technical mutation is
+currently required, and the correction must not be reopened without new
+evidence. The next actionable priority is
+`MEDIA_COVER_BOUNDED_CAUSAL_COMPLETION_AUDIT` in `AUDIT_ONLY` mode,
+`READY_PENDING_SEPARATE_APPROVAL`, under the permanent bounded causal-depth
+completeness gate. Safe Filter implementation remains pending.
 
 Batch 42.9 remains
 `BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved
