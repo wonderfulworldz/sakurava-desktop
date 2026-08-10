@@ -101,6 +101,26 @@ technical_permissions: false
 
 ---
 
+## 2026-08-10 — Project-Wide Finding Capture and Executor Continuity Standard Approved
+
+date: 2026-08-10
+session_type: PROJECT_GOVERNANCE_FINDING_AND_EXECUTOR_CONTINUITY_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+governance_standards: OUT_OF_SCOPE_FINDING_CAPTURE_AND_DEFERRED_TRIAGE; EXECUTOR_NONCOMPLIANCE_CONTINUITY_DECISION
+xlsx_continuity: MANDATORY_AUDIT_COMPLETENESS_NONCOMPLIANCE
+xlsx_continuity_decision: BOUNDED_COMPLETION_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+next_action: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+technical_execution: false
+
+The permanent standards require evidence-backed out-of-scope findings to be
+captured and deferred, and require continuity review after executor deviation.
+Valid evidence remains reusable; only the omitted coupled-test classification
+must be completed. No technical execution occurred in this documentation action.
+
+---
+
 ## 2026-08-10 — Project-Wide Bounded Causal-Depth Audit Standard Approved
 
 date: 2026-08-10
