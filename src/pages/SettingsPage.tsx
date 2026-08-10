@@ -1549,7 +1549,7 @@ function SettingsPage() {
       const emptySelections = template
         ? []
         : selections.filter((selection) => selection.records.length === 0);
-      if (emptySelections.length > 0) {
+      if (format === "csv" && emptySelections.length > 0) {
         showBackupToast(
           "error",
           "No records to export",
@@ -3695,9 +3695,6 @@ function ImportExportPanel({
   const selectedRecordCount = exportCounts
     ? selectedDataTypes.reduce((total, dataType) => total + (exportCounts[dataType] ?? 0), 0)
     : null;
-  const emptySelectedDataTypes = exportCounts
-    ? selectedDataTypes.filter((dataType) => exportCounts[dataType] === 0)
-    : [];
 
   return (
     <div data-testid="import-export-panel">
@@ -3765,11 +3762,9 @@ function ImportExportPanel({
             {exportTemplate ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.templateLabel")}</span></> : selectedRecordCount !== null ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.recordsSelected", { count: String(selectedRecordCount) })}</span></> : null}
           </div>
 
-          {!exportTemplate && emptySelectedDataTypes.length > 0 ? <p role="status" className="mt-2 text-xs font-semibold text-amber-700">{t("settings.importExport.emptySections", { sections: emptySelectedDataTypes.map((dataType) => t(`settings.importExport.section.${dataType}`)).join(", ") })}</p> : null}
-
           <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4">
             <button type="button" onClick={cancelCurrentMode} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">{t("common.cancel")}</button>
-            <button type="button" disabled={selectedDataTypes.length === 0 || (!exportTemplate && emptySelectedDataTypes.length > 0) || !canExport} onClick={() => onExport(format, selectedDataTypes, exportTemplate)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-200 disabled:text-slate-400">
+            <button type="button" disabled={selectedDataTypes.length === 0 || !canExport} onClick={() => onExport(format, selectedDataTypes, exportTemplate)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-200 disabled:text-slate-400">
               {t("settings.importExport.exportSelected")}
             </button>
           </div>

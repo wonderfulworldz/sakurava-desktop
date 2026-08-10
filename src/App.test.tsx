@@ -4335,7 +4335,7 @@ describe("App", () => {
   it("renders the approved Idle, Import, and Export workflow hierarchy", async () => {
     window.history.pushState({}, "", "/settings");
     const invoke = withMigratedSakuravaRefs(async (command: string) => {
-      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list"].includes(command)) {
+      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) {
         return [];
       }
       throw new Error(`Unexpected command ${command}`);
@@ -4360,7 +4360,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export Catalog" }));
 
     expect(screen.getByText("Select sections to export")).toBeInTheDocument();
-    for (const section of ["Videos", "Images", "Performers", "Categories", "Glossary"]) {
+    for (const section of ["Videos", "Images", "Performers", "Categories", "Glossary", "Credits"]) {
       const checkbox = screen.getByRole("checkbox", { name: section });
       expect(checkbox).toBeEnabled();
       expect(checkbox.closest("label")).toHaveAttribute("data-sakurava-checkbox", "true");
@@ -4380,12 +4380,13 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: /XLSX/ })).toBeChecked();
     expect(screen.getByText("Recommended")).toBeInTheDocument();
     expect(screen.getByText("Compatibility")).toBeInTheDocument();
-    expect(screen.getByText("5 sections selected")).toBeInTheDocument();
+    expect(screen.getByText("6 sections selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export Selected" })).toBeEnabled();
     const csvRadio = screen.getByRole("radio", { name: /CSV/ });
     fireEvent.click(csvRadio.closest("label")!);
     expect(csvRadio).toBeChecked();
     expect(screen.getByText("Format: CSV")).toBeInTheDocument();
-    for (const section of ["Videos", "Images", "Performers", "Categories", "Glossary"]) {
+    for (const section of ["Videos", "Images", "Performers", "Categories", "Glossary", "Credits"]) {
       fireEvent.click(screen.getByRole("checkbox", { name: section }));
     }
     expect(screen.getByRole("button", { name: "Export Selected" })).toBeDisabled();
@@ -4931,11 +4932,19 @@ describe("App", () => {
           }),
         ];
       }
+      if (command === "performer_list") {
+        return [
+          persistedPerformer({
+            id: "performer-1",
+            name: "Performer One",
+          }),
+        ];
+      }
       if (
         command === "image_list" ||
-        command === "performer_list" ||
         command === "managed_category_list" ||
-        command === "glossary_list"
+        command === "glossary_list" ||
+        command === "credit_list"
       ) {
         return [];
       }
@@ -4965,6 +4974,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Performers" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Categories" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Glossary" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Credits" }));
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 
@@ -4973,7 +4983,7 @@ describe("App", () => {
       { exact: false },
     );
     expect(exportedCsvContent).toContain(
-      "Action,Sakurava Ref,Title,Original Title,Code,Categories,Related Performers,Related Images",
+      "Action,Sakurava Ref,Title,Original Title,Code,Categories,R+,Glossary Refs,Related Performers,Related Images",
     );
     expect(exportedCsvContent).toContain("V-EXPORT-001");
     expect(exportedCsvContent).toContain("5/20/2026");
@@ -5028,7 +5038,8 @@ describe("App", () => {
         command === "video_list" ||
         command === "image_list" ||
         command === "performer_list" ||
-        command === "glossary_list"
+        command === "glossary_list" ||
+        command === "credit_list"
       ) {
         return [];
       }
@@ -5080,6 +5091,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Images" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Performers" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Glossary" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Credits" }));
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 
@@ -5104,7 +5116,8 @@ describe("App", () => {
         command === "video_list" ||
         command === "image_list" ||
         command === "performer_list" ||
-        command === "managed_category_list"
+        command === "managed_category_list" ||
+        command === "credit_list"
       ) {
         return [];
       }
@@ -5128,6 +5141,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("checkbox", { name: section }));
     }
     fireEvent.click(screen.getByRole("checkbox", { name: "Categories" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Credits" }));
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
 
@@ -5135,6 +5149,44 @@ describe("App", () => {
     expect(dialogMocks.save).toHaveBeenCalledWith(expect.objectContaining({
       defaultPath: expect.stringMatching(/^skv-glo-\d{8}-\d{6}\.csv$/),
     }));
+  });
+
+  it("exports a selected empty XLSX section through the catalog export flow", async () => {
+    window.history.pushState({}, "", "/settings");
+    const destinationPath = "D:/Exports/sakurava-images.xlsx";
+    const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
+      if (["video_list", "image_list", "performer_list", "managed_category_list", "glossary_list", "credit_list"].includes(command)) {
+        return [];
+      }
+      if (command === "export_file_write") {
+        expect(args.destinationPath).toBe(destinationPath);
+        expect(args.expectedExtension).toBe("xlsx");
+        return {
+          destinationPath,
+          displayName: "sakurava-images.xlsx",
+          bytesWritten: args.bytes.length,
+          success: true,
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+    dialogMocks.save.mockResolvedValue(destinationPath);
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Export Catalog" }));
+    for (const section of ["Videos", "Performers", "Categories", "Glossary", "Credits"]) {
+      fireEvent.click(screen.getByRole("checkbox", { name: section }));
+    }
+    expect(screen.getByRole("checkbox", { name: "Images" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Export Selected" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Export Selected" }));
+
+    await screen.findByText("sakurava-images.xlsx. Images: 0.", { exact: false });
+    expect(dialogMocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      defaultPath: expect.stringMatching(/^skv-img-\d{8}-\d{6}\.xlsx$/),
+    }));
+    expect(invoke).toHaveBeenCalledWith("export_file_write", expect.anything(), undefined);
   });
 
   it("renders Category Management table columns and pagination controls", () => {

@@ -13,6 +13,18 @@ use tauri_plugin_dialog::DialogExt;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
 #[cfg(target_os = "windows")]
+#[link(name = "kernel32")]
+extern "system" {
+    fn ReplaceFileW(
+        replaced_file_name: *const u16,
+        replacement_file_name: *const u16,
+        backup_file_name: *const u16,
+        replace_flags: u32,
+        exclude: *mut std::ffi::c_void,
+        reserved: *mut std::ffi::c_void,
+    ) -> i32;
+}
+#[cfg(target_os = "windows")]
 use windows::{
     core::PCWSTR,
     Win32::{
@@ -3948,6 +3960,9 @@ fn write_export_file(
     expected_extension: &str,
 ) -> Result<ExportFileWriteResult, String> {
     let destination_path = validate_export_file_destination(destination_path, expected_extension)?;
+    if expected_extension == "xlsx" {
+        return write_xlsx_export_file(&destination_path, bytes);
+    }
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -3971,6 +3986,136 @@ fn write_export_file(
         bytes_written: bytes.len(),
         success: true,
     })
+}
+
+fn write_xlsx_export_file(
+    destination_path: &Path,
+    bytes: &[u8],
+) -> Result<ExportFileWriteResult, String> {
+    write_xlsx_export_file_with_replace(destination_path, bytes, replace_xlsx_export_destination)
+}
+
+fn write_xlsx_export_file_with_replace<F>(
+    destination_path: &Path,
+    bytes: &[u8],
+    replace: F,
+) -> Result<ExportFileWriteResult, String>
+where
+    F: FnOnce(&Path, &Path) -> io::Result<()>,
+{
+    let (temporary_path, mut temporary_file) = create_xlsx_export_temporary_file(destination_path)?;
+    let write_result = (|| -> Result<(), String> {
+        std::io::Write::write_all(&mut temporary_file, bytes)
+            .map_err(|error| format!("XLSX export could not be written: {error}"))?;
+        temporary_file
+            .sync_all()
+            .map_err(|error| format!("XLSX export could not be synchronized: {error}"))?;
+        let written_bytes = temporary_file
+            .metadata()
+            .map_err(|error| format!("XLSX export could not be validated: {error}"))?
+            .len();
+        if written_bytes != bytes.len() as u64 {
+            return Err("XLSX export could not be validated after writing".to_string());
+        }
+        Ok(())
+    })();
+    drop(temporary_file);
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error);
+    }
+
+    if let Err(error) = replace(&temporary_path, destination_path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(format!(
+            "The export file could not be replaced. Close any application using the file or choose another destination, then try again: {error}"
+        ));
+    }
+
+    let display_name = destination_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Sakurava export")
+        .to_string();
+    Ok(ExportFileWriteResult {
+        destination_path: destination_path.display().to_string(),
+        display_name,
+        bytes_written: bytes.len(),
+        success: true,
+    })
+}
+
+fn create_xlsx_export_temporary_file(
+    destination_path: &Path,
+) -> Result<(PathBuf, fs::File), String> {
+    let parent = destination_path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = destination_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "Export destination file name is not valid".to_string())?;
+    for _ in 0..32 {
+        let unique = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let temporary_path = parent.join(format!(
+            ".{file_name}.sakurava-export-{}-{unique}.tmp",
+            std::process::id(),
+        ));
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary_path)
+        {
+            Ok(file) => return Ok((temporary_path, file)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "XLSX export temporary file could not be created: {error}"
+                ))
+            }
+        }
+    }
+    Err("XLSX export temporary file name could not be allocated".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn replace_xlsx_export_destination(
+    temporary_path: &Path,
+    destination_path: &Path,
+) -> io::Result<()> {
+    if !destination_path.exists() {
+        return fs::rename(temporary_path, destination_path);
+    }
+    let destination = destination_path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let replacement = temporary_path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let replaced = unsafe {
+        ReplaceFileW(
+            destination.as_ptr(),
+            replacement.as_ptr(),
+            std::ptr::null(),
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    };
+    if replaced == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_xlsx_export_destination(
+    temporary_path: &Path,
+    destination_path: &Path,
+) -> io::Result<()> {
+    fs::rename(temporary_path, destination_path)
 }
 
 fn write_export_file_set(
@@ -7866,7 +8011,7 @@ mod tests {
     }
 
     #[test]
-    fn export_file_write_validates_extension_and_never_overwrites() {
+    fn export_file_write_validates_extension_and_safely_replaces_xlsx() {
         let temp_root = std::env::temp_dir().join(format!(
             "sakurava-export-safe-write-test-{}",
             std::process::id()
@@ -7889,14 +8034,84 @@ mod tests {
             .expect("write new export");
         assert_eq!(result.display_name, "skv-vid.xlsx");
         assert_eq!(std::fs::read(&destination).expect("read export"), b"first");
+        write_export_file(destination.to_string_lossy().as_ref(), b"second", "xlsx")
+            .expect("replace existing xlsx export");
         assert_eq!(
-            write_export_file(destination.to_string_lossy().as_ref(), b"second", "xlsx",)
-                .expect_err("existing export must not be overwritten"),
+            std::fs::read(&destination).expect("read replacement"),
+            b"second"
+        );
+        assert_eq!(
+            std::fs::read_dir(&temp_root)
+                .expect("read export folder")
+                .count(),
+            1,
+            "successful replacement must clean its owned temporary file"
+        );
+
+        let csv_destination = temp_root.join("skv-vid.csv");
+        write_export_file(
+            csv_destination.to_string_lossy().as_ref(),
+            b"csv-first",
+            "csv",
+        )
+        .expect("write new csv export");
+        assert_eq!(
+            write_export_file(
+                csv_destination.to_string_lossy().as_ref(),
+                b"csv-second",
+                "csv"
+            )
+            .expect_err("CSV export must retain no-overwrite behavior"),
             "Export file already exists; choose a new filename"
         );
         assert_eq!(
-            std::fs::read(&destination).expect("read original"),
-            b"first"
+            std::fs::read(&csv_destination).expect("read original csv"),
+            b"csv-first"
+        );
+
+        let _ = std::fs::remove_dir_all(temp_root);
+    }
+
+    #[test]
+    fn xlsx_replacement_failure_preserves_existing_destination_and_cleans_owned_temp() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sakurava-xlsx-replace-failure-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        std::fs::create_dir_all(&temp_root).expect("create export folder");
+        let destination = temp_root.join("skv-vid.xlsx");
+        let unrelated_sibling = temp_root.join("keep.txt");
+        std::fs::write(&destination, b"previous workbook").expect("write previous export");
+        std::fs::write(&unrelated_sibling, b"keep").expect("write unrelated sibling");
+
+        let error = write_xlsx_export_file_with_replace(
+            &destination,
+            b"new workbook",
+            |_temporary, _destination| {
+                Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "replacement denied",
+                ))
+            },
+        )
+        .expect_err("replacement failure must be reported");
+
+        assert!(error.contains("could not be replaced"));
+        assert_eq!(
+            std::fs::read(&destination).expect("read preserved export"),
+            b"previous workbook"
+        );
+        assert_eq!(
+            std::fs::read(&unrelated_sibling).expect("read unrelated sibling"),
+            b"keep"
+        );
+        assert_eq!(
+            std::fs::read_dir(&temp_root)
+                .expect("read export folder")
+                .count(),
+            2,
+            "replacement failure must clean only its owned temporary file"
         );
 
         let _ = std::fs::remove_dir_all(temp_root);

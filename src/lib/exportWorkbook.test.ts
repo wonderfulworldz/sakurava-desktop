@@ -43,6 +43,24 @@ describe("XLSX export and templates", () => {
     ]);
     expect(workbook.getWorksheet("Images")).toBeUndefined();
     expect(workbook.getWorksheet("Managed Categories")).toBeUndefined();
+    const performers = workbook.getWorksheet("Performers")!;
+    expect(performers.rowCount).toBe(1);
+    expect(performers.getRow(1).values).toEqual(expect.arrayContaining([
+      "Action", "Sakurava Ref", "Name",
+    ]));
+  });
+
+  it("builds a selected empty worksheet with its normal headers and no data rows", async () => {
+    const result = await buildXlsxWorkbook({
+      selections: [{ dataType: "images", records: [] }],
+      locale: "en-US",
+    });
+    const workbook = await parseWorkbook(result.bytes);
+    const images = workbook.getWorksheet("Images")!;
+    expect(images.rowCount).toBe(1);
+    expect(images.getRow(1).values).toEqual(expect.arrayContaining([
+      "Action", "Sakurava Ref", "Title",
+    ]));
   });
 
   it("preserves deterministic very-hidden metadata through edit and save/read-back", async () => {
