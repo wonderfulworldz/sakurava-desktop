@@ -73,6 +73,31 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — XLSX Workbook Isolated Evidence Passed
+
+date: 2026-08-10
+session_type: XLSX_WORKBOOK_ISOLATED_EVIDENCE_RESULT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+isolated_workbook_evidence: PASS_REPORTED_BY_CODEX
+previous_combined_timeout: NOT_REPRODUCED_IN_ISOLATION
+previous_combined_timeout_exact_cause: UNKNOWN
+workbook_mutation_supported: false
+workbook_timeout_change_supported: false
+selected_empty_xlsx_ui_execution_cause: UNKNOWN
+videos_csv_header_failure: PRE_EXISTING_TEST_DEBT_PROVEN
+terrain_completeness_gate: FAIL_FOR_MUTATION_READINESS
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_SELECTED_EMPTY_UI_ISOLATED_EVIDENCE_VERIFICATION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: VERIFY
+
+The existing multi-type workbook test passed in isolation. The selected-empty
+UI evidence boundary remains separately gated; no mutation occurred in this
+reconciliation.
+
+---
+
 ## 2026-08-10 — XLSX Failed Verification Causes Classified
 
 date: 2026-08-10
@@ -159,28 +184,6 @@ Valid evidence remains reusable; only the omitted coupled-test classification
 must be completed. No technical execution occurred in this documentation action.
 
 ---
-
-## 2026-08-10 — Project-Wide Bounded Causal-Depth Audit Standard Approved
-
-date: 2026-08-10
-session_type: PROJECT_GOVERNANCE_CAUSAL_DEPTH_STANDARD_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-governance_standard: DEEP_TERRAIN_ANALYSIS_BEFORE_CORRECTION_OR_IMPLEMENTATION
-causal_depth_rule: BOUNDED_CAUSAL_DEPTH_COMPLETENESS_BEFORE_MUTATION
-terrain_completeness_gate: REQUIRED_BEFORE_FUTURE_TECHNICAL_MUTATION
-proportional_stop_rule: ONE_OR_TWO_ADJACENT_CAUSAL_LAYERS_WITH_NO_SOLUTION_CHANGING_UNKNOWN
-stateful_workflow_rule: COMPLETE_AFFECTED_WORKFLOW_BEFORE_ASSERTION_CORRECTION
-xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
-xlsx_progress: 0_OF_1_OUTCOMES_0_PERCENT; 6_OF_8_TASKS_75_PERCENT; 3_OF_5_GATES_60_PERCENT
-xlsx_first_root_cause: STALE_TEST_EXPECTATION_PROVEN
-xlsx_next_failure: DISABLED_BUTTON_ASSERTION_ROOT_CAUSE_UNKNOWN
-next_action: XLSX_EXPORT_COMPLETE_AFFECTED_WORKFLOW_CAUSAL_AUDIT
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-technical_execution: false
-
-The permanent standard requires enough causal depth for a deterministic safe
-correction without unlimited or unrelated analysis. The next XLSX audit is
-separately gated; no technical execution occurred in this reconciliation.
 
 ---
 

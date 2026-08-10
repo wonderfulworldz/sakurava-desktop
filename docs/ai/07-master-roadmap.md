@@ -2914,14 +2914,18 @@ The Backup/Restore backend correction is accepted, while real-app acceptance
 remains deferred until a safe full-app disposable path is available. The XLSX
 failed-focused-verification causal audit is accepted as
 `XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING`.
-The affected-workflow XLSX causal map is retained. The terrain-completeness
-gate is `FAIL_FOR_MUTATION_READINESS`; no source or test mutation is currently
-ready. Continuity is `BOUNDED_VERIFICATION_EVIDENCE_REQUIRED`. The next
-executable action is
-`XLSX_MULTI_TYPE_WORKBOOK_ISOLATED_EVIDENCE_VERIFICATION` in `VERIFY` mode,
-`READY_PENDING_SEPARATE_APPROVAL`, under the permanent bounded causal-depth
-completeness gate. Safe Filter implementation and Media Cover correction remain
-pending.
+The affected-workflow XLSX causal map is retained. The existing multi-type
+workbook test passed in isolation as `PASS_REPORTED_BY_CODEX`; the prior
+combined-run timeout did not reproduce in isolation, but its exact cause remains
+`UNKNOWN`. Workbook production mutation and timeout modification are not
+supported by available evidence. The selected-empty UI execution boundary
+remains unresolved. The terrain-completeness gate is
+`FAIL_FOR_MUTATION_READINESS`; no source or test mutation is currently ready.
+Continuity is `BOUNDED_VERIFICATION_EVIDENCE_REQUIRED`. The next executable
+action is `XLSX_SELECTED_EMPTY_UI_ISOLATED_EVIDENCE_VERIFICATION` in `VERIFY`
+mode, `READY_PENDING_SEPARATE_APPROVAL`, under the permanent bounded
+causal-depth completeness gate. Safe Filter implementation and Media Cover
+correction remain pending.
 
 Batch 42.9 remains
 `BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved
