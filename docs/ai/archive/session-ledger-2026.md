@@ -11,6 +11,28 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-10 — Pre-42.9 Corrective Priority Reconciled
+
+date: 2026-08-10
+session_type: PRE_42_9_CORRECTIVE_PRIORITY_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+latest_authority: BACKUP_RESTORE_CORRECTION_RECONCILIATION_ACCEPTED
+stale_corrective_audit_gate: REMOVED
+backup_restore_correction: COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION
+backup_restore_real_app_acceptance: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
+export_empty_section: ROOT_CAUSE_PROVEN
+export_existing_destination: ROOT_CAUSE_PROVEN
+next_corrective_action: XLSX_EXPORT_CORRECTION
+next_corrective_action_status: READY_PENDING_SEPARATE_APPROVAL
+application_source_mutation: false
+batch_42_9: BLOCKED
+technical_permissions: false
+
+The corrective priority is reconciled from accepted evidence. No application
+source mutation occurred.
+
+---
+
 ## 2026-08-10 — Pre-42.9 Corrective Audit Gate Ready
 
 date: 2026-08-10

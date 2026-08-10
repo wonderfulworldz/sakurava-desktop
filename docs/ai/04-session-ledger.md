@@ -73,6 +73,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — XLSX Correction Stopped on Focused Verification
+
+date: 2026-08-10
+session_type: XLSX_FOCUSED_VERIFICATION_FAILURE_STATE_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+technical_result: XLSX_EXPORT_CORRECTION_STOPPED_ON_FOCUSED_VERIFICATION
+focused_result: 4_PASS_3_FAIL
+failure_boundaries: VIDEOS_CSV_HEADER; SELECTED_EMPTY_XLSX_UI_COMPLETION; MULTI_TYPE_WORKBOOK_TIMEOUT
+failure_root_causes: UNKNOWN
+terrain_completeness_gate: REOPENED_BY_NEW_EVIDENCE
+continuity_decision: BOUNDED_COMPLETION_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+git_delivery: NONE
+next_action: XLSX_EXPORT_FAILED_FOCUSED_VERIFICATION_CAUSAL_AUDIT
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+technical_execution: false
+
+The focused verification stopped correctly after three unresolved in-scope
+boundaries. The technical handoff remains preserved and uncommitted. No retry,
+timeout change, technical follow-up, or Git delivery occurred.
+
+---
+
 ## 2026-08-10 — XLSX Terrain Completeness Accepted
 
 date: 2026-08-10
@@ -161,28 +184,6 @@ technical_permissions: false
 The backend correction is accepted, but full Tauri/WebView and operator-environment
 Product Acceptance remains pending. No unsafe manual smoke or live AppData access
 was performed.
-
----
-
-## 2026-08-10 — Pre-42.9 Corrective Priority Reconciled
-
-date: 2026-08-10
-session_type: PRE_42_9_CORRECTIVE_PRIORITY_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-latest_authority: BACKUP_RESTORE_CORRECTION_RECONCILIATION_ACCEPTED
-stale_corrective_audit_gate: REMOVED
-backup_restore_correction: COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION
-backup_restore_real_app_acceptance: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
-export_empty_section: ROOT_CAUSE_PROVEN
-export_existing_destination: ROOT_CAUSE_PROVEN
-next_corrective_action: XLSX_EXPORT_CORRECTION
-next_corrective_action_status: READY_PENDING_SEPARATE_APPROVAL
-application_source_mutation: false
-batch_42_9: BLOCKED
-technical_permissions: false
-
-The corrective priority is reconciled from accepted evidence. No application
-source mutation occurred.
 
 ---
 
