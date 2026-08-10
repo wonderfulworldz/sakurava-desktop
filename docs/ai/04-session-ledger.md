@@ -73,6 +73,32 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — XLSX Videos Header Corrected; Performer Reference Failure Exposed
+
+date: 2026-08-10
+session_type: XLSX_VIDEOS_DOWNSTREAM_FAILURE_STATE_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+videos_header_correction: APPLIED_AND_PRESERVED_IN_TECHNICAL_HANDOFF
+videos_header_verification_boundary: PASSED_BEFORE_DOWNSTREAM_FAILURE
+performer_reference_failure: EXPECTED_PERFORMER_REFERENCE_MISSING
+performer_reference_exact_cause: UNKNOWN
+selected_empty_regression_guard: NOT_EXECUTED_DUE_TO_FIRST_VERIFICATION_FAILURE
+workbook_isolated_evidence: PASS_REPORTED_BY_CODEX
+selected_empty_ui_isolated_evidence: PASS_REPORTED_BY_CODEX
+terrain_completeness_gate: REOPENED_BY_NEW_EVIDENCE
+continuity_decision: BOUNDED_COMPLETION_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_VIDEOS_PERFORMER_REFERENCE_FAILURE_CAUSAL_AUDIT
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: AUDIT_ONLY
+
+The Videos header correction was applied and the focused test progressed beyond
+that assertion before exposing a missing expected performer reference. The
+exact cause remains unknown; no retry or additional mutation occurred.
+
+---
+
 ## 2026-08-10 — XLSX Selected-Empty Isolated Evidence Passed
 
 date: 2026-08-10
@@ -164,29 +190,6 @@ technical_execution: false
 The focused verification stopped correctly after three unresolved in-scope
 boundaries. The technical handoff remains preserved and uncommitted. No retry,
 timeout change, technical follow-up, or Git delivery occurred.
-
----
-
-## 2026-08-10 — XLSX Terrain Completeness Accepted
-
-date: 2026-08-10
-session_type: XLSX_TERRAIN_COMPLETION_RESULT_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-audit_result: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT_ACCEPTED
-all_materially_coupled_export_tests: CLASSIFIED
-terrain_completeness_gate: PASS
-coupled_test_finding: RESOLVED
-xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
-xlsx_progress: 0_OF_1_OUTCOMES_0_PERCENT; 6_OF_8_TASKS_75_PERCENT; 3_OF_5_GATES_60_PERCENT
-next_action: XLSX_EXPORT_COMPLETE_WORKFLOW_CORRECTION_AND_FOCUSED_VERIFICATION
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-technical_execution: false
-
-The coupled-test causal completion audit is accepted. The next production and
-test correction remains separately gated; no technical execution occurred in
-this documentation reconciliation.
-
----
 
 ---
 

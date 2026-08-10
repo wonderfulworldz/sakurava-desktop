@@ -2914,20 +2914,20 @@ The Backup/Restore backend correction is accepted, while real-app acceptance
 remains deferred until a safe full-app disposable path is available. The XLSX
 failed-focused-verification causal audit is accepted as
 `XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING`.
-The affected-workflow XLSX causal map is retained. The selected-empty UI test
-passed in isolation as `PASS_REPORTED_BY_CODEX`, and the prior selected-empty
-failure did not reproduce in isolation. The multi-type workbook test also
-remains `PASS_REPORTED_BY_CODEX`; the prior combined-run timeout did not
-reproduce in isolation, while its exact cause remains
-`UNKNOWN_NON_SOLUTION_CHANGING_FOR_CURRENT_CORRECTION`. Workbook production
-mutation and timeout modification are not supported by available evidence.
-Videos CSV test debt remains proven. The terrain-completeness gate is `PASS`,
-with `TEST_ONLY_CORRECTION_READY` and
-`DETERMINISTIC_TEST_ONLY_CORRECTION_READY`. The next executable action is
-`XLSX_VIDEOS_TEST_DEBT_CORRECTION_AND_BOUNDED_FOCUSED_VERIFICATION` in
-`IMPLEMENT` mode, `READY_PENDING_SEPARATE_APPROVAL`, under the permanent
-bounded causal-depth completeness gate. Safe Filter implementation and Media
-Cover correction remain pending.
+The affected-workflow XLSX causal map is retained. The Videos header
+correction was applied and the header assertion passed before a downstream
+missing performer-reference assertion failed. The expected performer
+representation included `PER-… | Performer One`; its exact cause is `UNKNOWN`.
+The selected-empty regression guard was not executed because the first focused
+verification failed. Workbook and selected-empty isolated PASS evidence remain
+accepted, and no workbook or selected-empty rerun is required. The terrain
+completeness gate is `REOPENED_BY_NEW_EVIDENCE`; mutation readiness is
+`NONE_PENDING_VIDEOS_PERFORMER_REFERENCE_CAUSAL_AUDIT`, with continuity
+`BOUNDED_COMPLETION_REQUIRED`. The next executable action is
+`XLSX_VIDEOS_PERFORMER_REFERENCE_FAILURE_CAUSAL_AUDIT` in `AUDIT_ONLY` mode,
+`READY_PENDING_SEPARATE_APPROVAL`, under the permanent bounded causal-depth
+completeness gate. Safe Filter implementation and Media Cover correction remain
+pending.
 
 Batch 42.9 remains
 `BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved
