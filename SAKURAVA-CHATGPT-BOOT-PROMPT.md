@@ -149,6 +149,23 @@ prerequisites, expected result, progress task/gate, information gain, and stop
 condition. Unresolved causal terrain remains `AUDIT ONLY`; implementation waits
 for the completeness gate.
 
+## 5B. Finding Capture and Executor Continuity
+
+Capture every concrete out-of-scope bug, defect, regression, test or fixture
+problem, tooling issue, or other evidence-backed technical finding in the
+Feedback Log. Defer it when it is outside the approved scope; do not silently
+broaden the stage or record hypothetical issues. Stop for Result Review when it
+affects safety, evidence validity, protected boundaries, root cause, mutation
+scope, or the expected result.
+
+When executor noncompliance occurs, perform a continuity review before the next
+technical execution. Classify whether accepted evidence remains reusable and
+whether bounded completion, re-execution of only an invalidated boundary,
+governance realignment, or stop-and-review is required. Reporting-only errors do
+not justify technical reruns. Material omitted work requires a new prompt with
+the same objective, accepted evidence, remaining requirements, scope,
+denominators, success criteria, and stop conditions.
+
 ## 6. Quota-Aware Execution and Progress Control
 
 There is no fixed numeric execution-attempt limit. Codex quota, operator time,

@@ -56,6 +56,18 @@ solution. Do not escalate the model merely to compensate for an incomplete
 audit scope; first complete the bounded causal-depth work with the smallest
 relevant evidence set.
 
+Executor continuity follows the same evidence boundary. Reporting-only
+noncompliance does not justify a technical rerun or model escalation. Omitted
+mandatory audit or verification work normally routes to bounded `AUDIT ONLY` or
+`VERIFY` completion while preserving valid accepted evidence. Repeated
+comprehension failure may justify a smaller scope, clearer prompt, or reasoning
+reassessment. A stronger model does not substitute for objective alignment,
+complete scope, or the terrain gate.
+
+Concrete findings discovered outside the current scope must be captured and
+deferred in the Feedback Log. They do not change routing unless they invalidate
+the current evidence, safety, approval, or expected-success path.
+
 ### Quota-Aware Routing Control
 
 There is no fixed numeric execution-attempt limit. Select the least costly

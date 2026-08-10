@@ -73,6 +73,26 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — Project-Wide Finding Capture and Executor Continuity Standard Approved
+
+date: 2026-08-10
+session_type: PROJECT_GOVERNANCE_FINDING_AND_EXECUTOR_CONTINUITY_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+governance_standards: OUT_OF_SCOPE_FINDING_CAPTURE_AND_DEFERRED_TRIAGE; EXECUTOR_NONCOMPLIANCE_CONTINUITY_DECISION
+xlsx_continuity: MANDATORY_AUDIT_COMPLETENESS_NONCOMPLIANCE
+xlsx_continuity_decision: BOUNDED_COMPLETION_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+next_action: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+technical_execution: false
+
+The permanent standards require evidence-backed out-of-scope findings to be
+captured and deferred, and require continuity review after executor deviation.
+Valid evidence remains reusable; only the omitted coupled-test classification
+must be completed. No technical execution occurred in this documentation action.
+
+---
+
 ## 2026-08-10 — Project-Wide Bounded Causal-Depth Audit Standard Approved
 
 date: 2026-08-10
@@ -168,24 +188,6 @@ active, and the corrective audit remains separately gated.
 
 ---
 
-## 2026-08-10 — Deep Corrective Audit Accepted and Safe Filter Contract Replaced
-
-date: 2026-08-10
-session_type: PRE_42_9_CORRECTIVE_AUDIT_ACCEPTANCE_AND_SAFE_FILTER_CONTRACT_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-audit: PRE_42_9_DEEP_CORRECTIVE_AUDIT_ACCEPTED_WITH_DECISIONS_REQUIRED
-backup_restore: ROOT_CAUSE_NARROWED_RUNTIME_REPRODUCTION_REQUIRED
-media_cover: ROOT_CAUSE_NARROWED
-xlsx_findings: EMPTY_SECTION_AND_EXISTING_DESTINATION_ROOT_CAUSE_PROVEN
-safe_filter_contract: APPROVED_DIRECT_ONLY_R_PLUS
-sensitive_surfaces: CENSORSHIP; MEASUREMENTS; CUP_SIZE
-body_type: NOT_AUTOMATICALLY_SENSITIVE
-import_export: APPROVED_SAFE_VISIBILITY_POLICY
-backup_restore_policy: COMPLETE
-application_source_mutation: NONE
-next_action: SEPARATE_APPROVAL_FOR_BACKUP_RESTORE_DISPOSABLE_RUNTIME_REPRODUCTION
-batch_42_9: BLOCKED
-technical_permissions: false
 
 ---
 

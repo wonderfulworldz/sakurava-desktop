@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 11
+active_count: 12
 last_updated: 2026-08-10
 
 ## Active Feedback
@@ -235,6 +235,33 @@ Video Contact Sheet generation with timestamps and safely available metadata.
 No dependency or library is selected; audit must establish platform, codec,
 security, multi-window, persistence, performance, licensing, packaging, and
 accessibility facts first.
+
+### DISCOVERED-2026-08-10-XLSX-COUPLED-TEST-COVERAGE — Coupled Export Test Classification Gap
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
+stage_received: XLSX Export Complete Affected-Workflow Causal Audit
+type: DISCOVERED_FINDING
+status: BLOCKING
+risk: MEDIUM
+placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+discovery_source: CODEX_CAUSAL_AUDIT
+evidence: PROVEN_BY_STATIC_SOURCE
+origin: CODEX_AUDIT
+authorization: NO_IMPLEMENTATION_AUTHORIZED
+
+The accepted XLSX causal audit found that the Videos, Categories, and Glossary
+CSV App tests remain materially coupled to the older five-section assumptions
+and incomplete Credits fixture coverage. The missing `credit_list` mock is a
+fixture/harness gap; it does not cause the stale disabled-button assertion, but
+the coupled tests were not individually classified in the completed audit.
+
+This finding is outside the current documentation-only scope and does not
+invalidate the accepted XLSX evidence. It remains blocking for terrain-gate
+acceptance of the XLSX correction because the omitted coupled-test audit work
+must be completed before mutation. It is deferred to the separately gated
+`XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT`. No implementation is
+claimed.
 
 ## Resolved Feedback
 

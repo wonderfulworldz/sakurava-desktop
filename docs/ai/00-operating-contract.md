@@ -361,6 +361,56 @@ when needed. A technically closed batch does not prove full product acceptance
 when important real-user or runtime behavior was not observed; fresh operator
 evidence may create corrective work without rewriting historical closure.
 
+### Out-of-Scope Finding Capture and Deferred Triage
+
+Permanent standard: `OUT_OF_SCOPE_FINDING_CAPTURE_AND_DEFERRED_TRIAGE`.
+
+When an approved audit, implementation, verification, test, build, runtime
+observation, or repository inspection discovers a concrete issue outside the
+approved scope, record it in the Feedback Log rather than losing it or silently
+expanding the stage. Record its identifier, discovery source, approved evidence
+label, affected area, observed or proven behavior, scope relationship,
+reasonably determinable risk, stage impact, deferral reason, later triage
+destination, authorization state, and the absence of any implementation claim.
+Do not record hypothetical possibilities or create duplicate records.
+
+An out-of-scope finding does not interrupt work when it is genuinely outside
+scope, does not invalidate evidence or safety, does not conflict with an Active
+Lock, and does not make the expected result unreasonable. Stop for Result
+Review when it affects safety or data, invalidates evidence, changes the root
+cause or mutation boundary, conflicts with an Active Lock, or makes the current
+success path unreliable. Record the finding before deciding continuity.
+
+### Executor Noncompliance Continuity Decision
+
+Permanent standard: `EXECUTOR_NONCOMPLIANCE_CONTINUITY_DECISION`.
+
+When an executor deviates from an approved prompt, denominator, evidence rule,
+stop condition, protected boundary, scope, or reporting contract, first assess
+repository/data safety, protected evidence, scope, omitted mandatory work,
+causal completeness, verification validity, evidence integrity, reporting-only
+impact, reuse of accepted evidence, independent completion, information value
+of re-execution, and prompt clarity. Do not automatically discard valid
+evidence, restart the stage, or continue as if all requirements were met.
+
+Use these bounded continuity classes:
+
+- `CONTINUE_WITH_ACCEPTED_EVIDENCE` when evidence and mandatory gates remain valid;
+- `BOUNDED_COMPLETION_REQUIRED` when omitted work can be completed independently;
+- `REEXECUTION_OF_INVALIDATED_BOUNDARY_REQUIRED` only for the invalidated boundary;
+- `GOVERNANCE_OR_PROMPT_REALIGNMENT_REQUIRED` when the execution model is ambiguous;
+- `STOP_AND_REVIEW_REQUIRED` for safety, approval, protected-evidence, or material-clarity concerns.
+
+Reporting-only deviations do not justify technical reruns or model escalation,
+but they do not earn false progress. For omitted mandatory audit or verification
+work, preserve valid evidence and complete only the shortest missing boundary.
+Before materially continuing, realign the next prompt around the same objective,
+accepted evidence, rejected claims, unfinished requirements, scope, progress
+denominator, success criteria, and stop conditions. Repeated material deviation
+requires reassessment of prompt clarity, task size, model suitability, reasoning,
+mode, and whether a smaller stage or governance clarification is needed; a
+stronger model is not an automatic substitute for alignment.
+
 Treat Codex quota, operator time, execution time, correction cycles, and
 verification effort as limited project resources. Choose the smallest
 sufficient evidence set and least costly model likely to finish correctly in
