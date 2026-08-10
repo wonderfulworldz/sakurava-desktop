@@ -2893,11 +2893,15 @@ the technical closure recommendation and do not authorize platform validation.
 Batch 42.8 remains historically closed as
 `COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with `3_OF_3_OUTCOMES_100_PERCENT`.
 The deep corrective audit is completed and accepted; the Safe Filter product
-decision is resolved by the approved direct-only contract. Product Acceptance
-for 42.0–42.8 remains `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`.
-The next highest-priority action is
-`BACKUP_RESTORE_DISPOSABLE_RUNTIME_REPRODUCTION`,
-`READY_PENDING_SEPARATE_APPROVAL`.
+decision is resolved by the approved direct-only contract. The Backup/Restore
+backend defect is corrected and accepted through logical database equivalence,
+with populated/empty backend regressions and backend reopen-equivalent checks
+passing. Real Tauri/WebView/manual Product Acceptance remains pending safe
+disposable verification. Product Acceptance for 42.0–42.8 remains
+`FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`.
+The next corrective action is
+`BACKUP_RESTORE_REAL_APP_MANUAL_ACCEPTANCE`, deferred until a safe full-app
+disposable path is available.
 
 Batch 42.9 remains
 `BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved

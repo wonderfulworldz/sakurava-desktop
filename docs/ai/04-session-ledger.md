@@ -73,6 +73,34 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — Backup/Restore Backend Correction Accepted
+
+date: 2026-08-10
+session_type: BACKUP_RESTORE_CORRECTION_RECONCILIATION
+operator_decision: ACCEPTED_WITH_RUNTIME_LIMITATION
+result_review: BACKUP_RESTORE_LOGICAL_EQUIVALENCE_CORRECTION_ACCEPTED_WITH_RUNTIME_LIMITATION
+application_source_baseline: 19580084575f0c388304ae039bd2f5fb9d9161d7
+defect: POST_RESTORE_DATABASE_IDENTITY_FAILURE_PROVEN
+correction: LOGICAL_DATABASE_EQUIVALENCE_ACCEPTED
+regressions: POPULATED_AND_EMPTY_SNAPSHOT_PASS
+backend_reopen_equivalent: PASS
+negative_logical_mismatch: REJECTED
+rollback_recovery_safety: RETAINED
+real_app_acceptance: PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION
+manual_smoke: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
+live_appdata: false
+next_action: SEPARATE_APPROVAL_FOR_SAFE_FULL_APP_BACKUP_RESTORE_VERIFICATION
+batch_42_9: BLOCKED
+technical_permissions: false
+
+The backend correction is accepted, but full Tauri/WebView and operator-environment
+Product Acceptance remains pending. No unsafe manual smoke or live AppData access
+was performed.
+
+---
+
+---
+
 ## 2026-08-10 — Pre-42.9 Corrective Audit Gate Ready
 
 date: 2026-08-10
@@ -165,41 +193,6 @@ Batch 42.8 is closed with the accepted technical result and explicit runtime
 limitation. Batch 42.9 remains proposed only and separately gated.
 
 ---
-
-## 2026-08-09 — Stage 42.8-1 Audit Accepted and Final Implementation Direction Locked
-
-date: 2026-08-09
-session_type: BATCH_42_8_STAGE_1_AUDIT_ACCEPTANCE_AND_FINAL_PLAN_RECONCILIATION
-operator_decision: ACCEPTED_DOCUMENTATION_ONLY
-verdict: 42_8_1_AUDIT_ACCEPTED_WITH_REQUIRED_PLAN_CORRECTIONS
-batch_status: IN_PROGRESS
-batch_outcomes: 1_OF_3_OUTCOMES_33_PERCENT
-stage_42_8_1_status: COMPLETED_AND_ACCEPTED_WITH_PLAN_CORRECTIONS
-stage_42_8_1_progress: 12_OF_12_TASKS_100_PERCENT
-stage_42_8_1_execution_gates: 5_OF_5_100_PERCENT
-stage_42_8_2_status: READY_PENDING_SEPARATE_APPROVAL
-stage_42_8_2_execution: false
-stage_42_8_3_status: PLANNED_SCOPE_APPROVED_EXECUTION_GATED
-stage_42_8_3_execution: false
-translation_decision: ENGLISH_ONLY_BUILT_IN_BASELINE
-import_export_decision: OPTION_A_V3_COMPATIBLE_ADDITIVE_COLUMNS
-architecture_boundary: COMPLETE_DATA_AUTHORITY_EXPLICIT_VISIBILITY_PROJECTION
-terrain_principle: HEAVY_ANALYSIS_BEFORE_HEAVY_PROCESS
-documentation_only: true
-source_inspection: false
-technical_work: false
-technical_permissions: false
-next_action: CHATGPT_RESULT_REVIEW_THEN_SEPARATE_OPERATOR_APPROVAL_FOR_STAGE_42_8_2
-
-Result Review accepted all 12 Stage 42.8-1 tasks and 5 execution gates. The
-reconciliation records additive direct R+ state and Video/Image/Performer to
-Glossary links, fail-safe Safe Filter state, bounded one-hop set-based
-classification, complete-data authority with an explicit visibility
-projection, backend hidden-relationship preservation, leak-free
-visible/hidden/missing Detail semantics, masked Safe-ON Import, dependency-
-closed Safe-ON Export, complete Backup/Restore, English-only bundled
-Translation values, and V3-compatible optional R+/Glossary columns. No
-technical work occurred in this documentation reconciliation.
 
 ---
 

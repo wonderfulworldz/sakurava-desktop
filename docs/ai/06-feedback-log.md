@@ -126,10 +126,20 @@ risk: HIGH
 placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
 evidence: OBSERVED_BY_OPERATOR
 
-Restore did not return a full catalog to a backed-up full state after bulk
-deletion, and did not return a later catalog to an empty backed-up state.
-Category data apparently returned while the complete catalog did not. Root
-cause is `UNKNOWN`; this does not rewrite Batch 42.7 technical closure.
+The backend defect was proven at physical post-Restore SQLite identity
+validation: a logically correct Restore could be rejected when physical SQLite
+bytes differed from the staged target. The production correction in commit
+`19580084575f0c388304ae039bd2f5fb9d9161d7` now validates deterministic logical
+database equivalence. Populated and empty exact-snapshot backend regressions
+pass, backend reopen-equivalent checks pass, and meaningful same-count logical
+mismatch remains rejected. Rollback, safety snapshot, journal recovery, legacy
+V1, and V2 focused coverage remain valid as `REPORTED_BY_CODEX`.
+
+Real Tauri/WebView Restore workflow, frontend refresh, true process restart,
+and operator-environment behavior remain pending safe disposable manual
+verification. No live AppData is authorized. This feedback remains blocking
+Product Acceptance until real-app acceptance is completed; this does not
+rewrite Batch 42.7 technical closure.
 
 ### FEEDBACK-2026-08-10-MEDIA-COVER — Image Detail Cover Missing
 

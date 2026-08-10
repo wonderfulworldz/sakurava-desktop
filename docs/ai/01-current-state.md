@@ -6,8 +6,8 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-08-09
-repository_state_recorded_at: 2026-08-09
+product_state_updated_at: 2026-08-10
+repository_state_recorded_at: 2026-08-10
 repository_state_status: BATCH_42_8_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
@@ -16,9 +16,9 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
-baseline_label: Batch 42.8 Stage 42.8-2 Implementation Commit
-application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+last_recorded_baseline: 19580084575f0c388304ae039bd2f5fb9d9161d7
+baseline_label: Backup/Restore Logical Equivalence Correction Commit
+application_source_baseline: 19580084575f0c388304ae039bd2f5fb9d9161d7
 source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
 pre_reconciliation_repository_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 repository_documentation_baseline_before_correction: b58cc495ee95ec0f977a3881020c0d5886ecb618
@@ -94,9 +94,9 @@ next_proposed_batch: 42.9 — Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
 next_proposed_batch_approved: false
 all_technical_permissions: false
-current_governance_gate: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
-gate_status: READY_PENDING_SEPARATE_APPROVAL
-corrective_audit: READY_PENDING_SEPARATE_APPROVAL
+current_governance_gate: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
+gate_status: BACKUP_RESTORE_CORRECTION_ACCEPTED_WITH_RUNTIME_LIMITATION
+corrective_audit: COMPLETED_AND_ACCEPTED
 corrective_audit_approved: false
 corrective_audit_execution_started: false
 corrective_implementation: false
@@ -108,7 +108,14 @@ corrective_audit_approved: false
 deep_corrective_audit: COMPLETED_AND_ACCEPTED_WITH_DECISIONS_RESOLVED_FOR_SAFE_FILTER
 audit_execution: READ_ONLY
 audit_application_source_mutation: NONE
-backup_restore_finding: ROOT_CAUSE_NARROWED_RUNTIME_REPRODUCTION_REQUIRED
+backup_restore_finding: POST_RESTORE_DATABASE_IDENTITY_FAILURE_PROVEN
+backup_restore_defect: POST_RESTORE_DATABASE_IDENTITY_FAILURE_PROVEN
+backup_restore_correction: LOGICAL_DATABASE_EQUIVALENCE_ACCEPTED
+backup_restore_source_commit: 19580084575f0c388304ae039bd2f5fb9d9161d7
+backup_restore_regression: POPULATED_AND_EMPTY_SNAPSHOT_PASS
+backup_restore_backend_reopen: PASS
+backup_restore_real_app_acceptance: PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION
+backup_restore_additional_redesign: false
 media_cover_finding: ROOT_CAUSE_NARROWED
 export_empty_section_finding: ROOT_CAUSE_PROVEN
 export_existing_destination_finding: ROOT_CAUSE_PROVEN
@@ -116,8 +123,12 @@ xlsx_sheet_selection: ARCHITECTURE_DIRECTION_IDENTIFIED
 safe_filter_product_contract: DIRECT_ONLY_REPLACEMENT_APPROVED
 safe_filter_lock_conflict: RESOLVED_BY_OPERATOR_DECISION
 safe_filter_implementation: false
-recommended_next_technical_action: BACKUP_RESTORE_DISPOSABLE_RUNTIME_REPRODUCTION
-recommended_next_technical_action_status: READY_PENDING_SEPARATE_APPROVAL
+recommended_next_technical_action: BACKUP_RESTORE_REAL_APP_MANUAL_ACCEPTANCE
+recommended_next_technical_action_status: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
+
+backup_restore_real_app_manual_acceptance: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
+backup_restore_real_app_manual_acceptance_reason: FULL_DEBUG_DISPOSABLE_OVERRIDE_CONFLICTS_WITH_PROTECTED_MANUAL_SMOKE_BOUNDARY
+product_acceptance_manual_smoke_required_later: true
 
 ## Batch 42.8 Final Closure — 2026-08-09
 
@@ -137,15 +148,28 @@ unapproved with all technical permissions false.
 ## Current Product Acceptance Gate — 2026-08-10
 
 Batch 42.8 remains historically closed at `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`
-and `3_OF_3_OUTCOMES_100_PERCENT`, with application/source baseline
-`2edb0a491b9854758fe4c8bf04b88e4463b1e769`. Fresh operator evidence means
-Product Acceptance for 42.0–42.8 is
-`FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION`; no product root cause is
-claimed here. Backup/Restore is the highest-priority blocking finding, with
-additional Cover, Export, and Safe Filter/R+ contract findings recorded in the
-Feedback Log. Active technical batch is `NONE`; all technical permissions are
+and `3_OF_3_OUTCOMES_100_PERCENT`, with accepted application/source baseline
+`19580084575f0c388304ae039bd2f5fb9d9161d7`. Product Acceptance for 42.0–42.8
+remains `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE` because real
+Tauri/WebView Restore workflow, frontend refresh, true process restart, and
+operator-environment behavior remain pending safe disposable verification.
+The Backup/Restore backend correction is accepted; it is not full Product
+Acceptance. Active technical batch is `NONE`; all technical permissions are
 false. Stage 42.8-3 is historically completed with limitation, not pending.
-Batch 42.9 is blocked pending a pre-42.9 corrective audit and decision.
+Batch 42.9 remains blocked.
+
+## Accepted Backup/Restore Correction — 2026-08-10
+
+Result Review verdict:
+`BACKUP_RESTORE_LOGICAL_EQUIVALENCE_CORRECTION_ACCEPTED_WITH_RUNTIME_LIMITATION`.
+The proven physical post-Restore SQLite identity failure was corrected by
+deterministic logical database equivalence. Populated and empty exact-snapshot
+regressions, backend reopen-equivalent checks, same-count logical mismatch
+rejection, rollback, safety snapshot, journal recovery, legacy V1, and V2
+focused coverage were accepted as `REPORTED_BY_CODEX`. The real application
+workflow remains `PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION` and is
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` under the protected manual-smoke
+boundary.
 
 ## Current Accepted Batch 42.8 Result — 2026-08-09
 
