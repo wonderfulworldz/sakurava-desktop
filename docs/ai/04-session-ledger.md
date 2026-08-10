@@ -73,6 +73,27 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — XLSX Terrain Completeness Accepted
+
+date: 2026-08-10
+session_type: XLSX_TERRAIN_COMPLETION_RESULT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+audit_result: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT_ACCEPTED
+all_materially_coupled_export_tests: CLASSIFIED
+terrain_completeness_gate: PASS
+coupled_test_finding: RESOLVED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+xlsx_progress: 0_OF_1_OUTCOMES_0_PERCENT; 6_OF_8_TASKS_75_PERCENT; 3_OF_5_GATES_60_PERCENT
+next_action: XLSX_EXPORT_COMPLETE_WORKFLOW_CORRECTION_AND_FOCUSED_VERIFICATION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+technical_execution: false
+
+The coupled-test causal completion audit is accepted. The next production and
+test correction remains separately gated; no technical execution occurred in
+this documentation reconciliation.
+
+---
+
 ## 2026-08-10 — Project-Wide Finding Capture and Executor Continuity Standard Approved
 
 date: 2026-08-10
@@ -166,25 +187,6 @@ source mutation occurred.
 ---
 
 ---
-
-## 2026-08-10 — Pre-42.9 Corrective Audit Gate Ready
-
-date: 2026-08-10
-session_type: PRE_42_9_PROJECT_OS_STATE_CORRECTION
-operator_decision: DOCUMENTATION_CORRECTION_APPROVED
-documentation_reconciliation_result_review: ACCEPTED
-repository_baseline_before_correction: b58cc495ee95ec0f977a3881020c0d5886ecb618
-application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
-product_acceptance_42_0_to_42_8: FAILED_PENDING_CORRECTIVE_AUDIT_AND_RESOLUTION
-corrective_audit: READY_PENDING_SEPARATE_APPROVAL
-corrective_audit_approved: false
-corrective_implementation: false
-batch_42_9_status: BLOCKED_PENDING_CORRECTIVE_AUDIT_AND_DECISION
-technical_permissions: false
-next_action: SEPARATE_OPERATOR_APPROVAL_FOR_DEEP_READ_ONLY_CORRECTIVE_AUDIT
-
-The accepted Pre-42.9 reconciliation is complete. No technical batch is
-active, and the corrective audit remains separately gated.
 
 ---
 
