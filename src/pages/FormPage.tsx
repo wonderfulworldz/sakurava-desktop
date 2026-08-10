@@ -49,10 +49,9 @@ import {
 } from "../runtime/performerCommands";
 import { isImageRuntimeAvailable, listImages } from "../runtime/imageCommands";
 import { listManagedCategories } from "../runtime/managedCategoryCommands";
-import { listGlossaryEntries } from "../runtime/glossaryCommands";
 import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { isVideoRuntimeAvailable, listVideos } from "../runtime/videoCommands";
-import type { GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
+import type { Image, ManagedCategory, Performer, Video } from "../backend/types";
 import {
   detectImageTechInfo,
   detectVideoTechInfo,
@@ -65,6 +64,8 @@ import {
   type CreditFormValue,
 } from "../lib/workCredits";
 import { knownNameKey } from "../lib/performerKnownNames";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
+import { filterSafeFilterFields } from "../lib/safeFilterVisibility";
 
 const BUTTON_STYLES = {
   primary: "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sakura-500 px-5 text-xs font-bold text-white transition-colors duration-150 hover:bg-sakura-600 focus:outline-none focus:ring-2 focus:ring-sakura-500/20 disabled:cursor-not-allowed disabled:opacity-50",
@@ -161,6 +162,7 @@ function FormPage({
 }: FormPageProps) {
   const t = useTranslation();
   const navigate = useNavigate();
+  const safeFilterEnabled = getSafeFilterEnabled();
   const [values, setValues] = useState<FormValues>(config.initialValues[mode]);
   const [categories, setCategories] = useState<string[]>(
     normalizeFormCategories(config.initialCategories[mode]),
@@ -204,7 +206,6 @@ function FormPage({
     useState<RelatedPerformerLoadState>("idle");
   const [availableRelatedImages, setAvailableRelatedImages] = useState<Image[]>([]);
   const [availableRelatedVideos, setAvailableRelatedVideos] = useState<Video[]>([]);
-  const [availableGlossary, setAvailableGlossary] = useState<GlossaryEntry[]>([]);
   const [performerSuggestionOptions, setPerformerSuggestionOptions] = useState<
     Record<string, string[]>
   >({});
@@ -328,17 +329,6 @@ function FormPage({
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!isTauriRuntimeAvailable()) return undefined;
-    void listGlossaryEntries().then((entries) => {
-      if (!cancelled) setAvailableGlossary(entries);
-    }).catch(() => {
-      if (!cancelled) setAvailableGlossary([]);
-    });
-    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -970,7 +960,7 @@ function FormPage({
         <>
           <FormSection index={2} title={t("form.metadata")}>
             <FieldGrid>
-              {config.selectFields.map((field) => 
+              {filterSafeFilterFields(config.selectFields, safeFilterEnabled).map((field) =>
                 field.name === "availability" ? (
                   <AvailabilityBadgeRow
                     key={field.name}
@@ -1173,7 +1163,7 @@ function FormPage({
                     />
                   )
                 ))}
-              {config.performerSections?.physical
+              {filterSafeFilterFields(config.performerSections?.physical ?? [], safeFilterEnabled)
                 .map((field) => (
                   field.name === "measurements" ? (
                     <MeasurementsInput
@@ -1216,27 +1206,6 @@ function FormPage({
             />
             {t("safeFilter.form.directRPlus")}
           </label>
-          <fieldset>
-            <legend className="text-sm font-semibold text-slate-700">{t("safeFilter.form.glossaryRefs")}</legend>
-            {availableGlossary.length === 0 ? (
-              <p className="mt-2 text-xs font-medium text-slate-500">{t("safeFilter.form.noGlossary")}</p>
-            ) : (
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {availableGlossary.map((entry) => (
-                  <label key={entry.id} className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={glossaryRefs.includes(entry.id)}
-                      onChange={(event) => setGlossaryRefs((current) => event.target.checked
-                        ? [...current, entry.id]
-                        : current.filter((id) => id !== entry.id))}
-                    />
-                    <span className="truncate">{entry.term}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </fieldset>
         </div>
       </FormSection>
 

@@ -7,6 +7,7 @@ import {
   exportTypeCode,
   localExportTimestamp,
   prepareSelectionsWithPublicRefs,
+  projectSafeExportSelections,
 } from "./exportArtifacts";
 import {
   EXPORT_ACTIONS,
@@ -152,6 +153,49 @@ describe("shared XLSX/CSV export contract", () => {
     expect(csv).not.toContain("performer-1");
     expect(csv).not.toContain("image-1");
     expect(csv).not.toContain("category-1");
+  });
+
+  it("projects Safe-ON export visibility from direct R+ only and prunes hidden relationships", () => {
+    const projected = projectSafeExportSelections([
+      { dataType: "videos", records: [
+        video({
+          id: "linked-visible",
+          rPlus: false,
+          categoriesJson: JSON.stringify(["General", "Restricted"]),
+          glossaryRefsJson: JSON.stringify(["glo-visible", "glo-r"]),
+          relatedImagesJson: JSON.stringify([
+            { recordId: "image-visible", titleSnapshot: "Visible" },
+            { recordId: "image-direct", titleSnapshot: "Hidden" },
+          ]),
+        }),
+        video({ id: "video-direct", rPlus: true }),
+      ] },
+      { dataType: "images", records: [
+        { id: "image-visible", rPlus: false, categoriesJson: "[]", glossaryRefsJson: "[]", relatedPerformersJson: "[]", relatedVideosJson: "[]" },
+        { id: "image-direct", rPlus: true, categoriesJson: "[]", glossaryRefsJson: "[]", relatedPerformersJson: "[]", relatedVideosJson: "[]" },
+      ] },
+      { dataType: "performers", records: [] },
+      { dataType: "categories", records: [
+        { key: "cat-visible", name: "General", rPlus: false },
+        { key: "cat-r", name: "Restricted", rPlus: true },
+      ] },
+      { dataType: "glossary", records: [
+        { id: "glo-visible", parentId: "", rPlus: false },
+        { id: "glo-r", parentId: "", rPlus: true },
+      ] },
+      { dataType: "credits", records: [] },
+    ], ["videos", "images", "performers", "categories", "glossary", "credits"]);
+
+    const projectedVideo = projected[0].records[0] as Video;
+    expect(projected[0].records).toHaveLength(1);
+    expect(projectedVideo.id).toBe("linked-visible");
+    expect(projectedVideo.categoriesJson).toBe('["General"]');
+    expect(projectedVideo.glossaryRefsJson).toBe('["glo-visible"]');
+    expect(projectedVideo.relatedImagesJson).toContain("image-visible");
+    expect(projectedVideo.relatedImagesJson).not.toContain("image-direct");
+    expect(projected[1].records).toHaveLength(1);
+    expect(projected[3].records).toHaveLength(1);
+    expect(projected[4].records).toHaveLength(1);
   });
 
   it("formats CSV dates for day-first and month-first locales and keeps invalid/empty values", () => {

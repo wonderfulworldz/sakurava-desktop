@@ -19,9 +19,10 @@ type VideoFullCardProps = {
   linkTo: string;
   placeholderLabel?: string;
   onFavoriteClick?: () => void;
+  showCensorship?: boolean;
 };
 
-export function VideoFullCard({ item, linkTo, placeholderLabel, onFavoriteClick }: VideoFullCardProps) {
+export function VideoFullCard({ item, linkTo, placeholderLabel, onFavoriteClick, showCensorship = true }: VideoFullCardProps) {
   const t = useTranslation();
   const title = dashText(item.title);
   const code = dashText(item.code);
@@ -76,11 +77,13 @@ export function VideoFullCard({ item, linkTo, placeholderLabel, onFavoriteClick 
               </p>
             </div>
           </div>
-          <div className="col-span-1 flex flex-col items-center justify-center gap-1 rounded-xl bg-sakura-50 px-2 py-3 dark:bg-slate-700">
-            <CensorshipIcon status={censorshipStatus} size={20} />
-            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{translateUiDisplayLabel(t, censorshipStatus)}</span>
-          </div>
-          <div className="col-span-1 flex items-center justify-center rounded-xl bg-sakura-50 px-2 py-3 dark:bg-slate-700">
+          {showCensorship && (
+            <div className="col-span-1 flex flex-col items-center justify-center gap-1 rounded-xl bg-sakura-50 px-2 py-3 dark:bg-slate-700">
+              <CensorshipIcon status={censorshipStatus} size={20} />
+              <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{translateUiDisplayLabel(t, censorshipStatus)}</span>
+            </div>
+          )}
+          <div className={`${showCensorship ? "col-span-1" : "col-span-2"} flex items-center justify-center rounded-xl bg-sakura-50 px-2 py-3 dark:bg-slate-700`}>
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">{quality}</span>
           </div>
         </div>

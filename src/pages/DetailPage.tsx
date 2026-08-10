@@ -92,6 +92,11 @@ import {
   translateUiDisplayValue,
   type UiTranslator,
 } from "../lib/uiDisplayLabels";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
+import {
+  filterSafeFilterCensorshipValues,
+  filterSafeFilterLabels,
+} from "../lib/safeFilterVisibility";
 
 type DetailPageProps = {
   config: DetailConfig;
@@ -431,6 +436,10 @@ function CatalogIdentity({
   favoriteAction: DetailFavoriteAction;
 }) {
   const t = useTranslation();
+  const visibleChips = filterSafeFilterCensorshipValues(
+    config.chips,
+    getSafeFilterEnabled(),
+  );
   const playableMedia =
     config.kind === "videos"
       ? config.mediaPaths.find((item) => item.playable)
@@ -463,7 +472,7 @@ function CatalogIdentity({
         />
 
         <div className="mt-5 flex min-w-0 flex-wrap gap-2">
-          {config.chips.map((chip) => (
+          {visibleChips.map((chip) => (
             <Chip
               key={chip}
               label={chip}
@@ -504,13 +513,13 @@ function PerformerDetailPage({
   mediaDescriptors: Map<string, ManagedMediaDescriptor>;
 }) {
   const t = useTranslation();
-  const physicalItems = [
+  const physicalItems = filterSafeFilterLabels([
     config.bodyType ?? {
       label: t("detail.bodyType"),
       value: t("detail.notAvailable"),
     },
     ...config.physical,
-  ];
+  ], getSafeFilterEnabled());
 
   return (
     <div className="min-w-0 max-w-full space-y-5">
@@ -1892,6 +1901,7 @@ function RelatedLiteCard({
         linkTo={linkTo}
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+        showCensorship={!getSafeFilterEnabled()}
       />
     );
   }
@@ -1901,6 +1911,7 @@ function RelatedLiteCard({
       linkTo={linkTo}
       favoriteInteractive={favoriteInteractive}
       onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
+      showCensorship={!getSafeFilterEnabled()}
     />
   );
 }

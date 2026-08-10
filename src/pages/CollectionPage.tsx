@@ -46,6 +46,11 @@ import {
   translateUiDisplayValue,
   type UiTranslator,
 } from "../lib/uiDisplayLabels";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
+import {
+  filterSafeFilterSortOptions,
+  isSafeFilterFieldVisible,
+} from "../lib/safeFilterVisibility";
 
 type CollectionPageProps = {
   config: CollectionConfig;
@@ -101,7 +106,11 @@ function durableCatalogFilters(value: unknown, kind: CollectionConfig["kind"]) {
   const dataFilters: DataFilterValues = {};
   if (typeof rawDataFilters === "object" && rawDataFilters !== null) {
     for (const [key, filterValue] of Object.entries(rawDataFilters)) {
-      if (catalogDataFilterKeys[kind].has(key) && typeof filterValue === "string") {
+      if (
+        catalogDataFilterKeys[kind].has(key) &&
+        isSafeFilterFieldVisible(key, getSafeFilterEnabled()) &&
+        typeof filterValue === "string"
+      ) {
         dataFilters[key] = filterValue;
       }
     }
@@ -119,14 +128,14 @@ function initialCatalogFilters(
   }
   const durable = readCatalogPreferencePage(kind);
   const filters = durableCatalogFilters(durable.filters, kind);
-  const allowedTableSorts = new Set([
+  const allowedTableSorts = new Set(filterSafeFilterSortOptions([
     ...sortOptions,
     ...(kind === "performers"
       ? ["Status", "Original Name", "Categories", "Debut Year", "Filmography", "Pictorials", "Rating"]
       : kind === "images"
         ? ["Availability", "Original Title", "Code", "Categories", "Release Year", "Image Count", "Quality", "Censorship", "Rating"]
         : ["Availability", "Original Title", "Code", "Categories", "Release Year", "Duration", "Quality", "Censorship", "Rating"]),
-  ]);
+  ], getSafeFilterEnabled()));
   const tableSort =
     durable.tableSort &&
     allowedTableSorts.has(durable.tableSort.value)
@@ -142,7 +151,12 @@ function initialCatalogFilters(
   };
 }
 
-function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
+function CollectionPage({ config: sourceConfig, onFavoriteToggle }: CollectionPageProps) {
+  const safeFilterEnabled = getSafeFilterEnabled();
+  const config = useMemo<CollectionConfig>(() => ({
+    ...sourceConfig,
+    sortOptions: filterSafeFilterSortOptions(sourceConfig.sortOptions, safeFilterEnabled),
+  }), [safeFilterEnabled, sourceConfig]);
   const [searchParams] = useSearchParams();
   const filterSessionKey = catalogFilterSessionKey(config.kind);
   const initialFilters = initialCatalogFilters(filterSessionKey, config.kind, config.sortOptions);
@@ -390,7 +404,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
               className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))] xl:[grid-template-columns:repeat(4,minmax(0,1fr))]"
             >
               {pageItems.map((item) => (
-                <FullCard key={item.key} config={config} item={item} onFavoriteToggle={onFavoriteToggle} />
+                <FullCard key={item.key} config={config} item={item} onFavoriteToggle={onFavoriteToggle} safeFilterEnabled={safeFilterEnabled} />
               ))}
             </section>
           ) : (
@@ -410,6 +424,7 @@ function CollectionPage({ config, onFavoriteToggle }: CollectionPageProps) {
                 }));
                 resetToFirstPage();
               }}
+              safeFilterEnabled={safeFilterEnabled}
             />
           )}
           <PaginationBar
@@ -902,7 +917,7 @@ function videoFilterPanelCells(
         onChange={onDataFilterChange}
         onCloseDropdowns={() => dropdownState.onOpenDropdownChange(null)}
       />,
-    <SegmentedFilterCell
+    getSafeFilterEnabled() ? null : <SegmentedFilterCell
       key="censorship"
       kind={config.kind}
       filterId="censorship"
@@ -1009,7 +1024,7 @@ function imageFilterPanelCells(
         onChange={onDataFilterChange}
         onCloseDropdowns={() => dropdownState.onOpenDropdownChange(null)}
       />,
-    <SegmentedFilterCell
+    getSafeFilterEnabled() ? null : <SegmentedFilterCell
       key="censorship"
       kind={config.kind}
       filterId="censorship"
@@ -1126,7 +1141,7 @@ function performerFilterPanelCells(
       onChange={onDataFilterChange}
       onCloseDropdowns={() => dropdownState.onOpenDropdownChange(null)}
     />,
-    cupSizeOptions.length > 0 ? (
+    !getSafeFilterEnabled() && cupSizeOptions.length > 0 ? (
       <PickerFilterCell
         key="cupSize"
         kind={config.kind}
@@ -1818,7 +1833,7 @@ function catalogFilterGroups(kind: CollectionConfig["kind"]) {
       { id: "debutYear", label: "Debut Years", options: yearFilterOptions("All debut years") },
       { id: "filmography", label: "Filmography Count", options: countFilterOptions("All filmography") },
       { id: "pictorials", label: "Pictorials Count", options: countFilterOptions("All pictorials") },
-    ];
+    ].filter((filter) => isSafeFilterFieldVisible(filter.id, getSafeFilterEnabled()));
   }
 
   if (kind === "images") {
@@ -1830,7 +1845,7 @@ function catalogFilterGroups(kind: CollectionConfig["kind"]) {
       { id: "rating", label: "Rating", options: ratingFilterOptions() },
       { id: "year", label: "Release Years", options: yearFilterOptions("All release years") },
       { id: "imageCount", label: "Image Count", options: countFilterOptions("All image counts") },
-    ];
+    ].filter((filter) => isSafeFilterFieldVisible(filter.id, getSafeFilterEnabled()));
   }
 
   return [
@@ -1841,7 +1856,7 @@ function catalogFilterGroups(kind: CollectionConfig["kind"]) {
     { id: "rating", label: "Rating", options: ratingFilterOptions() },
     { id: "year", label: "Release Years", options: yearFilterOptions("All release years") },
     { id: "duration", label: "Duration", options: ["All durations", "Short", "Medium", "Long"] },
-  ];
+  ].filter((filter) => isSafeFilterFieldVisible(filter.id, getSafeFilterEnabled()));
 }
 
 function catalogFilterById(kind: CollectionConfig["kind"], filterId: string) {
@@ -1908,6 +1923,7 @@ function CollectionTable({
   tableSort,
   onFavoriteToggle,
   onSortChange,
+  safeFilterEnabled,
 }: {
   config: CollectionConfig;
   items: CollectionItem[];
@@ -1915,9 +1931,12 @@ function CollectionTable({
   tableSort: TableSortState;
   onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
   onSortChange: (value: string) => void;
+  safeFilterEnabled: boolean;
 }) {
   const t = useTranslation();
-  const columns = tableColumns(config.kind);
+  const columns = tableColumns(config.kind).filter((column) =>
+    isSafeFilterFieldVisible(column.id, safeFilterEnabled),
+  );
   const tableWidth = tableWidthPx(columns);
 
   return (
@@ -2043,9 +2062,10 @@ type CollectionCardProps = {
   config: CollectionConfig;
   item: CollectionItem;
   onFavoriteToggle?: (key: string, currentFavorite: boolean) => void;
+  safeFilterEnabled: boolean;
 };
 
-function FullCard({ config, item, onFavoriteToggle }: CollectionCardProps) {
+function FullCard({ config, item, onFavoriteToggle, safeFilterEnabled }: CollectionCardProps) {
   const linkTo = `/${config.kind}/${item.sakuravaRef ? formatSakuravaRef(item.sakuravaRef) : item.key}`;
   const handleFavorite = onFavoriteToggle ? () => onFavoriteToggle(item.key, item.favorite) : undefined;
 
@@ -2054,10 +2074,10 @@ function FullCard({ config, item, onFavoriteToggle }: CollectionCardProps) {
   }
 
   if (item.kind === "images") {
-    return <ImageFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
+    return <ImageFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} showCensorship={!safeFilterEnabled} />;
   }
 
-  return <VideoFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} />;
+  return <VideoFullCard item={item} linkTo={linkTo} placeholderLabel={config.placeholderLabel} onFavoriteClick={handleFavorite} showCensorship={!safeFilterEnabled} />;
 }
 
 function PaginationBar({
@@ -2549,6 +2569,7 @@ function sortByNumber(
 }
 
 function getSearchText(item: CollectionItem) {
+  const safeFilterEnabled = getSafeFilterEnabled();
   if (item.kind === "performers") {
     return normalizeSearchText(
       [
@@ -2560,7 +2581,7 @@ function getSearchText(item: CollectionItem) {
         item.aliases,
         item.status,
         item.nationality,
-        item.cupSize,
+        safeFilterEnabled ? "" : item.cupSize,
         item.filmographyCount,
         item.pictorialsCount,
         ...item.categories,
@@ -2575,7 +2596,7 @@ function getSearchText(item: CollectionItem) {
     item.title,
     item.originalTitle,
     item.availability,
-    item.censorship,
+    safeFilterEnabled ? "" : item.censorship,
     item.publisherLabel,
     ...item.categories,
   ];

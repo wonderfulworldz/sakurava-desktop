@@ -392,6 +392,7 @@ describe("App", () => {
     installMigratedSakuravaRefFallbackForLegacyMocks();
     delete (window as Partial<Window>).__TAURI_EVENT_PLUGIN_INTERNALS__;
     window.localStorage.clear();
+    window.localStorage.setItem("sakurava.safeFilter.v1", "false");
     resetAutomaticBackupRuntimeStateForTests();
     clearAllSessionFilterStateForTests();
     delete document.documentElement.dataset.theme;

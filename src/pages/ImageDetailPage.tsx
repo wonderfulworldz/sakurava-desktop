@@ -86,6 +86,19 @@ function ImageDetailPage() {
         if (cancelled) {
           return;
         }
+        const visiblePerformerIds = new Set(performers.map((performer) => performer.id));
+        const visibleCategoryKeys = new Set(managedCategories.map((category) => category.key));
+        credits = credits
+          .filter((credit) => visiblePerformerIds.has(credit.performerId))
+          .map((credit) => ({
+            ...credit,
+            creditTypeCategoryId: credit.creditTypeCategoryId && visibleCategoryKeys.has(credit.creditTypeCategoryId)
+              ? credit.creditTypeCategoryId
+              : null,
+            roleImportanceCategoryId: credit.roleImportanceCategoryId && visibleCategoryKeys.has(credit.roleImportanceCategoryId)
+              ? credit.roleImportanceCategoryId
+              : null,
+          }));
         setConfig(
           buildImageDetailConfig(
             image,

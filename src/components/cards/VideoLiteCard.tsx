@@ -16,6 +16,7 @@ type VideoLiteCardProps = {
   linkTo: string;
   onFavoriteClick?: () => void;
   favoriteInteractive?: boolean;
+  showCensorship?: boolean;
 };
 
 export function VideoLiteCard({
@@ -23,6 +24,7 @@ export function VideoLiteCard({
   linkTo,
   onFavoriteClick,
   favoriteInteractive,
+  showCensorship = true,
 }: VideoLiteCardProps) {
   const t = useTranslation();
   const title = displayValue(item.title);
@@ -51,8 +53,8 @@ export function VideoLiteCard({
             <Film size={14} className="shrink-0 text-sakura-500" />
             <div className="min-w-0"><p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{duration}</p><p className="text-[10px] leading-tight text-slate-500">{t(duration === "1" ? "unit.minute" : "unit.minutes")}</p></div>
           </div>
-          <div className="col-span-1 flex items-center justify-center rounded-lg bg-sakura-50 px-1.5 py-1.5 dark:bg-slate-700"><CensorshipIcon status={censorshipStatus} size={14} /></div>
-          <div className="col-span-1 flex min-w-0 items-center justify-center rounded-lg bg-sakura-50 px-1.5 py-1.5 dark:bg-slate-700"><span className="min-w-0 truncate text-xs font-bold text-slate-900 dark:text-slate-100">{quality}</span></div>
+          {showCensorship && <div className="col-span-1 flex items-center justify-center rounded-lg bg-sakura-50 px-1.5 py-1.5 dark:bg-slate-700"><CensorshipIcon status={censorshipStatus} size={14} /></div>}
+          <div className={`${showCensorship ? "col-span-1" : "col-span-2"} flex min-w-0 items-center justify-center rounded-lg bg-sakura-50 px-1.5 py-1.5 dark:bg-slate-700`}><span className="min-w-0 truncate text-xs font-bold text-slate-900 dark:text-slate-100">{quality}</span></div>
         </div>
       </div>
     </>

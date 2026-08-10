@@ -103,6 +103,22 @@ function PerformerDetailPage() {
         if (cancelled) {
           return;
         }
+        const visibleVideoIds = new Set(videos.map((video) => video.id));
+        const visibleImageIds = new Set(images.map((image) => image.id));
+        const visibleCategoryKeys = new Set(managedCategories.map((category) => category.key));
+        credits = credits
+          .filter((credit) => credit.workType === "video"
+            ? visibleVideoIds.has(credit.workId)
+            : visibleImageIds.has(credit.workId))
+          .map((credit) => ({
+            ...credit,
+            creditTypeCategoryId: credit.creditTypeCategoryId && visibleCategoryKeys.has(credit.creditTypeCategoryId)
+              ? credit.creditTypeCategoryId
+              : null,
+            roleImportanceCategoryId: credit.roleImportanceCategoryId && visibleCategoryKeys.has(credit.roleImportanceCategoryId)
+              ? credit.roleImportanceCategoryId
+              : null,
+          }));
         setConfig(
           buildPerformerDetailConfig(
             performer,

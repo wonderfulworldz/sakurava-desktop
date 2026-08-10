@@ -9,6 +9,7 @@ pub struct VisibleCatalogIds {
     pub images: HashSet<String>,
     pub performers: HashSet<String>,
     pub categories: HashSet<String>,
+    pub category_names: HashSet<String>,
     pub glossary: HashSet<String>,
 }
 
@@ -16,37 +17,15 @@ pub struct VisibleCatalogIds {
 struct CatalogClassificationRow {
     id: String,
     direct_r_plus: bool,
-    categories_json: String,
-    glossary_refs_json: String,
 }
 
 /// Loads the complete catalog classification projection with a bounded number
 /// of set-based reads. Callers retain complete-data access by not using this
 /// projection; user-visible command responses opt in explicitly.
 pub fn visible_catalog_ids(connection: &Connection) -> Result<VisibleCatalogIds, String> {
-    let r_plus_categories = string_set(
-        connection,
-        "SELECT name FROM managedCategories WHERE rPlus = 1",
-    )?;
-    let r_plus_glossary = string_set(
-        connection,
-        "SELECT id FROM glossary_entries WHERE rPlus = 1",
-    )?;
-    let videos = visible_ids(
-        catalog_rows(connection, "videos")?,
-        &r_plus_categories,
-        &r_plus_glossary,
-    );
-    let images = visible_ids(
-        catalog_rows(connection, "images")?,
-        &r_plus_categories,
-        &r_plus_glossary,
-    );
-    let performers = visible_ids(
-        catalog_rows(connection, "performers")?,
-        &r_plus_categories,
-        &r_plus_glossary,
-    );
+    let videos = visible_ids(catalog_rows(connection, "videos")?);
+    let images = visible_ids(catalog_rows(connection, "images")?);
+    let performers = visible_ids(catalog_rows(connection, "performers")?);
 
     Ok(VisibleCatalogIds {
         videos,
@@ -55,6 +34,10 @@ pub fn visible_catalog_ids(connection: &Connection) -> Result<VisibleCatalogIds,
         categories: string_set(
             connection,
             "SELECT key FROM managedCategories WHERE rPlus = 0",
+        )?,
+        category_names: normalized_string_set(
+            connection,
+            "SELECT name FROM managedCategories WHERE rPlus = 0",
         )?,
         glossary: string_set(
             connection,
@@ -69,7 +52,7 @@ fn catalog_rows(
 ) -> Result<Vec<CatalogClassificationRow>, String> {
     let sql = match table {
         "videos" | "images" | "performers" => {
-            format!("SELECT id, rPlus, categoriesJson, glossaryRefsJson FROM {table}")
+            format!("SELECT id, rPlus FROM {table}")
         }
         _ => return Err("Unsupported Safe Filter catalog table.".to_string()),
     };
@@ -81,8 +64,6 @@ fn catalog_rows(
             Ok(CatalogClassificationRow {
                 id: row.get(0)?,
                 direct_r_plus: row.get::<_, i64>(1)? != 0,
-                categories_json: row.get(2)?,
-                glossary_refs_json: row.get(3)?,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -99,40 +80,18 @@ fn string_set(connection: &Connection, sql: &str) -> Result<HashSet<String>, Str
         .map_err(|error| error.to_string())
 }
 
-fn visible_ids(
-    rows: Vec<CatalogClassificationRow>,
-    r_plus_categories: &HashSet<String>,
-    r_plus_glossary: &HashSet<String>,
-) -> HashSet<String> {
+fn normalized_string_set(connection: &Connection, sql: &str) -> Result<HashSet<String>, String> {
+    Ok(string_set(connection, sql)?
+        .into_iter()
+        .map(|value| normalized_label(&value))
+        .collect())
+}
+
+fn visible_ids(rows: Vec<CatalogClassificationRow>) -> HashSet<String> {
     rows.into_iter()
-        .filter(|row| !is_effective_r_plus(row, r_plus_categories, r_plus_glossary))
+        .filter(|row| !row.direct_r_plus)
         .map(|row| row.id)
         .collect()
-}
-
-fn is_effective_r_plus(
-    row: &CatalogClassificationRow,
-    r_plus_categories: &HashSet<String>,
-    r_plus_glossary: &HashSet<String>,
-) -> bool {
-    row.direct_r_plus
-        || string_array(&row.categories_json)
-            .iter()
-            .any(|value| r_plus_categories.contains(value))
-        || string_array(&row.glossary_refs_json)
-            .iter()
-            .any(|value| r_plus_glossary.contains(value))
-}
-
-fn string_array(raw: &str) -> Vec<String> {
-    match serde_json::from_str::<Value>(raw) {
-        Ok(Value::Array(values)) => values
-            .iter()
-            .filter_map(Value::as_str)
-            .map(ToString::to_string)
-            .collect(),
-        _ => Vec::new(),
-    }
 }
 
 /// Related-record snapshots are a presentation concern. Retain only links to
@@ -151,4 +110,34 @@ pub fn sanitize_related_json(raw: &str, id_field: &str, visible_ids: &HashSet<St
         })
         .collect::<Vec<_>>();
     serde_json::to_string(&retained).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// String-array relationships retain only visible targets. Category labels
+/// are matched case-insensitively; technical identifiers remain exact.
+pub fn sanitize_string_array_json(
+    raw: &str,
+    visible_values: &HashSet<String>,
+    normalize_labels: bool,
+) -> String {
+    let Ok(Value::Array(values)) = serde_json::from_str::<Value>(raw) else {
+        return "[]".to_string();
+    };
+    let retained = values
+        .into_iter()
+        .filter(|value| {
+            value.as_str().is_some_and(|item| {
+                let key = if normalize_labels {
+                    normalized_label(item)
+                } else {
+                    item.to_string()
+                };
+                visible_values.contains(&key)
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::to_string(&retained).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn normalized_label(value: &str) -> String {
+    value.trim().to_lowercase()
 }

@@ -163,14 +163,7 @@ export function projectSafeExportSelections(
   const all = new Map(selections.map((selection) => [selection.dataType, selection.records]));
   const categories = (all.get("categories") ?? []) as ManagedCategory[];
   const glossary = (all.get("glossary") ?? []) as Array<{ id: string; rPlus?: boolean; parentId: string }>;
-  const restrictedCategoryNames = new Set(categories
-    .filter((category) => category.rPlus === true)
-    .map((category) => category.name.trim().toLowerCase()));
-  const restrictedGlossaryIds = new Set(glossary.filter((entry) => entry.rPlus === true).map((entry) => entry.id));
-  const isRestricted = (record: { rPlus?: boolean; categoriesJson: string; glossaryRefsJson?: string }) =>
-    record.rPlus === true
-      || parseTextLabelArray(record.categoriesJson).some((name) => restrictedCategoryNames.has(name.trim().toLowerCase()))
-      || parseTextLabelArray(record.glossaryRefsJson ?? "[]").some((id) => restrictedGlossaryIds.has(id));
+  const isRestricted = (record: { rPlus?: boolean }) => record.rPlus === true;
   const videos = ((all.get("videos") ?? []) as Video[]).filter((record) => !isRestricted(record));
   const images = ((all.get("images") ?? []) as Image[]).filter((record) => !isRestricted(record));
   const performers = ((all.get("performers") ?? []) as Performer[]).filter((record) => !isRestricted(record));
@@ -181,8 +174,11 @@ export function projectSafeExportSelections(
   const glossaryIds = new Set(visibleGlossary.map((entry) => entry.id));
   const visibleCategories = categories.filter((category) => !category.rPlus);
   const categoryKeys = new Set(visibleCategories.map((category) => category.key));
+  const categoryNames = new Set(visibleCategories.map((category) => category.name.trim().toLowerCase()));
   const pruneCatalog = <T extends Video | Image | Performer>(record: T): T => ({
     ...record,
+    categoriesJson: JSON.stringify(parseTextLabelArray(record.categoriesJson)
+      .filter((name) => categoryNames.has(name.trim().toLowerCase()))),
     glossaryRefsJson: JSON.stringify(parseTextLabelArray(record.glossaryRefsJson ?? "[]").filter((id) => glossaryIds.has(id))),
     ...("relatedPerformersJson" in record ? {
       relatedPerformersJson: JSON.stringify(parseRelatedPerformerArray(record.relatedPerformersJson)

@@ -74,7 +74,9 @@ use crate::restore_coordinator::{
     rotate_automatic_backup_packages_v2_and_legacy, RestorePackagePreview, RestoreRecoveryStatus,
     RestoreRollbackTransition, RestoreStateTransition,
 };
-use crate::safe_filter::{sanitize_related_json, visible_catalog_ids, VisibleCatalogIds};
+use crate::safe_filter::{
+    sanitize_related_json, sanitize_string_array_json, visible_catalog_ids, VisibleCatalogIds,
+};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 const IMPORT_PLAN_PROCESSING_FAILURE: &str =
@@ -1381,6 +1383,16 @@ pub fn managed_category_list_visible(
         Ok(list_managed_categories(connection)?
             .into_iter()
             .filter(|category| visible.categories.contains(&category.key))
+            .map(|mut category| {
+                if category
+                    .parent_key
+                    .as_ref()
+                    .is_some_and(|parent_key| !visible.categories.contains(parent_key))
+                {
+                    category.parent_key = None;
+                }
+                category
+            })
             .collect())
     })
 }
@@ -1471,6 +1483,12 @@ pub fn glossary_list_visible(
         Ok(list_glossary_entries(connection)?
             .into_iter()
             .filter(|entry| visible.glossary.contains(&entry.id))
+            .map(|mut entry| {
+                if !entry.parent_id.is_empty() && !visible.glossary.contains(&entry.parent_id) {
+                    entry.parent_id.clear();
+                }
+                entry
+            })
             .collect())
     })
 }
@@ -5740,6 +5758,10 @@ fn is_filesystem_root(path: &Path) -> bool {
 }
 
 fn sanitize_video(mut video: Video, visible: &VisibleCatalogIds) -> Video {
+    video.categories_json =
+        sanitize_string_array_json(&video.categories_json, &visible.category_names, true);
+    video.glossary_refs_json =
+        sanitize_string_array_json(&video.glossary_refs_json, &visible.glossary, false);
     video.related_performers_json = sanitize_related_json(
         &video.related_performers_json,
         "performerId",
@@ -5751,6 +5773,10 @@ fn sanitize_video(mut video: Video, visible: &VisibleCatalogIds) -> Video {
 }
 
 fn sanitize_image(mut image: Image, visible: &VisibleCatalogIds) -> Image {
+    image.categories_json =
+        sanitize_string_array_json(&image.categories_json, &visible.category_names, true);
+    image.glossary_refs_json =
+        sanitize_string_array_json(&image.glossary_refs_json, &visible.glossary, false);
     image.related_performers_json = sanitize_related_json(
         &image.related_performers_json,
         "performerId",
@@ -5762,6 +5788,10 @@ fn sanitize_image(mut image: Image, visible: &VisibleCatalogIds) -> Image {
 }
 
 fn sanitize_performer(mut performer: Performer, visible: &VisibleCatalogIds) -> Performer {
+    performer.categories_json =
+        sanitize_string_array_json(&performer.categories_json, &visible.category_names, true);
+    performer.glossary_refs_json =
+        sanitize_string_array_json(&performer.glossary_refs_json, &visible.glossary, false);
     performer.related_videos_json =
         sanitize_related_json(&performer.related_videos_json, "recordId", &visible.videos);
     performer.related_images_json =

@@ -88,7 +88,7 @@ const englishDictionary: TranslationDictionary = {
   "settings.safeFilter.title": "Safe Filter",
   "settings.safeFilter.description": "Control whether R+ catalog content is hidden from normal views.",
   "settings.safeFilter.enabled": "Safe Filter enabled",
-  "settings.safeFilter.enabledHelper": "When enabled, direct or one-hop Category/Glossary R+ content is unavailable in normal views.",
+  "settings.safeFilter.enabledHelper": "When enabled, directly marked R+ records and sensitive Censorship, Measurements, and Cup Size surfaces are unavailable in normal views.",
   "settings.safeFilter.disableTitle": "Turn off Safe Filter?",
   "settings.safeFilter.disableBody": "R+ catalog content will become visible until you turn Safe Filter on again.",
   "safeFilter.unavailable": "Content is unavailable while Safe Filter is active.",
