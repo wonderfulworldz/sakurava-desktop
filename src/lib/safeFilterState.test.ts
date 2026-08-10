@@ -12,11 +12,22 @@ describe("Safe Filter state", () => {
   beforeEach(() => window.localStorage.clear());
 
   it("fails safe to ON for absent, malformed, unavailable, and throwing storage", () => {
+    const throwingStorage: Storage = {
+      length: 0,
+      clear: () => {},
+      getItem: () => {
+        throw new Error("unavailable");
+      },
+      key: () => null,
+      removeItem: () => {},
+      setItem: () => {},
+    };
+
     expect(getSafeFilterEnabled()).toBe(true);
     window.localStorage.setItem(SAFE_FILTER_STORAGE_KEY, "invalid");
     expect(getSafeFilterEnabled()).toBe(true);
     expect(getSafeFilterEnabled(null)).toBe(true);
-    expect(getSafeFilterEnabled({ getItem: () => { throw new Error("unavailable"); } } as Storage)).toBe(true);
+    expect(getSafeFilterEnabled(throwingStorage)).toBe(true);
   });
 
   it("persists explicit OFF and emits immediate state changes", () => {
