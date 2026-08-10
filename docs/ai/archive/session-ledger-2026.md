@@ -11,6 +11,32 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-10 — Backup/Restore Backend Correction Accepted
+
+date: 2026-08-10
+session_type: BACKUP_RESTORE_CORRECTION_RECONCILIATION
+operator_decision: ACCEPTED_WITH_RUNTIME_LIMITATION
+result_review: BACKUP_RESTORE_LOGICAL_EQUIVALENCE_CORRECTION_ACCEPTED_WITH_RUNTIME_LIMITATION
+application_source_baseline: 19580084575f0c388304ae039bd2f5fb9d9161d7
+defect: POST_RESTORE_DATABASE_IDENTITY_FAILURE_PROVEN
+correction: LOGICAL_DATABASE_EQUIVALENCE_ACCEPTED
+regressions: POPULATED_AND_EMPTY_SNAPSHOT_PASS
+backend_reopen_equivalent: PASS
+negative_logical_mismatch: REJECTED
+rollback_recovery_safety: RETAINED
+real_app_acceptance: PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION
+manual_smoke: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
+live_appdata: false
+next_action: SEPARATE_APPROVAL_FOR_SAFE_FULL_APP_BACKUP_RESTORE_VERIFICATION
+batch_42_9: BLOCKED
+technical_permissions: false
+
+The backend correction is accepted, but full Tauri/WebView and operator-environment
+Product Acceptance remains pending. No unsafe manual smoke or live AppData access
+was performed.
+
+---
+
 ## 2026-08-10 — Pre-42.9 Corrective Priority Reconciled
 
 date: 2026-08-10

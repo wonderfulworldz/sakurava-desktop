@@ -73,6 +73,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — XLSX Failed Verification Causes Classified
+
+date: 2026-08-10
+session_type: XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_RESULT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+audit_result: XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING
+videos_csv_header_failure: PRE_EXISTING_TEST_DEBT_PROVEN
+selected_empty_xlsx_ui_failure: ASYNC_WORKBOOK_BOUNDARY_PRESENT_EXECUTION_SETTLING_CAUSE_UNKNOWN
+multi_type_workbook_timeout: EXECUTION_CAUSE_NOT_STATICALLY_DETERMINABLE
+terrain_completeness_gate: FAIL_FOR_MUTATION_READINESS
+continuity_decision: BOUNDED_VERIFICATION_EVIDENCE_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_MULTI_TYPE_WORKBOOK_ISOLATED_EVIDENCE_VERIFICATION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: VERIFY
+
+The causal audit classified the three failed verification boundaries. One
+isolated evidence run remains separately gated; no technical execution or
+mutation occurred in this reconciliation.
+
+---
+
 ## 2026-08-10 — XLSX Correction Stopped on Focused Verification
 
 date: 2026-08-10
@@ -160,30 +183,6 @@ correction without unlimited or unrelated analysis. The next XLSX audit is
 separately gated; no technical execution occurred in this reconciliation.
 
 ---
-
-## 2026-08-10 — Backup/Restore Backend Correction Accepted
-
-date: 2026-08-10
-session_type: BACKUP_RESTORE_CORRECTION_RECONCILIATION
-operator_decision: ACCEPTED_WITH_RUNTIME_LIMITATION
-result_review: BACKUP_RESTORE_LOGICAL_EQUIVALENCE_CORRECTION_ACCEPTED_WITH_RUNTIME_LIMITATION
-application_source_baseline: 19580084575f0c388304ae039bd2f5fb9d9161d7
-defect: POST_RESTORE_DATABASE_IDENTITY_FAILURE_PROVEN
-correction: LOGICAL_DATABASE_EQUIVALENCE_ACCEPTED
-regressions: POPULATED_AND_EMPTY_SNAPSHOT_PASS
-backend_reopen_equivalent: PASS
-negative_logical_mismatch: REJECTED
-rollback_recovery_safety: RETAINED
-real_app_acceptance: PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION
-manual_smoke: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
-live_appdata: false
-next_action: SEPARATE_APPROVAL_FOR_SAFE_FULL_APP_BACKUP_RESTORE_VERIFICATION
-batch_42_9: BLOCKED
-technical_permissions: false
-
-The backend correction is accepted, but full Tauri/WebView and operator-environment
-Product Acceptance remains pending. No unsafe manual smoke or live AppData access
-was performed.
 
 ---
 

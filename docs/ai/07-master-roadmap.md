@@ -2911,10 +2911,14 @@ passing. Real Tauri/WebView/manual Product Acceptance remains pending safe
 disposable verification. Product Acceptance for 42.0–42.8 remains
 `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`.
 The Backup/Restore backend correction is accepted, while real-app acceptance
-remains deferred until a safe full-app disposable path is available. The
-affected-workflow XLSX causal map and terrain-completeness gate are accepted;
-the next executable corrective action is
-`XLSX_EXPORT_COMPLETE_WORKFLOW_CORRECTION_AND_FOCUSED_VERIFICATION`,
+remains deferred until a safe full-app disposable path is available. The XLSX
+failed-focused-verification causal audit is accepted as
+`XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING`.
+The affected-workflow XLSX causal map is retained. The terrain-completeness
+gate is `FAIL_FOR_MUTATION_READINESS`; no source or test mutation is currently
+ready. Continuity is `BOUNDED_VERIFICATION_EVIDENCE_REQUIRED`. The next
+executable action is
+`XLSX_MULTI_TYPE_WORKBOOK_ISOLATED_EVIDENCE_VERIFICATION` in `VERIFY` mode,
 `READY_PENDING_SEPARATE_APPROVAL`, under the permanent bounded causal-depth
 completeness gate. Safe Filter implementation and Media Cover correction remain
 pending.
