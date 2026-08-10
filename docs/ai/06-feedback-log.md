@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 9
+active_count: 12
 last_updated: 2026-08-10
 
 ## Active Feedback
@@ -97,7 +97,8 @@ This was current pre-42.9 corrective Product Acceptance scope. The XLSX
 correction was delivered in technical commit
 `276b55f900e94955740af9f49d53e6439d5dd348`. Selected empty XLSX sections remain
 valid with normal headers and zero data rows; the selected-empty regression
-guard passed as `REPORTED_BY_CODEX`, and no fake rows were introduced.
+guard passed as `REPORTED_BY_CODEX`, and no fake rows were introduced. Operator
+runtime smoke additionally accepted populated and full-empty XLSX Export.
 
 ### FEEDBACK-2026-07-22-SPREADSHEET-UX-TERMINOLOGY — Spreadsheet UX and Terminology
 
@@ -115,35 +116,14 @@ usable Credits table, and display Managed Categories as Category.
 
 ### Decision
 
-Record for later. A dedicated product and compatibility decision is required;
-current headers, ordering, sheet names, public references, internal Category
-identity, and other spreadsheet contracts remain unchanged. No implementation
-or Active Lock change is authorized.
-
-### FEEDBACK-2026-08-10-BACKUP-RESTORE-SNAPSHOT — Backup/Restore Snapshot Failure
-
-date: 2026-08-10
-batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
-type: PROBLEM_REPORT
-status: BLOCKING
-risk: HIGH
-placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
-evidence: OBSERVED_BY_OPERATOR
-
-The backend defect was proven at physical post-Restore SQLite identity
-validation: a logically correct Restore could be rejected when physical SQLite
-bytes differed from the staged target. The production correction in commit
-`19580084575f0c388304ae039bd2f5fb9d9161d7` now validates deterministic logical
-database equivalence. Populated and empty exact-snapshot backend regressions
-pass, backend reopen-equivalent checks pass, and meaningful same-count logical
-mismatch remains rejected. Rollback, safety snapshot, journal recovery, legacy
-V1, and V2 focused coverage remain valid as `REPORTED_BY_CODEX`.
-
-Real Tauri/WebView Restore workflow, frontend refresh, true process restart,
-and operator-environment behavior remain pending safe disposable manual
-verification. No live AppData is authorized. This feedback remains blocking
-Product Acceptance until real-app acceptance is completed; this does not
-rewrite Batch 42.7 technical closure.
+The user-facing Category terminology correction is delivered. Future spreadsheet
+work remains planned: Credits must become a user-editable projection after a
+compatibility audit classifies user-editable, derived, internal-control, and
+unnecessary fields. Empty-export guidance and Export-as-template directions
+remain pending compatibility and semantic audits. Current headers, ordering,
+sheet names, public references, internal Category identity, and other
+spreadsheet contracts remain unchanged. No implementation or Active Lock change
+is authorized by this record.
 
 ### FEEDBACK-2026-08-10-MEDIA-COVER — Image Detail Cover Missing
 
@@ -245,7 +225,99 @@ No dependency or library is selected; audit must establish platform, codec,
 security, multi-window, persistence, performance, licensing, packaging, and
 accessibility facts first.
 
+### FEEDBACK-2026-08-10-CSV-EXPORT-COMPATIBILITY — CSV Export and Excel Date Compatibility
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: PROBLEM_REPORT
+status: ACTIVE
+risk: HIGH
+placement: IMPORT_EXPORT_REFERENCE_CREDITS_CONTRACT_AUDIT_AND_CORRECTION
+evidence: OBSERVED_BY_OPERATOR
+
+Populated and full-empty CSV Export do not work. Separately, an exported CSV
+date may be locale-reformatted by ordinary Excel open/save and then fail safe
+Sakurava re-import. Empty XLSX Import currently has no applicable operation and
+disables Apply; it requires product/static classification before it is called a
+defect. No CSV/XLSX implementation or silent date interpretation is authorized.
+
+### FEEDBACK-2026-08-10-PUBLIC-REF-CURRENT-OWNER — Public Ref Current-Owner and Reuse Direction
+
+date: 2026-08-10
+batch: FUTURE_IMPORT_EXPORT_WORK
+type: APPROVED_PRODUCT_DIRECTION
+status: PLANNED
+risk: HIGH
+placement: PENDING_REFERENCE_COMPATIBILITY_AUDIT
+evidence: OBSERVED_BY_OPERATOR
+
+Public Ref is intended as the active address: a stale `REF | label` input must
+resolve to the current authoritative owner of the ref, while exact allocation,
+reuse, aliases/history, Preview normalization, and duplicate-in-batch behavior
+remain pending compatibility proof. Existing public-reference locks remain
+active until an exact replacement contract is accepted.
+
+### FEEDBACK-2026-08-10-REMEMBER-CENTRALIZED-POLICY — Centralized Remember Policy
+
+date: 2026-08-10
+batch: FUTURE_QOL_ARCHITECTURE
+type: APPROVED_PRODUCT_DIRECTION
+status: DEFERRED
+risk: MEDIUM
+placement: DEFERRED_AFTER_PRODUCT_ACCEPTANCE_CORRECTIVES
+evidence: OBSERVED_BY_OPERATOR
+
+Future Remember behavior should be centrally controlled through Input History,
+Active State, and Active Parameters, with shared preference persistence and
+feature ownership namespaces. Safe Filter remains safety-critical and must not
+become optional through Remember policy. No implementation is authorized.
+
+### DISCOVERED-2026-08-10-DEPENDENCY-SECURITY-TRIAGE — Dependency Security Notification
+
+date: 2026-08-10
+batch: PROJECT_GOVERNANCE
+type: DISCOVERED_FINDING
+status: DEFERRED
+risk: UNKNOWN
+placement: DEFERRED_DEPENDENCY_SECURITY_TRIAGE
+evidence: REPORTED_BY_CODEX
+
+GitHub reported dependency vulnerability notifications after technical delivery.
+Severity, reachability, and remediation are not established here; no dependency
+audit or package change is authorized.
+
 ## Resolved Feedback
+
+### FEEDBACK-2026-08-10-CATEGORY-RESURRECTION — Category Autonomous Resurrection
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: PROBLEM_REPORT
+status: RESOLVED
+risk: HIGH
+placement: RESOLVED / CATEGORY_CORRECTIVE_TECHNICAL_DELIVERY
+evidence: OBSERVED_BY_OPERATOR; REPORTED_BY_CODEX
+
+Desktop legacy localStorage Category snapshots could autonomously recreate
+deleted/empty authoritative SQLite Categories. The correction was delivered in
+`73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e` with focused regression guards and
+a passing production build reported by Codex. Operator runtime smoke confirms
+the Category state no longer resurrects.
+
+### FEEDBACK-2026-08-10-BACKUP-RESTORE-SNAPSHOT — Backup/Restore Snapshot Failure
+
+date: 2026-08-10
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
+type: PROBLEM_REPORT
+status: RESOLVED
+risk: HIGH
+placement: RESOLVED / BACKUP_RESTORE_REAL_APP_ACCEPTANCE
+evidence: OBSERVED_BY_OPERATOR; REPORTED_BY_CODEX
+
+The logical-equivalence correction remains delivered in
+`19580084575f0c388304ae039bd2f5fb9d9161d7`. Operator real-app smoke accepted
+Backup and Restore for full-content and full-empty cases. Historical runtime
+limitations remain historical and do not describe the current acceptance state.
 
 ### DISCOVERED-2026-08-10-XLSX-COUPLED-TEST-COVERAGE — Coupled Export Test Classification Gap
 

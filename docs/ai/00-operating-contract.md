@@ -361,6 +361,33 @@ when needed. A technically closed batch does not prove full product acceptance
 when important real-user or runtime behavior was not observed; fresh operator
 evidence may create corrective work without rewriting historical closure.
 
+### Proportional Prevention After Proven Corrections
+
+Permanent standard: `PROPORTIONAL_PERMANENT_PREVENTION_AFTER_PROVEN_CORRECTION`.
+
+Every proven bug or error correction must include a proportional prevention
+measure for its proven failure class where technically appropriate:
+
+`UNDERSTAND -> PROVE ROOT CAUSE -> CORRECT -> ADD PROPORTIONAL PREVENTION GUARD -> VERIFY`.
+
+Prefer a focused regression or other durable guard that would detect the same
+failure class without broad, low-value test expansion. Do not weaken a test to
+obtain PASS. When automation is not technically appropriate, record the
+alternative prevention or verification boundary and the residual risk.
+
+### Modular and Flexible Product Evolution
+
+Permanent standard: `MODULAR_FLEXIBLE_PRODUCT_EVOLUTION_WITH_EXPLICIT_CONTRACT_REPLACEMENT`.
+
+Locks protect safety, compatibility, identity, data integrity, and established
+workflow; they are change-control boundaries, not permanent resistance to a
+useful product improvement. An approved QoL or product-direction change may
+replace an existing contract only when operator intent is explicit, materially
+affected compatibility terrain is understood, safety invariants are preserved
+or deliberately replaced, the replacement contract is recorded explicitly,
+and implementation is separately approved. This principle never bypasses
+approval, evidence, or safety requirements.
+
 ### Out-of-Scope Finding Capture and Deferred Triage
 
 Permanent standard: `OUT_OF_SCOPE_FINDING_CAPTURE_AND_DEFERRED_TRIAGE`.

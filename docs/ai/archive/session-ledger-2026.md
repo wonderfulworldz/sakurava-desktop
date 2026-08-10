@@ -1521,3 +1521,26 @@ next_action_mode: IMPLEMENT
 The performer-reference causal audit is accepted. The exact Videos fixture
 correction is separately gated; no technical execution occurred in this
 reconciliation.
+
+---
+
+## 2026-08-10 — XLSX Failed Verification Causes Classified
+
+date: 2026-08-10
+session_type: XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_RESULT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+audit_result: XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING
+videos_csv_header_failure: PRE_EXISTING_TEST_DEBT_PROVEN
+selected_empty_xlsx_ui_failure: ASYNC_WORKBOOK_BOUNDARY_PRESENT_EXECUTION_SETTLING_CAUSE_UNKNOWN
+multi_type_workbook_timeout: EXECUTION_CAUSE_NOT_STATICALLY_DETERMINABLE
+terrain_completeness_gate: FAIL_FOR_MUTATION_READINESS
+continuity_decision: BOUNDED_VERIFICATION_EVIDENCE_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_MULTI_TYPE_WORKBOOK_ISOLATED_EVIDENCE_VERIFICATION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: VERIFY
+
+The causal audit classified the three failed verification boundaries. One
+isolated evidence run remains separately gated; no technical execution or
+mutation occurred in this reconciliation.

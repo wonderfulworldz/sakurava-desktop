@@ -9,10 +9,10 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 276b55f900e94955740af9f49d53e6439d5dd348
-last_recorded_git_baseline_status: BATCH_42_8_STAGE_42_8_2_IMPLEMENTATION_DELIVERED
-application_source_baseline: 276b55f900e94955740af9f49d53e6439d5dd348
-source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
+last_recorded_git_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+last_recorded_git_baseline_status: CATEGORY_RESURRECTION_CORRECTION_DELIVERED
+application_source_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+source_parent: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66
 pre_reconciliation_repository_baseline: 209c219821511037800f5196cba5cba7a5826d32
 prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
 project_os_reconciliation_baseline: 209c219821511037800f5196cba5cba7a5826d32
@@ -89,10 +89,10 @@ next_proposed_batch: 42.9
 next_proposed_batch_title: Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE
 next_proposed_batch_approved: false
-pre_42_9_corrective_gate: READY_PENDING_SEPARATE_APPROVAL
-xlsx_export_next_corrective_action: MEDIA_COVER_BOUNDED_CAUSAL_COMPLETION_AUDIT
+pre_42_9_corrective_gate: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION_PENDING_SEPARATE_APPROVAL
+xlsx_export_next_corrective_action: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
 xlsx_export_next_corrective_action_status: READY_PENDING_SEPARATE_APPROVAL
-xlsx_export_next_corrective_action_mode: AUDIT_ONLY
+xlsx_export_next_corrective_action_mode: IMPLEMENT
 xlsx_causal_audit_result: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT_ACCEPTED
 xlsx_all_materially_coupled_export_tests: CLASSIFIED
 xlsx_latest_technical_result: COMPLETED_AND_DELIVERED_WITH_RUNTIME_LIMITATION
@@ -133,7 +133,7 @@ batch_42_8_progress: 3_OF_3_OUTCOMES_100_PERCENT
 batch_42_8_final_verdict: BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
 next_proposed_batch: 42.9
 next_proposed_batch_title: Design System and Iconography Foundation
-next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_AUDIT_AND_DECISION
+next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
 next_proposed_batch_approved: false
 batch_42_8_documentation_reconciliation: COMPLETED_5_OF_5_GATES_100_PERCENT
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
@@ -234,6 +234,29 @@ batch_42_4_git_decision_verdict: TEMPORARY_PROCESS_SCOPED_GIT_PROXY_BYPASS_APPRO
 batch_42_4_git_policy_id: PROCESS_SCOPED_GIT_PROXY_BYPASS_FOR_ORIGIN_ONLY
 batch_42_4_git_policy_state: TEMPORARY_GIT_DELIVERY_FALLBACK_APPROVED
 batch_42_4_persistent_proxy_root_cause: UNKNOWN
+
+## Current Pre-42.9 Corrective Sequencing — 2026-08-10
+
+Category autonomous resurrection is resolved and runtime accepted in technical
+commit `73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e`; its focused prevention guards
+and production build passed as `REPORTED_BY_CODEX`. Backup/Restore full-content
+and full-empty real-app acceptance are `PASS_OBSERVED_BY_OPERATOR`.
+
+Product Acceptance corrective order is:
+
+1. `SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION` — current highest priority,
+   `READY_PENDING_SEPARATE_APPROVAL`, mode `IMPLEMENT`.
+2. `MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION` — unresolved next priority.
+3. `IMPORT_EXPORT_REFERENCE_CREDITS_CONTRACT_AUDIT_AND_CORRECTION` — includes
+   CSV Export failures, empty XLSX Import no-op UX classification, CSV/Excel
+   date compatibility, template semantics, empty-export guidance compatibility,
+   public-ref current-owner direction, and Credits user-editable projection.
+
+The public-reference current-owner/reuse, Credits projection, and empty-export
+guidance directions are approved pending compatibility audit; they are not
+implemented contracts. Remember is deferred QoL architecture. Batch 42.9
+remains blocked pending this corrective gate. Historical one-hop R+ statements
+elsewhere are superseded for current authority by `LOCK-SAFEFILTER-001`.
 
 ## Current Closure Authority — 2026-08-01 — Batch 42.4 Final Result Reconciliation
 

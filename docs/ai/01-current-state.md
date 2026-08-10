@@ -8,7 +8,7 @@ application_stack: React + Tauri
 
 product_state_updated_at: 2026-08-10
 repository_state_recorded_at: 2026-08-10
-repository_state_status: CLEAN_AT_DELIVERED_XLSX_TECHNICAL_COMMIT
+repository_state_status: CLEAN_AT_DELIVERED_CATEGORY_CORRECTION_COMMIT
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,10 +16,10 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 276b55f900e94955740af9f49d53e6439d5dd348
-baseline_label: XLSX-Corrective-Technical-Delivery-Commit
-application_source_baseline: 276b55f900e94955740af9f49d53e6439d5dd348
-source_parent: 3c7329abc320166e1d21d1ba8b9512fbc2d81261
+last_recorded_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+baseline_label: Category-Resurrection-Correction-Delivery-Commit
+application_source_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+source_parent: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66
 pre_reconciliation_repository_baseline: 515ed4e18f80bf00969f634ad981e017047f7c83
 repository_documentation_baseline_before_correction: 515ed4e18f80bf00969f634ad981e017047f7c83
 prior_project_os_baseline: d96d0d0d167c8ee6f35425cb2420fa79391c6204
@@ -89,13 +89,13 @@ batch_42_8_implementation_allowed: false
 stage_42_8_governance_limitation: EXECUTOR_NONCOMPLIANCE_RECORDED_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
 
 product_acceptance_42_0_to_42_8: FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE
-fresh_operator_evidence: BACKUP_RESTORE_BLOCKING; MEDIA_COVER; EXPORT_EMPTY_SECTION; EXPORT_REEXPORT_SAME_FILE; SAFEFILTER_PRODUCT_CONTRACT_CONFLICT
+fresh_operator_evidence: CATEGORY_AND_BACKUP_RESTORE_ACCEPTED; CSV_EXPORT_FAILURE; EMPTY_XLSX_IMPORT_NO_OP; SAFEFILTER_PRODUCT_CONTRACT_CORRECTION; MEDIA_COVER
 next_proposed_batch: 42.9 — Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE
 next_proposed_batch_approved: false
 all_technical_permissions: false
 current_governance_gate: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
-gate_status: XLSX_CORRECTIVE_TECHNICAL_SCOPE_COMPLETED_AND_DELIVERED_WITH_RUNTIME_LIMITATION
+gate_status: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE_RECONCILIATION_PENDING_SEPARATE_TECHNICAL_APPROVAL
 corrective_audit: COMPLETED_AND_ACCEPTED
 corrective_audit_approved: false
 corrective_audit_execution_started: false
@@ -162,9 +162,9 @@ xlsx_all_materially_coupled_export_tests: CLASSIFIED
 xlsx_mutation_readiness: NO_FURTHER_XLSX_TECHNICAL_MUTATION_CURRENTLY_REQUIRED
 xlsx_future_videos_test_only_correction: APP_TEST_VIDEOS_HEADER_SCHEMA_ORDER
 xlsx_videos_test_correction_authorized: false
-recommended_next_technical_action: MEDIA_COVER_BOUNDED_CAUSAL_COMPLETION_AUDIT
+recommended_next_technical_action: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
 recommended_next_technical_action_status: READY_PENDING_SEPARATE_APPROVAL
-recommended_next_technical_action_mode: AUDIT_ONLY
+recommended_next_technical_action_mode: IMPLEMENT
 
 deep_corrective_audit: COMPLETED_AND_ACCEPTED_WITH_DECISIONS_RESOLVED_FOR_SAFE_FILTER
 audit_execution: READ_ONLY
@@ -175,7 +175,7 @@ backup_restore_correction: LOGICAL_DATABASE_EQUIVALENCE_ACCEPTED
 backup_restore_source_commit: 19580084575f0c388304ae039bd2f5fb9d9161d7
 backup_restore_regression: POPULATED_AND_EMPTY_SNAPSHOT_PASS
 backup_restore_backend_reopen: PASS
-backup_restore_real_app_acceptance: PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION
+backup_restore_real_app_acceptance: PASS_OBSERVED_BY_OPERATOR
 backup_restore_additional_redesign: false
 media_cover_finding: ROOT_CAUSE_NARROWED
 export_empty_section_finding: ROOT_CAUSE_PROVEN
@@ -185,9 +185,50 @@ safe_filter_product_contract: DIRECT_ONLY_REPLACEMENT_APPROVED
 safe_filter_lock_conflict: RESOLVED_BY_OPERATOR_DECISION
 safe_filter_implementation: false
 
-backup_restore_real_app_manual_acceptance: DEFERRED_UNTIL_SAFE_FULL_APP_DISPOSABLE_PATH_AVAILABLE
-backup_restore_real_app_manual_acceptance_reason: FULL_DEBUG_DISPOSABLE_OVERRIDE_CONFLICTS_WITH_PROTECTED_MANUAL_SMOKE_BOUNDARY
+backup_restore_real_app_manual_acceptance: PASS_OBSERVED_BY_OPERATOR
+backup_restore_real_app_manual_acceptance_reason: SUPERSEDED_BY_OPERATOR_REAL_APP_SMOKE
 product_acceptance_manual_smoke_required_later: true
+
+## Current Pre-42.9 Corrective Authority — 2026-08-10
+
+This section is the current authority for Product Acceptance corrective work.
+Historical Batch 42.8 records that describe one-hop R+ classification are
+superseded by current `LOCK-SAFEFILTER-001`; they remain historical evidence,
+not current implementation direction.
+
+category_autonomous_resurrection: RESOLVED_RUNTIME_ACCEPTED
+category_autonomous_resurrection_root_cause: REPEATABLE_LEGACY_CATEGORY_SNAPSHOT_REHYDRATION_PROVEN
+category_correction_commit: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+category_supporting_test_debt_commit: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66
+category_runtime_acceptance: PASS_OBSERVED_BY_OPERATOR
+category_terminology: CATEGORY_CURRENT_USER_FACING_TERM
+category_prevention: FOCUSED_REGRESSION_GUARDS_REPORTED_BY_CODEX
+
+backup_restore_real_app_acceptance: PASS_OBSERVED_BY_OPERATOR
+backup_restore_runtime_limitation: SUPERSEDED_FOR_CURRENT_PRODUCT_ACCEPTANCE_BY_OPERATOR_SMOKE
+
+xlsx_export_populated_acceptance: PASS_OBSERVED_BY_OPERATOR
+xlsx_export_empty_acceptance: PASS_OBSERVED_BY_OPERATOR
+xlsx_import_populated_acceptance: PASS_OBSERVED_BY_OPERATOR
+csv_export_populated_acceptance: FAILURE_OBSERVED_BY_OPERATOR
+csv_export_empty_acceptance: FAILURE_OBSERVED_BY_OPERATOR
+empty_xlsx_import_state: EMPTY_IMPORT_NO_OP_UX_PRODUCT_DECISION_OR_AUDIT_REQUIRED
+csv_excel_date_compatibility: ACTIVE_PRODUCT_ACCEPTANCE_PROBLEM_OBSERVED_BY_OPERATOR
+
+safe_filter_r_plus_current_contract: DIRECT_ONLY_NO_INHERITANCE_APPROVED
+safe_filter_r_plus_corrective_completion: CURRENT_HIGHEST_TECHNICAL_PRIORITY
+safe_filter_r_plus_implementation_compliance: UNKNOWN_PENDING_SEPARATE_APPROVAL
+media_cover_corrective_status: UNRESOLVED_NEXT_PRIORITY_AFTER_SAFE_FILTER
+
+empty_export_guidance_placeholder: APPROVED_PRODUCT_DIRECTION_PENDING_COMPATIBILITY_AUDIT
+export_as_template_direction: APPROVED_PRODUCT_DIRECTION_PENDING_SEMANTIC_AUDIT
+public_ref_current_owner_reuse_direction: APPROVED_PENDING_REFERENCE_COMPATIBILITY_AUDIT
+credits_user_editable_projection: APPROVED_PRODUCT_DIRECTION_PENDING_COMPATIBILITY_AUDIT
+remember_centralized_policy: APPROVED_DEFERRED_PRODUCT_DIRECTION
+dependency_security_notification: DEFERRED_DEPENDENCY_SECURITY_TRIAGE
+
+current_corrective_priority_order: SAFE_FILTER_R_PLUS; MEDIA_COVER; IMPORT_EXPORT_REFERENCE_CREDITS_CONTRACT_AUDIT_AND_CORRECTION; REMAINING_PRODUCT_ACCEPTANCE; BATCH_42_9_AFTER_GATE
+all_technical_permissions: false
 
 ## Batch 42.8 Final Closure — 2026-08-09
 
@@ -209,13 +250,13 @@ unapproved with all technical permissions false.
 Batch 42.8 remains historically closed at `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`
 and `3_OF_3_OUTCOMES_100_PERCENT`, with accepted application/source baseline
 `19580084575f0c388304ae039bd2f5fb9d9161d7`. Product Acceptance for 42.0–42.8
-remains `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE` because real
-Tauri/WebView Restore workflow, frontend refresh, true process restart, and
-operator-environment behavior remain pending safe disposable verification.
-The Backup/Restore backend correction is accepted; it is not full Product
-Acceptance. Active technical batch is `NONE`; all technical permissions are
-false. Stage 42.8-3 is historically completed with limitation, not pending.
-Batch 42.9 remains blocked.
+remains `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`. The former
+Backup/Restore runtime gap is superseded in current authority by
+`PASS_OBSERVED_BY_OPERATOR` real-app smoke for full-content and full-empty
+Backup and Restore. Remaining current corrective work includes Safe Filter/R+,
+Media Cover, and Import/Export compatibility. Active technical batch is
+`NONE`; all technical permissions are false. Stage 42.8-3 is historically
+completed with limitation, not pending. Batch 42.9 remains blocked.
 
 ## Accepted Backup/Restore Correction — 2026-08-10
 
@@ -226,9 +267,9 @@ deterministic logical database equivalence. Populated and empty exact-snapshot
 regressions, backend reopen-equivalent checks, same-count logical mismatch
 rejection, rollback, safety snapshot, journal recovery, legacy V1, and V2
 focused coverage were accepted as `REPORTED_BY_CODEX`. The real application
-workflow remains `PENDING_SAFE_DISPOSABLE_MANUAL_VERIFICATION` and is
-`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT` under the protected manual-smoke
-boundary.
+workflow was pending at this historical record. Current authority supersedes
+that limitation with `PASS_OBSERVED_BY_OPERATOR` Backup/Restore real-app smoke
+for full-content and full-empty cases.
 
 ## Current Accepted Batch 42.8 Result — 2026-08-09
 

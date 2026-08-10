@@ -73,6 +73,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-10 — Pre-42.9 Corrective Scope Reconciled
+
+date: 2026-08-10
+session_type: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+starting_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+category_correction_commits: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66; 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+category_runtime_acceptance: PASS_OBSERVED_BY_OPERATOR
+backup_restore_real_app_acceptance: PASS_OBSERVED_BY_OPERATOR
+safe_filter_priority: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
+unresolved_priorities: MEDIA_COVER; CSV_EXPORT; EMPTY_XLSX_IMPORT_UX; IMPORT_EXPORT_REFERENCE_CREDITS_COMPATIBILITY
+governance: PROPORTIONAL_PERMANENT_PREVENTION; MODULAR_FLEXIBLE_PRODUCT_EVOLUTION
+product_directions: PUBLIC_REF_CURRENT_OWNER_REUSE; CREDITS_USER_EDITABLE_PROJECTION; EMPTY_EXPORT_GUIDANCE; REMEMBER_DEFERRED
+technical_permissions: false
+next_action: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+
+Current authority now records the Category correction and Backup/Restore
+real-app smoke as accepted, preserves current unresolved Product Acceptance
+work, and leaves all technical work separately gated.
+
+---
+
 ## 2026-08-10 — XLSX Corrective Technical Delivery Accepted
 
 date: 2026-08-10
@@ -170,29 +193,6 @@ next_action_mode: VERIFY
 The existing multi-type workbook test passed in isolation. The selected-empty
 UI evidence boundary remains separately gated; no mutation occurred in this
 reconciliation.
-
----
-
-## 2026-08-10 — XLSX Failed Verification Causes Classified
-
-date: 2026-08-10
-session_type: XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_RESULT_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-audit_result: XLSX_FAILED_VERIFICATION_CAUSAL_AUDIT_ACCEPTED_WITH_EXECUTION_BOUNDARY_REMAINING
-videos_csv_header_failure: PRE_EXISTING_TEST_DEBT_PROVEN
-selected_empty_xlsx_ui_failure: ASYNC_WORKBOOK_BOUNDARY_PRESENT_EXECUTION_SETTLING_CAUSE_UNKNOWN
-multi_type_workbook_timeout: EXECUTION_CAUSE_NOT_STATICALLY_DETERMINABLE
-terrain_completeness_gate: FAIL_FOR_MUTATION_READINESS
-continuity_decision: BOUNDED_VERIFICATION_EVIDENCE_REQUIRED
-xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
-technical_execution: false
-next_action: XLSX_MULTI_TYPE_WORKBOOK_ISOLATED_EVIDENCE_VERIFICATION
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-next_action_mode: VERIFY
-
-The causal audit classified the three failed verification boundaries. One
-isolated evidence run remains separately gated; no technical execution or
-mutation occurred in this reconciliation.
 
 ---
 
