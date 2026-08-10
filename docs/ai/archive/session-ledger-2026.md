@@ -1264,3 +1264,28 @@ visible/hidden/missing Detail semantics, masked Safe-ON Import, dependency-
 closed Safe-ON Export, complete Backup/Restore, English-only bundled
 Translation values, and V3-compatible optional R+/Glossary columns. No
 technical work occurred in this documentation reconciliation.
+
+---
+
+## 2026-08-09 — Batch 42.8 Safe Filter and R+ Closed
+
+date: 2026-08-09
+session_type: BATCH_42_8_STAGE_3_FINAL_VALIDATION_AND_BATCH_CLOSURE
+operator_decision: ACCEPTED_WITH_LIMITATIONS
+verdict: BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_status: COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+batch_outcomes: 3_OF_3_OUTCOMES_100_PERCENT
+application_source_baseline: 2edb0a491b9854758fe4c8bf04b88e4463b1e769
+stage_42_8_3_status: COMPLETED_WITH_LIMITATION
+stage_42_8_3_progress: 6_OF_6_TASKS_100_PERCENT
+stage_42_8_3_execution_gates: 5_OF_5_100_PERCENT
+product_defect_proven: false
+source_correction_required: false
+runtime_limitation: TAURI_WEBVIEW_VIEWER_INVALIDATION_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
+historical_governance_limitation: STAGE_42_8_2_EXECUTOR_NONCOMPLIANCE_RECORDED
+next_batch: 42.9 — Design System and Iconography Foundation
+next_batch_status: READY_PENDING_SEPARATE_APPROVAL
+technical_permissions: false
+
+Batch 42.8 is closed with the accepted technical result and explicit runtime
+limitation. Batch 42.9 remains proposed only and separately gated.

@@ -78,9 +78,11 @@ Recorded in Project OS during Batch 42.2C documentation closure and reaffirmed d
 date: 2026-07-22
 batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
 type: PROBLEM_REPORT
-status: PLANNED
+status: BLOCKING
 risk: MEDIUM
 placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
+
+accepted_audit_status: ROOT_CAUSE_PROVEN
 
 ### Operator Feedback
 
@@ -166,8 +168,12 @@ placement: CURRENT_CORRECTIVE_AUDIT_SCOPE
 evidence: OBSERVED_BY_OPERATOR
 
 Export to `skv-all-master.xlsx` succeeded once, then failed after bulk deletion
-when exporting to the same name. Root cause is `UNKNOWN`. Audit must determine
-the cause and provide safe replacement or a clear actionable locked-file error.
+when exporting to the same name. Accepted audit status is `ROOT_CAUSE_PROVEN`:
+the current XLSX disk writer uses create-new-only behavior and rejects an
+already-existing destination. Future correction must safely replace an
+existing destination when permitted and return a clear actionable error when
+replacement is prevented, such as by a file lock. Actual Excel-lock behavior
+has not been measured.
 
 ### FEEDBACK-2026-08-10-XLSX-SHEET-SELECTION — Select Sheets Before Preview
 

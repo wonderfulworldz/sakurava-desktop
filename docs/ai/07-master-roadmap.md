@@ -2899,9 +2899,11 @@ with populated/empty backend regressions and backend reopen-equivalent checks
 passing. Real Tauri/WebView/manual Product Acceptance remains pending safe
 disposable verification. Product Acceptance for 42.0–42.8 remains
 `FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE`.
-The next corrective action is
-`BACKUP_RESTORE_REAL_APP_MANUAL_ACCEPTANCE`, deferred until a safe full-app
-disposable path is available.
+The Backup/Restore backend correction is accepted, while real-app acceptance
+remains deferred until a safe full-app disposable path is available. The next
+executable corrective candidate is `XLSX_EXPORT_CORRECTION`,
+`READY_PENDING_SEPARATE_APPROVAL`. Safe Filter implementation and Media Cover
+correction remain pending.
 
 Batch 42.9 remains
 `BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE`, unapproved
