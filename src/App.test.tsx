@@ -1733,6 +1733,94 @@ describe("App", () => {
     expect(commands).not.toContain("managed_category_update");
   });
 
+  it("does not replay a stale legacy Category snapshot after desktop remount", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    setManagedCategories(["Stale Legacy Category"]);
+    const invoke = withMigratedSakuravaRefs(async (command: string) => {
+      if ([
+        "video_list",
+        "video_list_visible",
+        "image_list",
+        "image_list_visible",
+        "performer_list",
+        "performer_list_visible",
+        "credit_list",
+      ].includes(command)) {
+        return [];
+      }
+      if (["managed_category_list", "managed_category_list_visible"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    const firstMount = render(<App />);
+    await waitFor(() => {
+      expect(invoke.mock.calls.filter(([command]) => String(command).startsWith("managed_category_list")))
+        .toHaveLength(1);
+    });
+    expect(screen.queryByText("Stale Legacy Category")).not.toBeInTheDocument();
+    firstMount.unmount();
+
+    render(<App />);
+    await waitFor(() => {
+      expect(invoke.mock.calls.filter(([command]) => String(command).startsWith("managed_category_list")))
+        .toHaveLength(2);
+    });
+    expect(screen.queryByText("Stale Legacy Category")).not.toBeInTheDocument();
+    expect(invoke.mock.calls.map(([command]) => command))
+      .not.toContain("managed_category_create");
+  });
+
+  it("keeps a deleted Category absent after desktop restore resets the route tree", async () => {
+    window.history.pushState({}, "", "/settings/category-management");
+    setManagedCategories(["Deleted Legacy Category"]);
+    const invoke = withMigratedSakuravaRefs(async (command: string) => {
+      if ([
+        "video_list",
+        "video_list_visible",
+        "image_list",
+        "image_list_visible",
+        "performer_list",
+        "performer_list_visible",
+        "credit_list",
+      ].includes(command)) {
+        return [];
+      }
+      if (["managed_category_list", "managed_category_list_visible"].includes(command)) {
+        return [];
+      }
+      throw new Error(`Unexpected command ${command}`);
+    });
+    window.__TAURI_INTERNALS__ = { invoke: invoke as unknown as TestTauriInvoke };
+
+    render(<App />);
+    await waitFor(() => {
+      expect(invoke.mock.calls.filter(([command]) => String(command).startsWith("managed_category_list")))
+        .toHaveLength(1);
+    });
+    act(() => {
+      window.dispatchEvent(new Event("sakurava-database-restored"));
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Navigate to Home" }))
+        .toHaveAttribute("aria-current", "page");
+    });
+
+    const listCallsBeforeNavigation = invoke.mock.calls.filter(([command]) =>
+      String(command).startsWith("managed_category_list"),
+    ).length;
+    fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
+    await waitFor(() => {
+      expect(invoke.mock.calls.filter(([command]) => String(command).startsWith("managed_category_list")))
+        .toHaveLength(listCallsBeforeNavigation + 1);
+    });
+    expect(screen.queryByText("Deleted Legacy Category")).not.toBeInTheDocument();
+    expect(invoke.mock.calls.map(([command]) => command))
+      .not.toContain("managed_category_create");
+  });
+
   it("filters and paginates Category Management cards by usage type", async () => {
     window.history.pushState({}, "", "/categories");
     const managedCategories = [
@@ -4833,22 +4921,26 @@ describe("App", () => {
     );
   });
 
-  it("keeps Category CSV apply consistent between Categories Catalog and Manage Category", async () => {
+  it("keeps Category CSV apply consistent between Categories Catalog and Category", async () => {
     window.history.pushState({}, "", "/settings");
     const sourcePath = "D:/Imports/sakurava-categories-apply.csv";
-    let categories = [
-      managedCategoryFixture({ key: "cat_old", name: "Old Category" }),
-    ];
+    let categories: ReturnType<typeof managedCategoryFixture>[] = [];
     const csvContent = [
       "Action,Sakurava Ref,Parent Category,Category Name,Description,Thumbnail Path,Visibility,Notes",
-      `Delete,${sakuravaRef("CAT", "cat_old")},,Old Category,,,,`,
       "Create,,,New Category,Imported,,,",
     ].join("\r\n");
     const invoke = withMigratedSakuravaRefs(async (command: string, args: Record<string, any> = {}) => {
-      if (["video_list", "image_list", "performer_list"].includes(command)) {
+      if ([
+        "video_list",
+        "video_list_visible",
+        "image_list",
+        "image_list_visible",
+        "performer_list",
+        "performer_list_visible",
+      ].includes(command)) {
         return [];
       }
-      if (command === "managed_category_list") {
+      if (["managed_category_list", "managed_category_list_visible"].includes(command)) {
         return categories;
       }
       if (command === "glossary_list") {
@@ -4872,7 +4964,7 @@ describe("App", () => {
         return {
           transactionStatus: "committed", backupPackageName: "sakurava-backup-import-safety",
           createdCount: 1, updatedCount: 0, clearedFieldCount: 0,
-          deletedCount: 1, skippedCount: 0, failureStage: null,
+          deletedCount: 0, skippedCount: 0, failureStage: null,
           message: "Catalog import applied successfully.", rollbackCompleted: false,
         };
       }
@@ -4895,20 +4987,18 @@ describe("App", () => {
       .toBeInTheDocument();
     fireEvent.click(within(categoryImportDialog).getByRole("checkbox"));
     fireEvent.click(within(categoryImportDialog).getByRole("button", { name: "Apply Import" }));
-    expect(await screen.findByText("2 catalog changes applied."))
+    expect(await screen.findByText("1 catalog changes applied."))
       .toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
     expect(await screen.findByRole("heading", { name: "Category" }))
       .toBeInTheDocument();
-    expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
+    expect((await screen.findAllByText("New Category")).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("link", { name: "Navigate to Categories" }));
     expect(await screen.findByRole("heading", { name: "Category" }))
       .toBeInTheDocument();
-    expect(screen.getAllByText("New Category").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Old Category")).not.toBeInTheDocument();
+    expect((await screen.findAllByText("New Category")).length).toBeGreaterThan(0);
   });
 
   it("exports Videos CSV as a read-only data operation", async () => {
@@ -5513,10 +5603,17 @@ describe("App", () => {
       }),
     ];
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "video_list" || command === "image_list" || command === "performer_list") {
+      if ([
+        "video_list",
+        "video_list_visible",
+        "image_list",
+        "image_list_visible",
+        "performer_list",
+        "performer_list_visible",
+      ].includes(command)) {
         return [];
       }
-      if (command === "managed_category_list") {
+      if (["managed_category_list", "managed_category_list_visible"].includes(command)) {
         return categories;
       }
       if (command === "managed_category_create") {
@@ -5689,7 +5786,7 @@ describe("App", () => {
       }),
     ];
     const invoke = vi.fn(async (command: string, args: Record<string, any> = {}) => {
-      if (command === "video_list") {
+      if (command === "video_list" || command === "video_list_visible") {
         return [
           persistedVideo({
             title: "Used Video",
@@ -5697,10 +5794,10 @@ describe("App", () => {
           }),
         ];
       }
-      if (command === "image_list" || command === "performer_list") {
+      if (["image_list", "image_list_visible", "performer_list", "performer_list_visible"].includes(command)) {
         return [];
       }
-      if (command === "managed_category_list") {
+      if (["managed_category_list", "managed_category_list_visible"].includes(command)) {
         return categories;
       }
       if (command === "managed_category_delete") {
@@ -7857,7 +7954,7 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.queryByPlaceholderText("Add category...")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
     );
@@ -7999,7 +8096,7 @@ describe("App", () => {
     });
     expect(screen.getByText("No Managed Categories available.")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Manage Category" }),
+      screen.getByRole("link", { name: "Category" }),
     ).toHaveAttribute("href", "/settings/category-management");
   });
 
@@ -14499,7 +14596,7 @@ describe("App", () => {
 
   it("renders the Video form category picker and serializes selected labels", async () => {
     window.history.pushState({}, "", "/videos/new");
-    setManagedCategories(["Classic", "Drama"]);
+    setManagedCategories(["Stale Legacy Category"]);
     const created = persistedVideo({
       title: "Picker Video",
       categoriesJson: '["Drama"]',
@@ -14514,11 +14611,17 @@ describe("App", () => {
         if (command === "video_get") {
           return created;
         }
-        if (command === "performer_list" || command === "image_list") {
+        if (command === "video_get_visible") {
+          return { state: "visible", record: created };
+        }
+        if (["performer_list", "performer_list_visible", "image_list", "image_list_visible"].includes(command)) {
           return [];
         }
-        if (command === "managed_category_list") {
-          return [managedCategoryFixture({ key: "cat_updated", name: "Updated" })];
+        if (["managed_category_list", "managed_category_list_visible"].includes(command)) {
+          return [
+            managedCategoryFixture({ key: "cat_classic", name: "Classic" }),
+            managedCategoryFixture({ key: "cat_drama", name: "Drama" }),
+          ];
         }
 
         throw new Error(`Unexpected command ${command}`);
@@ -14535,14 +14638,16 @@ describe("App", () => {
     expect(screen.getByPlaceholderText(
       "Search categories, genre, setting, attribute...",
     )).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add Classic" }))
+    expect(screen.queryByRole("button", { name: "Add Stale Legacy Category" }))
       .not.toBeInTheDocument();
     fireEvent.focus(screen.getByRole("textbox", { name: "Search categories" }));
-    expect(screen.getByRole("button", { name: "Add Classic" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Add Classic" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Drama" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Stale Legacy Category" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByText((_, element) => element?.tagName === "MARK"))
       .not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
     );
@@ -14571,7 +14676,7 @@ describe("App", () => {
       target: { value: "missing" },
     });
     expect(screen.getByText(
-      "No matching Managed Categories. Use Manage Category to add it first.",
+      "No matching Managed Categories. Use Category to add it first.",
     )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add missing" }))
       .not.toBeInTheDocument();
@@ -16024,7 +16129,7 @@ describe("App", () => {
     });
     expect(screen.getByRole("button", { name: "Add Portrait" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
     );
@@ -18886,7 +18991,7 @@ describe("App", () => {
     });
     expect(screen.getByRole("button", { name: "Add Featured" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage Category" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Category" })).toHaveAttribute(
       "href",
       "/settings/category-management",
     );

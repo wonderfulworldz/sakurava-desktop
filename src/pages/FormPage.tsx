@@ -299,13 +299,14 @@ function FormPage({
 
   useEffect(() => {
     let cancelled = false;
-    const storedCategories = getStoredManagedCategories();
+    const isDesktopRuntime = isTauriRuntimeAvailable();
+    const storedCategories = isDesktopRuntime ? [] : getStoredManagedCategories();
 
     setManagedCategories(storedCategories);
     setManagedCategoryRecords([]);
     resetPerformerSuggestionCachesOnce();
 
-    if (isTauriRuntimeAvailable()) {
+    if (isDesktopRuntime) {
       void listManagedCategories()
         .then((records) => {
           if (cancelled) {
@@ -314,10 +315,7 @@ function FormPage({
 
           setManagedCategoryRecords(records);
           setManagedCategories(
-            normalizeFormCategories([
-              ...records.map((category) => category.name),
-              ...storedCategories,
-            ]),
+            normalizeFormCategories(records.map((category) => category.name)),
           );
         })
         .catch(() => {

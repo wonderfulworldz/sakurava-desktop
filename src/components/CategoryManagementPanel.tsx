@@ -31,7 +31,7 @@ import {
   DEFAULT_CATALOG_PAGE_SIZE,
   type CatalogPageSize,
 } from "../lib/catalogPagination";
-import { getStoredManagedCategories, storeManagedCategories } from "../lib/managedCategories";
+import { getStoredManagedCategories } from "../lib/managedCategories";
 import { selectLocalImageFile } from "../runtime/dialogCommands";
 import { localImagePathToAssetSrc } from "../runtime/localAsset";
 import {
@@ -571,15 +571,13 @@ function CategoryManagementPanel() {
           return;
         }
 
-        const [videos, images, performers, credits] = await Promise.all([
+        const [videos, images, performers, credits, nextCategories] = await Promise.all([
           listVideos(),
           listImages(),
           listPerformers(),
           listCredits().catch(() => []),
+          listManagedCategories(),
         ]);
-        const migrated = await migrateLegacyManagedCategories();
-        const nextCategories = migrated.length ? migrated : await listManagedCategories();
-        storeManagedCategories(nextCategories.map((category) => category.name));
 
         if (!cancelled) {
           setExpandedParentKeys((current) =>
@@ -608,7 +606,6 @@ function CategoryManagementPanel() {
 
   async function refreshCategories(message?: string) {
     const nextCategories = await listManagedCategories();
-    storeManagedCategories(nextCategories.map((category) => category.name));
     setExpandedParentKeys(defaultExpandedParentKeys(nextCategories));
     setCategories(nextCategories);
     if (message) {
@@ -1690,30 +1687,6 @@ function UsedInToggle({
       <span className="min-w-0 truncate">{label}</span>
     </button>
   );
-}
-
-async function migrateLegacyManagedCategories() {
-  const legacyNames = getStoredManagedCategories();
-  let categories = await listManagedCategories();
-  const existingNames = new Set(
-    categories.map((category) => category.name.trim().toLowerCase()),
-  );
-
-  for (const name of legacyNames) {
-    if (existingNames.has(name.trim().toLowerCase())) {
-      continue;
-    }
-
-    try {
-      await createManagedCategory({ name });
-      existingNames.add(name.trim().toLowerCase());
-    } catch {
-      // Duplicate or invalid legacy labels are ignored during idempotent migration.
-    }
-  }
-
-  categories = await listManagedCategories();
-  return categories;
 }
 
 function ParentCategoryPicker({

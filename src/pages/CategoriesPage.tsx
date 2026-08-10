@@ -113,7 +113,7 @@ function CategoriesPage() {
       .catch(() => {
         if (!cancelled) {
           setAuditRows(emptyAudit.rows);
-          setManagedCategories(legacyManagedCategories());
+          setManagedCategories([]);
           setLoadState("error");
         }
       });
