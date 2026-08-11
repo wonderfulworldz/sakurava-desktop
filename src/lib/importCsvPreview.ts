@@ -363,6 +363,12 @@ export function detectCsvEntity(headers: string[]): EntityDefinition | null {
     entityDefinitions.find((definition) =>
       definition.expectedHeaders.every((header) => headers.includes(header)),
     ) ??
+    entityDefinitions.find((definition) => {
+      const safeHeaders = exportSchemaFor(definition.entity, { safeExport: true })
+        .map((column) => column.header);
+      return safeHeaders.length === headers.length
+        && safeHeaders.every((header) => headers.includes(header));
+    }) ??
     entityDefinitions.find(
       (definition) =>
         headers.includes("Action") &&

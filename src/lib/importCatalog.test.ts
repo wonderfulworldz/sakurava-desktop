@@ -317,6 +317,35 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.headerWarnings.join(" ")).not.toContain("Missing expected headers");
   });
 
+  it("accepts Safe Image sheets and Safe all-workbook Image sections as Images", async () => {
+    const imageRecord = image({ title: "Safe Image" });
+    const safeImage = await buildXlsxWorkbook({
+      selections: [{ dataType: "images", records: [imageRecord] }],
+      locale: "en-US",
+      safeExport: true,
+    });
+    const safeAll = await buildXlsxWorkbook({
+      selections: [
+        { dataType: "videos", records: [video({ title: "Safe Video" })] },
+        { dataType: "images", records: [imageRecord] },
+      ],
+      locale: "en-US",
+      safeExport: true,
+    });
+
+    const imagePreview = await buildXlsxCatalogPreview(safeImage.bytes, context(), "en-US");
+    const allPreview = await buildXlsxCatalogPreview(safeAll.bytes, context(), "en-US");
+
+    expect(imagePreview.headerErrors).toEqual([]);
+    expect(imagePreview.sections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ dataType: "images", sheetName: "Images" }),
+    ]));
+    expect(imagePreview.rows).toHaveLength(1);
+    expect(allPreview.headerErrors).toEqual([]);
+    expect(allPreview.sections.map((section) => section.dataType)).toEqual(["videos", "images"]);
+    expect(allPreview.rows).toHaveLength(2);
+  });
+
   it("accepts legacy Glossary Refs in a current-version XLSX as an explicit compatibility column", async () => {
     const built = await buildXlsxWorkbook({
       selections: [{ dataType: "videos", records: [] }],

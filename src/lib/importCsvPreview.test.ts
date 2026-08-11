@@ -464,6 +464,37 @@ describe("import CSV preview", () => {
     );
   });
 
+  it("recognizes the exact Safe Image projection without confusing it with Safe Video", () => {
+    const safeImage = buildImportCsvPreview(
+      buildImagesCsv([image({ title: "Safe Image" })], { safeExport: true }),
+      context(),
+    );
+    const explicitImage = buildImportCsvPreview(
+      buildImagesCsv([image({ title: "Explicit Image" })]),
+      context(),
+    );
+    const safeVideo = buildImportCsvPreview(
+      buildVideosCsv([video({ title: "Safe Video" })], { safeExport: true }),
+      context(),
+    );
+
+    expect(safeImage.summary).toMatchObject({ entity: "images", blocked: false });
+    expect(safeImage.rows).toHaveLength(1);
+    expect(safeImage.headerErrors).toEqual([]);
+    expect(safeImage.headerWarnings.join(" ")).not.toContain("Missing expected headers");
+    expect(explicitImage.summary).toMatchObject({ entity: "images", blocked: false });
+    expect(safeVideo.summary).toMatchObject({ entity: "videos", blocked: false });
+  });
+
+  it("keeps foreign headers blocking when they do not match an exact Safe projection", () => {
+    const foreign = buildImagesCsv([image({ title: "Safe Image" })], { safeExport: true })
+      .replace("Main File Type", "Foreign Header");
+    const preview = buildImportCsvPreview(foreign, context());
+
+    expect(preview.summary.blocked).toBe(true);
+    expect(preview.headerErrors.join(" ")).toContain("Foreign Header");
+  });
+
   it("uses an explicit marker to clear only nullable editable fields", () => {
     const existing = video({ id: "video-clear", title: "Keep title", notes: "Remove me" });
     const ref = sakuravaRef("VID", existing.id);
