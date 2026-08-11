@@ -34,7 +34,7 @@ import {
   IMPORT_MAX_WORKSHEETS,
   importLimitMessage,
 } from "./importLimits";
-import { canonicalImportIdentity, resolveSakuravaIdentity } from "./sakuravaRef";
+import { canonicalImportIdentity, canonicalSakuravaRef, resolveSakuravaIdentity } from "./sakuravaRef";
 
 export type ImportCatalogFormat = "csv" | "xlsx";
 
@@ -402,6 +402,7 @@ function catalogPreview(
   headerWarnings: string[],
   context: ImportCsvPreviewContext,
 ): ImportCatalogPreview {
+  canonicalizeSameWorkbookReferences(sections, context);
   validateGlossaryDependencies(sections, context);
   validateProjectedCreditCapacity(sections, context);
   const automaticCleanupOperations = applyProjectedDeletePlanning(sections, context);
@@ -903,6 +904,104 @@ function isDeleted(
     (entity === "credits" && ref === record.id)
       || sakuravaRefMatches(prefix, ref, record),
   );
+}
+
+type FinalPublicRefOwner = { label: string };
+
+function canonicalizeSameWorkbookReferences(
+  sections: ImportCatalogSection[],
+  context: ImportCsvPreviewContext,
+) {
+  const owners = new Map<string, FinalPublicRefOwner>();
+  const addOwner = (section: string, ref: string | undefined, label: string) => {
+    const canonical = canonicalSakuravaRef(ref ?? "");
+    if (canonical && canonical[0] === section && !owners.has(canonical)) {
+      owners.set(canonical, { label });
+    }
+  };
+  context.videos.forEach((record) => addOwner("V", record.sakuravaRef, record.title));
+  context.images.forEach((record) => addOwner("I", record.sakuravaRef, record.title));
+  context.performers.forEach((record) => addOwner("P", record.sakuravaRef, record.name));
+  context.categories.forEach((record) => addOwner("C", record.sakuravaRef, record.name));
+  (context.glossary ?? []).forEach((record) => addOwner("G", record.sakuravaRef, record.term));
+
+  for (const section of sections) {
+    for (const row of section.preview.rows) {
+      if (row.detectedResult !== "Added") continue;
+      const label = section.dataType === "performers"
+        ? row.values.Name ?? ""
+        : section.dataType === "categories"
+          ? row.values["Category Name"] ?? ""
+          : section.dataType === "glossary"
+            ? row.values.Term ?? ""
+            : row.values.Title ?? "";
+      addOwner(sectionCodeForImportEntity(section.dataType), row.values["Sakurava Ref"], label.trim());
+    }
+  }
+
+  for (const section of sections) {
+    for (const row of section.preview.rows) {
+      canonicalizeRowReferences(row, owners);
+    }
+  }
+}
+
+function canonicalizeRowReferences(
+  row: ImportCsvPreviewRow,
+  owners: Map<string, FinalPublicRefOwner>,
+) {
+  const rewriteList = (header: string, section: string, retainLabel: boolean) => {
+    if (!(header in row.values) || !row.values[header].trim()) return;
+    const valid = row.values[header]
+      .split(";")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .flatMap((value) => {
+        const canonical = canonicalSakuravaRef(value.split("|")[0].trim());
+        if (!canonical || canonical[0] !== section) return [value];
+        const owner = owners.get(canonical);
+        if (!owner) {
+          row.warnings.push("A related Ref was not found and will be cleared.");
+          return [];
+        }
+        return [retainLabel ? `${canonical} | ${owner.label}` : canonical];
+      });
+    row.values[header] = valid.join("; ");
+  };
+
+  rewriteList("Related Performers", "P", true);
+  rewriteList("Related Images", "I", true);
+  rewriteList("Related Videos", "V", true);
+  rewriteList("Glossary Refs", "G", false);
+
+  if ("Categories" in row.values && row.values.Categories.trim()) {
+    row.values.Categories = row.values.Categories
+      .split(";")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .flatMap((value) => {
+        const canonical = canonicalSakuravaRef(value.split("|")[0].trim());
+        if (!canonical || canonical[0] !== "C") return [value];
+        const owner = owners.get(canonical);
+        if (!owner) {
+          row.warnings.push("Category Ref was not found. Category will be empty.");
+          return [];
+        }
+        return [canonical];
+      })
+      .join("; ");
+  }
+
+  const parentSection = row.values["Parent Ref"] && row.values["Parent Ref"].startsWith("C") ? "C" : "G";
+  const parent = canonicalSakuravaRef(row.values["Parent Ref"] ?? "");
+  if (parent && parent[0] === parentSection && !owners.has(parent)) {
+    row.warnings.push("Parent Ref was not found. The parent relationship will be empty.");
+    row.values["Parent Ref"] = "";
+  }
+}
+
+function sectionCodeForImportEntity(entity: ImportCsvEntity) {
+  return ({ videos: "V", images: "I", performers: "P", categories: "C", glossary: "G", credits: "R" } as const)[entity];
 }
 
 function recordStillUsesCategory(

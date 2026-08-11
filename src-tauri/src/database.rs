@@ -3366,6 +3366,55 @@ pub fn allocate_sakurava_ref(
     Ok(format!("{section_code}{yymm}{sequence:04}"))
 }
 
+/// Retains a syntactically valid requested public Ref only when its section
+/// has no current owner.  The counter reservation happens on the caller's
+/// transaction, so a later Apply failure rolls both the record and high-water
+/// update back together.  Occupied requests deliberately fall through to the
+/// normal allocator rather than replacing the current record.
+pub fn claim_or_allocate_sakurava_ref(
+    connection: &Connection,
+    section_code: &str,
+    issuance_yymm: &str,
+    requested: Option<&str>,
+) -> Result<String, String> {
+    let requested = requested
+        .and_then(format_sakurava_ref)
+        .map(|value| value.replace('-', ""));
+    let Some(reference) = requested else {
+        return allocate_sakurava_ref(connection, section_code, issuance_yymm);
+    };
+    if !reference.starts_with(section_code) {
+        return allocate_sakurava_ref(connection, section_code, issuance_yymm);
+    }
+    let (_, table, _, _) = SAKURAVA_REF_SECTIONS
+        .iter()
+        .find(|(code, _, _, _)| *code == section_code)
+        .ok_or_else(|| "Unsupported Sakurava Ref section.".to_string())?;
+    let occupied: Option<String> = connection
+        .query_row(
+            &format!("SELECT sakuravaRef FROM {table} WHERE sakuravaRef = ?1"),
+            [&reference],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if occupied.is_some() {
+        return allocate_sakurava_ref(connection, section_code, issuance_yymm);
+    }
+
+    let yymm = &reference[1..5];
+    let sequence = reference[5..]
+        .parse::<i64>()
+        .map_err(|_| "Requested Sakurava Ref is invalid.".to_string())?;
+    create_sakurava_ref_ledger_tables(connection).map_err(|error| error.to_string())?;
+    connection.execute(
+        "INSERT INTO sakuravaRefCounters (sectionCode, issuanceYymm, lastSequence) VALUES (?1, ?2, ?3)
+         ON CONFLICT(sectionCode, issuanceYymm) DO UPDATE SET lastSequence = MAX(lastSequence, excluded.lastSequence)",
+        params![section_code, yymm, sequence],
+    ).map_err(|error| format!("Unable to reserve a Sakurava Ref: {error}"))?;
+    Ok(reference)
+}
+
 pub fn register_current_sakurava_ref_alias(
     connection: &Connection,
     section_code: &str,

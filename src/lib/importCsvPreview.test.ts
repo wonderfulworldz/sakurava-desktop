@@ -5,6 +5,7 @@ import {
   parseCsv,
   parseImportAction,
 } from "./importCsvPreview";
+import { buildNormalizedImportPatch } from "./importCsvApply";
 import {
   buildImagesCsv,
   buildCategoriesCsv,
@@ -203,7 +204,7 @@ describe("import CSV preview", () => {
     }
   });
 
-  it("distinguishes malformed current references from unknown valid references", () => {
+  it("treats malformed and available primary Refs as non-blocking create identities", () => {
     const existing = video({ id: "video-hidden-51", sakuravaRef: "V26070051" });
     const malformed = buildImportCsvPreview(
       withVideoRow({ "Sakurava Ref": "V2607-051", Title: "Video" }),
@@ -213,8 +214,35 @@ describe("import CSV preview", () => {
       withVideoRow({ "Sakurava Ref": "V2607-9999", Title: "Video" }),
       context({ videos: [existing] }),
     );
-    expect(malformed.rows[0].warnings.join(" ")).toContain("not valid for Videos");
-    expect(unknown.rows[0].warnings.join(" ")).toContain("was not found");
+    expect(malformed.rows[0]).toMatchObject({ detectedResult: "Added" });
+    expect(malformed.rows[0].values["Sakurava Ref"]).toBe("");
+    expect(unknown.rows[0]).toMatchObject({ detectedResult: "Added" });
+    expect(unknown.rows[0].values["Sakurava Ref"]).toBe("V2607-9999");
+  });
+
+  it("keeps explicit Add identity requests out of existing update targets", () => {
+    const existing = video({ id: "video-existing", sakuravaRef: "V26070001", title: "Existing" });
+    const preview = buildImportCsvPreview(
+      withVideoRow({ Action: "Add", "Sakurava Ref": "V2607-0001", Title: "New owner request" }),
+      context({ videos: [existing] }),
+    );
+
+    expect(preview.rows[0]).toMatchObject({ detectedResult: "Added" });
+    expect(preview.rows[0].values["Sakurava Ref"]).toBe("V2607-0001");
+  });
+
+  it("keeps duplicate available create requests eligible for deterministic allocator handling", () => {
+    const headers = buildVideosCsv([]).split("\r\n")[0].split(",");
+    const row = (values: Record<string, string>) => headers.map((header) => values[header] ?? "").join(",");
+    const csv = [
+      headers.join(","),
+      row({ Action: "Auto", "Sakurava Ref": "V2607-9999", Title: "First" }),
+      row({ Action: "Auto", "Sakurava Ref": "V2607-9999", Title: "Second" }),
+    ].join("\r\n");
+    const preview = buildImportCsvPreview(csv, context());
+
+    expect(preview.rows.map((row) => row.detectedResult)).toEqual(["Added", "Added"]);
+    expect(preview.rows.every((row) => row.warnings.every((warning) => !warning.startsWith("Duplicate Sakurava Ref")))).toBe(true);
   });
 
   it("resolves current relationship references and never falls back to display names", () => {
@@ -232,6 +260,27 @@ describe("import CSV preview", () => {
     expect(displayOnly.rows[0].warnings.join(" ")).toContain("related Ref was not found");
   });
 
+  it("ignores malformed relationship Refs without blocking or planning a phantom target", () => {
+    const catalog = context();
+    const preview = buildImportCsvPreview(
+      withVideoRow({
+        Action: "Create",
+        Title: "Valid parent",
+        "Related Performers": "ABCDE | Superman",
+      }),
+      catalog,
+    );
+    const row = preview.rows[0];
+    const patch = buildNormalizedImportPatch("videos", row, catalog);
+
+    expect(preview.summary.blocked).toBe(false);
+    expect(row.errors).toEqual([]);
+    expect(row.detectedResult).toBe("Added");
+    expect(row.values["Related Performers"]).toBe("");
+    expect(row.warnings.join(" ")).toContain("related Ref was not found");
+    expect(JSON.parse(patch.relatedPerformersJson as string)).toEqual([]);
+  });
+
   it("resolves public Category references to stored labels without display-name identity fallback", () => {
     const managed = category({ key: "category-hidden", sakuravaRef: "C26070004", name: "Drama" });
     const valid = buildImportCsvPreview(
@@ -245,7 +294,8 @@ describe("import CSV preview", () => {
     expect(valid.rows[0].errors).toEqual([]);
     expect(valid.rows[0].warnings).toEqual([]);
     expect(valid.rows[0].values.Categories).toBe("Drama");
-    expect(unknownRefWithMatchingDisplay.rows[0].warnings.join(" ")).toContain("Category Ref was not found");
+    expect(unknownRefWithMatchingDisplay.rows[0].warnings).toEqual([]);
+    expect(unknownRefWithMatchingDisplay.rows[0].values.Categories).toBe("C26079999");
   });
 
   it("canonicalizes equivalent booleans, enums, dates, numbers, and references before comparison", () => {

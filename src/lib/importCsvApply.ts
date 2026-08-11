@@ -33,6 +33,7 @@ import type {
 import { storeManagedCategories } from "./managedCategories";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 import {
+  canonicalSakuravaRef,
   canonicalImportIdentity,
   resolveSakuravaIdentity,
   sakuravaIdentityLookupKeys,
@@ -581,8 +582,17 @@ export function buildNormalizedImportPatch(
     ref,
     definition.records(context),
   );
-  const existing = resolution.status === "resolved" ? resolution.record : undefined;
-  return buildPatchFromRow(row, definition, context, existing);
+  const existing = row.detectedResult === "Added"
+    ? undefined
+    : resolution.status === "resolved" ? resolution.record : undefined;
+  const patch = buildPatchFromRow(row, definition, context, existing);
+  if (row.detectedResult === "Added") {
+    const requestedRef = canonicalSakuravaRef(row.values["Sakurava Ref"] ?? "");
+    if (requestedRef) {
+      patch.requestedSakuravaRef = requestedRef;
+    }
+  }
+  return patch;
 }
 
 export function resolveImportRecord(
@@ -705,6 +715,10 @@ function resolveGlossaryRefs(value: string, context: ImportCsvPreviewContext) {
       context.glossary ?? [],
     );
     if (resolution.status !== "resolved") {
+      const canonical = canonicalSakuravaRef(item.split("|")[0].trim());
+      if (canonical && canonical[0] === "G") {
+        return canonical;
+      }
       throw new Error(`Glossary Ref was not found or is ambiguous: ${item}.`);
     }
     return resolution.record.id;
@@ -802,18 +816,18 @@ function resolveRelatedList(
   if (header === "Related Performers") {
     return items.map((item) => {
       const performer = resolveRelatedRecord(item, "PER", context.performers, "name");
-      return { performerId: performer.id, nameSnapshot: performer.name };
+      return { performerId: performer.id, nameSnapshot: performer.label };
     });
   }
   if (header === "Related Videos") {
     return items.map((item) => {
       const video = resolveRelatedRecord(item, "VID", context.videos, "title");
-      return { recordId: video.id, titleSnapshot: video.title };
+      return { recordId: video.id, titleSnapshot: video.label };
     });
   }
   return items.map((item) => {
     const image = resolveRelatedRecord(item, "IMG", context.images, "title");
-    return { recordId: image.id, titleSnapshot: image.title };
+    return { recordId: image.id, titleSnapshot: image.label };
   });
 }
 
@@ -822,7 +836,7 @@ function resolveRelatedRecord<TRecord extends { id: string; sakuravaRef?: string
   prefix: "VID" | "IMG" | "PER",
   records: TRecord[],
   _labelKey: keyof TRecord & string,
-) {
+) : { id: string; label: string } {
   const ref = item.split("|")[0].trim();
   const resolution = resolveSakuravaIdentity(
     sectionCodeForLegacyPrefix(prefix),
@@ -830,9 +844,16 @@ function resolveRelatedRecord<TRecord extends { id: string; sakuravaRef?: string
     records,
   );
   if (resolution.status !== "resolved") {
+    const canonical = canonicalSakuravaRef(ref);
+    if (canonical && canonical[0] === sectionCodeForLegacyPrefix(prefix)) {
+      return { id: canonical, label: "" };
+    }
     throw new Error(`Unresolved related reference: ${item}.`);
   }
-  return resolution.record;
+  return {
+    id: resolution.record.id,
+    label: String(resolution.record[_labelKey] ?? ""),
+  };
 }
 
 function resolveParentCategoryKey(
@@ -860,7 +881,11 @@ function resolveGlossaryParentId(
   const match = (context.glossary ?? []).find(
     (entry) => sakuravaRefMatches("GLO", ref, entry),
   );
-  if (!match) throw new Error(`Glossary parent was not found: ${ref}.`);
+  if (!match) {
+    const canonical = canonicalSakuravaRef(ref);
+    if (canonical && canonical[0] === "G") return canonical;
+    throw new Error(`Glossary parent was not found: ${ref}.`);
+  }
   return match.id;
 }
 
@@ -963,6 +988,8 @@ function resolveParentCategoryRef(
     (category) => sakuravaRefMatches("CAT", ref, category),
   );
   if (matches.length !== 1) {
+    const canonical = canonicalSakuravaRef(ref);
+    if (canonical && canonical[0] === "C") return canonical;
     throw new Error(`Parent Category reference is unresolved: ${ref}.`);
   }
   return matches[0].key;

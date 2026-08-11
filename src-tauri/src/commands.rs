@@ -48,10 +48,10 @@ use windows::{
 #[cfg(test)]
 use crate::database::preview_backup_package;
 use crate::database::{
-    allocate_sakurava_ref, backup_runtime_database, clear_app_generated_cache,
+    allocate_sakurava_ref, backup_runtime_database, claim_or_allocate_sakurava_ref, clear_app_generated_cache,
     create_import_safety_backup_package, credit_ref_yymm, migrate_sakurava_refs,
     open_default_backup_folder, register_current_sakurava_ref_alias,
-    require_migrated_sakurava_refs, resolve_sakurava_ref, restore_runtime_database,
+    format_sakurava_ref, require_migrated_sakurava_refs, resolve_sakurava_ref, restore_runtime_database,
     sakurava_ref_migration_status, BackupFolderOpenResult, BackupPackageDeleteResult,
     BackupPackageExportResult, BackupPackageImportError, BackupPackageImportResult,
     BackupPackageInfo, BackupPackagePreviewError, BackupPackageRestoreError,
@@ -1803,14 +1803,23 @@ fn resolve_identity_or_technical(
 }
 
 fn create_video(connection: &Connection, input: VideoInput) -> Result<Video, String> {
+    create_video_with_requested_ref(connection, input, None)
+}
+
+fn create_video_with_requested_ref(
+    connection: &Connection,
+    input: VideoInput,
+    requested_sakurava_ref: Option<&str>,
+) -> Result<Video, String> {
     let title = require_text(input.title, "Video title is required")?;
-    let sakurava_ref = allocate_sakurava_ref(
+    let sakurava_ref = claim_or_allocate_sakurava_ref(
         connection,
         "V",
         input
             .issuance_yymm
             .as_deref()
             .ok_or("Issuance month is required")?,
+        requested_sakurava_ref,
     )?;
     let timestamp = current_timestamp();
     let video = Video {
@@ -2006,14 +2015,23 @@ fn update_video(
 }
 
 fn create_image(connection: &Connection, input: ImageInput) -> Result<Image, String> {
+    create_image_with_requested_ref(connection, input, None)
+}
+
+fn create_image_with_requested_ref(
+    connection: &Connection,
+    input: ImageInput,
+    requested_sakurava_ref: Option<&str>,
+) -> Result<Image, String> {
     let title = require_text(input.title, "Image title is required")?;
-    let sakurava_ref = allocate_sakurava_ref(
+    let sakurava_ref = claim_or_allocate_sakurava_ref(
         connection,
         "I",
         input
             .issuance_yymm
             .as_deref()
             .ok_or("Issuance month is required")?,
+        requested_sakurava_ref,
     )?;
     let timestamp = current_timestamp();
     let image = Image {
@@ -2219,14 +2237,23 @@ fn update_image(
 }
 
 fn create_performer(connection: &Connection, input: PerformerInput) -> Result<Performer, String> {
+    create_performer_with_requested_ref(connection, input, None)
+}
+
+fn create_performer_with_requested_ref(
+    connection: &Connection,
+    input: PerformerInput,
+    requested_sakurava_ref: Option<&str>,
+) -> Result<Performer, String> {
     let name = require_text(input.name, "Performer name is required")?;
-    let sakurava_ref = allocate_sakurava_ref(
+    let sakurava_ref = claim_or_allocate_sakurava_ref(
         connection,
         "P",
         input
             .issuance_yymm
             .as_deref()
             .ok_or("Issuance month is required")?,
+        requested_sakurava_ref,
     )?;
     let timestamp = current_timestamp();
     let performer = Performer {
@@ -2468,14 +2495,23 @@ fn create_managed_category(
     connection: &Connection,
     input: ManagedCategoryInput,
 ) -> Result<ManagedCategory, String> {
+    create_managed_category_with_requested_ref(connection, input, None)
+}
+
+fn create_managed_category_with_requested_ref(
+    connection: &Connection,
+    input: ManagedCategoryInput,
+    requested_sakurava_ref: Option<&str>,
+) -> Result<ManagedCategory, String> {
     let name = require_text(input.name, "Category name is required")?;
-    let sakurava_ref = allocate_sakurava_ref(
+    let sakurava_ref = claim_or_allocate_sakurava_ref(
         connection,
         "C",
         input
             .issuance_yymm
             .as_deref()
             .ok_or("Issuance month is required")?,
+        requested_sakurava_ref,
     )?;
     ensure_unique_managed_category_name(connection, &name, None)?;
     let parent_key = normalize_parent_key(input.parent_key);
@@ -2839,15 +2875,24 @@ fn create_glossary_entry(
     connection: &Connection,
     input: GlossaryEntryInput,
 ) -> Result<GlossaryEntry, String> {
+    create_glossary_entry_with_requested_ref(connection, input, None)
+}
+
+fn create_glossary_entry_with_requested_ref(
+    connection: &Connection,
+    input: GlossaryEntryInput,
+    requested_sakurava_ref: Option<&str>,
+) -> Result<GlossaryEntry, String> {
     let term = require_text(input.term, "Glossary term is required")?;
     let definition = require_text(input.definition, "Glossary definition is required")?;
-    let sakurava_ref = allocate_sakurava_ref(
+    let sakurava_ref = claim_or_allocate_sakurava_ref(
         connection,
         "G",
         input
             .issuance_yymm
             .as_deref()
             .ok_or("Issuance month is required")?,
+        requested_sakurava_ref,
     )?;
     let source_url = normalize_source_url(input.source_url)?;
     let parent_id = normalize_glossary_parent_id(connection, "", input.parent_id)?;
@@ -4546,6 +4591,7 @@ fn apply_import_operations(
     let mut cleared = 0usize;
     let mut deleted = 0usize;
     let mut generated_ids = std::collections::HashMap::<String, String>::new();
+    let mut created_records = Vec::<CreatedImportRecord>::new();
     let mut lifecycle_mutations = BTreeMap::<(String, String), PendingLifecycleMutation>::new();
     // Credit Adds must evaluate the final Work/Performer capacity. Execute
     // explicit Credit Deletes first so a same-plan Delete can free a slot,
@@ -4571,13 +4617,14 @@ fn apply_import_operations(
         .filter(|operation| operation.section != "glossary")
     {
         let created_id = apply_import_create(connection, operation, &generated_ids, issuance_yymm)?;
-        if let Some(created_id) = created_id {
+        if let Some(created_record) = created_id {
             record_import_created_owner(
                 connection,
                 &mut lifecycle_mutations,
                 &operation.section,
-                &created_id,
+                &created_record.id,
             )?;
+            created_records.push(created_record);
         }
         created += 1;
         cleared += operation.cleared_fields.len();
@@ -4601,16 +4648,17 @@ fn apply_import_operations(
             }
             let created_id =
                 apply_import_create(connection, &operation, &generated_ids, issuance_yymm)?;
-            if let Some(created_id) = created_id.as_deref() {
+            if let Some(created_record) = created_id {
                 record_import_created_owner(
                     connection,
                     &mut lifecycle_mutations,
                     "glossary",
-                    created_id,
+                    &created_record.id,
                 )?;
-            }
-            if let (Some(temporary), Some(id)) = (&operation.temporary_identifier, created_id) {
-                generated_ids.insert(temporary.clone(), id);
+                if let Some(temporary) = &operation.temporary_identifier {
+                    generated_ids.insert(temporary.clone(), created_record.id.clone());
+                }
+                created_records.push(created_record);
             }
             created += 1;
             cleared += operation.cleared_fields.len();
@@ -4620,6 +4668,11 @@ fn apply_import_operations(
             return Err("Glossary creation dependencies could not be resolved.".to_string());
         }
         glossary_creates = remaining;
+    }
+
+    for created_record in &created_records {
+        apply_deferred_import_parent_reference(connection, created_record)?;
+        canonicalize_created_import_references(connection, created_record)?;
     }
 
     let mut updates = operations
@@ -4663,6 +4716,132 @@ fn apply_import_operations(
 struct PendingLifecycleMutation {
     previous: Option<OwnerSources>,
     final_state: Option<OwnerSources>,
+}
+
+#[derive(Debug)]
+struct CreatedImportRecord {
+    section: String,
+    id: String,
+    deferred_parent_ref: Option<String>,
+}
+
+fn apply_deferred_import_parent_reference(
+    connection: &Connection,
+    created: &CreatedImportRecord,
+) -> Result<(), String> {
+    let Some(reference) = created.deferred_parent_ref.as_deref() else {
+        return Ok(());
+    };
+    match created.section.as_str() {
+        "categories" => {
+            let key = resolve_sakurava_ref(connection, "C", reference)?
+                .ok_or_else(|| "Imported Category parent Ref was not found after create planning.".to_string())?;
+            update_managed_category(
+                connection,
+                &created.id,
+                ManagedCategoryPatch {
+                    name: None,
+                    parent_key: Some(Some(key)),
+                    description: None,
+                    thumbnail_path: None,
+                    show_in_videos: None,
+                    show_in_images: None,
+                    show_in_performers: None,
+                    show_in_credits: None,
+                    r_plus: None,
+                },
+            )?.ok_or_else(|| "Created Category parent target changed.".to_string())?;
+        }
+        "glossary" => {
+            let id = resolve_sakurava_ref(connection, "G", reference)?
+                .ok_or_else(|| "Imported Glossary parent Ref was not found after create planning.".to_string())?;
+            update_glossary_entry(
+                connection,
+                &created.id,
+                GlossaryEntryPatch {
+                    term: None,
+                    definition: None,
+                    synonyms_json: None,
+                    category: None,
+                    parent_id: Some(id),
+                    thumbnail_path: None,
+                    favorite: None,
+                    source_title: None,
+                    source_url: None,
+                    r_plus: None,
+                },
+            )?.ok_or_else(|| "Created Glossary parent target changed.".to_string())?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn canonicalize_created_import_references(
+    connection: &Connection,
+    created: &CreatedImportRecord,
+) -> Result<(), String> {
+    match created.section.as_str() {
+        "videos" => {
+            let record = get_video(connection, &created.id)?
+                .ok_or_else(|| "Created Video could not be read for reference resolution.".to_string())?;
+            let mut values = json!({
+                "categoriesJson": record.categories_json,
+                "relatedPerformersJson": record.related_performers_json,
+                "relatedImagesJson": record.related_images_json,
+                "glossaryRefsJson": record.glossary_refs_json,
+            });
+            resolve_import_public_reference_fields(connection, &mut values, false)?;
+            let object = values.as_object().ok_or_else(|| "Resolved Video values are invalid.".to_string())?;
+            update_video(connection, &created.id, VideoPatch {
+                categories_json: object.get("categoriesJson").and_then(Value::as_str).map(str::to_string),
+                related_performers_json: object.get("relatedPerformersJson").and_then(Value::as_str).map(str::to_string),
+                related_images_json: object.get("relatedImagesJson").and_then(Value::as_str).map(str::to_string),
+                glossary_refs_json: object.get("glossaryRefsJson").and_then(Value::as_str).map(str::to_string),
+                ..Default::default()
+            })?.ok_or_else(|| "Created Video changed during reference resolution.".to_string())?;
+        }
+        "images" => {
+            let record = get_image(connection, &created.id)?
+                .ok_or_else(|| "Created Image could not be read for reference resolution.".to_string())?;
+            let mut values = json!({
+                "categoriesJson": record.categories_json,
+                "relatedPerformersJson": record.related_performers_json,
+                "relatedVideosJson": record.related_videos_json,
+                "glossaryRefsJson": record.glossary_refs_json,
+            });
+            resolve_import_public_reference_fields(connection, &mut values, false)?;
+            let object = values.as_object().ok_or_else(|| "Resolved Image values are invalid.".to_string())?;
+            update_image(connection, &created.id, ImagePatch {
+                categories_json: object.get("categoriesJson").and_then(Value::as_str).map(str::to_string),
+                related_performers_json: object.get("relatedPerformersJson").and_then(Value::as_str).map(str::to_string),
+                related_videos_json: object.get("relatedVideosJson").and_then(Value::as_str).map(str::to_string),
+                glossary_refs_json: object.get("glossaryRefsJson").and_then(Value::as_str).map(str::to_string),
+                ..Default::default()
+            })?.ok_or_else(|| "Created Image changed during reference resolution.".to_string())?;
+        }
+        "performers" => {
+            let record = get_performer(connection, &created.id)?
+                .ok_or_else(|| "Created Performer could not be read for reference resolution.".to_string())?;
+            let mut values = json!({
+                "categoriesJson": record.categories_json,
+                "relatedVideosJson": record.related_videos_json,
+                "relatedImagesJson": record.related_images_json,
+                "glossaryRefsJson": record.glossary_refs_json,
+            });
+            resolve_import_public_reference_fields(connection, &mut values, false)?;
+            let object = values.as_object().ok_or_else(|| "Resolved Performer values are invalid.".to_string())?;
+            update_performer(connection, &created.id, PerformerPatch {
+                categories_json: object.get("categoriesJson").and_then(Value::as_str).map(str::to_string),
+                related_videos_json: object.get("relatedVideosJson").and_then(Value::as_str).map(str::to_string),
+                related_images_json: object.get("relatedImagesJson").and_then(Value::as_str).map(str::to_string),
+                glossary_refs_json: object.get("glossaryRefsJson").and_then(Value::as_str).map(str::to_string),
+                ..Default::default()
+            })?.ok_or_else(|| "Created Performer changed during reference resolution.".to_string())?;
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn lifecycle_section(section: &str) -> bool {
@@ -4788,42 +4967,68 @@ fn apply_import_create(
     operation: &ImportCatalogPlanOperation,
     generated_ids: &std::collections::HashMap<String, String>,
     issuance_yymm: &str,
-) -> Result<Option<String>, String> {
+) -> Result<Option<CreatedImportRecord>, String> {
     let mut proposed =
-        resolve_import_dependencies(operation.proposed_values.clone(), generated_ids)?;
-    proposed
+        resolve_import_dependencies(connection, operation.proposed_values.clone(), generated_ids, true)?;
+    let object = proposed
         .as_object_mut()
-        .ok_or_else(|| "Import Create values are invalid.".to_string())?
-        .insert(
-            "issuanceYymm".to_string(),
-            Value::String(issuance_yymm.to_string()),
-        );
-    match operation.section.as_str() {
-        "videos" => Ok(Some(
-            create_video(connection, decode_import_value(proposed)?)?.id,
-        )),
-        "images" => Ok(Some(
-            create_image(connection, decode_import_value(proposed)?)?.id,
-        )),
-        "performers" => Ok(Some(
-            create_performer(connection, decode_import_value(proposed)?)?.id,
-        )),
-        "categories" => Ok(Some(
-            create_managed_category(connection, decode_import_value(proposed)?)?.key,
-        )),
-        "glossary" => Ok(Some(
-            create_glossary_entry(connection, decode_import_value(proposed)?)?.id,
-        )),
-        "credits" => Ok(Some(
+        .ok_or_else(|| "Import Create values are invalid.".to_string())?;
+    let requested_sakurava_ref = object
+        .remove("requestedSakuravaRef")
+        .and_then(|value| value.as_str().map(str::to_string));
+    object.insert(
+        "issuanceYymm".to_string(),
+        Value::String(issuance_yymm.to_string()),
+    );
+    let deferred_parent_ref = match operation.section.as_str() {
+        "categories" => take_unresolved_public_ref(object, "parentKey", "C"),
+        "glossary" => take_unresolved_public_ref(object, "parentId", "G"),
+        _ => None,
+    };
+    let id = match operation.section.as_str() {
+        "videos" =>
+            create_video_with_requested_ref(
+                connection,
+                decode_import_value(proposed)?,
+                requested_sakurava_ref.as_deref(),
+            )?.id,
+        "images" =>
+            create_image_with_requested_ref(
+                connection,
+                decode_import_value(proposed)?,
+                requested_sakurava_ref.as_deref(),
+            )?.id,
+        "performers" =>
+            create_performer_with_requested_ref(
+                connection,
+                decode_import_value(proposed)?,
+                requested_sakurava_ref.as_deref(),
+            )?.id,
+        "categories" =>
+            create_managed_category_with_requested_ref(
+                connection,
+                decode_import_value(proposed)?,
+                requested_sakurava_ref.as_deref(),
+            )?.key,
+        "glossary" =>
+            create_glossary_entry_with_requested_ref(
+                connection,
+                decode_import_value(proposed)?,
+                requested_sakurava_ref.as_deref(),
+            )?.id,
+        "credits" =>
             create_credit_in_transaction(
                 connection,
                 decode_import_value(proposed)?,
                 Some(issuance_yymm),
-            )?
-            .id,
-        )),
-        _ => Err("Unsupported import section.".to_string()),
-    }
+            )?.id,
+        _ => return Err("Unsupported import section.".to_string()),
+    };
+    Ok(Some(CreatedImportRecord {
+        section: operation.section.clone(),
+        id,
+        deferred_parent_ref,
+    }))
 }
 
 fn apply_import_update(
@@ -4835,7 +5040,7 @@ fn apply_import_update(
         .record_id
         .as_deref()
         .ok_or_else(|| "Update record was not resolved.".to_string())?;
-    let proposed = resolve_import_dependencies(operation.proposed_values.clone(), generated_ids)?;
+    let proposed = resolve_import_dependencies(connection, operation.proposed_values.clone(), generated_ids, false)?;
     match operation.section.as_str() {
         "videos" => update_video(connection, id, decode_import_value(proposed)?)?
             .map(|_| ())
@@ -4927,8 +5132,10 @@ fn apply_import_delete(
 }
 
 fn resolve_import_dependencies(
+    connection: &Connection,
     mut proposed: Value,
     generated_ids: &std::collections::HashMap<String, String>,
+    allow_unresolved_public_refs: bool,
 ) -> Result<Value, String> {
     if let Some(parent) = proposed
         .get("parentId")
@@ -4941,7 +5148,189 @@ fn resolve_import_dependencies(
             .clone();
         proposed["parentId"] = Value::String(resolved);
     }
+    resolve_import_public_reference_fields(connection, &mut proposed, allow_unresolved_public_refs)?;
     Ok(proposed)
+}
+
+fn take_unresolved_public_ref(
+    proposed: &mut serde_json::Map<String, Value>,
+    field: &str,
+    section: &str,
+) -> Option<String> {
+    let value = proposed.get(field)?.as_str()?;
+    let canonical = format_sakurava_ref(value)?.replace('-', "");
+    if canonical.starts_with(section) {
+        proposed.remove(field);
+        Some(canonical)
+    } else {
+        None
+    }
+}
+
+fn resolve_import_public_reference_fields(
+    connection: &Connection,
+    proposed: &mut Value,
+    allow_unresolved: bool,
+) -> Result<(), String> {
+    let object = proposed
+        .as_object_mut()
+        .ok_or_else(|| "Import values are invalid.".to_string())?;
+    resolve_import_reference_scalar(connection, object, "parentKey", "C", allow_unresolved)?;
+    resolve_import_reference_scalar(connection, object, "parentId", "G", allow_unresolved)?;
+    if let Some(work_section) = object
+        .get("workType")
+        .and_then(Value::as_str)
+        .and_then(|value| match value.to_ascii_lowercase().as_str() {
+            "video" => Some("V"),
+            "image" => Some("I"),
+            _ => None,
+        })
+    {
+        resolve_import_reference_scalar(connection, object, "workId", work_section, allow_unresolved)?;
+    }
+    resolve_import_reference_scalar(connection, object, "performerId", "P", allow_unresolved)?;
+
+    resolve_import_categories(connection, object, allow_unresolved)?;
+    resolve_import_glossary_refs(connection, object, allow_unresolved)?;
+    resolve_import_related_json(connection, object, "relatedPerformersJson", "performerId", "P", allow_unresolved)?;
+    resolve_import_related_json(connection, object, "relatedImagesJson", "recordId", "I", allow_unresolved)?;
+    resolve_import_related_json(connection, object, "relatedVideosJson", "recordId", "V", allow_unresolved)?;
+    Ok(())
+}
+
+fn resolve_import_reference_scalar(
+    connection: &Connection,
+    object: &mut serde_json::Map<String, Value>,
+    field: &str,
+    section: &str,
+    allow_unresolved: bool,
+) -> Result<(), String> {
+    let Some(value) = object.get(field).and_then(Value::as_str).map(str::to_string) else {
+        return Ok(());
+    };
+    let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+        return Ok(());
+    };
+    if !reference.starts_with(section) {
+        return Err("Imported public Ref has the wrong section.".to_string());
+    }
+    if let Some(id) = resolve_sakurava_ref(connection, section, &reference)? {
+        object.insert(field.to_string(), Value::String(id));
+    } else if !allow_unresolved {
+        return Err("Imported public Ref was not found after create planning.".to_string());
+    }
+    Ok(())
+}
+
+fn resolve_import_categories(
+    connection: &Connection,
+    object: &mut serde_json::Map<String, Value>,
+    allow_unresolved: bool,
+) -> Result<(), String> {
+    let Some(text) = object.get("categoriesJson").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let values = serde_json::from_str::<Vec<String>>(text).unwrap_or_default();
+    let mut resolved = Vec::with_capacity(values.len());
+    for value in values {
+        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+            resolved.push(value);
+            continue;
+        };
+        if !reference.starts_with('C') {
+            return Err("Imported Category Ref has the wrong section.".to_string());
+        }
+        if let Some(key) = resolve_sakurava_ref(connection, "C", &reference)? {
+            let category = get_managed_category(connection, &key)?
+                .ok_or_else(|| "Resolved Category Ref has no catalog record.".to_string())?;
+            resolved.push(category.name);
+        } else if allow_unresolved {
+            resolved.push(reference);
+        } else {
+            return Err("Imported Category Ref was not found after create planning.".to_string());
+        }
+    }
+    object.insert(
+        "categoriesJson".to_string(),
+        Value::String(serde_json::to_string(&resolved).unwrap_or_else(|_| "[]".to_string())),
+    );
+    Ok(())
+}
+
+fn resolve_import_glossary_refs(
+    connection: &Connection,
+    object: &mut serde_json::Map<String, Value>,
+    allow_unresolved: bool,
+) -> Result<(), String> {
+    let Some(text) = object.get("glossaryRefsJson").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let values = serde_json::from_str::<Vec<String>>(text).unwrap_or_default();
+    let mut resolved = Vec::with_capacity(values.len());
+    for value in values {
+        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+            resolved.push(value);
+            continue;
+        };
+        if !reference.starts_with('G') {
+            return Err("Imported Glossary Ref has the wrong section.".to_string());
+        }
+        if let Some(id) = resolve_sakurava_ref(connection, "G", &reference)? {
+            resolved.push(id);
+        } else if allow_unresolved {
+            resolved.push(reference);
+        } else {
+            return Err("Imported Glossary Ref was not found after create planning.".to_string());
+        }
+    }
+    object.insert(
+        "glossaryRefsJson".to_string(),
+        Value::String(serde_json::to_string(&resolved).unwrap_or_else(|_| "[]".to_string())),
+    );
+    Ok(())
+}
+
+fn resolve_import_related_json(
+    connection: &Connection,
+    object: &mut serde_json::Map<String, Value>,
+    field: &str,
+    id_field: &str,
+    section: &str,
+    allow_unresolved: bool,
+) -> Result<(), String> {
+    let Some(text) = object.get(field).and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let mut items = serde_json::from_str::<Vec<serde_json::Map<String, Value>>>(text).unwrap_or_default();
+    for item in &mut items {
+        let Some(value) = item.get(id_field).and_then(Value::as_str).map(str::to_string) else {
+            continue;
+        };
+        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+            continue;
+        };
+        if !reference.starts_with(section) {
+            return Err("Imported related Ref has the wrong section.".to_string());
+        }
+        if let Some(id) = resolve_sakurava_ref(connection, section, &reference)? {
+            item.insert(id_field.to_string(), Value::String(id.clone()));
+            let label = match section {
+                "V" => get_video(connection, &id)?.map(|record| record.title),
+                "I" => get_image(connection, &id)?.map(|record| record.title),
+                "P" => get_performer(connection, &id)?.map(|record| record.name),
+                _ => None,
+            }.ok_or_else(|| "Resolved related Ref has no catalog record.".to_string())?;
+            let label_field = if id_field == "performerId" { "nameSnapshot" } else { "titleSnapshot" };
+            item.insert(label_field.to_string(), Value::String(label));
+        } else if !allow_unresolved {
+            return Err("Imported related Ref was not found after create planning.".to_string());
+        }
+    }
+    object.insert(
+        field.to_string(),
+        Value::String(serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())),
+    );
+    Ok(())
 }
 
 fn decode_import_value<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, String> {
@@ -8373,6 +8762,84 @@ mod tests {
         };
         plan.operation_fingerprint = import_plan_fingerprint(&plan);
         plan
+    }
+
+    #[test]
+    fn import_apply_retains_available_requested_refs_and_allocates_duplicate_adds_deterministically() {
+        let (root, database) = import_test_database("requested-public-refs");
+        let plan = signed_import_plan(
+            &database,
+            vec![
+                plan_operation(
+                    "videos",
+                    "create",
+                    2,
+                    json!({ "title": "First", "requestedSakuravaRef": "V26070077" }),
+                ),
+                plan_operation(
+                    "videos",
+                    "create",
+                    3,
+                    json!({ "title": "Second", "requestedSakuravaRef": "V26070077" }),
+                ),
+            ],
+        );
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        let videos = list_videos(&connection).expect("videos");
+        assert!(videos.iter().any(|video| video.sakurava_ref == "V26070077"));
+        assert!(videos.iter().any(|video| video.sakurava_ref == "V26070078"));
+        let high_water: i64 = connection.query_row(
+            "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'V' AND issuanceYymm = '2607'",
+            [],
+            |row| row.get(0),
+        ).expect("high water");
+        assert_eq!(high_water, 78);
+        drop(connection);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn import_apply_resolves_same_batch_public_relationships_to_authoritative_targets() {
+        let (root, database) = import_test_database("same-batch-public-relations");
+        let plan = signed_import_plan(
+            &database,
+            vec![
+                plan_operation(
+                    "videos",
+                    "create",
+                    2,
+                    json!({
+                        "title": "Video",
+                        "requestedSakuravaRef": "V26070001",
+                        "relatedPerformersJson": "[{\"performerId\":\"P26070001\",\"nameSnapshot\":\"Stale\"}]",
+                    }),
+                ),
+                plan_operation(
+                    "performers",
+                    "create",
+                    3,
+                    json!({ "name": "Performer", "requestedSakuravaRef": "P26070001" }),
+                ),
+            ],
+        );
+
+        let result = apply_import_catalog_plan(&database, plan);
+        assert_eq!(result.transaction_status, "committed");
+        let connection = database.connection();
+        let connection = connection.lock().expect("database lock");
+        let video = list_videos(&connection).expect("videos").pop().expect("video");
+        let performer = list_performers(&connection).expect("performers").pop().expect("performer");
+        assert_eq!(
+            serde_json::from_str::<Value>(&video.related_performers_json)
+                .expect("related json"),
+            json!([{ "performerId": performer.id, "nameSnapshot": "Performer" }]),
+        );
+        drop(connection);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

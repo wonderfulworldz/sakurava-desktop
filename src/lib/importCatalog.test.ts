@@ -148,6 +148,28 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.rows.every((row) => row.sheetName !== "Instructions")).toBe(true);
   });
 
+  it("keeps same-workbook public relationships until Apply resolves final owners", async () => {
+    const related = performer({ id: "performer-roundtrip", sakuravaRef: "P26070001", name: "Performer" });
+    const source = video({
+      id: "video-roundtrip",
+      sakuravaRef: "V26070001",
+      relatedPerformersJson: JSON.stringify([{ performerId: related.id, nameSnapshot: "Stale" }]),
+    });
+    const selections = prepareSelectionsWithPublicRefs([
+      { dataType: "videos", records: [source] },
+      { dataType: "performers", records: [related] },
+    ]);
+    const built = await buildXlsxWorkbook({ selections, locale: "en-US" });
+    const preview = await buildXlsxCatalogPreview(built.bytes, context(), "en-US");
+    const plan = buildImportOperationPlan(preview, context(), built.bytes, "2607");
+    const videoOperation = plan.operations.find((operation) => operation.section === "videos");
+
+    expect(preview.rows.every((row) => row.warnings.length === 0 && row.errors.length === 0)).toBe(true);
+    expect(videoOperation?.proposedValues.relatedPerformersJson).toBe(
+      JSON.stringify([{ performerId: "P26070001", nameSnapshot: "" }]),
+    );
+  });
+
   it("converts numeric Excel dates only when date-formatted", async () => {
     const formatted = await numericDateWorkbook("m/d/yyyy");
     const valid = await buildXlsxCatalogPreview(formatted, context(), "en-US");
@@ -281,6 +303,40 @@ describe("catalog CSV/XLSX import preview", () => {
     );
     expect(preview.headerErrors).toEqual([]);
     expect(preview.summary.blocked).toBe(false);
+  });
+
+  it("accepts current Safe XLSX headers without missing-sensitive-field warnings", async () => {
+    const built = await buildXlsxWorkbook({
+      selections: [{ dataType: "performers", records: [] }],
+      locale: "en-US",
+      safeExport: true,
+    });
+
+    const preview = await buildXlsxCatalogPreview(built.bytes, context(), "en-US");
+    expect(preview.headerErrors).toEqual([]);
+    expect(preview.headerWarnings.join(" ")).not.toContain("Missing expected headers");
+  });
+
+  it("accepts legacy Glossary Refs in a current-version XLSX as an explicit compatibility column", async () => {
+    const built = await buildXlsxWorkbook({
+      selections: [{ dataType: "videos", records: [] }],
+      locale: "en-US",
+    });
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
+    const sheet = workbook.getWorksheet("Videos")!;
+    const headers = sheet.getRow(1).values as unknown[];
+    const relatedIndex = headers.findIndex((value) => value === "Related Performers");
+    sheet.spliceColumns(relatedIndex, 0, ["Glossary Refs"]);
+    const preview = await buildXlsxCatalogPreview(
+      new Uint8Array(await workbook.xlsx.writeBuffer()),
+      context(),
+      "en-US",
+    );
+
+    expect(preview.headerErrors).toEqual([]);
+    expect(preview.headerWarnings).toContain("This file uses compatibility columns from Sakurava contract version 1.");
   });
 
   it("reports missing, exposed, and data-sheet metadata collisions deterministically", async () => {

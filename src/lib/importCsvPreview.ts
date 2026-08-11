@@ -17,6 +17,7 @@ import {
   importSchemaFor,
   legacyImportHeadersFor,
   exportEntityLabel,
+  exportSchemaFor,
   exportRowsFor,
   isExportExampleRow,
   sakuravaRef,
@@ -28,6 +29,7 @@ import {
 } from "./exportCsv";
 import { SAKURAVA_CLEAR_VALUE } from "./importExportContract";
 import {
+  canonicalSakuravaRef,
   canonicalImportIdentity,
   resolveSakuravaIdentity,
   sakuravaIdentityLookupKeys,
@@ -376,7 +378,7 @@ function validateHeaders(
   definition: EntityDefinition | null,
   errors: string[],
   warnings: string[],
-  allowLegacyColumns: boolean,
+  _allowLegacyColumns: boolean,
 ) {
   if (headers.length === 0) {
     errors.push("CSV file is empty.");
@@ -407,9 +409,10 @@ function validateHeaders(
   }
 
 
-  const allowedHeaders = allowLegacyColumns
-    ? new Set(importSchemaFor(definition.entity).map((column) => column.header))
-    : new Set(definition.expectedHeaders);
+  // Compatibility headers remain an explicit allowlist for every supported
+  // workbook version. Current Safe exports intentionally omit restricted
+  // columns, and legacy exported workbooks can still carry Glossary Refs.
+  const allowedHeaders = new Set(importSchemaFor(definition.entity).map((column) => column.header));
   // C2 no longer exports package-local identity/decision columns. Older
   // workbooks can retain them; they are safely ignored during Preview.
   allowedHeaders.add("Import Ref");
@@ -427,8 +430,12 @@ function validateHeaders(
     }
   }
 
+  const safeHeaders = exportSchemaFor(definition.entity, { safeExport: true })
+    .map((column) => column.header);
+  const isExactSafeProjection = safeHeaders.length === headers.length
+    && safeHeaders.every((header) => headers.includes(header));
   const missingExpectedHeaders = definition.expectedHeaders.filter(
-    (header) => !headers.includes(header),
+    (header) => !headers.includes(header) && !(isExactSafeProjection && !safeHeaders.includes(header)),
   );
   if (missingExpectedHeaders.length > 0) {
     const message = `Missing expected headers: ${missingExpectedHeaders.join(", ")}.`;
@@ -491,15 +498,26 @@ function previewRow({
         definition.records(context),
       )
     : null;
+  const primaryRefWasMalformed = identityResolution?.status === "malformed";
   if (identityResolution?.status === "malformed") {
-    warnings.push(`Sakurava Ref is not valid for ${exportEntityLabel(definition.entity)}. This row will not be applied.`);
-    identityIsUsable = false;
+    // A primary Ref is an optional requested identity for a create.  Keep a
+    // malformed value out of the plan, then let the authoritative allocator
+    // assign a canonical Ref just as it does for a blank value.
+    values["Sakurava Ref"] = "";
+    ref = "";
   } else if (identityResolution?.status === "ambiguous") {
     warnings.push(`Sakurava Ref resolves to more than one ${exportEntityLabel(definition.entity)} record. This row will not be applied.`);
     identityIsUsable = false;
   }
 
-  if (ref && duplicateRefs.has(ref)) {
+  const requestedCanonicalRef = canonicalSakuravaRef(ref);
+  const isUnownedRequestedRef = identityResolution?.status === "unknown"
+    && requestedCanonicalRef !== null;
+
+  // Repeated unknown requested Refs are create requests, not duplicate
+  // update targets. The transaction processes source rows deterministically:
+  // the first keeps the requested Ref and later rows receive allocator Refs.
+  if (ref && duplicateRefs.has(ref) && !isUnownedRequestedRef && action !== "Add") {
     warnings.push(`Duplicate Sakurava Ref in CSV: ${ref}. This row will not be applied.`);
     identityIsUsable = false;
   }
@@ -522,18 +540,15 @@ function previewRow({
     };
   }
 
-  if (action === "Add" && ref) {
-    warnings.push("The entered Sakurava Ref will be ignored. A new Ref will be assigned.");
-    values["Sakurava Ref"] = "";
-    ref = "";
-  }
-
-  if (action === "Update" && (!ref || !identityIsUsable || temporaryRef)) {
+  if (action === "Update" && (!ref || !identityIsUsable || temporaryRef) && !primaryRefWasMalformed) {
     warnings.push("Update requires a valid Sakurava Ref. This row will not be applied.");
     return rowNotApplied(rowNumber, action, ref, mainValue, warnings, values);
   }
 
-  const isAdd = !ref || temporaryRef;
+  // Explicit Add must never overwrite an existing owner. A populated valid
+  // Ref is carried as a request; the transactional allocator retains it only
+  // when available and otherwise issues the next canonical Ref.
+  const isAdd = action === "Add" || !ref || temporaryRef || isUnownedRequestedRef || primaryRefWasMalformed;
   if (definition.entity === "credits") {
     validateCreditFields(values, context, ref, isAdd, errors);
   }
@@ -553,7 +568,7 @@ function previewRow({
   validateManagedCategoryParent(values, definition, context, warnings);
   validateGlossaryFields(values, definition, ref, context, warnings);
 
-  if (!ref || temporaryRef) {
+  if (isAdd) {
     if (Object.values(values).some((value) => value.trim() === SAKURAVA_CLEAR_VALUE)) {
       warnings.push("The clear marker is only supported for an existing record. This row will not be applied.");
     }
@@ -640,6 +655,11 @@ function validateManagedCategoryParent(
   const parentRef = (values["Parent Ref"] ?? "").trim();
   if (parentRef && parentRef !== SAKURAVA_CLEAR_VALUE) {
     if (!context.categories.some((category) => sakuravaRefMatches("CAT", parentRef, category))) {
+      const canonical = canonicalSakuravaRef(parentRef);
+      if (canonical && canonical[0] === "C") {
+        values["Parent Ref"] = canonical;
+        return;
+      }
       warnings.push("Parent Category Ref was not found. The parent relationship will be empty.");
       values["Parent Ref"] = "";
     }
@@ -708,6 +728,11 @@ function validateGlossaryFields(
     return;
   }
   if (parentResolution.status !== "resolved") {
+    const canonical = canonicalSakuravaRef(parentRef);
+    if (canonical && canonical[0] === "G") {
+      values["Parent Ref"] = canonical;
+      return;
+    }
     warnings.push("Glossary parent Ref was not found. The parent relationship will be empty.");
     values["Parent Ref"] = "";
   }
@@ -1143,6 +1168,13 @@ function validateCategories(
     if (legacyName) {
       return legacyName.name;
     }
+    const canonical = canonicalSakuravaRef(candidate);
+    if (canonical && canonical[0] === "C") {
+      // A same-workbook Category may not exist in the current catalog yet.
+      // Keep only its public Ref for the operation-plan resolver; the display
+      // suffix is never treated as identity.
+      return canonical;
+    }
     if (resolution.status === "malformed") {
       warnings.push("Category Ref was not found. Category will be empty.");
     } else if (resolution.status === "ambiguous") {
@@ -1240,6 +1272,12 @@ function validateRelatedItem(
       warnings.push("A related Ref is not valid and will be cleared.");
       return false;
     }
+    const canonical = canonicalSakuravaRef(ref);
+    if (canonical && canonical[0] === sectionCodeForLegacyPrefix(target.prefix)) {
+      // Defer a syntactically valid Ref until catalog-level planning can
+      // resolve a same-workbook final owner.
+      return true;
+    }
     warnings.push("A related Ref was not found and will be cleared.");
     return false;
   }
@@ -1308,6 +1346,11 @@ function validateGlossaryRefs(
   for (const item of items) {
     const resolution = resolveSakuravaIdentity("G", item.split("|")[0].trim(), context.glossary ?? []);
     if (resolution.status !== "resolved") {
+      const canonical = canonicalSakuravaRef(item.split("|")[0].trim());
+      if (canonical && canonical[0] === "G") {
+        valid.push(canonical);
+        continue;
+      }
       errors.push(`Glossary Ref was not found or is ambiguous: ${item}.`);
     } else {
       valid.push(item);

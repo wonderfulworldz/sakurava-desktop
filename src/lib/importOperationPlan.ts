@@ -215,12 +215,16 @@ function buildOperation(
   sourceFingerprint: string,
 ): ImportPlanOperation {
   const ref = (row.values["Sakurava Ref"] ?? "").trim();
-  const current = resolveImportRecord(row.dataType, ref, context) ?? null;
   const action: ImportPlanAction = row.detectedResult === "Added"
     ? "create"
     : row.detectedResult === "Deleted"
       ? "delete"
       : "update";
+  // Explicit Add may carry an occupied public Ref as an allocator request.
+  // It must never inherit that current record as a create target.
+  const current = action === "create"
+    ? null
+    : resolveImportRecord(row.dataType, ref, context) ?? null;
   const proposedValues = action === "delete"
     ? {}
     : buildNormalizedImportPatch(row.dataType, row, context);
