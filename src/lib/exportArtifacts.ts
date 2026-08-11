@@ -278,26 +278,30 @@ export function defaultExportFileName(
   dataTypes: ExportCsvEntity[],
   format: ExportFormat,
   date = new Date(),
+  options: { explicit?: boolean } = {},
 ) {
-  return `skv-${exportTypeCode(dataTypes)}-${localExportTimestamp(date)}.${format}`;
+  return `skv-${exportTypeCode(dataTypes)}-${localExportTimestamp(date)}${options.explicit ? "-e" : ""}.${format}`;
 }
 
 export function buildCsvExportArtifacts({
   selections,
   locale,
   date = new Date(),
+  safeExport = false,
+  explicit = false,
 }: {
   selections: ExportDataSelection[];
   locale: string;
   date?: Date;
+  safeExport?: boolean;
+  explicit?: boolean;
 }): ExportArtifact[] {
-  const timestamp = localExportTimestamp(date);
   return selections.map((selection) => ({
     dataTypes: [selection.dataType],
     format: "csv",
-    fileName: `skv-${exportTypeCode([selection.dataType])}-${timestamp}.csv`,
+    fileName: defaultExportFileName([selection.dataType], "csv", date, { explicit }),
     bytes: new TextEncoder().encode(
-      buildEntityCsv(selection.dataType, selection.records, { locale }),
+      buildEntityCsv(selection.dataType, selection.records, { locale, safeExport }),
     ),
     recordCounts: { [selection.dataType]: selection.records.length },
     template: selection.records.length === 0,
@@ -309,18 +313,22 @@ export async function buildXlsxExportArtifact({
   locale,
   date = new Date(),
   template = false,
+  safeExport = false,
+  explicit = false,
 }: {
   selections: ExportDataSelection[];
   locale: string;
   date?: Date;
   template?: boolean;
+  safeExport?: boolean;
+  explicit?: boolean;
 }): Promise<ExportArtifact> {
-  const workbook = await buildXlsxWorkbook({ selections, locale, template });
+  const workbook = await buildXlsxWorkbook({ selections, locale, template, safeExport });
   const dataTypes = selections.map((selection) => selection.dataType);
   return {
     dataTypes,
     format: "xlsx",
-    fileName: defaultExportFileName(dataTypes, "xlsx", date),
+    fileName: defaultExportFileName(dataTypes, "xlsx", date, { explicit }),
     bytes: workbook.bytes,
     recordCounts: Object.fromEntries(
       selections.map((selection) => [selection.dataType, selection.records.length]),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Credit, GlossaryEntry, Image, ManagedCategory, Performer, Video } from "../backend/types";
-import { parseCsv } from "./importCsvPreview";
+import { buildImportCsvPreview, parseCsv } from "./importCsvPreview";
 import {
   buildCsvExportArtifacts,
   defaultExportFileName,
@@ -97,6 +97,42 @@ describe("shared XLSX/CSV export contract", () => {
     expect(csv.startsWith("Action,Sakurava Ref,Title,Original Title,Code")).toBe(true);
   });
 
+  it("projects sensitive columns from safe artifacts while preserving import compatibility", () => {
+    const performer = {
+      id: "performer-1", name: "Performer", categoriesJson: "[]", relatedVideosJson: "[]",
+      relatedImagesJson: "[]", ratingJson: "{}", sourceLinksJson: "[]", thumbnailPathsJson: "[]",
+    } as unknown as Performer;
+    const [safeArtifact] = buildCsvExportArtifacts({
+      selections: [{ dataType: "performers", records: [performer] }],
+      locale: "en-US",
+      date: fixedDate,
+      safeExport: true,
+    });
+    const safeCsv = new TextDecoder().decode(safeArtifact.bytes);
+    const [explicitArtifact] = buildCsvExportArtifacts({
+      selections: [{ dataType: "performers", records: [performer] }],
+      locale: "en-US",
+      date: fixedDate,
+      explicit: true,
+    });
+    const explicitCsv = new TextDecoder().decode(explicitArtifact.bytes);
+
+    expect(safeCsv).not.toContain("R+");
+    expect(safeCsv).not.toContain("Measurements");
+    expect(safeCsv).not.toContain("Cup Size");
+    expect(explicitCsv).toContain("R+");
+    expect(explicitCsv).toContain("Measurements");
+    expect(explicitCsv).toContain("Cup Size");
+
+    for (const csv of [safeCsv, explicitCsv]) {
+      const preview = buildImportCsvPreview(csv, {
+        videos: [], images: [], performers: [], categories: [], glossary: [], credits: [],
+      });
+      expect(preview.headerErrors).toEqual([]);
+      expect(preview.summary.blocked).toBe(false);
+    }
+  });
+
   it("preserves CSV quoting and parser round-trip for commas, quotes, and multiline text", () => {
     const csv = buildVideosCsv([video({
       title: 'Fictional, "Title"',
@@ -153,6 +189,21 @@ describe("shared XLSX/CSV export contract", () => {
     expect(csv).not.toContain("performer-1");
     expect(csv).not.toContain("image-1");
     expect(csv).not.toContain("category-1");
+  });
+
+  it("uses informational explicit filename suffixes without changing per-section CSV output", () => {
+    expect(defaultExportFileName(["videos", "images"], "xlsx", fixedDate, { explicit: true }))
+      .toBe("skv-all-20261407-053825-e.xlsx");
+    const artifacts = buildCsvExportArtifacts({
+      selections: [{ dataType: "videos", records: [video()] }, { dataType: "credits", records: [] }],
+      locale: "en-US",
+      date: fixedDate,
+      explicit: true,
+    });
+    expect(artifacts.map((artifact) => artifact.fileName)).toEqual([
+      "skv-vid-20261407-053825-e.csv",
+      "skv-cre-20261407-053825-e.csv",
+    ]);
   });
 
   it("projects Safe-ON export visibility from direct R+ only and prunes hidden relationships", () => {

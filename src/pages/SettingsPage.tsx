@@ -1531,6 +1531,7 @@ function SettingsPage() {
     try {
       await requireMigratedSakuravaRefs();
       const operationDate = new Date();
+      const safeExport = getSafeFilterEnabled();
       const completeSelections = template
         ? []
         : await Promise.all(
@@ -1539,7 +1540,7 @@ function SettingsPage() {
           );
       const selections = template
         ? entities.map((dataType) => ({ dataType, records: [] }))
-        : getSafeFilterEnabled()
+        : safeExport
           ? prepareSelectionsWithPublicRefs(projectSafeExportSelections(
               completeSelections,
               ["videos", "images", "performers", "categories", "glossary", "credits"],
@@ -1559,7 +1560,15 @@ function SettingsPage() {
         return;
       }
       const locale = navigator.language || "en-US";
-      const result = await runCatalogExport({ format, selections, locale, date: operationDate, template });
+      const result = await runCatalogExport({
+        format,
+        selections,
+        locale,
+        date: operationDate,
+        template,
+        safeExport,
+        explicit: !safeExport,
+      });
       if (result.cancelled) {
         setExportStatus({ state: "idle" });
         return;

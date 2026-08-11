@@ -23,6 +23,7 @@ import type { ManagedMediaDescriptor } from "../shared/managedMediaDescriptor";
 import ConfirmDialog from "../components/ConfirmDialog";
 import StickyHorizontalScroll from "../components/StickyHorizontalScroll";
 import SakuravaSelect from "../components/SakuravaSelect";
+import RPlusSwitch from "../components/RPlusSwitch";
 import {
   clearSessionFilterState,
   hasSessionFilterState,
@@ -37,6 +38,7 @@ import { useTranslation } from "../lib/LanguageContext";
 import { formatSakuravaRef } from "../lib/sakuravaRef";
 import { sakuravaRef as legacySakuravaRef } from "../lib/exportCsv";
 import { translateUiDisplayLabel } from "../lib/uiDisplayLabels";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
 
 type GlossarySortKey = "az" | "za" | "created-desc" | "updated-desc";
 type GlossaryFormMode = "add" | "edit";
@@ -1105,14 +1107,13 @@ function GlossaryPage() {
                 />
               </label>
 
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
+              {!getSafeFilterEnabled() && (
+                <RPlusSwitch
                   checked={formState.rPlus}
-                  onChange={(event) => updateFormField("rPlus", event.target.checked)}
+                  label={t("safeFilter.form.directRPlus")}
+                  onChange={(checked) => updateFormField("rPlus", checked)}
                 />
-                {t("safeFilter.form.directRPlus")}
-              </label>
+              )}
 
               <FieldErrorLabel label={t("glossary.sourceUrl")} error={formErrors.sourceUrl}>
                 <div className="relative mt-1">

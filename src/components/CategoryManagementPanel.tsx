@@ -26,6 +26,7 @@ import {
   findManagedCategoryDescendantKeys,
 } from "../backend/managedCategoryModel";
 import CategoryCatalogCard from "./CategoryCatalogCard";
+import RPlusSwitch from "./RPlusSwitch";
 import {
   CATALOG_PAGE_SIZE_OPTIONS,
   DEFAULT_CATALOG_PAGE_SIZE,
@@ -68,6 +69,7 @@ import {
   readCatalogPreferencePage,
   storeCatalogPreferencePage,
 } from "../lib/catalogPreferences";
+import { getSafeFilterEnabled } from "../lib/safeFilterState";
 
 type FormState = {
   name: string;
@@ -1107,14 +1109,13 @@ function CategoryManagementPanel() {
                 </p>
               )}
             </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
+            {!getSafeFilterEnabled() && (
+              <RPlusSwitch
                 checked={form.rPlus}
-                onChange={(event) => setForm((current) => ({ ...current, rPlus: event.target.checked }))}
+                label={t("safeFilter.form.directRPlus")}
+                onChange={(checked) => setForm((current) => ({ ...current, rPlus: checked }))}
               />
-              R+
-            </label>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">

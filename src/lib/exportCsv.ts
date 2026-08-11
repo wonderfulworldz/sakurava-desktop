@@ -84,6 +84,7 @@ export type CsvSchemaColumn<TRecord> = {
 
 export type ExportSerializationOptions = {
   locale?: string;
+  safeExport?: boolean;
 };
 
 type RatingColumn = {
@@ -384,15 +385,15 @@ export function buildCsv<TRecord>(
 }
 
 export function buildVideosCsv(videos: Video[], options?: ExportSerializationOptions) {
-  return buildCsv(videoCsvSchema, videos, options);
+  return buildCsv(exportSchemaFor("videos", options), videos, options);
 }
 
 export function buildImagesCsv(images: Image[], options?: ExportSerializationOptions) {
-  return buildCsv(imageCsvSchema, images, options);
+  return buildCsv(exportSchemaFor("images", options), images, options);
 }
 
 export function buildPerformersCsv(performers: Performer[], options?: ExportSerializationOptions) {
-  return buildCsv(performerCsvSchema, performers, options);
+  return buildCsv(exportSchemaFor("performers", options), performers, options);
 }
 
 export function buildCategoriesCsv(
@@ -415,7 +416,7 @@ export function buildCategoriesCsv(
       : "",
   }));
 
-  return buildCsv(categoryCsvSchema, rows, options);
+  return buildCsv(exportSchemaFor("categories", options), rows, options);
 }
 
 export function buildGlossaryCsv(
@@ -427,7 +428,7 @@ export function buildGlossaryCsv(
     ...entry,
     parentId: entry.parentId ? (refById.get(entry.parentId) ?? entry.parentId) : "",
   }));
-  return buildCsv(glossaryCsvSchema, rows, options);
+  return buildCsv(exportSchemaFor("glossary", options), rows, options);
 }
 
 export function buildCreditsCsv(
@@ -465,13 +466,23 @@ export function buildEntityCsv(
   return buildCategoriesCsv(records as ManagedCategory[], options);
 }
 
-export function exportSchemaFor(entity: ExportCsvEntity): CsvSchemaColumn<any>[] {
-  if (entity === "videos") return videoCsvSchema;
-  if (entity === "images") return imageCsvSchema;
-  if (entity === "performers") return performerCsvSchema;
-  if (entity === "glossary") return glossaryCsvSchema;
-  if (entity === "credits") return creditCsvSchema;
-  return categoryCsvSchema;
+export function exportSchemaFor(
+  entity: ExportCsvEntity,
+  options: Pick<ExportSerializationOptions, "safeExport"> = {},
+): CsvSchemaColumn<any>[] {
+  const schema = entity === "videos"
+    ? videoCsvSchema
+    : entity === "images"
+      ? imageCsvSchema
+      : entity === "performers"
+        ? performerCsvSchema
+        : entity === "glossary"
+          ? glossaryCsvSchema
+          : entity === "credits"
+            ? creditCsvSchema
+            : categoryCsvSchema;
+  if (!options.safeExport) return schema;
+  return schema.filter((column) => !["R+", "Censorship", "Measurements", "Cup Size"].includes(column.header));
 }
 
 export function importSchemaFor(entity: ExportCsvEntity): CsvSchemaColumn<any>[] {

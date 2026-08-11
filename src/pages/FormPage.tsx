@@ -35,6 +35,7 @@ import {
 import RelatedCatalogPicker from "../components/RelatedCatalogPicker";
 import CompactRelatedPerformersEditor from "../components/CompactRelatedPerformersEditor";
 import MemorySuggestionInput from "../components/MemorySuggestionInput";
+import RPlusSwitch from "../components/RPlusSwitch";
 import {
   selectGalleryFolder,
   selectLocalFolder,
@@ -1197,16 +1198,15 @@ function FormPage({
           managedCategoryRecords={managedCategoryRecords}
           onChange={setCategories}
         />
-        <div className="mt-5 grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-            <input
-              type="checkbox"
-              checked={Boolean(values.rPlus)}
-              onChange={(event) => updateValue("rPlus", event.target.checked)}
-            />
-            {t("safeFilter.form.directRPlus")}
-          </label>
-        </div>
+            {!safeFilterEnabled && (
+              <div className="mt-5">
+                <RPlusSwitch
+                  checked={Boolean(values.rPlus)}
+                  label={t("safeFilter.form.directRPlus")}
+                  onChange={(checked) => updateValue("rPlus", checked)}
+                />
+              </div>
+            )}
       </FormSection>
 
       <FormSection index={6} title={t("form.rating")}>

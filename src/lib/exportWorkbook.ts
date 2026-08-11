@@ -30,6 +30,7 @@ export type XlsxBuildOptions = {
   timeZone?: string;
   template?: boolean;
   generatedAt?: Date;
+  safeExport?: boolean;
 };
 
 export type XlsxBuildResult = {
@@ -61,11 +62,12 @@ export async function buildXlsxWorkbook(
       isSingleTemplate ? "Data" : exportEntityLabel(selection.dataType),
       selection,
       options.locale,
+      options.safeExport,
     );
   }
 
   if (isSingleTemplate) {
-    addExamplesSheet(workbook, options.selections[0].dataType, options.locale);
+    addExamplesSheet(workbook, options.selections[0].dataType, options.locale, options.safeExport);
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -127,8 +129,9 @@ function addDataSheet(
   sheetName: string,
   selection: ExportDataSelection,
   locale: string,
+  safeExport = false,
 ) {
-  const schema = exportSchemaFor(selection.dataType);
+  const schema = exportSchemaFor(selection.dataType, { safeExport });
   const rows = exportRowsFor(selection.dataType, selection.records);
   const worksheet = workbook.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 1 }],
@@ -225,8 +228,9 @@ function addExamplesSheet(
   workbook: Workbook,
   dataType: ExportCsvEntity,
   locale: string,
+  safeExport = false,
 ) {
-  const schema = exportSchemaFor(dataType);
+  const schema = exportSchemaFor(dataType, { safeExport });
   const worksheet = workbook.addWorksheet("Examples", {
     views: [{ state: "frozen", ySplit: 2 }],
   });

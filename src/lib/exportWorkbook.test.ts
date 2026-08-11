@@ -63,6 +63,16 @@ describe("XLSX export and templates", () => {
     ]));
   });
 
+  it("omits sensitive schema columns from a Safe export workbook", async () => {
+    const workbook = await parseWorkbook((await buildXlsxWorkbook({
+      selections: [{ dataType: "performers", records: [] }],
+      locale: "en-US",
+      safeExport: true,
+    })).bytes);
+    const headers = workbook.getWorksheet("Performers")!.getRow(1).values;
+    expect(headers).not.toEqual(expect.arrayContaining(["R+", "Measurements", "Cup Size"]));
+  });
+
   it("preserves deterministic very-hidden metadata through edit and save/read-back", async () => {
     const generatedAt = new Date("2026-07-15T01:02:03.000Z");
     const result = await buildXlsxWorkbook({

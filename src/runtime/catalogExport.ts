@@ -32,6 +32,8 @@ export async function runCatalogExport({
   locale,
   date = new Date(),
   template = false,
+  safeExport = false,
+  explicit = false,
   dependencies = defaultDependencies,
 }: {
   format: ExportFormat;
@@ -39,6 +41,8 @@ export async function runCatalogExport({
   locale: string;
   date?: Date;
   template?: boolean;
+  safeExport?: boolean;
+  explicit?: boolean;
   dependencies?: CatalogExportDependencies;
 }): Promise<ExportOperationResult> {
   const selectedDataTypes = selections.map((selection) => selection.dataType);
@@ -54,7 +58,7 @@ export async function runCatalogExport({
 
   try {
     if (format === "xlsx") {
-      const artifact = await buildXlsxExportArtifact({ selections, locale, date, template });
+      const artifact = await buildXlsxExportArtifact({ selections, locale, date, template, safeExport, explicit });
       const destinationPath = await dependencies.selectFile(
         selectedDataTypes,
         "xlsx",
@@ -72,7 +76,7 @@ export async function runCatalogExport({
       };
     }
 
-    const artifacts = buildCsvExportArtifacts({ selections, locale, date });
+    const artifacts = buildCsvExportArtifacts({ selections, locale, date, safeExport, explicit });
     if (artifacts.length === 1) {
       const destinationPath = await dependencies.selectFile(
         selectedDataTypes,
