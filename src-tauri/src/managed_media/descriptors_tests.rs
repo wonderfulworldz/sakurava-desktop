@@ -4,10 +4,11 @@ use std::{
 };
 
 use rusqlite::{params, Connection};
-use sha2::{Digest, Sha256};
 
 use super::{
+    catalog_lifecycle::locator_hash as canonical_locator_hash,
     descriptors::{resolve_descriptor_batch, ManagedMediaDescriptorRequest},
+    identity::SourceLocatorKind,
     schema::initialize_schema,
 };
 use crate::managed_media::path::ManagedMediaRoot;
@@ -40,7 +41,8 @@ fn unique_root(name: &str) -> PathBuf {
 }
 
 fn locator_hash(path: &Path) -> String {
-    format!("{:x}", Sha256::digest(path.to_string_lossy().as_bytes()))
+    canonical_locator_hash(SourceLocatorKind::ExternalFile, &path.to_string_lossy())
+        .expect("canonical locator hash")
 }
 
 fn request(source_path: &Path, intent: &str) -> ManagedMediaDescriptorRequest {
@@ -337,6 +339,42 @@ fn full_viewer_selects_an_accessible_original_before_managed_outputs() {
     assert_eq!(descriptor.fallback_reason, "full_viewer_original");
     assert!(descriptor.original_available);
     assert!(!descriptor.managed_available);
+}
+
+#[test]
+fn descriptor_original_eligibility_uses_the_lifecycle_canonical_locator_identity() {
+    let environment = environment("canonical-locator", true, "active");
+    let stored_hash: String = environment
+        .connection
+        .query_row(
+            "SELECT locator_hash FROM managed_media_items WHERE item_id = ?1",
+            [&environment.item_id],
+            |row| row.get(0),
+        )
+        .expect("stored locator hash");
+    assert_eq!(stored_hash, locator_hash(&environment.source_path));
+
+    let matching = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![request(&environment.source_path, "full_viewer")],
+    )
+    .pop()
+    .expect("matching descriptor");
+    assert_eq!(matching.selected_source_class, "original");
+
+    let different = environment.app_data.join("different.png");
+    fs::write(&different, b"different").expect("different source");
+    assert_ne!(stored_hash, locator_hash(&different));
+    let mismatched = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![request(&different, "full_viewer")],
+    )
+    .pop()
+    .expect("mismatched descriptor");
+    assert!(mismatched.placeholder);
+    assert_eq!(mismatched.fallback_reason, "no_safe_media_source");
 }
 
 #[test]

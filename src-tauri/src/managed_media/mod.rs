@@ -8,6 +8,7 @@ pub mod identity;
 pub mod lifecycle;
 pub mod path;
 pub mod processor;
+pub mod production;
 pub mod publication;
 pub mod recovery;
 pub mod runtime;
@@ -25,6 +26,8 @@ mod executor_tests;
 mod lifecycle_tests;
 #[cfg(test)]
 mod processor_tests;
+#[cfg(test)]
+mod production_tests;
 #[cfg(test)]
 mod publication_tests;
 #[cfg(test)]

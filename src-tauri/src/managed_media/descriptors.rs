@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::{
+    catalog_lifecycle::locator_hash,
     contract::{load_contract, target_for_role, FamilyId, RoleId, TierId},
-    identity::{OwnerIdentifier, OwnerKind, SlotKind, SlotToken},
+    identity::{OwnerIdentifier, OwnerKind, SlotKind, SlotToken, SourceLocatorKind},
     path::ManagedMediaRoot,
 };
 
@@ -135,7 +136,10 @@ fn resolve_one(
 
     let original_available = original_path_is_available(
         request.source_path.as_deref(),
-        Some(item.locator_hash.as_str()),
+        Some((
+            source_locator_kind(request.slot_kind),
+            item.locator_hash.as_str(),
+        )),
     );
     let current = match load_current_variants(connection, &item.item_id, request.role) {
         Ok(variants) => variants,
@@ -308,7 +312,9 @@ fn load_item(
     request: &ValidatedRequest,
     technical_owner_id: &str,
 ) -> Result<Option<ManagedItem>, rusqlite::Error> {
-    let source_hash = request.source_path.as_deref().map(hash_locator);
+    let source_hash = request.source_path.as_deref().and_then(|source_path| {
+        locator_hash(source_locator_kind(request.slot_kind), source_path).ok()
+    });
     if let Some(slot_token) = request.slot_token.as_deref() {
         return connection
             .query_row(
@@ -495,7 +501,10 @@ fn original_or_placeholder(
     }
 }
 
-fn original_path_is_available(path: Option<&str>, expected_locator_hash: Option<&str>) -> bool {
+fn original_path_is_available(
+    path: Option<&str>,
+    expected_locator: Option<(SourceLocatorKind, &str)>,
+) -> bool {
     let Some(raw_path) = path else {
         return false;
     };
@@ -504,7 +513,9 @@ fn original_path_is_available(path: Option<&str>, expected_locator_hash: Option<
         || path
             .components()
             .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
-        || expected_locator_hash.is_some_and(|expected| hash_locator(raw_path) != expected)
+        || expected_locator.is_some_and(|(kind, expected)| {
+            locator_hash(kind, raw_path).ok().as_deref() != Some(expected)
+        })
     {
         return false;
     }
@@ -569,8 +580,16 @@ fn revision(request_id: &str, selected_identity: &str, stale: bool) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn hash_locator(value: &str) -> String {
-    format!("{:x}", Sha256::digest(value.as_bytes()))
+fn source_locator_kind(slot_kind: SlotKind) -> SourceLocatorKind {
+    match slot_kind {
+        SlotKind::GalleryTile => SourceLocatorKind::ExternalDirectoryEntry,
+        SlotKind::PrimaryVisual
+        | SlotKind::CollectionCard
+        | SlotKind::LiteCard
+        | SlotKind::TableThumbnail
+        | SlotKind::RelatedCard
+        | SlotKind::MiniRow => SourceLocatorKind::ExternalFile,
+    }
 }
 
 fn parse_owner_kind(value: &str) -> Option<OwnerKind> {

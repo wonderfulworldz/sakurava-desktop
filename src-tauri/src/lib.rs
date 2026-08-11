@@ -17,8 +17,10 @@ mod restore_coordinator_tests;
 
 use tauri::Manager;
 
+use managed_media::production::ProductionManagedMediaRuntime;
+
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let database = database::prepare_tauri_database(app.handle())
@@ -28,7 +30,10 @@ pub fn run() {
                 database.paths.database_file.display()
             );
             let _connection = database.connection();
+            let managed_media_runtime =
+                ProductionManagedMediaRuntime::start(&database).map_err(std::io::Error::other)?;
             app.manage(database);
+            app.manage(managed_media_runtime);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -105,6 +110,16 @@ pub fn run() {
             commands::glossary_update,
             commands::glossary_delete
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Sakurava");
+        .build(tauri::generate_context!())
+        .expect("error while building Sakurava");
+
+    app.run(|app_handle, event| {
+        if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+            if let Some(runtime) = app_handle.try_state::<ProductionManagedMediaRuntime>() {
+                if let Err(error) = runtime.shutdown() {
+                    eprintln!("Managed-media shutdown failed: {error}");
+                }
+            }
+        }
+    });
 }

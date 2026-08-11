@@ -285,8 +285,9 @@ impl InertSqliteRuntimeBackend {
         (self.connection_factory)()
     }
 
-    fn reap_finished_workers(&mut self) -> u32 {
+    fn reap_finished_workers(&mut self) -> Result<u32, String> {
         let mut panics = 0_u32;
+        let mut first_failure = None;
         let mut index = 0;
         while index < self.workers.len() {
             if !self.workers[index].join.is_finished() {
@@ -295,11 +296,20 @@ impl InertSqliteRuntimeBackend {
             }
             let worker = self.workers.remove(index);
             self.active.remove(&worker.key);
-            if worker.join.join().is_err() {
-                panics = panics.saturating_add(1);
+            match worker.join.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    if first_failure.is_none() {
+                        first_failure = Some(bounded_error("managed-media worker", error));
+                    }
+                }
+                Err(_) => panics = panics.saturating_add(1),
             }
         }
-        panics
+        match first_failure {
+            Some(error) => Err(error),
+            None => Ok(panics),
+        }
     }
 
     fn active_key(claimed: &ClaimedIntentSnapshot) -> String {
@@ -333,7 +343,7 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
         executor: ExecutorPolicy,
         worker_capacity: u32,
     ) -> Result<DispatchReport, String> {
-        let worker_panics = self.reap_finished_workers();
+        let worker_panics = self.reap_finished_workers()?;
         if !self.accepting_claims {
             return Ok(DispatchReport {
                 active_claims: self.active.len() as u32,
@@ -403,7 +413,7 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
         now: &ExecutorTimestamp,
         lease_millis: u64,
     ) -> Result<RenewalReport, String> {
-        let _ = self.reap_finished_workers();
+        let _ = self.reap_finished_workers()?;
         let connection = self.open_connection()?;
         let mut lost = Vec::new();
         for (key, active) in &mut self.active {
@@ -440,7 +450,7 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
     }
 
     fn active_claim_count(&mut self) -> Result<u32, String> {
-        let _ = self.reap_finished_workers();
+        let _ = self.reap_finished_workers()?;
         Ok(self.active.len() as u32)
     }
 }

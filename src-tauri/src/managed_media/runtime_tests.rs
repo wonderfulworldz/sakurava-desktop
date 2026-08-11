@@ -2,7 +2,7 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicU32, AtomicU64, Ordering},
         Arc, Condvar, Mutex,
     },
     thread,
@@ -501,6 +501,88 @@ fn worker_panic_report_disables_further_claims_without_process_panic() {
         snapshot.status == SupervisorStatus::Disabled
     });
     assert_eq!(snapshot.phase, StartupPhase::Disabled);
+    control.shutdown().expect("shutdown");
+}
+
+#[test]
+fn ordinary_worker_error_disables_the_supervisor_instead_of_being_discarded() {
+    let temporary = RuntimeTestRoot::new();
+    let database_path = temporary.path().join("worker-error.sqlite");
+    let connection = Connection::open(&database_path).expect("database");
+    schema::initialize_schema(&connection).expect("schema");
+    let item =
+        ValidatedSha256::new(format!("{:064x}", 81_u64)).expect("managed-media item identity");
+    let locator =
+        ValidatedSha256::new(format!("{:064x}", 82_u64)).expect("source locator identity");
+    connection
+        .execute(
+            "INSERT INTO managed_media_items (
+               item_id, owner_kind, owner_id, slot_kind, slot_token,
+               source_locator_kind, locator_hash, source_availability_state,
+               lifecycle_state, created_at, updated_at
+             ) VALUES (?1, 'video', 'worker-error-owner', 'primary_visual',
+                       'primary_visual', 'external_file', ?2, 'available',
+                       'active', ?3, ?3)",
+            params![item.as_str(), locator.as_str(), "1753747200000"],
+        )
+        .expect("item");
+    initialize_item_generation(&connection, &item, "1753747200000").expect("generation");
+    queue_intent(
+        &connection,
+        &NewLifecycleIntent {
+            intent_id: LifecycleIntentIdentity::new("worker-error-intent").expect("intent"),
+            item_id: item,
+            revision: ItemRevision::new(1).expect("revision"),
+            action: LifecycleAction::Generate,
+            expected_locator_hash: locator,
+        },
+        "1753747200000",
+    )
+    .expect("queue");
+    drop(connection);
+
+    let open_path = database_path.clone();
+    let managed_root = ManagedMediaRoot::from_app_data_dir(temporary.path()).expect("managed root");
+    let shared_clock = Arc::new(AtomicU64::new(1_753_747_200_000));
+    let claim_clock = Arc::clone(&shared_clock);
+    let supervisor_clock = Arc::clone(&shared_clock);
+    let control = RuntimeControl::start(
+        policy(),
+        move || {
+            Ok(InertSqliteRuntimeBackend::new(
+                move || Connection::open(&open_path).map_err(|error| error.to_string()),
+                managed_root,
+                ManagedMediaProcessor::default(),
+                move || Ok(claim_clock.fetch_add(1, Ordering::SeqCst).saturating_add(1)),
+                || Ok("worker-error-claim".to_string()),
+                |_claimed, _ownership_lost| Err("fixture ordinary worker failure".to_string()),
+            ))
+        },
+        move || {
+            ExecutorTimestamp::from_millis(
+                supervisor_clock
+                    .fetch_add(1, Ordering::SeqCst)
+                    .saturating_add(1),
+            )
+            .map_err(|error| error.to_string())
+        },
+    )
+    .expect("runtime");
+    let snapshot = control.wait_for(Duration::from_secs(2), |snapshot| {
+        snapshot
+            .last_error
+            .as_deref()
+            .is_some_and(|error| error.contains("fixture ordinary worker failure"))
+    });
+    assert_eq!(snapshot.status, SupervisorStatus::Disabled);
+    assert!(
+        snapshot
+            .last_error
+            .as_deref()
+            .is_some_and(|error| error.contains("fixture ordinary worker failure")),
+        "unexpected runtime diagnostic: {:?}",
+        snapshot.last_error
+    );
     control.shutdown().expect("shutdown");
 }
 
