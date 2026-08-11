@@ -493,13 +493,13 @@ describe("import CSV preview", () => {
 });
 
 function withVideoRow(overrides: Record<string, string>) {
-  const headers = buildVideosCsv([]).split(",");
+  const headers = buildVideosCsv([]).split("\r\n")[0].split(",");
   const row = headers.map((header) => overrides[header] ?? "");
   return `${headers.join(",")}\r\n${row.join(",")}`;
 }
 
 function glossaryRow(overrides: Record<string, string>) {
-  return buildGlossaryCsv([]).split(",").map((header) => overrides[header] ?? "").join(",");
+  return buildGlossaryCsv([]).split("\r\n")[0].split(",").map((header) => overrides[header] ?? "").join(",");
 }
 
 function context(overrides: Partial<ReturnType<typeof contextBase>> = {}) {

@@ -46,7 +46,7 @@ describe("export command filenames", () => {
     (globalThis as any).__TAURI_INTERNALS__ = { invoke };
     await writeExportArtifact("D:/Exports/skv-vid.xlsx", {
       dataTypes: ["videos"], format: "xlsx", fileName: "skv-vid.xlsx",
-      bytes: new Uint8Array([1, 2, 3]), recordCounts: { videos: 1 }, template: false,
+      bytes: new Uint8Array([1, 2, 3]), recordCounts: { videos: 1 },
     });
     expect(invoke).toHaveBeenCalledWith("export_file_write", {
       destinationPath: "D:/Exports/skv-vid.xlsx",
@@ -59,8 +59,8 @@ describe("export command filenames", () => {
     const invoke = vi.fn().mockResolvedValue({ success: true });
     (globalThis as any).__TAURI_INTERNALS__ = { invoke };
     await writeExportArtifactSet("D:/Exports", [
-      { dataTypes: ["videos"], format: "csv", fileName: "one.csv", bytes: new Uint8Array([1]), recordCounts: { videos: 0 }, template: true },
-      { dataTypes: ["images"], format: "csv", fileName: "two.csv", bytes: new Uint8Array([2]), recordCounts: { images: 0 }, template: true },
+      { dataTypes: ["videos"], format: "csv", fileName: "one.csv", bytes: new Uint8Array([1]), recordCounts: { videos: 0 } },
+      { dataTypes: ["images"], format: "csv", fileName: "two.csv", bytes: new Uint8Array([2]), recordCounts: { images: 0 } },
     ]);
     expect(invoke).toHaveBeenCalledWith("export_file_set_write", {
       destinationFolder: "D:/Exports",

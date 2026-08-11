@@ -43,6 +43,7 @@ export type ExportValueType =
 // Public exports must use the locked current vocabulary. `Create` is accepted
 // only as an internal compatibility input; `Skip` is deliberately not emitted.
 export const EXPORT_ACTIONS = ["Auto", "Add", "Update", "Delete"] as const;
+export const EXPORT_EXAMPLE_SENTINEL = "__SKV_EXAMPLE_ONLY__";
 
 export type CsvCell = string | number | boolean | Date | null | undefined;
 
@@ -146,9 +147,6 @@ export const videoCsvSchema: CsvSchemaColumn<Video>[] = [
     parseTextLabelArray(record.categoriesJson),
   ),
   booleanColumn("R+", "rPlus"),
-  listColumn("Glossary Refs", "glossaryRefsJson", (record) =>
-    parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
-  ),
   listColumn("Related Performers", "relatedPerformersJson", (record) =>
     parseRelatedPerformerArray(record.relatedPerformersJson).map((reference) =>
       relatedDisplay("PER", reference.performerId, reference.nameSnapshot),
@@ -183,9 +181,6 @@ export const imageCsvSchema: CsvSchemaColumn<Image>[] = [
     parseTextLabelArray(record.categoriesJson),
   ),
   booleanColumn("R+", "rPlus"),
-  listColumn("Glossary Refs", "glossaryRefsJson", (record) =>
-    parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
-  ),
   listColumn("Related Performers", "relatedPerformersJson", (record) =>
     parseRelatedPerformerArray(record.relatedPerformersJson).map((reference) =>
       relatedDisplay("PER", reference.performerId, reference.nameSnapshot),
@@ -222,9 +217,6 @@ export const performerCsvSchema: CsvSchemaColumn<Performer>[] = [
     parseTextLabelArray(record.categoriesJson),
   ),
   booleanColumn("R+", "rPlus"),
-  listColumn("Glossary Refs", "glossaryRefsJson", (record) =>
-    parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
-  ),
   listColumn("Related Videos", "relatedVideosJson", (record) =>
     parseRelatedCatalogRecordArray(record.relatedVideosJson).map((reference) =>
       relatedDisplay("VID", reference.recordId, reference.titleSnapshot),
@@ -323,16 +315,25 @@ export const creditCsvSchema: CsvSchemaColumn<CreditCsvRecord>[] = [
 
 const legacyImportColumns: Record<ExportCsvEntity, CsvSchemaColumn<any>[]> = {
   videos: [
+    listColumn<Video>("Glossary Refs", "glossaryRefsJson", (record) =>
+      parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
+    ),
     textColumn<Video>("Media Path", "mediaPath"),
     textColumn<Video>("Cover Path", "coverPath"),
   ],
   images: [
+    listColumn<Image>("Glossary Refs", "glossaryRefsJson", (record) =>
+      parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
+    ),
     textColumn<Image>("Cover Path", "coverPath"),
     textColumn<Image>("Gallery Folder Path", "folderPath"),
     ...pathColumns<Image>("Gallery Image", "galleryImagePathsJson", (record) =>
       parseGalleryImagePathArray(record.galleryImagePathsJson)),
   ],
   performers: [
+    listColumn<Performer>("Glossary Refs", "glossaryRefsJson", (record) =>
+      parseTextLabelArray(record.glossaryRefsJson ?? "[]"),
+    ),
     textColumn<Performer>("Cover Path", "coverPath"),
     ...pathColumns<Performer>("Mini Thumbnail", "performerThumbnailPathsJson", (record) =>
       parsePerformerThumbnailPathArray(record.performerThumbnailPathsJson)),
@@ -373,27 +374,59 @@ export function buildCsv<TRecord>(
   columns: CsvSchemaColumn<TRecord>[],
   records: TRecord[],
   options: ExportSerializationOptions = {},
+  exampleRow?: CsvCell[],
 ) {
+  const rows = records.length > 0
+    ? records.map((record) =>
+        columns.map((column) => escapeCsvValue(
+          serializeExportCell(column.value(record), column.valueType, options),
+        )).join(","),
+      )
+    : exampleRow
+      ? [exampleRow.map((value) => escapeCsvValue(value)).join(",")]
+      : [];
   return [
     columns.map((column) => escapeCsvValue(column.header)).join(","),
-    ...records.map((record) =>
-      columns.map((column) => escapeCsvValue(
-        serializeExportCell(column.value(record), column.valueType, options),
-      )).join(","),
-    ),
+    ...rows,
   ].join("\r\n");
 }
 
+export function exportExampleRowValues(schema: CsvSchemaColumn<any>[]): CsvCell[] {
+  return schema.map((column) => {
+    if (column.key === "action") return EXPORT_EXAMPLE_SENTINEL;
+    if (column.valueType === "identifier") return "";
+    if (column.valueType === "date") return "2026-01-02";
+    if (column.valueType === "date-time") return "2026-01-02 09:30";
+    if (column.valueType === "number") return 0;
+    if (column.valueType === "boolean") return false;
+    if (column.allowedValues?.length) return column.allowedValues[0];
+    return column.required ? `Example ${column.header}` : (column.example ?? "");
+  });
+}
+
+export function isExportExampleRow(headers: string[], row: string[]) {
+  const actionIndex = headers.indexOf("Action");
+  return actionIndex >= 0 && row[actionIndex]?.trim() === EXPORT_EXAMPLE_SENTINEL;
+}
+
+function buildExportCsv<TRecord>(
+  columns: CsvSchemaColumn<TRecord>[],
+  records: TRecord[],
+  options?: ExportSerializationOptions,
+) {
+  return buildCsv(columns, records, options, records.length === 0 ? exportExampleRowValues(columns) : undefined);
+}
+
 export function buildVideosCsv(videos: Video[], options?: ExportSerializationOptions) {
-  return buildCsv(exportSchemaFor("videos", options), videos, options);
+  return buildExportCsv(exportSchemaFor("videos", options), videos, options);
 }
 
 export function buildImagesCsv(images: Image[], options?: ExportSerializationOptions) {
-  return buildCsv(exportSchemaFor("images", options), images, options);
+  return buildExportCsv(exportSchemaFor("images", options), images, options);
 }
 
 export function buildPerformersCsv(performers: Performer[], options?: ExportSerializationOptions) {
-  return buildCsv(exportSchemaFor("performers", options), performers, options);
+  return buildExportCsv(exportSchemaFor("performers", options), performers, options);
 }
 
 export function buildCategoriesCsv(
@@ -416,7 +449,7 @@ export function buildCategoriesCsv(
       : "",
   }));
 
-  return buildCsv(exportSchemaFor("categories", options), rows, options);
+  return buildExportCsv(exportSchemaFor("categories", options), rows, options);
 }
 
 export function buildGlossaryCsv(
@@ -428,14 +461,15 @@ export function buildGlossaryCsv(
     ...entry,
     parentId: entry.parentId ? (refById.get(entry.parentId) ?? entry.parentId) : "",
   }));
-  return buildCsv(exportSchemaFor("glossary", options), rows, options);
+  return buildExportCsv(exportSchemaFor("glossary", options), rows, options);
 }
 
 export function buildCreditsCsv(
   credits: CreditCsvRecord[],
   options?: ExportSerializationOptions,
 ) {
-  return buildCsv(creditCsvSchema, exportRowsFor("credits", credits) as CreditCsvRecord[], options);
+  const rows = exportRowsFor("credits", credits) as CreditCsvRecord[];
+  return buildExportCsv(creditCsvSchema, rows, options);
 }
 
 export function buildEntityCsv(

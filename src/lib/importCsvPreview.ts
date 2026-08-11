@@ -18,6 +18,7 @@ import {
   legacyImportHeadersFor,
   exportEntityLabel,
   exportRowsFor,
+  isExportExampleRow,
   sakuravaRef,
   sakuravaRefMatches,
   videoCsvSchema,
@@ -282,15 +283,20 @@ export function buildImportTablePreview(
   const headerWarnings: string[] = [];
   const definition = detectCsvEntity(parsed.headers);
   const locale = options.locale || "en-US";
+  const importRows = parsed.rows.flatMap((row, index) =>
+    isExportExampleRow(parsed.headers, row)
+      ? []
+      : [{ row, rowNumber: options.rowNumbers?.[index] ?? index + 2 }],
+  );
 
   headerErrors.push(...(parsed.errors ?? []));
-  if (parsed.rows.length > IMPORT_MAX_ROWS_PER_SECTION) {
+  if (importRows.length > IMPORT_MAX_ROWS_PER_SECTION) {
     headerErrors.push(importLimitMessage("sectionRows"));
   }
-  if (parsed.rows.length > IMPORT_MAX_TOTAL_ROWS) {
+  if (importRows.length > IMPORT_MAX_TOTAL_ROWS) {
     headerErrors.push(importLimitMessage("totalRows"));
   }
-  if ([...parsed.headers, ...parsed.rows.flat()].some((value) => value.length > IMPORT_MAX_CELL_CHARACTERS)) {
+  if ([...parsed.headers, ...importRows.flatMap(({ row }) => row)].some((value) => value.length > IMPORT_MAX_CELL_CHARACTERS)) {
     headerErrors.push(importLimitMessage("cell"));
   }
   validateHeaders(
@@ -311,11 +317,11 @@ export function buildImportTablePreview(
   }
 
   const currentRowsByRef = buildCurrentRowsByRef(definition, context, headerErrors);
-  const duplicateRefs = findDuplicateRefs(parsed.headers, parsed.rows);
-  const rows = parsed.rows.map((row, index) =>
+  const duplicateRefs = findDuplicateRefs(parsed.headers, importRows.map(({ row }) => row));
+  const rows = importRows.map(({ row, rowNumber }) =>
     previewRow({
       row,
-      rowNumber: options.rowNumbers?.[index] ?? index + 2,
+      rowNumber,
       headers: parsed.headers,
       definition,
       currentRowsByRef,

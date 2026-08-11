@@ -2,6 +2,7 @@ import type { Workbook, Worksheet } from "exceljs";
 import {
   EXPORT_ACTIONS,
   exportEntityLabel,
+  exportExampleRowValues,
   exportRowsFor,
   exportSchemaFor,
   parseExportDate,
@@ -28,7 +29,6 @@ export type XlsxBuildOptions = {
   selections: ExportDataSelection[];
   locale: string;
   timeZone?: string;
-  template?: boolean;
   generatedAt?: Date;
   safeExport?: boolean;
 };
@@ -36,7 +36,6 @@ export type XlsxBuildOptions = {
 export type XlsxBuildResult = {
   bytes: Uint8Array;
   sheetNames: string[];
-  template: boolean;
 };
 
 export async function buildXlsxWorkbook(
@@ -54,20 +53,14 @@ export async function buildXlsxWorkbook(
   addMetadataSheet(workbook, options, generatedAt);
 
   addInstructionsSheet(workbook, options);
-  const isSingleTemplate = options.template === true && options.selections.length === 1;
-
   for (const selection of options.selections) {
     addDataSheet(
       workbook,
-      isSingleTemplate ? "Data" : exportEntityLabel(selection.dataType),
+      exportEntityLabel(selection.dataType),
       selection,
       options.locale,
       options.safeExport,
     );
-  }
-
-  if (isSingleTemplate) {
-    addExamplesSheet(workbook, options.selections[0].dataType, options.locale, options.safeExport);
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -76,7 +69,6 @@ export async function buildXlsxWorkbook(
     sheetNames: workbook.worksheets
       .filter((worksheet) => worksheet.name !== SAKURAVA_METADATA_SHEET)
       .map((worksheet) => worksheet.name),
-    template: options.template === true,
   };
 }
 
@@ -84,7 +76,7 @@ function addMetadataSheet(workbook: Workbook, options: XlsxBuildOptions, generat
   const metadata = buildWorkbookMetadata({
     dataTypes: options.selections.map((selection) => selection.dataType),
     generatedAt,
-    template: options.template === true,
+    template: false,
   });
   const worksheet = workbook.addWorksheet(SAKURAVA_METADATA_SHEET);
   worksheet.state = "veryHidden";
@@ -111,8 +103,7 @@ function addInstructionsSheet(workbook: Workbook, options: XlsxBuildOptions) {
   worksheet.addRow(["Empty cells", "For future Update import, an empty cell leaves the current value unchanged."]);
   worksheet.addRow(["Clear existing value", `Enter ${SAKURAVA_CLEAR_VALUE} in a nullable editable field. Blank Update cells remain unchanged.`]);
   worksheet.addRow(["Identifiers", "Sakurava Ref is text and read-only. Do not edit it manually."]);
-  worksheet.addRow(["Import safety", "Sakurava validates and previews this file before applying it. Examples are never imported."]);
-  worksheet.addRow(["Examples", "Example sheets are guidance only and will never be imported as real data."]);
+  worksheet.addRow(["Import safety", "Sakurava validates and previews this file before applying it. The example placeholder row is never imported."]);
 
   const titleRow = worksheet.getRow(1);
   titleRow.height = 24;
@@ -133,6 +124,7 @@ function addDataSheet(
 ) {
   const schema = exportSchemaFor(selection.dataType, { safeExport });
   const rows = exportRowsFor(selection.dataType, selection.records);
+  const exampleRow = rows.length === 0 ? exportExampleRowValues(schema) : null;
   const worksheet = workbook.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 1 }],
   });
@@ -141,6 +133,12 @@ function addDataSheet(
   for (const record of rows) {
     const row = worksheet.addRow(
       schema.map((column) => xlsxCellValue(column, column.value(record), locale)),
+    );
+    formatDataRow(row, schema, locale);
+  }
+  if (exampleRow) {
+    const row = worksheet.addRow(
+      schema.map((column, index) => xlsxCellValue(column, exampleRow[index], locale)),
     );
     formatDataRow(row, schema, locale);
   }
@@ -224,51 +222,6 @@ function configureDataSheet(
   }
 }
 
-function addExamplesSheet(
-  workbook: Workbook,
-  dataType: ExportCsvEntity,
-  locale: string,
-  safeExport = false,
-) {
-  const schema = exportSchemaFor(dataType, { safeExport });
-  const worksheet = workbook.addWorksheet("Examples", {
-    views: [{ state: "frozen", ySplit: 2 }],
-  });
-  worksheet.addRow(["EXAMPLES ONLY — Sakurava will never import this sheet."]);
-  worksheet.mergeCells(1, 1, 1, schema.length);
-  worksheet.getRow(1).font = { bold: true, color: { argb: "FF9F1239" } };
-  worksheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFFFE4E6" },
-  };
-  worksheet.addRow(schema.map((column) => column.header));
-
-  for (const action of ["Auto", "Add", "Update", "Delete"] as const) {
-    const identifier = action === "Auto" && worksheet.rowCount === 2
-      ? ""
-      : `${exampleIdentifierPrefix(dataType)}-EXAMPLE-${worksheet.rowCount - 1}`;
-    worksheet.addRow(schema.map((column) => exampleValue(column, action, identifier)));
-  }
-
-  worksheet.columns.forEach((column, index) => {
-    column.width = columnWidth(schema[index]);
-  });
-  formatDataRow(worksheet.getRow(2), schema, locale, true);
-  for (let row = 3; row <= worksheet.rowCount; row += 1) {
-    formatDataRow(worksheet.getRow(row), schema, locale);
-  }
-}
-
-function exampleIdentifierPrefix(dataType: ExportCsvEntity) {
-  if (dataType === "videos") return "VID";
-  if (dataType === "images") return "IMG";
-  if (dataType === "performers") return "PER";
-  if (dataType === "glossary") return "GLO";
-  if (dataType === "credits") return "R";
-  return "CAT";
-}
-
 function xlsxCellValue(
   column: CsvSchemaColumn<any>,
   value: CsvCell,
@@ -311,18 +264,6 @@ function formatDataRow(
       cell.numFmt = excelDateTimeNumberFormat(locale);
     }
   });
-}
-
-function exampleValue(
-  column: CsvSchemaColumn<any>,
-  action: string,
-  identifier: string,
-) {
-  if (column.key === "action") return action;
-  if (column.valueType === "identifier") return identifier;
-  if (column.required) return `Fictional ${column.header}`;
-  if (column.valueType === "date") return new Date(2026, 0, 2);
-  return column.example ?? "";
 }
 
 function requiredFieldSummary(selections: ExportDataSelection[]) {

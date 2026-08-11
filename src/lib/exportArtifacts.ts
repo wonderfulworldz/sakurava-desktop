@@ -239,7 +239,6 @@ export type ExportArtifact = {
   fileName: string;
   bytes: Uint8Array;
   recordCounts: Partial<Record<ExportCsvEntity, number>>;
-  template: boolean;
 };
 
 export type ExportOperationResult = {
@@ -304,7 +303,6 @@ export function buildCsvExportArtifacts({
       buildEntityCsv(selection.dataType, selection.records, { locale, safeExport }),
     ),
     recordCounts: { [selection.dataType]: selection.records.length },
-    template: selection.records.length === 0,
   }));
 }
 
@@ -312,18 +310,16 @@ export async function buildXlsxExportArtifact({
   selections,
   locale,
   date = new Date(),
-  template = false,
   safeExport = false,
   explicit = false,
 }: {
   selections: ExportDataSelection[];
   locale: string;
   date?: Date;
-  template?: boolean;
   safeExport?: boolean;
   explicit?: boolean;
 }): Promise<ExportArtifact> {
-  const workbook = await buildXlsxWorkbook({ selections, locale, template, safeExport });
+  const workbook = await buildXlsxWorkbook({ selections, locale, safeExport });
   const dataTypes = selections.map((selection) => selection.dataType);
   return {
     dataTypes,
@@ -333,7 +329,6 @@ export async function buildXlsxExportArtifact({
     recordCounts: Object.fromEntries(
       selections.map((selection) => [selection.dataType, selection.records.length]),
     ),
-    template,
   };
 }
 

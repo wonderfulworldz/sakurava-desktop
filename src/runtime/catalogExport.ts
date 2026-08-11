@@ -31,7 +31,6 @@ export async function runCatalogExport({
   selections,
   locale,
   date = new Date(),
-  template = false,
   safeExport = false,
   explicit = false,
   dependencies = defaultDependencies,
@@ -40,7 +39,6 @@ export async function runCatalogExport({
   selections: ExportDataSelection[];
   locale: string;
   date?: Date;
-  template?: boolean;
   safeExport?: boolean;
   explicit?: boolean;
   dependencies?: CatalogExportDependencies;
@@ -58,11 +56,12 @@ export async function runCatalogExport({
 
   try {
     if (format === "xlsx") {
-      const artifact = await buildXlsxExportArtifact({ selections, locale, date, template, safeExport, explicit });
+      const artifact = await buildXlsxExportArtifact({ selections, locale, date, safeExport, explicit });
       const destinationPath = await dependencies.selectFile(
         selectedDataTypes,
         "xlsx",
         date,
+        explicit,
       );
       if (!destinationPath) return cancelledResult(base);
       const result = await dependencies.writeOne(destinationPath, artifact);
@@ -82,6 +81,7 @@ export async function runCatalogExport({
         selectedDataTypes,
         "csv",
         date,
+        explicit,
       );
       if (!destinationPath) return cancelledResult(base);
       const result = await dependencies.writeOne(destinationPath, artifacts[0]);
@@ -128,10 +128,6 @@ function cancelledResult(base: Pick<
     displayNames: [],
     errors: [],
   };
-}
-
-export function isTemplateExport(selections: ExportDataSelection[]) {
-  return selections.length === 1 && selections[0].records.length === 0;
 }
 
 export type { ExportArtifact };

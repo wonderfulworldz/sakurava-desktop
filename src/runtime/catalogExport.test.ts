@@ -64,6 +64,19 @@ describe("catalog export orchestration", () => {
     });
   });
 
+  it("forwards the explicit marker to the single-file save destination", async () => {
+    const selectFile = vi.fn().mockResolvedValue(null);
+    await runCatalogExport({
+      format: "xlsx",
+      selections: [{ dataType: "videos", records: [] }],
+      locale: "en-US",
+      date,
+      explicit: true,
+      dependencies: { selectFile, selectFolder: vi.fn(), writeOne: vi.fn(), writeMany: vi.fn() },
+    });
+    expect(selectFile).toHaveBeenCalledWith(["videos"], "xlsx", date, true);
+  });
+
   it("returns a structured error without pretending files were exported", async () => {
     const result = await runCatalogExport({
       format: "csv",

@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   CATALOG_PREFERENCES_STORAGE_KEY,
   getCatalogPreferenceToggles,
+  readCatalogExportPreferences,
   readCatalogPreferencePage,
   resetRememberedCatalogPreferences,
   setCatalogPreferenceToggle,
+  storeCatalogExportPreferences,
   storeCatalogPreferencePage,
 } from "./catalogPreferences";
 
@@ -80,6 +82,40 @@ describe("catalog preferences", () => {
     expect(getCatalogPreferenceToggles()).toMatchObject({
       rememberView: true,
       rememberFilters: true,
+    });
+  });
+
+  it("persists export sections and format independently from Remember toggles", () => {
+    storeCatalogExportPreferences({ selectedDataTypes: ["videos", "glossary"], format: "csv" });
+
+    expect(readCatalogExportPreferences()).toEqual({
+      selectedDataTypes: ["videos", "glossary"],
+      format: "csv",
+    });
+    expect(getCatalogPreferenceToggles()).toEqual({
+      rememberView: false,
+      rememberSort: false,
+      rememberFilters: false,
+    });
+  });
+
+  it("falls back safely for invalid export preferences and clears them on reset", () => {
+    window.localStorage.setItem(CATALOG_PREFERENCES_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      toggles: {},
+      pages: {},
+      export: { selectedDataTypes: ["invalid"], format: "pdf" },
+    }));
+    expect(readCatalogExportPreferences()).toEqual({
+      selectedDataTypes: ["videos", "images", "performers", "categories", "glossary", "credits"],
+      format: "xlsx",
+    });
+
+    storeCatalogExportPreferences({ selectedDataTypes: ["videos"], format: "csv" });
+    resetRememberedCatalogPreferences();
+    expect(readCatalogExportPreferences()).toEqual({
+      selectedDataTypes: ["videos", "images", "performers", "categories", "glossary", "credits"],
+      format: "xlsx",
     });
   });
 });

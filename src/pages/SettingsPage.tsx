@@ -130,7 +130,7 @@ import {
   writeExportCsv,
   writeTranslationRecoveryJson,
 } from "../runtime/exportCommands";
-import { isTemplateExport, runCatalogExport } from "../runtime/catalogExport";
+import { runCatalogExport } from "../runtime/catalogExport";
 import {
   applyImportCatalogPlan,
   readImportCatalogFile,
@@ -172,8 +172,10 @@ import {
 } from "../lib/translationStorage";
 import {
   getCatalogPreferenceToggles,
+  readCatalogExportPreferences,
   resetRememberedCatalogPreferences,
   setCatalogPreferenceToggle,
+  storeCatalogExportPreferences,
   type CatalogPreferenceToggles,
 } from "../lib/catalogPreferences";
 import { clearSessionFilterState } from "../lib/sessionFilterState";
@@ -1519,7 +1521,6 @@ function SettingsPage() {
   async function handleCatalogExport(
     format: ExportFormat,
     entities: ExportCsvEntity[],
-    template = false,
   ) {
     if (!canExportCsv) {
       return;
@@ -1532,40 +1533,23 @@ function SettingsPage() {
       await requireMigratedSakuravaRefs();
       const operationDate = new Date();
       const safeExport = getSafeFilterEnabled();
-      const completeSelections = template
-        ? []
-        : await Promise.all(
-            (["videos", "images", "performers", "categories", "glossary", "credits"] as ExportCsvEntity[])
-              .map(loadExportSelection),
-          );
-      const selections = template
-        ? entities.map((dataType) => ({ dataType, records: [] }))
-        : safeExport
-          ? prepareSelectionsWithPublicRefs(projectSafeExportSelections(
-              completeSelections,
-              ["videos", "images", "performers", "categories", "glossary", "credits"],
-            )).filter((selection) => entities.includes(selection.dataType))
-          : prepareSelectionsWithPublicRefs(completeSelections)
-            .filter((selection) => entities.includes(selection.dataType));
-      const emptySelections = template
-        ? []
-        : selections.filter((selection) => selection.records.length === 0);
-      if (format === "csv" && emptySelections.length > 0) {
-        showBackupToast(
-          "error",
-          "No records to export",
-          `${emptySelections.map((selection) => exportEntityLabel(selection.dataType)).join(", ")} has no catalog records. Turn on Export as template to create an empty template.`,
-        );
-        setExportStatus({ state: "idle" });
-        return;
-      }
+      const completeSelections = await Promise.all(
+        (["videos", "images", "performers", "categories", "glossary", "credits"] as ExportCsvEntity[])
+          .map(loadExportSelection),
+      );
+      const selections = safeExport
+        ? prepareSelectionsWithPublicRefs(projectSafeExportSelections(
+            completeSelections,
+            ["videos", "images", "performers", "categories", "glossary", "credits"],
+          )).filter((selection) => entities.includes(selection.dataType))
+        : prepareSelectionsWithPublicRefs(completeSelections)
+          .filter((selection) => entities.includes(selection.dataType));
       const locale = navigator.language || "en-US";
       const result = await runCatalogExport({
         format,
         selections,
         locale,
         date: operationDate,
-        template,
         safeExport,
         explicit: !safeExport,
       });
@@ -1583,7 +1567,7 @@ function SettingsPage() {
         : `${result.exportedFileCount} ${format.toUpperCase()} files. ${exportSelectionSummary(selections)}.`;
       showBackupToast(
         "success",
-        template || isTemplateExport(selections) ? "Template downloaded" : "Export completed",
+        "Export completed",
         message,
       );
       setExportStatus({ state: "idle" });
@@ -3650,7 +3634,6 @@ function ImportExportPanel({
   onExport: (
     format: ExportFormat,
     dataTypes: ExportCsvEntity[],
-    template?: boolean,
   ) => void;
   onRequestApply: (preview: ImportCatalogPreview) => void;
   onCancelApply: () => void;
@@ -3659,11 +3642,12 @@ function ImportExportPanel({
   const t = useTranslation();
   const [mode, setMode] = useState<"idle" | "import" | "export">("idle");
   const importRequestId = useRef(0);
-  const [selectedDataTypes, setSelectedDataTypes] = useState<ExportCsvEntity[]>([
-    "videos", "images", "performers", "categories", "glossary", "credits",
-  ]);
-  const [format, setFormat] = useState<ExportFormat>("xlsx");
-  const [exportTemplate, setExportTemplate] = useState(false);
+  const [selectedDataTypes, setSelectedDataTypes] = useState<ExportCsvEntity[]>(
+    () => readCatalogExportPreferences().selectedDataTypes,
+  );
+  const [format, setFormat] = useState<ExportFormat>(
+    () => readCatalogExportPreferences().format,
+  );
   const [exportCounts, setExportCounts] = useState<Partial<Record<ExportCsvEntity, number>> | null>(null);
 
   async function activateImport() {
@@ -3694,11 +3678,19 @@ function ImportExportPanel({
   }
 
   function toggleDataType(dataType: ExportCsvEntity) {
-    setSelectedDataTypes((current) =>
+    setSelectedDataTypes((current) => {
+      const next =
       current.includes(dataType)
         ? current.filter((candidate) => candidate !== dataType)
-        : [...current, dataType],
-    );
+        : [...current, dataType];
+      storeCatalogExportPreferences({ selectedDataTypes: next, format });
+      return next;
+    });
+  }
+
+  function selectFormat(next: ExportFormat) {
+    setFormat(next);
+    storeCatalogExportPreferences({ selectedDataTypes, format: next });
   }
 
   const selectedRecordCount = exportCounts
@@ -3748,18 +3740,8 @@ function ImportExportPanel({
 
           <h3 className="mt-6 text-sm font-semibold text-slate-900">{t("settings.importExport.chooseFormat")}</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <ExportFormatCard format="xlsx" selected={format === "xlsx"} badge={t("settings.importExport.recommended")} onSelect={() => setFormat("xlsx")} />
-            <ExportFormatCard format="csv" selected={format === "csv"} badge={t("settings.importExport.compatibility")} onSelect={() => setFormat("csv")} />
-          </div>
-
-          <div className="mt-4">
-            <SakuravaCheckbox
-              label={t("settings.importExport.exportAsTemplate")}
-              checked={exportTemplate}
-              onChange={setExportTemplate}
-              icon={FileText}
-              variant="row"
-            />
+            <ExportFormatCard format="xlsx" selected={format === "xlsx"} badge={t("settings.importExport.recommended")} onSelect={() => selectFormat("xlsx")} />
+            <ExportFormatCard format="csv" selected={format === "csv"} badge={t("settings.importExport.compatibility")} onSelect={() => selectFormat("csv")} />
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-sakura-100 bg-sakura-50/40 px-4 py-3 text-sm text-slate-600">
@@ -3768,12 +3750,12 @@ function ImportExportPanel({
             <span>{t("settings.importExport.sectionsSelected", { count: String(selectedDataTypes.length) })}</span>
             <span aria-hidden="true" className="size-1 rounded-full bg-slate-300" />
             <span>{t("settings.importExport.formatSummary", { format: format.toUpperCase() })}</span>
-            {exportTemplate ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.templateLabel")}</span></> : selectedRecordCount !== null ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.recordsSelected", { count: String(selectedRecordCount) })}</span></> : null}
+            {selectedRecordCount !== null ? <><span aria-hidden="true" className="size-1 rounded-full bg-slate-300" /><span>{t("settings.importExport.recordsSelected", { count: String(selectedRecordCount) })}</span></> : null}
           </div>
 
           <div className="mt-4 flex justify-end gap-3 border-t border-slate-200 pt-4">
             <button type="button" onClick={cancelCurrentMode} className="h-10 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">{t("common.cancel")}</button>
-            <button type="button" disabled={selectedDataTypes.length === 0 || !canExport} onClick={() => onExport(format, selectedDataTypes, exportTemplate)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-200 disabled:text-slate-400">
+            <button type="button" disabled={selectedDataTypes.length === 0 || !canExport} onClick={() => onExport(format, selectedDataTypes)} className="h-10 min-w-36 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white hover:bg-sakura-600 disabled:bg-slate-200 disabled:text-slate-400">
               {t("settings.importExport.exportSelected")}
             </button>
           </div>

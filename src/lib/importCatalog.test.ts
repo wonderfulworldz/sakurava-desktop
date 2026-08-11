@@ -105,16 +105,15 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.rows[0].errors).toEqual([]);
   });
 
-  it("ignores Instructions and Examples and parses an identified Data sheet", async () => {
+  it("ignores the generated example row from an empty named data sheet", async () => {
     const built = await buildXlsxWorkbook({
       selections: [{ dataType: "videos", records: [] }],
       locale: "en-GB",
-      template: true,
     });
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
-    const data = workbook.getWorksheet("Data")!;
+    const data = workbook.getWorksheet("Videos")!;
     data.addRow(workbookRow(data, {
       Action: "Create",
       Code: "V-001",
@@ -127,7 +126,7 @@ describe("catalog CSV/XLSX import preview", () => {
       "en-GB",
     );
     expect(preview.sections).toHaveLength(1);
-    expect(preview.sections[0]).toMatchObject({ dataType: "videos", sheetName: "Data" });
+    expect(preview.sections[0]).toMatchObject({ dataType: "videos", sheetName: "Videos" });
     expect(preview.rows).toHaveLength(1);
     expect(preview.rows[0].values["Release Date"]).toBe("2026-07-14");
     expect(preview.rows[0].detectedResult).toBe("Added");
@@ -165,7 +164,7 @@ describe("catalog CSV/XLSX import preview", () => {
     const supported = new ExcelJS.Workbook();
     supported.description = `${EXPORT_CONTRACT_VERSION}; dataTypes=videos`;
     supported.addWorksheet("Notes").addRow(["not data"]);
-    supported.addWorksheet("Videos").addRow(buildVideosCsv([]).split(","));
+    supported.addWorksheet("Videos").addRow(buildVideosCsv([]).split("\r\n")[0].split(","));
     const supportedPreview = await buildXlsxCatalogPreview(
       new Uint8Array(await supported.xlsx.writeBuffer()), context(), "en-US",
     );
@@ -216,17 +215,16 @@ describe("catalog CSV/XLSX import preview", () => {
     expect(preview.rows.every((row) => row.sheetName !== "Instructions")).toBe(true);
   });
 
-  it("identifies a Glossary template Data sheet from workbook metadata and ignores Examples", async () => {
+  it("parses a real row added after an empty Glossary example row", async () => {
     const built = await buildXlsxWorkbook({
       selections: [{ dataType: "glossary", records: [] }],
       locale: "en-US",
-      template: true,
     });
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(built.bytes as unknown as ArrayBuffer);
-    const headers = buildGlossaryCsv([]).split(",");
-    workbook.getWorksheet("Data")!.addRow(headers.map((header) => ({
+    const headers = buildGlossaryCsv([]).split("\r\n")[0].split(",");
+    workbook.getWorksheet("Glossary")!.addRow(headers.map((header) => ({
       Action: "Auto", Term: "Created Term", Definition: "Created definition",
     })[header] ?? ""));
     const preview = await buildXlsxCatalogPreview(
@@ -234,9 +232,8 @@ describe("catalog CSV/XLSX import preview", () => {
       context(),
       "en-US",
     );
-    expect(preview.sections[0]).toMatchObject({ dataType: "glossary", sheetName: "Data" });
+    expect(preview.sections[0]).toMatchObject({ dataType: "glossary", sheetName: "Glossary" });
     expect(preview.rows[0]).toMatchObject({ dataType: "glossary", detectedResult: "Added" });
-    expect(preview.rows.every((row) => row.sheetName !== "Examples")).toBe(true);
   });
 
   it("blocks unsupported metadata versions, duplicate data sheets, and formula errors", async () => {
@@ -253,7 +250,7 @@ describe("catalog CSV/XLSX import preview", () => {
     workbook.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value = JSON.stringify(metadata);
     workbook.getWorksheet("Videos")!.getCell("D2").value = { formula: "1/0", error: "#DIV/0!" } as any;
     const duplicate = workbook.addWorksheet("Data");
-    duplicate.addRow(buildVideosCsv([]).split(","));
+    duplicate.addRow(buildVideosCsv([]).split("\r\n")[0].split(","));
     const preview = await buildXlsxCatalogPreview(
       new Uint8Array(await workbook.xlsx.writeBuffer()), context(), "en-US",
     );
@@ -316,8 +313,8 @@ describe("catalog CSV/XLSX import preview", () => {
     );
 
     const collision = new ExcelJS.Workbook();
-    collision.addWorksheet(SAKURAVA_METADATA_SHEET).addRow(buildVideosCsv([]).split(","));
-    collision.addWorksheet("Videos").addRow(buildVideosCsv([]).split(","));
+    collision.addWorksheet(SAKURAVA_METADATA_SHEET).addRow(buildVideosCsv([]).split("\r\n")[0].split(","));
+    collision.addWorksheet("Videos").addRow(buildVideosCsv([]).split("\r\n")[0].split(","));
     const collisionPreview = await buildXlsxCatalogPreview(
       new Uint8Array(await collision.xlsx.writeBuffer()), context(), "en-US",
     );
@@ -337,7 +334,7 @@ describe("catalog CSV/XLSX import preview", () => {
   });
 
   it("resolves same-file Glossary parent references and blocks cycles", () => {
-    const headers = buildGlossaryCsv([]).split(",");
+    const headers = buildGlossaryCsv([]).split("\r\n")[0].split(",");
     const row = (ref: string, term: string, parent: string) => headers.map((header) => ({
       Action: "Auto", "Sakurava Ref": ref, Term: term, Definition: `${term} definition`, "Parent Ref": parent,
     })[header] ?? "").join(",");
@@ -359,7 +356,7 @@ describe("catalog CSV/XLSX import preview", () => {
   });
 
   it("reserves unique GLO-NEW identifiers and blocks permanent or duplicate collisions", () => {
-    const headers = buildGlossaryCsv([]).split(",");
+    const headers = buildGlossaryCsv([]).split("\r\n")[0].split(",");
     const row = (ref: string, term: string) => headers.map((header) => ({
       Action: "Auto", "Sakurava Ref": ref, Term: term, Definition: `${term} definition`,
     })[header] ?? "").join(",");
@@ -732,7 +729,7 @@ async function videoWorkbookRow(overrides: Record<string, string | number | Date
   const workbook = new ExcelJS.Workbook();
   workbook.description = `${EXPORT_CONTRACT_VERSION}; dataTypes=videos`;
   const sheet = workbook.addWorksheet("Videos");
-  sheet.addRow(buildVideosCsv([]).split(","));
+  sheet.addRow(buildVideosCsv([]).split("\r\n")[0].split(","));
   sheet.addRow(workbookRow(sheet, overrides));
   return new Uint8Array(await workbook.xlsx.writeBuffer());
 }

@@ -11,6 +11,7 @@ import {
 } from "./exportArtifacts";
 import {
   EXPORT_ACTIONS,
+  EXPORT_EXAMPLE_SENTINEL,
   buildVideosCsv,
   buildEntityCsv,
   exportSchemaFor,
@@ -85,16 +86,45 @@ describe("shared XLSX/CSV export contract", () => {
     ]);
   });
 
-  it("generates a headers-only CSV template for empty data", () => {
+  it("generates one ignored example row for an empty CSV section", () => {
     const [artifact] = buildCsvExportArtifacts({
       selections: [{ dataType: "videos", records: [] }],
       locale: "en-US",
       date: fixedDate,
     });
     const csv = new TextDecoder().decode(artifact.bytes);
-    expect(artifact.template).toBe(true);
-    expect(csv.split("\r\n")).toHaveLength(1);
+    expect(csv.split("\r\n")).toHaveLength(2);
     expect(csv.startsWith("Action,Sakurava Ref,Title,Original Title,Code")).toBe(true);
+    expect(parseCsv(csv).rows[0][0]).toBe(EXPORT_EXAMPLE_SENTINEL);
+    expect(buildImportCsvPreview(csv, {
+      videos: [], images: [], performers: [], categories: [], glossary: [], credits: [],
+    }).rows).toEqual([]);
+  });
+
+  it("treats an edited example row as an ordinary import row", () => {
+    const [artifact] = buildCsvExportArtifacts({
+      selections: [{ dataType: "videos", records: [] }],
+      locale: "en-US",
+      date: fixedDate,
+    });
+    const csv = new TextDecoder().decode(artifact.bytes)
+      .replace(EXPORT_EXAMPLE_SENTINEL, "Auto");
+    const preview = buildImportCsvPreview(csv, {
+      videos: [], images: [], performers: [], categories: [], glossary: [], credits: [],
+    });
+    expect(preview.rows).toHaveLength(1);
+    expect(preview.rows[0].detectedResult).toBe("Added");
+  });
+
+  it("omits Glossary Refs from new exports while retaining legacy input compatibility", () => {
+    const csv = buildEntityCsv("videos", [video({ glossaryRefsJson: JSON.stringify(["glo-1"]) })]);
+    expect(parseCsv(csv).headers).not.toContain("Glossary Refs");
+    const legacy = csv.replace("Related Performers", "Glossary Refs,Related Performers")
+      .replace("Auto,", "Auto,,glo-1,");
+    const preview = buildImportCsvPreview(legacy, {
+      videos: [], images: [], performers: [], categories: [], glossary: [], credits: [],
+    });
+    expect(preview.headerErrors).toEqual([]);
   });
 
   it("projects sensitive columns from safe artifacts while preserving import compatibility", () => {

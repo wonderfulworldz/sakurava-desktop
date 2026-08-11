@@ -68,12 +68,13 @@ export async function selectCatalogExportDestination(
   dataTypes: ExportCsvEntity[],
   format: ExportFormat,
   date = new Date(),
+  explicit = false,
 ) {
   if (!isTauriRuntimeAvailable()) return null;
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
     title: `Export Sakurava ${format === "xlsx" ? "Excel Workbook" : "CSV"}`,
-    defaultPath: defaultExportFileName(dataTypes, format, date),
+    defaultPath: defaultExportFileName(dataTypes, format, date, { explicit }),
     filters: [{
       name: format === "xlsx" ? "Excel Workbook" : "CSV",
       extensions: [format],

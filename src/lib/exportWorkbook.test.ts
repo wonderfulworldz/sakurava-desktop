@@ -10,8 +10,9 @@ import {
   SAKURAVA_METADATA_SHEET,
   stableContractJson,
 } from "./importExportContract";
+import { EXPORT_EXAMPLE_SENTINEL } from "./exportCsv";
 
-describe("XLSX export and templates", () => {
+describe("XLSX export", () => {
   it("builds a single-type workbook with Instructions and the correct data sheet", async () => {
     const result = await buildXlsxWorkbook({
       selections: [{ dataType: "videos", records: [video()] }],
@@ -44,23 +45,24 @@ describe("XLSX export and templates", () => {
     expect(workbook.getWorksheet("Images")).toBeUndefined();
     expect(workbook.getWorksheet("Managed Categories")).toBeUndefined();
     const performers = workbook.getWorksheet("Performers")!;
-    expect(performers.rowCount).toBe(1);
+    expect(performers.rowCount).toBe(2);
     expect(performers.getRow(1).values).toEqual(expect.arrayContaining([
       "Action", "Sakurava Ref", "Name",
     ]));
   });
 
-  it("builds a selected empty worksheet with its normal headers and no data rows", async () => {
+  it("builds a selected empty worksheet with normal headers and one ignored example row", async () => {
     const result = await buildXlsxWorkbook({
       selections: [{ dataType: "images", records: [] }],
       locale: "en-US",
     });
     const workbook = await parseWorkbook(result.bytes);
     const images = workbook.getWorksheet("Images")!;
-    expect(images.rowCount).toBe(1);
+    expect(images.rowCount).toBe(2);
     expect(images.getRow(1).values).toEqual(expect.arrayContaining([
       "Action", "Sakurava Ref", "Title",
     ]));
+    expect(images.getCell("A2").value).toBe(EXPORT_EXAMPLE_SENTINEL);
   });
 
   it("omits sensitive schema columns from a Safe export workbook", async () => {
@@ -101,7 +103,7 @@ describe("XLSX export and templates", () => {
       .toBe("User-edited title");
   });
 
-  it("writes current metadata for multi-type and template workbooks", async () => {
+  it("writes catalog metadata for populated and empty workbooks", async () => {
     const generatedAt = new Date("2026-07-15T01:02:03.000Z");
     const multi = await parseWorkbook((await buildXlsxWorkbook({
       selections: [
@@ -123,21 +125,20 @@ describe("XLSX export and templates", () => {
     });
     expect(multi.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
 
-    const template = await parseWorkbook((await buildXlsxWorkbook({
+    const empty = await parseWorkbook((await buildXlsxWorkbook({
       selections: [{ dataType: "videos", records: [] }],
       locale: "en-US",
       generatedAt,
-      template: true,
     })).bytes);
-    const templateMetadata = JSON.parse(String(
-      template.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value,
+    const emptyMetadata = JSON.parse(String(
+      empty.getWorksheet(SAKURAVA_METADATA_SHEET)!.getCell("A1").value,
     ));
-    expect(templateMetadata).toMatchObject({
+    expect(emptyMetadata).toMatchObject({
       contractVersion: 3,
       includedDataTypes: ["videos"],
-      workbookType: "template",
+      workbookType: "catalog",
     });
-    expect(template.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
+    expect(empty.getWorksheet(SAKURAVA_METADATA_SHEET)!.state).toBe("veryHidden");
   });
 
   it("builds a Glossary worksheet through the shared workbook contract", async () => {
@@ -154,21 +155,17 @@ describe("XLSX export and templates", () => {
     expect(sheet.getCell("B2").value).toMatch(/^GLO-/);
   });
 
-  it("isolates template examples from the headers-only Data sheet", async () => {
+  it("keeps populated worksheets free of example rows", async () => {
     const result = await buildXlsxWorkbook({
-      selections: [{ dataType: "videos", records: [] }],
+      selections: [{ dataType: "videos", records: [video()] }],
       locale: "en-US",
-      template: true,
     });
     const workbook = await parseWorkbook(result.bytes);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
-      "__SakuravaMetadata", "Instructions", "Data", "Examples",
+      "__SakuravaMetadata", "Instructions", "Videos",
     ]);
-    expect(workbook.getWorksheet("Data")!.rowCount).toBe(1);
-    const examples = workbook.getWorksheet("Examples")!;
-    expect(examples.getCell("A1").value).toContain("EXAMPLES ONLY");
-    expect([3, 4, 5, 6].map((row) => examples.getCell(row, 1).value))
-      .toEqual(["Auto", "Add", "Update", "Delete"]);
+    expect(workbook.getWorksheet("Videos")!.rowCount).toBe(2);
+    expect(workbook.getWorksheet("Videos")!.getCell("A2").value).toBe("Auto");
   });
 
   it("keeps empty dates empty and invalid values as visible text", async () => {

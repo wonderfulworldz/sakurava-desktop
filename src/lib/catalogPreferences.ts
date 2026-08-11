@@ -1,4 +1,10 @@
+import type { ExportCsvEntity, ExportFormat } from "./exportCsv";
+
 export const CATALOG_PREFERENCES_STORAGE_KEY = "sakurava.catalogPreferences.v1";
+
+const exportDataTypes: ExportCsvEntity[] = [
+  "videos", "images", "performers", "categories", "glossary", "credits",
+];
 
 export type CatalogPreferencePage =
   | "videos"
@@ -26,10 +32,16 @@ export type CatalogPreferencePageState = {
   filters?: unknown;
 };
 
+export type CatalogExportPreferences = {
+  selectedDataTypes: ExportCsvEntity[];
+  format: ExportFormat;
+};
+
 type CatalogPreferences = {
   version: 1;
   toggles: CatalogPreferenceToggles;
   pages: Partial<Record<CatalogPreferencePage, CatalogPreferencePageState>>;
+  export?: CatalogExportPreferences;
 };
 
 const defaultToggles: CatalogPreferenceToggles = {
@@ -49,6 +61,28 @@ const approvedPages = new Set<CatalogPreferencePage>([
 
 function emptyPreferences(): CatalogPreferences {
   return { version: 1, toggles: { ...defaultToggles }, pages: {} };
+}
+
+function defaultExportPreferences(): CatalogExportPreferences {
+  return { selectedDataTypes: [...exportDataTypes], format: "xlsx" };
+}
+
+function normalizeExportPreferences(value: unknown): CatalogExportPreferences | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const selectedDataTypes = (value as { selectedDataTypes?: unknown }).selectedDataTypes;
+  const format = (value as { format?: unknown }).format;
+  if (
+    !Array.isArray(selectedDataTypes)
+    || !selectedDataTypes.every((dataType) => exportDataTypes.includes(dataType as ExportCsvEntity))
+    || new Set(selectedDataTypes).size !== selectedDataTypes.length
+    || (format !== "csv" && format !== "xlsx")
+  ) {
+    return undefined;
+  }
+  return {
+    selectedDataTypes: exportDataTypes.filter((dataType) => selectedDataTypes.includes(dataType)),
+    format,
+  };
 }
 
 function storageAvailable() {
@@ -88,6 +122,8 @@ function normalizePreferences(value: unknown): CatalogPreferences {
   }
 
   const rawPages = (value as { pages?: unknown }).pages;
+  const exportPreferences = normalizeExportPreferences((value as { export?: unknown }).export);
+  if (exportPreferences) fallback.export = exportPreferences;
   if (typeof rawPages !== "object" || rawPages === null) return fallback;
 
   for (const [page, rawState] of Object.entries(rawPages)) {
@@ -184,9 +220,20 @@ export function storeCatalogPreferencePage(
   writePreferences(preferences);
 }
 
+export function readCatalogExportPreferences(): CatalogExportPreferences {
+  return readPreferences().export ?? defaultExportPreferences();
+}
+
+export function storeCatalogExportPreferences(next: CatalogExportPreferences) {
+  const preferences = readPreferences();
+  preferences.export = normalizeExportPreferences(next) ?? defaultExportPreferences();
+  writePreferences(preferences);
+}
+
 export function resetRememberedCatalogPreferences() {
   const preferences = readPreferences();
   preferences.pages = {};
+  delete preferences.export;
   writePreferences(preferences);
 }
 

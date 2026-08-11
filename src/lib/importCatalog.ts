@@ -2,6 +2,7 @@ import type { Cell, CellValue, Workbook, Worksheet } from "exceljs";
 import {
   exportEntityLabel,
   exportSchemaFor,
+  isExportExampleRow,
   sakuravaRef,
   sakuravaRefMatches,
 } from "./exportCsv";
@@ -227,16 +228,16 @@ function buildWorksheetSection(
   const rowNumbers: number[] = [];
 
   const parseErrors: string[] = [];
-  if (Math.max(0, worksheet.actualRowCount - 1) > IMPORT_MAX_ROWS_PER_SECTION) {
+  if (Math.max(0, worksheet.actualRowCount - 1) > IMPORT_MAX_ROWS_PER_SECTION + 1) {
     parseErrors.push(importLimitMessage("sectionRows"));
   }
-  const finalRow = Math.min(worksheet.actualRowCount, IMPORT_MAX_ROWS_PER_SECTION + 1);
+  const finalRow = Math.min(worksheet.actualRowCount, IMPORT_MAX_ROWS_PER_SECTION + 2);
   for (let rowNumber = 2; rowNumber <= finalRow; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
     const values = headers.map((header, index) =>
       worksheetCellText(row.getCell(index + 1), header, dateHeaders, locale, date1904),
     );
-    if (values.some((value) => value.trim() !== "")) {
+    if (values.some((value) => value.trim() !== "") && !isExportExampleRow(headers, values)) {
       rows.push(values);
       rowNumbers.push(rowNumber);
     }
