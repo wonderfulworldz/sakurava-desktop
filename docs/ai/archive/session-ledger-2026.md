@@ -1470,6 +1470,29 @@ limitation. Batch 42.9 remains proposed only and separately gated.
 
 ---
 
+## 2026-08-10 — Pre-42.9 Corrective Scope Reconciled
+
+date: 2026-08-10
+session_type: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+starting_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+category_correction_commits: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66; 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+category_runtime_acceptance: PASS_OBSERVED_BY_OPERATOR
+backup_restore_real_app_acceptance: PASS_OBSERVED_BY_OPERATOR
+safe_filter_priority: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
+unresolved_priorities: MEDIA_COVER; CSV_EXPORT; EMPTY_XLSX_IMPORT_UX; IMPORT_EXPORT_REFERENCE_CREDITS_COMPATIBILITY
+governance: PROPORTIONAL_PERMANENT_PREVENTION; MODULAR_FLEXIBLE_PRODUCT_EVOLUTION
+product_directions: PUBLIC_REF_CURRENT_OWNER_REUSE; CREDITS_USER_EDITABLE_PROJECTION; EMPTY_EXPORT_GUIDANCE; REMEMBER_DEFERRED
+technical_permissions: false
+next_action: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+
+Current authority now records the Category correction and Backup/Restore
+real-app smoke as accepted, preserves current unresolved Product Acceptance
+work, and leaves all technical work separately gated.
+
+---
+
 ## 2026-08-10 — Product Acceptance Defects and Deep-Audit Standard Approved
 
 date: 2026-08-10

@@ -9,9 +9,9 @@ release_target: PRIVATE_PILOT
 implementation_permission: NOT_GRANTED_BY_THIS_DOCUMENT
 repository_audit_status: BATCH_42_1_COMPLETED
 technical_architecture_status: REQUIRES_CONTROLLED_AUDITS
-last_recorded_git_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
-last_recorded_git_baseline_status: CATEGORY_RESURRECTION_CORRECTION_DELIVERED
-application_source_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+last_recorded_git_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
+last_recorded_git_baseline_status: SAFE_IMAGE_SCHEMA_CORRECTION_DELIVERED
+application_source_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
 source_parent: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66
 pre_reconciliation_repository_baseline: 209c219821511037800f5196cba5cba7a5826d32
 prior_project_os_baseline: 792a7a50d0a9e91b34be57feec76b4fe9dc0f872
@@ -89,10 +89,10 @@ next_proposed_batch: 42.9
 next_proposed_batch_title: Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE
 next_proposed_batch_approved: false
-pre_42_9_corrective_gate: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION_PENDING_SEPARATE_APPROVAL
-xlsx_export_next_corrective_action: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
+pre_42_9_corrective_gate: SAFE_IMAGE_PUBLIC_REF_AND_EXPORT_ROUNDTRIP_PRODUCT_ACCEPTED_MEDIA_COVER_PENDING_SEPARATE_APPROVAL
+xlsx_export_next_corrective_action: MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION
 xlsx_export_next_corrective_action_status: READY_PENDING_SEPARATE_APPROVAL
-xlsx_export_next_corrective_action_mode: IMPLEMENT
+xlsx_export_next_corrective_action_mode: AUDIT
 xlsx_causal_audit_result: XLSX_EXPORT_COUPLED_TEST_CAUSAL_COMPLETION_AUDIT_ACCEPTED
 xlsx_all_materially_coupled_export_tests: CLASSIFIED
 xlsx_latest_technical_result: COMPLETED_AND_DELIVERED_WITH_RUNTIME_LIMITATION
@@ -131,6 +131,23 @@ batch_42_8_stage_3_source_correction_required: false
 batch_42_8_stage_3_runtime_limitation: VIEWER_AND_STALE_CONTENT_TAURI_WEBVIEW_NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT
 batch_42_8_progress: 3_OF_3_OUTCOMES_100_PERCENT
 batch_42_8_final_verdict: BATCH_42_8_SAFE_FILTER_AND_R_PLUS_COMPLETED_AND_CLOSED_WITH_LIMITATIONS
+
+## Current Pre-42.9 Product Acceptance Authority — 2026-08-11
+
+Safe Filter/R+ correction, Export empty/example workflow, Safe/Explicit
+informational filenames, catalog public Ref roundtrip, Safe Image CSV/XLSX,
+Safe all-XLSX Image handling, and legacy `Glossary Refs` compatibility are
+accepted for the current corrected boundary. The technical baseline is
+`f0e1d1beeea37a768cbeb845e63b484cdf88bebb`; operator runtime acceptance is
+`OBSERVED_BY_OPERATOR`. Safe Image closure followed the
+`SAFE_IMAGE_SCHEMA_DISCRIMINATION_DEFECT` proven by static source.
+
+The next separately gated technical priority is
+`MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION` in `AUDIT` mode,
+`READY_PENDING_SEPARATE_APPROVAL`. Credits user-editable projection, CSV/Excel
+date compatibility, XLSX section selection, centralized Remember architecture,
+and dependency/security work remain deferred. Batch 42.9 remains blocked until
+the remaining Pre-42.9 Product Acceptance gate is satisfied.
 next_proposed_batch: 42.9
 next_proposed_batch_title: Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
@@ -2927,7 +2944,10 @@ physical power-loss and filesystem metadata durability, and complete
 real-world crash recovery remain `UNKNOWN`. These limitations do not change
 the technical closure recommendation and do not authorize platform validation.
 
-## Current Pre-42.9 Corrective Gate — 2026-08-10
+## Historical Pre-42.9 Corrective Gate — 2026-08-10
+
+This historical gate is superseded for current Import/Export and Safe Filter
+acceptance by `Current Pre-42.9 Product Acceptance Authority — 2026-08-11`.
 
 Batch 42.8 remains historically closed as
 `COMPLETED_AND_CLOSED_WITH_LIMITATIONS` with `3_OF_3_OUTCOMES_100_PERCENT`.

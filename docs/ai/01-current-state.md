@@ -6,9 +6,9 @@ project: Sakurava Desktop
 repository: D:\sakurava-desktop  
 application_stack: React + Tauri  
 
-product_state_updated_at: 2026-08-10
-repository_state_recorded_at: 2026-08-10
-repository_state_status: CLEAN_AT_DELIVERED_CATEGORY_CORRECTION_COMMIT
+product_state_updated_at: 2026-08-11
+repository_state_recorded_at: 2026-08-11
+repository_state_status: CLEAN_AT_ACCEPTED_IMPORT_EXPORT_CORRECTION_COMMIT
 repository_state_evidence: REPORTED_BY_CODEX
 remote_main_verified: REPORTED_BY_CODEX_BASELINE_SYNCHRONIZED
 tracked_worktree_clean: true
@@ -16,9 +16,9 @@ untracked_top_level: PROTECTED_MANUAL_SMOKE_ONLY
 
 default_branch: main  
 remote_branch: origin/main  
-last_recorded_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
-baseline_label: Category-Resurrection-Correction-Delivery-Commit
-application_source_baseline: 73e58d0b544cb20f34ce6e381ccab0e91bbb1e2e
+last_recorded_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
+baseline_label: Safe-Image-Schema-Correction-Delivery-Commit
+application_source_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
 source_parent: a1b01a3b61d3d532e07e269ebd44a927d7f7ae66
 pre_reconciliation_repository_baseline: 515ed4e18f80bf00969f634ad981e017047f7c83
 repository_documentation_baseline_before_correction: 515ed4e18f80bf00969f634ad981e017047f7c83
@@ -88,14 +88,14 @@ batch_42_8_source_inspection_allowed: false
 batch_42_8_implementation_allowed: false
 stage_42_8_governance_limitation: EXECUTOR_NONCOMPLIANCE_RECORDED_PROTECTED_MANUAL_SMOKE_CHILD_ENUMERATION_WITHOUT_CONTENT_ACCESS_OR_MUTATION
 
-product_acceptance_42_0_to_42_8: FAILED_PENDING_CORRECTIVE_IMPLEMENTATION_AND_ACCEPTANCE
+product_acceptance_42_0_to_42_8: SAFE_IMAGE_PUBLIC_REF_AND_EXPORT_ROUNDTRIP_PRODUCT_ACCEPTED
 fresh_operator_evidence: CATEGORY_AND_BACKUP_RESTORE_ACCEPTED; CSV_EXPORT_FAILURE; EMPTY_XLSX_IMPORT_NO_OP; SAFEFILTER_PRODUCT_CONTRACT_CORRECTION; MEDIA_COVER
 next_proposed_batch: 42.9 — Design System and Iconography Foundation
 next_proposed_batch_status: BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE
 next_proposed_batch_approved: false
 all_technical_permissions: false
 current_governance_gate: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
-gate_status: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE_RECONCILIATION_PENDING_SEPARATE_TECHNICAL_APPROVAL
+gate_status: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTED_BOUNDARY_ACCEPTED_MEDIA_COVER_PENDING_SEPARATE_APPROVAL
 corrective_audit: COMPLETED_AND_ACCEPTED
 corrective_audit_approved: false
 corrective_audit_execution_started: false
@@ -162,9 +162,9 @@ xlsx_all_materially_coupled_export_tests: CLASSIFIED
 xlsx_mutation_readiness: NO_FURTHER_XLSX_TECHNICAL_MUTATION_CURRENTLY_REQUIRED
 xlsx_future_videos_test_only_correction: APP_TEST_VIDEOS_HEADER_SCHEMA_ORDER
 xlsx_videos_test_correction_authorized: false
-recommended_next_technical_action: SAFE_FILTER_R_PLUS_CORRECTIVE_COMPLETION
+recommended_next_technical_action: MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION
 recommended_next_technical_action_status: READY_PENDING_SEPARATE_APPROVAL
-recommended_next_technical_action_mode: IMPLEMENT
+recommended_next_technical_action_mode: AUDIT
 
 deep_corrective_audit: COMPLETED_AND_ACCEPTED_WITH_DECISIONS_RESOLVED_FOR_SAFE_FILTER
 audit_execution: READ_ONLY
@@ -189,9 +189,41 @@ backup_restore_real_app_manual_acceptance: PASS_OBSERVED_BY_OPERATOR
 backup_restore_real_app_manual_acceptance_reason: SUPERSEDED_BY_OPERATOR_REAL_APP_SMOKE
 product_acceptance_manual_smoke_required_later: true
 
-## Current Pre-42.9 Corrective Authority — 2026-08-10
+## Current Product Acceptance Authority — 2026-08-11
 
-This section is the current authority for Product Acceptance corrective work.
+This is the current authority for the accepted Import/Export and Safe Filter
+corrective boundary. The 2026-08-10 corrective authority below is retained as
+historical continuity and is superseded where it states pending Safe Filter,
+public-ref, CSV/XLSX Safe-schema, or Export-empty corrective work.
+
+technical_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
+technical_baseline_evidence: REPORTED_BY_CODEX
+operator_product_acceptance: SAFE_IMAGE_PUBLIC_REF_AND_EXPORT_ROUNDTRIP_PRODUCT_ACCEPTED
+operator_product_acceptance_evidence: OBSERVED_BY_OPERATOR
+safe_filter_corrective_status: COMPLETED_AND_ACCEPTED
+safe_filter_contract: DIRECT_ONLY_NO_INHERITANCE
+export_empty_example_workflow: COMPLETED_AND_ACCEPTED
+export_filename_contract: SAFE_NORMAL_EXPLICIT_E_SUFFIX_FILENAME_INDEPENDENT_IMPORT
+catalog_public_ref_contract: COMPLETED_AND_ACCEPTED
+xlsx_public_ref_roundtrip: COMPLETED_AND_ACCEPTED
+safe_image_schema_status: COMPLETED_AND_ACCEPTED
+safe_image_schema_root_cause: SAFE_IMAGE_SCHEMA_DISCRIMINATION_DEFECT
+safe_image_schema_root_cause_evidence: PROVEN_BY_STATIC_SOURCE
+safe_image_runtime_acceptance: PASS_OBSERVED_BY_OPERATOR
+legacy_glossary_refs_compatibility: PASS_OBSERVED_BY_OPERATOR
+next_technical_priority: MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION
+next_technical_priority_status: READY_PENDING_SEPARATE_APPROVAL
+next_technical_priority_mode: AUDIT
+batch_42_9_status: BLOCKED_PENDING_REMAINING_PRE_42_9_PRODUCT_ACCEPTANCE
+all_technical_permissions: false
+
+Remaining deferred work is separate: Media Cover; Credits user-editable
+spreadsheet projection; CSV/Excel date compatibility; XLSX section selection;
+centralized Remember architecture; and dependency/security triage.
+
+## Historical Pre-42.9 Corrective Authority — 2026-08-10
+
+This historical section records the prior Product Acceptance corrective state.
 Historical Batch 42.8 records that describe one-hop R+ classification are
 superseded by current `LOCK-SAFEFILTER-001`; they remain historical evidence,
 not current implementation direction.

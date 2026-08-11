@@ -1,7 +1,7 @@
 # Sakurava Feedback Log
 
-active_count: 12
-last_updated: 2026-08-10
+active_count: 11
+last_updated: 2026-08-11
 
 ## Active Feedback
 
@@ -183,10 +183,10 @@ contracts must remain intact.
 date: 2026-08-10
 batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
 type: CORRECTION
-status: APPROVED
+status: RESOLVED
 risk: HIGH
-placement: PRE_42_9_CORRECTIVE_IMPLEMENTATION_AFTER_APPROVED_EXECUTION_GATE
-evidence: OBSERVED_BY_OPERATOR
+placement: RESOLVED / SAFE_FILTER_CORRECTIVE_ACCEPTANCE
+evidence: OBSERVED_BY_OPERATOR; REPORTED_BY_CODEX
 
 The approved replacement contract makes R+ direct-only on Video, Image,
 Performer, Category, and Glossary, with no Category or Glossary inheritance.
@@ -194,7 +194,13 @@ Safe Filter hides directly R+ records and the Censorship, Measurements, and
 Cup Size surfaces while remaining non-destructive. Body Type is not
 automatically sensitive; Height, Weight, Gender, Age, and Attraction Rating
 remain normal by default. Import/Export follows the approved safe-visibility
-contract, Backup/Restore remains complete, and implementation has NOT occurred.
+contract and Backup/Restore remains complete.
+
+### Completion Evidence
+
+Corrective implementation and targeted runtime acceptance are recorded as
+accepted. R+ remains direct-only without Category/Glossary inheritance; Safe
+projections remain non-destructive and compatibility-readable.
 
 ### FEEDBACK-2026-08-10-CATALOG-COLUMNS — Minimal Consistent Catalog Columns
 
@@ -225,7 +231,7 @@ No dependency or library is selected; audit must establish platform, codec,
 security, multi-window, persistence, performance, licensing, packaging, and
 accessibility facts first.
 
-### FEEDBACK-2026-08-10-CSV-EXPORT-COMPATIBILITY — CSV Export and Excel Date Compatibility
+### FEEDBACK-2026-08-10-CSV-EXPORT-COMPATIBILITY — CSV and Excel Date Compatibility
 
 date: 2026-08-10
 batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_SCOPE
@@ -235,27 +241,41 @@ risk: HIGH
 placement: IMPORT_EXPORT_REFERENCE_CREDITS_CONTRACT_AUDIT_AND_CORRECTION
 evidence: OBSERVED_BY_OPERATOR
 
-Populated and full-empty CSV Export do not work. Separately, an exported CSV
-date may be locale-reformatted by ordinary Excel open/save and then fail safe
-Sakurava re-import. Empty XLSX Import currently has no applicable operation and
-disables Apply; it requires product/static classification before it is called a
-defect. No CSV/XLSX implementation or silent date interpretation is authorized.
+Current CSV Export and Safe CSV roundtrip acceptance are recorded separately.
+An exported CSV date may still be locale-reformatted by ordinary Excel open/save
+and then fail safe Sakurava re-import. Empty XLSX Import currently has no
+applicable operation and disables Apply; it requires product/static
+classification before it is called a defect. No silent date interpretation is
+authorized.
 
 ### FEEDBACK-2026-08-10-PUBLIC-REF-CURRENT-OWNER — Public Ref Current-Owner and Reuse Direction
 
 date: 2026-08-10
 batch: FUTURE_IMPORT_EXPORT_WORK
 type: APPROVED_PRODUCT_DIRECTION
-status: PLANNED
+status: RESOLVED
 risk: HIGH
-placement: PENDING_REFERENCE_COMPATIBILITY_AUDIT
-evidence: OBSERVED_BY_OPERATOR
+placement: RESOLVED / XLSX_PUBLIC_REF_ROUNDTRIP_ACCEPTANCE
+evidence: OBSERVED_BY_OPERATOR; REPORTED_BY_CODEX; PROVEN_BY_STATIC_SOURCE
 
-Public Ref is intended as the active address: a stale `REF | label` input must
-resolve to the current authoritative owner of the ref, while exact allocation,
-reuse, aliases/history, Preview normalization, and duplicate-in-batch behavior
-remain pending compatibility proof. Existing public-reference locks remain
-active until an exact replacement contract is accepted.
+The accepted public catalog Ref contract resolves identity by Ref and labels by
+the authoritative current/final target. Requested-ref allocation, duplicate
+new/Add handling, Preview normalization, and transaction-safe counters are
+delivered; Credit R Ref semantics remain separate under `LOCK-CREDITS-003`.
+
+### DISCOVERED-2026-08-11-278-ROW-XLSX-TEST-TIMEOUT — 278-Row Workbook Test Timeout
+
+date: 2026-08-11
+batch: PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
+type: DISCOVERED_FINDING
+status: DEFERRED
+risk: MEDIUM
+placement: DEFERRED_TEST_DEBT_TRIAGE
+evidence: REPORTED_BY_CODEX
+
+An unrelated existing 278-row workbook test timed out when its containing test
+file ran during Safe Image verification. Exact Safe Image guards passed; no
+related source mutation or investigation is authorized by this finding.
 
 ### FEEDBACK-2026-08-10-REMEMBER-CENTRALIZED-POLICY — Centralized Remember Policy
 

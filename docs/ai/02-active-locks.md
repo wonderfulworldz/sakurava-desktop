@@ -585,17 +585,28 @@ Codex must not weaken these protections to simplify implementation.
 
 **Status:** ACTIVE
 
-Spreadsheet-facing identity and relationships must use public Sakurava references.
+Spreadsheet-facing catalog identity and relationships use public Sakurava Ref;
+technical database IDs remain internal and are never authoritative spreadsheet
+identity.
 
-Do not:
+Primary record Ref rules:
 
-* expose technical database IDs;
-* export technical IDs as identities;
-* use technical IDs as authoritative spreadsheet references;
-* allow spreadsheet Add to select internal identities;
-* silently change public-reference semantics.
+* blank or malformed Ref is treated as no requested Ref and allocates the next canonical Ref;
+* a valid unowned requested Ref may be retained;
+* a valid current-owner Ref selects that record for normal Import replace/update;
+* a genuine new/Add claimant for an occupied Ref must not overwrite its owner and receives a canonical allocated Ref;
+* same-import conflicting new/Add claims resolve deterministically, with later claimants allocated canonical Refs;
+* allocation and counter state remain transaction-safe.
 
-Any public-reference change is high risk and requires a dedicated approved scope.
+Relationship input uses `REF | Authoritative Label`: identity is the Ref only,
+the label is canonicalized from the current/final authoritative target, and a
+bare valid Ref remains supported where the existing contract permits it. A
+malformed relationship Ref is empty/ignored relationship input: it does not
+alone block the parent, create a phantom target, or allocate a target Ref.
+
+Do not expose technical IDs, silently change these public catalog semantics, or
+extend this lock to Credit R Ref. `LOCK-CREDITS-003` remains separate and
+unchanged.
 
 ---
 
