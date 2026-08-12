@@ -7,6 +7,7 @@ type BaseCollectionItem = {
   title: string;
   originalTitle: string;
   coverPath?: string;
+  tableCoverPath?: string;
   favorite: boolean;
   createdAt?: number | string | null;
   updatedAt?: number | string | null;
@@ -47,6 +48,7 @@ export type PerformerCollectionItem = {
   yearsActive: string;
   activeAges: string;
   coverPath?: string;
+  tableCoverPath?: string;
   favorite: boolean;
   createdAt?: number | string | null;
   updatedAt?: number | string | null;

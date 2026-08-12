@@ -1891,6 +1891,7 @@ function RelatedLiteCard({
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
         creditMetadata={creditMetadata}
+        managedRoleId="related_performer_active"
       />
     );
   }
@@ -1902,6 +1903,7 @@ function RelatedLiteCard({
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
         showCensorship={!getSafeFilterEnabled()}
+        managedRoleId="related_image_active"
       />
     );
   }
@@ -1912,6 +1914,7 @@ function RelatedLiteCard({
       favoriteInteractive={favoriteInteractive}
       onFavoriteClick={favoriteInteractive ? handleFavoriteClick : undefined}
       showCensorship={!getSafeFilterEnabled()}
+      managedRoleId="related_video_active"
     />
   );
 }

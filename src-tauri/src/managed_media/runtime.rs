@@ -323,6 +323,13 @@ impl InertSqliteRuntimeBackend {
 
 impl RuntimeBackend for InertSqliteRuntimeBackend {
     fn recover_publication(&mut self, maximum_operations: u32) -> Result<RecoveryBoundary, String> {
+        // Publication journals owned by this process can be observed between
+        // staging and activation while their lifecycle worker is still active.
+        // Startup recovery remains enabled because a fresh backend has no
+        // in-process claims; active work is reaped/renewed later in the cycle.
+        if !self.active.is_empty() {
+            return Ok(RecoveryBoundary::Clean);
+        }
         let connection = self.open_connection()?;
         match recover(
             &connection,
@@ -334,7 +341,7 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
                 Ok(RecoveryBoundary::MorePending)
             }
             Ok(_) => Ok(RecoveryBoundary::Clean),
-            Err(_) => Ok(RecoveryBoundary::Conflict { operation_id: None }),
+            Err(error) => Err(error.to_string()),
         }
     }
 

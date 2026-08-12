@@ -9,6 +9,7 @@ import {
   displayValue,
   RatingBadge,
 } from "./CardShared";
+import type { ManagedMediaRoleId } from "../../shared/managedMediaDescriptor";
 
 type PerformerLiteCardProps = {
   item: HomeRecentItem;
@@ -16,6 +17,7 @@ type PerformerLiteCardProps = {
   onFavoriteClick?: () => void;
   favoriteInteractive?: boolean;
   creditMetadata?: CreditMetadata[];
+  managedRoleId?: ManagedMediaRoleId;
 };
 
 export function PerformerLiteCard({
@@ -24,6 +26,7 @@ export function PerformerLiteCard({
   onFavoriteClick,
   favoriteInteractive,
   creditMetadata,
+  managedRoleId = "performer_lite_card",
 }: PerformerLiteCardProps) {
   const t = useTranslation();
   const name = displayValue(item.title);
@@ -40,6 +43,11 @@ export function PerformerLiteCard({
         favorite={item.favorite}
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={onFavoriteClick}
+        managedMedia={{
+          ownerKind: "performer",
+          ownerId: item.key,
+          roleId: managedRoleId,
+        }}
       />
       </Link>
 

@@ -33,7 +33,7 @@ function PerformerCollectionPage() {
       .then(async (performers) => {
         if (!cancelled) {
           const descriptors = await resolveManagedMediaDescriptors(
-            performers.map((performer) =>
+            performers.flatMap((performer) => [
               primaryVisualDescriptorRequest({
                 requestId: `performer-collection-${performer.id}`,
                 ownerKind: "performer",
@@ -43,7 +43,16 @@ function PerformerCollectionPage() {
                 cssWidth: 320,
                 cssHeight: 320,
               }),
-            ),
+              primaryVisualDescriptorRequest({
+                requestId: `performer-table-${performer.id}`,
+                ownerKind: "performer",
+                ownerId: performer.id,
+                sourcePath: performer.coverPath,
+                roleId: "performer_table",
+                cssWidth: 44,
+                cssHeight: 56,
+              }),
+            ]),
           );
           if (!cancelled) {
             setConfig(
@@ -53,6 +62,10 @@ function PerformerCollectionPage() {
                   coverPath:
                     descriptorAssetPath(
                       descriptors.get(`performer-collection-${performer.id}`),
+                    ) ?? "",
+                  tableCoverPath:
+                    descriptorAssetPath(
+                      descriptors.get(`performer-table-${performer.id}`),
                     ) ?? "",
                 })),
               ),

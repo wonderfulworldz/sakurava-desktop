@@ -335,6 +335,57 @@ fn gallery_reorder_is_inert_and_removal_retires_only_removed_slot() {
 }
 
 #[test]
+fn gallery_eight_to_six_to_eight_reuses_returning_locator_tokens() {
+    let mut connection = connection();
+    let paths = (0..8)
+        .map(|index| format!("gallery-{index}.jpg"))
+        .collect::<Vec<_>>();
+    let all_json = serde_json::to_string(&paths).expect("gallery json");
+    let reduced_json = serde_json::to_string(&paths[..6]).expect("reduced gallery json");
+    let all = OwnerSources::image("image-returning", "", &all_json);
+    let reduced = OwnerSources::image("image-returning", "", &reduced_json);
+    let tokens = (0..8)
+        .map(|index| format!("gallery-token-{index}"))
+        .collect::<Vec<_>>();
+    let token_refs = tokens.iter().map(String::as_str).collect::<Vec<_>>();
+    reconcile(&mut connection, None, Some(&all), &token_refs).expect("create eight");
+    let original_tokens = {
+        let mut statement = connection
+            .prepare(
+                "SELECT locator_hash, slot_token FROM managed_media_items ORDER BY locator_hash",
+            )
+            .expect("tokens");
+        statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .expect("token rows")
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .expect("token collection")
+    };
+
+    reconcile(&mut connection, Some(&all), Some(&reduced), &[]).expect("reduce to six");
+    reconcile(&mut connection, Some(&reduced), Some(&all), &[]).expect("return to eight");
+
+    let final_tokens = {
+        let mut statement = connection
+            .prepare(
+                "SELECT locator_hash, slot_token FROM managed_media_items ORDER BY locator_hash",
+            )
+            .expect("tokens");
+        statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .expect("token rows")
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .expect("token collection")
+    };
+    assert_eq!(final_tokens, original_tokens);
+    assert_eq!(count(&connection, "managed_media_items"), 8);
+}
+
+#[test]
 fn performer_mini_tokens_survive_reopen_and_addition_uses_new_token() {
     let base = std::env::temp_dir().join(format!(
         "sakurava-catalog-lifecycle-{}-{}",

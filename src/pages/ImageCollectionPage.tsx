@@ -29,7 +29,7 @@ function ImageCollectionPage() {
       .then(async (images) => {
         if (!cancelled) {
           const descriptors = await resolveManagedMediaDescriptors(
-            images.map((image) =>
+            images.flatMap((image) => [
               primaryVisualDescriptorRequest({
                 requestId: `image-collection-${image.id}`,
                 ownerKind: "image",
@@ -39,7 +39,16 @@ function ImageCollectionPage() {
                 cssWidth: 320,
                 cssHeight: 180,
               }),
-            ),
+              primaryVisualDescriptorRequest({
+                requestId: `image-table-${image.id}`,
+                ownerKind: "image",
+                ownerId: image.id,
+                sourcePath: image.coverPath,
+                roleId: "image_table",
+                cssWidth: 80,
+                cssHeight: 48,
+              }),
+            ]),
           );
           if (!cancelled) {
             setConfig(
@@ -48,6 +57,8 @@ function ImageCollectionPage() {
                   ...image,
                   coverPath:
                     descriptorAssetPath(descriptors.get(`image-collection-${image.id}`)) ?? "",
+                  tableCoverPath:
+                    descriptorAssetPath(descriptors.get(`image-table-${image.id}`)) ?? "",
                 })),
               ),
             );

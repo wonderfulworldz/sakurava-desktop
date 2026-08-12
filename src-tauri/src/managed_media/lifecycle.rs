@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt};
 
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 
 use super::{
     contract::{RoleId, TierId},
@@ -963,7 +963,7 @@ pub fn renew_claim(
     if new_expires_at <= now || new_expires_at <= &claimed.claim_expires_at {
         return Err(LifecycleError::InvalidTimestamp);
     }
-    let transaction = connection.unchecked_transaction()?;
+    let transaction = Transaction::new_unchecked(connection, TransactionBehavior::Immediate)?;
     let status = validate_claim_ownership_in_connection(
         &transaction,
         &claimed.intent_id,

@@ -29,7 +29,7 @@ function VideoCollectionPage() {
       .then(async (videos) => {
         if (!cancelled) {
           const descriptors = await resolveManagedMediaDescriptors(
-            videos.map((video) =>
+            videos.flatMap((video) => [
               primaryVisualDescriptorRequest({
                 requestId: `video-collection-${video.id}`,
                 ownerKind: "video",
@@ -39,7 +39,16 @@ function VideoCollectionPage() {
                 cssWidth: 320,
                 cssHeight: 180,
               }),
-            ),
+              primaryVisualDescriptorRequest({
+                requestId: `video-table-${video.id}`,
+                ownerKind: "video",
+                ownerId: video.id,
+                sourcePath: video.coverPath,
+                roleId: "video_table",
+                cssWidth: 80,
+                cssHeight: 48,
+              }),
+            ]),
           );
           if (!cancelled) {
             setConfig(
@@ -48,6 +57,8 @@ function VideoCollectionPage() {
                   ...video,
                   coverPath:
                     descriptorAssetPath(descriptors.get(`video-collection-${video.id}`)) ?? "",
+                  tableCoverPath:
+                    descriptorAssetPath(descriptors.get(`video-table-${video.id}`)) ?? "",
                 })),
               ),
             );

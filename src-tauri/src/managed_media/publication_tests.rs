@@ -166,7 +166,8 @@ impl TestEnvironment {
             &self.root,
             &self.processor,
             RecoveryScope::Operation(OperationIdentity::new(operation).expect("operation")),
-        )?;
+        )
+        .map_err(|error| error.source)?;
         Ok(outcomes.into_iter().next().expect("one outcome").outcome)
     }
 
@@ -828,7 +829,7 @@ fn bounded_recovery_limit_is_enforced_without_root_or_catalog_scan() {
                 maximum_operations: 0
             }
         ),
-        Err(PublicationError::RecoveryStateConflict)
+        Err(error) if matches!(error.source, PublicationError::RecoveryStateConflict)
     ));
 }
 
@@ -1099,6 +1100,80 @@ fn lifecycle_publication_rejects_replaced_claim_after_immutable_rename_without_a
         .resolve(prepared.relative_path())
         .expect("immutable final")
         .exists());
+}
+
+#[test]
+fn recovery_reconciles_superseded_lifecycle_publication_without_promoting_stale_output() {
+    let environment = TestEnvironment::new("lifecycle-superseded-recovery");
+    let result = environment.process(63);
+    let item = indexed_hash(9_021);
+    let variant = indexed_hash(9_022);
+    environment.insert_item(&item, &result.source_sha256, None);
+    let lifecycle = prepare_claimed_lifecycle(&environment, &item, &result, "obsolete");
+    let prepared = prepare_lifecycle_publication(
+        environment.connection(),
+        &environment.root,
+        &environment.processor,
+        request("operation-phase-obsolete", &item, &variant, &result),
+        &lifecycle,
+        &ExecutorTimestamp::from_millis(2_000).expect("preparation time"),
+    )
+    .expect("prepare publication");
+    execute_lifecycle_publication_filesystem(&environment.root, &environment.processor, &prepared)
+        .expect("publish immutable output");
+
+    let replacement_intent =
+        LifecycleIntentIdentity::new("publication-intent-replacement").expect("replacement intent");
+    queue_intent(
+        environment.connection(),
+        &NewLifecycleIntent {
+            intent_id: replacement_intent.clone(),
+            item_id: item.clone(),
+            revision: ItemRevision::new(2).expect("replacement revision"),
+            action: LifecycleAction::Generate,
+            expected_locator_hash: hash('f'),
+        },
+        "2001",
+    )
+    .expect("queue replacement");
+    add_target(
+        environment.connection(),
+        &NewLifecycleTarget {
+            target_id: LifecycleTargetIdentity::new("publication-target-replacement")
+                .expect("replacement target"),
+            intent_id: replacement_intent.clone(),
+            item_id: item.clone(),
+            revision: ItemRevision::new(2).expect("replacement revision"),
+            role: RoleId::VideoTable,
+            class: VariantClass::Standard(TierId::Thumbnail),
+        },
+        "2001",
+    )
+    .expect("replacement target");
+
+    assert_eq!(
+        environment
+            .recover("operation-phase-obsolete")
+            .expect("recovery"),
+        RecoveryOutcome::ReconciledObsoleteLifecycle
+    );
+    assert_eq!(
+        environment.operation_state("operation-phase-obsolete"),
+        ("cancelled".to_string(), "recovered".to_string())
+    );
+    assert!(!environment.variant_exists(&variant));
+    assert_eq!(environment.current_source(&item), None);
+    assert_eq!(
+        environment
+            .connection()
+            .query_row(
+                "SELECT lifecycle_state FROM managed_media_lifecycle_intents WHERE intent_id = ?1",
+                [replacement_intent.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("replacement state"),
+        "queued"
+    );
 }
 
 fn micros(duration: Duration) -> u128 {

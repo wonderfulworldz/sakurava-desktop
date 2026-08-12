@@ -236,6 +236,154 @@ fn resolves_an_accessible_original_when_no_managed_item_exists() {
 }
 
 #[test]
+fn repeated_locator_descriptor_prefers_active_current_item_over_historical_rows() {
+    let environment = environment("historical-authority", false, "active");
+    environment
+        .connection
+        .execute(
+            "CREATE TABLE images (id TEXT PRIMARY KEY, sakuravaRef TEXT, coverPath TEXT)",
+            [],
+        )
+        .expect("image table");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO images (id, sakuravaRef, coverPath) VALUES ('image-1', 'I-1', '')",
+            [],
+        )
+        .expect("image owner");
+    let locator = canonical_locator_hash(
+        SourceLocatorKind::ExternalDirectoryEntry,
+        &environment.source_path.to_string_lossy(),
+    )
+    .expect("gallery locator");
+    let active_item = "3".repeat(64);
+    for (item_id, token, state, revision, current_source) in [
+        (
+            active_item.clone(),
+            "authoritative-active",
+            "active",
+            1_i64,
+            Some("5".repeat(64)),
+        ),
+        ("0".repeat(64), "historical-retired", "retired", 3_i64, None),
+        ("2".repeat(64), "historical-pending", "pending", 4_i64, None),
+    ] {
+        environment
+            .connection
+            .execute(
+                "INSERT INTO managed_media_items (
+                   item_id, owner_kind, owner_id, slot_kind, slot_token, source_locator_kind,
+                   locator_hash, current_source_fingerprint, pending_source_fingerprint,
+                   source_availability_state, lifecycle_state, created_at, updated_at
+                 ) VALUES (?1, 'image', 'image-1', 'gallery_tile', ?2, 'external_directory_entry',
+                   ?3, ?4, NULL, 'available', ?5, 'historical', 'historical')",
+                params![item_id, token, locator, current_source, state],
+            )
+            .expect("historical item");
+        environment
+            .connection
+            .execute(
+                "INSERT INTO managed_media_item_generations (
+                   managed_item_id, current_revision, desired_revision, created_at, updated_at
+                 ) VALUES (?1, ?2, ?3, 'historical', 'historical')",
+                params![item_id, if state == "active" { 1 } else { 0 }, revision],
+            )
+            .expect("historical generation");
+    }
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_operations (
+               operation_id, scope_kind, scope_payload_json, operation_state, total_count,
+               completed_count, succeeded_count, skipped_count, failed_count, journal_state,
+               created_at, updated_at, finished_at
+             ) VALUES ('gallery-op', 'media_item', '{}', 'completed', 1, 1, 1, 0, 0,
+               'published', 'now', 'now', 'now')",
+            [],
+        )
+        .expect("gallery operation");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_lifecycle_intents (
+               intent_id, managed_item_id, desired_revision, lifecycle_action,
+               expected_locator_hash, lifecycle_state, created_at, updated_at, finished_at
+             ) VALUES ('gallery-intent', ?1, 1, 'generate', ?2, 'completed',
+               'now', 'now', 'now')",
+            params![active_item, locator],
+        )
+        .expect("gallery intent");
+    let variant_id = "4".repeat(64);
+    let relative_path = "managed-media/v1/gallery-authoritative.png";
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_variants (
+               variant_id, managed_item_id, role_id, family, variant_class, standard_tier,
+               source_fingerprint, profile_version, output_format, format_version,
+               encoder_version, relative_path, width, height, byte_length, checksum,
+               publication_state, validated_at, published_at, created_at, updated_at
+             ) VALUES (?1, ?2, 'image_gallery_tile', 'SQUARE_1_1', 'standard', 'THUMBNAIL',
+               ?3, 'managed-media-profile-v1', 'png', 'v1', 'test', ?4, 320, 320, 1, ?5,
+               'published', 'now', 'now', 'now', 'now')",
+            params![
+                variant_id,
+                active_item,
+                "5".repeat(64),
+                relative_path,
+                "6".repeat(64)
+            ],
+        )
+        .expect("gallery variant");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_lifecycle_targets (
+               target_id, intent_id, managed_item_id, desired_revision, role_id, variant_class,
+               standard_tier, target_state, publication_operation_id, result_variant_id,
+               created_at, updated_at
+             ) VALUES ('gallery-target', 'gallery-intent', ?1, 1, 'image_gallery_tile',
+               'standard', 'THUMBNAIL', 'published', 'gallery-op', ?2, 'now', 'now')",
+            params![active_item, variant_id],
+        )
+        .expect("gallery target");
+    let output = environment
+        .root
+        .resolve(relative_path)
+        .expect("managed path");
+    fs::create_dir_all(output.parent().expect("managed parent")).expect("managed parent");
+    fs::write(output, b"synthetic-managed").expect("managed output");
+    let locator_request = ManagedMediaDescriptorRequest {
+        request_id: "image-1:gallery".to_string(),
+        owner_kind: "image".to_string(),
+        owner_id: "image-1".to_string(),
+        slot_kind: "gallery_tile".to_string(),
+        slot_token: None,
+        source_path: Some(environment.source_path.display().to_string()),
+        role_id: "image_gallery_tile".to_string(),
+        intent: "ordinary_role".to_string(),
+        css_width: 160.0,
+        css_height: 160.0,
+        device_pixel_ratio: 1.0,
+    };
+
+    let descriptor = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![locator_request],
+    )
+    .pop()
+    .expect("descriptor");
+    assert_eq!(
+        descriptor.selected_source_class, "managed_standard",
+        "{descriptor:?}"
+    );
+    assert_eq!(descriptor.fallback_reason, "current_managed");
+    assert!(descriptor.managed_available);
+}
+
+#[test]
 fn retired_item_never_falls_back_to_original() {
     let environment = environment("retired", true, "retired");
     let descriptor = resolve_descriptor_batch(

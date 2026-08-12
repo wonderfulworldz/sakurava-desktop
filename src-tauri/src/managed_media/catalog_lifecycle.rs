@@ -483,15 +483,20 @@ pub fn plan_repeated_slots(
         if previous.contains_key(&locator_hash) {
             continue;
         }
-        let slot_token = token_generator()?;
-        SlotToken::new(slot_token.clone())?;
-        if !generated_tokens.insert(slot_token.clone())
-            || existing_slots
-                .iter()
-                .any(|existing| existing.slot_token == slot_token)
-        {
-            return Err("Managed-media repeated-slot token is duplicated.".to_string());
-        }
+        let slot_token = if let Some(existing) = existing.get(&locator_hash) {
+            existing.slot_token.clone()
+        } else {
+            let generated = token_generator()?;
+            SlotToken::new(generated.clone())?;
+            if !generated_tokens.insert(generated.clone())
+                || existing_slots
+                    .iter()
+                    .any(|existing| existing.slot_token == generated)
+            {
+                return Err("Managed-media repeated-slot token is duplicated.".to_string());
+            }
+            generated
+        };
         added.push(AddedRepeatedSlot {
             slot_token,
             locator,
@@ -654,9 +659,8 @@ fn reconcile_repeated(
     let previous_entries = parse_persisted_string_array(previous_json)?;
     let final_entries = parse_persisted_string_array(final_json)?;
     let existing_items = load_items(connection, owner_kind, owner_id, Some(slot_kind))?;
-    let existing_slots = existing_items
-        .iter()
-        .filter(|item| item.lifecycle_state != "retired")
+    let existing_slots = authoritative_existing_items(&existing_items)
+        .into_iter()
         .map(|item| ExistingRepeatedSlot {
             slot_token: item.slot_token.clone(),
             locator_hash: item.locator_hash.clone(),
@@ -959,6 +963,7 @@ struct StoredItem {
     slot_token: String,
     locator_hash: String,
     lifecycle_state: String,
+    desired_revision: i64,
 }
 
 fn load_items(
@@ -968,11 +973,16 @@ fn load_items(
     slot_kind: Option<SlotKind>,
 ) -> Result<Vec<StoredItem>, String> {
     let mut query = String::from(
-        "SELECT item_id, owner_kind, owner_id, slot_kind, slot_token, locator_hash, lifecycle_state
-         FROM managed_media_items WHERE owner_kind = ?1 AND owner_id = ?2",
+        "SELECT item.item_id, item.owner_kind, item.owner_id, item.slot_kind,
+                item.slot_token, item.locator_hash, item.lifecycle_state,
+                COALESCE(generation.desired_revision, 0)
+         FROM managed_media_items item
+         LEFT JOIN managed_media_item_generations generation
+           ON generation.managed_item_id = item.item_id
+         WHERE item.owner_kind = ?1 AND item.owner_id = ?2",
     );
     if slot_kind.is_some() {
-        query.push_str(" AND slot_kind = ?3");
+        query.push_str(" AND item.slot_kind = ?3");
     }
     query.push_str(" ORDER BY slot_kind, slot_token");
     let mut statement = connection.prepare(&query).map_err(database_error)?;
@@ -1004,10 +1014,20 @@ fn load_item_by_token(
 ) -> Result<Option<StoredItem>, String> {
     connection
         .query_row(
-            "SELECT item_id, owner_kind, owner_id, slot_kind, slot_token, locator_hash, lifecycle_state
-             FROM managed_media_items
-             WHERE owner_kind = ?1 AND owner_id = ?2 AND slot_kind = ?3 AND slot_token = ?4",
-            params![owner_kind.as_str(), owner_id, slot_kind.as_str(), slot_token],
+            "SELECT item.item_id, item.owner_kind, item.owner_id, item.slot_kind,
+                     item.slot_token, item.locator_hash, item.lifecycle_state,
+                     COALESCE(generation.desired_revision, 0)
+              FROM managed_media_items item
+              LEFT JOIN managed_media_item_generations generation
+                ON generation.managed_item_id = item.item_id
+              WHERE item.owner_kind = ?1 AND item.owner_id = ?2
+                AND item.slot_kind = ?3 AND item.slot_token = ?4",
+            params![
+                owner_kind.as_str(),
+                owner_id,
+                slot_kind.as_str(),
+                slot_token
+            ],
             stored_item,
         )
         .optional()
@@ -1017,8 +1037,13 @@ fn load_item_by_token(
 fn load_item_by_id(connection: &Connection, item_id: &str) -> Result<Option<StoredItem>, String> {
     connection
         .query_row(
-            "SELECT item_id, owner_kind, owner_id, slot_kind, slot_token, locator_hash, lifecycle_state
-             FROM managed_media_items WHERE item_id = ?1",
+            "SELECT item.item_id, item.owner_kind, item.owner_id, item.slot_kind,
+                    item.slot_token, item.locator_hash, item.lifecycle_state,
+                    COALESCE(generation.desired_revision, 0)
+             FROM managed_media_items item
+             LEFT JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = item.item_id
+             WHERE item.item_id = ?1",
             [item_id],
             stored_item,
         )
@@ -1035,7 +1060,40 @@ fn stored_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredItem> {
         slot_token: row.get(4)?,
         locator_hash: row.get(5)?,
         lifecycle_state: row.get(6)?,
+        desired_revision: row.get(7)?,
     })
+}
+
+fn authoritative_existing_items(items: &[StoredItem]) -> Vec<&StoredItem> {
+    let mut by_locator = BTreeMap::<&str, &StoredItem>::new();
+    for item in items
+        .iter()
+        .filter(|item| item.lifecycle_state != "invalid")
+    {
+        by_locator
+            .entry(item.locator_hash.as_str())
+            .and_modify(|current| {
+                if item_authority(item) > item_authority(current) {
+                    *current = item;
+                }
+            })
+            .or_insert(item);
+    }
+    by_locator.into_values().collect()
+}
+
+fn item_authority(item: &StoredItem) -> (u8, i64, std::cmp::Reverse<&str>) {
+    let lifecycle_rank = match item.lifecycle_state.as_str() {
+        "active" => 3,
+        "pending" => 2,
+        "retired" => 1,
+        _ => 0,
+    };
+    (
+        lifecycle_rank,
+        item.desired_revision,
+        std::cmp::Reverse(item.item_id.as_str()),
+    )
 }
 
 fn parse_persisted_string_array(value: &str) -> Result<Vec<String>, String> {

@@ -87,6 +87,7 @@ pub enum RecoveryOutcome {
     FinalizedJournalState,
     RemovedExactStagingRemnant,
     MarkedFailedPreservingPrevious,
+    ReconciledObsoleteLifecycle,
 }
 
 #[derive(Debug, Clone)]
@@ -1204,6 +1205,28 @@ pub(crate) fn apply_recovery(
         .unchecked_transaction()
         .map_err(|_| PublicationError::DescriptorTransactionFailure)?;
     validate_recovery_plan(&transaction, plan)?;
+    if lifecycle.is_some() && obsolete_superseded_lifecycle(&transaction, &plan.payload)? {
+        let now = timestamp();
+        let updated = transaction
+            .execute(
+                "UPDATE managed_media_operations
+                 SET operation_state = 'cancelled', journal_state = 'recovered',
+                     completed_count = 1, succeeded_count = 0, skipped_count = 1,
+                     failed_count = 0,
+                     failure_summary = 'obsolete publication superseded by newer lifecycle revision',
+                     updated_at = ?2, finished_at = ?2
+                 WHERE operation_id = ?1",
+                (&plan.operation_id, &now),
+            )
+            .map_err(|_| PublicationError::JournalTransitionFailure)?;
+        if updated != 1 {
+            return Err(PublicationError::JournalTransitionFailure);
+        }
+        transaction
+            .commit()
+            .map_err(|_| PublicationError::JournalTransitionFailure)?;
+        return Ok(RecoveryOutcome::ReconciledObsoleteLifecycle);
+    }
     let now = timestamp();
     let transitioned = transaction
         .execute(
@@ -1240,6 +1263,84 @@ pub(crate) fn apply_recovery(
         "publishing" => RecoveryOutcome::CompletedDescriptorActivation,
         _ => RecoveryOutcome::CompletedImmutablePublication,
     })
+}
+
+fn obsolete_superseded_lifecycle(
+    transaction: &Transaction<'_>,
+    payload: &JournalPayload,
+) -> Result<bool, PublicationError> {
+    let Some(intent_id) = payload.lifecycle_intent_id.as_deref() else {
+        return Ok(false);
+    };
+    let Some(target_id) = payload.lifecycle_target_id.as_deref() else {
+        return Ok(false);
+    };
+    let Some(revision) = payload.lifecycle_revision else {
+        return Ok(false);
+    };
+    let lifecycle_action = payload
+        .lifecycle_action
+        .as_deref()
+        .ok_or(PublicationError::RecoveryStateConflict)?;
+    let row = transaction
+        .query_row(
+            "SELECT intent.managed_item_id, intent.desired_revision,
+                    intent.lifecycle_action, intent.lifecycle_state,
+                    intent.superseded_by_intent_id, target.managed_item_id,
+                    target.desired_revision, target.intent_id, target.target_state,
+                    replacement.managed_item_id, replacement.desired_revision
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_lifecycle_targets target ON target.target_id = ?2
+             LEFT JOIN managed_media_lifecycle_intents replacement
+               ON replacement.intent_id = intent.superseded_by_intent_id
+             WHERE intent.intent_id = ?1",
+            (intent_id, target_id),
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, i64>(6)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, String>(8)?,
+                    row.get::<_, Option<String>>(9)?,
+                    row.get::<_, Option<i64>>(10)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| PublicationError::RecoveryStateConflict)?;
+    let Some((
+        intent_item,
+        intent_revision,
+        intent_action,
+        intent_state,
+        superseding_intent,
+        target_item,
+        target_revision,
+        target_intent,
+        target_state,
+        replacement_item,
+        replacement_revision,
+    )) = row
+    else {
+        return Ok(false);
+    };
+    let revision = i64::try_from(revision).map_err(|_| PublicationError::RecoveryStateConflict)?;
+    Ok(intent_item == payload.item_id
+        && target_item == payload.item_id
+        && intent_revision == revision
+        && target_revision == revision
+        && intent_action == lifecycle_action
+        && target_intent == intent_id
+        && intent_state == "superseded"
+        && target_state == "superseded"
+        && superseding_intent.is_some()
+        && replacement_item.as_deref() == Some(payload.item_id.as_str())
+        && replacement_revision.is_some_and(|replacement| replacement > revision))
 }
 
 fn validate_recovery_plan(

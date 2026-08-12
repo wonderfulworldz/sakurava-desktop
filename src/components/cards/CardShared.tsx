@@ -5,6 +5,15 @@ import { localImagePathToAssetSrc } from "../../runtime/localAsset";
 import { useMediaAssetScopeReady } from "../../runtime/MediaAssetScopeContext";
 import { useTranslation } from "../../lib/LanguageContext";
 import { formatMoreCount, translateUiDisplayLabel } from "../../lib/uiDisplayLabels";
+import {
+  descriptorAssetPath,
+  primaryVisualDescriptorRequest,
+  resolveManagedMediaDescriptors,
+} from "../../runtime/managedMediaDescriptors";
+import type {
+  ManagedMediaOwnerKind,
+  ManagedMediaRoleId,
+} from "../../shared/managedMediaDescriptor";
 
 /* ─── Display Value Helper ─── */
 
@@ -64,6 +73,11 @@ export type CardThumbnailProps = {
   placeholderLabel?: string;
   onFavoriteClick?: () => void;
   favoriteInteractive?: boolean;
+  managedMedia?: {
+    ownerKind: ManagedMediaOwnerKind;
+    ownerId: string;
+    roleId: ManagedMediaRoleId;
+  };
 };
 
 export function CardThumbnail({
@@ -74,11 +88,48 @@ export function CardThumbnail({
   placeholderLabel,
   onFavoriteClick,
   favoriteInteractive = true,
+  managedMedia,
 }: CardThumbnailProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [managedCoverPath, setManagedCoverPath] = useState<string | undefined>(
+    managedMedia ? undefined : coverPath,
+  );
   const mediaAssetScopeReady = useMediaAssetScopeReady();
-  const assetSrc = localImagePathToAssetSrc(coverPath);
+  const assetSrc = localImagePathToAssetSrc(managedMedia ? managedCoverPath : coverPath);
   const showImage = Boolean(assetSrc && mediaAssetScopeReady && !imageFailed);
+
+  useEffect(() => {
+    if (!managedMedia) {
+      setManagedCoverPath(coverPath);
+      return;
+    }
+    let cancelled = false;
+    setManagedCoverPath(undefined);
+    const requestId = `card-thumbnail-${managedMedia.ownerKind}-${managedMedia.ownerId}-${managedMedia.roleId}`;
+    void resolveManagedMediaDescriptors([
+      primaryVisualDescriptorRequest({
+        requestId,
+        ownerKind: managedMedia.ownerKind,
+        ownerId: managedMedia.ownerId,
+        sourcePath: coverPath,
+        roleId: managedMedia.roleId,
+        cssWidth: 320,
+        cssHeight: 240,
+      }),
+    ]).then((descriptors) => {
+      if (!cancelled) {
+        setManagedCoverPath(descriptorAssetPath(descriptors.get(requestId)));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    coverPath,
+    managedMedia?.ownerId,
+    managedMedia?.ownerKind,
+    managedMedia?.roleId,
+  ]);
 
   useEffect(() => {
     setImageFailed(false);

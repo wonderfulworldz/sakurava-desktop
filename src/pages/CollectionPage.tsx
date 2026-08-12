@@ -3650,7 +3650,7 @@ function CatalogTableThumbnail({
   placeholderLabel: string;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const assetSrc = localImagePathToAssetSrc(item.coverPath);
+  const assetSrc = localImagePathToAssetSrc(item.tableCoverPath ?? item.coverPath);
   const showImage = Boolean(assetSrc && !imageFailed);
   const isPerformer = item.kind === "performers";
   const Icon = item.kind === "videos" ? Video : item.kind === "images" ? ImageIcon : UserRound;

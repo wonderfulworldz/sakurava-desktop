@@ -10,6 +10,7 @@ import {
   numericStatValue,
   RatingBadge,
 } from "./CardShared";
+import type { ManagedMediaRoleId } from "../../shared/managedMediaDescriptor";
 
 type ImageLiteCardProps = {
   item: HomeRecentItem;
@@ -17,6 +18,7 @@ type ImageLiteCardProps = {
   onFavoriteClick?: () => void;
   favoriteInteractive?: boolean;
   showCensorship?: boolean;
+  managedRoleId?: ManagedMediaRoleId;
 };
 
 export function ImageLiteCard({
@@ -25,6 +27,7 @@ export function ImageLiteCard({
   onFavoriteClick,
   favoriteInteractive,
   showCensorship = true,
+  managedRoleId = "image_lite_card",
 }: ImageLiteCardProps) {
   const t = useTranslation();
   const title = displayValue(item.title);
@@ -34,7 +37,7 @@ export function ImageLiteCard({
 
   const content = (
     <>
-      <CardThumbnail coverPath={item.coverPath} alt={`${title} cover`} aspectClass="aspect-[4/3]" favorite={item.favorite} favoriteInteractive={favoriteInteractive} onFavoriteClick={onFavoriteClick} />
+      <CardThumbnail coverPath={item.coverPath} alt={`${title} cover`} aspectClass="aspect-[4/3]" favorite={item.favorite} favoriteInteractive={favoriteInteractive} onFavoriteClick={onFavoriteClick} managedMedia={{ ownerKind: "image", ownerId: item.key, roleId: managedRoleId }} />
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 px-0.5 pb-1 pt-2.5">
         <div className="flex min-w-0 items-start justify-between gap-2"><p className="min-w-0 line-clamp-2 text-sm font-bold leading-snug text-slate-950 dark:text-slate-50">{title}</p><RatingBadge rating={item.rating} /></div>
         <div className="grid min-w-0 grid-cols-4 gap-1.5">

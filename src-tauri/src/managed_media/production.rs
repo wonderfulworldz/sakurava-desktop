@@ -4,7 +4,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use rusqlite::Connection;
@@ -44,6 +44,7 @@ pub(crate) const READ_CHUNK_BYTES: usize = 262_144;
 const RETRY_ONE_MILLIS: u64 = 60_000;
 const RETRY_TWO_MILLIS: u64 = 5 * 60_000;
 const RETRY_THREE_MILLIS: u64 = 30 * 60_000;
+const SQLITE_BUSY_TIMEOUT_MILLIS: u64 = 5_000;
 
 pub struct ProductionManagedMediaRuntime {
     control: RuntimeControl,
@@ -70,7 +71,7 @@ impl ProductionManagedMediaRuntime {
                 let job_processor = worker_processor.clone();
                 let mut claim_sequence = 0_u64;
                 Ok(InertSqliteRuntimeBackend::new(
-                    move || Connection::open(&connection_path).map_err(|error| error.to_string()),
+                    move || open_managed_media_connection(&connection_path),
                     backend_root,
                     backend_processor,
                     current_epoch_millis,
@@ -151,7 +152,7 @@ fn run_claimed_job(
     claimed: ClaimedIntentSnapshot,
     ownership_lost: Arc<AtomicBool>,
 ) -> Result<(), String> {
-    let connection = Connection::open(database_path).map_err(|error| error.to_string())?;
+    let connection = open_managed_media_connection(database_path)?;
     let allowed_path = if claimed.action == LifecycleAction::Retire {
         database_path.to_path_buf()
     } else {
@@ -196,6 +197,14 @@ fn run_claimed_job(
     .execute(&claimed)
     .map(|_| ())
     .map_err(|error| error.to_string())
+}
+
+fn open_managed_media_connection(database_path: &Path) -> Result<Connection, String> {
+    let connection = Connection::open(database_path).map_err(|error| error.to_string())?;
+    connection
+        .busy_timeout(Duration::from_millis(SQLITE_BUSY_TIMEOUT_MILLIS))
+        .map_err(|error| error.to_string())?;
+    Ok(connection)
 }
 
 fn exact_source_policy(

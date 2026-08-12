@@ -333,14 +333,47 @@ fn load_item(
     }
     connection
         .query_row(
-            "SELECT item_id, lifecycle_state, locator_hash
-             FROM managed_media_items
-             WHERE owner_kind = ?1 AND owner_id = ?2 AND slot_kind = ?3 AND locator_hash = ?4",
+            "SELECT item.item_id, item.lifecycle_state, item.locator_hash
+             FROM managed_media_items item
+             LEFT JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = item.item_id
+             WHERE item.owner_kind = ?1 AND item.owner_id = ?2
+               AND item.slot_kind = ?3 AND item.locator_hash = ?4
+             ORDER BY
+               CASE
+                 WHEN item.lifecycle_state = 'active' AND EXISTS (
+                   SELECT 1
+                   FROM managed_media_lifecycle_intents intent
+                   JOIN managed_media_lifecycle_targets target
+                     ON target.intent_id = intent.intent_id
+                   JOIN managed_media_variants variant
+                     ON variant.variant_id = target.result_variant_id
+                   WHERE intent.managed_item_id = item.item_id
+                     AND intent.desired_revision = generation.current_revision
+                     AND target.role_id = ?5
+                     AND target.target_state = 'published'
+                     AND variant.publication_state = 'published'
+                 ) THEN 0
+                 WHEN item.lifecycle_state = 'active' THEN 1
+                 WHEN item.lifecycle_state = 'pending' AND EXISTS (
+                   SELECT 1 FROM managed_media_variants variant
+                   WHERE variant.managed_item_id = item.item_id
+                     AND variant.role_id = ?5
+                     AND variant.publication_state = 'published'
+                 ) THEN 2
+                 WHEN item.lifecycle_state = 'pending' THEN 3
+                 WHEN item.lifecycle_state = 'retired' THEN 4
+                 ELSE 5
+               END,
+               COALESCE(generation.desired_revision, 0) DESC,
+               item.item_id ASC
+             LIMIT 1",
             params![
                 request.owner_kind.as_str(),
                 technical_owner_id,
                 request.slot_kind.as_str(),
-                source_hash.unwrap_or_default()
+                source_hash.unwrap_or_default(),
+                request.role.as_str()
             ],
             read_item,
         )

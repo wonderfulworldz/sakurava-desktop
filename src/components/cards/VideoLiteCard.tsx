@@ -10,6 +10,7 @@ import {
   numericStatValue,
   RatingBadge,
 } from "./CardShared";
+import type { ManagedMediaRoleId } from "../../shared/managedMediaDescriptor";
 
 type VideoLiteCardProps = {
   item: HomeRecentItem;
@@ -17,6 +18,7 @@ type VideoLiteCardProps = {
   onFavoriteClick?: () => void;
   favoriteInteractive?: boolean;
   showCensorship?: boolean;
+  managedRoleId?: ManagedMediaRoleId;
 };
 
 export function VideoLiteCard({
@@ -25,6 +27,7 @@ export function VideoLiteCard({
   onFavoriteClick,
   favoriteInteractive,
   showCensorship = true,
+  managedRoleId = "video_lite_card",
 }: VideoLiteCardProps) {
   const t = useTranslation();
   const title = displayValue(item.title);
@@ -41,6 +44,11 @@ export function VideoLiteCard({
         favorite={item.favorite}
         favoriteInteractive={favoriteInteractive}
         onFavoriteClick={onFavoriteClick}
+        managedMedia={{
+          ownerKind: "video",
+          ownerId: item.key,
+          roleId: managedRoleId,
+        }}
       />
 
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 px-0.5 pb-1 pt-2.5">
