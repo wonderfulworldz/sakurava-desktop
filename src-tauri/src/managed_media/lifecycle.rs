@@ -370,6 +370,7 @@ pub enum ClaimOwnershipStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClaimRenewalOutcome {
     Renewed,
+    Settled,
     LostOwnership,
     Cancelled,
     StaleRevision,
@@ -972,8 +973,28 @@ pub fn renew_claim(
         now,
     )?;
     if status != ClaimOwnershipStatus::Owned {
+        let outcome = if status == ClaimOwnershipStatus::InvalidState {
+            let context = load_claim_context(&transaction, claimed.intent_id.as_str())?;
+            if context.item_id == claimed.item_id
+                && context.revision == claimed.revision
+                && matches!(
+                    context.state,
+                    LifecycleState::RetryWait
+                        | LifecycleState::Completed
+                        | LifecycleState::CompletedWithFailures
+                        | LifecycleState::Failed
+                        | LifecycleState::RecoveryRequired
+                )
+            {
+                ClaimRenewalOutcome::Settled
+            } else {
+                ClaimRenewalOutcome::InvalidState
+            }
+        } else {
+            renewal_outcome(status)
+        };
         transaction.commit()?;
-        return Ok(renewal_outcome(status));
+        return Ok(outcome);
     }
     let updated = transaction.execute(
         "UPDATE managed_media_lifecycle_intents

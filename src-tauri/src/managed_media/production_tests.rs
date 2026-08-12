@@ -69,7 +69,12 @@ fn synthetic_png(path: &Path) {
     fs::write(path, bytes).expect("write source");
 }
 
-fn prepare_image_owner(database: &RuntimeDatabase, owner_id: &str, source_path: &str) {
+fn prepare_image_owner_at(
+    database: &RuntimeDatabase,
+    owner_id: &str,
+    source_path: &str,
+    now: &str,
+) {
     let shared = database.connection();
     let connection = shared.lock().expect("database lock");
     let transaction = connection.unchecked_transaction().expect("transaction");
@@ -81,7 +86,7 @@ fn prepare_image_owner(database: &RuntimeDatabase, owner_id: &str, source_path: 
                 owner_id,
                 "Managed Pipeline Fixture",
                 source_path,
-                "1753747200000"
+                now
             ],
         )
         .expect("image owner");
@@ -95,10 +100,30 @@ fn prepare_image_owner(database: &RuntimeDatabase, owner_id: &str, source_path: 
             token_sequence += 1;
             Ok(format!("production-slot-{token_sequence}"))
         },
-        "1753747200000",
+        now,
     )
     .expect("queue lifecycle work");
     transaction.commit().expect("commit owner and lifecycle");
+}
+
+fn prepare_image_owner(database: &RuntimeDatabase, owner_id: &str, source_path: &str) {
+    prepare_image_owner_at(database, owner_id, source_path, "1753747200000");
+}
+
+fn retire_image_owner(database: &RuntimeDatabase, owner_id: &str, source_path: &str, now: &str) {
+    let shared = database.connection();
+    let connection = shared.lock().expect("database lock");
+    let transaction = connection.unchecked_transaction().expect("transaction");
+    let previous = OwnerSources::image(owner_id, source_path, "[]");
+    reconcile_owner_mutation(
+        &transaction,
+        Some(&previous),
+        None,
+        &mut || Ok("unused-retirement-token".to_string()),
+        now,
+    )
+    .expect("queue owner retirement");
+    transaction.commit().expect("commit owner retirement");
 }
 
 fn intent_state(database: &RuntimeDatabase) -> (String, u64, Option<u64>) {
@@ -140,6 +165,78 @@ fn wait_for_intent(
             snapshot.last_error
         );
         assert!(Instant::now() < deadline, "intent remained in {}", state.0);
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn intent_state_for_owner_action(
+    database: &RuntimeDatabase,
+    owner_id: &str,
+    action: &str,
+) -> (String, u64, Option<u64>, Option<String>) {
+    let shared = database.connection();
+    let connection = shared.lock().expect("database lock");
+    connection
+        .query_row(
+            "SELECT intent.lifecycle_state, intent.attempt_count, intent.retry_eligible_at,
+                    intent.failure_summary
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_items item ON item.item_id = intent.managed_item_id
+             WHERE item.owner_kind = 'image' AND item.owner_id = ?1
+               AND intent.lifecycle_action = ?2
+             ORDER BY CAST(intent.created_at AS INTEGER) DESC, intent.intent_id DESC LIMIT 1",
+            params![owner_id, action],
+            |row| {
+                let retry = row
+                    .get::<_, Option<String>>(2)?
+                    .and_then(|value| value.parse::<u64>().ok());
+                Ok((
+                    row.get(0)?,
+                    row.get::<_, i64>(1)? as u64,
+                    retry,
+                    row.get(3)?,
+                ))
+            },
+        )
+        .expect("owner intent state")
+}
+
+fn wait_for_owner_intent(
+    database: &RuntimeDatabase,
+    runtime: &ProductionManagedMediaRuntime,
+    owner_id: &str,
+    action: &str,
+    expected: &str,
+    timeout: Duration,
+) -> (String, u64, Option<u64>, Option<String>) {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let state = intent_state_for_owner_action(database, owner_id, action);
+        if state.0 == expected {
+            return state;
+        }
+        assert!(
+            !matches!(
+                state.0.as_str(),
+                "failed" | "cancelled" | "superseded" | "recovery_required"
+            ),
+            "{owner_id} {action} reached unexpected {}: {:?}",
+            state.0,
+            state.3
+        );
+        let snapshot = runtime.snapshot();
+        assert_ne!(
+            snapshot.status,
+            SupervisorStatus::Disabled,
+            "runtime disabled: {:?}",
+            snapshot.last_error
+        );
+        assert!(
+            Instant::now() < deadline,
+            "{owner_id} {action} remained in {}: {:?}",
+            state.0,
+            state.3
+        );
         std::thread::sleep(Duration::from_millis(20));
     }
 }
@@ -256,6 +353,74 @@ fn production_runtime_processes_queued_image_and_descriptor_selects_managed_mini
     let managed_path = descriptor.asset_path.expect("managed path");
     assert_ne!(managed_path, source.display().to_string());
     assert!(Path::new(&managed_path).is_file());
+}
+
+#[test]
+fn production_runtime_survives_fast_retirement_and_processes_later_queued_generation() {
+    let temporary = ProductionTestRoot::new("terminal-retirement");
+    let app_data = temporary.path().join("Sakurava");
+    let retired_source = temporary.path().join("retired-source.png");
+    let later_source = temporary.path().join("later-source.png");
+    synthetic_png(&retired_source);
+    synthetic_png(&later_source);
+    let database = prepare_database(&app_data).expect("database");
+    let retired_source_text = retired_source.display().to_string();
+    prepare_image_owner_at(
+        &database,
+        "image-retired-before-renewal",
+        &retired_source_text,
+        "1753747200000",
+    );
+    retire_image_owner(
+        &database,
+        "image-retired-before-renewal",
+        &retired_source_text,
+        "1753747200001",
+    );
+    let later_source_text = later_source.display().to_string();
+    prepare_image_owner_at(
+        &database,
+        "image-generated-after-retirement",
+        &later_source_text,
+        "1753747200002",
+    );
+
+    let runtime = ProductionManagedMediaRuntime::start(&database).expect("runtime");
+    wait_for_owner_intent(
+        &database,
+        &runtime,
+        "image-retired-before-renewal",
+        "retire",
+        "retired",
+        Duration::from_secs(5),
+    );
+    assert_eq!(runtime.snapshot().status, SupervisorStatus::Running);
+    wait_for_owner_intent(
+        &database,
+        &runtime,
+        "image-generated-after-retirement",
+        "generate",
+        "completed",
+        Duration::from_secs(15),
+    );
+    assert_eq!(runtime.snapshot().status, SupervisorStatus::Running);
+    runtime.shutdown().expect("bounded shutdown");
+
+    let managed_root = ManagedMediaRoot::from_app_data_dir(&app_data).expect("managed root");
+    let shared = database.connection();
+    let connection = shared.lock().expect("database lock");
+    let descriptor = resolve_descriptor_batch(
+        &connection,
+        &managed_root,
+        vec![descriptor_request(
+            "image-generated-after-retirement",
+            &later_source_text,
+        )],
+    )
+    .pop()
+    .expect("descriptor");
+    assert_eq!(descriptor.selected_source_class, "managed_standard");
+    assert!(descriptor.managed_available);
 }
 
 #[test]

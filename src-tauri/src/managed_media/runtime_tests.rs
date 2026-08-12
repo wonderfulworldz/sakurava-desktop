@@ -15,8 +15,8 @@ use super::{
     executor::ExecutorPolicy,
     identity::{LifecycleIntentIdentity, ValidatedSha256},
     lifecycle::{
-        initialize_item_generation, queue_intent, ExecutorTimestamp, ItemRevision, LifecycleAction,
-        NewLifecycleIntent,
+        complete_retirement, initialize_item_generation, queue_intent, ExecutorTimestamp,
+        ItemRevision, LifecycleAction, NewLifecycleIntent,
     },
     path::ManagedMediaRoot,
     processor::ManagedMediaProcessor,
@@ -322,7 +322,10 @@ fn recovery_precedes_dispatch_and_more_pending_schedules_follow_up() {
     });
     assert_eq!(snapshot.status, SupervisorStatus::Running);
     let events = state.0.lock().expect("state").events.clone();
-    assert_eq!(&events[..3], &["recovery", "recovery", "dispatch"]);
+    assert_eq!(
+        &events[..4],
+        &["recovery", "recovery", "renew", "dispatch"]
+    );
     control.shutdown().expect("shutdown");
 }
 
@@ -445,7 +448,7 @@ fn renewal_ownership_loss_disables_further_claims() {
         }),
         Condvar::new(),
     ));
-    let control = start_with_state(state);
+    let control = start_with_state(Arc::clone(&state));
     let snapshot = control.wait_for(Duration::from_secs(1), |snapshot| {
         snapshot.status == SupervisorStatus::Disabled
     });
@@ -453,6 +456,13 @@ fn renewal_ownership_loss_disables_further_claims() {
         .last_error
         .as_deref()
         .is_some_and(|error| error.contains("lost ownership")));
+    let dispatches_at_disable = state.0.lock().expect("state").dispatches;
+    assert_eq!(control.wake(), WakeOutcome::Disabled);
+    assert_eq!(
+        state.0.lock().expect("state").dispatches,
+        dispatches_at_disable,
+        "disabled runtime must not claim later work"
+    );
     control.shutdown().expect("shutdown");
 }
 
@@ -671,6 +681,171 @@ fn concrete_inert_backend_bounds_workers_and_renews_registered_claims() {
         thread::sleep(Duration::from_millis(5));
     }
     assert_eq!(backend.active_claim_count().expect("final active count"), 0);
+}
+
+#[test]
+fn terminal_retirement_reconciles_without_disabling_later_queued_work() {
+    let temporary = RuntimeTestRoot::new();
+    let database_path = temporary.path().join("terminal-retirement.sqlite");
+    let connection = Connection::open(&database_path).expect("database");
+    schema::initialize_schema(&connection).expect("schema");
+    let retirement_item =
+        ValidatedSha256::new(format!("{:064x}", 91_u64)).expect("retirement item identity");
+    let retirement_locator =
+        ValidatedSha256::new(format!("{:064x}", 92_u64)).expect("retirement locator identity");
+    let generation_item =
+        ValidatedSha256::new(format!("{:064x}", 93_u64)).expect("generation item identity");
+    let generation_locator =
+        ValidatedSha256::new(format!("{:064x}", 94_u64)).expect("generation locator identity");
+    let insert_work = |item: &ValidatedSha256,
+                       locator: &ValidatedSha256,
+                       owner_id: &str,
+                       intent_id: &str,
+                       action: LifecycleAction,
+                       created_at: &str| {
+        connection
+            .execute(
+                "INSERT INTO managed_media_items (
+                   item_id, owner_kind, owner_id, slot_kind, slot_token,
+                   source_locator_kind, locator_hash, source_availability_state,
+                   lifecycle_state, created_at, updated_at
+                 ) VALUES (?1, 'video', ?2, 'primary_visual', 'primary_visual',
+                           'external_file', ?3, 'available', 'active', ?4, ?4)",
+                params![item.as_str(), owner_id, locator.as_str(), created_at],
+            )
+            .expect("item");
+        initialize_item_generation(&connection, item, created_at).expect("generation");
+        queue_intent(
+            &connection,
+            &NewLifecycleIntent {
+                intent_id: LifecycleIntentIdentity::new(intent_id).expect("intent"),
+                item_id: item.clone(),
+                revision: ItemRevision::new(1).expect("revision"),
+                action,
+                expected_locator_hash: locator.clone(),
+            },
+            created_at,
+        )
+        .expect("queue");
+    };
+    insert_work(
+        &retirement_item,
+        &retirement_locator,
+        "retirement-owner",
+        "terminal-retirement-intent",
+        LifecycleAction::Retire,
+        "1753747200000",
+    );
+    insert_work(
+        &generation_item,
+        &generation_locator,
+        "later-generation-owner",
+        "later-generation-intent",
+        LifecycleAction::Generate,
+        "1753747200001",
+    );
+    drop(connection);
+
+    let terminal_gate = Arc::new((Mutex::new((false, false)), Condvar::new()));
+    let runner_gate = Arc::clone(&terminal_gate);
+    let later_generation_runs = Arc::new(AtomicU32::new(0));
+    let runner_generation_runs = Arc::clone(&later_generation_runs);
+    let open_path = database_path.clone();
+    let worker_path = database_path.clone();
+    let managed_root = ManagedMediaRoot::from_app_data_dir(temporary.path()).expect("managed root");
+    let claim_clock = Arc::new(AtomicU64::new(1_753_747_200_010));
+    let clock_sequence = Arc::clone(&claim_clock);
+    let claim_sequence = Arc::new(AtomicU64::new(0));
+    let token_sequence = Arc::clone(&claim_sequence);
+    let mut backend = InertSqliteRuntimeBackend::new(
+        move || Connection::open(&open_path).map_err(|error| error.to_string()),
+        managed_root,
+        ManagedMediaProcessor::default(),
+        move || Ok(clock_sequence.fetch_add(1, Ordering::SeqCst)),
+        move || {
+            Ok(format!(
+                "terminal-retirement-claim-{}",
+                token_sequence.fetch_add(1, Ordering::SeqCst)
+            ))
+        },
+        move |claimed, _ownership_lost| match claimed.action {
+            LifecycleAction::Retire => {
+                let connection = Connection::open(&worker_path).map_err(|error| error.to_string())?;
+                complete_retirement(
+                    &connection,
+                    &claimed.item_id,
+                    claimed.revision,
+                    &claimed.intent_id,
+                    &claimed.claim_token,
+                    &ExecutorTimestamp::from_millis(1_753_747_200_050)
+                        .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())?;
+                let (state, changed) = &*runner_gate;
+                let mut state = state.lock().expect("terminal gate");
+                state.0 = true;
+                changed.notify_all();
+                while !state.1 {
+                    state = changed.wait(state).expect("terminal release");
+                }
+                Ok(())
+            }
+            LifecycleAction::Generate => {
+                runner_generation_runs.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+            LifecycleAction::RepairMissing | LifecycleAction::Regenerate => {
+                Err("unexpected lifecycle action in terminal-retirement fixture".to_string())
+            }
+        },
+    );
+
+    let first = backend
+        .dispatch_lifecycle(policy().executor(), 1)
+        .expect("dispatch retirement");
+    assert_eq!(first.claimed, 1);
+    {
+        let (state, changed) = &*terminal_gate;
+        let state = state.lock().expect("terminal gate");
+        let (state, _) = changed
+            .wait_timeout_while(state, Duration::from_secs(1), |state| !state.0)
+            .expect("terminal completion wait");
+        assert!(state.0, "retirement did not commit");
+    }
+    let renewal = backend
+        .renew_active_claims(
+            &ExecutorTimestamp::from_millis(1_753_747_200_100).expect("renewal time"),
+            FIXTURE_LEASE_MILLIS,
+        )
+        .expect("reconcile terminal retirement");
+    assert_eq!(renewal.lost_ownership, 0);
+    assert_eq!(renewal.active_claims, 1);
+    {
+        let (state, changed) = &*terminal_gate;
+        state.lock().expect("terminal gate").1 = true;
+        changed.notify_all();
+    }
+    for _ in 0..100 {
+        if backend.active_claim_count().expect("active count") == 0 {
+            break;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(backend.active_claim_count().expect("retirement reaped"), 0);
+    let second = backend
+        .dispatch_lifecycle(policy().executor(), 1)
+        .expect("dispatch later generation");
+    assert_eq!(second.claimed, 1);
+    for _ in 0..100 {
+        if later_generation_runs.load(Ordering::SeqCst) == 1
+            && backend.active_claim_count().expect("active count") == 0
+        {
+            break;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(later_generation_runs.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.active_claim_count().expect("generation reaped"), 0);
 }
 
 #[test]

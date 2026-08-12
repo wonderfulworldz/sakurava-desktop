@@ -803,8 +803,74 @@ fn renewal_and_write_guards_report_cancelled_superseded_retired_stale_and_termin
             &timestamp(EXPIRES).checked_add_millis(1).expect("expiry"),
         )
         .expect("renewal outcome"),
-        ClaimRenewalOutcome::InvalidState
+        ClaimRenewalOutcome::Settled
     );
+}
+
+#[test]
+fn renewal_distinguishes_all_settled_attempt_states_from_invalid_state() {
+    for (offset, state, retry_at, failure_class, failure_summary) in [
+        (0, "retry_wait", Some("1753747200900"), Some("retryable"), Some("retry later")),
+        (1, "completed", None, None, None),
+        (
+            2,
+            "completed_with_failures",
+            None,
+            Some("terminal"),
+            Some("completed with failures"),
+        ),
+        (3, "failed", None, Some("terminal"), Some("terminal failure")),
+        (
+            4,
+            "recovery_required",
+            None,
+            Some("recovery_required"),
+            Some("recovery required"),
+        ),
+    ] {
+        let index = 4_400 + offset;
+        let connection = connection();
+        let item = hash(6_000 + index);
+        let locator = hash(7_000 + index);
+        insert_item(&connection, &item, &locator, None);
+        queue_intent(&connection, &new_intent(index, &item, 1, &locator), NOW).expect("queue");
+        let mut owner = claimed(
+            claim_intent(
+                &connection,
+                &intent_id(index),
+                &claim_id(index),
+                &timestamp(NOW),
+                &timestamp(EXPIRES),
+            )
+            .expect("claim"),
+        );
+        connection
+            .execute(
+                "UPDATE managed_media_lifecycle_intents
+                 SET lifecycle_state = ?2, claim_token = NULL, claim_expires_at = NULL,
+                     retry_eligible_at = ?3, failure_class = ?4, failure_summary = ?5
+                 WHERE intent_id = ?1",
+                params![
+                    owner.intent_id.as_str(),
+                    state,
+                    retry_at,
+                    failure_class,
+                    failure_summary
+                ],
+            )
+            .expect("settle attempt state");
+        assert_eq!(
+            renew_claim(
+                &connection,
+                &mut owner,
+                &timestamp(RETRY),
+                &timestamp(EXPIRES).checked_add_millis(1).expect("expiry"),
+            )
+            .expect("renewal outcome"),
+            ClaimRenewalOutcome::Settled,
+            "state {state} must reconcile as settled"
+        );
+    }
 }
 
 #[test]

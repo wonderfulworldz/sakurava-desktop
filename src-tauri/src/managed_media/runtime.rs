@@ -422,9 +422,19 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
                 .map_err(|error| error.to_string())?;
             let outcome = renew_claim(&connection, &mut active.claimed, now, &expires_at)
                 .map_err(|error| error.to_string())?;
-            if outcome != ClaimRenewalOutcome::Renewed {
-                active.ownership_lost.store(true, Ordering::Release);
-                lost.push(key.clone());
+            match outcome {
+                ClaimRenewalOutcome::Renewed
+                | ClaimRenewalOutcome::Settled
+                | ClaimRenewalOutcome::Cancelled
+                | ClaimRenewalOutcome::StaleRevision
+                | ClaimRenewalOutcome::Superseded
+                | ClaimRenewalOutcome::Retired => {}
+                ClaimRenewalOutcome::LostOwnership
+                | ClaimRenewalOutcome::Expired
+                | ClaimRenewalOutcome::InvalidState => {
+                    active.ownership_lost.store(true, Ordering::Release);
+                    lost.push(key.clone());
+                }
             }
         }
         let lost_ownership = lost.len() as u32;
@@ -897,9 +907,6 @@ fn run_supervisor_cycle(
     }
 
     shared.update(|snapshot| snapshot.phase = StartupPhase::Lifecycle);
-    let dispatch = backend
-        .dispatch_lifecycle(policy.executor(), policy.worker_capacity())
-        .map_err(|error| bounded_error("lifecycle dispatch", error))?;
     let now = clock
         .now()
         .map_err(|error| bounded_error("runtime clock", error))?;
@@ -909,6 +916,9 @@ fn run_supervisor_cycle(
     if renewal.lost_ownership > 0 {
         return Err("claim renewal lost ownership".to_string());
     }
+    let dispatch = backend
+        .dispatch_lifecycle(policy.executor(), policy.worker_capacity())
+        .map_err(|error| bounded_error("lifecycle dispatch", error))?;
     let next_due = backend
         .earliest_due(&now)
         .map_err(|error| bounded_error("earliest due lookup", error))?;
