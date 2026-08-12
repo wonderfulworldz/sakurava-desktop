@@ -155,6 +155,11 @@ fn add_variant(
     write_file: bool,
 ) {
     let variant_id = format!("{:064x}", u64::from(index) + 10);
+    let source_fingerprint = if current {
+        "c".repeat(64)
+    } else {
+        format!("{:064x}", u64::from(index) + 300)
+    };
     environment
         .connection
         .execute(
@@ -171,7 +176,7 @@ fn add_variant(
                 environment.item_id,
                 ROLE,
                 tier,
-                format!("{:064x}", u64::from(index) + 300),
+                source_fingerprint,
                 relative_path,
                 width,
                 height,
@@ -207,6 +212,116 @@ fn add_variant(
         fs::create_dir_all(output.parent().expect("managed parent")).expect("managed parent");
         fs::write(output, b"synthetic-managed").expect("managed output");
     }
+}
+
+fn begin_pending_replacement(environment: &DescriptorEnvironment) {
+    environment
+        .connection
+        .execute(
+            "UPDATE managed_media_items
+             SET pending_source_fingerprint = ?2, lifecycle_state = 'pending', updated_at = 'pending'
+             WHERE item_id = ?1",
+            params![environment.item_id, "d".repeat(64)],
+        )
+        .expect("pending item");
+    environment
+        .connection
+        .execute(
+            "UPDATE managed_media_item_generations
+             SET desired_revision = 2, updated_at = 'pending' WHERE managed_item_id = ?1",
+            [&environment.item_id],
+        )
+        .expect("pending generation");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_operations (
+               operation_id, scope_kind, scope_payload_json, operation_state, cancellation_requested,
+               total_count, completed_count, succeeded_count, skipped_count, failed_count,
+               failure_summary, journal_state, created_at, updated_at, finished_at
+             ) VALUES ('op-pending', 'media_item', '{}', 'running', 0, 1, 0, 0, 0, 0, NULL,
+               'publishing', 'pending', 'pending', NULL)",
+            [],
+        )
+        .expect("pending operation");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_lifecycle_intents (
+               intent_id, managed_item_id, desired_revision, lifecycle_action, expected_locator_hash,
+               desired_source_fingerprint, lifecycle_state, claim_token, claim_expires_at,
+               retry_eligible_at, attempt_count, cancellation_requested, superseded_by_intent_id,
+               failure_class, failure_summary, created_at, updated_at, finished_at
+             ) VALUES ('intent-pending', ?1, 2, 'generate', ?2, ?3, 'claimed', 'claim-pending',
+               'later', NULL, 1, 0, NULL, NULL, NULL, 'pending', 'pending', NULL)",
+            params![
+                environment.item_id,
+                locator_hash(&environment.source_path),
+                "d".repeat(64)
+            ],
+        )
+        .expect("pending intent");
+}
+
+fn add_pending_variant(
+    environment: &DescriptorEnvironment,
+    index: u8,
+    relative_path: &str,
+    tier: &str,
+    width: u32,
+    height: u32,
+    source_fingerprint: &str,
+) {
+    let variant_id = format!("{:064x}", u64::from(index) + 100);
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_variants (
+               variant_id, managed_item_id, role_id, family, variant_class, standard_tier,
+               source_fingerprint, profile_version, output_format, format_version, encoder_version,
+               relative_path, width, height, byte_length, checksum, publication_state,
+               validated_at, published_at, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, 'LANDSCAPE_16_9', 'standard', ?4, ?5,
+               'managed-media-profile-v1', 'png', 'v1', 'test', ?6, ?7, ?8, 1, ?9,
+               'published', 'pending', 'pending', 'pending', 'pending')",
+            params![
+                variant_id,
+                environment.item_id,
+                ROLE,
+                tier,
+                source_fingerprint,
+                relative_path,
+                width,
+                height,
+                format!("{:064x}", u64::from(index) + 200),
+            ],
+        )
+        .expect("pending variant");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_lifecycle_targets (
+               target_id, intent_id, managed_item_id, desired_revision, role_id, variant_class,
+               standard_tier, target_state, publication_operation_id, result_variant_id,
+               failure_class, failure_summary, created_at, updated_at
+             ) VALUES (?1, 'intent-pending', ?2, 2, ?3, 'standard', ?4, 'published',
+               'op-pending', ?5, NULL, NULL, 'pending', 'pending')",
+            params![
+                format!("pending-target-{index}"),
+                environment.item_id,
+                ROLE,
+                tier,
+                variant_id
+            ],
+        )
+        .expect("pending target");
+    let output = environment
+        .root
+        .resolve(relative_path)
+        .expect("pending managed path");
+    fs::create_dir_all(output.parent().expect("pending managed parent"))
+        .expect("pending managed parent");
+    fs::write(output, b"synthetic-pending-managed").expect("pending managed output");
 }
 
 #[test]
@@ -396,6 +511,190 @@ fn retired_item_never_falls_back_to_original() {
 
     assert!(descriptor.placeholder);
     assert_eq!(descriptor.fallback_reason, "owner_or_slot_retired");
+}
+
+#[test]
+fn pending_primary_uses_current_original_before_previous_source_managed_output() {
+    let environment = environment("pending-original", true, "active");
+    add_variant(
+        &environment,
+        1,
+        "items/previous-source.png",
+        "THUMBNAIL",
+        320,
+        180,
+        true,
+        true,
+    );
+    begin_pending_replacement(&environment);
+
+    let descriptor = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![request(&environment.source_path, "ordinary_role")],
+    )
+    .pop()
+    .expect("descriptor");
+
+    assert_eq!(descriptor.selected_source_class, "original");
+    assert_eq!(descriptor.fallback_reason, "current_original");
+    assert_eq!(
+        descriptor.asset_path.as_deref(),
+        environment.source_path.to_str()
+    );
+    assert!(!descriptor.stale_last_valid);
+}
+
+#[test]
+fn pending_primary_uses_safely_published_current_source_managed_output() {
+    let environment = environment("pending-current-managed", true, "active");
+    begin_pending_replacement(&environment);
+    add_pending_variant(
+        &environment,
+        1,
+        "items/pending-current.png",
+        "THUMBNAIL",
+        320,
+        180,
+        &"d".repeat(64),
+    );
+
+    let descriptor = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![request(&environment.source_path, "ordinary_role")],
+    )
+    .pop()
+    .expect("descriptor");
+
+    assert_eq!(descriptor.selected_source_class, "managed_standard");
+    assert_eq!(descriptor.fallback_reason, "current_managed");
+    assert_eq!(descriptor.tier.as_deref(), Some("THUMBNAIL"));
+    assert!(!descriptor.stale_last_valid);
+}
+
+#[test]
+fn pending_desired_revision_rejects_previous_source_fingerprint_as_current() {
+    let environment = environment("pending-stale-fingerprint", true, "active");
+    begin_pending_replacement(&environment);
+    add_pending_variant(
+        &environment,
+        1,
+        "items/wrong-source.png",
+        "THUMBNAIL",
+        320,
+        180,
+        &"c".repeat(64),
+    );
+
+    let descriptor = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![request(&environment.source_path, "ordinary_role")],
+    )
+    .pop()
+    .expect("descriptor");
+
+    assert_eq!(descriptor.selected_source_class, "original");
+    assert_eq!(descriptor.fallback_reason, "current_original");
+}
+
+#[test]
+fn pending_without_current_original_uses_previous_revision_as_last_valid() {
+    let environment = environment("pending-last-valid", false, "active");
+    add_variant(
+        &environment,
+        1,
+        "items/previous-current.png",
+        "MEDIUM",
+        1280,
+        720,
+        true,
+        true,
+    );
+    begin_pending_replacement(&environment);
+
+    let descriptor = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![request(&environment.source_path, "ordinary_role")],
+    )
+    .pop()
+    .expect("descriptor");
+
+    assert_eq!(descriptor.selected_source_class, "managed_standard");
+    assert_eq!(descriptor.fallback_reason, "last_valid_managed");
+    assert!(descriptor.stale_last_valid);
+}
+
+#[test]
+fn pending_repeated_item_uses_current_original_instead_of_retirement_placeholder() {
+    let environment = environment("pending-repeated", true, "active");
+    environment
+        .connection
+        .execute(
+            "CREATE TABLE images (id TEXT PRIMARY KEY, sakuravaRef TEXT, coverPath TEXT)",
+            [],
+        )
+        .expect("image table");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO images (id, sakuravaRef, coverPath) VALUES ('image-1', 'I-1', '')",
+            [],
+        )
+        .expect("image owner");
+    let item_id = "7".repeat(64);
+    let repeated_locator = canonical_locator_hash(
+        SourceLocatorKind::ExternalDirectoryEntry,
+        &environment.source_path.to_string_lossy(),
+    )
+    .expect("repeated locator");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_items (
+               item_id, owner_kind, owner_id, slot_kind, slot_token, source_locator_kind,
+               locator_hash, current_source_fingerprint, pending_source_fingerprint,
+               source_availability_state, lifecycle_state, created_at, updated_at
+             ) VALUES (?1, 'image', 'image-1', 'gallery_tile', 'gallery-pending',
+               'external_directory_entry', ?2, ?3, ?4, 'available', 'pending', 'now', 'now')",
+            params![item_id, repeated_locator, "c".repeat(64), "d".repeat(64)],
+        )
+        .expect("pending repeated item");
+    environment
+        .connection
+        .execute(
+            "INSERT INTO managed_media_item_generations (
+               managed_item_id, current_revision, desired_revision, created_at, updated_at
+             ) VALUES (?1, 1, 2, 'now', 'now')",
+            [&item_id],
+        )
+        .expect("pending repeated generation");
+    let repeated_request = ManagedMediaDescriptorRequest {
+        request_id: "image-1:gallery-pending".to_string(),
+        owner_kind: "image".to_string(),
+        owner_id: "image-1".to_string(),
+        slot_kind: "gallery_tile".to_string(),
+        slot_token: None,
+        source_path: Some(environment.source_path.display().to_string()),
+        role_id: "image_gallery_tile".to_string(),
+        intent: "ordinary_role".to_string(),
+        css_width: 160.0,
+        css_height: 160.0,
+        device_pixel_ratio: 1.0,
+    };
+
+    let descriptor = resolve_descriptor_batch(
+        &environment.connection,
+        &environment.root,
+        vec![repeated_request],
+    )
+    .pop()
+    .expect("descriptor");
+
+    assert_eq!(descriptor.selected_source_class, "original");
+    assert_eq!(descriptor.fallback_reason, "current_original");
 }
 
 #[test]

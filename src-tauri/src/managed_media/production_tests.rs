@@ -563,7 +563,7 @@ fn production_runtime_schedules_missing_source_without_busy_retry_and_keeps_plac
     .pop()
     .expect("descriptor");
     assert!(descriptor.placeholder);
-    assert_eq!(descriptor.fallback_reason, "owner_or_slot_retired");
+    assert_eq!(descriptor.fallback_reason, "no_safe_media_source");
 }
 
 #[test]

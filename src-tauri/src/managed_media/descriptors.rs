@@ -80,6 +80,10 @@ struct ManagedItem {
     item_id: String,
     lifecycle_state: String,
     locator_hash: String,
+    current_source_fingerprint: Option<String>,
+    pending_source_fingerprint: Option<String>,
+    current_revision: i64,
+    desired_revision: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -130,7 +134,7 @@ fn resolve_one(
         Ok(None) => return original_or_placeholder(&request, "managed_descriptor_unavailable"),
         Err(_) => return placeholder(&request.request_id, "descriptor_lookup_failed"),
     };
-    if item.lifecycle_state != "active" {
+    if !matches!(item.lifecycle_state.as_str(), "active" | "pending") {
         return placeholder(&request.request_id, "owner_or_slot_retired");
     }
 
@@ -141,11 +145,11 @@ fn resolve_one(
             item.locator_hash.as_str(),
         )),
     );
-    let current = match load_current_variants(connection, &item.item_id, request.role) {
+    let current = match load_current_variants(connection, &item, request.role) {
         Ok(variants) => variants,
         Err(_) => return placeholder(&request.request_id, "descriptor_lookup_failed"),
     };
-    let last_valid = match load_last_valid_variants(connection, &item.item_id, request.role) {
+    let last_valid = match load_last_valid_variants(connection, &item, request.role) {
         Ok(variants) => variants,
         Err(_) => return placeholder(&request.request_id, "descriptor_lookup_failed"),
     };
@@ -318,9 +322,14 @@ fn load_item(
     if let Some(slot_token) = request.slot_token.as_deref() {
         return connection
             .query_row(
-                "SELECT item_id, lifecycle_state, locator_hash
-                 FROM managed_media_items
-                 WHERE owner_kind = ?1 AND owner_id = ?2 AND slot_kind = ?3 AND slot_token = ?4",
+                "SELECT item.item_id, item.lifecycle_state, item.locator_hash,
+                        item.current_source_fingerprint, item.pending_source_fingerprint,
+                        generation.current_revision, generation.desired_revision
+                 FROM managed_media_items item
+                 JOIN managed_media_item_generations generation
+                   ON generation.managed_item_id = item.item_id
+                 WHERE item.owner_kind = ?1 AND item.owner_id = ?2
+                   AND item.slot_kind = ?3 AND item.slot_token = ?4",
                 params![
                     request.owner_kind.as_str(),
                     technical_owner_id,
@@ -333,9 +342,11 @@ fn load_item(
     }
     connection
         .query_row(
-            "SELECT item.item_id, item.lifecycle_state, item.locator_hash
+            "SELECT item.item_id, item.lifecycle_state, item.locator_hash,
+                    item.current_source_fingerprint, item.pending_source_fingerprint,
+                    generation.current_revision, generation.desired_revision
              FROM managed_media_items item
-             LEFT JOIN managed_media_item_generations generation
+             JOIN managed_media_item_generations generation
                ON generation.managed_item_id = item.item_id
              WHERE item.owner_kind = ?1 AND item.owner_id = ?2
                AND item.slot_kind = ?3 AND item.locator_hash = ?4
@@ -353,13 +364,20 @@ fn load_item(
                      AND target.role_id = ?5
                      AND target.target_state = 'published'
                      AND variant.publication_state = 'published'
+                     AND variant.source_fingerprint = item.current_source_fingerprint
                  ) THEN 0
                  WHEN item.lifecycle_state = 'active' THEN 1
                  WHEN item.lifecycle_state = 'pending' AND EXISTS (
-                   SELECT 1 FROM managed_media_variants variant
-                   WHERE variant.managed_item_id = item.item_id
-                     AND variant.role_id = ?5
+                   SELECT 1
+                   FROM managed_media_lifecycle_targets target
+                   JOIN managed_media_variants variant
+                     ON variant.variant_id = target.result_variant_id
+                   WHERE target.managed_item_id = item.item_id
+                     AND target.desired_revision = generation.desired_revision
+                     AND target.role_id = ?5
+                     AND target.target_state = 'published'
                      AND variant.publication_state = 'published'
+                     AND variant.source_fingerprint = item.pending_source_fingerprint
                  ) THEN 2
                  WHEN item.lifecycle_state = 'pending' THEN 3
                  WHEN item.lifecycle_state = 'retired' THEN 4
@@ -385,59 +403,105 @@ fn read_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ManagedItem> {
         item_id: row.get(0)?,
         lifecycle_state: row.get(1)?,
         locator_hash: row.get(2)?,
+        current_source_fingerprint: row.get(3)?,
+        pending_source_fingerprint: row.get(4)?,
+        current_revision: row.get(5)?,
+        desired_revision: row.get(6)?,
     })
 }
 
 fn load_current_variants(
     connection: &Connection,
-    item_id: &str,
+    item: &ManagedItem,
     role: RoleId,
 ) -> Result<Vec<VariantCandidate>, rusqlite::Error> {
-    load_variants(connection, item_id, role, true)
+    let identity = match item.lifecycle_state.as_str() {
+        "active" => item
+            .current_source_fingerprint
+            .as_deref()
+            .map(|fingerprint| (item.current_revision, fingerprint)),
+        "pending" => item
+            .pending_source_fingerprint
+            .as_deref()
+            .map(|fingerprint| (item.desired_revision, fingerprint)),
+        _ => None,
+    };
+    match identity {
+        Some((revision, fingerprint)) => {
+            load_revision_variants(connection, &item.item_id, role, revision, fingerprint)
+        }
+        None => Ok(Vec::new()),
+    }
 }
 
 fn load_last_valid_variants(
     connection: &Connection,
-    item_id: &str,
+    item: &ManagedItem,
     role: RoleId,
 ) -> Result<Vec<VariantCandidate>, rusqlite::Error> {
-    load_variants(connection, item_id, role, false)
+    if item.lifecycle_state == "pending" {
+        return match item.current_source_fingerprint.as_deref() {
+            Some(fingerprint) => load_revision_variants(
+                connection,
+                &item.item_id,
+                role,
+                item.current_revision,
+                fingerprint,
+            ),
+            None => Ok(Vec::new()),
+        };
+    }
+    load_all_published_variants(connection, &item.item_id, role)
 }
 
-fn load_variants(
+fn load_revision_variants(
     connection: &Connection,
     item_id: &str,
     role: RoleId,
-    current_only: bool,
+    revision: i64,
+    source_fingerprint: &str,
 ) -> Result<Vec<VariantCandidate>, rusqlite::Error> {
-    let sql = if current_only {
+    let mut statement = connection.prepare(
         "SELECT DISTINCT variant.variant_id, variant.variant_class, variant.standard_tier,
                 variant.family, variant.relative_path, variant.width, variant.height
          FROM managed_media_variants variant
          JOIN managed_media_lifecycle_targets target ON target.result_variant_id = variant.variant_id
-         JOIN managed_media_item_generations generation ON generation.managed_item_id = variant.managed_item_id
          WHERE variant.managed_item_id = ?1 AND variant.role_id = ?2
            AND variant.publication_state = 'published' AND target.target_state = 'published'
-           AND target.desired_revision = generation.current_revision"
-    } else {
+           AND target.desired_revision = ?3 AND variant.source_fingerprint = ?4",
+    )?;
+    let rows = statement.query_map(
+        params![item_id, role.as_str(), revision, source_fingerprint],
+        read_variant,
+    )?;
+    rows.collect()
+}
+
+fn load_all_published_variants(
+    connection: &Connection,
+    item_id: &str,
+    role: RoleId,
+) -> Result<Vec<VariantCandidate>, rusqlite::Error> {
+    let mut statement = connection.prepare(
         "SELECT variant_id, variant_class, standard_tier, family, relative_path, width, height
          FROM managed_media_variants
-         WHERE managed_item_id = ?1 AND role_id = ?2 AND publication_state = 'published'"
-    };
-    let mut statement = connection.prepare(sql)?;
-    let rows = statement.query_map(params![item_id, role.as_str()], |row| {
-        let tier: Option<String> = row.get(2)?;
-        Ok(VariantCandidate {
-            variant_id: row.get(0)?,
-            class: row.get(1)?,
-            tier: tier.as_deref().and_then(parse_tier),
-            family: parse_family(&row.get::<_, String>(3)?).unwrap_or(FamilyId::Landscape16_9),
-            relative_path: row.get(4)?,
-            width: row.get::<_, u32>(5)?,
-            height: row.get::<_, u32>(6)?,
-        })
-    })?;
+         WHERE managed_item_id = ?1 AND role_id = ?2 AND publication_state = 'published'",
+    )?;
+    let rows = statement.query_map(params![item_id, role.as_str()], read_variant)?;
     rows.collect()
+}
+
+fn read_variant(row: &rusqlite::Row<'_>) -> rusqlite::Result<VariantCandidate> {
+    let tier: Option<String> = row.get(2)?;
+    Ok(VariantCandidate {
+        variant_id: row.get(0)?,
+        class: row.get(1)?,
+        tier: tier.as_deref().and_then(parse_tier),
+        family: parse_family(&row.get::<_, String>(3)?).unwrap_or(FamilyId::Landscape16_9),
+        relative_path: row.get(4)?,
+        width: row.get::<_, u32>(5)?,
+        height: row.get::<_, u32>(6)?,
+    })
 }
 
 fn choose_smallest_sufficient<'a>(
