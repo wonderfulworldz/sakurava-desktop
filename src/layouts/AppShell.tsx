@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
+import ManagedMediaProgressStatus from "../components/ManagedMediaProgressStatus";
 import { useLanguage } from "../lib/LanguageContext";
 
 function pageTitleFromPath(pathname: string, t: (key: string) => string) {
@@ -61,6 +62,7 @@ function AppShell() {
           </div>
         </main>
       </div>
+      <ManagedMediaProgressStatus />
     </div>
   );
 }

@@ -1295,6 +1295,8 @@ const englishDictionary: TranslationDictionary = {
   "migration.ref.retryValidation": "Retry Validation",
   "migration.ref.openRecovery": "Open Backup & Recovery",
   "migration.ref.validatingBody": "Sakurava is verifying that catalog references are ready.",
+  "managedMedia.progress.preparing": "Preparing mini images — {ready} / {total} · {percentage}%",
+  "managedMedia.progress.label": "Mini image preparation",
 };
 
 const indonesianDictionary: TranslationDictionary = {
@@ -1553,6 +1555,8 @@ const indonesianDictionary: TranslationDictionary = {
   "migration.ref.retryValidation": "Coba Validasi Lagi",
   "migration.ref.openRecovery": "Buka Pencadangan & Pemulihan",
   "migration.ref.validatingBody": "Sakurava sedang memverifikasi kesiapan referensi katalog.",
+  "managedMedia.progress.preparing": "Menyiapkan gambar mini — {ready} / {total} · {percentage}%",
+  "managedMedia.progress.label": "Persiapan gambar mini",
 };
 
 const dictionaries: Record<LanguageCode, TranslationDictionary> = {

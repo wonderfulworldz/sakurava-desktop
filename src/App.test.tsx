@@ -214,6 +214,13 @@ function installMigratedSakuravaRefFallbackForLegacyMocks() {
       const originalInvoke = value.invoke;
       const wrappedInvoke = async (...invokeArgs: Parameters<typeof originalInvoke>) => {
         const [command] = invokeArgs;
+        if (command === "managed_media_progress_get") {
+          return {
+            ready: 0,
+            total: 0,
+            processing: false,
+          };
+        }
         try {
           return await originalInvoke(...invokeArgs);
         } catch (error) {

@@ -65,6 +65,7 @@ use crate::managed_media::{
         resolve_descriptor_batch, ManagedMediaDescriptor, ManagedMediaDescriptorRequest,
     },
     path::ManagedMediaRoot,
+    status::{load_managed_media_progress_status, ManagedMediaProgressStatus},
 };
 use crate::restore_coordinator::{
     begin_restore, complete_recovery, complete_restore, create_backup_package_v2,
@@ -990,6 +991,15 @@ pub fn managed_media_descriptor_resolve_batch(
     }
 
     Ok(descriptors)
+}
+
+#[tauri::command]
+pub fn managed_media_progress_get(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<ManagedMediaProgressStatus, String> {
+    with_connection(&database, |connection| {
+        load_managed_media_progress_status(connection).map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]

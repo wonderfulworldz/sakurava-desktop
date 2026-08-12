@@ -63,6 +63,7 @@ pub fn run() {
             commands::import_catalog_apply,
             commands::media_asset_allow_root,
             commands::managed_media_descriptor_resolve_batch,
+            commands::managed_media_progress_get,
             commands::path_status_check,
             commands::media_metadata_probe,
             commands::open_media_path,
