@@ -1,6 +1,6 @@
 # Current State
 
-Status: `WORKFLOW_REDESIGN_IN_PROGRESS`
+Status: `WORKFLOW_REDESIGN_COMPLETED_AND_ACCEPTED`
 
 Application Work: `PAUSED_BY_OPERATOR`
 
@@ -14,17 +14,17 @@ Latest Accepted Application Delivery: `Manual Regenerate Missing / Outdated`
 
 Application Delivery Commit: `2992b69c7d5dad68ad8698eabeefdaf9f837ac1b`
 
-Project Brain Migration Parent: `4b9cc5bd1c2ea91a73da049da35b67d8399132b9`
+Project Brain V2 Baseline: `c82a02f17732ccea941ee072b5842907f32b6057`
 
 Technical Application Permissions: `NONE`
 
 Protected Local Evidence: `manual-smoke/` remains untracked.
 
-Current Goal: Complete workflow redesign and Project Brain V2 migration.
+Current Goal: Maintain Project Brain V2 as the durable project authority and
+await a separately approved application-work decision.
 
-Next Action: Result Review of Project Brain V2 migration, regenerate the
-ChatGPT Brain snapshot, then obtain separate approval before application work
-resumes.
+Next Action: Await operator decision on whether to resume application planning.
+No backlog item or historical work authorizes execution by itself.
 
 Evidence: current repository facts are `REPORTED_BY_CODEX` unless independently
 qualified elsewhere. Historical completion and operator acceptance retain their

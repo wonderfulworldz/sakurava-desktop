@@ -4,6 +4,26 @@ This is compact historical evidence. It never authorizes current work. Statuses
 and evidence labels are retained as supported by the legacy authority; unknown
 or incomplete evidence is not upgraded.
 
+## Project Brain V2 Closure
+
+### PROJECT-BRAIN-V2
+
+Status: `COMPLETED_AND_ACCEPTED`
+
+Outcome: The legacy multi-file Project OS was replaced with the seven-file
+Project Brain V2 authority set: `AGENTS.md`, `PROJECT.md`, `STATE.md`,
+`DECISIONS.md`, `LESSONS.md`, `HISTORY.md`, and `BACKLOG.md`. Session-diary and
+overflow-ledger mechanics were retired while meaningful history, lessons,
+decisions, safety contracts, and backlog were preserved. Project ChatGPT uses a
+generated `CHATGPT-BRAIN` snapshot; repository Project Brain files remain
+authoritative.
+
+Evidence: repository migration `REPORTED_BY_CODEX`; Project ChatGPT source
+replacement `OBSERVED_BY_OPERATOR`.
+
+Reference: migration commit
+`c82a02f17732ccea941ee072b5842907f32b6057`.
+
 ## Execution Index
 
 | ID | Status | Outcome | Evidence / Reference |
