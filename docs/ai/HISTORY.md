@@ -24,6 +24,30 @@ replacement `OBSERVED_BY_OPERATOR`.
 Reference: migration commit
 `c82a02f17732ccea941ee072b5842907f32b6057`.
 
+## Simple Statistics
+
+### SIMPLE-STATISTICS
+
+Status: `COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION`
+
+Outcome: Added an additive, read-only, on-demand Simple Statistics surface in
+Settings → Library for logical managed mini-image/source count, recorded
+published managed-mini storage, pending processing count, and concise overall
+status. No schema/index, dependency, package, Backup/Restore, or managed-media
+lifecycle changes were made.
+
+Verification: focused Rust tests `6 passed / 0 failed`; focused frontend tests
+`2 files / 5 tests passed`. Both remain `REPORTED_BY_CODEX`.
+
+Runtime acceptance: `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`. The built-in
+disposable runtime mechanism required a sentinel-marked
+`manual-smoke/runtime-data` path, which could not be used under the protected
+`manual-smoke/` boundary. This is an environment/harness limitation, not a
+production defect.
+
+Reference: delivery commit
+`02ff01080708e492a173aa38cdd6a930f5c08354`.
+
 ## Execution Index
 
 | ID | Status | Outcome | Evidence / Reference |

@@ -11,10 +11,7 @@ gated unless a later prompt explicitly authorizes it.
    approved direction is persistent ON/OFF behavior; OFF stops new automatic
    work while preserving existing outputs, and Manual Regenerate remains
    available.
-2. Simple Statistics — ready/planned, pending separate approval. Minimal
-   direction: managed mini-image count, total managed-mini storage used,
-   pending processing count, and concise overall status.
-3. Remove Mini Images — ready/planned, pending separate approval.
+2. Remove Mini Images — ready/planned, pending separate approval.
 
 ## Pre-42.9 Product Review
 
