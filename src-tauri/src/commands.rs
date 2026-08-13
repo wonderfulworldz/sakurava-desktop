@@ -59,12 +59,16 @@ use crate::database::{
     DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult,
     SakuravaRefMigrationStatus,
 };
-use crate::managed_media::catalog_lifecycle::{reconcile_owner_mutation, OwnerSources};
+use crate::managed_media::catalog_lifecycle::{
+    queue_missing_or_outdated, reconcile_owner_mutation, ManualRegenerationQueueResult,
+    OwnerSources,
+};
 use crate::managed_media::{
     descriptors::{
         resolve_descriptor_batch, ManagedMediaDescriptor, ManagedMediaDescriptorRequest,
     },
     path::ManagedMediaRoot,
+    production::ProductionManagedMediaRuntime,
     status::{load_managed_media_progress_status, ManagedMediaProgressStatus},
 };
 use crate::restore_coordinator::{
@@ -1000,6 +1004,31 @@ pub fn managed_media_progress_get(
     with_connection(&database, |connection| {
         load_managed_media_progress_status(connection).map_err(|error| error.to_string())
     })
+}
+
+#[tauri::command]
+pub fn managed_media_regenerate_missing_or_outdated(
+    database: State<'_, RuntimeDatabase>,
+    runtime: State<'_, ProductionManagedMediaRuntime>,
+) -> Result<ManualRegenerationQueueResult, String> {
+    database.ensure_restore_resolved()?;
+    let root = ManagedMediaRoot::from_app_data_dir(&database.paths.app_data_dir)?;
+    let result = with_creation_transaction(&database, |connection| {
+        queue_missing_or_outdated(connection, &root, &current_timestamp())
+    })?;
+    wake_after_manual_regeneration_queue(&result, || {
+        let _ = runtime.wake();
+    });
+    Ok(result)
+}
+
+fn wake_after_manual_regeneration_queue(
+    result: &ManualRegenerationQueueResult,
+    wake: impl FnOnce(),
+) {
+    if result.queued_count > 0 {
+        wake();
+    }
 }
 
 #[tauri::command]
@@ -6911,6 +6940,24 @@ mod tests {
         let connection = Connection::open_in_memory().expect("in-memory database");
         initialize_schema(&connection).expect("schema init");
         connection
+    }
+
+    #[test]
+    fn manual_regeneration_wakes_only_after_durable_queue_acceptance() {
+        let queued = ManualRegenerationQueueResult {
+            queued_count: 1,
+            already_active_count: 0,
+        };
+        let mut wake_count = 0;
+        wake_after_manual_regeneration_queue(&queued, || wake_count += 1);
+        assert_eq!(wake_count, 1);
+
+        let nothing_queued = ManualRegenerationQueueResult {
+            queued_count: 0,
+            already_active_count: 1,
+        };
+        wake_after_manual_regeneration_queue(&nothing_queued, || wake_count += 1);
+        assert_eq!(wake_count, 1);
     }
 
     fn glossary_delete_for_test(

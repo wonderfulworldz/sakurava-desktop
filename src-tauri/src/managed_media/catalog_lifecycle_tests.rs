@@ -7,12 +7,13 @@ use rusqlite::Connection;
 
 use super::{
     catalog_lifecycle::{
-        plan_repeated_slots, reconcile_owner_mutation, resolve_claimed_source_locator,
-        ExistingRepeatedSlot, LocatorResolutionError, OwnerSourceProvider, OwnerSources,
-        SqliteOwnerSourceProvider,
+        plan_repeated_slots, queue_missing_or_outdated, reconcile_owner_mutation,
+        resolve_claimed_source_locator, ExistingRepeatedSlot, LocatorResolutionError,
+        OwnerSourceProvider, OwnerSources, SqliteOwnerSourceProvider,
     },
     identity::{LifecycleIntentIdentity, OwnerKind, SourceLocatorKind, ValidatedSha256},
     lifecycle::ItemRevision,
+    path::ManagedMediaRoot,
     schema,
 };
 
@@ -136,6 +137,110 @@ fn count(connection: &Connection, table: &str) -> i64 {
             row.get(0)
         })
         .expect("count")
+}
+
+fn manual_regeneration_root(name: &str) -> ManagedMediaRoot {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time")
+        .as_nanos();
+    let app_data = std::env::temp_dir().join(format!("sakurava-{name}-{unique}"));
+    ManagedMediaRoot::from_app_data_dir(app_data).expect("managed root")
+}
+
+fn promote_first_target_for_manual_regeneration(connection: &Connection) {
+    let (item_id, revision): (String, i64) = connection
+        .query_row(
+            "SELECT item.item_id, generation.desired_revision
+             FROM managed_media_items item
+             JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = item.item_id
+             LIMIT 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("item");
+    let (target_id, role_id, variant_class, standard_tier): (
+        String,
+        String,
+        String,
+        Option<String>,
+    ) = connection
+        .query_row(
+            "SELECT target_id, role_id, variant_class, standard_tier
+                 FROM managed_media_lifecycle_targets
+                 WHERE managed_item_id = ?1 AND desired_revision = ?2
+                 LIMIT 1",
+            (&item_id, revision),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .expect("target");
+    let operation_id = "manual-regeneration-test-operation";
+    let variant_id = "b".repeat(64);
+    let fingerprint = "c".repeat(64);
+    connection
+        .execute(
+            "INSERT INTO managed_media_operations (
+               operation_id, scope_kind, scope_payload_json, operation_state,
+               total_count, completed_count, succeeded_count, skipped_count, failed_count,
+               journal_state, created_at, updated_at, finished_at
+             ) VALUES (?1, 'missing_only', '{}', 'completed', 0, 0, 0, 0, 0, 'published', ?2, ?2, ?2)",
+            (operation_id, NOW),
+        )
+        .expect("operation");
+    connection
+        .execute(
+            "INSERT INTO managed_media_variants (
+               variant_id, managed_item_id, role_id, family, variant_class, standard_tier,
+               source_fingerprint, profile_version, relative_path, width, height, byte_length,
+               checksum, publication_state, validated_at, published_at, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, 'LANDSCAPE_16_9', ?4, ?5, ?6,
+               'managed-media-profile-v1', 'items/missing-output.webp', 1, 1, 1, ?6,
+               'published', ?7, ?7, ?7, ?7)",
+            (
+                &variant_id,
+                &item_id,
+                &role_id,
+                &variant_class,
+                &standard_tier,
+                &fingerprint,
+                NOW,
+            ),
+        )
+        .expect("variant");
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_targets
+             SET target_state = 'published', publication_operation_id = ?2, result_variant_id = ?3
+             WHERE target_id = ?1",
+            (&target_id, operation_id, &variant_id),
+        )
+        .expect("published target");
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'completed', finished_at = ?2
+             WHERE managed_item_id = ?1 AND desired_revision = ?3",
+            (&item_id, NOW, revision),
+        )
+        .expect("completed intent");
+    connection
+        .execute(
+            "UPDATE managed_media_items
+             SET lifecycle_state = 'active', current_source_fingerprint = ?2,
+                 pending_source_fingerprint = NULL, updated_at = ?3
+             WHERE item_id = ?1",
+            (&item_id, &fingerprint, NOW),
+        )
+        .expect("active item");
+    connection
+        .execute(
+            "UPDATE managed_media_item_generations
+             SET current_revision = desired_revision, updated_at = ?2
+             WHERE managed_item_id = ?1",
+            (&item_id, NOW),
+        )
+        .expect("active generation");
 }
 
 #[test]
@@ -289,6 +394,124 @@ fn source_change_advances_once_and_supersedes_older_work() {
         )
         .expect("superseded");
     assert_eq!(superseded, 1);
+}
+
+#[test]
+fn manual_regeneration_repairs_a_physically_missing_published_output_once() {
+    let mut connection = connection();
+    let owner = OwnerSources::video("video-1", "C:\\covers\\video.jpg");
+    reconcile(&mut connection, None, Some(&owner), &[]).expect("reconcile");
+    promote_first_target_for_manual_regeneration(&connection);
+    let root = manual_regeneration_root("repair-missing");
+
+    let transaction = connection.transaction().expect("transaction");
+    let result = queue_missing_or_outdated(&transaction, &root, NOW).expect("queue repair");
+    transaction.commit().expect("commit");
+
+    assert_eq!(result.queued_count, 1);
+    let action: String = connection
+        .query_row(
+            "SELECT lifecycle_action FROM managed_media_lifecycle_intents
+             ORDER BY desired_revision DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("repair action");
+    assert_eq!(action, "repair_missing");
+
+    let intent_count = count(&connection, "managed_media_lifecycle_intents");
+    let transaction = connection.transaction().expect("second transaction");
+    let second = queue_missing_or_outdated(&transaction, &root, NOW).expect("deduplicated queue");
+    transaction.commit().expect("second commit");
+    assert_eq!(second.queued_count, 0);
+    assert_eq!(
+        count(&connection, "managed_media_lifecycle_intents"),
+        intent_count
+    );
+    let _ = fs::remove_dir_all(root.app_data_dir());
+}
+
+#[test]
+fn manual_regeneration_requeues_durably_terminal_stale_work_without_source_scanning() {
+    let mut connection = connection();
+    let before = OwnerSources::video("video-1", "C:\\covers\\before.jpg");
+    let after = OwnerSources::video("video-1", "C:\\covers\\after.jpg");
+    reconcile(&mut connection, None, Some(&before), &[]).expect("initial reconcile");
+    promote_first_target_for_manual_regeneration(&connection);
+    reconcile(&mut connection, Some(&before), Some(&after), &[]).expect("source change");
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'failed', failure_class = 'terminal',
+                 failure_summary = 'test failure', finished_at = ?1
+             WHERE desired_revision = 2",
+            [NOW],
+        )
+        .expect("terminal stale work");
+    let root = manual_regeneration_root("outdated");
+
+    let transaction = connection.transaction().expect("transaction");
+    let result = queue_missing_or_outdated(&transaction, &root, NOW).expect("queue regenerate");
+    transaction.commit().expect("commit");
+
+    assert_eq!(result.queued_count, 1);
+    let (action, revision): (String, i64) = connection
+        .query_row(
+            "SELECT lifecycle_action, desired_revision
+             FROM managed_media_lifecycle_intents
+             ORDER BY desired_revision DESC LIMIT 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("regenerate action");
+    assert_eq!(action, "regenerate");
+    assert_eq!(revision, 3);
+    let _ = fs::remove_dir_all(root.app_data_dir());
+}
+
+#[test]
+fn manual_regeneration_excludes_skipped_ineligible_targets() {
+    let mut connection = connection();
+    let owner = OwnerSources::video("video-1", "C:\\covers\\video.jpg");
+    reconcile(&mut connection, None, Some(&owner), &[]).expect("reconcile");
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_targets
+             SET target_state = 'skipped_ineligible'
+             WHERE desired_revision = 1",
+            [],
+        )
+        .expect("skip targets");
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'completed', finished_at = ?1
+             WHERE desired_revision = 1",
+            [NOW],
+        )
+        .expect("complete intent");
+    connection
+        .execute(
+            "UPDATE managed_media_items
+             SET lifecycle_state = 'active', current_source_fingerprint = ?1,
+                 pending_source_fingerprint = NULL, updated_at = ?2",
+            ("c".repeat(64), NOW),
+        )
+        .expect("active item");
+    connection
+        .execute(
+            "UPDATE managed_media_item_generations
+             SET current_revision = desired_revision, updated_at = ?1",
+            [NOW],
+        )
+        .expect("active generation");
+    let root = manual_regeneration_root("skipped");
+    let transaction = connection.transaction().expect("transaction");
+    let result = queue_missing_or_outdated(&transaction, &root, NOW).expect("no queue");
+    transaction.commit().expect("commit");
+    assert_eq!(result.queued_count, 0);
+    assert_eq!(count(&connection, "managed_media_lifecycle_intents"), 1);
+    let _ = fs::remove_dir_all(root.app_data_dir());
 }
 
 #[test]

@@ -1,9 +1,12 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    fmt,
+    fmt, fs,
+    io::ErrorKind,
+    path::Path,
 };
 
 use rusqlite::{params, Connection, OptionalExtension};
+use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -17,9 +20,41 @@ use super::{
         add_target, initialize_item_generation, queue_intent_in_transaction, ItemRevision,
         LifecycleAction, NewLifecycleIntent, NewLifecycleTarget,
     },
+    path::ManagedMediaRoot,
 };
 
 const PRIMARY_VISUAL_TOKEN: &str = "primary_visual";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualRegenerationQueueResult {
+    pub queued_count: u64,
+    pub already_active_count: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ManualRegenerationAction {
+    RepairMissing,
+    Regenerate,
+}
+
+impl ManualRegenerationAction {
+    fn lifecycle_action(self) -> LifecycleAction {
+        match self {
+            Self::RepairMissing => LifecycleAction::RepairMissing,
+            Self::Regenerate => LifecycleAction::Regenerate,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ManualRegenerationCandidate {
+    item_id: String,
+    owner_kind: OwnerKind,
+    slot_kind: SlotKind,
+    locator_hash: String,
+    action: ManualRegenerationAction,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OwnerSources {
@@ -703,6 +738,186 @@ fn reconcile_repeated(
         )?;
     }
     Ok(())
+}
+
+pub fn queue_missing_or_outdated(
+    connection: &Connection,
+    root: &ManagedMediaRoot,
+    now: &str,
+) -> Result<ManualRegenerationQueueResult, String> {
+    let candidates = manual_regeneration_candidates(connection, root)?;
+    let mut result = ManualRegenerationQueueResult {
+        queued_count: 0,
+        already_active_count: 0,
+    };
+
+    for candidate in candidates {
+        if has_nonterminal_intent(connection, &candidate.item_id)? {
+            result.already_active_count += 1;
+            continue;
+        }
+
+        let roles = roles_for_slot(candidate.owner_kind, candidate.slot_kind)?;
+        queue_item_action(
+            connection,
+            &candidate.item_id,
+            &candidate.locator_hash,
+            candidate.action.lifecycle_action(),
+            &roles,
+            now,
+        )?;
+        connection
+            .execute(
+                "UPDATE managed_media_items
+                 SET lifecycle_state = 'pending', updated_at = ?2
+                 WHERE item_id = ?1 AND lifecycle_state = 'active'",
+                params![candidate.item_id, now],
+            )
+            .map_err(database_error)?;
+        result.queued_count += 1;
+    }
+
+    Ok(result)
+}
+
+fn manual_regeneration_candidates(
+    connection: &Connection,
+    root: &ManagedMediaRoot,
+) -> Result<Vec<ManualRegenerationCandidate>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT item.item_id, item.owner_kind, item.slot_kind, item.locator_hash,
+                    item.lifecycle_state, generation.current_revision, generation.desired_revision,
+                    EXISTS (
+                      SELECT 1
+                      FROM managed_media_lifecycle_intents intent
+                      WHERE intent.managed_item_id = item.item_id
+                        AND intent.desired_revision = generation.desired_revision
+                        AND intent.lifecycle_action IN ('generate', 'repair_missing', 'regenerate')
+                        AND intent.lifecycle_state IN ('completed_with_failures', 'failed', 'cancelled')
+                    ) AS has_terminal_stale_intent
+             FROM managed_media_items item
+             JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = item.item_id
+             WHERE item.lifecycle_state IN ('active', 'pending')
+             ORDER BY item.item_id",
+        )
+        .map_err(database_error)?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, bool>(7)?,
+            ))
+        })
+        .map_err(database_error)?;
+
+    let mut candidates = Vec::new();
+    for row in rows {
+        let (
+            item_id,
+            owner_kind,
+            slot_kind,
+            locator_hash,
+            lifecycle_state,
+            current_revision,
+            desired_revision,
+            has_terminal_stale_intent,
+        ) = row.map_err(database_error)?;
+        let action = if lifecycle_state == "active"
+            && current_revision > 0
+            && has_missing_published_managed_file(connection, root, &item_id, current_revision)?
+        {
+            Some(ManualRegenerationAction::RepairMissing)
+        } else if lifecycle_state == "pending"
+            && current_revision > 0
+            && desired_revision > current_revision
+            && has_terminal_stale_intent
+        {
+            Some(ManualRegenerationAction::Regenerate)
+        } else {
+            None
+        };
+        let Some(action) = action else {
+            continue;
+        };
+        let owner_kind = parse_owner_kind(&owner_kind)
+            .ok_or_else(|| "Managed-media item has an unsupported owner identity.".to_string())?;
+        let slot_kind = parse_slot_kind(&slot_kind)
+            .ok_or_else(|| "Managed-media item has an unsupported slot identity.".to_string())?;
+        candidates.push(ManualRegenerationCandidate {
+            item_id,
+            owner_kind,
+            slot_kind,
+            locator_hash,
+            action,
+        });
+    }
+    Ok(candidates)
+}
+
+fn has_missing_published_managed_file(
+    connection: &Connection,
+    root: &ManagedMediaRoot,
+    item_id: &str,
+    current_revision: i64,
+) -> Result<bool, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT variant.relative_path
+             FROM managed_media_lifecycle_targets target
+             JOIN managed_media_variants variant
+               ON variant.variant_id = target.result_variant_id
+             WHERE target.managed_item_id = ?1
+               AND target.desired_revision = ?2
+               AND target.target_state = 'published'
+               AND variant.publication_state = 'published'",
+        )
+        .map_err(database_error)?;
+    let rows = statement
+        .query_map(params![item_id, current_revision], |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(database_error)?;
+    for row in rows {
+        let relative_path = row.map_err(database_error)?;
+        let path = root.resolve(Path::new(&relative_path))?;
+        match fs::symlink_metadata(&path) {
+            Ok(metadata)
+                if metadata.file_type().is_file() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => return Ok(true),
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(true),
+            Err(error) => {
+                return Err(format!(
+                    "Unable to inspect a published managed-media output: {error}"
+                ))
+            }
+        }
+    }
+    Ok(false)
+}
+
+fn has_nonterminal_intent(connection: &Connection, item_id: &str) -> Result<bool, String> {
+    connection
+        .query_row(
+            "SELECT EXISTS(
+               SELECT 1 FROM managed_media_lifecycle_intents
+               WHERE managed_item_id = ?1
+                 AND lifecycle_action IN ('generate', 'repair_missing', 'regenerate')
+                 AND lifecycle_state IN (
+                   'queued', 'claimed', 'retry_wait', 'recovery_required'
+                 )
+             )",
+            [item_id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)
 }
 
 #[allow(clippy::too_many_arguments)]

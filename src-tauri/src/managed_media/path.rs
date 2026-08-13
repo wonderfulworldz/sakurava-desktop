@@ -165,9 +165,12 @@ fn reject_non_normal_components(path: &Path, absolute_allowed: bool) -> Result<(
 }
 
 fn reject_existing_reparse_ancestors(path: &Path) -> Result<(), String> {
-    let mut current = PathBuf::new();
-    for component in path.components() {
-        current.push(component.as_os_str());
+    let mut ancestors = path.ancestors().collect::<Vec<_>>();
+    ancestors.reverse();
+    for current in ancestors {
+        if current.as_os_str().is_empty() {
+            continue;
+        }
         let metadata = match fs::symlink_metadata(&current) {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
@@ -328,5 +331,28 @@ mod tests {
             Err(error) => panic!("unexpected reparse-point setup failure: {error}"),
         }
         fs::remove_dir_all(outside).expect("cleanup outside");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn accepts_canonical_extended_drive_app_data_roots() {
+        use std::path::Prefix;
+
+        let app_data = unique_root("extended-drive");
+        fs::create_dir_all(&app_data).expect("app data");
+        let canonical = app_data.canonicalize().expect("canonical app data");
+        assert!(matches!(
+            canonical.components().next(),
+            Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::VerbatimDisk(_))
+        ));
+
+        let root = ManagedMediaRoot::from_app_data_dir(&canonical).expect("managed root");
+        assert_eq!(root.app_data_dir(), canonical.as_path());
+        assert_eq!(
+            root.as_path(),
+            canonical.join(MANAGED_MEDIA_DIRECTORY).join(MANAGED_MEDIA_LAYOUT_VERSION)
+        );
+
+        fs::remove_dir_all(app_data).expect("cleanup app data");
     }
 }

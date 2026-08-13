@@ -37,6 +37,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ManagedMediaRegenerateAction from "../components/ManagedMediaRegenerateAction";
 import type {
   Image,
   ManagedCategory,
@@ -3123,6 +3124,9 @@ function SettingsSection({
           <p className="mt-2 text-xs font-medium text-slate-500">
             {t("settings.libraryMedia.removeHelp")}
           </p>
+        </ControlRow>
+        <ControlRow label={t("settings.managedMedia.regenerate")} alignStart>
+          <ManagedMediaRegenerateAction />
         </ControlRow>
       </SettingsPanelCard>
 
