@@ -73,6 +73,29 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-13 — Manual Regenerate Closure and Feature Queue Reconciled
+
+date: 2026-08-13
+session_type: MANUAL_REGENERATE_PROJECT_OS_RECONCILIATION_AND_PRE_42_9_FEATURE_RECORDING
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+technical_baseline: 2992b69c7d5dad68ad8698eabeefdaf9f837ac1b
+manual_regenerate_status: PRODUCT_ACCEPTED_AND_GIT_DELIVERED
+manual_regenerate_product_acceptance: PHYSICAL_MISSING_REGENERATED_PUBLICATION_RESTORED_SUBSEQUENT_NO_OP
+manual_regenerate_product_acceptance_evidence: OBSERVED_BY_OPERATOR
+windows_extended_path_correction: ACCEPTED_AND_DELIVERED
+managed_media_continuation_sequence: AUTOMATIC_MINI_IMAGES; SIMPLE_STATISTICS; REMOVE_MINI_IMAGES
+notification_history_feedback: FEEDBACK-2026-08-13-NOTIFICATION-HISTORY
+pre_42_9_feature_review: PRE_42_9_ADDITIONAL_FEATURE_REVIEW_REQUIRED
+next_action: AFTER_PROJECT_OS_RECONCILIATION_REVIEW_NOTIFICATION_HISTORY_AND_PRE_42_9_FEATURE_SEQUENCE
+technical_permissions: false
+
+Manual Regenerate is now recorded as accepted and delivered. The brief
+Progress Status transition remains a documented limitation only. The approved
+managed-media continuation and the new Notification History request are
+planning records; implementation placement remains separately gated.
+
+---
+
 ## 2026-08-11 — Import/Export Product Acceptance Reconciled
 
 date: 2026-08-11
@@ -167,31 +190,6 @@ next_action_mode: IMPLEMENT
 The selected-empty UI regression passed in isolation. The remaining supported
 mutation is the proven Videos CSV test-debt correction; no mutation occurred in
 this reconciliation.
-
----
-
-## 2026-08-10 — XLSX Workbook Isolated Evidence Passed
-
-date: 2026-08-10
-session_type: XLSX_WORKBOOK_ISOLATED_EVIDENCE_RESULT_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-isolated_workbook_evidence: PASS_REPORTED_BY_CODEX
-previous_combined_timeout: NOT_REPRODUCED_IN_ISOLATION
-previous_combined_timeout_exact_cause: UNKNOWN
-workbook_mutation_supported: false
-workbook_timeout_change_supported: false
-selected_empty_xlsx_ui_execution_cause: UNKNOWN
-videos_csv_header_failure: PRE_EXISTING_TEST_DEBT_PROVEN
-terrain_completeness_gate: FAIL_FOR_MUTATION_READINESS
-xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
-technical_execution: false
-next_action: XLSX_SELECTED_EMPTY_UI_ISOLATED_EVIDENCE_VERIFICATION
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-next_action_mode: VERIFY
-
-The existing multi-type workbook test passed in isolation. The selected-empty
-UI evidence boundary remains separately gated; no mutation occurred in this
-reconciliation.
 
 ---
 

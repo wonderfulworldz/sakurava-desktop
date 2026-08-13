@@ -1567,3 +1567,28 @@ next_action_mode: VERIFY
 The causal audit classified the three failed verification boundaries. One
 isolated evidence run remains separately gated; no technical execution or
 mutation occurred in this reconciliation.
+
+---
+
+## 2026-08-10 — XLSX Workbook Isolated Evidence Passed
+
+date: 2026-08-10
+session_type: XLSX_WORKBOOK_ISOLATED_EVIDENCE_RESULT_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+isolated_workbook_evidence: PASS_REPORTED_BY_CODEX
+previous_combined_timeout: NOT_REPRODUCED_IN_ISOLATION
+previous_combined_timeout_exact_cause: UNKNOWN
+workbook_mutation_supported: false
+workbook_timeout_change_supported: false
+selected_empty_xlsx_ui_execution_cause: UNKNOWN
+videos_csv_header_failure: PRE_EXISTING_TEST_DEBT_PROVEN
+terrain_completeness_gate: FAIL_FOR_MUTATION_READINESS
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_SELECTED_EMPTY_UI_ISOLATED_EVIDENCE_VERIFICATION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: VERIFY
+
+The existing multi-type workbook test passed in isolation. The selected-empty
+UI evidence boundary remains separately gated; no mutation occurred in this
+reconciliation.

@@ -87,7 +87,7 @@ batch_42_7_stage_3_product_defect_proven: false
 batch_42_7_final_verdict: BATCH_42_7_ACCEPTED_AND_CLOSED_WITH_LIMITATIONS
 next_proposed_batch: 42.9
 next_proposed_batch_title: Design System and Iconography Foundation
-next_proposed_batch_status: BLOCKED_PENDING_CORRECTIVE_RESOLUTION_AND_PRODUCT_ACCEPTANCE
+next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_ADDITIONAL_FEATURE_REVIEW
 next_proposed_batch_approved: false
 pre_42_9_corrective_gate: SAFE_IMAGE_PUBLIC_REF_AND_EXPORT_ROUNDTRIP_PRODUCT_ACCEPTED_MEDIA_COVER_PENDING_SEPARATE_APPROVAL
 xlsx_export_next_corrective_action: MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION
@@ -150,9 +150,45 @@ and dependency/security work remain deferred. Batch 42.9 remains blocked until
 the remaining Pre-42.9 Product Acceptance gate is satisfied.
 next_proposed_batch: 42.9
 next_proposed_batch_title: Design System and Iconography Foundation
-next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_PRODUCT_ACCEPTANCE_CORRECTIVE_WORK
+next_proposed_batch_status: BLOCKED_PENDING_PRE_42_9_ADDITIONAL_FEATURE_REVIEW
 next_proposed_batch_approved: false
 batch_42_8_documentation_reconciliation: COMPLETED_5_OF_5_GATES_100_PERCENT
+
+## Current Pre-42.9 Feature Review Requirement — 2026-08-13
+
+technical_baseline: 2992b69c7d5dad68ad8698eabeefdaf9f837ac1b
+manual_regenerate_status: PRODUCT_ACCEPTED_AND_GIT_DELIVERED
+manual_regenerate_product_acceptance: PHYSICAL_MISSING_REGENERATED_PUBLICATION_RESTORED_SUBSEQUENT_NO_OP
+manual_regenerate_product_acceptance_evidence: OBSERVED_BY_OPERATOR
+windows_extended_path_correction: ACCEPTED_AND_DELIVERED
+windows_extended_path_root_cause: PROVEN_BY_STATIC_SOURCE
+windows_extended_path_safety: REPARSE_SYMLINK_INSPECTION_PRESERVED_UNC_POLICY_UNCHANGED
+
+Before entering Batch 42.9 — Design System and Iconography Foundation, a
+product sequencing review is required for the outstanding feature directions:
+
+1. Managed Media continuation: Automatic Mini Images, Simple Statistics,
+   Remove Mini Images.
+2. Notification System / Notification History.
+3. Built-in Video Player and Contact Sheet.
+4. Centralized Remember Policy.
+5. Minimal Consistent Catalog Columns.
+
+This is a review requirement, not automatic implementation approval or a
+roadmap reorder. The approved managed-media sequence remains Automatic Mini
+Images, then Simple Statistics, then Remove Mini Images. Each item remains
+separately gated; high-risk Video Player work remains audit-first. Existing
+Spreadsheet/Credits UX, XLSX sheet-selection, CSV/Excel compatibility,
+test-debt, and dependency/security work remain in their specialized backlog
+and feedback placements.
+
+notification_history_feedback: FEEDBACK-2026-08-13-NOTIFICATION-HISTORY
+notification_history_status: PLANNED
+notification_history_reason: TRANSIENT_STATUS_WITHOUT_REVIEWABLE_HISTORY_CAN_HIDE_COMPLETION_FAILURE_AND_BACKGROUND_OPERATION_RESULTS
+pre_42_9_feature_review: PRE_42_9_ADDITIONAL_FEATURE_REVIEW_REQUIRED
+pre_42_9_feature_review_decision: IMPLEMENTATION_PLACEMENT_AND_ORDER_REMAIN_SEPARATE_OPERATOR_PRODUCT_DECISION
+next_decision_reminder: AFTER_PROJECT_OS_RECONCILIATION_REVIEW_NOTIFICATION_HISTORY_AND_PRE_42_9_FEATURE_SEQUENCE
+
 batch_42_4_stage_42_4_0_status: COMPLETED_AND_CLOSED
 batch_42_4_stage_42_4_1_status: COMPLETED_AND_ACCEPTED
 batch_42_4_stage_42_4_2_status: COMPLETED_AND_CLOSED

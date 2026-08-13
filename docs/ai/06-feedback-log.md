@@ -1,6 +1,35 @@
 # Sakurava Feedback Log
 
-active_count: 11
+active_count: 12
+
+### FEEDBACK-2026-08-13-NOTIFICATION-HISTORY — Notification System / Notification History
+
+date: 2026-08-13
+batch: PRE_42_9_PRODUCT_FEATURE_REVIEW
+type: NEW_REQUEST
+status: PLANNED
+evidence: OBSERVED_BY_OPERATOR
+risk: MEDIUM
+placement: PRE_42_9_PRODUCT_FEATURE_REVIEW / FUTURE_SEPARATE_FEATURE_SCOPE
+
+Transient application notifications can disappear before the operator can read
+or capture them. Managed-media completion, failure, processing, and result
+messages make this limitation materially visible because there is no obvious
+durable place to review what happened after a transient notification disappears.
+The operator requests a future Notification System / Notification History
+design so important application-controlled status events remain reviewable.
+
+The strong product reason is:
+`TRANSIENT_STATUS_WITHOUT_REVIEWABLE_HISTORY_CAN_HIDE_COMPLETION_FAILURE_AND_BACKGROUND_OPERATION_RESULTS`.
+
+Notification-center placement, persistence, retention, unread/read behavior,
+categories, severity, deduplication, background-task integration, actions,
+sensitive-data exposure, Translation, accessibility, Backup/Restore treatment,
+restart persistence, storage ownership, performance, and interaction with
+transient notifications remain explicit future audit/product-design unknowns.
+No architecture or implementation is approved by this entry.
+
+---
 last_updated: 2026-08-11
 
 ## Active Feedback
