@@ -48,6 +48,37 @@ production defect.
 Reference: delivery commit
 `02ff01080708e492a173aa38cdd6a930f5c08354`.
 
+## Dependency Security Hygiene
+
+### DEPENDENCY-SECURITY-HYGIENE
+
+Status: `COMPLETED_AND_ACCEPTED_WITH_RESIDUAL_FINDINGS`
+
+Outcome: Controlled Dependabot/security triage completed without establishing
+an emergency Sakurava production exploit path. Targeted npm security hygiene
+was delivered in commit `13bb52a17d061b920ab25b70947b6c4b3b9aae64` for React
+Router, PostCSS, nanoid, brace-expansion, and Babel. Rust security hygiene was
+delivered in commit `0e092e9ec6fe67339bf27816e9a678f4f5c3d930`, updating
+`serde_with` and `serde_with_macros` to `3.21.0` without changing Tauri,
+manifests, or application source.
+
+Verification: routing test, spreadsheet test, frontend `tsc -b && vite build`,
+and `cargo check --locked` passed; all remain `REPORTED_BY_CODEX`. `uuid` via
+ExcelJS remains deferred because affected APIs were not found and remediation
+would require a broader compatibility/security decision. The audited esbuild
+use did not warrant remediation.
+
+Residual posture: final GitHub output reported 3 remaining vulnerabilities (2
+Moderate, 1 Low), `REPORTED_BY_CODEX`; exact current identities are `UNKNOWN`
+and require current applicability evidence before further remediation. The
+repository is not represented as vulnerability-free.
+
+Governance limitation: an initial Vitest discovery reached protected
+`manual-smoke/` because discovery defaulted to the repository root; execution
+stopped without further inspection. Static recovery established `--dir src`
+as a safe boundary, and later focused verification passed without rediscovery
+or contact with protected evidence.
+
 ## Execution Index
 
 | ID | Status | Outcome | Evidence / Reference |

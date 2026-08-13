@@ -50,8 +50,12 @@ gated unless a later prompt explicitly authorizes it.
 - Batch 42.11 — Translation Release Completion: final release-facing coverage,
   CSV/fallback/restart validation after feature work is stable.
 - Batch 42.12 — Repository Professionalization: future direction.
-- Batch 42.13 — Dependency and Security Remediation: deferred controlled triage;
-  automated findings require classification first.
+- Batch 42.13 — Dependency and Security Remediation: controlled triage and
+  targeted npm/Rust security hygiene completed; residual findings remain
+  separately gated. Exact current alert identity and applicability must be
+  established before further remediation. No broad or automatic dependency
+  update is authorized. `uuid` via ExcelJS remains deferred unless a future
+  compatibility/security decision reopens it.
 - Batch 42.14 — Windows Identity and Packaging: future direction.
 - Batch 42.15 — Private Pilot Release Candidate: future direction.
 
