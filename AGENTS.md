@@ -1,258 +1,96 @@
-# AGENTS.md
-
-Instructions for VSCode Agent Code, Codex, and other coding agents working on Sakurava.
-
-Use these docs as compressed project memory. Do not reconstruct the full historical workflow unless the user explicitly asks for history or archaeology.
-
-For PRD alignment, read `docs/11-prd-alignment-and-development-plan.md`: the original PRD remains the MVP baseline, while `PROJECT_STATUS`, `ROADMAP_LOCKED`, category safety docs, workflow docs, and handoff docs represent the current post-MVP standard.
-
-## Project Identity
-
-Sakurava is a local/offline Windows desktop app for managing Videos, Images, and Performers.
-
-The app should remain private-first and local-first. Do not introduce cloud services, scraping, account systems, telemetry, or network-dependent behavior unless the user explicitly asks for a planned batch that includes those changes.
-
-## Stack
-
-- React
-- TypeScript
-- Tailwind CSS
-- Tauri
-- SQLite
-- Vitest
-- Rust tests under `src-tauri`
-
-## Locked Terms
-
-Use these terms consistently:
-
-- Videos
-- Images
-- Performers
-- Categories
-- Managed Categories
-- Record Categories
-- `categoriesJson`
-- Settings
-- Catalog Settings
-
-Do not rename locked terms in UI text, docs, database fields, tests, or prompts unless the user explicitly approves a terminology batch.
-
-## Git Workflow Rules
-
-- Use one branch per batch.
-- Start implementation batches from a clean `main` unless the user states otherwise.
-- Keep diffs controlled and scoped to the batch.
-- Review `git status` before making changes.
-- Review `git status` and `git diff --stat` before any commit.
-- Do not mix unrelated refactors into feature or documentation batches.
-- Do not rewrite history, reset, or discard user changes unless the user explicitly asks.
-
-## No Auto-Commit Rule
-
-Do not commit without user approval.
-
-It is acceptable to prepare a commit summary, verification status, and recommended tag name, but the user must approve the commit command first.
-
-## Category Management Safety Rules
-
-The source of truth for category safety is `docs/10-category-management-safety.md`.
-
-For Category Management dedicated page planning, read `docs/14-category-management-dedicated-page-planning.md`.
-
-For Form Category Picker Lockdown planning, read `docs/15-form-category-picker-lockdown-planning.md`.
-
-For Categories Sidebar Page planning, read `docs/16-categories-sidebar-page-planning.md`.
-
-For Related Performer Picker Structure planning, read `docs/17-related-performer-picker-structure-planning.md`.
-
-For Related Performer Storage planning, read `docs/18-related-performer-storage-planning.md`.
-
-For Related Video/Image Picker Structure planning, read `docs/19-related-video-image-picker-structure-planning.md`.
-
-For Related Video/Image Storage planning, read `docs/20-related-video-image-storage-planning.md`.
-
-For Media File Status / Open File planning, read `docs/21-media-file-status-open-file-planning.md`.
-
-For External Media Open planning, read `docs/22-external-media-open-planning.md`.
-
-For Cover/Thumbnail Full Size Preview planning, read `docs/23-cover-thumbnail-full-size-preview-planning.md`.
-
-For Performer Mini Thumbnail Storage/Form planning, read `docs/24-performer-mini-thumbnail-storage-form-planning.md`.
-
-## Backup/Restore Safety Rules
-
-The source of truth for Backup/Restore UX safety is `docs/12-backup-restore-ux-safety.md`.
-
-Backup and Restore are data-risk operations. Safety rules:
-
-- Backup must never mutate existing data.
-- Backup must generate a clear backup artifact with recognizable name and timestamp.
-- Backup failure must not affect the current database.
-- Backup must clearly state that media files are not included.
-- Restore is destructive — must require explicit confirmation.
-- Restore must validate the backup file before applying.
-- Restore must create a pre-restore safety backup.
-- Restore failure must not leave the app in a partially restored state.
-- Restore must clearly explain whether media files are included.
-- Follow the Restore UX Flow in the safety document (select -> validate -> preview -> confirm -> execute).
-
-## Settings Persistence Planning
-
-The source of truth for Settings persistence planning is `docs/13-settings-persistence-planning.md`.
-
-Settings persistence rules:
-
-- Do not implement Settings persistence from a planning batch.
-- Keep low-risk UI preferences separate from data-risk settings.
-- Do not persist everything by default.
-- Settings persistence must not mutate catalog records.
-- Settings persistence must not change category behavior.
-- Settings persistence must not change Backup/Restore or media behavior unless a later batch explicitly asks.
-- Use safe defaults and defensive parsing for missing or invalid stored settings.
-
-Current completed category checkpoint:
-
-```text
-post-mvp-16-3-delete-category-record-apply-v1
-```
-
-Category Management implementation is complete through Batch 16.3. Category Management safety documentation is complete through Batch 17.1 if that checkpoint has been merged.
-
-Category Management lives in Settings -> Catalog Settings.
-
-Keep these concepts separate:
-
-- Managed Categories: the local app-managed category list.
-- Record Categories: labels stored on individual Videos, Images, and Performers.
-
-Safety rules:
-
-- No schema changes for MVP Category Management.
-- No relational category table in the MVP.
-- No parent/child category system in the MVP.
-- No mass record mutation without preview and confirmation.
-- Record category operations must patch only `categoriesJson`.
-- Managed Category operations must not mutate records.
-- Record Category operations must not automatically mutate Managed Categories.
-- Invalid stored category JSON must not crash Settings.
-
-## `categoriesJson` MVP Rule
-
-MVP categories are text labels stored in `categoriesJson`.
-
-Do not replace MVP categories with IDs, UUIDs, relation tables, `categoryIds`, or a category table unless the user approves a future architecture batch.
-
-For record category rename/remove operations, update records only with a patch shaped like:
-
-```ts
-{ categoriesJson: nextCategoriesJson }
-```
-
-Do not send incomplete full records. Preserve unrelated fields.
-
-## Managed Category Storage
-
-Managed Categories use local storage:
-
-```text
-sakurava.managedCategories.v1
-```
-
-Managed Categories are local UI configuration. They provide the Settings-managed list and form suggestions. They are not automatically applied to existing records and are not the source of truth for collection filtering.
-
-## Mass Record Change Requirement
-
-Any mass change to record categories must include:
-
-- preview of affected records;
-- count by record type where applicable;
-- explicit confirmation before apply;
-- `categoriesJson`-only patches;
-- safe handling for invalid `categoriesJson`;
-- preservation of unrelated fields.
-
-This applies to record category rename, record category removal, and any future bulk maintenance action.
-
-## UI Polish Rule
-
-Do not propose UI polish by default.
-
-Only include UI polish when the user requests it or when it blocks usability, correctness, accessibility, or verification of the requested batch.
-
-## Future Category Direction
-
-- Category Management may later move into a dedicated page, with Settings as the parent entry.
-- A future Categories sidebar page should be a browsing/catalog page, not the management page.
-- Form category input should stay locked to Managed Categories only, not free-text creation.
-- Categories Sidebar Page planning is documented in `docs/16-categories-sidebar-page-planning.md`.
-- Related Performer Picker Structure planning is documented in `docs/17-related-performer-picker-structure-planning.md`.
-- Related Performer Storage planning is documented in `docs/18-related-performer-storage-planning.md`.
-- Related Video/Image Picker Structure planning is documented in `docs/19-related-video-image-picker-structure-planning.md`.
-- Related Video/Image Storage planning is documented in `docs/20-related-video-image-storage-planning.md`.
-- Media File Status / Open File planning is documented in `docs/21-media-file-status-open-file-planning.md`.
-- External Media Open planning is documented in `docs/22-external-media-open-planning.md`.
-- Cover/Thumbnail Full Size Preview planning is documented in `docs/23-cover-thumbnail-full-size-preview-planning.md`.
-- Performer Mini Thumbnail Storage/Form planning is documented in `docs/24-performer-mini-thumbnail-storage-form-planning.md`.
-- Related pickers and Media Play are future phases after category page decisions.
-
-## Verification Commands
-
-Use the smallest verification set that matches the batch risk. For code changes, prefer:
-
-```powershell
-npm.cmd run test
-npm.cmd run build
-Push-Location src-tauri; cargo test; Pop-Location
-npm.cmd run tauri dev
-```
-
-Run `cargo test` from `src-tauri`, not from the project root.
-
-Docs-only changes do not require a full build unless docs reference generated code, scripts, or changed runtime behavior.
-
-## Graphify Code Navigation
-
-Graphify is an advisory code-navigation tool subordinate to the Sakurava
-Project OS, the approved Codex prompt, Active Locks, and current stage scope.
-
-For cross-file architecture, dependency, call-flow, or impact questions, run
-the approved bridge status check before broad repository searches:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" status
-```
-
-When the status is `READY` or `READY_WITH_DOCS_ONLY_DRIFT`, use the same bridge
-for bounded read-only navigation:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" query "<question>"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" explain "<node>"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" path "<source>" "<target>"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" affected "<node>"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\sakurava-tools\graphify\bin\sakurava-graphify.ps1" god-nodes
-```
-
-Graphify output is not final evidence. Confirm material conclusions against
-the current source, Git state, focused tests, builds, or runtime evidence when
-those actions are authorized by the current stage.
-
-A missing node, edge, path, or result does not prove that code is absent,
-unused, unreachable, or safe to change. The approved graph has known dangling
-endpoints and relation-collapse limitations.
-
-Use only the approved read-only Sakurava Graphify bridge. Do not run Graphify
-extract, update, watch, install, uninstall, hook, clone, add, global,
-save-result, reflect, or purge commands from the repository.
-
-Never direct Graphify at D:\sakurava-desktop, manual-smoke/, live AppData,
-runtime databases, media folders, or operator data.
-
-Graphify does not authorize audit, implementation, tests, builds, runtime,
-commit, push, scope expansion, or Project OS changes.
-
-If bridge status is `GRAPH_STALE`, report it and continue with normal
-controlled source inspection. Do not refresh the graph automatically.
-
-Do not add Graphify-generated marker sections, installer comments, or hook instructions.
+# Sakurava Agent Instructions
+
+## Repository and Project Brain
+
+- Repository: `D:\sakurava-desktop`; primary branch: `main`.
+- Before meaningful work, read `docs/ai/PROJECT.md` and `docs/ai/STATE.md`.
+- Read `docs/ai/DECISIONS.md` when product or architecture contracts matter.
+- Read `docs/ai/LESSONS.md` when prior failures, regressions, or platform/fixture traps may matter.
+- Read `docs/ai/HISTORY.md` to determine whether work has already been performed.
+- Read `docs/ai/BACKLOG.md` only for planning; backlog presence is not authorization.
+- The repository Project Brain overrides conflicting chat memory.
+
+## Product Identity and Stable Terms
+
+Sakurava is a private-first, local/offline Windows desktop catalog for Videos,
+Images, Performers, Categories, Credits, Glossary, and related metadata. The
+application direction is React + Tauri + TypeScript + SQLite. Do not introduce
+cloud services, scraping, accounts, telemetry, or network-dependent behavior
+without explicit scope approval.
+
+Use these terms consistently: Videos, Images, Performers, Categories, Managed
+Categories, Record Categories, `categoriesJson`, Settings, and Catalog Settings.
+
+## Protected Data and Evidence
+
+- `manual-smoke/` is protected local evidence. It remains untracked. Never
+  broadly inspect, enumerate children, count children, delete, move, rename,
+  stage, commit, or clean it.
+- Protect live AppData at
+  `C:\Users\Working WW\AppData\Roaming\app.sakurava.desktop`. Do not access
+  or mutate live data without explicit approval; use a disposable root for
+  data-sensitive work.
+- Approved evidence labels are: `OBSERVED_BY_OPERATOR`, `REPORTED_BY_CODEX`,
+  `MEASURED`, `PROVEN_BY_STATIC_SOURCE`, `REPORTED_HISTORICAL`, `INFERRED`,
+  `UNKNOWN`, and `NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`. Never upgrade an
+  evidence class or invent counts, timings, dimensions, acceptance, or safety.
+
+## Approval and Scope
+
+- A checkpoint or backlog entry is not authorization. Approval for one stage
+  does not authorize another.
+- Implementation, runtime, tests, builds, live-data work, schema/index,
+  dependency, package, security, Import/Export, Backup/Restore, and UI/UX
+  changes require explicit scope approval.
+- Preserve existing design, workflow, terminology, and frontend patterns; no
+  redesign without approval. Use heading `PERUBAHAN FRONTEND` only when visible
+  frontend behavior really changes. Use `SMOKE TEST MANUAL DIPERLUKAN` only
+  when operator action is genuinely required.
+- Partial evidence does not become implementation approval.
+
+## Git Safety
+
+- Inspect repository state before meaningful mutation; keep diffs controlled.
+- Stage exact intended paths only. Do not use broad staging.
+- Do not commit without explicit operator approval.
+- Do not use `git clean`, `reset`, `stash`, broad `restore`, branch switching,
+  rebase, amend, or force-push without explicit approval.
+- Review status and diff before commit and verify the remote/divergence before
+  push. Do not discard existing work silently.
+
+## Product Safety Contracts
+
+- MVP Categories remain text labels in `categoriesJson`; do not replace them
+  with IDs or relational tables without a future architecture decision.
+- Managed Categories are local UI configuration stored under
+  `sakurava.managedCategories.v1`; they do not mutate records. Record-category
+  bulk changes require preview, counts, confirmation, `categoriesJson`-only
+  patches, invalid-JSON handling, and preservation of unrelated fields.
+- Backup must not mutate existing data, must state that external media is not
+  included, and must produce a recognizable artifact. Restore is destructive,
+  requires confirmation, validates first, creates a pre-restore safety backup,
+  and must not leave a partial restore.
+- Settings persistence must use defensive parsing, separate preferences from
+  catalog data, and must not change category, media, or Backup/Restore behavior
+  unless explicitly approved.
+
+The detailed category, Backup/Restore, and Settings safety references remain in
+`docs/10-category-management-safety.md`, `docs/12-backup-restore-ux-safety.md`,
+and `docs/13-settings-persistence-planning.md`.
+
+## Execution Discipline
+
+- Future technical batches use at most three main stages; do not introduce new
+  nested retry/administrative stage IDs. Historical nested IDs may remain in
+  `HISTORY.md`.
+- Diagnose root cause before retrying. Do not blindly repeat failed work; stop
+  after repeated low-value failure or unresolved causal uncertainty.
+
+## Graphify
+
+Graphify is advisory and subordinate to the Project Brain and current scope. If
+the existing approved bridge is used, preserve its read-only boundaries and
+confirm material conclusions against current source/Git/evidence. Do not run
+Graphify rebuild, update, watch, install, hooks, purge, or other mutation
+commands during documentation migration. Never direct it at `manual-smoke/`,
+live AppData, runtime databases, media, or operator data.
