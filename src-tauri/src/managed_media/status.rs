@@ -11,6 +11,15 @@ pub struct ManagedMediaProgressStatus {
     pub processing: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedMediaStatistics {
+    pub ready_count: u64,
+    pub source_count: u64,
+    pub pending_count: u64,
+    pub published_storage_bytes: u64,
+}
+
 struct ProgressRow {
     owner_kind: String,
     owner_id: String,
@@ -25,6 +34,17 @@ struct ProgressRow {
 pub fn load_managed_media_progress_status(
     connection: &Connection,
 ) -> Result<ManagedMediaProgressStatus, rusqlite::Error> {
+    let statistics = load_managed_media_statistics(connection)?;
+    Ok(ManagedMediaProgressStatus {
+        ready: statistics.ready_count,
+        total: statistics.source_count,
+        processing: statistics.pending_count > 0,
+    })
+}
+
+pub fn load_managed_media_statistics(
+    connection: &Connection,
+) -> Result<ManagedMediaStatistics, rusqlite::Error> {
     let mut statement = connection.prepare(
         "SELECT item.owner_kind, item.owner_id, item.slot_kind, item.locator_hash,
                 item.lifecycle_state,
@@ -78,10 +98,17 @@ pub fn load_managed_media_progress_status(
     })?;
 
     let mut authoritative_sources = HashSet::new();
-    let mut status = ManagedMediaProgressStatus {
-        ready: 0,
-        total: 0,
-        processing: false,
+    let mut statistics = ManagedMediaStatistics {
+        ready_count: 0,
+        source_count: 0,
+        pending_count: 0,
+        published_storage_bytes: connection.query_row(
+            "SELECT COALESCE(SUM(byte_length), 0)
+             FROM managed_media_variants
+             WHERE publication_state = 'published'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )? as u64,
     };
     for row in rows {
         let row = row?;
@@ -94,14 +121,16 @@ pub fn load_managed_media_progress_status(
         if !authoritative_sources.insert(source_key) {
             continue;
         }
-        status.total += 1;
+        statistics.source_count += 1;
         if row.lifecycle_state == "active"
             && row.target_count > 0
             && row.unsettled_target_count == 0
         {
-            status.ready += 1;
+            statistics.ready_count += 1;
         }
-        status.processing |= row.lifecycle_state == "pending" && row.processing;
+        if row.lifecycle_state == "pending" && row.processing {
+            statistics.pending_count += 1;
+        }
     }
-    Ok(status)
+    Ok(statistics)
 }

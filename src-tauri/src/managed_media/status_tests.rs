@@ -2,7 +2,10 @@ use rusqlite::{params, Connection};
 
 use super::{
     schema::initialize_schema,
-    status::{load_managed_media_progress_status, ManagedMediaProgressStatus},
+    status::{
+        load_managed_media_progress_status, load_managed_media_statistics,
+        ManagedMediaProgressStatus, ManagedMediaStatistics,
+    },
 };
 
 fn connection() -> Connection {
@@ -72,9 +75,9 @@ fn insert_source(
                intent_id, managed_item_id, desired_revision, lifecycle_action,
                expected_locator_hash, desired_source_fingerprint, lifecycle_state,
                claim_token, claim_expires_at, attempt_count, cancellation_requested,
-               created_at, updated_at, finished_at
+               created_at, updated_at, finished_at, retry_eligible_at
              ) VALUES (?1, ?2, 1, 'generate', ?3, ?4, ?5, ?6, ?7, 0, 0,
-               'now', 'now', ?8)",
+               'now', 'now', ?8, ?9)",
             params![
                 intent_id,
                 item_id,
@@ -97,6 +100,11 @@ fn insert_source(
                 },
                 if intent_state == "completed" {
                     Some("now")
+                } else {
+                    None
+                },
+                if intent_state == "retry_wait" {
+                    Some("4102444800000")
                 } else {
                     None
                 },
@@ -197,6 +205,81 @@ fn no_current_sources_reports_no_work() {
             total: 0,
             processing: false,
         }
+    );
+}
+
+#[test]
+fn statistics_are_source_level_and_sum_only_published_variant_bytes() {
+    let connection = connection();
+    insert_source(
+        &connection,
+        1,
+        "image-ready",
+        "gallery-ready",
+        1,
+        "active",
+        "completed",
+        &["published", "skipped_ineligible", "published"],
+    );
+    insert_source(
+        &connection,
+        2,
+        "image-pending",
+        "gallery-pending",
+        2,
+        "pending",
+        "retry_wait",
+        &["pending"],
+    );
+    connection
+        .execute("UPDATE managed_media_variants SET byte_length = 11", [])
+        .expect("published sizes");
+    connection
+        .execute(
+            "UPDATE managed_media_variants SET publication_state = 'staged', byte_length = 99
+             WHERE variant_id = (SELECT variant_id FROM managed_media_variants LIMIT 1)",
+            [],
+        )
+        .expect("staged size");
+
+    assert_eq!(
+        load_managed_media_statistics(&connection).expect("statistics"),
+        ManagedMediaStatistics {
+            ready_count: 1,
+            source_count: 2,
+            pending_count: 1,
+            published_storage_bytes: 11,
+        }
+    );
+}
+
+#[test]
+fn statistics_exclude_superseded_intents_from_pending_sources() {
+    let connection = connection();
+    insert_source(
+        &connection,
+        1,
+        "image-superseded",
+        "gallery-superseded",
+        1,
+        "pending",
+        "queued",
+        &["pending"],
+    );
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET lifecycle_state = 'superseded'
+             WHERE intent_id = 'intent-1'",
+            [],
+        )
+        .expect("supersede intent");
+
+    assert_eq!(
+        load_managed_media_statistics(&connection)
+            .expect("statistics")
+            .pending_count,
+        0,
     );
 }
 

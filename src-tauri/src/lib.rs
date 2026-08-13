@@ -64,6 +64,7 @@ pub fn run() {
             commands::media_asset_allow_root,
             commands::managed_media_descriptor_resolve_batch,
             commands::managed_media_progress_get,
+            commands::managed_media_statistics_get,
             commands::managed_media_regenerate_missing_or_outdated,
             commands::path_status_check,
             commands::media_metadata_probe,

@@ -69,7 +69,10 @@ use crate::managed_media::{
     },
     path::ManagedMediaRoot,
     production::ProductionManagedMediaRuntime,
-    status::{load_managed_media_progress_status, ManagedMediaProgressStatus},
+    status::{
+        load_managed_media_progress_status, load_managed_media_statistics,
+        ManagedMediaProgressStatus, ManagedMediaStatistics,
+    },
 };
 use crate::restore_coordinator::{
     begin_restore, complete_recovery, complete_restore, create_backup_package_v2,
@@ -1003,6 +1006,15 @@ pub fn managed_media_progress_get(
 ) -> Result<ManagedMediaProgressStatus, String> {
     with_connection(&database, |connection| {
         load_managed_media_progress_status(connection).map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn managed_media_statistics_get(
+    database: State<'_, RuntimeDatabase>,
+) -> Result<ManagedMediaStatistics, String> {
+    with_connection(&database, |connection| {
+        load_managed_media_statistics(connection).map_err(|error| error.to_string())
     })
 }
 
