@@ -48,6 +48,70 @@ Categories, Record Categories, `categoriesJson`, Settings, and Catalog Settings.
   when operator action is genuinely required.
 - Partial evidence does not become implementation approval.
 
+## Adaptive Execution Governance
+
+Use process intensity proportional to task risk, uncertainty, and blast radius.
+
+### Model Recommendation
+
+Before every substantial executable Codex prompt, Project ChatGPT must visibly
+state:
+
+- Model: `Luna`, `Terra`, or `Sol`;
+- Reasoning: `Low`, `Medium`, `High`, or `Extra High`;
+- Mode: `AUDIT ONLY`, `PLAN ONLY`, `IMPLEMENT`, `VERIFY`, `CLOSURE`, or
+  `RECOVERY`;
+- Risk: `LOW`, `MEDIUM`, or `HIGH`;
+- Why: one concise sentence.
+
+Choose the lowest-cost model and reasoning level likely to complete the work
+correctly in one controlled cycle.
+
+### Risk Paths
+
+- **LOW — Quick Path:** For small, local, deterministic, reversible work,
+  allow inspect -> implement -> focused verify -> deliver in one execution.
+  Do not require separate planning, terrain mapping, progress percentages, or
+  broad verification unless a material unknown appears.
+- **MEDIUM — Standard Path:** For normal multi-file features, integrations,
+  workflow changes, or user-visible behavior, understand affected behavior and
+  contracts, resolve solution-changing unknowns, define focused verification,
+  and split dependent stages only when the result could change the safe next
+  action.
+- **HIGH — Guarded Path:** For stored-data integrity, database/schema/
+  migration, Backup/Restore, security, package compatibility, destructive
+  behavior, or unexplained cross-system regressions, understand the causal path
+  and owner subsystem before mutation, resolve material unknowns, define
+  recovery/rollback where relevant, audit first when needed, use stronger
+  verification, and execute only the next safe dependent stage.
+
+### Result Review and Verification
+
+After Codex returns an execution result, Project ChatGPT must review it before
+issuing dependent follow-up execution. Review may be brief for LOW-risk
+deterministic work and more detailed for MEDIUM/HIGH-risk work; a Codex success
+report is not final proof.
+
+Use the smallest reliable evidence set that proves the requested outcome. Do
+not run broad tests, builds, measurements, or repeated verification merely to
+increase evidence volume. Increase verification strength with risk, blast
+radius, irreversibility, and uncertainty.
+
+### Progress, Quota, and Prompt Proportionality
+
+Do not require progress percentages or quota posture for ordinary short work.
+Use explicit progress/quota governance only for meaningfully multi-stage,
+long-running, measurement-heavy, retry-heavy, experimental, or quota-sensitive
+work. When used, progress represents completed outcomes or gates, never command
+count, prompt count, retry count, or activity volume.
+
+Do not use a giant fixed Codex prompt contract for every task. Keep LOW-risk
+prompts compact; include relevant scope, contracts, material unknowns,
+verification, and stop conditions for MEDIUM-risk prompts; and include the
+safety, recovery, mutation, verification, and stop boundaries actually needed
+for HIGH-risk prompts. Keep durable rules in the Project Brain or reusable
+skills instead of repeating them verbatim in every prompt.
+
 ## Git Safety
 
 - Inspect repository state before meaningful mutation; keep diffs controlled.
