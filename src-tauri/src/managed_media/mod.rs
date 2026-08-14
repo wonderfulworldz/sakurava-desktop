@@ -11,6 +11,7 @@ pub mod processor;
 pub mod production;
 pub mod publication;
 pub mod recovery;
+pub mod removal;
 pub mod runtime;
 pub mod schema;
 pub mod status;
@@ -31,6 +32,8 @@ mod processor_tests;
 mod production_tests;
 #[cfg(test)]
 mod publication_tests;
+#[cfg(test)]
+mod removal_tests;
 #[cfg(test)]
 mod runtime_tests;
 #[cfg(test)]

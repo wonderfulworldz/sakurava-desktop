@@ -24,6 +24,8 @@ use super::{
 };
 
 const PRIMARY_VISUAL_TOKEN: &str = "primary_visual";
+pub(crate) const REMOVAL_GENERATE_MARKER: &str =
+    "queued by guarded Remove Mini Images; explicit manual regeneration may supersede";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +56,7 @@ struct ManualRegenerationCandidate {
     slot_kind: SlotKind,
     locator_hash: String,
     action: ManualRegenerationAction,
+    supersedes_removal_generate: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -299,6 +302,69 @@ pub fn resolve_claimed_source_locator(
         return Err(LocatorResolutionError::LocatorHashMismatch);
     }
 
+    Ok(ResolvedSourceLocator {
+        item_key,
+        locator_kind,
+        locator,
+        locator_hash: ValidatedSha256::new(stored.5)
+            .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?,
+    })
+}
+
+pub fn resolve_item_source_locator(
+    connection: &Connection,
+    item_id: &ValidatedSha256,
+    provider: &mut (impl OwnerSourceProvider + ?Sized),
+) -> Result<ResolvedSourceLocator, LocatorResolutionError> {
+    let stored = connection
+        .query_row(
+            "SELECT owner_kind, owner_id, slot_kind, slot_token,
+                    source_locator_kind, locator_hash
+             FROM managed_media_items WHERE item_id = ?1
+               AND lifecycle_state IN ('active', 'pending')",
+            [item_id.as_str()],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| LocatorResolutionError::ProviderFailure)?
+        .ok_or(LocatorResolutionError::ItemNotFound)?;
+    let owner_kind =
+        parse_owner_kind(&stored.0).ok_or(LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let slot_kind =
+        parse_slot_kind(&stored.2).ok_or(LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let locator_kind =
+        parse_locator_kind(&stored.4).ok_or(LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let owner_id = OwnerIdentifier::new(stored.1.clone())
+        .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let slot_token = SlotToken::new(stored.3.clone())
+        .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?;
+    let item_key = ManagedItemKey::new(owner_kind, owner_id, slot_kind, slot_token);
+    if hash_identity(&item_key.preimage())
+        .map_err(|_| LocatorResolutionError::UnsupportedStoredIdentity)?
+        != *item_id
+    {
+        return Err(LocatorResolutionError::OwnerIdentityMismatch);
+    }
+    let owner = provider
+        .load_owner_sources(owner_kind, &stored.1)
+        .map_err(|_| LocatorResolutionError::ProviderFailure)?
+        .ok_or(LocatorResolutionError::OwnerNotFound)?;
+    if owner.owner_kind != owner_kind || owner.owner_id != stored.1 {
+        return Err(LocatorResolutionError::OwnerIdentityMismatch);
+    }
+    let locator = resolve_owner_slot(&owner, slot_kind, &stored.3, locator_kind, &stored.5)?;
+    if locator_hash(locator_kind, &locator).ok().as_deref() != Some(stored.5.as_str()) {
+        return Err(LocatorResolutionError::LocatorHashMismatch);
+    }
     Ok(ResolvedSourceLocator {
         item_key,
         locator_kind,
@@ -752,7 +818,15 @@ pub fn queue_missing_or_outdated(
     };
 
     for candidate in candidates {
-        if has_nonterminal_intent(connection, &candidate.item_id)? {
+        if has_nonterminal_intent(connection, &candidate.item_id)?
+            && !candidate.supersedes_removal_generate
+        {
+            result.already_active_count += 1;
+            continue;
+        }
+        if candidate.supersedes_removal_generate
+            && !has_only_supersedable_removal_generate(connection, &candidate.item_id)?
+        {
             result.already_active_count += 1;
             continue;
         }
@@ -795,7 +869,16 @@ fn manual_regeneration_candidates(
                         AND intent.desired_revision = generation.desired_revision
                         AND intent.lifecycle_action IN ('generate', 'repair_missing', 'regenerate')
                         AND intent.lifecycle_state IN ('completed_with_failures', 'failed', 'cancelled')
-                    ) AS has_terminal_stale_intent
+                    ) AS has_terminal_stale_intent,
+                    EXISTS (
+                      SELECT 1 FROM managed_media_lifecycle_intents intent
+                      WHERE intent.managed_item_id = item.item_id
+                        AND intent.desired_revision = generation.desired_revision
+                        AND intent.lifecycle_action = 'generate'
+                        AND intent.lifecycle_state = 'queued'
+                        AND intent.claim_token IS NULL
+                        AND intent.failure_summary = ?1
+                    ) AS has_removal_generate
              FROM managed_media_items item
              JOIN managed_media_item_generations generation
                ON generation.managed_item_id = item.item_id
@@ -804,7 +887,7 @@ fn manual_regeneration_candidates(
         )
         .map_err(database_error)?;
     let rows = statement
-        .query_map([], |row| {
+        .query_map([REMOVAL_GENERATE_MARKER], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
@@ -814,6 +897,7 @@ fn manual_regeneration_candidates(
                 row.get::<_, i64>(5)?,
                 row.get::<_, i64>(6)?,
                 row.get::<_, bool>(7)?,
+                row.get::<_, bool>(8)?,
             ))
         })
         .map_err(database_error)?;
@@ -829,6 +913,7 @@ fn manual_regeneration_candidates(
             current_revision,
             desired_revision,
             has_terminal_stale_intent,
+            has_removal_generate,
         ) = row.map_err(database_error)?;
         let action = if lifecycle_state == "active"
             && current_revision > 0
@@ -839,6 +924,12 @@ fn manual_regeneration_candidates(
             && current_revision > 0
             && desired_revision > current_revision
             && has_terminal_stale_intent
+        {
+            Some(ManualRegenerationAction::Regenerate)
+        } else if lifecycle_state == "pending"
+            && current_revision > 0
+            && desired_revision > current_revision
+            && has_removal_generate
         {
             Some(ManualRegenerationAction::Regenerate)
         } else {
@@ -857,9 +948,93 @@ fn manual_regeneration_candidates(
             slot_kind,
             locator_hash,
             action,
+            supersedes_removal_generate: has_removal_generate,
         });
     }
     Ok(candidates)
+}
+
+fn has_only_supersedable_removal_generate(
+    connection: &Connection,
+    item_id: &str,
+) -> Result<bool, String> {
+    let (total, matching): (u64, u64) = connection
+        .query_row(
+            "SELECT COUNT(*), SUM(CASE WHEN lifecycle_action = 'generate'
+                                          AND lifecycle_state = 'queued'
+                                          AND claim_token IS NULL
+                                          AND failure_summary = ?2
+                                     THEN 1 ELSE 0 END)
+             FROM managed_media_lifecycle_intents
+             WHERE managed_item_id = ?1
+               AND lifecycle_state IN ('queued', 'claimed', 'retry_wait', 'recovery_required')",
+            params![item_id, REMOVAL_GENERATE_MARKER],
+            |row| Ok((row.get(0)?, row.get::<_, Option<u64>>(1)?.unwrap_or(0))),
+        )
+        .map_err(database_error)?;
+    Ok(total == 1 && matching == 1)
+}
+
+pub(crate) fn queue_generate_after_removal(
+    connection: &Connection,
+    item_id: &str,
+    locator_hash: &str,
+    now: &str,
+) -> Result<String, String> {
+    if has_nonterminal_intent(connection, item_id)? {
+        return Err("Managed-media lifecycle work conflicts with removal.".to_string());
+    }
+    let (owner_kind, slot_kind, lifecycle_state): (String, String, String) = connection
+        .query_row(
+            "SELECT owner_kind, slot_kind, lifecycle_state
+             FROM managed_media_items WHERE item_id = ?1",
+            [item_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(database_error)?;
+    if !matches!(lifecycle_state.as_str(), "active" | "pending") {
+        return Err("Managed-media item is not eligible for removal regeneration.".to_string());
+    }
+    let owner_kind = parse_owner_kind(&owner_kind)
+        .ok_or_else(|| "Managed-media item has an unsupported owner identity.".to_string())?;
+    let slot_kind = parse_slot_kind(&slot_kind)
+        .ok_or_else(|| "Managed-media item has an unsupported slot identity.".to_string())?;
+    queue_item_action(
+        connection,
+        item_id,
+        locator_hash,
+        LifecycleAction::Generate,
+        &roles_for_slot(owner_kind, slot_kind)?,
+        now,
+    )?;
+    let intent_id: String = connection
+        .query_row(
+            "SELECT intent.intent_id
+             FROM managed_media_lifecycle_intents intent
+             JOIN managed_media_item_generations generation
+               ON generation.managed_item_id = intent.managed_item_id
+             WHERE intent.managed_item_id = ?1
+               AND intent.desired_revision = generation.desired_revision
+               AND intent.lifecycle_action = 'generate' AND intent.lifecycle_state = 'queued'",
+            [item_id],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    connection
+        .execute(
+            "UPDATE managed_media_lifecycle_intents
+             SET failure_summary = ?2, updated_at = ?3 WHERE intent_id = ?1",
+            params![intent_id, REMOVAL_GENERATE_MARKER, now],
+        )
+        .map_err(database_error)?;
+    connection
+        .execute(
+            "UPDATE managed_media_items SET lifecycle_state = 'pending', updated_at = ?2
+             WHERE item_id = ?1",
+            params![item_id, now],
+        )
+        .map_err(database_error)?;
+    Ok(intent_id)
 }
 
 fn has_missing_published_managed_file(

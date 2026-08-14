@@ -126,6 +126,25 @@ pub struct AcquiredSource {
     pub byte_length: u64,
 }
 
+pub fn validate_local_source_readable(path: &Path) -> Result<u64, String> {
+    let policy = AcquisitionPolicy::new(MAX_SOURCE_BYTES, 1, vec![path.to_path_buf()])
+        .map_err(|error| error.to_string())?;
+    validate_requested_path::<()>(path, &policy).map_err(|error| format!("{error:?}"))?;
+    let path_metadata =
+        metadata_without_following::<()>(path).map_err(|error| format!("{error:?}"))?;
+    validate_source_metadata::<()>(&path_metadata).map_err(|error| format!("{error:?}"))?;
+    if path_metadata.len() > MAX_SOURCE_BYTES {
+        return Err("local source exceeds the managed-media source limit".to_string());
+    }
+    let source = File::open(path).map_err(|error| error.to_string())?;
+    let opened = source.metadata().map_err(|error| error.to_string())?;
+    validate_source_metadata::<()>(&opened).map_err(|error| format!("{error:?}"))?;
+    if MetadataIdentity::from_metadata(&path_metadata) != MetadataIdentity::from_metadata(&opened) {
+        return Err("local source changed while readability was validated".to_string());
+    }
+    Ok(opened.len())
+}
+
 pub fn acquire_local_source<C>(
     path: &Path,
     policy: &AcquisitionPolicy,

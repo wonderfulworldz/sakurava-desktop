@@ -88,6 +88,8 @@ pub enum RecoveryOutcome {
     RemovedExactStagingRemnant,
     MarkedFailedPreservingPrevious,
     ReconciledObsoleteLifecycle,
+    RemovalRolledBack,
+    RemovalCompleted,
 }
 
 #[derive(Debug, Clone)]
@@ -97,12 +99,6 @@ pub(crate) struct RecoveryPlan {
     journal_state: String,
     payload_json: String,
     payload: JournalPayload,
-}
-
-impl RecoveryPlan {
-    pub(crate) fn operation_id(&self) -> &str {
-        &self.operation_id
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

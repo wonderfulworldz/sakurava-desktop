@@ -68,7 +68,11 @@ use crate::managed_media::{
         resolve_descriptor_batch, ManagedMediaDescriptor, ManagedMediaDescriptorRequest,
     },
     path::ManagedMediaRoot,
-    production::ProductionManagedMediaRuntime,
+    production::{AutomaticActionsPolicyState, ProductionManagedMediaRuntime},
+    removal::{
+        execute as execute_managed_media_removal, preview as preview_managed_media_removal,
+        RemovalExecuteRequest, RemovalPreview, RemovalResult,
+    },
     status::{
         load_managed_media_progress_status, load_managed_media_statistics,
         ManagedMediaProgressStatus, ManagedMediaStatistics,
@@ -1019,6 +1023,48 @@ pub fn managed_media_statistics_get(
 }
 
 #[tauri::command]
+pub fn managed_media_removal_preview(
+    database: State<'_, RuntimeDatabase>,
+    runtime: State<'_, ProductionManagedMediaRuntime>,
+) -> Result<RemovalPreview, String> {
+    database.ensure_restore_resolved()?;
+    let root = ManagedMediaRoot::from_app_data_dir(&database.paths.app_data_dir)?;
+    let policy = runtime.automatic_actions_policy_state();
+    with_connection(&database, |connection| {
+        preview_managed_media_removal(connection, &root, policy.as_str())
+    })
+}
+
+#[tauri::command]
+pub fn managed_media_removal_execute(
+    database: State<'_, RuntimeDatabase>,
+    runtime: State<'_, ProductionManagedMediaRuntime>,
+    request: RemovalExecuteRequest,
+) -> Result<RemovalResult, String> {
+    database.ensure_restore_resolved()?;
+    let _guard = runtime.try_begin_guarded_removal()?;
+    require_removal_automatic_policy(runtime.automatic_actions_policy_state())?;
+    let root = ManagedMediaRoot::from_app_data_dir(&database.paths.app_data_dir)?;
+    with_connection(&database, |connection| {
+        require_removal_automatic_policy(runtime.automatic_actions_policy_state())?;
+        execute_managed_media_removal(connection, &root, request)
+    })
+}
+
+pub(crate) fn require_removal_automatic_policy(
+    state: AutomaticActionsPolicyState,
+) -> Result<(), String> {
+    if state == AutomaticActionsPolicyState::Off {
+        Ok(())
+    } else {
+        Err(
+            "Automatic Mini Images must be synchronized and OFF before removing mini images."
+                .to_string(),
+        )
+    }
+}
+
+#[tauri::command]
 pub fn managed_media_regenerate_missing_or_outdated(
     database: State<'_, RuntimeDatabase>,
     runtime: State<'_, ProductionManagedMediaRuntime>,
@@ -1039,7 +1085,7 @@ pub fn managed_media_automatic_actions_sync(
     enabled: bool,
     runtime: State<'_, ProductionManagedMediaRuntime>,
 ) -> Result<(), String> {
-    let _ = runtime.synchronize_automatic_actions(enabled);
+    let _ = runtime.synchronize_automatic_actions(enabled)?;
     Ok(())
 }
 

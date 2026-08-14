@@ -18,8 +18,9 @@ use image::{
 use rusqlite::Connection;
 
 use super::acquisition::{
-    acquire_local_source, AcquisitionCheckpoint, AcquisitionError, AcquisitionPolicy,
-    FailureDisposition, LocalGenerationOrchestrator, OrchestrationCheckpoint, OrchestrationFailure,
+    acquire_local_source, validate_local_source_readable, AcquisitionCheckpoint, AcquisitionError,
+    AcquisitionPolicy, FailureDisposition, LocalGenerationOrchestrator, OrchestrationCheckpoint,
+    OrchestrationFailure,
 };
 use super::{
     catalog_lifecycle::{locator_hash, reconcile_owner_mutation, OwnerSources},
@@ -269,6 +270,23 @@ fn bounded_local_acquisition_reads_an_exact_cap_without_mutating_the_source() {
         acquire_local_source(&source, &policy, |_| Ok::<_, ()>(())).expect("acquisition");
     assert_eq!(acquired.bytes, bytes);
     assert_eq!(fs::read(&source).expect("unchanged source"), bytes);
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn validate_local_source_readable_accepts_unchanged_file_and_rejects_directory() {
+    let root = temporary_root("validate-local-source-readable");
+    let source = root.join("source.bin");
+    let bytes = b"readable source".to_vec();
+    fs::write(&source, &bytes).expect("source");
+
+    assert_eq!(
+        validate_local_source_readable(&source).expect("readable source"),
+        bytes.len() as u64
+    );
+    assert_eq!(fs::read(&source).expect("unchanged source"), bytes);
+    assert!(validate_local_source_readable(&root).is_err());
+
     fs::remove_dir_all(root).expect("cleanup");
 }
 

@@ -1,8 +1,8 @@
 use std::{
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
+        atomic::{AtomicBool, AtomicU8, Ordering},
+        Arc, Mutex, MutexGuard, TryLockError,
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -49,6 +49,31 @@ const SQLITE_BUSY_TIMEOUT_MILLIS: u64 = 5_000;
 pub struct ProductionManagedMediaRuntime {
     control: RuntimeControl,
     automatic_actions_allowed: Arc<AtomicBool>,
+    automatic_policy_state: AtomicU8,
+    automatic_policy_gate: Mutex<()>,
+    mutation_gate: Arc<Mutex<()>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutomaticActionsPolicyState {
+    Unsynchronized,
+    Off,
+    On,
+}
+
+impl AutomaticActionsPolicyState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unsynchronized => "unsynchronized",
+            Self::Off => "off",
+            Self::On => "on",
+        }
+    }
+}
+
+pub struct ManagedMediaRemovalGuard<'a> {
+    _automatic_policy_guard: MutexGuard<'a, ()>,
+    _mutation_guard: MutexGuard<'a, ()>,
 }
 
 impl ProductionManagedMediaRuntime {
@@ -66,6 +91,8 @@ impl ProductionManagedMediaRuntime {
         // Until then, automatic Generate/Retire work must remain durable but idle.
         let automatic_actions_allowed = Arc::new(AtomicBool::new(false));
         let backend_automatic_actions_allowed = Arc::clone(&automatic_actions_allowed);
+        let mutation_gate = Arc::new(Mutex::new(()));
+        let worker_mutation_gate = Arc::clone(&mutation_gate);
 
         let control = RuntimeControl::start(
             policy,
@@ -89,6 +116,9 @@ impl ProductionManagedMediaRuntime {
                         ))
                     },
                     move |claimed, ownership_lost| {
+                        let _mutation_guard = worker_mutation_gate.lock().map_err(|_| {
+                            "Managed-media mutation gate is unavailable.".to_string()
+                        })?;
                         run_claimed_job(
                             &job_database_path,
                             &job_root,
@@ -111,6 +141,9 @@ impl ProductionManagedMediaRuntime {
         Ok(Self {
             control,
             automatic_actions_allowed,
+            automatic_policy_state: AtomicU8::new(0),
+            automatic_policy_gate: Mutex::new(()),
+            mutation_gate,
         })
     }
 
@@ -118,13 +151,54 @@ impl ProductionManagedMediaRuntime {
         self.control.wake()
     }
 
-    pub fn synchronize_automatic_actions(&self, enabled: bool) -> WakeOutcome {
+    pub fn synchronize_automatic_actions(&self, enabled: bool) -> Result<WakeOutcome, String> {
+        let _guard = self
+            .automatic_policy_gate
+            .lock()
+            .map_err(|_| "Managed-media automatic policy gate is unavailable.".to_string())?;
         self.automatic_actions_allowed
             .store(enabled, Ordering::Release);
+        self.automatic_policy_state
+            .store(if enabled { 2 } else { 1 }, Ordering::Release);
         if enabled {
-            self.control.wake()
+            Ok(self.control.wake())
         } else {
-            WakeOutcome::Coalesced
+            Ok(WakeOutcome::Coalesced)
+        }
+    }
+
+    pub fn automatic_actions_policy_state(&self) -> AutomaticActionsPolicyState {
+        match self.automatic_policy_state.load(Ordering::Acquire) {
+            1 => AutomaticActionsPolicyState::Off,
+            2 => AutomaticActionsPolicyState::On,
+            _ => AutomaticActionsPolicyState::Unsynchronized,
+        }
+    }
+
+    pub fn try_begin_guarded_removal(&self) -> Result<ManagedMediaRemovalGuard<'_>, String> {
+        let automatic_policy_guard = match self.automatic_policy_gate.try_lock() {
+            Ok(guard) => guard,
+            Err(TryLockError::WouldBlock) => {
+                return Err(
+                    "Automatic Mini Images is being synchronized. Try again afterward."
+                        .to_string(),
+                )
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                return Err("Managed-media automatic policy gate is unavailable.".to_string())
+            }
+        };
+        match self.mutation_gate.try_lock() {
+            Ok(mutation_guard) => Ok(ManagedMediaRemovalGuard {
+                _automatic_policy_guard: automatic_policy_guard,
+                _mutation_guard: mutation_guard,
+            }),
+            Err(TryLockError::WouldBlock) => {
+                Err("Managed-media processing is active. Try again after it finishes.".to_string())
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                Err("Managed-media mutation gate is unavailable.".to_string())
+            }
         }
     }
 

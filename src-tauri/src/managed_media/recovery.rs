@@ -10,6 +10,7 @@ use super::{
         apply_recovery, cleanup_recovery, inspect_recovery_filesystem, list_nonterminal_operations,
         prepare_recovery, PublicationError, RecoveryOutcome,
     },
+    removal::{is_removal_operation, recover_removal_operation},
 };
 
 #[derive(Debug, Clone)]
@@ -63,26 +64,28 @@ pub fn recover(
     processor: &ManagedMediaProcessor,
     scope: RecoveryScope,
 ) -> Result<Vec<OperationRecoveryOutcome>, RecoveryError> {
-    let plans = match scope {
-        RecoveryScope::Operation(operation) => {
-            vec![prepare_recovery(connection, operation.as_str())
-                .map_err(|error| RecoveryError::operation(operation.as_str(), error))?]
-        }
+    let operation_ids = match scope {
+        RecoveryScope::Operation(operation) => vec![operation.as_str().to_string()],
         RecoveryScope::BoundedNonterminal { maximum_operations } => {
             list_nonterminal_operations(connection, maximum_operations)
                 .map_err(RecoveryError::boundary)?
-                .into_iter()
-                .map(|operation_id| {
-                    prepare_recovery(connection, &operation_id)
-                        .map_err(|error| RecoveryError::operation(operation_id, error))
-                })
-                .collect::<Result<Vec<_>, _>>()?
         }
     };
-    plans
+    operation_ids
         .into_iter()
-        .map(|plan| {
-            let operation_id = plan.operation_id().to_string();
+        .map(|operation_id| {
+            if is_removal_operation(connection, &operation_id)
+                .map_err(|error| RecoveryError::operation(&operation_id, error))?
+            {
+                let outcome = recover_removal_operation(connection, root, &operation_id)
+                    .map_err(|error| RecoveryError::operation(&operation_id, error))?;
+                return Ok(OperationRecoveryOutcome {
+                    operation_id,
+                    outcome,
+                });
+            }
+            let plan = prepare_recovery(connection, &operation_id)
+                .map_err(|error| RecoveryError::operation(&operation_id, error))?;
             let evidence = inspect_recovery_filesystem(root, processor, &plan)
                 .map_err(|error| RecoveryError::operation(&operation_id, error))?;
             let outcome = apply_recovery(connection, &plan, evidence)

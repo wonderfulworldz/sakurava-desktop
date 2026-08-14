@@ -39,6 +39,7 @@ import { createPortal } from "react-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
 import AutomaticMiniImagesControl from "../components/AutomaticMiniImagesControl";
 import ManagedMediaRegenerateAction from "../components/ManagedMediaRegenerateAction";
+import ManagedMediaRemoveAction from "../components/ManagedMediaRemoveAction";
 import ManagedMediaStatistics from "../components/ManagedMediaStatistics";
 import type {
   Image,
@@ -3132,6 +3133,9 @@ function SettingsSection({
         </ControlRow>
         <ControlRow label={t("settings.managedMedia.automatic.title")} alignStart>
           <AutomaticMiniImagesControl />
+        </ControlRow>
+        <ControlRow label={t("settings.managedMedia.remove.title")} alignStart>
+          <ManagedMediaRemoveAction />
         </ControlRow>
         <ControlRow label={t("settings.managedMedia.statistics.title")} alignStart>
           <ManagedMediaStatistics />
