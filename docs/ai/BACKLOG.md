@@ -5,12 +5,6 @@ APPLICATION_WORK_STATUS: `PAUSED_BY_OPERATOR`
 Backlog presence is not implementation approval. Every item remains separately
 gated unless a later prompt explicitly authorizes it.
 
-## Managed Media Continuation
-
-1. Remove Mini Images — ready/planned, pending separate approval. Managed mini
-   images remain protected catalog assets unless a separately approved removal
-   or cache-policy decision changes their handling.
-
 ## Pre-42.9 Product Review
 
 - Notification System / Notification History — planned from

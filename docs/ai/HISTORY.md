@@ -71,6 +71,34 @@ migration, dependency, or package-format changes were made.
 Reference: delivery commit
 `f1d92c3a81fd357964542ecffbffbf7d6e19524a`.
 
+## Remove Mini Images
+
+### REMOVE-MINI-IMAGES
+
+Status: `COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION`
+
+Outcome: Delivered guarded destructive Remove Mini Images with
+`GUARDED_REMOVE_WITH_EXPLICIT_REGENERATION`. Preview remains available in any
+Automatic Mini Images state, while execution requires synchronized Automatic
+Mini Images `OFF` and never changes the preference. Originals are never
+deletion targets; unavailable-original managed outputs are preserved. Stale
+Preview protection, exact-path quarantine, journal/recovery, coherent database
+and lifecycle reconciliation, retained regeneration eligibility, and the
+bounded Manual Regenerate override were delivered. Claimed/running work is not
+cancelled or superseded. Retire and orphan cleanup remain separate. No Backup
+exclusion preference or disposable managed-mini cache was added; Backup/Restore
+source and `.skv` format remain unchanged.
+
+Verification: Remove Mini Images Rust tests `16 passed / 0 failed`; automatic
+action regression `1 passed / 0 failed`; running-work regression `1 passed / 0
+failed`; focused frontend `3 files / 7 tests PASS`; frontend build PASS; direct
+acquisition helper `1 passed / 0 failed`. All remain `REPORTED_BY_CODEX`.
+
+Runtime acceptance: `UNKNOWN`; desktop runtime was not run.
+
+Reference: delivery commit
+`dda21f1e9934f19085aadf7763a94685547aea25`.
+
 ## Dependency Security Hygiene
 
 ### DEPENDENCY-SECURITY-HYGIENE
