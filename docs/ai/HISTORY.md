@@ -48,6 +48,29 @@ production defect.
 Reference: delivery commit
 `02ff01080708e492a173aa38cdd6a930f5c08354`.
 
+## Automatic Mini Images
+
+### AUTOMATIC-MINI-IMAGES
+
+Status: `COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION`
+
+Outcome: Delivered persistent ON/OFF Automatic Mini Images with an ON default
+and defensive fallback, a safe backend startup synchronization gate, durable
+OFF behavior for automatic Generate and Retire work, independent Manual
+Regenerate, and OFF → ON resumption through the existing bounded runtime wake.
+Only selected/populated source slots participate; catalog-wide regeneration was
+not introduced. Backup/Restore feature-state wiring was additive.
+
+Verification: Rust automatic-action gate PASS; focused frontend tests `4 files /
+16 tests PASS`; frontend build PASS; and focused running-work Rust test `1
+passed / 0 failed`. All remain `REPORTED_BY_CODEX`.
+
+Runtime acceptance: `UNKNOWN`; desktop runtime was not run. No schema,
+migration, dependency, or package-format changes were made.
+
+Reference: delivery commit
+`f1d92c3a81fd357964542ecffbffbf7d6e19524a`.
+
 ## Dependency Security Hygiene
 
 ### DEPENDENCY-SECURITY-HYGIENE

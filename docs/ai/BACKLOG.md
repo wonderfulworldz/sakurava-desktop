@@ -7,11 +7,9 @@ gated unless a later prompt explicitly authorizes it.
 
 ## Managed Media Continuation
 
-1. Automatic Mini Images — ready/planned, pending separate approval. The
-   approved direction is persistent ON/OFF behavior; OFF stops new automatic
-   work while preserving existing outputs, and Manual Regenerate remains
-   available.
-2. Remove Mini Images — ready/planned, pending separate approval.
+1. Remove Mini Images — ready/planned, pending separate approval. Managed mini
+   images remain protected catalog assets unless a separately approved removal
+   or cache-policy decision changes their handling.
 
 ## Pre-42.9 Product Review
 
@@ -23,7 +21,6 @@ gated unless a later prompt explicitly authorizes it.
 - Centralized Remember policy — deferred product/architecture direction.
 - Minimal Consistent Catalog Columns — approved future UI direction after the
   corrective foundation.
-- Media Cover correction — unresolved next separately gated audit priority.
 
 ## Import, Export, and Credits
 

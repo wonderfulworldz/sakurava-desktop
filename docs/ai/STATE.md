@@ -10,9 +10,9 @@ Last Completed Roadmap Batch: `42.8 - Safe Filter and R+ Content Classification`
 
 Last Completed Roadmap Batch Status: `COMPLETED_AND_CLOSED_WITH_LIMITATIONS`
 
-Latest Accepted Application Delivery: `Simple Statistics`
+Latest Accepted Application Delivery: `Automatic Mini Images`
 
-Application Delivery Commit: `02ff01080708e492a173aa38cdd6a930f5c08354`
+Application Delivery Commit: `f1d92c3a81fd357964542ecffbffbf7d6e19524a`
 
 Project Brain V2 Baseline: `c82a02f17732ccea941ee072b5842907f32b6057`
 
@@ -21,11 +21,12 @@ Technical Application Permissions: `NONE`
 Protected Local Evidence: `manual-smoke/` remains untracked.
 
 Current Goal: Maintain Project Brain V2 as the durable project authority and
-await the next separately approved application-work decision.
+await the next separately approved Managed Media or product decision.
 
-Next Action: Simple Statistics is closed; await operator decision and separate
-approval for the next application task. No backlog item or historical work
-authorizes execution by itself.
+Next Action: Automatic Mini Images is closed; await operator decision and
+separate approval for the next Managed Media or product task. Remove Mini Images
+remains separately gated, and no backlog item or historical work authorizes
+execution by itself.
 
 Evidence: current repository facts are `REPORTED_BY_CODEX` unless independently
 qualified elsewhere. Historical completion and operator acceptance retain their
