@@ -152,6 +152,7 @@ describe("backup package runtime wrappers", () => {
         }),
         expectedStateSha256: "b".repeat(64),
       })
+      .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(result);
 
     await expect(

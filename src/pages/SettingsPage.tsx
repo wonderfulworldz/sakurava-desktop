@@ -37,6 +37,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
+import AutomaticMiniImagesControl from "../components/AutomaticMiniImagesControl";
 import ManagedMediaRegenerateAction from "../components/ManagedMediaRegenerateAction";
 import ManagedMediaStatistics from "../components/ManagedMediaStatistics";
 import type {
@@ -3128,6 +3129,9 @@ function SettingsSection({
         </ControlRow>
         <ControlRow label={t("settings.managedMedia.regenerate")} alignStart>
           <ManagedMediaRegenerateAction />
+        </ControlRow>
+        <ControlRow label={t("settings.managedMedia.automatic.title")} alignStart>
+          <AutomaticMiniImagesControl />
         </ControlRow>
         <ControlRow label={t("settings.managedMedia.statistics.title")} alignStart>
           <ManagedMediaStatistics />

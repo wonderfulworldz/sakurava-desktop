@@ -2,7 +2,7 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        atomic::{AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Condvar, Mutex,
     },
     thread,
@@ -597,7 +597,7 @@ fn ordinary_worker_error_disables_the_supervisor_instead_of_being_discarded() {
 }
 
 #[test]
-fn concrete_inert_backend_bounds_workers_and_renews_registered_claims() {
+fn concrete_inert_backend_renews_claimed_work_after_automatic_policy_turns_off() {
     let temporary = RuntimeTestRoot::new();
     let database_path = temporary.path().join("runtime.sqlite");
     let connection = Connection::open(&database_path).expect("database");
@@ -637,7 +637,8 @@ fn concrete_inert_backend_bounds_workers_and_renews_registered_claims() {
     let runner_gate = Arc::clone(&worker_gate);
     let open_path = database_path.clone();
     let managed_root = ManagedMediaRoot::from_app_data_dir(temporary.path()).expect("managed root");
-    let mut backend = InertSqliteRuntimeBackend::new(
+    let automatic_actions_allowed = Arc::new(AtomicBool::new(true));
+    let mut backend = InertSqliteRuntimeBackend::new_with_automatic_actions(
         move || Connection::open(&open_path).map_err(|error| error.to_string()),
         managed_root,
         ManagedMediaProcessor::default(),
@@ -654,6 +655,7 @@ fn concrete_inert_backend_bounds_workers_and_renews_registered_claims() {
             }
             Ok(())
         },
+        Arc::clone(&automatic_actions_allowed),
     );
     let dispatch = backend
         .dispatch_lifecycle(policy().executor(), 1)
@@ -661,6 +663,7 @@ fn concrete_inert_backend_bounds_workers_and_renews_registered_claims() {
     assert_eq!(dispatch.claimed, 1);
     assert_eq!(dispatch.active_claims, 1);
     assert!(dispatch.capacity_saturated);
+    automatic_actions_allowed.store(false, Ordering::Release);
     let renewal = backend
         .renew_active_claims(
             &ExecutorTimestamp::from_millis(1_753_747_200_100).expect("renewal time"),

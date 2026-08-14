@@ -66,6 +66,7 @@ pub fn run() {
             commands::managed_media_progress_get,
             commands::managed_media_statistics_get,
             commands::managed_media_regenerate_missing_or_outdated,
+            commands::managed_media_automatic_actions_sync,
             commands::path_status_check,
             commands::media_metadata_probe,
             commands::open_media_path,

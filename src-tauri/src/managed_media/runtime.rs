@@ -14,10 +14,10 @@ use std::{
 use rusqlite::Connection;
 
 use super::{
-    executor::{claim_bounded, ExecutorError, ExecutorPolicy},
+    executor::{claim_bounded_with_automatic_actions, ExecutorError, ExecutorPolicy},
     lifecycle::{
-        earliest_eligible_due_time, renew_claim, ClaimRenewalOutcome, ClaimedIntentSnapshot,
-        ExecutorTimestamp,
+        earliest_eligible_due_time_with_automatic_actions, renew_claim, ClaimRenewalOutcome,
+        ClaimedIntentSnapshot, ExecutorTimestamp,
     },
     path::ManagedMediaRoot,
     processor::ManagedMediaProcessor,
@@ -246,6 +246,7 @@ pub struct InertSqliteRuntimeBackend {
     active: BTreeMap<String, ActiveClaim>,
     workers: Vec<WorkerSlot>,
     accepting_claims: bool,
+    automatic_actions_allowed: Arc<AtomicBool>,
     worker_sequence: u64,
 }
 
@@ -267,6 +268,35 @@ impl InertSqliteRuntimeBackend {
             + Sync
             + 'static,
     {
+        Self::new_with_automatic_actions(
+            connection_factory,
+            managed_root,
+            processor,
+            claim_clock,
+            claim_token,
+            worker_runner,
+            Arc::new(AtomicBool::new(true)),
+        )
+    }
+
+    pub fn new_with_automatic_actions<CF, CC, TG, WR>(
+        connection_factory: CF,
+        managed_root: ManagedMediaRoot,
+        processor: ManagedMediaProcessor,
+        claim_clock: CC,
+        claim_token: TG,
+        worker_runner: WR,
+        automatic_actions_allowed: Arc<AtomicBool>,
+    ) -> Self
+    where
+        CF: Fn() -> Result<Connection, String> + Send + Sync + 'static,
+        CC: FnMut() -> Result<u64, String> + Send + 'static,
+        TG: FnMut() -> Result<String, String> + Send + 'static,
+        WR: Fn(ClaimedIntentSnapshot, Arc<AtomicBool>) -> Result<(), String>
+            + Send
+            + Sync
+            + 'static,
+    {
         Self {
             connection_factory: Arc::new(connection_factory),
             managed_root,
@@ -277,6 +307,7 @@ impl InertSqliteRuntimeBackend {
             active: BTreeMap::new(),
             workers: Vec::new(),
             accepting_claims: true,
+            automatic_actions_allowed,
             worker_sequence: 0,
         }
     }
@@ -375,11 +406,12 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
         )
         .map_err(|error| error.to_string())?;
         let connection = self.open_connection()?;
-        let batch = claim_bounded(
+        let batch = claim_bounded_with_automatic_actions(
             &connection,
             cycle_policy,
             &mut self.claim_clock,
             &mut self.claim_token,
+            self.automatic_actions_allowed.load(Ordering::Acquire),
         )
         .map_err(|error| error.to_string())?;
         let claimed_count = batch.claims.len() as u32;
@@ -459,7 +491,12 @@ impl RuntimeBackend for InertSqliteRuntimeBackend {
         now: &ExecutorTimestamp,
     ) -> Result<Option<ExecutorTimestamp>, String> {
         let connection = self.open_connection()?;
-        earliest_eligible_due_time(&connection, now).map_err(|error| error.to_string())
+        earliest_eligible_due_time_with_automatic_actions(
+            &connection,
+            now,
+            self.automatic_actions_allowed.load(Ordering::Acquire),
+        )
+        .map_err(|error| error.to_string())
     }
 
     fn stop_new_claims(&mut self) {

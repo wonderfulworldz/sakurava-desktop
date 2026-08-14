@@ -11,6 +11,12 @@ import {
   applySafeFilterFeatureState,
   safeFilterFeatureState,
 } from "../lib/safeFilterState";
+import {
+  applyAutomaticMiniImagesFeatureState,
+  automaticMiniImagesFeatureState,
+  getAutomaticMiniImagesEnabled,
+} from "../lib/automaticMiniImagesState";
+import { synchronizeAutomaticMiniImagesPolicy } from "./managedMediaAutomatic";
 
 export { isTauriRuntimeAvailable as isDatabaseRuntimeAvailable };
 
@@ -230,13 +236,13 @@ export async function restoreBackupPackage(packageName: string) {
   // The fallback is test-harness compatibility only; the registered production
   // command returns a RestoreStateTransition.
   if ("databaseRestored" in transition) return transition;
-  const applied = applyTransition(transition);
+  const applied = await applyTransition(transition);
   if (!applied.ok) {
     const rollback = await invokeTauriCommand<RestoreRollbackTransition>(
       "backup_package_restore_rollback",
       { operationId: transition.operationId },
     );
-    const rollbackApplied = applyTransition(rollback.transition);
+    const rollbackApplied = await applyTransition(rollback.transition);
     if (rollbackApplied.ok) {
       await invokeTauriCommand("backup_restore_recovery_complete", {
         operationId: rollback.transition.operationId,
@@ -264,7 +270,7 @@ export async function restoreBackupPackage(packageName: string) {
       "backup_package_restore_rollback",
       { operationId: transition.operationId },
     );
-    const rollbackApplied = applyTransition(rollback.transition);
+    const rollbackApplied = await applyTransition(rollback.transition);
     if (rollbackApplied.ok) {
       await invokeTauriCommand("backup_restore_recovery_complete", {
         operationId: rollback.transition.operationId,
@@ -322,7 +328,10 @@ function currentProtectedState() {
     throw new Error("Protected state is unavailable outside the application window.");
   }
   const exported = exportProtectedStateSnapshot(window.localStorage, {
-    featureState: safeFilterFeatureState(),
+    featureState: {
+      ...safeFilterFeatureState(),
+      ...automaticMiniImagesFeatureState(),
+    },
   });
   if (!exported.ok) throw new Error(exported.message);
   const encoded = encodeProtectedStateSnapshot(exported.value);
@@ -330,16 +339,28 @@ function currentProtectedState() {
   return encoded.value;
 }
 
-function applyTransition(transition: RestoreStateTransition) {
+async function applyTransition(transition: RestoreStateTransition) {
   const applied = applyProtectedStateSnapshot(
     window.localStorage,
     transition.protectedState,
     {
       expectedStateSha256: transition.expectedStateSha256,
-      applyFeatureState: applySafeFilterFeatureState,
+      applyFeatureState: (values) => {
+        applySafeFilterFeatureState(values);
+        applyAutomaticMiniImagesFeatureState(values);
+      },
     },
   );
   if (applied.ok) {
+    try {
+      await synchronizeAutomaticMiniImagesPolicy(getAutomaticMiniImagesEnabled());
+    } catch (error) {
+      return {
+        ok: false as const,
+        code: "automatic_mini_images_sync_failed",
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
     window.dispatchEvent(new Event("sakurava-protected-state-restored"));
   }
   return applied;
@@ -358,7 +379,7 @@ export function ensureRestoreRecovery() {
       "backup_restore_recovery_status",
     );
     if (!status.pending || !status.transition) return;
-    const applied = applyTransition(status.transition);
+    const applied = await applyTransition(status.transition);
     if (!applied.ok) {
       throw { code: applied.code, message: applied.message };
     }

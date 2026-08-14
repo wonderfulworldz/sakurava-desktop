@@ -711,6 +711,15 @@ pub fn discover_lifecycle_work(
     now: &ExecutorTimestamp,
     limit: u32,
 ) -> Result<Vec<LifecycleWorkCandidate>, LifecycleError> {
+    discover_lifecycle_work_with_automatic_actions(connection, now, limit, true)
+}
+
+pub fn discover_lifecycle_work_with_automatic_actions(
+    connection: &Connection,
+    now: &ExecutorTimestamp,
+    limit: u32,
+    automatic_actions_allowed: bool,
+) -> Result<Vec<LifecycleWorkCandidate>, LifecycleError> {
     if limit == 0 {
         return Err(LifecycleError::InvalidPolicy);
     }
@@ -745,6 +754,7 @@ pub fn discover_lifecycle_work(
            )
            AND i.cancellation_requested = 0
            AND i.superseded_by_intent_id IS NULL
+           AND (?3 != 0 OR i.lifecycle_action NOT IN ('generate', 'retire'))
            AND item.lifecycle_state IN ('active', 'pending')
            AND i.desired_revision = generation.desired_revision
            AND NOT EXISTS (
@@ -759,25 +769,36 @@ pub fn discover_lifecycle_work(
          ORDER BY CAST(effective_due_at AS INTEGER), CAST(i.created_at AS INTEGER), i.intent_id
          LIMIT ?2",
     )?;
-    let rows = statement.query_map((now_millis, i64::from(limit)), |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, String>(3)?,
-            row.get::<_, String>(4)?,
-            row.get::<_, String>(5)?,
-            row.get::<_, String>(6)?,
-            row.get::<_, Option<String>>(7)?,
-            row.get::<_, Option<String>>(8)?,
-        ))
-    })?;
+    let rows = statement.query_map(
+        (now_millis, i64::from(limit), automatic_actions_allowed),
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<String>>(8)?,
+            ))
+        },
+    )?;
     rows.map(|row| parse_work_candidate(row?)).collect()
 }
 
 pub fn earliest_eligible_due_time(
     connection: &Connection,
     now: &ExecutorTimestamp,
+) -> Result<Option<ExecutorTimestamp>, LifecycleError> {
+    earliest_eligible_due_time_with_automatic_actions(connection, now, true)
+}
+
+pub fn earliest_eligible_due_time_with_automatic_actions(
+    connection: &Connection,
+    now: &ExecutorTimestamp,
+    automatic_actions_allowed: bool,
 ) -> Result<Option<ExecutorTimestamp>, LifecycleError> {
     schema::validate_schema(connection).map_err(|_| LifecycleError::SchemaConflict)?;
     let now_millis =
@@ -800,6 +821,7 @@ pub fn earliest_eligible_due_time(
                )
                AND i.cancellation_requested = 0
                AND i.superseded_by_intent_id IS NULL
+               AND (?2 != 0 OR i.lifecycle_action NOT IN ('generate', 'retire'))
                AND item.lifecycle_state IN ('active', 'pending')
                AND i.desired_revision = generation.desired_revision
                AND NOT EXISTS (
@@ -813,7 +835,7 @@ pub fn earliest_eligible_due_time(
                )
              ORDER BY CAST(effective_due_at AS INTEGER), CAST(i.created_at AS INTEGER), i.intent_id
              LIMIT 1",
-            [now_millis],
+            (now_millis, automatic_actions_allowed),
             |row| row.get::<_, String>(0),
         )
         .optional()?;

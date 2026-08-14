@@ -5,7 +5,8 @@ use rusqlite::Connection;
 use super::{
     identity::LifecycleClaimToken,
     lifecycle::{
-        claim_discovered_intent, discover_lifecycle_work, ClaimAttemptOutcome, ClaimLossReason,
+        claim_discovered_intent, discover_lifecycle_work,
+        discover_lifecycle_work_with_automatic_actions, ClaimAttemptOutcome, ClaimLossReason,
         ClaimedIntentSnapshot, ExecutorTimestamp, LifecycleError,
     },
 };
@@ -254,10 +255,30 @@ where
     C: ExecutorClock,
     G: ClaimTokenGenerator,
 {
+    claim_bounded_with_automatic_actions(database, policy, clock, token_generator, true)
+}
+
+pub fn claim_bounded_with_automatic_actions<D, C, G>(
+    database: &D,
+    policy: ExecutorPolicy,
+    clock: &mut C,
+    token_generator: &mut G,
+    automatic_actions_allowed: bool,
+) -> Result<ClaimBatchReport, ExecutorError>
+where
+    D: ExecutorDatabase,
+    C: ExecutorClock,
+    G: ClaimTokenGenerator,
+{
     let discovery_now = injected_now(clock)?;
     let cycle_limit = policy.discovery_limit().min(policy.claim_capacity());
     let candidates = database.with_connection(|connection| {
-        discover_lifecycle_work(connection, &discovery_now, cycle_limit)
+        discover_lifecycle_work_with_automatic_actions(
+            connection,
+            &discovery_now,
+            cycle_limit,
+            automatic_actions_allowed,
+        )
     })?;
     let mut report = ClaimBatchReport {
         discovered: candidates.len() as u32,

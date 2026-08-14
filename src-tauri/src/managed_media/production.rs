@@ -48,6 +48,7 @@ const SQLITE_BUSY_TIMEOUT_MILLIS: u64 = 5_000;
 
 pub struct ProductionManagedMediaRuntime {
     control: RuntimeControl,
+    automatic_actions_allowed: Arc<AtomicBool>,
 }
 
 impl ProductionManagedMediaRuntime {
@@ -61,6 +62,10 @@ impl ProductionManagedMediaRuntime {
         let worker_root = managed_root;
         let backend_processor = ManagedMediaProcessor::default();
         let worker_processor = backend_processor.clone();
+        // The browser-held preference is synchronized after the frontend loads.
+        // Until then, automatic Generate/Retire work must remain durable but idle.
+        let automatic_actions_allowed = Arc::new(AtomicBool::new(false));
+        let backend_automatic_actions_allowed = Arc::clone(&automatic_actions_allowed);
 
         let control = RuntimeControl::start(
             policy,
@@ -70,7 +75,7 @@ impl ProductionManagedMediaRuntime {
                 let job_root = worker_root.clone();
                 let job_processor = worker_processor.clone();
                 let mut claim_sequence = 0_u64;
-                Ok(InertSqliteRuntimeBackend::new(
+                Ok(InertSqliteRuntimeBackend::new_with_automatic_actions(
                     move || open_managed_media_connection(&connection_path),
                     backend_root,
                     backend_processor,
@@ -92,6 +97,7 @@ impl ProductionManagedMediaRuntime {
                             ownership_lost,
                         )
                     },
+                    Arc::clone(&backend_automatic_actions_allowed),
                 ))
             },
             || {
@@ -102,11 +108,24 @@ impl ProductionManagedMediaRuntime {
         )
         .map_err(|error| error.to_string())?;
 
-        Ok(Self { control })
+        Ok(Self {
+            control,
+            automatic_actions_allowed,
+        })
     }
 
     pub fn wake(&self) -> WakeOutcome {
         self.control.wake()
+    }
+
+    pub fn synchronize_automatic_actions(&self, enabled: bool) -> WakeOutcome {
+        self.automatic_actions_allowed
+            .store(enabled, Ordering::Release);
+        if enabled {
+            self.control.wake()
+        } else {
+            WakeOutcome::Coalesced
+        }
     }
 
     pub fn snapshot(&self) -> RuntimeSnapshot {

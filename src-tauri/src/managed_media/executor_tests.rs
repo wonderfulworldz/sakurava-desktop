@@ -3,7 +3,10 @@ use std::cell::Cell;
 use rusqlite::{params, Connection};
 
 use super::{
-    executor::{claim_bounded, run_one_cycle, ExecutorDatabase, ExecutorError, ExecutorPolicy},
+    executor::{
+        claim_bounded, claim_bounded_with_automatic_actions, run_one_cycle, ExecutorDatabase,
+        ExecutorError, ExecutorPolicy,
+    },
     identity::{LifecycleClaimToken, LifecycleIntentIdentity, ValidatedSha256},
     lifecycle::{
         claim_intent, initialize_item_generation, load_intent, queue_intent, ClaimAttemptOutcome,
@@ -24,6 +27,15 @@ fn intent_id(index: u64) -> LifecycleIntentIdentity {
 }
 
 fn insert_work(connection: &Connection, index: u64, created_at: u64) {
+    insert_work_with_action(connection, index, created_at, LifecycleAction::Generate);
+}
+
+fn insert_work_with_action(
+    connection: &Connection,
+    index: u64,
+    created_at: u64,
+    action: LifecycleAction,
+) {
     let item = hash(10_000 + index);
     let locator = hash(20_000 + index);
     let timestamp = created_at.to_string();
@@ -51,7 +63,7 @@ fn insert_work(connection: &Connection, index: u64, created_at: u64) {
             intent_id: intent_id(index),
             item_id: item,
             revision: ItemRevision::new(1).expect("revision"),
-            action: LifecycleAction::Generate,
+            action,
             expected_locator_hash: locator,
         },
         &timestamp,
@@ -187,6 +199,71 @@ fn bounded_claim_batch_returns_owned_claims_without_running_handlers() {
     assert_eq!(report.successfully_claimed, 1);
     assert_eq!(report.claims.len(), 1);
     assert_eq!(report.claims[0].claim_token.as_str(), "owned-batch-token");
+}
+
+#[test]
+fn automatic_action_gate_retains_generate_and_retire_but_allows_manual_actions() {
+    let database = GuardedDatabase::new();
+    insert_work_with_action(
+        &database.connection,
+        41,
+        NOW_MILLIS,
+        LifecycleAction::Generate,
+    );
+    insert_work_with_action(
+        &database.connection,
+        42,
+        NOW_MILLIS,
+        LifecycleAction::RepairMissing,
+    );
+    insert_work_with_action(
+        &database.connection,
+        43,
+        NOW_MILLIS,
+        LifecycleAction::Retire,
+    );
+    insert_work_with_action(
+        &database.connection,
+        44,
+        NOW_MILLIS,
+        LifecycleAction::Regenerate,
+    );
+    let policy = ExecutorPolicy::new(4, LEASE_MILLIS, 30_000, 2).expect("policy");
+    let mut now = || Ok(NOW_MILLIS);
+    let mut token_index = 0_u64;
+    let mut token = || {
+        token_index += 1;
+        Ok(format!("policy-token-{token_index}"))
+    };
+
+    let blocked =
+        claim_bounded_with_automatic_actions(&database, policy, &mut now, &mut token, false)
+            .expect("manual claims while automatic work is blocked");
+    assert_eq!(blocked.claims.len(), 2);
+    assert_eq!(blocked.claims[0].action, LifecycleAction::RepairMissing);
+    assert_eq!(blocked.claims[1].action, LifecycleAction::Regenerate);
+    assert_eq!(
+        load_intent(&database.connection, &intent_id(41))
+            .expect("generate retained")
+            .state
+            .as_str(),
+        "queued"
+    );
+    assert_eq!(
+        load_intent(&database.connection, &intent_id(43))
+            .expect("retire retained")
+            .state
+            .as_str(),
+        "queued"
+    );
+
+    let allowed_policy = ExecutorPolicy::new(4, LEASE_MILLIS, 30_000, 2).expect("policy");
+    let resumed =
+        claim_bounded_with_automatic_actions(&database, allowed_policy, &mut now, &mut token, true)
+            .expect("automatic claims resume when enabled");
+    assert_eq!(resumed.claims.len(), 2);
+    assert_eq!(resumed.claims[0].action, LifecycleAction::Generate);
+    assert_eq!(resumed.claims[1].action, LifecycleAction::Retire);
 }
 
 #[test]

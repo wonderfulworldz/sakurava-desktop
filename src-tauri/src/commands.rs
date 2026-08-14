@@ -1034,6 +1034,15 @@ pub fn managed_media_regenerate_missing_or_outdated(
     Ok(result)
 }
 
+#[tauri::command]
+pub fn managed_media_automatic_actions_sync(
+    enabled: bool,
+    runtime: State<'_, ProductionManagedMediaRuntime>,
+) -> Result<(), String> {
+    let _ = runtime.synchronize_automatic_actions(enabled);
+    Ok(())
+}
+
 fn wake_after_manual_regeneration_queue(
     result: &ManualRegenerationQueueResult,
     wake: impl FnOnce(),
