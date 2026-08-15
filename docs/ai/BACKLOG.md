@@ -7,14 +7,15 @@ gated unless a later prompt explicitly authorizes it.
 
 ## Pre-42.9 Product Review
 
-- Notification System / Notification History — planned from
-  `FEEDBACK-2026-08-13-NOTIFICATION-HISTORY`; retention, severity, persistence,
-  actions, Translation, accessibility, Backup/Restore, and ownership remain
-  design unknowns.
 - Built-in Video Player and Contact Sheet — future, high-risk and audit-first.
 - Centralized Remember policy — deferred product/architecture direction.
 - Minimal Consistent Catalog Columns — approved future UI direction after the
   corrective foundation.
+
+Additional Notification producers — Managed Media, manual Backup/Restore,
+Import/Export, spreadsheet Apply, and other operations remain future,
+separately gated integrations requiring valid producer ownership and
+progress semantics. This entry does not authorize work.
 
 ## Import, Export, and Credits
 

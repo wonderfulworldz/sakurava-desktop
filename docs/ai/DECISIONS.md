@@ -114,6 +114,37 @@ updates, conflicting Add claims, relationship canonicalization, and counters
 remain deterministic and transaction-safe. This lock does not replace the
 separate Credit R Ref contract.
 
+## Notifications
+
+### LOCK-NOTIFICATION-001 — Global Compact Notification Center
+
+Sakurava has one global compact Notification Center. The Notification bell is
+a global application control in the upper application area; because Sakurava
+has no persistent global header, the accepted implementation uses AppShell-level
+upper-right placement. There is no dedicated Notification page or route.
+
+The Notification Center combines active progress and local operational history,
+with All, Unread, and Issues history views. Progress uses real producer-owned
+state: determinate progress requires authoritative current and total values;
+otherwise it is indeterminate, with no fabricated percentages. One logical
+active operation updates one stable notification rather than producing
+progress-history spam. Feature producers own business truth; the Notification
+System owns presentation and operational history.
+
+Notification History is local operational data, not catalog truth. Terminal
+history is retained for 30 days with a maximum of 500 terminal items and is
+excluded from `.skv` Backup. Close toast, mark read, and clear history are
+separate operations; normal history clearing does not remove active/running
+work.
+
+Persisted running state that cannot be authoritatively reconciled after restart
+becomes `interrupted`. `interrupted` means the final operation status could not
+be confirmed and is not automatically classified as failure. Persistent history
+contains concise semantic user-facing information and must not become a raw
+diagnostic log. The UI follows Sakurava's existing visual language and
+accessibility rules. Additional producers and producer-specific Retry, Cancel,
+or action behavior remain separately gated.
+
 ## Compatibility and Safe Filter
 
 ### LOCK-PACKAGE-001 — Package and Compatibility Stability

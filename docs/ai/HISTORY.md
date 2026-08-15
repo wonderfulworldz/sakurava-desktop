@@ -99,6 +99,36 @@ Runtime acceptance: `UNKNOWN`; desktop runtime was not run.
 Reference: delivery commit
 `dda21f1e9934f19085aadf7763a94685547aea25`.
 
+## Global Notification System
+
+### GLOBAL-NOTIFICATION-SYSTEM
+
+Status: `COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION`
+
+Outcome: Delivered a global AppShell-level notification bell and compact
+Notification Center with no dedicated page or route. Active Progress is
+separate from All, Unread, and Issues history views. Local persistent history
+uses semantic Translation-key storage, 30-day retention, and a maximum of 500
+terminal items. Read, unread, and clear semantics are distinct; determinate
+progress requires authoritative current/total values and otherwise remains
+indeterminate. Unresolved persisted running state becomes `interrupted`, which
+does not claim operation failure. Notification History is excluded from `.skv`,
+and raw errors/private paths are excluded by default. Automatic Backup was
+delivered as the sole initial producer; additional producers remain separately
+gated future integrations.
+
+Verification: focused frontend tests `4 files / 21 tests PASS`; final frontend
+build TypeScript PASS and Vite production build PASS. All remain
+`REPORTED_BY_CODEX`.
+
+Runtime acceptance: `UNKNOWN`; desktop runtime was not run. Desktop visual
+placement, actual WebView focus/outside-click behavior, real restart
+persistence, and the real Automatic Backup notification lifecycle were not
+run.
+
+Reference: delivery commit
+`2bd33f74f16664df46217c88413868bb75d213e2`.
+
 ## Dependency Security Hygiene
 
 ### DEPENDENCY-SECURITY-HYGIENE
