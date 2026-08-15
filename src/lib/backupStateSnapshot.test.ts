@@ -7,6 +7,7 @@ import {
   prepareProtectedStateImport,
 } from "./backupStateSnapshot";
 import { translationStorageKeys, type TranslationStorage } from "./translationStorage";
+import { NOTIFICATION_HISTORY_STORAGE_KEY } from "../notifications/notificationStore";
 
 function storage(initial: Record<string, string> = {}): TranslationStorage {
   const values = new Map(Object.entries(initial));
@@ -84,6 +85,15 @@ describe("protected Backup state snapshot", () => {
     expect(
       exported.value.translation.values[translationStorageKeys.selectedLanguage],
     ).toEqual({ present: true, raw: "ja" });
+  });
+
+  it("does not export local operational notification history", () => {
+    const source = validStorage();
+    const exported = exportProtectedStateSnapshot(source);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    expect(JSON.stringify(exported.value)).not.toContain(NOTIFICATION_HISTORY_STORAGE_KEY);
+    expect(source.getItem).not.toHaveBeenCalledWith(NOTIFICATION_HISTORY_STORAGE_KEY);
   });
 
   it("rejects malformed owner state and unsupported snapshot versions", () => {

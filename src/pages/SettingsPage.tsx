@@ -4436,7 +4436,7 @@ function BackupToastViewport({ toasts, onDismiss }: { toasts: BackupToast[]; onD
   const t = useTranslation();
   if (typeof document === "undefined" || toasts.length === 0) return null;
   return createPortal(
-    <div className="pointer-events-none fixed right-5 top-5 z-[120] flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-2">
+    <div className="pointer-events-none fixed right-5 top-[8.5rem] z-[120] flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-2">
       {toasts.map((toast) => {
         const isError = toast.tone === "error";
         return <div key={toast.id} role={isError ? "alert" : "status"} aria-live={isError ? "assertive" : "polite"} className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg ${isError ? "border-rose-200 bg-white text-rose-700" : "border-emerald-200 bg-white text-emerald-700"}`}>

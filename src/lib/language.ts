@@ -66,6 +66,33 @@ const englishDictionary: TranslationDictionary = {
   "nav.glossary": "Glossary",
   "nav.settings": "Settings",
 
+  // Notifications
+  "notifications.title": "Notifications",
+  "notifications.bell.label": "Notifications, {count} unread",
+  "notifications.unread": "Unread",
+  "notifications.activeTitle": "Active progress",
+  "notifications.markAllRead": "Mark all as read",
+  "notifications.clearHistory": "Clear history",
+  "notifications.clearOne": "Clear notification",
+  "notifications.loadOlder": "Load older",
+  "notifications.filters.label": "Notification filter",
+  "notifications.filters.all": "All",
+  "notifications.filters.unread": "Unread",
+  "notifications.filters.issues": "Issues",
+  "notifications.empty.all": "No notifications yet.",
+  "notifications.empty.unread": "No unread notifications.",
+  "notifications.empty.issues": "No notification issues.",
+  "notifications.clearConfirm.title": "Clear notification history?",
+  "notifications.clearConfirm.body": "Terminal notification history will be removed. Active progress remains available.",
+  "notifications.toast.close": "Close notification toast",
+  "notifications.progress.indeterminate": "In progress",
+  "notifications.progress.label": "Notification progress",
+  "notifications.progress.count": "{current} / {total}",
+  "notifications.interrupted.message": "The application's restart prevented the prior operation status from being confirmed.",
+  "notifications.automaticBackup.running": "Automatic backup in progress",
+  "notifications.automaticBackup.completed": "Automatic backup completed",
+  "notifications.automaticBackup.failed": "Automatic backup could not be completed",
+
   // Settings
   "settings.title": "Settings",
   "settings.description":

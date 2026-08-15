@@ -2,7 +2,10 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import ManagedMediaProgressStatus from "../components/ManagedMediaProgressStatus";
+import NotificationCenter from "../components/NotificationCenter";
 import { useLanguage } from "../lib/LanguageContext";
+import AutomaticBackupNotificationAdapter from "../notifications/AutomaticBackupNotificationAdapter";
+import { NotificationProvider } from "../notifications/NotificationProvider";
 
 function pageTitleFromPath(pathname: string, t: (key: string) => string) {
   if (pathname === "/") {
@@ -63,6 +66,10 @@ function AppShell() {
         </main>
       </div>
       <ManagedMediaProgressStatus />
+      <NotificationProvider>
+        <AutomaticBackupNotificationAdapter />
+        <NotificationCenter />
+      </NotificationProvider>
     </div>
   );
 }
