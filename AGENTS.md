@@ -3,12 +3,21 @@
 ## Repository and Project Brain
 
 - Repository: `D:\sakurava-desktop`; primary branch: `main`.
-- Before meaningful work, read `docs/ai/PROJECT.md` and `docs/ai/STATE.md`.
-- Read `docs/ai/DECISIONS.md` when product or architecture contracts matter.
-- Read `docs/ai/LESSONS.md` when prior failures, regressions, or platform/fixture traps may matter.
-- Read `docs/ai/HISTORY.md` to determine whether work has already been performed.
-- Read `docs/ai/BACKLOG.md` only for planning; backlog presence is not authorization.
-- The repository Project Brain overrides conflicting chat memory.
+- Canonical Project OS authority is the restored `00`–`07` system plus
+  `SAKURAVA-CHATGPT-BOOT-PROMPT.md`; use the precedence defined in
+  `docs/ai/00-operating-contract.md` and the boot prompt.
+- Before meaningful work, read the applicable canonical owners in this order:
+  `00-operating-contract.md`, `02-active-locks.md`, `03-active-batch.md`,
+  `01-current-state.md`, `07-master-roadmap.md`, `04-session-ledger.md`,
+  `06-feedback-log.md`, then `05-model-routing.md` when model selection or an
+  executable prompt is involved.
+- `docs/ai/PROJECT.md`, `STATE.md`, `DECISIONS.md`, `LESSONS.md`, `HISTORY.md`,
+  and `BACKLOG.md` are secondary transitional documents pending a separate
+  disposition decision. They may supply post-migration evidence but do not
+  override the canonical Project OS.
+- `AGENTS.md` remains the repository-agent instruction surface; it is not a
+  replacement for the canonical Project OS.
+- The canonical repository Project OS overrides conflicting chat memory.
 
 ## Product Identity and Stable Terms
 
