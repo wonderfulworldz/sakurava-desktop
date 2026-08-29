@@ -566,6 +566,91 @@ solution over repeated exploratory execution. An accepted outcome remains
 valid unless newer evidence invalidates it. Safety, approval, Result Review,
 Git, data, evidence, and Active Lock boundaries remain mandatory.
 
+### Efficient Bounded Execution Governance
+
+Permanent standard: `EFFICIENT_BOUNDED_EXECUTION_GOVERNANCE`.
+
+Each substantial executable prompt must own one complete
+`CAUSAL_OBJECTIVE_PER_PROMPT`: the smallest approved objective whose successful
+result closes one meaningful causal boundary. Do not split deterministic setup,
+execution, evidence capture, and validation into separate micro-prompts when
+they can safely remain inside the same approved scope. This is the
+`NO_MICRO_PROMPT_RULE`; it does not permit combining dependent product
+decisions, unrelated owners, or separately gated mutations.
+
+Classify an interrupted or failed execution before deciding whether to retry:
+
+- `TECHNICAL_PRODUCT_FAILURE` — the product or implementation failed its
+  intended behavior;
+- `MISSING_EVIDENCE` — the execution did not obtain evidence required for the
+  decision;
+- `RECOVERABLE_EXECUTION_FAILURE` — a deterministic task-local mechanical
+  problem such as quoting, parsing, a temporary path, harness plumbing,
+  diagnostic IPC, or a synchronous/asynchronous wrapper mismatch prevented the
+  already-approved objective from completing;
+- `EXECUTOR_NONCOMPLIANCE` — the executor departed from the approved scope,
+  method, stop condition, or reporting contract;
+- `NEW_CAUSAL_BOUNDARY` — evidence identifies a different owner, failure class,
+  or solution-changing causal layer;
+- `AUTHORIZATION_OR_PERMISSION_BOUNDARY` — continuation requires new authority,
+  access, protected evidence, or permission.
+
+`BOUNDED_SELF_RECOVERY` applies only to a proven
+`RECOVERABLE_EXECUTION_FAILURE`. Within the same approved causal objective, the
+executor may make one deterministic task-local mechanical correction and retry
+that failed internal operation once, for at most two internal attempts total.
+The correction must not change product semantics, causal owner, file allowlist,
+data or evidence boundary, dependency posture, architecture, verification
+meaning, or operator permission. Record both attempts and stop if the retry
+does not close the same boundary. This bounded allowance is not a global
+execution-attempt limit and does not replace the existing rule that additional
+execution needs evidence-supported value.
+
+Apply `HARD_CAUSAL_STOP` immediately when continuation requires or reveals:
+
+- a product decision or new user-visible contract;
+- a new causal owner that changes the approved mutation allowlist;
+- source or scope expansion beyond the approved boundary;
+- an architecture change;
+- access to protected data, credentials, or evidence;
+- dependency installation or adoption;
+- schema, stored-data, destructive, security, or package behavior;
+- UI/UX behavior outside the approved objective;
+- an evidence contradiction or a materially different runtime failure;
+- a Project OS authority or permission decision.
+
+Before issuing a substantial executable prompt, pass
+`EFFICIENCY_GATE_BEFORE_PROMPT` by answering:
+
+1. What complete causal objective will this prompt close?
+2. What accepted evidence can be reused without repetition?
+3. What solution-changing UNKNOWN must be resolved first?
+4. Is the mutation and access boundary exact and already approved?
+5. Can setup, execution, evidence capture, and validation safely stay in one
+   prompt?
+6. Which failures would be task-local and mechanically recoverable?
+7. Which evidence would trigger `HARD_CAUSAL_STOP`?
+8. Is an approved and currently available specialist tool better than a custom
+   harness?
+9. What is the smallest reliable verification that proves the objective?
+10. Is the expected total cost proportionate across quota, operator effort,
+    execution cycles, setup, evidence handling, and regression risk?
+
+`SPECIALIST_TOOL_BEFORE_CUSTOM_HARNESS` requires checking an approved and
+currently available specialist tool before building task-specific diagnostic or
+transformation plumbing. Use it only when it materially reduces uncertainty or
+total delivery cost and remains inside existing authorization. This rule does
+not authorize tool installation, dependency adoption, new credentials, wider
+data access, or replacement of a simpler repository-native path.
+
+`PROMPT_BUDGET_ACCOUNTABILITY` applies to substantial execution. Treat each
+prompt as a delivery-cost decision: prefer one complete bounded objective over
+repeated continuations, include only the governance needed for safe control,
+reuse accepted evidence, and replan when repeated micro-continuations indicate
+that the objective, tool choice, or proof boundary was fragmented. Mechanical
+self-recovery inside the rule above does not require model escalation or a new
+operator prompt.
+
 ### Permanent Correction and Architecture Governance Locks
 
 The following stable execution locks apply whenever their subject is in scope:

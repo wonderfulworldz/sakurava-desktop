@@ -11,6 +11,32 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-10 — XLSX Videos Header Corrected; Performer Reference Failure Exposed
+
+date: 2026-08-10
+session_type: XLSX_VIDEOS_DOWNSTREAM_FAILURE_STATE_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+videos_header_correction: APPLIED_AND_PRESERVED_IN_TECHNICAL_HANDOFF
+videos_header_verification_boundary: PASSED_BEFORE_DOWNSTREAM_FAILURE
+performer_reference_failure: EXPECTED_PERFORMER_REFERENCE_MISSING
+performer_reference_exact_cause: UNKNOWN
+selected_empty_regression_guard: NOT_EXECUTED_DUE_TO_FIRST_VERIFICATION_FAILURE
+workbook_isolated_evidence: PASS_REPORTED_BY_CODEX
+selected_empty_ui_isolated_evidence: PASS_REPORTED_BY_CODEX
+terrain_completeness_gate: REOPENED_BY_NEW_EVIDENCE
+continuity_decision: BOUNDED_COMPLETION_REQUIRED
+xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
+technical_execution: false
+next_action: XLSX_VIDEOS_PERFORMER_REFERENCE_FAILURE_CAUSAL_AUDIT
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: AUDIT_ONLY
+
+The Videos header correction was applied and the focused test progressed beyond
+that assertion before exposing a missing expected performer reference. The
+exact cause remains unknown; no retry or additional mutation occurred.
+
+---
+
 ## 2026-08-10 — Backup/Restore Backend Correction Accepted
 
 date: 2026-08-10

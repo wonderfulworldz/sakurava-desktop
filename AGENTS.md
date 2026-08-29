@@ -121,6 +121,28 @@ safety, recovery, mutation, verification, and stop boundaries actually needed
 for HIGH-risk prompts. Keep durable rules in the Project Brain or reusable
 skills instead of repeating them verbatim in every prompt.
 
+### Efficient Bounded Execution
+
+- Route one complete approved causal objective per substantial prompt; do not
+  create avoidable micro-prompts for deterministic setup, execution, evidence,
+  and validation that fit the same scope.
+- Distinguish task-local mechanical failures from a new causal, product,
+  protected-data, or authority boundary.
+- A proven deterministic task-local mechanical failure may receive one
+  correction and one retry inside the same prompt only when scope, permissions,
+  semantics, evidence meaning, and the file allowlist remain unchanged.
+- Stop for Result Review when evidence changes the causal owner, product
+  contract, architecture, protected boundary, dependency posture, or approved
+  mutation scope.
+- Check approved and currently available specialist tools before creating a
+  custom harness; this does not authorize tool installation or adoption.
+- Treat substantial prompts as a delivery budget across quota, operator effort,
+  setup, execution cycles, evidence, verification, and regression risk. Replan
+  when repeated micro-continuations show that the objective was fragmented.
+
+The canonical Operating Contract and Model Routing documents remain the higher
+authority for this derivative agent guidance.
+
 ## Git Safety
 
 - Inspect repository state before meaningful mutation; keep diffs controlled.

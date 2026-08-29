@@ -11,9 +11,9 @@ boundary is superseded unless repeated here.
 project: Sakurava Desktop
 repository: D:\sakurava-desktop
 branch: main
-recorded_head: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
-fresh_origin_main: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
-cached_origin_main: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
+recorded_head: 910a041583d5d7a6d8bb303b28fda8bd0b76633b
+fresh_origin_main: 910a041583d5d7a6d8bb303b28fda8bd0b76633b
+cached_origin_main: 910a041583d5d7a6d8bb303b28fda8bd0b76633b
 cached_divergence: 0_AHEAD_0_BEHIND
 staging: NONE
 repository_state_evidence: REPORTED_BY_CODEX
@@ -35,6 +35,13 @@ active_application_batch: NONE
 active_technical_video_player_stage: NONE
 technical_application_permissions: NONE
 batch_42_9: NOT_AUTHORIZED
+
+efficient_bounded_execution_governance: ACTIVE
+causal_objective_per_prompt: ACTIVE
+bounded_mechanical_self_recovery: ACTIVE_MAX_TWO_INTERNAL_ATTEMPTS
+specialist_tool_before_custom_harness: ACTIVE_FOR_APPROVED_AVAILABLE_TOOLS_ONLY
+prompt_budget_accountability: ACTIVE_FOR_SUBSTANTIAL_EXECUTION
+specialist_tool_gap_audit: READY_PENDING_SEPARATE_APPROVAL
 
 video_player_technical_delivery: ACCEPTED
 video_player_final_engine: MPV_0_41_LIBMPV_D3D11_COMPOSITION_DIRECTCOMPOSITION_WEBVIEW2_COMPOSITIONCONTROLLER_DEDICATED_MEDIA_HOST

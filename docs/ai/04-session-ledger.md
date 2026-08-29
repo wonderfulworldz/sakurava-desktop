@@ -73,6 +73,38 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-29 — Efficient Bounded Execution Governance Adopted
+
+date: 2026-08-29
+session_type: PROJECT_EXECUTION_EFFICIENCY_GOVERNANCE_UPGRADE
+operator_decision: EXPLICIT_DOCUMENTATION_GOVERNANCE_AND_GIT_CLOSURE_APPROVAL
+started_baseline: 910a041583d5d7a6d8bb303b28fda8bd0b76633b
+governance_status: EFFICIENT_BOUNDED_EXECUTION_GOVERNANCE_ACTIVE
+causal_objective_per_prompt: ACTIVE
+bounded_mechanical_self_recovery: ACTIVE_MAX_TWO_INTERNAL_ATTEMPTS
+specialist_tool_policy: APPROVED_AVAILABLE_TOOLS_BEFORE_CUSTOM_HARNESS
+prompt_budget_accountability: ACTIVE_FOR_SUBSTANTIAL_EXECUTION
+application_source_mutation: NONE
+technical_permissions: false
+video_player_provisioning_wip: PRESERVED_UNSTAGED
+specialist_tool_gap_audit: READY_PENDING_SEPARATE_APPROVAL
+project_chatgpt_refresh: REQUIRED_AFTER_VALIDATED_BRAIN_REPLACEMENT
+next_action: OPERATOR_REPLACES_PROJECT_CHATGPT_SOURCE_AFTER_RESULT_REVIEW
+
+The operator made efficient bounded execution a permanent Project OS standard.
+The Operating Contract now requires one complete causal objective per prompt,
+classifies recoverable mechanical execution failures separately, permits only
+one task-local correction and one retry inside unchanged approval, and enforces
+hard causal stops for new product, owner, scope, data, dependency, architecture,
+or authority boundaries. Model Routing and derivative `AGENTS.md` guidance now
+prefer approved and available specialist tools before custom harnesses and make
+substantial prompts accountable for total delivery cost. No application work
+was authorized or performed. The accepted unstaged Video Player provisioning
+WIP remains protected. A specialist Tool Gap Audit is ready only for a future
+separately approved task.
+
+---
+
 ## 2026-08-29 — Accepted Video Player WIP Delivered and Project OS Reconciled
 
 date: 2026-08-29
@@ -193,32 +225,6 @@ The accepted XLSX technical delivery is complete with the explicit limitation
 that actual Excel-held-file behavior was not measured. No further XLSX
 technical mutation is currently required, and the next corrective priority is
 separately gated Media Cover causal completion auditing.
-
----
-
-## 2026-08-10 — XLSX Videos Header Corrected; Performer Reference Failure Exposed
-
-date: 2026-08-10
-session_type: XLSX_VIDEOS_DOWNSTREAM_FAILURE_STATE_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-videos_header_correction: APPLIED_AND_PRESERVED_IN_TECHNICAL_HANDOFF
-videos_header_verification_boundary: PASSED_BEFORE_DOWNSTREAM_FAILURE
-performer_reference_failure: EXPECTED_PERFORMER_REFERENCE_MISSING
-performer_reference_exact_cause: UNKNOWN
-selected_empty_regression_guard: NOT_EXECUTED_DUE_TO_FIRST_VERIFICATION_FAILURE
-workbook_isolated_evidence: PASS_REPORTED_BY_CODEX
-selected_empty_ui_isolated_evidence: PASS_REPORTED_BY_CODEX
-terrain_completeness_gate: REOPENED_BY_NEW_EVIDENCE
-continuity_decision: BOUNDED_COMPLETION_REQUIRED
-xlsx_handoff: FOUR_TRACKED_PATHS_PRESERVED_UNCOMMITTED
-technical_execution: false
-next_action: XLSX_VIDEOS_PERFORMER_REFERENCE_FAILURE_CAUSAL_AUDIT
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-next_action_mode: AUDIT_ONLY
-
-The Videos header correction was applied and the focused test progressed beyond
-that assertion before exposing a missing expected performer reference. The
-exact cause remains unknown; no retry or additional mutation occurred.
 
 ---
 

@@ -86,6 +86,30 @@ Concrete findings discovered outside the current scope must be captured and
 deferred in the Feedback Log. They do not change routing unless they invalidate
 the current evidence, safety, approval, or expected-success path.
 
+### Efficient Bounded Execution Routing
+
+Route one complete approved causal objective rather than a sequence of
+avoidable micro-prompts. Model strength does not correct a fragmented objective,
+unclear authority, or an incomplete evidence boundary. If repeated continuation
+prompts are needed for one deterministic outcome, replan the objective and
+verification boundary before escalating model or reasoning.
+
+Apply `SPECIALIST_TOOL_BEFORE_CUSTOM_HARNESS`: before authoring custom harness
+plumbing, check whether an approved and currently available specialist tool can
+close the same causal objective with less uncertainty and lower total delivery
+cost. Candidate, discoverable, or potentially useful tools are not active until
+their actual availability and authorization are established. This rule does not
+authorize installation, dependency adoption, credential access, or a future
+tool matrix.
+
+Optimize total delivery cost across quota, operator effort, execution cycles,
+setup, evidence handling, verification, and regression risk. A proven
+task-local `RECOVERABLE_EXECUTION_FAILURE` may receive one deterministic
+mechanical correction and one retry inside the same prompt without model
+escalation, provided scope and permissions do not change. A new causal owner,
+product decision, protected boundary, or materially different failure routes to
+Result Review instead.
+
 ### Quota-Aware Routing Control
 
 There is no fixed numeric execution-attempt limit. Select the least costly
