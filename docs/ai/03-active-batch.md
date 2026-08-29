@@ -19,13 +19,15 @@ project_chatgpt_exporter_adaptation: COMPLETED_AND_ACCEPTED
 project_chatgpt_brain_generation_validation: COMPLETED_AND_ACCEPTED
 project_chatgpt_source_refresh: COMPLETED_OBSERVED_BY_OPERATOR
 project_chatgpt_source_refresh_evidence: OBSERVED_BY_OPERATOR
-current_administrative_task: VIDEO_PLAYER_ACCEPTED_WIP_GIT_DELIVERY_AND_PROJECT_OS_CLOSURE
-current_administrative_task_status: AUTHORIZED
-project_os_task_class: GIT_DELIVERY_AND_DOCUMENTATION_CLOSURE
+current_administrative_task: NONE
+current_administrative_task_status: NONE
+project_os_task_class: TERMINAL_ADMINISTRATIVE_CLOSURE
 project_os_task_is_application_batch: false
 video_player_git_delivery: COMPLETED_AND_SYNCHRONIZED
 video_player_application_commit: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
 video_player_application_parent: b8d1eca7304ef661578df3d710be7ca465d2daa0
+project_os_documentation_delivery: COMPLETED_AND_SYNCHRONIZED
+project_os_terminal_closure: COMPLETED_AND_CLOSED
 
 The Video Player technical delivery and final mpv adoption are accepted, but
 no further Video Player implementation stage is active. Stage 1 and Stage 2
@@ -44,12 +46,12 @@ Separately gated and inactive:
 
 The accepted Video Player WIP was classified and delivered by exact path in
 commit `a09dea1fa650af5f7bd0a0a5bc20b556077f5b12`, synchronized to
-`origin/main`, and did not require application source mutation during this
-closure. The remaining administrative work is exact-path canonical
-documentation Git delivery and one post-commit Brain regeneration/validation.
-The subsequent replacement of the single Project ChatGPT Source remains a
-manual operator action. This closure does not activate an application batch or
-inherit application, runtime, test, build, package, or product permission.
+`origin/main`, and did not require application source mutation. Project OS
+documentation delivery and the downstream Brain generation/validation are
+complete. No administrative or application stage is active; future work
+requires a new explicit decision and approval. The external Project ChatGPT
+Source replacement is synchronization outside repository state and does not
+reopen this closure.
 
 No item above is implementation authorization. All restored content below this
 reconciliation boundary is retained as historical batch continuity and does

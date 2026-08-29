@@ -11,9 +11,9 @@ boundary is superseded unless repeated here.
 project: Sakurava Desktop
 repository: D:\sakurava-desktop
 branch: main
-recorded_head: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
-fresh_origin_main: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
-cached_origin_main: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
+recorded_head: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
+fresh_origin_main: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
+cached_origin_main: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
 cached_divergence: 0_AHEAD_0_BEHIND
 staging: NONE
 repository_state_evidence: REPORTED_BY_CODEX
@@ -28,6 +28,7 @@ canonical_brain_generation_validation: COMPLETED_AND_ACCEPTED
 project_chatgpt_source_refresh: COMPLETED_OBSERVED_BY_OPERATOR
 project_chatgpt_source_refresh_evidence: OBSERVED_BY_OPERATOR
 project_chatgpt_brain_relationship: DOWNSTREAM_SNAPSHOT_NOT_REPOSITORY_AUTHORITY
+repository_governance_closure: COMPLETED_AND_CLOSED
 
 application_work_posture: NO_NEW_TECHNICAL_APPLICATION_STAGE_AUTHORIZED
 active_application_batch: NONE
@@ -105,13 +106,13 @@ Other legitimate post-migration state retained as current:
   in commit `a09dea1fa650af5f7bd0a0a5bc20b556077f5b12` and synchronized to
   `origin/main`.
 
-The canonical Brain generation/validation and the operator-controlled Project
-ChatGPT Source refresh are completed. Because this final reconciliation changes
-canonical Project OS content, the post-commit Brain must be regenerated and
-validated before the operator manually replaces the single Project ChatGPT
-Source again. V2 disposition, proof cleanup, Screenshot implementation,
-different-source UX implementation, Contact Sheet work, legal/public
-distribution, and Batch 42.9 remain separately gated and unauthorized.
+Canonical Project OS Git delivery, downstream Brain generation/validation, and
+the prior operator-controlled Project ChatGPT Source refresh are complete. A
+future manual source replacement is external synchronization and does not
+reopen repository administrative state. V2 disposition, proof cleanup,
+Screenshot implementation, different-source UX implementation, Contact Sheet
+work, legal/public distribution, and Batch 42.9 remain separately gated and
+unauthorized.
 
 ## 1. State Metadata
 

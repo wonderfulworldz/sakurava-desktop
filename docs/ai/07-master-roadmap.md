@@ -15,6 +15,7 @@ Current posture:
 - Batch 42.9: `NOT_AUTHORIZED`;
 - accepted Video Player implementation was delivered and synchronized in
   commit `a09dea1fa650af5f7bd0a0a5bc20b556077f5b12`;
+- Project OS terminal administrative closure: `COMPLETED_AND_CLOSED`;
 - public signing/release/distribution is not authorized.
 
 Project OS history:
@@ -93,10 +94,12 @@ Remaining work is separately gated:
 - different-source visible UX decision;
 - Contact Sheet generation/save `DEFERRED`;
 - exact-path mpv proof cleanup;
-- operator replacement of the single Project ChatGPT Source after the final
-  post-commit Brain regeneration/validation;
 - later V2 disposition;
 - Batch 42.9.
+
+Downstream Project ChatGPT Brain regeneration is normal Project OS
+maintenance, and external source replacement does not constitute a roadmap
+milestone or reopen repository administrative state.
 
 No item in this roadmap grants implementation, runtime, dependency, package,
 staging, commit, push, legal release, or public-distribution permission.
