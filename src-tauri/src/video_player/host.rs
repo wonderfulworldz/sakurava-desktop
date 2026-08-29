@@ -27,7 +27,8 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
 };
 use webview2_com::{
     CoTaskMemPWSTR, CreateCoreWebView2CompositionControllerCompletedHandler,
-    CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
+    CreateCoreWebView2EnvironmentCompletedHandler, CursorChangedEventHandler,
+    WebMessageReceivedEventHandler,
 };
 use windows::{
     core::{Interface, HRESULT, PCSTR, PCWSTR, PWSTR},
@@ -66,17 +67,18 @@ use windows::{
             WindowsAndMessaging::{
                 AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow,
                 DispatchMessageW, GetClientRect, GetMessageW, GetWindowLongPtrW, GetWindowRect,
-                PostMessageW, PostQuitMessage, RegisterClassW, SetForegroundWindow, SetTimer,
-                SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, CREATESTRUCTW,
-                CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, GWLP_USERDATA, GWL_STYLE, HMENU, HTCAPTION,
-                HTCLIENT, HWND_TOPMOST, MINMAXINFO, MSG, SWP_FRAMECHANGED, SWP_NOACTIVATE,
-                SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW,
-                WINDOW_EX_STYLE, WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT,
-                WMSZ_TOP, WMSZ_TOPLEFT, WMSZ_TOPRIGHT, WM_APP, WM_CLOSE, WM_DESTROY,
-                WM_GETMINMAXINFO, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
-                WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCCREATE, WM_NCHITTEST,
-                WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETFOCUS, WM_SIZE, WM_SIZING, WM_TIMER, WNDCLASSW,
-                WS_EX_TOPMOST, WS_OVERLAPPEDWINDOW, WS_POPUP, WS_THICKFRAME, WS_VISIBLE,
+                LoadCursorW, PostMessageW, PostQuitMessage, RegisterClassW, SetCursor,
+                SetForegroundWindow, SetTimer, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+                TranslateMessage, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
+                GWLP_USERDATA, GWL_STYLE, HMENU, HTCAPTION, HTCLIENT, HWND_TOPMOST, IDC_ARROW,
+                MINMAXINFO, MSG, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER,
+                SWP_NOSIZE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WMSZ_BOTTOMLEFT,
+                WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT, WMSZ_TOPRIGHT,
+                WM_APP, WM_CLOSE, WM_DESTROY, WM_GETMINMAXINFO, WM_KEYDOWN, WM_LBUTTONDOWN,
+                WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+                WM_NCCREATE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SETFOCUS,
+                WM_SIZE, WM_SIZING, WM_TIMER, WNDCLASSW, WS_EX_TOPMOST, WS_OVERLAPPEDWINDOW,
+                WS_POPUP, WS_THICKFRAME, WS_VISIBLE,
             },
         },
     },
@@ -624,14 +626,7 @@ fn create_main_window() -> Result<HWND, String> {
     unsafe {
         let instance = GetModuleHandleW(None).map_err(|error| error.to_string())?;
         let class_name = wide_null_str("SakuravaVideoPlayerMediaHost");
-        let class = WNDCLASSW {
-            style: CS_HREDRAW | CS_VREDRAW,
-            lpfnWndProc: Some(window_proc),
-            hInstance: HINSTANCE(instance.0),
-            lpszClassName: PCWSTR(class_name.as_ptr()),
-            hbrBackground: windows::Win32::Graphics::Gdi::HBRUSH(GetStockObject(BLACK_BRUSH).0),
-            ..Default::default()
-        };
+        let class = player_window_class(HINSTANCE(instance.0), PCWSTR(class_name.as_ptr()))?;
         if RegisterClassW(&class) == 0 {
             return Err(format!(
                 "WINDOW_CLASS_FAILED: {}",
@@ -655,6 +650,22 @@ fn create_main_window() -> Result<HWND, String> {
         )
         .map_err(|error| format!("WINDOW_CREATE_FAILED: {error}"))
     }
+}
+
+fn player_window_class(instance: HINSTANCE, class_name: PCWSTR) -> Result<WNDCLASSW, String> {
+    let cursor = unsafe { LoadCursorW(None, IDC_ARROW) }
+        .map_err(|error| format!("WINDOW_CURSOR_FAILED: {error}"))?;
+    Ok(WNDCLASSW {
+        style: CS_HREDRAW | CS_VREDRAW,
+        lpfnWndProc: Some(window_proc),
+        hInstance: instance,
+        hCursor: cursor,
+        lpszClassName: class_name,
+        hbrBackground: windows::Win32::Graphics::Gdi::HBRUSH(
+            unsafe { GetStockObject(BLACK_BRUSH) }.0,
+        ),
+        ..Default::default()
+    })
 }
 
 fn create_composition_tree(hwnd: HWND) -> Result<CompositionTree, String> {
@@ -779,6 +790,20 @@ fn create_webview(
     }
     let weak = state.clone();
     unsafe {
+        let mut cursor_token = 0;
+        composition
+            .add_CursorChanged(
+                &CursorChangedEventHandler::create(Box::new(move |sender, _args| {
+                    if let Some(sender) = sender {
+                        let _ = apply_webview_cursor(&sender);
+                    }
+                    Ok(())
+                })),
+                &mut cursor_token,
+            )
+            .map_err(|error| error.to_string())?;
+        apply_webview_cursor(&composition)?;
+
         let mut token = 0;
         webview
             .add_WebMessageReceived(
@@ -808,7 +833,12 @@ fn create_webview(
             )
             .map_err(|error| error.to_string())?;
         let webview3: ICoreWebView2_3 = webview.cast().map_err(|error| error.to_string())?;
-        let assets = wide_null(assets_root);
+        // WebView2's virtual-host folder mapping does not load content from the
+        // verbatim (\\?\) form returned by std::fs::canonicalize on Windows.
+        // Keep canonical paths for validation and native DLL loading, but pass
+        // the equivalent regular DOS/UNC form to WebView2.
+        let webview_assets_root = webview_mapping_path(assets_root);
+        let assets = wide_null(&webview_assets_root);
         webview3
             .SetVirtualHostNameToFolderMapping(
                 PCWSTR(wide_null_str("sakurava-player.local").as_ptr()),
@@ -2081,6 +2111,13 @@ unsafe extern "system" fn window_proc(
                     }
                     return LRESULT(0);
                 }
+                WM_SETCURSOR => {
+                    if let Some(webview) = webview_for_hwnd(&state, hwnd) {
+                        if apply_webview_cursor(&webview.composition).is_ok() {
+                            return LRESULT(1);
+                        }
+                    }
+                }
                 WM_SETFOCUS => {
                     if let Some(webview) = webview_for_hwnd(&state, hwnd) {
                         let _ = webview
@@ -2198,6 +2235,17 @@ fn webview_for_hwnd(state: &HostUi, hwnd: HWND) -> Option<&WebViewHost> {
     }
 }
 
+fn apply_webview_cursor(composition: &ICoreWebView2CompositionController) -> Result<(), String> {
+    let mut cursor = windows::Win32::UI::WindowsAndMessaging::HCURSOR::default();
+    unsafe {
+        composition
+            .Cursor(&mut cursor)
+            .map_err(|error| error.to_string())?;
+        SetCursor(Some(cursor));
+    }
+    Ok(())
+}
+
 fn mouse_kind(message: u32) -> COREWEBVIEW2_MOUSE_EVENT_KIND {
     match message {
         WM_LBUTTONDOWN => COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN,
@@ -2240,6 +2288,18 @@ fn wide_null(path: &Path) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
     path.as_os_str().encode_wide().chain(Some(0)).collect()
 }
+
+fn webview_mapping_path(path: &Path) -> PathBuf {
+    let value = path.as_os_str().to_string_lossy();
+    if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{unc}"))
+    } else if let Some(regular) = value.strip_prefix(r"\\?\") {
+        PathBuf::from(regular)
+    } else {
+        path.to_path_buf()
+    }
+}
+
 fn wide_null_str(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
 }
@@ -2299,6 +2359,28 @@ mod tests {
         assert_eq!(parse_resolution_ratio("1080x1920"), Some(1080.0 / 1920.0));
         assert_eq!(parse_resolution_ratio("0x1080"), None);
         assert_eq!(parse_resolution_ratio("unknown"), None);
+    }
+
+    #[test]
+    fn webview_mapping_uses_regular_windows_paths() {
+        assert_eq!(
+            webview_mapping_path(Path::new(r"\\?\D:\sakurava-desktop\video-player-ui")),
+            PathBuf::from(r"D:\sakurava-desktop\video-player-ui")
+        );
+        assert_eq!(
+            webview_mapping_path(Path::new(r"\\?\UNC\server\share\video-player-ui")),
+            PathBuf::from(r"\\server\share\video-player-ui")
+        );
+        assert_eq!(
+            webview_mapping_path(Path::new(r"D:\sakurava-desktop\video-player-ui")),
+            PathBuf::from(r"D:\sakurava-desktop\video-player-ui")
+        );
+    }
+
+    #[test]
+    fn player_window_class_owns_the_arrow_cursor() {
+        let class = player_window_class(HINSTANCE::default(), PCWSTR::null()).unwrap();
+        assert!(!class.hCursor.0.is_null());
     }
 
     #[test]
