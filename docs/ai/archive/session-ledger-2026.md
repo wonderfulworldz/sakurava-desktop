@@ -11,6 +11,28 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-11 — Import/Export Product Acceptance Reconciled
+
+date: 2026-08-11
+session_type: PROJECT_OS_IMPORT_EXPORT_ACCEPTANCE_RECONCILIATION
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+technical_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
+accepted_commits: 34b77c3417a1127f9e0cb5a6805b5997023e07c6; 16575d51f05ded80f8ba002906a2503696a4bcc3; 44251637f6f40ae52a9be3d0f46aa2a3c162cb53; f0e1d1beeea37a768cbeb845e63b484cdf88bebb
+operator_runtime_acceptance: SAFE_IMAGE_PUBLIC_REF_AND_EXPORT_ROUNDTRIP_PRODUCT_ACCEPTED
+public_ref_contract: LOCK_REF_001_RECONCILED_CREDIT_R_REF_SEPARATE
+safe_image_closure: SAFE_IMAGE_SCHEMA_DISCRIMINATION_DEFECT_CORRECTED
+next_action: MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION
+next_action_status: READY_PENDING_SEPARATE_APPROVAL
+next_action_mode: AUDIT
+technical_permissions: false
+
+Safe Filter, Export, catalog public Ref, Safe Image, Safe all-XLSX, and legacy
+Glossary Refs acceptance are current authority. This documentation-only
+reconciliation records the deferred 278-row test debt and leaves Media Cover
+separately gated.
+
+---
+
 ## 2026-08-10 — XLSX Corrective Technical Delivery Accepted
 
 date: 2026-08-10

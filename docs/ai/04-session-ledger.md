@@ -73,6 +73,34 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-30 — Repository Static Engineering Baseline Adopted
+
+date: 2026-08-30
+session_type: REPOSITORY_STATIC_ENGINEERING_BASELINE_ADOPTION
+operator_decision: EXPLICIT_EXTERNAL_TOOL_ADOPTION_DOCUMENTATION_AND_GIT_CLOSURE_APPROVAL
+specialist_tool_gap_audit: COMPLETED_AND_ACCEPTED
+repository_static_engineering_baseline: COMPLETED_AND_ACCEPTED
+cargo_deny: APPROVED_AVAILABLE_VERSION_0_20_2_OFFICIAL_CRATES_IO
+knip: APPROVED_AVAILABLE_VERSION_6_33_0_EXTERNAL_USER_NPM_TOOL
+cargo_deny_repository_scan: NOT_PERFORMED
+knip_repository_scan: NOT_PERFORMED
+repository_dependency_mutation: NONE
+rust_test_runner_decision: CARGO_TEST_KEEP
+specialist_tool_baseline: COMPLETE_FOR_CURRENT_MANDATORY_SET
+application_runtime: NOT_PERFORMED
+technical_permissions: false
+next_action: PRODUCT_OR_TECHNICAL_WORK_REQUIRES_SEPARATE_APPROVAL
+
+The accepted Tool Gap Audit is now implemented for the remaining mandatory
+static-engineering capabilities. Official crates.io `cargo-deny` and official
+npm-registry Knip were installed as external user developer tools without
+changing `Cargo.toml`, `Cargo.lock`, `package.json`, or `package-lock.json`.
+Neither tool ran a Sakurava repository analysis and no tool configuration was
+created. `cargo test` remains the Rust test runner. This tooling adoption does
+not reopen Video Player debugging or authorize future technical work.
+
+---
+
 ## 2026-08-29 — Native Windows Diagnostic Baseline Adopted
 
 date: 2026-08-29
@@ -204,28 +232,6 @@ Manual Regenerate is now recorded as accepted and delivered. The brief
 Progress Status transition remains a documented limitation only. The approved
 managed-media continuation and the new Notification History request are
 planning records; implementation placement remains separately gated.
-
----
-
-## 2026-08-11 — Import/Export Product Acceptance Reconciled
-
-date: 2026-08-11
-session_type: PROJECT_OS_IMPORT_EXPORT_ACCEPTANCE_RECONCILIATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-technical_baseline: f0e1d1beeea37a768cbeb845e63b484cdf88bebb
-accepted_commits: 34b77c3417a1127f9e0cb5a6805b5997023e07c6; 16575d51f05ded80f8ba002906a2503696a4bcc3; 44251637f6f40ae52a9be3d0f46aa2a3c162cb53; f0e1d1beeea37a768cbeb845e63b484cdf88bebb
-operator_runtime_acceptance: SAFE_IMAGE_PUBLIC_REF_AND_EXPORT_ROUNDTRIP_PRODUCT_ACCEPTED
-public_ref_contract: LOCK_REF_001_RECONCILED_CREDIT_R_REF_SEPARATE
-safe_image_closure: SAFE_IMAGE_SCHEMA_DISCRIMINATION_DEFECT_CORRECTED
-next_action: MEDIA_COVER_CAUSAL_COMPLETION_AND_CORRECTION
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-next_action_mode: AUDIT
-technical_permissions: false
-
-Safe Filter, Export, catalog public Ref, Safe Image, Safe all-XLSX, and legacy
-Glossary Refs acceptance are current authority. This documentation-only
-reconciliation records the deferred 278-row test debt and leaves Media Cover
-separately gated.
 
 ---
 

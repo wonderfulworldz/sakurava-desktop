@@ -110,8 +110,15 @@ COM, WebView2, HRESULT, thread/apartment, Job Object, and native call-stack
 investigation when it can answer the discriminator. Use a custom harness only
 when the applicable specialist tool cannot resolve the exact question or would
 provide weaker evidence. Availability on one workstation does not establish
-availability on another clone or machine. Knip and `cargo-deny` remain
-separately gated candidates and are not active routes.
+availability on another clone or machine.
+
+For TypeScript/React project-level unused-file, unused-export, dependency, and
+dead-code hygiene, prefer Knip when it is approved and available. For Rust
+dependency license, advisory, source, banned-crate, and useful duplicate-crate
+policy inspection, prefer `cargo-deny` when it is approved and available. Keep
+`cargo test` as the ordinary focused and full Rust regression runner; do not
+route to `cargo-nextest`. Knip and `cargo-deny` findings require classification
+and do not authorize automatic cleanup, dependency changes, or remediation.
 
 Optimize total delivery cost across quota, operator effort, execution cycles,
 setup, evidence handling, verification, and regression risk. A proven
