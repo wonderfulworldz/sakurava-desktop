@@ -13,7 +13,8 @@ Current posture:
 - Active technical Video Player stage: `NONE`;
 - technical application permissions: `NONE`;
 - Batch 42.9: `NOT_AUTHORIZED`;
-- current implementation WIP remains uncommitted and unstaged;
+- accepted Video Player implementation was delivered and synchronized in
+  commit `a09dea1fa650af5f7bd0a0a5bc20b556077f5b12`;
 - public signing/release/distribution is not authorized.
 
 Project OS history:
@@ -48,7 +49,9 @@ Accepted post-migration product/technical milestones retained:
 - Global Notification System —
   `COMPLETED_AND_ACCEPTED_WITH_RUNTIME_LIMITATION`;
 - final built-in Video Player technical adoption —
-  `VIDEO_PLAYER_MPV_FINAL_ADOPTION_APPROVED`.
+  `VIDEO_PLAYER_MPV_FINAL_ADOPTION_APPROVED`;
+- accepted Video Player Git delivery — `COMPLETED_AND_SYNCHRONIZED` in commit
+  `a09dea1fa650af5f7bd0a0a5bc20b556077f5b12`.
 
 Completed Video Player progression:
 
@@ -90,7 +93,6 @@ Remaining work is separately gated:
 - different-source visible UX decision;
 - Contact Sheet generation/save `DEFERRED`;
 - exact-path mpv proof cleanup;
-- Git delivery of current WIP;
 - operator replacement of the single Project ChatGPT Source after the final
   post-commit Brain regeneration/validation;
 - later V2 disposition;

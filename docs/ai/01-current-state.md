@@ -11,9 +11,9 @@ boundary is superseded unless repeated here.
 project: Sakurava Desktop
 repository: D:\sakurava-desktop
 branch: main
-recorded_head: 2b197521e8726038693535592370361c03e944d5
-fresh_origin_main: UNKNOWN_KNOWN_LOOPBACK_PROXY_LIMITATION
-cached_origin_main: 2b197521e8726038693535592370361c03e944d5
+recorded_head: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
+fresh_origin_main: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
+cached_origin_main: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
 cached_divergence: 0_AHEAD_0_BEHIND
 staging: NONE
 repository_state_evidence: REPORTED_BY_CODEX
@@ -56,12 +56,15 @@ isolation/parent-death hardening, H.264 D3D11VA evidence, resilience evidence,
 and release-layout runtime. This is technical adoption, not public-release
 legal approval.
 
-video_player_git_delivery: UNCOMMITTED_WIP
+video_player_git_delivery: COMPLETED_AND_SYNCHRONIZED
+video_player_application_commit: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
+video_player_application_parent: b8d1eca7304ef661578df3d710be7ca465d2daa0
+video_player_application_remote_sync: COMPLETED_0_AHEAD_0_BEHIND
 staging_authorized: false
 commit_authorized: false
-commit_performed: false
+commit_performed: true
 push_authorized: false
-push_performed: false
+push_performed: true
 
 Remaining Video Player gates:
 
@@ -98,8 +101,9 @@ Other legitimate post-migration state retained as current:
   `LOCK-NOTIFICATION-001` active;
 - dependency/security hygiene is
   `COMPLETED_AND_ACCEPTED_WITH_RESIDUAL_FINDINGS`;
-- Git delivery of the current Video Player/application WIP remains separately
-  gated and has not occurred.
+- accepted Video Player application WIP was delivered without source mutation
+  in commit `a09dea1fa650af5f7bd0a0a5bc20b556077f5b12` and synchronized to
+  `origin/main`.
 
 The canonical Brain generation/validation and the operator-controlled Project
 ChatGPT Source refresh are completed. Because this final reconciliation changes
