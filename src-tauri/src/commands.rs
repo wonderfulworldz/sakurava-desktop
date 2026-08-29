@@ -48,16 +48,16 @@ use windows::{
 #[cfg(test)]
 use crate::database::preview_backup_package;
 use crate::database::{
-    allocate_sakurava_ref, backup_runtime_database, claim_or_allocate_sakurava_ref, clear_app_generated_cache,
-    create_import_safety_backup_package, credit_ref_yymm, migrate_sakurava_refs,
-    open_default_backup_folder, register_current_sakurava_ref_alias,
-    format_sakurava_ref, require_migrated_sakurava_refs, resolve_sakurava_ref, restore_runtime_database,
-    sakurava_ref_migration_status, BackupFolderOpenResult, BackupPackageDeleteResult,
-    BackupPackageExportResult, BackupPackageImportError, BackupPackageImportResult,
-    BackupPackageInfo, BackupPackagePreviewError, BackupPackageRestoreError,
-    BackupPackageRestoreResult, BackupPackageRotationResult, BackupPackageType, ClearCacheResult,
-    DatabaseBackupResult, DatabaseRestoreResult, RuntimeDatabase, SakuravaRefMigrationResult,
-    SakuravaRefMigrationStatus,
+    allocate_sakurava_ref, backup_runtime_database, claim_or_allocate_sakurava_ref,
+    clear_app_generated_cache, create_import_safety_backup_package, credit_ref_yymm,
+    format_sakurava_ref, migrate_sakurava_refs, open_default_backup_folder,
+    register_current_sakurava_ref_alias, require_migrated_sakurava_refs, resolve_sakurava_ref,
+    restore_runtime_database, sakurava_ref_migration_status, BackupFolderOpenResult,
+    BackupPackageDeleteResult, BackupPackageExportResult, BackupPackageImportError,
+    BackupPackageImportResult, BackupPackageInfo, BackupPackagePreviewError,
+    BackupPackageRestoreError, BackupPackageRestoreResult, BackupPackageRotationResult,
+    BackupPackageType, ClearCacheResult, DatabaseBackupResult, DatabaseRestoreResult,
+    RuntimeDatabase, SakuravaRefMigrationResult, SakuravaRefMigrationStatus,
 };
 use crate::managed_media::catalog_lifecycle::{
     queue_missing_or_outdated, reconcile_owner_mutation, ManualRegenerationQueueResult,
@@ -88,6 +88,13 @@ use crate::restore_coordinator::{
 };
 use crate::safe_filter::{
     sanitize_related_json, sanitize_string_array_json, visible_catalog_ids, VisibleCatalogIds,
+};
+use crate::video_player::{
+    manager::{
+        PlaybackHostManager, TrustedOpenRequest, VideoPlayerCommandError, VideoPlayerOpenInput,
+        VideoPlayerOpenResult,
+    },
+    source::{open_media_file_with_default_app, validate_catalog_media_path},
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -1169,6 +1176,71 @@ pub fn video_get_visible(
             }
         })
     })
+}
+
+#[tauri::command]
+pub fn video_player_open(
+    database: State<'_, RuntimeDatabase>,
+    manager: State<'_, PlaybackHostManager>,
+    input: VideoPlayerOpenInput,
+) -> Result<VideoPlayerOpenResult, VideoPlayerCommandError> {
+    database
+        .ensure_restore_resolved()
+        .map_err(|message| player_command_error("DATABASE_UNAVAILABLE", message))?;
+    if input.source_identity.trim().is_empty() {
+        return Err(player_command_error(
+            "SOURCE_IDENTITY_REQUIRED",
+            "A stable Video record identity is required",
+        ));
+    }
+    let video = with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(
+            connection,
+            "V",
+            "videos",
+            "id",
+            input.source_identity.trim(),
+        )?;
+        get_video(connection, &id)
+    })
+    .map_err(|message| player_command_error("SOURCE_RESOLUTION_FAILED", message))?
+    .ok_or_else(|| {
+        player_command_error(
+            "VIDEO_NOT_FOUND",
+            "The requested Video record no longer exists",
+        )
+    })?;
+    let canonical_path = validate_catalog_media_path(&video.media_path).map_err(|cause| {
+        player_command_error(
+            cause.code(),
+            "The catalog media path is not a readable local video file",
+        )
+    })?;
+    manager.open(TrustedOpenRequest {
+        source_identity: video.sakurava_ref,
+        canonical_path,
+        display_name: if video.title.trim().is_empty() {
+            input.display_name
+        } else {
+            video.title
+        },
+        resolution: if video.resolution.trim().is_empty() {
+            input.resolution
+        } else {
+            video.resolution
+        },
+    })
+}
+
+fn player_command_error(
+    code: impl Into<String>,
+    message: impl Into<String>,
+) -> VideoPlayerCommandError {
+    VideoPlayerCommandError {
+        code: code.into(),
+        message: message.into(),
+    }
 }
 
 #[tauri::command]
@@ -4840,8 +4912,9 @@ fn apply_deferred_import_parent_reference(
     };
     match created.section.as_str() {
         "categories" => {
-            let key = resolve_sakurava_ref(connection, "C", reference)?
-                .ok_or_else(|| "Imported Category parent Ref was not found after create planning.".to_string())?;
+            let key = resolve_sakurava_ref(connection, "C", reference)?.ok_or_else(|| {
+                "Imported Category parent Ref was not found after create planning.".to_string()
+            })?;
             update_managed_category(
                 connection,
                 &created.id,
@@ -4856,11 +4929,13 @@ fn apply_deferred_import_parent_reference(
                     show_in_credits: None,
                     r_plus: None,
                 },
-            )?.ok_or_else(|| "Created Category parent target changed.".to_string())?;
+            )?
+            .ok_or_else(|| "Created Category parent target changed.".to_string())?;
         }
         "glossary" => {
-            let id = resolve_sakurava_ref(connection, "G", reference)?
-                .ok_or_else(|| "Imported Glossary parent Ref was not found after create planning.".to_string())?;
+            let id = resolve_sakurava_ref(connection, "G", reference)?.ok_or_else(|| {
+                "Imported Glossary parent Ref was not found after create planning.".to_string()
+            })?;
             update_glossary_entry(
                 connection,
                 &created.id,
@@ -4876,7 +4951,8 @@ fn apply_deferred_import_parent_reference(
                     source_url: None,
                     r_plus: None,
                 },
-            )?.ok_or_else(|| "Created Glossary parent target changed.".to_string())?;
+            )?
+            .ok_or_else(|| "Created Glossary parent target changed.".to_string())?;
         }
         _ => {}
     }
@@ -4889,8 +4965,9 @@ fn canonicalize_created_import_references(
 ) -> Result<(), String> {
     match created.section.as_str() {
         "videos" => {
-            let record = get_video(connection, &created.id)?
-                .ok_or_else(|| "Created Video could not be read for reference resolution.".to_string())?;
+            let record = get_video(connection, &created.id)?.ok_or_else(|| {
+                "Created Video could not be read for reference resolution.".to_string()
+            })?;
             let mut values = json!({
                 "categoriesJson": record.categories_json,
                 "relatedPerformersJson": record.related_performers_json,
@@ -4898,18 +4975,38 @@ fn canonicalize_created_import_references(
                 "glossaryRefsJson": record.glossary_refs_json,
             });
             resolve_import_public_reference_fields(connection, &mut values, false)?;
-            let object = values.as_object().ok_or_else(|| "Resolved Video values are invalid.".to_string())?;
-            update_video(connection, &created.id, VideoPatch {
-                categories_json: object.get("categoriesJson").and_then(Value::as_str).map(str::to_string),
-                related_performers_json: object.get("relatedPerformersJson").and_then(Value::as_str).map(str::to_string),
-                related_images_json: object.get("relatedImagesJson").and_then(Value::as_str).map(str::to_string),
-                glossary_refs_json: object.get("glossaryRefsJson").and_then(Value::as_str).map(str::to_string),
-                ..Default::default()
-            })?.ok_or_else(|| "Created Video changed during reference resolution.".to_string())?;
+            let object = values
+                .as_object()
+                .ok_or_else(|| "Resolved Video values are invalid.".to_string())?;
+            update_video(
+                connection,
+                &created.id,
+                VideoPatch {
+                    categories_json: object
+                        .get("categoriesJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    related_performers_json: object
+                        .get("relatedPerformersJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    related_images_json: object
+                        .get("relatedImagesJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    glossary_refs_json: object
+                        .get("glossaryRefsJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    ..Default::default()
+                },
+            )?
+            .ok_or_else(|| "Created Video changed during reference resolution.".to_string())?;
         }
         "images" => {
-            let record = get_image(connection, &created.id)?
-                .ok_or_else(|| "Created Image could not be read for reference resolution.".to_string())?;
+            let record = get_image(connection, &created.id)?.ok_or_else(|| {
+                "Created Image could not be read for reference resolution.".to_string()
+            })?;
             let mut values = json!({
                 "categoriesJson": record.categories_json,
                 "relatedPerformersJson": record.related_performers_json,
@@ -4917,18 +5014,38 @@ fn canonicalize_created_import_references(
                 "glossaryRefsJson": record.glossary_refs_json,
             });
             resolve_import_public_reference_fields(connection, &mut values, false)?;
-            let object = values.as_object().ok_or_else(|| "Resolved Image values are invalid.".to_string())?;
-            update_image(connection, &created.id, ImagePatch {
-                categories_json: object.get("categoriesJson").and_then(Value::as_str).map(str::to_string),
-                related_performers_json: object.get("relatedPerformersJson").and_then(Value::as_str).map(str::to_string),
-                related_videos_json: object.get("relatedVideosJson").and_then(Value::as_str).map(str::to_string),
-                glossary_refs_json: object.get("glossaryRefsJson").and_then(Value::as_str).map(str::to_string),
-                ..Default::default()
-            })?.ok_or_else(|| "Created Image changed during reference resolution.".to_string())?;
+            let object = values
+                .as_object()
+                .ok_or_else(|| "Resolved Image values are invalid.".to_string())?;
+            update_image(
+                connection,
+                &created.id,
+                ImagePatch {
+                    categories_json: object
+                        .get("categoriesJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    related_performers_json: object
+                        .get("relatedPerformersJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    related_videos_json: object
+                        .get("relatedVideosJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    glossary_refs_json: object
+                        .get("glossaryRefsJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    ..Default::default()
+                },
+            )?
+            .ok_or_else(|| "Created Image changed during reference resolution.".to_string())?;
         }
         "performers" => {
-            let record = get_performer(connection, &created.id)?
-                .ok_or_else(|| "Created Performer could not be read for reference resolution.".to_string())?;
+            let record = get_performer(connection, &created.id)?.ok_or_else(|| {
+                "Created Performer could not be read for reference resolution.".to_string()
+            })?;
             let mut values = json!({
                 "categoriesJson": record.categories_json,
                 "relatedVideosJson": record.related_videos_json,
@@ -4936,14 +5053,33 @@ fn canonicalize_created_import_references(
                 "glossaryRefsJson": record.glossary_refs_json,
             });
             resolve_import_public_reference_fields(connection, &mut values, false)?;
-            let object = values.as_object().ok_or_else(|| "Resolved Performer values are invalid.".to_string())?;
-            update_performer(connection, &created.id, PerformerPatch {
-                categories_json: object.get("categoriesJson").and_then(Value::as_str).map(str::to_string),
-                related_videos_json: object.get("relatedVideosJson").and_then(Value::as_str).map(str::to_string),
-                related_images_json: object.get("relatedImagesJson").and_then(Value::as_str).map(str::to_string),
-                glossary_refs_json: object.get("glossaryRefsJson").and_then(Value::as_str).map(str::to_string),
-                ..Default::default()
-            })?.ok_or_else(|| "Created Performer changed during reference resolution.".to_string())?;
+            let object = values
+                .as_object()
+                .ok_or_else(|| "Resolved Performer values are invalid.".to_string())?;
+            update_performer(
+                connection,
+                &created.id,
+                PerformerPatch {
+                    categories_json: object
+                        .get("categoriesJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    related_videos_json: object
+                        .get("relatedVideosJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    related_images_json: object
+                        .get("relatedImagesJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    glossary_refs_json: object
+                        .get("glossaryRefsJson")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    ..Default::default()
+                },
+            )?
+            .ok_or_else(|| "Created Performer changed during reference resolution.".to_string())?;
         }
         _ => {}
     }
@@ -5074,8 +5210,12 @@ fn apply_import_create(
     generated_ids: &std::collections::HashMap<String, String>,
     issuance_yymm: &str,
 ) -> Result<Option<CreatedImportRecord>, String> {
-    let mut proposed =
-        resolve_import_dependencies(connection, operation.proposed_values.clone(), generated_ids, true)?;
+    let mut proposed = resolve_import_dependencies(
+        connection,
+        operation.proposed_values.clone(),
+        generated_ids,
+        true,
+    )?;
     let object = proposed
         .as_object_mut()
         .ok_or_else(|| "Import Create values are invalid.".to_string())?;
@@ -5092,42 +5232,54 @@ fn apply_import_create(
         _ => None,
     };
     let id = match operation.section.as_str() {
-        "videos" =>
+        "videos" => {
             create_video_with_requested_ref(
                 connection,
                 decode_import_value(proposed)?,
                 requested_sakurava_ref.as_deref(),
-            )?.id,
-        "images" =>
+            )?
+            .id
+        }
+        "images" => {
             create_image_with_requested_ref(
                 connection,
                 decode_import_value(proposed)?,
                 requested_sakurava_ref.as_deref(),
-            )?.id,
-        "performers" =>
+            )?
+            .id
+        }
+        "performers" => {
             create_performer_with_requested_ref(
                 connection,
                 decode_import_value(proposed)?,
                 requested_sakurava_ref.as_deref(),
-            )?.id,
-        "categories" =>
+            )?
+            .id
+        }
+        "categories" => {
             create_managed_category_with_requested_ref(
                 connection,
                 decode_import_value(proposed)?,
                 requested_sakurava_ref.as_deref(),
-            )?.key,
-        "glossary" =>
+            )?
+            .key
+        }
+        "glossary" => {
             create_glossary_entry_with_requested_ref(
                 connection,
                 decode_import_value(proposed)?,
                 requested_sakurava_ref.as_deref(),
-            )?.id,
-        "credits" =>
+            )?
+            .id
+        }
+        "credits" => {
             create_credit_in_transaction(
                 connection,
                 decode_import_value(proposed)?,
                 Some(issuance_yymm),
-            )?.id,
+            )?
+            .id
+        }
         _ => return Err("Unsupported import section.".to_string()),
     };
     Ok(Some(CreatedImportRecord {
@@ -5146,7 +5298,12 @@ fn apply_import_update(
         .record_id
         .as_deref()
         .ok_or_else(|| "Update record was not resolved.".to_string())?;
-    let proposed = resolve_import_dependencies(connection, operation.proposed_values.clone(), generated_ids, false)?;
+    let proposed = resolve_import_dependencies(
+        connection,
+        operation.proposed_values.clone(),
+        generated_ids,
+        false,
+    )?;
     match operation.section.as_str() {
         "videos" => update_video(connection, id, decode_import_value(proposed)?)?
             .map(|_| ())
@@ -5254,7 +5411,11 @@ fn resolve_import_dependencies(
             .clone();
         proposed["parentId"] = Value::String(resolved);
     }
-    resolve_import_public_reference_fields(connection, &mut proposed, allow_unresolved_public_refs)?;
+    resolve_import_public_reference_fields(
+        connection,
+        &mut proposed,
+        allow_unresolved_public_refs,
+    )?;
     Ok(proposed)
 }
 
@@ -5292,15 +5453,42 @@ fn resolve_import_public_reference_fields(
             _ => None,
         })
     {
-        resolve_import_reference_scalar(connection, object, "workId", work_section, allow_unresolved)?;
+        resolve_import_reference_scalar(
+            connection,
+            object,
+            "workId",
+            work_section,
+            allow_unresolved,
+        )?;
     }
     resolve_import_reference_scalar(connection, object, "performerId", "P", allow_unresolved)?;
 
     resolve_import_categories(connection, object, allow_unresolved)?;
     resolve_import_glossary_refs(connection, object, allow_unresolved)?;
-    resolve_import_related_json(connection, object, "relatedPerformersJson", "performerId", "P", allow_unresolved)?;
-    resolve_import_related_json(connection, object, "relatedImagesJson", "recordId", "I", allow_unresolved)?;
-    resolve_import_related_json(connection, object, "relatedVideosJson", "recordId", "V", allow_unresolved)?;
+    resolve_import_related_json(
+        connection,
+        object,
+        "relatedPerformersJson",
+        "performerId",
+        "P",
+        allow_unresolved,
+    )?;
+    resolve_import_related_json(
+        connection,
+        object,
+        "relatedImagesJson",
+        "recordId",
+        "I",
+        allow_unresolved,
+    )?;
+    resolve_import_related_json(
+        connection,
+        object,
+        "relatedVideosJson",
+        "recordId",
+        "V",
+        allow_unresolved,
+    )?;
     Ok(())
 }
 
@@ -5311,7 +5499,11 @@ fn resolve_import_reference_scalar(
     section: &str,
     allow_unresolved: bool,
 ) -> Result<(), String> {
-    let Some(value) = object.get(field).and_then(Value::as_str).map(str::to_string) else {
+    let Some(value) = object
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
         return Ok(());
     };
     let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
@@ -5339,7 +5531,8 @@ fn resolve_import_categories(
     let values = serde_json::from_str::<Vec<String>>(text).unwrap_or_default();
     let mut resolved = Vec::with_capacity(values.len());
     for value in values {
-        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', ""))
+        else {
             resolved.push(value);
             continue;
         };
@@ -5374,7 +5567,8 @@ fn resolve_import_glossary_refs(
     let values = serde_json::from_str::<Vec<String>>(text).unwrap_or_default();
     let mut resolved = Vec::with_capacity(values.len());
     for value in values {
-        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', ""))
+        else {
             resolved.push(value);
             continue;
         };
@@ -5407,12 +5601,18 @@ fn resolve_import_related_json(
     let Some(text) = object.get(field).and_then(Value::as_str) else {
         return Ok(());
     };
-    let mut items = serde_json::from_str::<Vec<serde_json::Map<String, Value>>>(text).unwrap_or_default();
+    let mut items =
+        serde_json::from_str::<Vec<serde_json::Map<String, Value>>>(text).unwrap_or_default();
     for item in &mut items {
-        let Some(value) = item.get(id_field).and_then(Value::as_str).map(str::to_string) else {
+        let Some(value) = item
+            .get(id_field)
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        else {
             continue;
         };
-        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', "")) else {
+        let Some(reference) = format_sakurava_ref(&value).map(|value| value.replace('-', ""))
+        else {
             continue;
         };
         if !reference.starts_with(section) {
@@ -5425,8 +5625,13 @@ fn resolve_import_related_json(
                 "I" => get_image(connection, &id)?.map(|record| record.title),
                 "P" => get_performer(connection, &id)?.map(|record| record.name),
                 _ => None,
-            }.ok_or_else(|| "Resolved related Ref has no catalog record.".to_string())?;
-            let label_field = if id_field == "performerId" { "nameSnapshot" } else { "titleSnapshot" };
+            }
+            .ok_or_else(|| "Resolved related Ref has no catalog record.".to_string())?;
+            let label_field = if id_field == "performerId" {
+                "nameSnapshot"
+            } else {
+                "titleSnapshot"
+            };
             item.insert(label_field.to_string(), Value::String(label));
         } else if !allow_unresolved {
             return Err("Imported related Ref was not found after create planning.".to_string());
@@ -6122,48 +6327,6 @@ fn validate_import_catalog_source(source_path: &str) -> Result<PathBuf, String> 
     Ok(path)
 }
 
-#[cfg(target_os = "windows")]
-fn open_media_file_with_default_app(path: &Path) -> Result<(), String> {
-    use std::os::windows::ffi::OsStrExt;
-
-    const SW_SHOWNORMAL: i32 = 1;
-
-    #[link(name = "shell32")]
-    extern "system" {
-        fn ShellExecuteW(
-            hwnd: isize,
-            lp_operation: *const u16,
-            lp_file: *const u16,
-            lp_parameters: *const u16,
-            lp_directory: *const u16,
-            n_show_cmd: i32,
-        ) -> isize;
-    }
-
-    let file_path: Vec<u16> = path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
-    let result = unsafe {
-        ShellExecuteW(
-            0,
-            std::ptr::null(),
-            file_path.as_ptr(),
-            std::ptr::null(),
-            std::ptr::null(),
-            SW_SHOWNORMAL,
-        )
-    };
-
-    if result <= 32 {
-        return Err("Media file could not be opened".to_string());
-    }
-
-    Ok(())
-}
-
 fn validate_source_link_url(url: &str) -> Result<String, String> {
     let trimmed = url.trim();
     let remainder = trimmed
@@ -6214,11 +6377,6 @@ fn open_url_with_default_browser(url: &str) -> Result<(), String> {
 #[cfg(not(target_os = "windows"))]
 fn open_url_with_default_browser(_url: &str) -> Result<(), String> {
     Err("Source Link open is unavailable on this platform".to_string())
-}
-
-#[cfg(not(target_os = "windows"))]
-fn open_media_file_with_default_app(_path: &Path) -> Result<(), String> {
-    Err("Media file open is unavailable on this platform".to_string())
 }
 
 fn validate_media_asset_root(root_path: &str) -> Result<PathBuf, String> {
@@ -8889,7 +9047,8 @@ mod tests {
     }
 
     #[test]
-    fn import_apply_retains_available_requested_refs_and_allocates_duplicate_adds_deterministically() {
+    fn import_apply_retains_available_requested_refs_and_allocates_duplicate_adds_deterministically(
+    ) {
         let (root, database) = import_test_database("requested-public-refs");
         let plan = signed_import_plan(
             &database,
@@ -8955,11 +9114,16 @@ mod tests {
         assert_eq!(result.transaction_status, "committed");
         let connection = database.connection();
         let connection = connection.lock().expect("database lock");
-        let video = list_videos(&connection).expect("videos").pop().expect("video");
-        let performer = list_performers(&connection).expect("performers").pop().expect("performer");
+        let video = list_videos(&connection)
+            .expect("videos")
+            .pop()
+            .expect("video");
+        let performer = list_performers(&connection)
+            .expect("performers")
+            .pop()
+            .expect("performer");
         assert_eq!(
-            serde_json::from_str::<Value>(&video.related_performers_json)
-                .expect("related json"),
+            serde_json::from_str::<Value>(&video.related_performers_json).expect("related json"),
             json!([{ "performerId": performer.id, "nameSnapshot": "Performer" }]),
         );
         drop(connection);

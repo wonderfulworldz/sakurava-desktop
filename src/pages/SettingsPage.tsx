@@ -41,6 +41,7 @@ import AutomaticMiniImagesControl from "../components/AutomaticMiniImagesControl
 import ManagedMediaRegenerateAction from "../components/ManagedMediaRegenerateAction";
 import ManagedMediaRemoveAction from "../components/ManagedMediaRemoveAction";
 import ManagedMediaStatistics from "../components/ManagedMediaStatistics";
+import BuiltInVideoPlayerPrototypeControl from "../components/video-player/BuiltInVideoPlayerPrototypeControl";
 import type {
   Image,
   ManagedCategory,
@@ -2894,6 +2895,12 @@ function SettingsSection({
             <option value="100">100% (Default)</option>
             <option value="110">110%</option>
           </select>
+        </ControlRow>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard title={t("videoPlayer.preference.settingsTitle")} icon={Video} showReset={false}>
+        <ControlRow label={t("videoPlayer.preference.title")}>
+          <BuiltInVideoPlayerPrototypeControl />
         </ControlRow>
       </SettingsPanelCard>
 

@@ -2,6 +2,7 @@ mod commands;
 pub mod database;
 pub mod managed_media;
 pub(crate) mod safe_filter;
+pub mod video_player;
 
 pub(crate) mod restore_coordinator;
 #[cfg(test)]
@@ -18,11 +19,17 @@ mod restore_coordinator_tests;
 use tauri::Manager;
 
 use managed_media::production::ProductionManagedMediaRuntime;
+use video_player::manager::PlaybackHostManager;
 
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let player_resource_root = app
+                .path()
+                .resource_dir()
+                .map_err(|message| std::io::Error::other(message.to_string()))?;
+            app.manage(PlaybackHostManager::new(player_resource_root));
             let database = database::prepare_tauri_database(app.handle())
                 .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
             println!(
@@ -81,6 +88,7 @@ pub fn run() {
             commands::video_list_visible,
             commands::video_get,
             commands::video_get_visible,
+            commands::video_player_open,
             commands::video_update,
             commands::video_delete,
             commands::image_create,
@@ -121,6 +129,9 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+            if let Some(player_host) = app_handle.try_state::<PlaybackHostManager>() {
+                player_host.shutdown();
+            }
             if let Some(runtime) = app_handle.try_state::<ProductionManagedMediaRuntime>() {
                 if let Err(error) = runtime.shutdown() {
                     eprintln!("Managed-media shutdown failed: {error}");

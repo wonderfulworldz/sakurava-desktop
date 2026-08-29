@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "contact-sheet",
+  "description": "Narrow permissions for the Sakurava Contact Sheet window.",
+  "windows": ["contact-sheet"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus"
+  ]
+}

@@ -88,6 +88,10 @@ import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { updateVideo } from "../runtime/videoCommands";
 import { useTranslation } from "../lib/LanguageContext";
 import {
+  openVideoPlayerWindow,
+  type AuxiliaryWindowOpenResult,
+} from "../runtime/videoPlayerWindows";
+import {
   translateUiDisplayLabel,
   translateUiDisplayValue,
   type UiTranslator,
@@ -384,7 +388,22 @@ function CatalogDetailPage({
           displayDescriptor={mediaDescriptors.get("detail-primary")}
           viewerDescriptor={mediaDescriptors.get("detail-primary-viewer")}
         />
-        <CatalogIdentity config={config} favoriteAction={favoriteAction} />
+        <CatalogIdentity
+          config={config}
+          favoriteAction={favoriteAction}
+          onOpenVideoPlayer={() =>
+            openVideoPlayerWindow({
+              sourceIdentity: config.recordId ?? "",
+              displayName: config.displayTitle,
+              resolution:
+                config.techItems.find((item) => item.label === "Resolution")?.value ??
+                "N/A",
+              durationLabel:
+                config.techItems.find((item) => item.label === "Duration")?.value ??
+                "N/A",
+            })
+          }
+        />
       </div>
     </section>
   );
@@ -432,8 +451,10 @@ function CatalogDetailPage({
 function CatalogIdentity({
   config,
   favoriteAction,
+  onOpenVideoPlayer,
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
+  onOpenVideoPlayer: () => Promise<AuxiliaryWindowOpenResult>;
 }) {
   const t = useTranslation();
   const visibleChips = filterSafeFilterCensorshipValues(
@@ -483,7 +504,12 @@ function CatalogIdentity({
 
         {playableMedia && (
           <div className="mt-5">
-            <HeroPlayButton item={playableMedia} />
+            <HeroPlayButton
+              item={playableMedia}
+              onOpenBuiltInPlayer={
+                config.kind === "videos" ? onOpenVideoPlayer : undefined
+              }
+            />
           </div>
         )}
       </div>
@@ -1044,7 +1070,13 @@ function isEmptyDetailValue(value: string | number | null | undefined) {
   ].includes(label);
 }
 
-function HeroPlayButton({ item }: { item: MediaPathItem }) {
+function HeroPlayButton({
+  item,
+  onOpenBuiltInPlayer,
+}: {
+  item: MediaPathItem;
+  onOpenBuiltInPlayer?: () => Promise<AuxiliaryWindowOpenResult>;
+}) {
   const t = useTranslation();
   const [status, setStatus] = useState<PathStatusState>(() => ({
     label: item.label,
@@ -1093,6 +1125,16 @@ function HeroPlayButton({ item }: { item: MediaPathItem }) {
     setFeedback(null);
 
     try {
+      if (onOpenBuiltInPlayer) {
+        const result = await onOpenBuiltInPlayer();
+        setFeedback(
+          result.mode === "window"
+            ? "Opening Sakurava Video Player."
+            : "Sakurava Video Player window is unavailable.",
+        );
+        return;
+      }
+
       const result = await openMediaPath(status.path);
       setFeedback(
         result.opened

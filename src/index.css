@@ -145,6 +145,12 @@ body {
   background: #111827;
 }
 
+:root[data-window-host="composition"],
+:root[data-window-host="composition"] body,
+:root[data-window-host="composition"] #root {
+  background: transparent;
+}
+
 html,
 body,
 #root {

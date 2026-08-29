@@ -19,6 +19,9 @@ import { formConfigs } from "./lib/formData";
 import CollectionPage from "./pages/CollectionPage";
 import CategoryManagementPage from "./pages/CategoryManagementPage";
 import GlobalImageViewerWindow from "./components/gallery/GlobalImageViewerWindow";
+import ContactSheetWindow from "./components/video-player/ContactSheetWindow";
+import MiniPlayerWindow from "./components/video-player/MiniPlayerWindow";
+import VideoPlayerWindow from "./components/video-player/VideoPlayerWindow";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import GlossaryPage from "./pages/GlossaryPage";
@@ -51,12 +54,21 @@ import {
   runAutomaticBackupIfDue,
 } from "./lib/automaticBackup";
 import { SAFE_FILTER_STATE_EVENT } from "./lib/safeFilterState";
+import {
+  CONTACT_SHEET_WINDOW_KIND,
+  getSakuravaWindowKind,
+  MINI_PLAYER_WINDOW_KIND,
+  VIDEO_PLAYER_WINDOW_KIND,
+} from "./runtime/videoPlayerWindows";
 
 function App() {
-  const isImageViewerWindow =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("sakuravaWindow") ===
-      "image-viewer";
+  const sakuravaWindowKind = getSakuravaWindowKind();
+  const isImageViewerWindow = sakuravaWindowKind === "image-viewer";
+  const isAuxiliaryWindow =
+    isImageViewerWindow ||
+    sakuravaWindowKind === VIDEO_PLAYER_WINDOW_KIND ||
+    sakuravaWindowKind === CONTACT_SHEET_WINDOW_KIND ||
+    sakuravaWindowKind === MINI_PLAYER_WINDOW_KIND;
   const [appearanceTheme] = useState(() => getStoredAppearanceTheme());
   const [appearanceAccent] = useState(() => getStoredAppearanceAccent());
   const [appearanceDensity] = useState(() => getStoredAppearanceDensity());
@@ -81,6 +93,10 @@ function App() {
   }, [appearanceAccent, appearanceDensity, appearanceTheme, appearanceUiScale]);
 
   useEffect(() => {
+    if (isAuxiliaryWindow) {
+      setMediaAssetScopeReady(true);
+      return;
+    }
     if (!isTauriRuntimeAvailable() || getStoredMediaAssetRoots().length === 0) {
       setMediaAssetScopeReady(true);
       return;
@@ -90,10 +106,10 @@ function App() {
     void restoreStoredMediaAssetRoots().finally(() => {
       setMediaAssetScopeReady(true);
     });
-  }, []);
+  }, [isAuxiliaryWindow]);
 
   useEffect(() => {
-    if (isImageViewerWindow || !isTauriRuntimeAvailable()) {
+    if (isAuxiliaryWindow || !isTauriRuntimeAvailable()) {
       return;
     }
 
@@ -116,10 +132,10 @@ function App() {
       );
       window.clearInterval(intervalId);
     };
-  }, [isImageViewerWindow]);
+  }, [isAuxiliaryWindow]);
 
   const refreshRefMigrationStatus = () => {
-    if (isImageViewerWindow || !isTauriRuntimeAvailable()) return Promise.resolve();
+    if (isAuxiliaryWindow || !isTauriRuntimeAvailable()) return Promise.resolve();
     setRefMigrationValidationFailed(false);
     return getSakuravaRefMigrationStatus()
       .then((status) => {
@@ -138,19 +154,21 @@ function App() {
 
   useEffect(() => {
     void refreshRefMigrationStatus();
-  }, [isImageViewerWindow]);
+  }, [isAuxiliaryWindow]);
 
   useEffect(() => {
+    if (isAuxiliaryWindow) return;
     const showUpgradePrompt = () => setRefUpgradePromptDismissed(false);
     window.addEventListener("sakurava-ref-upgrade-requested", showUpgradePrompt);
     return () => window.removeEventListener("sakurava-ref-upgrade-requested", showUpgradePrompt);
-  }, []);
+  }, [isAuxiliaryWindow]);
 
   useEffect(() => {
+    if (isAuxiliaryWindow) return;
     const refreshVisibilityProjection = () => setDatabaseEpoch((current) => current + 1);
     window.addEventListener(SAFE_FILTER_STATE_EVENT, refreshVisibilityProjection);
     return () => window.removeEventListener(SAFE_FILTER_STATE_EVENT, refreshVisibilityProjection);
-  }, []);
+  }, [isAuxiliaryWindow]);
 
   const applyRefMigration = async () => {
     if (refMigrationPending) return;
@@ -172,6 +190,30 @@ function App() {
     return (
       <LanguageProvider>
         <GlobalImageViewerWindow />
+      </LanguageProvider>
+    );
+  }
+
+  if (sakuravaWindowKind === VIDEO_PLAYER_WINDOW_KIND) {
+    return (
+      <LanguageProvider>
+        <VideoPlayerWindow />
+      </LanguageProvider>
+    );
+  }
+
+  if (sakuravaWindowKind === CONTACT_SHEET_WINDOW_KIND) {
+    return (
+      <LanguageProvider>
+        <ContactSheetWindow />
+      </LanguageProvider>
+    );
+  }
+
+  if (sakuravaWindowKind === MINI_PLAYER_WINDOW_KIND) {
+    return (
+      <LanguageProvider>
+        <MiniPlayerWindow />
       </LanguageProvider>
     );
   }
