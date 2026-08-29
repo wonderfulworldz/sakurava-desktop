@@ -73,6 +73,33 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-29 — Native Windows Diagnostic Baseline Adopted
+
+date: 2026-08-29
+session_type: SPECIALIST_TOOL_GAP_AUDIT_AND_NATIVE_WINDOWS_DIAGNOSTIC_BASELINE_ADOPTION
+operator_decision: EXPLICIT_TOOL_ADOPTION_DOCUMENTATION_AND_GIT_CLOSURE_APPROVAL
+specialist_tool_gap_audit: COMPLETED_AND_ACCEPTED
+native_windows_diagnostic_baseline: COMPLETED_AND_ACCEPTED
+windbg: APPROVED_AVAILABLE_VERSION_1_2606_22001_0_OFFICIAL_WINGET_PACKAGE
+process_monitor: APPROVED_AVAILABLE_VERSION_4_1_OFFICIAL_WINGET_PACKAGE
+debugger_attachment: NOT_PERFORMED
+process_monitor_capture: NOT_PERFORMED
+application_runtime: NOT_PERFORMED
+native_windows_tool_routing: PROCESS_MONITOR_FOR_SYSTEM_ACTIVITY; WINDBG_FOR_NATIVE_DEBUGGING
+rust_test_runner_decision: CARGO_TEST_KEEP
+remaining_specialist_tool_additions: CARGO_DENY; KNIP
+technical_permissions: false
+next_action: REPOSITORY_STATIC_ENGINEERING_BASELINE_ADOPTION_AFTER_SEPARATE_APPROVAL
+
+The accepted Specialist Tool Gap Audit established the minimum tool baseline.
+Official Microsoft WinDbg and Sysinternals Process Monitor packages were
+installed and statically verified without debugger attachment, capture, or
+application runtime. Model Routing now prefers each approved available native
+tool for its evidence domain before custom harness work. `cargo test` remains
+the Rust test runner; `cargo-deny` and Knip remain separately gated additions.
+
+---
+
 ## 2026-08-29 — Efficient Bounded Execution Governance Adopted
 
 date: 2026-08-29
@@ -199,32 +226,6 @@ Safe Filter, Export, catalog public Ref, Safe Image, Safe all-XLSX, and legacy
 Glossary Refs acceptance are current authority. This documentation-only
 reconciliation records the deferred 278-row test debt and leaves Media Cover
 separately gated.
-
----
-
-## 2026-08-10 — XLSX Corrective Technical Delivery Accepted
-
-date: 2026-08-10
-session_type: XLSX_CORRECTIVE_TECHNICAL_CLOSURE_AND_PRE_42_9_REPRIORITIZATION
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-xlsx_technical_commit: 276b55f900e94955740af9f49d53e6439d5dd348
-xlsx_four_file_handoff: RESOLVED_DELIVERED
-xlsx_performer_fixture_correction: COMPLETED_REPORTED_BY_CODEX
-xlsx_videos_focused_verification: PASS_REPORTED_BY_CODEX
-xlsx_selected_empty_regression_verification: PASS_REPORTED_BY_CODEX
-xlsx_terrain_completeness_gate: PASS
-xlsx_excel_real_lock_behavior: UNKNOWN
-xlsx_additional_technical_mutation_currently_required: false
-xlsx_feedback_resolution: EMPTY_SECTIONS_AND_REEXPORT_RESOLVED_WITH_RUNTIME_LIMITATION
-next_action: MEDIA_COVER_BOUNDED_CAUSAL_COMPLETION_AUDIT
-next_action_status: READY_PENDING_SEPARATE_APPROVAL
-next_action_mode: AUDIT_ONLY
-technical_permissions: false
-
-The accepted XLSX technical delivery is complete with the explicit limitation
-that actual Excel-held-file behavior was not measured. No further XLSX
-technical mutation is currently required, and the next corrective priority is
-separately gated Media Cover causal completion auditing.
 
 ---
 

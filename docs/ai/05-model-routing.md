@@ -102,6 +102,17 @@ their actual availability and authorization are established. This rule does not
 authorize installation, dependency adoption, credential access, or a future
 tool matrix.
 
+For approved native Windows diagnostics, first confirm tool availability in the
+current execution environment. Prefer Microsoft Process Monitor for causal
+process, filesystem, registry, DLL/image-loading, and IPC system-activity
+investigation when it can answer the discriminator. Prefer WinDbg for Win32,
+COM, WebView2, HRESULT, thread/apartment, Job Object, and native call-stack
+investigation when it can answer the discriminator. Use a custom harness only
+when the applicable specialist tool cannot resolve the exact question or would
+provide weaker evidence. Availability on one workstation does not establish
+availability on another clone or machine. Knip and `cargo-deny` remain
+separately gated candidates and are not active routes.
+
 Optimize total delivery cost across quota, operator effort, execution cycles,
 setup, evidence handling, verification, and regression risk. A proven
 task-local `RECOVERABLE_EXECUTION_FAILURE` may receive one deterministic
