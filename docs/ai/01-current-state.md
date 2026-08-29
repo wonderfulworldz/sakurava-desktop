@@ -1,5 +1,112 @@
 # Sakurava Current State
 
+## Video Player Completion Authority — 2026-08-30
+
+This section is the newest current-state authority. Older baseline, Video
+Player gate, product-decision, and permission wording below is historical
+unless repeated here.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+recorded_head: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+fresh_origin_main: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+cached_origin_main: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+cached_divergence: 0_AHEAD_0_BEHIND
+staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+current_administrative_task: NONE
+video_player_completion_audit: VIDEO_PLAYER_COMPLETION_AUDIT_ACCEPTED
+video_player_completion_plan: VIDEO_PLAYER_COMPLETION_PLAN_ACCEPTED
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+### Accepted technical and visible baseline
+
+The accepted Player remains mpv 0.41/shared libmpv, D3D11 Composition,
+DirectComposition, WebView2 CompositionController, and a dedicated
+`sakurava-media-host.exe`. Main and PiP retain one authoritative playback
+context/session/source, and the engine remains the owner of playback truth.
+
+Latest accepted correction:
+
+- commit: `5cdca7088016a4ab6c1c030f148d59f90cd4359d`;
+- parent: `4ac3f2efad9044d70295ddb5f23f9d913874b1cc`;
+- subject: `fix(video): restore player overlay and cursor`;
+- `REPORTED_BY_CODEX`: corrected resource mapping and cursor ownership,
+  controls visible through approximately 65 seconds, repeated ARROW rather
+  than WAIT/APPSTARTING cursor samples, focused Rust tests PASS, `cargo check`
+  PASS, and synchronized one-file `host.rs` correction;
+- `OBSERVED_BY_OPERATOR`: Video Player works, the invisible-controls issue is
+  clear, and the prolonged busy/loading-cursor issue is clear.
+
+### Approved product direction, not yet implemented
+
+- Controls auto-hide after three seconds of inactivity while playing, remain
+  visible while paused or actively used, reveal on meaningful pointer/keyboard
+  activity, and share one coherent Main windowed/fullscreen model with a
+  compatible compact PiP model.
+- Main non-interactive video surface: single click Play/Pause and double click
+  Fullscreen/Windowed with arbitration that suppresses the single-click action
+  during a double click. PiP double click returns to Main. Interactive
+  descendants do not trigger surface gestures.
+- External SRT must visibly work with explicit success, cancellation, and
+  failure behavior. Its current visible failure is `DEFECT_OBSERVED`; exact
+  root cause is `UNKNOWN` pending the bounded Objective 1 runtime
+  discriminator.
+- Subtitle position automatically avoids visible controls and returns to the
+  configured position when they hide. Global Player preferences cover font,
+  size, text/background color and opacity, position/fine vertical adjustment,
+  edge style, and Reset to Default. Subtitle delay is session-only. Authored
+  ASS styling remains authoritative unless a later explicit override is
+  approved.
+- Screenshot becomes real PNG output with visible subtitles, without the
+  React controls, repeatable collision-safe names, clear result feedback, and
+  Open containing folder.
+- Contact Sheet becomes bounded on-demand extraction with 3x3/4x4/5x5 grids,
+  4x4 default, approximately 5%-95% even sampling, timestamps ON, header OFF,
+  JPEG default with PNG available, Preview before Save, cancellation/cleanup,
+  and a 25-frame initial maximum. It must not disturb the authoritative
+  playback session or add a permanent second decoder.
+- Different-source requests present `Focus Existing`, `Replace`, and `Cancel`;
+  replacement occurs only after explicit choice and never creates a second
+  simultaneous authoritative session.
+- The visual-only Built-in Video Player toggle is removed.
+- One global machine-local output parent is configured in Settings, with
+  stable `Backups`, `Exports`, `Video Screenshots`, and `Contact Sheets` child
+  folders. `Backups` means exported/downloaded copies only; internal
+  automatic/safety/recovery backups remain in AppData. One-off Save As may
+  choose another location without changing the configured parent. Missing
+  children are recreated; an unavailable parent fails visibly without silent
+  fallback; portable Restore does not blindly replace the destination
+  machine's absolute output path.
+
+### Completion gate and evidence debt
+
+The Player is not product-complete until External SRT, auto-hide, gestures,
+adaptive and configurable subtitles, real Screenshot, real Contact Sheet,
+shortcut persistence, false-toggle removal, different-source UX,
+command-specific feedback, responsive Main/fullscreen/PiP runtime acceptance,
+the one-session invariant, and final operator acceptance all pass. These items
+must not be described as implemented before their separately approved
+technical delivery.
+
+Ordinary evidence debt remains non-blocking for this feature-completion gate:
+software decode fallback `UNKNOWN`; HEVC hardware decode
+`NOT_MEASURABLE_IN_CURRENT_ENVIRONMENT`; relative-seek latency `UNKNOWN`;
+arbitrary external-player visible result `UNKNOWN`; proof cleanup; and legal
+review. Legal/license review remains mandatory before public distribution.
+
+The approved plan has exactly three objectives: Player interaction/subtitle
+completion; global output platform/real media outputs; and final integrated
+acceptance. Objective 1 is only
+`READY_PENDING_SEPARATE_APPROVAL_AFTER_PROJECT_OS_RESULT_REVIEW_AND_PROJECT_CHATGPT_REFRESH`.
+No technical Objective is active, no Objective 4 exists, and Batch 42.9 is not
+authorized.
+
 ## Canonical Current Authority — 2026-08-29
 
 This section is the current-state authority after the explicitly approved
@@ -82,7 +189,8 @@ WebView2 CompositionController React surface. The engine owns playback truth;
 React owns presentation and transient UI state. Main and borderless PiP
 transfer the same authoritative session rather than creating a second decoder.
 The accepted capability baseline includes Main playback, Play/Pause/Seek,
-Step, A-B Loop, speed, volume/mute, embedded and external `.SRT` subtitles,
+Step, A-B Loop, speed, volume/mute, embedded subtitles and the external `.SRT`
+command path,
 fullscreen, PiP, Main↔PiP transfer, explicit Open Externally handoff, process
 isolation/parent-death hardening, H.264 D3D11VA evidence, resilience evidence,
 and release-layout runtime. This is technical adoption, not public-release
@@ -101,12 +209,13 @@ push_performed: true
 Remaining Video Player gates:
 
 - `LEGAL/LICENSE_REVIEW_REQUIRED` before public distribution;
-- Screenshot `BLOCKED_BY_PRODUCT_DECISION` for destination, format, overwrite,
-  subtitle inclusion, and confirmation/notification behavior;
-- different-source visible UX `PRODUCT_DECISION_REQUIRED`; same-source requests
-  focus the active presentation while different-source requests currently
-  return typed `ACTIVE_SESSION_DIFFERENT_SOURCE` rejection;
-- Contact Sheet generation/save `DEFERRED`;
+- External SRT visible playback defect `DEFECT_OBSERVED`, with exact root cause
+  `UNKNOWN` pending the bounded Objective 1 discriminator;
+- Objective 1 Player interaction/subtitle implementation under the approved
+  product contract;
+- Objective 2 global output/Screenshot/Contact Sheet implementation under the
+  approved product contract;
+- Objective 3 final integrated and operator acceptance;
 - mpv composition proof cleanup `NOT_AUTHORIZED`.
 
 Residual technical evidence remains:
@@ -140,10 +249,9 @@ Other legitimate post-migration state retained as current:
 Canonical Project OS Git delivery, downstream Brain generation/validation, and
 the prior operator-controlled Project ChatGPT Source refresh are complete. A
 future manual source replacement is external synchronization and does not
-reopen repository administrative state. V2 disposition, proof cleanup,
-Screenshot implementation, different-source UX implementation, Contact Sheet
-work, legal/public distribution, and Batch 42.9 remain separately gated and
-unauthorized.
+reopen repository administrative state. V2 disposition, proof cleanup, all
+three approved Video Player completion objectives, legal/public distribution,
+and Batch 42.9 remain separately gated and unauthorized.
 
 ## 1. State Metadata
 

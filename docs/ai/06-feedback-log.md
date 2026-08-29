@@ -34,46 +34,54 @@ last_updated: 2026-08-11
 
 date: 2026-08-29
 batch: VIDEO_PLAYER_REMAINING_PRODUCT_GATES
-type: PRODUCT_DECISION_REQUIRED
-status: BLOCKING
-evidence: REPORTED_HISTORICAL
+type: APPROVED_PRODUCT_DIRECTION
+status: APPROVED_PENDING_IMPLEMENTATION
+evidence: OBSERVED_BY_OPERATOR
 risk: MEDIUM
-placement: FUTURE_SEPARATELY_APPROVED_VIDEO_PLAYER_PRODUCT_DECISION
+placement: VIDEO_PLAYER_OBJECTIVE_2_GLOBAL_OUTPUT_PLATFORM_AND_REAL_MEDIA_OUTPUTS
 
-The visible Camera control does not make Screenshot complete. Destination,
-format, overwrite behavior, subtitle inclusion, and confirmation/notification
-behavior remain unresolved. Status: `BLOCKED_BY_PRODUCT_DECISION`. No
-implementation is authorized.
+The visible Camera control remains `MOCK_ONLY`; implementation is not complete.
+The approved contract is real PNG output by default, visible subtitles
+included, Sakurava React controls excluded, repeated collision-safe captures,
+clear success/failure feedback, and Open containing folder. Output uses the
+configured `Video Screenshots` child under one global machine-local parent.
+This product decision does not authorize Objective 2 implementation.
 
 ### FEEDBACK-2026-08-29-VIDEO-DIFFERENT-SOURCE-UX — Active-Session Different-Source UX
 
 date: 2026-08-29
 batch: VIDEO_PLAYER_REMAINING_PRODUCT_GATES
-type: PRODUCT_DECISION_REQUIRED
-status: BLOCKING
-evidence: REPORTED_HISTORICAL
+type: APPROVED_PRODUCT_DIRECTION
+status: APPROVED_PENDING_IMPLEMENTATION
+evidence: OBSERVED_BY_OPERATOR
 risk: MEDIUM
-placement: FUTURE_SEPARATELY_APPROVED_VIDEO_PLAYER_PRODUCT_DECISION
+placement: VIDEO_PLAYER_OBJECTIVE_1_PLAYER_INTERACTION_AND_SUBTITLE_COMPLETION
 
 Same-source requests focus the active presentation. A different source while a
 session is active currently returns typed `ACTIVE_SESSION_DIFFERENT_SOURCE`
-rejection. The visible product behavior and wording remain
-`PRODUCT_DECISION_REQUIRED`; do not invent them.
+rejection. The approved visible behavior presents `Focus Existing`, `Replace`,
+and `Cancel`; replacement occurs only after explicit choice and must preserve
+one authoritative session/source without a simultaneous second decoder. This
+decision is not yet implemented and does not authorize Objective 1.
 
 ### FEEDBACK-2026-08-29-CONTACT-SHEET — Contact Sheet Generation and Save
 
 date: 2026-08-29
-batch: FUTURE_SEPARATE_MEDIA_FEATURE
-type: DEFERRED_FEATURE
-status: DEFERRED
-evidence: REPORTED_HISTORICAL
+batch: VIDEO_PLAYER_REMAINING_PRODUCT_GATES
+type: APPROVED_PRODUCT_DIRECTION
+status: APPROVED_PENDING_IMPLEMENTATION
+evidence: OBSERVED_BY_OPERATOR
 risk: MEDIUM
-placement: FUTURE_SEPARATELY_APPROVED_ON_DEMAND_EXTRACTION_WORK
+placement: VIDEO_PLAYER_OBJECTIVE_2_GLOBAL_OUTPUT_PLATFORM_AND_REAL_MEDIA_OUTPUTS
 
-Contact Sheet generation/save remains `DEFERRED`. A future decision may reuse
-the selected mpv/FFmpeg stack through a temporary on-demand extraction session
-rather than adding a second permanent decoder stack. No generation, Save,
-media access, dependency, or implementation is authorized.
+Contact Sheet remains `MOCK_ONLY`; implementation is not complete. The approved
+contract is bounded on-demand extraction that does not disturb the
+authoritative playback session or add a permanent second decoder. It provides
+3x3, 4x4, and 5x5 grids; 4x4 default; approximately 5%-95% even sampling;
+timestamps ON; metadata/header OFF; JPEG default with PNG available; Preview
+before Save; cancellation/cleanup; and an initial maximum of 25 frames. Output
+uses the configured `Contact Sheets` child under the global machine-local
+parent. This product decision does not authorize Objective 2 implementation.
 
 ### FEEDBACK-2026-07-22-FRONTEND-CHANGE-NOTIFICATION — Frontend Change Notification
 

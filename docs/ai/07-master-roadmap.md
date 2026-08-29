@@ -1,5 +1,66 @@
 # Sakurava Master Roadmap
 
+## Video Player Product Completion Gate — 2026-08-30
+
+This section supersedes older current Video Player gate, product-decision,
+roadmap-next-action, and permission wording below while preserving that older
+material as history.
+
+recorded_application_baseline: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+video_player_completion_audit: VIDEO_PLAYER_COMPLETION_AUDIT_ACCEPTED
+video_player_completion_plan: VIDEO_PLAYER_COMPLETION_PLAN_ACCEPTED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_application_permissions: NONE
+
+The accepted mpv 0.41/libmpv, D3D11 Composition, DirectComposition, WebView2
+CompositionController, dedicated media-host, and one-authoritative-Main/PiP
+session architecture remains the final technical baseline. Commit
+`5cdca7088016a4ab6c1c030f148d59f90cd4359d` restored Player overlay resource
+presentation and explicit cursor ownership. The operator has confirmed the
+Player works and the prior invisible-controls and prolonged busy/loading
+cursor issues are clear (`OBSERVED_BY_OPERATOR`).
+
+Video Player feature completion now precedes Batch 42.9. Completion requires:
+
+1. visible External SRT success/cancel/failure behavior after a bounded causal
+   discriminator and deterministic correction;
+2. accepted three-second controls auto-hide and Main/PiP reveal/hold behavior;
+3. accepted Main single-click Play/Pause, Main double-click
+   Fullscreen/Windowed, and PiP double-click Return-to-Main gestures;
+4. automatic subtitle avoidance plus global appearance/reset preferences and
+   session-only delay while preserving authored ASS styling by default;
+5. repeatable real PNG Screenshots with subtitles, without React controls,
+   collision-safe names, feedback, and folder reveal;
+6. real on-demand Contact Sheets with 3x3/4x4/5x5 grids, 4x4 default, 5%-95%
+   sampling, timestamps ON, header OFF, JPEG default/PNG option, preview,
+   cancellation, cleanup, and a 25-frame maximum;
+7. real shortcut persistence, removal of the false Built-in Player toggle,
+   command-specific feedback, and different-source `Focus Existing` /
+   `Replace` / `Cancel` without a second authoritative session;
+8. one machine-local global output parent with stable `Backups`, `Exports`,
+   `Video Screenshots`, and `Contact Sheets` children. Exported backup copies
+   use `Backups`; internal automatic/safety/recovery backups remain in AppData;
+   one-off Save As does not change Settings; missing children are recreated;
+   unavailable parents fail visibly; portable Restore does not blindly import
+   another machine's absolute path;
+9. focused integrated Main/windowed/fullscreen/PiP runtime acceptance,
+   preserved one-session ownership, and final operator real-app acceptance.
+
+The approved delivery sequence has a maximum of three objectives:
+
+1. `VIDEO_PLAYER_OBJECTIVE_1_PLAYER_INTERACTION_AND_SUBTITLE_COMPLETION`;
+2. `VIDEO_PLAYER_OBJECTIVE_2_GLOBAL_OUTPUT_PLATFORM_AND_REAL_MEDIA_OUTPUTS`;
+3. `VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE`.
+
+No Objective 4 or Video Player Stage 4 exists. The overall product direction
+is approved, but Objective 1 remains separately gated until this Project OS
+reconciliation receives Result Review and the regenerated Project ChatGPT
+Brain is manually refreshed. Nothing in this roadmap authorizes technical
+execution, Batch 42.9, legal/public distribution, proof cleanup, or V2
+disposition.
+
 ## Canonical Roadmap Reconciliation — 2026-08-29
 
 This section is the current roadmap authority after canonical Project OS
@@ -90,9 +151,9 @@ Remaining work is separately gated:
 - `LEGAL/LICENSE_REVIEW_REQUIRED` before distribution, including incomplete
   exact source/revision, corresponding-source/relinking, and libass legal
   reconciliation;
-- Screenshot product decision;
-- different-source visible UX decision;
-- Contact Sheet generation/save `DEFERRED`;
+- Video Player Objective 1 Player interaction/subtitle completion;
+- Video Player Objective 2 global output/real Screenshot/real Contact Sheet;
+- Video Player Objective 3 integrated and operator acceptance;
 - exact-path mpv proof cleanup;
 - later V2 disposition;
 - Batch 42.9.

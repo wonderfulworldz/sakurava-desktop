@@ -11,6 +11,29 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-13 — Manual Regenerate Closure and Feature Queue Reconciled
+
+date: 2026-08-13
+session_type: MANUAL_REGENERATE_PROJECT_OS_RECONCILIATION_AND_PRE_42_9_FEATURE_RECORDING
+operator_decision: DOCUMENTATION_ONLY_APPROVED
+technical_baseline: 2992b69c7d5dad68ad8698eabeefdaf9f837ac1b
+manual_regenerate_status: PRODUCT_ACCEPTED_AND_GIT_DELIVERED
+manual_regenerate_product_acceptance: PHYSICAL_MISSING_REGENERATED_PUBLICATION_RESTORED_SUBSEQUENT_NO_OP
+manual_regenerate_product_acceptance_evidence: OBSERVED_BY_OPERATOR
+windows_extended_path_correction: ACCEPTED_AND_DELIVERED
+managed_media_continuation_sequence: AUTOMATIC_MINI_IMAGES; SIMPLE_STATISTICS; REMOVE_MINI_IMAGES
+notification_history_feedback: FEEDBACK-2026-08-13-NOTIFICATION-HISTORY
+pre_42_9_feature_review: PRE_42_9_ADDITIONAL_FEATURE_REVIEW_REQUIRED
+next_action: AFTER_PROJECT_OS_RECONCILIATION_REVIEW_NOTIFICATION_HISTORY_AND_PRE_42_9_FEATURE_SEQUENCE
+technical_permissions: false
+
+Manual Regenerate is now recorded as accepted and delivered. The brief
+Progress Status transition remains a documented limitation only. The approved
+managed-media continuation and the new Notification History request are
+planning records; implementation placement remains separately gated.
+
+---
+
 ## 2026-08-11 — Import/Export Product Acceptance Reconciled
 
 date: 2026-08-11

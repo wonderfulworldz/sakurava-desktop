@@ -1,5 +1,64 @@
 # Sakurava Active Batch
 
+## Video Player Completion Reconciliation — 2026-08-30
+
+recorded_application_baseline: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+recorded_origin_main: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+current_administrative_task: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+staging_authorized: false
+commit_authorized: false
+push_authorized: false
+video_player_completion_audit: VIDEO_PLAYER_COMPLETION_AUDIT_ACCEPTED
+video_player_completion_plan: VIDEO_PLAYER_COMPLETION_PLAN_ACCEPTED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+completion_objective_count: 3
+next_technical_objective: VIDEO_PLAYER_OBJECTIVE_1_PLAYER_INTERACTION_AND_SUBTITLE_COMPLETION
+next_technical_objective_status: READY_PENDING_SEPARATE_APPROVAL_AFTER_PROJECT_OS_RESULT_REVIEW_AND_PROJECT_CHATGPT_REFRESH
+
+The accepted mpv composition architecture and final technical adoption remain
+unchanged. Commit `5cdca7088016a4ab6c1c030f148d59f90cd4359d`
+(`fix(video): restore player overlay and cursor`) corrected WebView2 Player UI
+resource mapping and explicit CompositionController cursor ownership.
+`REPORTED_BY_CODEX` evidence recorded visible controls through approximately
+65 seconds, repeated ARROW cursor samples, focused Rust test PASS, and
+`cargo check` PASS. `OBSERVED_BY_OPERATOR` confirms that the Player works and
+the earlier invisible-controls and prolonged busy/loading-cursor problems are
+clear. This does not reopen the accepted playback architecture or elevate the
+operator observation beyond those visible results.
+
+The remaining product-completion work is approved as a three-objective plan,
+but no objective is active and no technical execution permission is granted:
+
+1. `VIDEO_PLAYER_OBJECTIVE_1_PLAYER_INTERACTION_AND_SUBTITLE_COMPLETION` —
+   bounded External SRT discriminator before correction; control auto-hide;
+   Main and PiP gestures; adaptive subtitle avoidance; global subtitle
+   appearance, session-only delay, reset, shortcut persistence, removal of the
+   false Built-in Player toggle, different-source choice, and command-specific
+   feedback.
+2. `VIDEO_PLAYER_OBJECTIVE_2_GLOBAL_OUTPUT_PLATFORM_AND_REAL_MEDIA_OUTPUTS` —
+   one machine-local global output parent, stable child folders, real
+   Screenshot, and real Contact Sheet while preserving the internal AppData
+   backup store.
+3. `VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE` — focused
+   tests/build, disposable runtime, Main/fullscreen/PiP and output-path
+   verification, one-session invariant, and final operator real-app
+   acceptance.
+
+No Objective 4 exists. Batch 42.9 must remain blocked until the full Video
+Player completion gate and final operator acceptance pass. All older active
+batch, permission, and Video Player product-decision wording below this new
+reconciliation boundary is historical unless repeated here.
+
 ## Current Reconciled Authority — 2026-08-29
 
 active_application_batch: NONE
@@ -37,9 +96,10 @@ completed/accepted. No Stage 4 exists.
 Separately gated and inactive:
 
 - legal/license distribution review;
-- Screenshot product decision;
-- different-source visible UX product decision;
-- Contact Sheet generation/save;
+- Video Player Objective 1 implementation under its approved product contract;
+- Video Player Objective 2 implementation, including real Screenshot and
+  Contact Sheet outputs;
+- Video Player Objective 3 integrated acceptance;
 - mpv proof cleanup;
 - V2 document disposition;
 - Batch 42.9.

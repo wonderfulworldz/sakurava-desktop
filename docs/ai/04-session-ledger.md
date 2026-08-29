@@ -73,6 +73,51 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-08-30 — Video Player Completion Plan Reconciled
+
+date: 2026-08-30
+session_type: PROJECT_OS_VIDEO_PLAYER_COMPLETION_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_CLOSURE_AND_PRODUCT_DIRECTION_APPROVAL
+recorded_application_baseline: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+video_player_overlay_cursor_correction: COMPLETED_AND_SYNCHRONIZED
+video_player_visible_result: PLAYER_WORKS_CONTROLS_VISIBLE_BUSY_CURSOR_CLEAR
+video_player_visible_result_evidence: OBSERVED_BY_OPERATOR
+video_player_completion_audit: VIDEO_PLAYER_COMPLETION_AUDIT_ACCEPTED
+video_player_completion_plan: VIDEO_PLAYER_COMPLETION_PLAN_ACCEPTED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+completion_objectives: 3
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_AND_MANUAL_BRAIN_REFRESH_BEFORE_SEPARATE_OBJECTIVE_1_APPROVAL
+
+The accepted mpv composition architecture remains unchanged. Commit
+`5cdca7088016a4ab6c1c030f148d59f90cd4359d` corrected Player UI resource
+mapping and CompositionController cursor ownership. The operator confirms that
+the Player works and the previously invisible controls and prolonged
+busy/loading cursor are clear. The remaining product-completion audit and plan
+are accepted, but no further implementation has begun.
+
+Approved direction now covers three-second control auto-hide; Main
+single/double-click and PiP Return-to-Main gestures; visible External SRT with
+bounded causal diagnosis; automatic subtitle avoidance, global appearance and
+session-only delay; real Screenshot; real bounded Contact Sheet; shortcut
+persistence; false-toggle removal; command feedback; and explicit
+different-source Focus Existing/Replace/Cancel. One machine-local global output
+parent owns stable `Backups`, `Exports`, `Video Screenshots`, and
+`Contact Sheets` children. `Backups` is for exported copies only; internal
+automatic/safety/recovery backups remain in AppData, and portable Restore does
+not blindly replace the destination machine's absolute path.
+
+Delivery is limited to three separately gated objectives: Player
+interaction/subtitles, global output/real media outputs, and final integrated
+acceptance. No Objective 4 or Video Player Stage 4 exists. Objective 1 is not
+active; it requires Result Review, Project ChatGPT refresh, and separate
+authorization. Batch 42.9 remains blocked until the full Player gate and final
+operator real-app acceptance pass.
+
+---
+
 ## 2026-08-30 — Repository Static Engineering Baseline Adopted
 
 date: 2026-08-30
@@ -209,29 +254,6 @@ The V2 documents, protected unrelated application WIP, and proof evidence
 remain untouched. Legal review, Screenshot, different-source UX, Contact
 Sheet, proof cleanup, and Batch 42.9 remain separate gates; no application or
 administrative stage is active.
-
----
-
-## 2026-08-13 — Manual Regenerate Closure and Feature Queue Reconciled
-
-date: 2026-08-13
-session_type: MANUAL_REGENERATE_PROJECT_OS_RECONCILIATION_AND_PRE_42_9_FEATURE_RECORDING
-operator_decision: DOCUMENTATION_ONLY_APPROVED
-technical_baseline: 2992b69c7d5dad68ad8698eabeefdaf9f837ac1b
-manual_regenerate_status: PRODUCT_ACCEPTED_AND_GIT_DELIVERED
-manual_regenerate_product_acceptance: PHYSICAL_MISSING_REGENERATED_PUBLICATION_RESTORED_SUBSEQUENT_NO_OP
-manual_regenerate_product_acceptance_evidence: OBSERVED_BY_OPERATOR
-windows_extended_path_correction: ACCEPTED_AND_DELIVERED
-managed_media_continuation_sequence: AUTOMATIC_MINI_IMAGES; SIMPLE_STATISTICS; REMOVE_MINI_IMAGES
-notification_history_feedback: FEEDBACK-2026-08-13-NOTIFICATION-HISTORY
-pre_42_9_feature_review: PRE_42_9_ADDITIONAL_FEATURE_REVIEW_REQUIRED
-next_action: AFTER_PROJECT_OS_RECONCILIATION_REVIEW_NOTIFICATION_HISTORY_AND_PRE_42_9_FEATURE_SEQUENCE
-technical_permissions: false
-
-Manual Regenerate is now recorded as accepted and delivered. The brief
-Progress Status transition remains a documented limitation only. The approved
-managed-media continuation and the new Notification History request are
-planning records; implementation placement remains separately gated.
 
 ---
 
