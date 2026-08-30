@@ -1,8 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../../lib/LanguageContext";
 import * as videoPlayerWindows from "../../runtime/videoPlayerWindows";
-import BuiltInVideoPlayerPrototypeControl from "./BuiltInVideoPlayerPrototypeControl";
 import VideoPlayerPrototype, {
   VIDEO_PLAYER_SHORTCUT_DEFAULTS,
   type VideoPlayerPlaybackAdapter,
@@ -18,6 +17,8 @@ const SHORTCUT_TEST_IDS = [
   "shortcut-capture-loop",
   "shortcut-capture-fullscreen",
 ];
+
+afterEach(() => vi.useRealTimers());
 
 function renderPlayer() {
   return render(
@@ -71,6 +72,48 @@ function productionPlayback(overrides: Partial<VideoPlayerPlaybackAdapter> = {})
 }
 
 describe("VideoPlayerPrototype", () => {
+  it("shows bounded command-specific subtitle failure feedback", () => {
+    vi.useFakeTimers();
+    const playback = productionPlayback({
+      commandResult: {
+        commandKind: "loadExternalSubtitle",
+        status: "error",
+        message: "MPV_COMMAND_FAILED:-12",
+      },
+    });
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Feedback Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
+    expect(screen.getByRole("status")).toHaveTextContent("External subtitle could not be loaded.");
+    act(() => vi.advanceTimersByTime(3500));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("arbitrates surface single and double click without firing the single action first", () => {
+    vi.useFakeTimers();
+    const playback = productionPlayback({ doubleClickIntervalMs: 400 });
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Gesture Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
+    const surface = screen.getByText("Gesture Fixture").closest("section")!;
+    fireEvent.click(surface, { detail: 1 });
+    expect(playback.onPlay).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(400));
+    expect(playback.onPlay).toHaveBeenCalledTimes(1);
+    vi.mocked(playback.onPlay).mockClear();
+    fireEvent.click(surface, { detail: 1 });
+    fireEvent.doubleClick(surface, { detail: 2 });
+    act(() => vi.advanceTimersByTime(400));
+    expect(playback.onPlay).not.toHaveBeenCalled();
+    expect(playback.onToggleFullscreen).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes hidden playing controls non-interactive after three seconds", () => {
+    vi.useFakeTimers();
+    const playback = productionPlayback({ paused: false });
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Idle Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
+    const controls = screen.getByLabelText("Video player controls");
+    act(() => vi.advanceTimersByTime(3000));
+    expect(controls).toHaveAttribute("aria-hidden", "true");
+    expect(controls).toHaveAttribute("inert");
+  });
+
   it("cycles mock playback and the exact compact seek steps", () => {
     renderPlayer();
     fireEvent.click(screen.getByLabelText("Play"));
@@ -474,17 +517,5 @@ describe("VideoPlayerPrototype", () => {
     fireEvent.click(screen.getByLabelText("Enter fullscreen prototype"));
     expect(playback.onEnterPip).toHaveBeenCalledTimes(1);
     expect(playback.onToggleFullscreen).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps the Built-in Video Player preference visual and session-local", () => {
-    render(
-      <LanguageProvider>
-        <BuiltInVideoPlayerPrototypeControl />
-      </LanguageProvider>,
-    );
-    const toggle = screen.getByRole("button", { name: "Built-in Video Player" });
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
 });

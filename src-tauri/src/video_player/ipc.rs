@@ -29,6 +29,7 @@ pub struct OpenSourcePayload {
 pub enum MainToHostKind {
     Handshake { parent_pid: u32 },
     OpenSource(OpenSourcePayload),
+    ReplaceSource(OpenSourcePayload),
     FocusMain,
     CloseSession { session_id: String },
     HealthCheck,
@@ -118,6 +119,9 @@ pub enum PlayerCommandKind {
     SubtitleOff,
     ToggleSubtitle,
     LoadExternalSubtitle,
+    SetSubtitleAppearance,
+    SetSubtitleDelay,
+    SetSubtitleInset,
     OpenExternally,
     EnterFullscreen,
     ExitFullscreen,
@@ -160,6 +164,7 @@ pub struct PlaybackSnapshot {
     pub active_subtitle_id: Option<i64>,
     pub presentation: String,
     pub fullscreen: bool,
+    pub double_click_interval_ms: u32,
     pub status: String,
     pub hwdec_current: Option<String>,
     pub error: Option<IpcError>,
@@ -176,11 +181,15 @@ pub enum HostToPlayerMessage {
         protocol_version: u32,
         snapshot: PlaybackSnapshot,
     },
-    CommandAcknowledged {
+    CommandResult {
         protocol_version: u32,
         request_id: String,
         session_id: String,
         revision: u64,
+        command_kind: PlayerCommandKind,
+        status: String,
+        code: Option<String>,
+        message: Option<String>,
     },
     FatalError {
         protocol_version: u32,
@@ -219,6 +228,26 @@ mod tests {
     }
 
     #[test]
+    fn replacement_reuses_the_same_typed_host_protocol() {
+        let payload = OpenSourcePayload {
+            session_id: "session-1".into(),
+            source_identity: "V-2608-0002".into(),
+            canonical_path: r"D:\fixtures\replacement.mp4".into(),
+            display_name: "Replacement".into(),
+            resolution: "1280 × 720".into(),
+        };
+        let message = MainToHostMessage {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: "replace-1".into(),
+            kind: MainToHostKind::ReplaceSource(payload.clone()),
+        };
+        let decoded: MainToHostMessage =
+            serde_json::from_str(&serde_json::to_string(&message).unwrap()).unwrap();
+        assert_eq!(decoded, message);
+        assert!(matches!(decoded.kind, MainToHostKind::ReplaceSource(value) if value == payload));
+    }
+
+    #[test]
     fn player_snapshot_protocol_is_camel_case_for_the_webview_bridge() {
         let message = HostToPlayerMessage::Snapshot {
             protocol_version: PROTOCOL_VERSION,
@@ -249,6 +278,7 @@ mod tests {
                 active_subtitle_id: Some(1),
                 presentation: "main".into(),
                 fullscreen: false,
+                double_click_interval_ms: 500,
                 status: "ready".into(),
                 hwdec_current: Some("d3d11va".into()),
                 error: None,

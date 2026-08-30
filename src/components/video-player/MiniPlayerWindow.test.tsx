@@ -106,13 +106,14 @@ describe("MiniPlayerWindow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Backward" }));
     fireEvent.click(screen.getByRole("button", { name: "Forward" }));
     fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+    fireEvent.doubleClick(screen.getByTestId("pip-media-surface"));
     fireEvent.click(screen.getByRole("button", { name: "Return to normal player" }));
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(playback.onPlay).toHaveBeenCalledTimes(1);
     expect(playback.onSeekRelative).toHaveBeenNthCalledWith(1, -10);
     expect(playback.onSeekRelative).toHaveBeenNthCalledWith(2, 10);
     expect(playback.onToggleMute).toHaveBeenCalledTimes(1);
-    expect(playback.onReturn).toHaveBeenCalledTimes(1);
+    expect(playback.onReturn).toHaveBeenCalledTimes(2);
     expect(playback.onClose).toHaveBeenCalledTimes(1);
   });
 

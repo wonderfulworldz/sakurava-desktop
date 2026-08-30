@@ -28,6 +28,8 @@ pub struct VideoPlayerOpenInput {
     pub display_name: String,
     pub resolution: String,
     pub duration_label: String,
+    #[serde(default)]
+    pub intent: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +38,7 @@ pub struct TrustedOpenRequest {
     pub canonical_path: PathBuf,
     pub display_name: String,
     pub resolution: String,
+    pub intent: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,7 +144,35 @@ impl PlaybackHostManager {
             )
         })?;
         if let Some(host) = active.as_mut() {
+            if request.intent == "focusExisting" {
+                write_message(&host.stdin, MainToHostKind::FocusMain)?;
+                return Ok(VideoPlayerOpenResult {
+                    mode: "focused".into(),
+                    host_pid: host.pid,
+                    session_id: host.session_id.clone(),
+                    source_identity: host.source_identity.clone(),
+                });
+            }
             if host.source_identity != request.source_identity {
+                if request.intent == "replace" {
+                    write_message(
+                        &host.stdin,
+                        MainToHostKind::ReplaceSource(OpenSourcePayload {
+                            session_id: host.session_id.clone(),
+                            source_identity: request.source_identity.clone(),
+                            canonical_path: request.canonical_path.display().to_string(),
+                            display_name: request.display_name,
+                            resolution: request.resolution,
+                        }),
+                    )?;
+                    host.source_identity = request.source_identity.clone();
+                    return Ok(VideoPlayerOpenResult {
+                        mode: "replaced".into(),
+                        host_pid: host.pid,
+                        session_id: host.session_id.clone(),
+                        source_identity: request.source_identity,
+                    });
+                }
                 return Err(error(
                     "ACTIVE_SESSION_DIFFERENT_SOURCE",
                     "Another built-in Video Player source is already active",

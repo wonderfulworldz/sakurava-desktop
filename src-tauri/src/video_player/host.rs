@@ -59,7 +59,7 @@ use windows::{
         },
         UI::{
             HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2},
-            Input::KeyboardAndMouse::SetFocus,
+            Input::KeyboardAndMouse::{GetDoubleClickTime, SetFocus},
             Shell::{
                 Common::COMDLG_FILTERSPEC, FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST,
                 FOS_FORCEFILESYSTEM, FOS_NOCHANGEDIR, FOS_PATHMUSTEXIST, SIGDN_FILESYSPATH,
@@ -814,6 +814,8 @@ fn create_webview(
                             let text = CoTaskMemPWSTR::from(raw).to_string();
                             if let Ok(command) = serde_json::from_str::<PlayerCommand>(&text) {
                                 eprintln!("VIDEO_PLAYER_UI_COMMAND={:?}", command.kind);
+                                let request_id = command.request_id.clone();
+                                let command_kind = command.kind.clone();
                                 let result = {
                                     let mut state = state.borrow_mut();
                                     handle_player_command(&mut state, command, presentation)
@@ -821,8 +823,30 @@ fn create_webview(
                                 if let Err(error) = result {
                                     let mut state = state.borrow_mut();
                                     state.last_command_error =
-                                        Some(ipc_error("PLAYER_COMMAND_REJECTED", error));
+                                        Some(ipc_error("PLAYER_COMMAND_REJECTED", error.clone()));
                                     let _ = post_snapshot(&mut state);
+                                    if let (Some(webview), Some(session)) = (
+                                        webview_for_presentation(&state, presentation),
+                                        state.session.as_ref(),
+                                    ) {
+                                        let code = error
+                                            .split(':')
+                                            .next()
+                                            .unwrap_or("PLAYER_COMMAND_REJECTED")
+                                            .trim()
+                                            .to_string();
+                                        let event = HostToPlayerMessage::CommandResult {
+                                            protocol_version: PROTOCOL_VERSION,
+                                            request_id,
+                                            session_id: session.session_id.clone(),
+                                            revision: state.revision,
+                                            command_kind,
+                                            status: "error".into(),
+                                            code: Some(code),
+                                            message: Some(error),
+                                        };
+                                        let _ = post_web_message(&webview.webview, &event);
+                                    }
                                 }
                             }
                         }
@@ -929,6 +953,38 @@ fn handle_main_message(state: &mut HostUi, message: MainToHostMessage) -> Result
                 &message.request_id,
             );
         }
+        MainToHostKind::ReplaceSource(source) => {
+            if state.session.is_none() {
+                return Err("SESSION_NOT_OPEN".into());
+            }
+            state
+                .mpv
+                .command(&["loadfile", &source.canonical_path, "replace"])?;
+            state.source_loaded = false;
+            state.source_failed = false;
+            state.source_opened_at = Some(Instant::now());
+            state.first_frame_recorded = false;
+            state.controls_ready_recorded = false;
+            state.pending_seek = None;
+            state.last_command_error = None;
+            state.source_load_count = state.source_load_count.saturating_add(1);
+            eprintln!("VIDEO_PLAYER_SOURCE_LOAD_COUNT={}", state.source_load_count);
+            state.session = Some(source.clone());
+            focus_active_presentation(state);
+            emit_to_main(
+                HostToMainKind::SourceAccepted {
+                    session_id: source.session_id.clone(),
+                    source_identity: source.source_identity.clone(),
+                },
+                &message.request_id,
+            );
+            emit_to_main(
+                HostToMainKind::SessionOpened {
+                    session_id: source.session_id,
+                },
+                &message.request_id,
+            );
+        }
         MainToHostKind::FocusMain => focus_active_presentation(state),
         MainToHostKind::CloseSession { .. } | MainToHostKind::Shutdown => unsafe {
             let _ = PostMessageW(Some(state.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
@@ -962,6 +1018,10 @@ fn handle_player_command(
             return Err("PLAYER_SESSION_STALE".into());
         }
     }
+    let command_kind = command.kind.clone();
+    let mut result_status = "success".to_string();
+    let mut result_code = None;
+    let mut result_message = None;
     let should_acknowledge = !matches!(
         command.kind,
         PlayerCommandKind::BridgeReady | PlayerCommandKind::RequestSnapshot
@@ -1102,10 +1162,34 @@ fn handle_player_command(
                     "select",
                     title,
                 ])?;
+                state.mpv.set_property("sub-visibility", "yes")?;
                 eprintln!("VIDEO_PLAYER_EXTERNAL_SUBTITLE=LOADED");
+                result_code = Some("EXTERNAL_SUBTITLE_LOADED".into());
+                result_message = Some(title.to_string());
             } else {
                 eprintln!("VIDEO_PLAYER_EXTERNAL_SUBTITLE=CANCELLED");
+                result_status = "cancelled".into();
+                result_code = Some("EXTERNAL_SUBTITLE_CANCELLED".into());
             }
+        }
+        PlayerCommandKind::SetSubtitleAppearance => {
+            apply_subtitle_appearance(state, &command)?;
+        }
+        PlayerCommandKind::SetSubtitleDelay => {
+            let seconds = payload_number(&command, "seconds")?;
+            if !(-10.0..=10.0).contains(&seconds) {
+                return Err("SUBTITLE_DELAY_INVALID".into());
+            }
+            state.mpv.set_property("sub-delay", &seconds.to_string())?;
+        }
+        PlayerCommandKind::SetSubtitleInset => {
+            let pixels = payload_number(&command, "pixels")?;
+            if !(0.0..=500.0).contains(&pixels) {
+                return Err("SUBTITLE_INSET_INVALID".into());
+            }
+            state
+                .mpv
+                .set_property("sub-margin-y", &pixels.round().to_string())?;
         }
         PlayerCommandKind::OpenExternally => {
             let source = state.session.as_ref().ok_or("SESSION_NOT_OPEN")?;
@@ -1137,15 +1221,106 @@ fn handle_player_command(
         webview_for_presentation(state, origin),
         state.session.as_ref(),
     ) {
-        let event = HostToPlayerMessage::CommandAcknowledged {
+        let event = HostToPlayerMessage::CommandResult {
             protocol_version: PROTOCOL_VERSION,
             request_id: command.request_id,
             session_id: session.session_id.clone(),
             revision: state.revision,
+            command_kind,
+            status: result_status,
+            code: result_code,
+            message: result_message,
         };
         post_web_message(&webview.webview, &event)?;
     }
     Ok(())
+}
+
+fn apply_subtitle_appearance(state: &mut HostUi, command: &PlayerCommand) -> Result<(), String> {
+    let font_family = command
+        .payload
+        .get("fontFamily")
+        .and_then(|value| value.as_str())
+        .ok_or("SUBTITLE_FONT_INVALID")?;
+    if font_family.trim().is_empty() || font_family.len() > 128 {
+        return Err("SUBTITLE_FONT_INVALID".into());
+    }
+    let font_size = payload_number(command, "fontSize")?;
+    if !(12.0..=96.0).contains(&font_size) {
+        return Err("SUBTITLE_FONT_SIZE_INVALID".into());
+    }
+    let text_color = subtitle_rgba(command, "textColor", "textOpacity")?;
+    let background_color = subtitle_rgba(command, "backgroundColor", "backgroundOpacity")?;
+    let base_position = command
+        .payload
+        .get("basePosition")
+        .and_then(|value| value.as_str())
+        .ok_or("SUBTITLE_POSITION_INVALID")?;
+    let vertical_adjustment = payload_number(command, "verticalAdjustment")?;
+    if !(-100.0..=100.0).contains(&vertical_adjustment) {
+        return Err("SUBTITLE_POSITION_INVALID".into());
+    }
+    let sub_pos = match base_position {
+        "top" => (8.0 + vertical_adjustment / 5.0).clamp(0.0, 35.0),
+        "middle" => (50.0 - vertical_adjustment / 5.0).clamp(25.0, 75.0),
+        "bottom" => (100.0 - vertical_adjustment / 5.0).clamp(65.0, 100.0),
+        _ => return Err("SUBTITLE_POSITION_INVALID".into()),
+    };
+    let edge_style = command
+        .payload
+        .get("edgeStyle")
+        .and_then(|value| value.as_str())
+        .ok_or("SUBTITLE_EDGE_STYLE_INVALID")?;
+    let (outline, shadow) = match edge_style {
+        "outline" => ("2", "0"),
+        "shadow" => ("0", "2"),
+        "none" => ("0", "0"),
+        _ => return Err("SUBTITLE_EDGE_STYLE_INVALID".into()),
+    };
+    state.mpv.set_property("sub-font", font_family.trim())?;
+    state
+        .mpv
+        .set_property("sub-font-size", &font_size.round().to_string())?;
+    state.mpv.set_property("sub-color", &text_color)?;
+    state
+        .mpv
+        .set_property("sub-back-color", &background_color)?;
+    state
+        .mpv
+        .set_property("sub-border-style", "outline-and-shadow")?;
+    state.mpv.set_property("sub-outline-size", outline)?;
+    state.mpv.set_property("sub-shadow-offset", shadow)?;
+    state
+        .mpv
+        .set_property("sub-pos", &sub_pos.round().to_string())?;
+    Ok(())
+}
+
+fn subtitle_rgba(
+    command: &PlayerCommand,
+    color_key: &str,
+    opacity_key: &str,
+) -> Result<String, String> {
+    let color = command
+        .payload
+        .get(color_key)
+        .and_then(|value| value.as_str())
+        .ok_or("SUBTITLE_COLOR_INVALID")?;
+    if color.len() != 7
+        || !color.starts_with('#')
+        || !color[1..].chars().all(|value| value.is_ascii_hexdigit())
+    {
+        return Err("SUBTITLE_COLOR_INVALID".into());
+    }
+    let opacity = payload_number(command, opacity_key)?;
+    if !(0.0..=1.0).contains(&opacity) {
+        return Err("SUBTITLE_OPACITY_INVALID".into());
+    }
+    Ok(format!(
+        "#{:02X}{}",
+        (opacity * 255.0).round() as u8,
+        &color[1..].to_ascii_uppercase()
+    ))
 }
 
 fn payload_number(command: &PlayerCommand, key: &str) -> Result<f64, String> {
@@ -1446,6 +1621,7 @@ fn post_snapshot(state: &mut HostUi) -> Result<(), String> {
         active_subtitle_id,
         presentation: state.active_presentation.as_str().into(),
         fullscreen: state.fullscreen,
+        double_click_interval_ms: unsafe { GetDoubleClickTime() },
         status: status.into(),
         hwdec_current: state
             .mpv
@@ -2399,6 +2575,9 @@ mod tests {
             PlayerCommandKind::SubtitleOff,
             PlayerCommandKind::ToggleSubtitle,
             PlayerCommandKind::LoadExternalSubtitle,
+            PlayerCommandKind::SetSubtitleAppearance,
+            PlayerCommandKind::SetSubtitleDelay,
+            PlayerCommandKind::SetSubtitleInset,
             PlayerCommandKind::OpenExternally,
             PlayerCommandKind::ToggleFullscreen,
             PlayerCommandKind::EnterPip,
@@ -2409,5 +2588,28 @@ mod tests {
         assert!(json.contains("enterPip"));
         assert!(!json.contains("raw"));
         assert!(!json.contains("shell"));
+    }
+
+    #[test]
+    fn subtitle_rgba_mapping_validates_color_and_opacity() {
+        let command = PlayerCommand {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: "style-1".into(),
+            session_id: Some("session-1".into()),
+            kind: PlayerCommandKind::SetSubtitleAppearance,
+            payload: serde_json::json!({ "textColor": "#Aa00Ff", "textOpacity": 0.5 }),
+        };
+        assert_eq!(
+            subtitle_rgba(&command, "textColor", "textOpacity").unwrap(),
+            "#80AA00FF"
+        );
+        let invalid = PlayerCommand {
+            payload: serde_json::json!({ "textColor": "red", "textOpacity": 2 }),
+            ..command
+        };
+        assert_eq!(
+            subtitle_rgba(&invalid, "textColor", "textOpacity").unwrap_err(),
+            "SUBTITLE_COLOR_INVALID"
+        );
     }
 }

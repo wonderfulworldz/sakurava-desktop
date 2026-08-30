@@ -25,6 +25,7 @@ export type PlaybackSnapshot = {
   activeSubtitleId: number | null;
   presentation: "main" | "pip";
   fullscreen: boolean;
+  doubleClickIntervalMs: number;
   status: PlaybackStatus;
   hwdecCurrent: string | null;
   error: { code: string; message: string } | null;
@@ -39,6 +40,17 @@ export type SubtitleTrack = {
 };
 
 type HostEvent = { protocolVersion: number; kind: "snapshot"; snapshot: PlaybackSnapshot };
+export type PlayerCommandResult = {
+  protocolVersion: number;
+  kind: "commandResult";
+  requestId: string;
+  sessionId: string;
+  revision: number;
+  commandKind: PlayerCommandKind;
+  status: "success" | "cancelled" | "error";
+  code: string | null;
+  message: string | null;
+};
 export type PlayerCommandKind =
   | "bridgeReady"
   | "requestSnapshot"
@@ -59,6 +71,9 @@ export type PlayerCommandKind =
   | "subtitleOff"
   | "toggleSubtitle"
   | "loadExternalSubtitle"
+  | "setSubtitleAppearance"
+  | "setSubtitleDelay"
+  | "setSubtitleInset"
   | "openExternally"
   | "enterFullscreen"
   | "exitFullscreen"
@@ -103,6 +118,7 @@ export function parsePlaybackSnapshot(value: unknown): PlaybackSnapshot | null {
     (event.snapshot.activeSubtitleId !== null && typeof event.snapshot.activeSubtitleId !== "number") ||
     (event.snapshot.presentation !== "main" && event.snapshot.presentation !== "pip") ||
     typeof event.snapshot.fullscreen !== "boolean" ||
+    typeof event.snapshot.doubleClickIntervalMs !== "number" ||
     typeof event.snapshot.status !== "string"
   ) return null;
   return event.snapshot as PlaybackSnapshot;
@@ -117,6 +133,7 @@ function createRequestId() {
 
 export function useVideoPlayerBridge() {
   const [snapshot, setSnapshot] = useState<PlaybackSnapshot | null>(null);
+  const [commandResult, setCommandResult] = useState<PlayerCommandResult | null>(null);
   const lastRevision = useRef(-1);
   const bridge = typeof window === "undefined" ? undefined : window.chrome?.webview;
 
@@ -129,6 +146,11 @@ export function useVideoPlayerBridge() {
   useEffect(() => {
     if (!bridge) return;
     const handleMessage = (event: MessageEvent<unknown>) => {
+      const result = parsePlayerCommandResult(event.data);
+      if (result) {
+        setCommandResult(result);
+        return;
+      }
       const next = parsePlaybackSnapshot(event.data);
       if (!next || next.revision <= lastRevision.current) return;
       lastRevision.current = next.revision;
@@ -143,6 +165,8 @@ export function useVideoPlayerBridge() {
   return {
     available: Boolean(bridge),
     snapshot,
+    commandResult,
+    clearCommandResult: () => setCommandResult(null),
     play: () => send("play"),
     pause: () => send("pause"),
     seekAbsolute: (seconds: number) => send("seekAbsolute", { seconds }),
@@ -160,6 +184,9 @@ export function useVideoPlayerBridge() {
     subtitleOff: () => send("subtitleOff"),
     toggleSubtitle: () => send("toggleSubtitle"),
     loadExternalSubtitle: () => send("loadExternalSubtitle"),
+    setSubtitleAppearance: (appearance: Record<string, unknown>) => send("setSubtitleAppearance", appearance),
+    setSubtitleDelay: (seconds: number) => send("setSubtitleDelay", { seconds }),
+    setSubtitleInset: (pixels: number) => send("setSubtitleInset", { pixels }),
     openExternally: () => send("openExternally"),
     enterFullscreen: () => send("enterFullscreen"),
     exitFullscreen: () => send("exitFullscreen"),
@@ -168,4 +195,23 @@ export function useVideoPlayerBridge() {
     returnFromPip: () => send("returnFromPip"),
     close: () => send("close"),
   };
+}
+
+export function parsePlayerCommandResult(value: unknown): PlayerCommandResult | null {
+  if (!value || typeof value !== "object") return null;
+  const event = value as Partial<PlayerCommandResult>;
+  if (
+    event.protocolVersion !== VIDEO_PLAYER_PROTOCOL_VERSION ||
+    event.kind !== "commandResult" ||
+    typeof event.requestId !== "string" ||
+    typeof event.sessionId !== "string" ||
+    typeof event.revision !== "number" ||
+    typeof event.commandKind !== "string" ||
+    !["success", "cancelled", "error"].includes(String(event.status))
+  ) return null;
+  return {
+    ...event,
+    code: typeof event.code === "string" ? event.code : null,
+    message: typeof event.message === "string" ? event.message : null,
+  } as PlayerCommandResult;
 }

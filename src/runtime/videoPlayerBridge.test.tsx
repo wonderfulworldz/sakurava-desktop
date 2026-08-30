@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../lib/LanguageContext";
 import VideoPlayerProductionRoot from "../components/video-player/VideoPlayerProductionRoot";
-import { parsePlaybackSnapshot, VIDEO_PLAYER_PROTOCOL_VERSION } from "./videoPlayerBridge";
+import { parsePlaybackSnapshot, parsePlayerCommandResult, VIDEO_PLAYER_PROTOCOL_VERSION } from "./videoPlayerBridge";
 
 function snapshot(revision: number, positionSeconds = 12) {
   return {
@@ -29,6 +29,7 @@ function snapshot(revision: number, positionSeconds = 12) {
       activeSubtitleId: null,
       presentation: "main",
       fullscreen: false,
+      doubleClickIntervalMs: 500,
       status: "ready",
       hwdecCurrent: null,
       error: null,
@@ -37,6 +38,11 @@ function snapshot(revision: number, positionSeconds = 12) {
 }
 
 describe("videoPlayerBridge", () => {
+  it("accepts typed command success, cancel, and failure results", () => {
+    expect(parsePlayerCommandResult({ protocolVersion: VIDEO_PLAYER_PROTOCOL_VERSION, kind: "commandResult", requestId: "r1", sessionId: "s1", revision: 2, commandKind: "loadExternalSubtitle", status: "success", code: "EXTERNAL_SUBTITLE_LOADED", message: "fixture.srt" })).toMatchObject({ status: "success", commandKind: "loadExternalSubtitle" });
+    expect(parsePlayerCommandResult({ protocolVersion: VIDEO_PLAYER_PROTOCOL_VERSION, kind: "commandResult", requestId: "r2", sessionId: "s1", revision: 2, commandKind: "loadExternalSubtitle", status: "cancelled", code: "EXTERNAL_SUBTITLE_CANCELLED", message: null })).toMatchObject({ status: "cancelled" });
+    expect(parsePlayerCommandResult({ protocolVersion: 1, kind: "commandResult" })).toBeNull();
+  });
   it("accepts only the versioned engine snapshot shape", () => {
     expect(parsePlaybackSnapshot(snapshot(1))).toMatchObject({ revision: 1, sourceIdentity: "V-2608-0001" });
     expect(parsePlaybackSnapshot({ ...snapshot(1), protocolVersion: 1 })).toBeNull();

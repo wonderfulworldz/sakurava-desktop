@@ -213,6 +213,13 @@ describe("videoPlayerWindows", () => {
     expect(windowMocks.construct).not.toHaveBeenCalledWith(VIDEO_PLAYER_WINDOW_LABEL, expect.anything());
   });
 
+  it("passes explicit one-session focus and replacement intents and preserves typed errors", async () => {
+    await expect(openVideoPlayerWindow({ ...productionPayload, intent: "replace" })).resolves.toEqual({ mode: "window" });
+    expect(windowMocks.invoke).toHaveBeenLastCalledWith("video_player_open", { input: { ...productionPayload, intent: "replace" } });
+    windowMocks.invoke.mockRejectedValueOnce({ code: "ACTIVE_SESSION_DIFFERENT_SOURCE", message: "Another source is active" });
+    await expect(openVideoPlayerWindow(productionPayload)).resolves.toEqual({ mode: "unavailable", code: "ACTIVE_SESSION_DIFFERENT_SOURCE", reason: "Another source is active" });
+  });
+
   it("creates Contact Sheet as a distinct WebviewWindow root", async () => {
     await expect(openContactSheetWindow(payload)).resolves.toEqual({ mode: "window" });
     expect(windowMocks.construct).toHaveBeenCalledWith(

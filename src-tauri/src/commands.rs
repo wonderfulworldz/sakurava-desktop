@@ -1230,6 +1230,7 @@ pub fn video_player_open(
         } else {
             video.resolution
         },
+        intent: input.intent.unwrap_or_else(|| "open".into()),
     })
 }
 

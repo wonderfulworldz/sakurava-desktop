@@ -8,7 +8,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent, type ReactNode } from "react";
 import { useTranslation } from "../../lib/LanguageContext";
 import { isTauriRuntimeAvailable } from "../../runtime/tauriClient";
 import {
@@ -27,6 +27,7 @@ import {
   type MiniPlayerWindowGeometry,
   type MiniPlayerWindowPayload,
 } from "../../runtime/videoPlayerWindows";
+import { usePlayerControlsVisibility } from "./usePlayerControlsVisibility";
 
 const fallbackPayload: MiniPlayerWindowPayload = {
   displayName: "Video",
@@ -91,6 +92,16 @@ export function MiniPlayerContent({
   const activePointerRef = useRef<number | null>(null);
   const pendingGeometryRef = useRef<MiniPlayerWindowGeometry | null>(null);
   const applyingGeometryRef = useRef(false);
+  const [pointerInControls, setPointerInControls] = useState(false);
+  const { visible: controlsVisible, reveal: revealControls } = usePlayerControlsVisibility({
+    playing: effectivePlaying,
+    held: !effectivePlaying || pointerInControls,
+  });
+
+  function handleSurfaceDoubleClick(event: ReactMouseEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest("button,input,a")) return;
+    if (playback) playback.onReturn(); else void returnToVideoPlayerWindow();
+  }
 
   function toggleMute() {
     if (playback) {
@@ -187,11 +198,15 @@ export function MiniPlayerContent({
       }
       data-responsive-tiers="wide compact minimum"
       data-theme-source="sakurava-appearance"
+      onPointerMove={revealControls}
+      onPointerDown={revealControls}
+      onKeyDown={revealControls}
     >
       <section
         aria-label={t("videoPlayer.mini.mockViewport")}
         className={`absolute inset-0 h-full w-full overflow-hidden object-contain ${playback && windowHost === "composition" ? "bg-transparent" : "bg-slate-950"}`}
         data-testid="pip-media-surface"
+        onDoubleClick={handleSurfaceDoubleClick}
         style={
           dimensions
             ? { aspectRatio: `${dimensions.width} / ${dimensions.height}` }
@@ -217,7 +232,9 @@ export function MiniPlayerContent({
       </p>
 
       <div
-        className="absolute right-3 top-3 z-40 flex items-center gap-1"
+        aria-hidden={!controlsVisible}
+        inert={!controlsVisible}
+        className={`absolute right-3 top-3 z-40 flex items-center gap-1 transition duration-200 ${controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         data-overlay-layer="top-actions"
       >
         <OverlayButton
@@ -233,7 +250,9 @@ export function MiniPlayerContent({
       </div>
 
       <div
-        className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center gap-2"
+        aria-hidden={!controlsVisible}
+        inert={!controlsVisible}
+        className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center gap-2 transition duration-200 ${controlsVisible ? "opacity-100" : "opacity-0"}`}
         data-overlay-layer="center-transport"
       >
         <OverlayButton
@@ -265,7 +284,11 @@ export function MiniPlayerContent({
 
       <section
         aria-label={t("videoPlayer.mini.controls")}
-        className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-10"
+        aria-hidden={!controlsVisible}
+        inert={!controlsVisible}
+        onPointerEnter={() => setPointerInControls(true)}
+        onPointerLeave={() => setPointerInControls(false)}
+        className={`absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-10 transition duration-200 ${controlsVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"}`}
         data-overlay-layer="bottom-controls"
       >
         <input

@@ -33,20 +33,23 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "../../lib/LanguageContext";
 import {
+  loadVideoPlayerPreferences,
+  parseVideoPlayerPreferences,
+  saveVideoPlayerPreferences,
+  VIDEO_PLAYER_SHORTCUT_DEFAULTS,
+  type VideoPlayerPreferences,
+  type VideoPlayerShortcutAction,
+  type VideoPlayerSubtitlePreferences,
+} from "../../lib/videoPlayerPreferences";
+import {
   openMiniPlayerWindow,
   setCurrentPlayerFullscreen,
 } from "../../runtime/videoPlayerWindows";
+import SubtitleSettingsDialog from "./SubtitleSettingsDialog";
+import { usePlayerControlsVisibility } from "./usePlayerControlsVisibility";
 
 export type StepMode = "1F" | "1S" | "10S" | "1M" | "10M";
-type ShortcutAction =
-  | "playPause"
-  | "backward"
-  | "forward"
-  | "changeStep"
-  | "mute"
-  | "subtitle"
-  | "loop"
-  | "fullscreen";
+type ShortcutAction = VideoPlayerShortcutAction;
 
 type SettingsView = "root" | "playback-speed" | "subtitle";
 
@@ -81,21 +84,19 @@ export type VideoPlayerPlaybackAdapter = {
   onSubtitleOff: () => void;
   onToggleSubtitle: () => void;
   onLoadExternalSubtitle: () => void;
+  commandResult?: { commandKind: string; status: "success" | "cancelled" | "error"; message: string | null } | null;
+  onClearCommandResult?: () => void;
+  onSetSubtitleAppearance?: (appearance: VideoPlayerSubtitlePreferences) => void;
+  onSetSubtitleDelay?: (seconds: number) => void;
+  onSetSubtitleInset?: (pixels: number) => void;
+  doubleClickIntervalMs?: number;
+  sessionId?: string;
   onOpenExternally: () => void;
   onToggleFullscreen: () => void;
   onEnterPip: () => void;
 };
 
-export const VIDEO_PLAYER_SHORTCUT_DEFAULTS: Record<ShortcutAction, string> = {
-  playPause: "Space",
-  backward: "ArrowLeft",
-  forward: "ArrowRight",
-  changeStep: "S",
-  mute: "M",
-  subtitle: "C",
-  loop: "L",
-  fullscreen: "F",
-};
+export { VIDEO_PLAYER_SHORTCUT_DEFAULTS };
 
 const STEP_MODES: Array<{ label: StepMode; descriptionKey: string }> = [
   { label: "1F", descriptionKey: "videoPlayer.step.oneFrame" },
@@ -151,12 +152,23 @@ export default function VideoPlayerPrototype({
   const [captureFeedback, setCaptureFeedback] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [shortcutOpen, setShortcutOpen] = useState(false);
-  const [shortcutBindings, setShortcutBindings] = useState(
-    VIDEO_PLAYER_SHORTCUT_DEFAULTS,
-  );
+  const [preferences, setPreferences] = useState<VideoPlayerPreferences>(() => loadVideoPlayerPreferences());
+  const [shortcutBindings, setShortcutBindings] = useState(preferences.shortcuts);
+  const [subtitlePreferencesOpen, setSubtitlePreferencesOpen] = useState(false);
+  const [subtitleDelay, setSubtitleDelay] = useState(0);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [pointerInControls, setPointerInControls] = useState(false);
+  const [controlsFocused, setControlsFocused] = useState(false);
+  const [seeking, setSeeking] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const volumeRef = useRef<HTMLDivElement | null>(null);
+  const controlsRef = useRef<HTMLElement | null>(null);
+  const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAppearanceRef = useRef<string | null>(null);
+  const lastInsetRef = useRef(-1);
+  const sendInsetRef = useRef(playback?.onSetSubtitleInset);
+  sendInsetRef.current = playback?.onSetSubtitleInset;
 
   const step = STEP_MODES[stepIndex];
   const effectivePlaying = playback ? !playback.paused : isPlaying;
@@ -170,6 +182,8 @@ export default function VideoPlayerPrototype({
   const loopInvalid = effectiveLoopStart !== null && effectiveLoopEnd !== null && effectiveLoopEnd <= effectiveLoopStart;
   const loopEnabled = playback?.loopEnabled ?? loopOpen;
   const effectiveFullscreen = playback?.fullscreen ?? fullscreen;
+  const controlsHeld = !effectivePlaying || pointerInControls || controlsFocused || seeking || volumeExpanded || settingsOpen || shortcutOpen || subtitlePreferencesOpen || loopOpen;
+  const { visible: controlsVisible, reveal: revealControls } = usePlayerControlsVisibility({ playing: effectivePlaying, held: controlsHeld });
   const loopStatus = !loopEnabled
     ? t("videoPlayer.loop.off")
     : loopInvalid
@@ -264,6 +278,82 @@ export default function VideoPlayerPrototype({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [settingsOpen]);
 
+  useEffect(() => {
+    if (!playback?.commandResult) return;
+    if (playback.commandResult.commandKind === "loadExternalSubtitle") {
+      setFeedback(
+        playback.commandResult.status === "success"
+          ? t("videoPlayer.subtitleFeedback.loaded")
+          : playback.commandResult.status === "cancelled"
+            ? t("videoPlayer.subtitleFeedback.cancelled")
+            : t("videoPlayer.subtitleFeedback.failed"),
+      );
+    } else if (
+      playback.commandResult.status === "error" &&
+      ["setSubtitleAppearance", "setSubtitleDelay", "setSubtitleInset"].includes(playback.commandResult.commandKind)
+    ) {
+      setFeedback(playback.commandResult.message || t("videoPlayer.subtitleFeedback.failed"));
+    }
+    playback.onClearCommandResult?.();
+  }, [playback?.commandResult]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const timeout = window.setTimeout(() => setFeedback(null), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [feedback]);
+
+  useEffect(() => {
+    const key = `${playback?.sessionId ?? "mock"}:${JSON.stringify(preferences.subtitles)}`;
+    if (!playback?.onSetSubtitleAppearance || lastAppearanceRef.current === key) return;
+    lastAppearanceRef.current = key;
+    playback.onSetSubtitleAppearance(preferences.subtitles);
+  }, [playback?.sessionId, playback?.onSetSubtitleAppearance, preferences.subtitles]);
+
+  useLayoutEffect(() => {
+    if (!playback || !controlsRef.current) return;
+    const controls = controlsRef.current;
+    const publish = () => {
+      const next = Math.round(controlsVisible && preferences.subtitles.basePosition === "bottom" ? controls.getBoundingClientRect().height + 12 : 0);
+      if (next !== lastInsetRef.current) {
+        lastInsetRef.current = next;
+        sendInsetRef.current?.(next);
+      }
+    };
+    publish();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(controls);
+    window.addEventListener("resize", publish);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", publish); };
+  }, [controlsVisible, Boolean(playback), preferences.subtitles.basePosition, preferences.subtitles.verticalAdjustment]);
+
+  useEffect(() => () => {
+    if (singleClickTimerRef.current !== null) clearTimeout(singleClickTimerRef.current);
+  }, []);
+
+  function persistPreferences(next: VideoPlayerPreferences) {
+    const normalized = parseVideoPlayerPreferences(next);
+    setPreferences(normalized);
+    if (!saveVideoPlayerPreferences(normalized)) setFeedback(t("videoPlayer.preferences.saveFailed"));
+  }
+
+  function handleVideoSurfaceClick(event: ReactMouseEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest("button,input,select,a,[role=menu],[role=dialog]") || event.detail > 1) return;
+    if (singleClickTimerRef.current !== null) clearTimeout(singleClickTimerRef.current);
+    singleClickTimerRef.current = setTimeout(() => {
+      if (playback) playback.paused ? playback.onPlay() : playback.onPause(); else setIsPlaying((value) => !value);
+      singleClickTimerRef.current = null;
+    }, playback?.doubleClickIntervalMs ?? 500);
+  }
+
+  function handleVideoSurfaceDoubleClick(event: ReactMouseEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest("button,input,select,a,[role=menu],[role=dialog]")) return;
+    event.preventDefault();
+    if (singleClickTimerRef.current !== null) clearTimeout(singleClickTimerRef.current);
+    singleClickTimerRef.current = null;
+    void toggleFullscreen();
+  }
+
   function toggleMute() {
     setVolumeExpanded(true);
     if (playback) {
@@ -300,12 +390,15 @@ export default function VideoPlayerPrototype({
   return (
     <main
       aria-label={t("videoPlayer.windowLabel")}
-      className={`flex min-h-0 flex-col overflow-hidden text-slate-950 dark:text-slate-50 ${windowHost === "composition" ? "h-full bg-transparent" : "h-screen bg-slate-50 dark:bg-slate-950"}`}
+      className={`relative flex min-h-0 flex-col overflow-hidden text-slate-950 dark:text-slate-50 ${windowHost === "composition" ? "h-full bg-transparent" : "h-screen bg-slate-50 dark:bg-slate-950"}`}
       data-auxiliary-window="video-player"
       data-responsive-tiers="normal compact minimum"
       data-theme-source="sakurava-appearance"
+      onPointerMove={revealControls}
+      onPointerDown={revealControls}
+      onKeyDown={revealControls}
     >
-      <section className={`relative flex min-h-[160px] flex-1 items-center justify-center overflow-hidden ${playback ? "bg-transparent" : "bg-[radial-gradient(circle_at_50%_25%,rgba(236,72,153,0.20),transparent_37%),linear-gradient(135deg,#111827,#0f172a_58%,#020617)]"}`}>
+      <section onClick={handleVideoSurfaceClick} onDoubleClick={handleVideoSurfaceDoubleClick} className={`relative flex min-h-[160px] flex-1 items-center justify-center overflow-hidden ${playback ? "bg-transparent" : "bg-[radial-gradient(circle_at_50%_25%,rgba(236,72,153,0.20),transparent_37%),linear-gradient(135deg,#111827,#0f172a_58%,#020617)]"}`}>
         <div className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-md bg-black/45 px-2.5 py-1.5 text-white backdrop-blur-sm">
           <p className="truncate text-xs font-semibold">{displayName}</p>
           <p className="mt-0.5 truncate text-[10px] text-slate-300">
@@ -322,8 +415,15 @@ export default function VideoPlayerPrototype({
       </section>
 
       <section
+        ref={controlsRef}
         aria-label={t("videoPlayer.controls")}
-        className="shrink-0 border-t border-slate-200 bg-white px-2.5 py-2.5 dark:border-slate-700 dark:bg-slate-900 sm:px-4"
+        aria-hidden={!controlsVisible}
+        inert={!controlsVisible}
+        onPointerEnter={() => setPointerInControls(true)}
+        onPointerLeave={() => setPointerInControls(false)}
+        onFocusCapture={() => setControlsFocused(true)}
+        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setControlsFocused(false); }}
+        className={`absolute inset-x-0 bottom-0 z-40 shrink-0 border-t border-slate-200 bg-white px-2.5 py-2.5 transition duration-200 dark:border-slate-700 dark:bg-slate-900 sm:px-4 ${controlsVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"}`}
       >
         <div data-testid="timeline-row" className="flex min-w-0 items-center gap-3">
           <label className="sr-only" htmlFor="video-player-timeline">
@@ -336,6 +436,9 @@ export default function VideoPlayerPrototype({
             max={Math.max(1, effectiveDuration)}
             value={Math.min(effectivePosition, Math.max(1, effectiveDuration))}
             onChange={(event) => playback ? playback.onSeek(Number(event.target.value)) : setPosition(Number(event.target.value))}
+            onPointerDown={() => setSeeking(true)}
+            onPointerUp={() => setSeeking(false)}
+            onPointerCancel={() => setSeeking(false)}
             className="h-1.5 min-w-12 flex-1 cursor-pointer accent-sakura-500"
           />
           <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-slate-600 dark:text-slate-300 max-[480px]:text-[10px]">
@@ -464,6 +567,11 @@ export default function VideoPlayerPrototype({
                     setSettingsOpen(false);
                     setSettingsView("root");
                   }}
+                  onOpenSubtitleAppearance={() => {
+                    setSubtitlePreferencesOpen(true);
+                    setSettingsOpen(false);
+                    setSettingsView("root");
+                  }}
                 />
               )}
             </div>
@@ -486,16 +594,26 @@ export default function VideoPlayerPrototype({
         </p>
       </section>
 
+      {feedback && <div role="status" className="pointer-events-none absolute bottom-28 left-1/2 z-[65] -translate-x-1/2 rounded-lg bg-black/80 px-3 py-2 text-xs font-semibold text-white shadow-lg">{feedback}</div>}
+
       {shortcutOpen && (
         <ShortcutDialog
           shortcuts={shortcutBindings}
           onCancel={() => setShortcutOpen(false)}
           onSave={(nextShortcuts) => {
             setShortcutBindings(nextShortcuts);
+            persistPreferences({ ...preferences, shortcuts: nextShortcuts });
             setShortcutOpen(false);
           }}
         />
       )}
+      {subtitlePreferencesOpen && <SubtitleSettingsDialog
+        value={preferences.subtitles}
+        delay={subtitleDelay}
+        onChange={(subtitles) => persistPreferences({ ...preferences, subtitles })}
+        onDelayChange={(seconds) => { setSubtitleDelay(seconds); playback?.onSetSubtitleDelay?.(seconds); }}
+        onClose={() => setSubtitlePreferencesOpen(false)}
+      />}
     </main>
   );
 }
@@ -519,7 +637,7 @@ const VolumeControl = ({ expanded, volume, muted, onExpand, onCollapse, onToggle
   return <div ref={ref} data-testid="volume-control" className="relative flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" onMouseEnter={onExpand} onMouseLeave={handleMouseLeave} onFocusCapture={onExpand} onBlurCapture={handleBlur}><button type="button" aria-label={muted || volume === 0 ? t("videoPlayer.volume.unmute") : t("videoPlayer.volume.mute")} aria-pressed={muted || volume === 0} onClick={() => { onExpand(); onToggleMute(); }} className="inline-flex size-8 shrink-0 items-center justify-center text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sakura-400 dark:text-slate-100">{icon}</button>{expanded && <div data-testid="volume-interaction-bridge" className="absolute bottom-full right-0 z-20 flex w-10 flex-col pb-2"><div data-testid="volume-vertical-slider" className="flex h-36 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"><label className="sr-only" htmlFor="video-player-volume">{t("videoPlayer.volume")}</label><input id="video-player-volume" type="range" min="0" max="100" value={volume} aria-valuetext={`${Math.round(volume)}%`} onPointerDown={onExpand} onChange={(event) => onVolumeChange(Number(event.target.value))} style={{ writingMode: "vertical-lr", direction: "rtl" }} className="h-28 w-5 cursor-pointer accent-sakura-500" /></div></div>}</div>;
 };
 
-function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, subtitleTracks, onViewChange, onSpeedChange, onSubtitleChange, onLoadExternalSubtitle, onOpenExternally, onOpenShortcuts }: { settingsRef: RefObject<HTMLDivElement | null>; triggerRef: RefObject<HTMLButtonElement | null>; view: SettingsView; speed: string; subtitle: string; subtitleTracks?: Array<{ id: number; label: string }>; onViewChange: (view: SettingsView) => void; onSpeedChange: (value: string) => void; onSubtitleChange: (value: string) => void; onLoadExternalSubtitle?: () => void; onOpenExternally?: () => void; onOpenShortcuts: () => void }) {
+function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, subtitleTracks, onViewChange, onSpeedChange, onSubtitleChange, onLoadExternalSubtitle, onOpenExternally, onOpenShortcuts, onOpenSubtitleAppearance }: { settingsRef: RefObject<HTMLDivElement | null>; triggerRef: RefObject<HTMLButtonElement | null>; view: SettingsView; speed: string; subtitle: string; subtitleTracks?: Array<{ id: number; label: string }>; onViewChange: (view: SettingsView) => void; onSpeedChange: (value: string) => void; onSubtitleChange: (value: string) => void; onLoadExternalSubtitle?: () => void; onOpenExternally?: () => void; onOpenShortcuts: () => void; onOpenSubtitleAppearance: () => void }) {
   const t = useTranslation();
   const [position, setPosition] = useState({ left: 8, bottom: 64, width: 288, maxHeight: 320 });
   const playbackSpeedRef = useRef<HTMLButtonElement | null>(null);
@@ -588,6 +706,7 @@ function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, su
         <>
           <SettingsMenuEntry buttonRef={playbackSpeedRef} label={t("videoPlayer.settings.speed")} onClick={() => openChild("playback-speed")} />
           <SettingsMenuEntry buttonRef={subtitleRef} label={t("videoPlayer.settings.subtitleCC")} onClick={() => openChild("subtitle")} />
+          <SettingsMenuEntry label={t("videoPlayer.settings.subtitleAppearance")} popup="dialog" onClick={onOpenSubtitleAppearance} />
           <SettingsMenuEntry label={t("videoPlayer.settings.shortcuts")} popup="dialog" onClick={onOpenShortcuts} />
           <button type="button" role="menuitem" disabled aria-disabled="true" className="flex w-full cursor-not-allowed items-center justify-between rounded-md px-2 py-2 text-left text-xs text-slate-400"><span>{t("videoPlayer.settings.sheetThumbnail")}</span><ChevronRight size={15} aria-hidden="true" /></button>
           <div className="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700"><button type="button" role="menuitem" disabled={!onOpenExternally} aria-disabled={!onOpenExternally} onClick={onOpenExternally} className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs ${onOpenExternally ? "font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:text-slate-100 dark:hover:bg-slate-800" : "cursor-not-allowed text-slate-400"}`}><span>{t("videoPlayer.settings.openExternally")}</span><ExternalLink size={13} aria-hidden="true" /></button></div>

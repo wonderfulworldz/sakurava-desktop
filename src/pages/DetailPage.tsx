@@ -391,7 +391,7 @@ function CatalogDetailPage({
         <CatalogIdentity
           config={config}
           favoriteAction={favoriteAction}
-          onOpenVideoPlayer={() =>
+          onOpenVideoPlayer={(intent = "open") =>
             openVideoPlayerWindow({
               sourceIdentity: config.recordId ?? "",
               displayName: config.displayTitle,
@@ -401,6 +401,7 @@ function CatalogDetailPage({
               durationLabel:
                 config.techItems.find((item) => item.label === "Duration")?.value ??
                 "N/A",
+              intent,
             })
           }
         />
@@ -454,7 +455,7 @@ function CatalogIdentity({
   onOpenVideoPlayer,
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
-  onOpenVideoPlayer: () => Promise<AuxiliaryWindowOpenResult>;
+  onOpenVideoPlayer: (intent?: "open" | "focusExisting" | "replace") => Promise<AuxiliaryWindowOpenResult>;
 }) {
   const t = useTranslation();
   const visibleChips = filterSafeFilterCensorshipValues(
@@ -1075,7 +1076,7 @@ function HeroPlayButton({
   onOpenBuiltInPlayer,
 }: {
   item: MediaPathItem;
-  onOpenBuiltInPlayer?: () => Promise<AuxiliaryWindowOpenResult>;
+  onOpenBuiltInPlayer?: (intent?: "open" | "focusExisting" | "replace") => Promise<AuxiliaryWindowOpenResult>;
 }) {
   const t = useTranslation();
   const [status, setStatus] = useState<PathStatusState>(() => ({
@@ -1088,6 +1089,7 @@ function HeroPlayButton({
   }));
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [differentSourceOpen, setDifferentSourceOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1127,11 +1129,11 @@ function HeroPlayButton({
     try {
       if (onOpenBuiltInPlayer) {
         const result = await onOpenBuiltInPlayer();
-        setFeedback(
-          result.mode === "window"
-            ? "Opening Sakurava Video Player."
-            : "Sakurava Video Player window is unavailable.",
-        );
+        if (result.mode === "unavailable" && result.code === "ACTIVE_SESSION_DIFFERENT_SOURCE") {
+          setDifferentSourceOpen(true);
+          return;
+        }
+        setFeedback(result.mode === "window" ? "Opening Sakurava Video Player." : result.reason || "Sakurava Video Player window is unavailable.");
         return;
       }
 
@@ -1150,6 +1152,17 @@ function HeroPlayButton({
 
   const disabled = status.status !== "exists" || opening;
 
+  async function resolveDifferentSource(intent: "focusExisting" | "replace") {
+    if (!onOpenBuiltInPlayer) return;
+    setDifferentSourceOpen(false);
+    setOpening(true);
+    const result = await onOpenBuiltInPlayer(intent);
+    setFeedback(result.mode === "window"
+      ? intent === "replace" ? "Replacing the active Video Player source." : "Focusing the active Video Player."
+      : result.reason || "The Video Player request could not be completed.");
+    setOpening(false);
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <button
@@ -1164,6 +1177,17 @@ function HeroPlayButton({
       {feedback && (
         <span className="text-xs font-medium text-slate-500">{feedback}</span>
       )}
+      {differentSourceOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="presentation">
+        <section role="dialog" aria-modal="true" aria-label="Another video is already playing" className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-2xl">
+          <h2 className="text-lg font-semibold text-slate-950">Another video is already playing</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Keep one authoritative Player session: focus the current video, explicitly replace it, or cancel.</p>
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={() => setDifferentSourceOpen(false)} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700">Cancel</button>
+            <button type="button" onClick={() => void resolveDifferentSource("focusExisting")} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700">Focus Existing</button>
+            <button type="button" onClick={() => void resolveDifferentSource("replace")} className="h-10 rounded-lg bg-sakura-500 px-4 text-sm font-semibold text-white">Replace</button>
+          </div>
+        </section>
+      </div>}
     </div>
   );
 }

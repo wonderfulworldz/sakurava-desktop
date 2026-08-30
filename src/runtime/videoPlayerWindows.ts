@@ -37,6 +37,7 @@ export type VideoPlayerWindowPayload = {
 
 export type ProductionVideoPlayerOpenInput = Omit<VideoPlayerWindowPayload, "requestId"> & {
   sourceIdentity: string;
+  intent?: "open" | "focusExisting" | "replace";
 };
 
 export type ContactSheetWindowPayload = VideoPlayerWindowPayload;
@@ -81,7 +82,7 @@ export type MiniPlayerWindowGeometry = VideoDimensions & {
 type WindowPayloadInput = Omit<VideoPlayerWindowPayload, "requestId">;
 export type AuxiliaryWindowOpenResult =
   | { mode: "window" }
-  | { mode: "unavailable"; reason: string };
+  | { mode: "unavailable"; reason: string; code?: string | null };
 
 export function getSakuravaWindowKind() {
   if (typeof window === "undefined") return null;
@@ -92,13 +93,18 @@ export async function openVideoPlayerWindow(
   input: ProductionVideoPlayerOpenInput,
 ): Promise<AuxiliaryWindowOpenResult> {
   if (!isTauriRuntimeAvailable()) {
-    return { mode: "unavailable", reason: "tauri-runtime-unavailable" };
+    return { mode: "unavailable", reason: "tauri-runtime-unavailable", code: null };
   }
   try {
     await invokeTauriCommand("video_player_open", { input });
     return { mode: "window" };
   } catch (error) {
-    return { mode: "unavailable", reason: error instanceof Error ? error.message : String(error) };
+    const record = error && typeof error === "object" ? error as { code?: unknown; message?: unknown } : null;
+    return {
+      mode: "unavailable",
+      reason: typeof record?.message === "string" ? record.message : error instanceof Error ? error.message : String(error),
+      code: typeof record?.code === "string" ? record.code : null,
+    };
   }
 }
 
