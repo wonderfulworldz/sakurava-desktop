@@ -1,6 +1,7 @@
 mod commands;
 pub mod database;
 pub mod managed_media;
+pub(crate) mod output;
 pub(crate) mod safe_filter;
 pub mod video_player;
 
@@ -89,6 +90,14 @@ pub fn run() {
             commands::video_get,
             commands::video_get_visible,
             commands::video_player_open,
+            commands::global_output_validate_parent,
+            commands::global_output_prepare_category,
+            commands::global_output_default_file_path,
+            commands::global_output_reveal_file,
+            commands::video_contact_sheet_generate,
+            commands::video_contact_sheet_save,
+            commands::video_contact_sheet_cancel,
+            commands::video_contact_sheet_cleanup,
             commands::video_update,
             commands::video_delete,
             commands::image_create,

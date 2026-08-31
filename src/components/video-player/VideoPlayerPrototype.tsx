@@ -89,6 +89,8 @@ export type VideoPlayerPlaybackAdapter = {
   onSetSubtitleAppearance?: (appearance: VideoPlayerSubtitlePreferences) => void;
   onSetSubtitleDelay?: (seconds: number) => void;
   onSetSubtitleInset?: (pixels: number) => void;
+  onCaptureScreenshot?: () => void;
+  onOpenScreenshotFolder?: () => void;
   doubleClickIntervalMs?: number;
   sessionId?: string;
   onOpenExternally: () => void;
@@ -149,7 +151,8 @@ export default function VideoPlayerPrototype({
   const [settingsView, setSettingsView] = useState<SettingsView>("root");
   const [speed, setSpeed] = useState("1x");
   const [subtitle, setSubtitle] = useState("off");
-  const [captureFeedback, setCaptureFeedback] = useState(false);
+  const [captureState, setCaptureState] = useState<"idle" | "capturing" | "success" | "error">("idle");
+  const [lastScreenshotPath, setLastScreenshotPath] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [shortcutOpen, setShortcutOpen] = useState(false);
   const [preferences, setPreferences] = useState<VideoPlayerPreferences>(() => loadVideoPlayerPreferences());
@@ -280,7 +283,20 @@ export default function VideoPlayerPrototype({
 
   useEffect(() => {
     if (!playback?.commandResult) return;
-    if (playback.commandResult.commandKind === "loadExternalSubtitle") {
+    if (playback.commandResult.commandKind === "captureScreenshot") {
+      if (playback.commandResult.status === "success") {
+        setCaptureState("success");
+        setLastScreenshotPath(playback.commandResult.message);
+        setFeedback(t("videoPlayer.captureSaved"));
+      } else {
+        setCaptureState("error");
+        setFeedback(playback.commandResult.message || t("videoPlayer.captureFailed"));
+      }
+    } else if (playback.commandResult.commandKind === "openScreenshotFolder") {
+      if (playback.commandResult.status === "error") {
+        setFeedback(playback.commandResult.message || t("videoPlayer.captureFailed"));
+      }
+    } else if (playback.commandResult.commandKind === "loadExternalSubtitle") {
       setFeedback(
         playback.commandResult.status === "success"
           ? t("videoPlayer.subtitleFeedback.loaded")
@@ -302,6 +318,12 @@ export default function VideoPlayerPrototype({
     const timeout = window.setTimeout(() => setFeedback(null), 3500);
     return () => window.clearTimeout(timeout);
   }, [feedback]);
+
+  useEffect(() => {
+    if (captureState !== "success" && captureState !== "error") return;
+    const timeout = window.setTimeout(() => setCaptureState("idle"), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [captureState]);
 
   useEffect(() => {
     const key = `${playback?.sessionId ?? "mock"}:${JSON.stringify(preferences.subtitles)}`;
@@ -521,10 +543,15 @@ export default function VideoPlayerPrototype({
 
           <div data-testid="right-action-group" className="flex shrink-0 items-center gap-1.5">
             <ControlButton
-              label={t("videoPlayer.capture")}
-              onClick={() => setCaptureFeedback(true)}
-              icon={captureFeedback ? <Check size={16} /> : <Camera size={16} />}
-              pressed={captureFeedback}
+              label={captureState === "capturing" ? t("videoPlayer.captureBusy") : t("videoPlayer.capture")}
+              onClick={() => {
+                if (!playback?.onCaptureScreenshot || captureState === "capturing") return;
+                setCaptureState("capturing");
+                setFeedback(null);
+                playback.onCaptureScreenshot();
+              }}
+              icon={captureState === "success" ? <Check size={16} /> : <Camera size={16} />}
+              disabled={!playback?.onCaptureScreenshot || captureState === "capturing"}
               className="max-[500px]:hidden"
             />
             <div className="relative">
@@ -590,11 +617,11 @@ export default function VideoPlayerPrototype({
           </div>
         </div>
         <p className="sr-only" aria-live="polite">
-          {captureFeedback ? t("videoPlayer.captureReady") : loopStatus}
+          {captureState === "success" ? t("videoPlayer.captureSaved") : loopStatus}
         </p>
       </section>
 
-      {feedback && <div role="status" className="pointer-events-none absolute bottom-28 left-1/2 z-[65] -translate-x-1/2 rounded-lg bg-black/80 px-3 py-2 text-xs font-semibold text-white shadow-lg">{feedback}</div>}
+      {feedback && <div role="status" className="absolute bottom-28 left-1/2 z-[65] flex -translate-x-1/2 items-center gap-2 rounded-lg bg-black/80 px-3 py-2 text-xs font-semibold text-white shadow-lg"><span>{feedback}</span>{captureState === "success" && lastScreenshotPath && playback?.onOpenScreenshotFolder ? <button type="button" onClick={playback.onOpenScreenshotFolder} className="rounded border border-white/40 px-2 py-1 hover:bg-white/15">{t("videoPlayer.captureOpenFolder")}</button> : null}</div>}
 
       {shortcutOpen && (
         <ShortcutDialog
@@ -618,8 +645,8 @@ export default function VideoPlayerPrototype({
   );
 }
 
-function ControlButton({ label, icon, onClick, pressed, compact, prominent, className = "" }: { label: string; icon: ReactNode; onClick: () => void; pressed?: boolean; compact?: boolean; prominent?: boolean; className?: string }) {
-  return <button type="button" title={label} aria-label={label} aria-pressed={pressed} onClick={onClick} className={`inline-flex shrink-0 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 ${compact ? "size-7" : "size-9"} ${prominent ? "border border-sakura-500 bg-sakura-500 text-white hover:bg-sakura-600" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"} ${pressed && !prominent ? "border-sakura-400 bg-sakura-50 text-sakura-700 dark:bg-sakura-950/40 dark:text-sakura-200" : ""} ${className}`}>{icon}</button>;
+function ControlButton({ label, icon, onClick, pressed, disabled, compact, prominent, className = "" }: { label: string; icon: ReactNode; onClick: () => void; pressed?: boolean; disabled?: boolean; compact?: boolean; prominent?: boolean; className?: string }) {
+  return <button type="button" title={label} aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={`inline-flex shrink-0 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 disabled:cursor-not-allowed disabled:opacity-50 ${compact ? "size-7" : "size-9"} ${prominent ? "border border-sakura-500 bg-sakura-500 text-white hover:bg-sakura-600" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"} ${pressed && !prominent ? "border-sakura-400 bg-sakura-50 text-sakura-700 dark:bg-sakura-950/40 dark:text-sakura-200" : ""} ${className}`}>{icon}</button>;
 }
 
 function LoopMarker({ label, value, onClick }: { label: string; value: number | null; onClick: () => void }) {

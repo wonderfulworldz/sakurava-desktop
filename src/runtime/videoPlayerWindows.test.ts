@@ -99,6 +99,7 @@ const payload = {
 const productionPayload = {
   ...payload,
   sourceIdentity: "V-2608-0001",
+  outputParent: "D:\\Sakurava Output",
 };
 
 function logicalPhysical(value: { x: number; y: number } | { width: number; height: number }) {
@@ -221,7 +222,7 @@ describe("videoPlayerWindows", () => {
   });
 
   it("creates Contact Sheet as a distinct WebviewWindow root", async () => {
-    await expect(openContactSheetWindow(payload)).resolves.toEqual({ mode: "window" });
+    await expect(openContactSheetWindow({ ...payload, sourceIdentity: "V-2608-0001" })).resolves.toEqual({ mode: "window" });
     expect(windowMocks.construct).toHaveBeenCalledWith(
       CONTACT_SHEET_WINDOW_LABEL,
       expect.objectContaining({

@@ -78,6 +78,12 @@ use crate::managed_media::{
         ManagedMediaProgressStatus, ManagedMediaStatistics,
     },
 };
+use crate::output::{
+    default_file_path as resolve_output_default_file_path,
+    prepare_category as prepare_output_category, reveal_file as reveal_output_file,
+    validate_parent_and_children, GlobalOutputPaths, OutputCategory, PreparedOutputDirectory,
+    RevealOutputResult,
+};
 use crate::restore_coordinator::{
     begin_restore, complete_recovery, complete_restore, create_backup_package_v2,
     delete_backup_package_v2_or_legacy, export_backup_package_v2_or_legacy,
@@ -90,6 +96,10 @@ use crate::safe_filter::{
     sanitize_related_json, sanitize_string_array_json, visible_catalog_ids, VisibleCatalogIds,
 };
 use crate::video_player::{
+    contact_sheet::{
+        validate_request as validate_contact_sheet_request, ContactSheetGenerateInput,
+        ContactSheetGenerationResult, TrustedContactSheetRequest,
+    },
     manager::{
         PlaybackHostManager, TrustedOpenRequest, VideoPlayerCommandError, VideoPlayerOpenInput,
         VideoPlayerOpenResult,
@@ -1230,7 +1240,141 @@ pub fn video_player_open(
         } else {
             video.resolution
         },
+        output_parent: input.output_parent,
         intent: input.intent.unwrap_or_else(|| "open".into()),
+    })
+}
+
+#[tauri::command]
+pub fn global_output_validate_parent(parent_path: String) -> Result<GlobalOutputPaths, String> {
+    validate_parent_and_children(&parent_path)
+}
+
+#[tauri::command]
+pub fn global_output_prepare_category(
+    parent_path: String,
+    category: OutputCategory,
+) -> Result<PreparedOutputDirectory, String> {
+    prepare_output_category(&parent_path, category)
+}
+
+#[tauri::command]
+pub fn global_output_default_file_path(
+    parent_path: String,
+    category: OutputCategory,
+    file_name: String,
+) -> Result<String, String> {
+    resolve_output_default_file_path(&parent_path, category, &file_name)
+}
+
+#[tauri::command]
+pub fn global_output_reveal_file(file_path: String) -> Result<RevealOutputResult, String> {
+    reveal_output_file(&file_path)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactSheetSaveResult {
+    pub destination_path: String,
+    pub bytes_written: usize,
+    pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactSheetCancelResult {
+    pub cancelled: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactSheetCleanupResult {
+    pub cleaned: bool,
+}
+
+#[tauri::command]
+pub async fn video_contact_sheet_generate(
+    database: State<'_, RuntimeDatabase>,
+    manager: State<'_, PlaybackHostManager>,
+    scopes: State<'_, Scopes>,
+    input: ContactSheetGenerateInput,
+) -> Result<ContactSheetGenerationResult, String> {
+    validate_contact_sheet_request(&input)?;
+    database.ensure_restore_resolved()?;
+    let video = with_connection(&database, |connection| {
+        require_migrated_sakurava_refs(connection)?;
+        let id = resolve_identity_or_technical(
+            connection,
+            "V",
+            "videos",
+            "id",
+            input.source_identity.trim(),
+        )?;
+        get_video(connection, &id)
+    })?
+    .ok_or_else(|| "CONTACT_SHEET_VIDEO_NOT_FOUND".to_string())?;
+    let canonical_path = validate_catalog_media_path(&video.media_path)
+        .map_err(|error| format!("{}: CONTACT_SHEET_SOURCE_INVALID", error.code()))?;
+    let request = TrustedContactSheetRequest {
+        source_identity: video.sakurava_ref,
+        canonical_path,
+        display_name: if video.title.trim().is_empty() {
+            "Video".into()
+        } else {
+            video.title
+        },
+        grid: input.grid,
+        width: input.width,
+        quality: input.quality,
+        timestamp: input.timestamp,
+        header: input.header,
+        format: input.format,
+    };
+    let manager = manager.inner().clone();
+    let worker = manager.clone();
+    let result =
+        tauri::async_runtime::spawn_blocking(move || worker.generate_contact_sheet(request))
+            .await
+            .map_err(|error| format!("CONTACT_SHEET_TASK_FAILED: {error}"))??;
+    if let Err(error) = scopes.allow_file(&result.preview_path) {
+        let _ = manager.cleanup_contact_sheet(Some(&result.preview_path));
+        return Err(format!("CONTACT_SHEET_PREVIEW_SCOPE_FAILED: {error}"));
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn video_contact_sheet_save(
+    manager: State<'_, PlaybackHostManager>,
+    preview_path: String,
+    destination_path: String,
+) -> Result<ContactSheetSaveResult, String> {
+    let (destination_path, bytes_written) =
+        manager.save_contact_sheet(&preview_path, &destination_path)?;
+    Ok(ContactSheetSaveResult {
+        destination_path,
+        bytes_written,
+        success: true,
+    })
+}
+
+#[tauri::command]
+pub fn video_contact_sheet_cancel(
+    manager: State<'_, PlaybackHostManager>,
+    request_id: Option<String>,
+) -> Result<ContactSheetCancelResult, String> {
+    Ok(ContactSheetCancelResult {
+        cancelled: manager.cancel_contact_sheet(request_id.as_deref())?,
+    })
+}
+
+#[tauri::command]
+pub fn video_contact_sheet_cleanup(
+    manager: State<'_, PlaybackHostManager>,
+    preview_path: Option<String>,
+) -> Result<ContactSheetCleanupResult, String> {
+    Ok(ContactSheetCleanupResult {
+        cleaned: manager.cleanup_contact_sheet(preview_path.as_deref())?,
     })
 }
 

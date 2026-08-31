@@ -4,6 +4,12 @@ import { defaultExportFileName } from "../lib/exportArtifacts";
 import { defaultExportCsvFileName, localFileTimestamp } from "./exportCommands";
 import { defaultLanguageCsvFileName } from "../lib/languageCsv";
 import type { LanguageCode } from "../lib/language";
+import { getGlobalOutputParent } from "../lib/globalOutputPreferences";
+import {
+  globalOutputDefaultFilePath,
+  prepareGlobalOutputDirectory,
+  type GlobalOutputCategory,
+} from "./globalOutputCommands";
 
 export function defaultDatabaseBackupFileName(date = new Date()) {
   return `skv-backup-${localFileTimestamp(date)}.sqlite`;
@@ -17,7 +23,7 @@ export async function selectDatabaseBackupDestination() {
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
     title: "Back Up Sakurava Database",
-    defaultPath: defaultDatabaseBackupFileName(),
+    defaultPath: await configuredDefaultFilePath("backupExport", defaultDatabaseBackupFileName()),
     filters: [
       {
         name: "SQLite database",
@@ -54,7 +60,7 @@ export async function selectExportCsvDestination(entity: ExportCsvEntity) {
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
     title: `Export Sakurava ${entity} CSV`,
-    defaultPath: defaultExportCsvFileName(entity),
+    defaultPath: await configuredDefaultFilePath("export", defaultExportCsvFileName(entity)),
     filters: [
       {
         name: "CSV",
@@ -74,7 +80,10 @@ export async function selectCatalogExportDestination(
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
     title: `Export Sakurava ${format === "xlsx" ? "Excel Workbook" : "CSV"}`,
-    defaultPath: defaultExportFileName(dataTypes, format, date, { explicit }),
+    defaultPath: await configuredDefaultFilePath(
+      "export",
+      defaultExportFileName(dataTypes, format, date, { explicit }),
+    ),
     filters: [{
       name: format === "xlsx" ? "Excel Workbook" : "CSV",
       extensions: [format],
@@ -86,6 +95,7 @@ export async function selectCatalogCsvExportFolder() {
   return selectLocalPath({
     title: "Export Sakurava CSV Files To Folder",
     directory: true,
+    defaultPath: await configuredDefaultDirectory("export"),
   });
 }
 
@@ -186,6 +196,23 @@ export async function selectBackupPackageExportDestination() {
   return selectLocalPath({
     title: "Download Backup Package To",
     directory: true,
+    defaultPath: await configuredDefaultDirectory("backupExport"),
+  });
+}
+
+export async function selectContactSheetDestination(
+  fileName: string,
+  format: "jpeg" | "png",
+) {
+  if (!isTauriRuntimeAvailable()) return null;
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save({
+    title: "Save Sakurava Contact Sheet",
+    defaultPath: await configuredDefaultFilePath("contactSheet", fileName),
+    filters: [{
+      name: format === "jpeg" ? "JPEG image" : "PNG image",
+      extensions: [format === "jpeg" ? "jpg" : "png"],
+    }],
   });
 }
 
@@ -204,6 +231,7 @@ export async function selectGalleryFolder() {
 async function selectLocalPath(options: {
   title: string;
   directory?: boolean;
+  defaultPath?: string | null;
   filters?: Array<{ name: string; extensions: string[] }>;
 }) {
   if (!isTauriRuntimeAvailable()) {
@@ -215,6 +243,7 @@ async function selectLocalPath(options: {
     title: options.title,
     multiple: false,
     directory: options.directory ?? false,
+    defaultPath: options.defaultPath ?? undefined,
     filters: options.filters,
   });
 
@@ -254,7 +283,7 @@ export async function selectLanguageCsvExportDestination(languageCode: LanguageC
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
     title: languageCode === "en" ? "Export Custom Language Starter CSV" : `Export Language CSV (${languageCode})`,
-    defaultPath: defaultLanguageCsvFileName(languageCode),
+    defaultPath: await configuredDefaultFilePath("export", defaultLanguageCsvFileName(languageCode)),
     filters: [
       {
         name: "CSV",
@@ -293,7 +322,7 @@ export async function selectTranslationRecoveryJsonDestination() {
   const { save } = await import("@tauri-apps/plugin-dialog");
   return save({
     title: "Export Translation Recovery Evidence",
-    defaultPath: "sakurava-translation-recovery.json",
+    defaultPath: await configuredDefaultFilePath("export", "sakurava-translation-recovery.json"),
     filters: [
       {
         name: "JSON",
@@ -301,4 +330,19 @@ export async function selectTranslationRecoveryJsonDestination() {
       },
     ],
   });
+}
+
+async function configuredDefaultDirectory(category: GlobalOutputCategory) {
+  const parentPath = getGlobalOutputParent();
+  if (!parentPath) return null;
+  return (await prepareGlobalOutputDirectory(parentPath, category)).directoryPath;
+}
+
+async function configuredDefaultFilePath(
+  category: GlobalOutputCategory,
+  fileName: string,
+) {
+  const parentPath = getGlobalOutputParent();
+  if (!parentPath) return fileName;
+  return globalOutputDefaultFilePath(parentPath, category, fileName);
 }

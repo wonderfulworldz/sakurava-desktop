@@ -209,6 +209,12 @@ import {
   getSafeFilterEnabled,
   setSafeFilterEnabled,
 } from "../lib/safeFilterState";
+import {
+  loadGlobalOutputPreferences,
+  saveGlobalOutputPreferences,
+  type GlobalOutputPreferences,
+} from "../lib/globalOutputPreferences";
+import { validateGlobalOutputParent } from "../runtime/globalOutputCommands";
 
 type SettingsRow = {
   label: string;
@@ -342,6 +348,12 @@ type LanguageCsvStatus =
   | { state: "removeConfirm"; code: string; label: string }
   | { state: "applySuccess"; message: string }
   | { state: "cancelled"; message: string }
+  | { state: "error"; message: string };
+
+type GlobalOutputStatus =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "success"; message: string }
   | { state: "error"; message: string };
 
 type TranslationStorageStatus =
@@ -510,6 +522,10 @@ function SettingsPage() {
   const [languageCsvStatus, setLanguageCsvStatus] = useState<LanguageCsvStatus>({
     state: "idle",
   });
+  const [globalOutputPreferences, setGlobalOutputPreferences] =
+    useState<GlobalOutputPreferences>(() => loadGlobalOutputPreferences());
+  const [globalOutputStatus, setGlobalOutputStatus] =
+    useState<GlobalOutputStatus>({ state: "idle" });
   const [translationStorageStatus, setTranslationStorageStatus] =
     useState<TranslationStorageStatus>(() => inspectCurrentTranslationStorage());
   const translationTransactionSequenceRef = useRef(0);
@@ -1203,6 +1219,36 @@ function SettingsPage() {
           error instanceof Error
             ? error.message
             : "Custom language CSV import failed.",
+      });
+    }
+  }
+
+  async function handleChooseGlobalOutputParent() {
+    if (!isDesktopRuntime || globalOutputStatus.state === "pending") return;
+    setGlobalOutputStatus({ state: "pending" });
+    try {
+      const selected = await selectLocalFolder();
+      if (!selected) {
+        setGlobalOutputStatus({ state: "idle" });
+        return;
+      }
+      const validated = await validateGlobalOutputParent(selected);
+      const next: GlobalOutputPreferences = {
+        version: 1,
+        parentPath: validated.parentPath,
+      };
+      if (!saveGlobalOutputPreferences(next)) {
+        throw new Error(t("settings.globalOutput.saveFailed"));
+      }
+      setGlobalOutputPreferences(next);
+      setGlobalOutputStatus({
+        state: "success",
+        message: t("settings.globalOutput.ready"),
+      });
+    } catch (error) {
+      setGlobalOutputStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -2067,6 +2113,8 @@ function SettingsPage() {
           isTranslationStorageUnsafe,
           mediaRootStatus,
           backupStatus,
+          globalOutputPreferences,
+          globalOutputStatus,
           restoreStatus,
           selectedBackupPackage,
           restoreConfirmationOpen,
@@ -2128,6 +2176,7 @@ function SettingsPage() {
           handleRemoveMediaRoot,
           setSelectedMediaRoot,
           handleBackupData,
+          handleChooseGlobalOutputParent,
           handleImportSelectedBackupPackage,
           setBackupNote,
           handleOpenBackupFolder,
@@ -2652,6 +2701,8 @@ function SettingsSection({
     isTranslationStorageUnsafe,
     mediaRootStatus,
     backupStatus,
+    globalOutputPreferences,
+    globalOutputStatus,
     restoreStatus,
     selectedBackupPackage,
     restoreConfirmationOpen,
@@ -2713,6 +2764,7 @@ function SettingsSection({
     handleRemoveMediaRoot,
     setSelectedMediaRoot,
     handleBackupData,
+    handleChooseGlobalOutputParent,
     handleImportSelectedBackupPackage,
     setBackupNote,
     handleOpenBackupFolder,
@@ -2795,6 +2847,44 @@ function SettingsSection({
             <OverviewRow label={t("settings.overview.storage")} value={t("settings.overview.localOffline")} />
           </div>
         </div>
+      </SettingsPanelCard>
+
+      <SettingsPanelCard
+        title={t("settings.globalOutput.title")}
+        icon={FolderOpen}
+        showReset={false}
+      >
+        <ControlRow label={t("settings.globalOutput.parent")} alignStart>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <div>
+              <p
+                className="break-all rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
+                data-testid="global-output-parent"
+              >
+                {globalOutputPreferences.parentPath ?? t("settings.globalOutput.notConfigured")}
+              </p>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {t("settings.globalOutput.helper")}
+              </p>
+            </div>
+            <ShellButton
+              label={globalOutputStatus.state === "pending"
+                ? t("settings.globalOutput.validating")
+                : t("settings.globalOutput.choose")}
+              disabled={!isDesktopRuntime || globalOutputStatus.state === "pending"}
+              onClick={() => void handleChooseGlobalOutputParent()}
+            />
+          </div>
+          {globalOutputStatus.state === "success" ? (
+            <p role="status" className="mt-2 text-sm font-semibold text-emerald-600">
+              {globalOutputStatus.message}
+            </p>
+          ) : globalOutputStatus.state === "error" ? (
+            <p role="alert" className="mt-2 text-sm font-semibold text-rose-600">
+              {globalOutputStatus.message}
+            </p>
+          ) : null}
+        </ControlRow>
       </SettingsPanelCard>
 
       <SettingsPanelCard

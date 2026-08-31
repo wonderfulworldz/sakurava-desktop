@@ -83,6 +83,12 @@ describe("videoPlayerBridge", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.click(screen.getByRole("menuitem", { name: "Open Externally" }));
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: "openExternally" }));
+    fireEvent.click(screen.getByLabelText("Capture screenshot"));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "captureScreenshot",
+      protocolVersion: VIDEO_PLAYER_PROTOCOL_VERSION,
+      sessionId: "session-1",
+    }));
     delete window.chrome;
   });
 

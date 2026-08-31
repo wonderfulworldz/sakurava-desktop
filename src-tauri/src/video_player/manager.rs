@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     ffi::c_void,
     io::{BufRead, BufReader, Write},
     os::windows::io::AsRawHandle,
@@ -19,6 +20,10 @@ use windows::Win32::{
     },
 };
 
+use super::contact_sheet::{
+    cleanup_directory, compose_contact_sheet, ContactSheetExtractionRequest,
+    ContactSheetExtractionResult, ContactSheetGenerationResult, TrustedContactSheetRequest,
+};
 use super::ipc::{MainToHostKind, MainToHostMessage, OpenSourcePayload, PROTOCOL_VERSION};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -29,6 +34,8 @@ pub struct VideoPlayerOpenInput {
     pub resolution: String,
     pub duration_label: String,
     #[serde(default)]
+    pub output_parent: Option<String>,
+    #[serde(default)]
     pub intent: Option<String>,
 }
 
@@ -38,6 +45,7 @@ pub struct TrustedOpenRequest {
     pub canonical_path: PathBuf,
     pub display_name: String,
     pub resolution: String,
+    pub output_parent: Option<String>,
     pub intent: String,
 }
 
@@ -62,6 +70,40 @@ struct ActiveHost {
     session_id: String,
     pid: u32,
     stdin: Arc<Mutex<ChildStdin>>,
+}
+
+struct ActiveExtraction {
+    request_id: String,
+    pid: u32,
+}
+
+#[derive(Default)]
+struct ContactSheetState {
+    active: Option<ActiveExtraction>,
+    artifacts: BTreeMap<PathBuf, PathBuf>,
+}
+
+struct DirectoryCleanupGuard {
+    root: PathBuf,
+    armed: bool,
+}
+
+impl DirectoryCleanupGuard {
+    fn new(root: PathBuf) -> Self {
+        Self { root, armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for DirectoryCleanupGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = cleanup_directory(&self.root);
+        }
+    }
 }
 
 struct KillOnCloseJob(HANDLE);
@@ -123,6 +165,7 @@ impl Drop for KillOnCloseJob {
 pub struct PlaybackHostManager {
     active: Arc<Mutex<Option<ActiveHost>>>,
     resource_root: Arc<PathBuf>,
+    contact_sheet: Arc<Mutex<ContactSheetState>>,
 }
 
 impl PlaybackHostManager {
@@ -130,6 +173,7 @@ impl PlaybackHostManager {
         Self {
             active: Arc::new(Mutex::new(None)),
             resource_root: Arc::new(resource_root),
+            contact_sheet: Arc::new(Mutex::new(ContactSheetState::default())),
         }
     }
 
@@ -163,6 +207,7 @@ impl PlaybackHostManager {
                             canonical_path: request.canonical_path.display().to_string(),
                             display_name: request.display_name,
                             resolution: request.resolution,
+                            output_parent: request.output_parent,
                         }),
                     )?;
                     host.source_identity = request.source_identity.clone();
@@ -245,6 +290,7 @@ impl PlaybackHostManager {
                 canonical_path: request.canonical_path.display().to_string(),
                 display_name: request.display_name,
                 resolution: request.resolution,
+                output_parent: request.output_parent,
             }),
         )?;
 
@@ -289,7 +335,252 @@ impl PlaybackHostManager {
             }
             *active = None;
         }
+        let _ = self.cancel_contact_sheet(None);
+        let roots = self
+            .contact_sheet
+            .lock()
+            .map(|mut state| {
+                let roots = state.artifacts.values().cloned().collect::<Vec<_>>();
+                state.artifacts.clear();
+                roots
+            })
+            .unwrap_or_default();
+        for root in roots {
+            let _ = cleanup_directory(&root);
+        }
     }
+
+    pub fn generate_contact_sheet(
+        &self,
+        request: TrustedContactSheetRequest,
+    ) -> Result<ContactSheetGenerationResult, String> {
+        let request_id = unique_id("contact-sheet");
+        {
+            let state = self
+                .contact_sheet
+                .lock()
+                .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
+            if state.active.is_some() {
+                return Err("CONTACT_SHEET_GENERATION_BUSY".into());
+            }
+        }
+        let base = disposable_or_system_temp_root().join("sakurava-contact-sheet");
+        std::fs::create_dir_all(&base)
+            .map_err(|error| format!("CONTACT_SHEET_TEMP_ROOT_FAILED: {error}"))?;
+        let request_root = base.join(&request_id);
+        let mut cleanup_guard = DirectoryCleanupGuard::new(request_root.clone());
+        let frames = request_root.join("frames");
+        std::fs::create_dir_all(&frames)
+            .map_err(|error| format!("CONTACT_SHEET_TEMP_ROOT_FAILED: {error}"))?;
+        let request_path = request_root.join("request.json");
+        let result_path = request_root.join("result.json");
+        let extraction = ContactSheetExtractionRequest {
+            source_path: request.canonical_path.display().to_string(),
+            grid: request.grid,
+            frame_directory: frames.display().to_string(),
+            result_path: result_path.display().to_string(),
+        };
+        std::fs::write(
+            &request_path,
+            serde_json::to_vec(&extraction)
+                .map_err(|error| format!("CONTACT_SHEET_REQUEST_ENCODE_FAILED: {error}"))?,
+        )
+        .map_err(|error| format!("CONTACT_SHEET_REQUEST_WRITE_FAILED: {error}"))?;
+
+        let host = resolve_media_host_executable(&self.resource_root)
+            .map_err(|error| format!("{}: {}", error.code, error.message))?;
+        let engine = resolve_engine_root(&self.resource_root)
+            .map_err(|error| format!("{}: {}", error.code, error.message))?;
+        let child = Command::new(host)
+            .arg("--engine-root")
+            .arg(engine)
+            .arg("--contact-sheet-request")
+            .arg(&request_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("CONTACT_SHEET_PROCESS_START_FAILED: {error}"))?;
+        let _job = KillOnCloseJob::assign(&child)
+            .map_err(|error| format!("{}: {}", error.code, error.message))?;
+        let pid = child.id();
+        {
+            let mut state = self
+                .contact_sheet
+                .lock()
+                .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
+            state.active = Some(ActiveExtraction {
+                request_id: request_id.clone(),
+                pid,
+            });
+        }
+        let status = child.wait_with_output();
+        {
+            let mut state = self
+                .contact_sheet
+                .lock()
+                .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
+            if state
+                .active
+                .as_ref()
+                .is_some_and(|active| active.request_id == request_id)
+            {
+                state.active = None;
+            }
+        }
+        let output =
+            status.map_err(|error| format!("CONTACT_SHEET_PROCESS_WAIT_FAILED: {error}"))?;
+        if !output.status.success() {
+            let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let _ = cleanup_directory(&request_root);
+            return Err(if detail.is_empty() {
+                "CONTACT_SHEET_EXTRACTION_FAILED".into()
+            } else {
+                format!("CONTACT_SHEET_EXTRACTION_FAILED: {detail}")
+            });
+        }
+        let extracted: ContactSheetExtractionResult = serde_json::from_slice(
+            &std::fs::read(&result_path)
+                .map_err(|error| format!("CONTACT_SHEET_RESULT_READ_FAILED: {error}"))?,
+        )
+        .map_err(|error| format!("CONTACT_SHEET_RESULT_INVALID: {error}"))?;
+        let preview = request_root.join(format!("preview.{}", request.format.extension()));
+        let (width, height) = match compose_contact_sheet(&request, &extracted, &preview) {
+            Ok(dimensions) => dimensions,
+            Err(error) => {
+                let _ = cleanup_directory(&request_root);
+                return Err(error);
+            }
+        };
+        let _ = std::fs::remove_dir_all(&frames);
+        let _ = std::fs::remove_file(&request_path);
+        let _ = std::fs::remove_file(&result_path);
+        let preview = preview
+            .canonicalize()
+            .map_err(|error| format!("CONTACT_SHEET_PREVIEW_INVALID: {error}"))?;
+        self.contact_sheet
+            .lock()
+            .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?
+            .artifacts
+            .insert(preview.clone(), request_root);
+        cleanup_guard.disarm();
+        Ok(ContactSheetGenerationResult {
+            request_id,
+            preview_path: preview.display().to_string(),
+            format: request.format,
+            width,
+            height,
+            frame_count: extracted.frame_paths.len(),
+            sample_seconds: extracted.sample_seconds,
+        })
+    }
+
+    pub fn save_contact_sheet(
+        &self,
+        preview_path: &str,
+        destination_path: &str,
+    ) -> Result<(String, usize), String> {
+        let preview = PathBuf::from(preview_path)
+            .canonicalize()
+            .map_err(|_| "CONTACT_SHEET_PREVIEW_NOT_FOUND".to_string())?;
+        let state = self
+            .contact_sheet
+            .lock()
+            .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
+        if !state.artifacts.contains_key(&preview) {
+            return Err("CONTACT_SHEET_PREVIEW_NOT_OWNED".into());
+        }
+        let destination = PathBuf::from(destination_path.trim());
+        if !destination.is_absolute() || destination.is_dir() {
+            return Err("CONTACT_SHEET_DESTINATION_INVALID".into());
+        }
+        let source_extension = preview
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        let destination_extension = destination
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        if !source_extension.eq_ignore_ascii_case(destination_extension)
+            && !(source_extension.eq_ignore_ascii_case("jpg")
+                && destination_extension.eq_ignore_ascii_case("jpeg"))
+        {
+            return Err("CONTACT_SHEET_DESTINATION_FORMAT_MISMATCH".into());
+        }
+        let parent = destination
+            .parent()
+            .ok_or("CONTACT_SHEET_DESTINATION_INVALID")?;
+        if !parent.is_dir() {
+            return Err("CONTACT_SHEET_DESTINATION_PARENT_INVALID".into());
+        }
+        let bytes = std::fs::copy(&preview, &destination)
+            .map_err(|error| format!("CONTACT_SHEET_SAVE_FAILED: {error}"))?
+            as usize;
+        Ok((destination.display().to_string(), bytes))
+    }
+
+    pub fn cleanup_contact_sheet(&self, preview_path: Option<&str>) -> Result<bool, String> {
+        let Some(path) = preview_path.filter(|value| !value.trim().is_empty()) else {
+            return Ok(false);
+        };
+        let preview = PathBuf::from(path)
+            .canonicalize()
+            .unwrap_or_else(|_| PathBuf::from(path));
+        let root = self
+            .contact_sheet
+            .lock()
+            .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?
+            .artifacts
+            .remove(&preview);
+        if let Some(root) = root {
+            cleanup_directory(&root)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn cancel_contact_sheet(&self, request_id: Option<&str>) -> Result<bool, String> {
+        let state = self
+            .contact_sheet
+            .lock()
+            .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
+        let Some(active) = state.active.as_ref() else {
+            return Ok(false);
+        };
+        if request_id.is_some_and(|value| value != active.request_id) {
+            return Ok(false);
+        }
+        terminate_process(active.pid)?;
+        Ok(true)
+    }
+}
+
+fn disposable_or_system_temp_root() -> PathBuf {
+    std::env::var_os("SAKURAVA_DISPOSABLE_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+}
+
+#[cfg(target_os = "windows")]
+fn terminate_process(pid: u32) -> Result<(), String> {
+    use windows::Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+    };
+    let process = unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) }
+        .map_err(|error| format!("CONTACT_SHEET_CANCEL_FAILED: {error}"))?;
+    let result = unsafe { TerminateProcess(process, 2) };
+    unsafe {
+        let _ = CloseHandle(process);
+    }
+    result.map_err(|error| format!("CONTACT_SHEET_CANCEL_FAILED: {error}"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn terminate_process(_pid: u32) -> Result<(), String> {
+    Err("CONTACT_SHEET_CANCEL_UNAVAILABLE".into())
 }
 
 impl Default for PlaybackHostManager {

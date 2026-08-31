@@ -37,10 +37,13 @@ export type VideoPlayerWindowPayload = {
 
 export type ProductionVideoPlayerOpenInput = Omit<VideoPlayerWindowPayload, "requestId"> & {
   sourceIdentity: string;
+  outputParent: string | null;
   intent?: "open" | "focusExisting" | "replace";
 };
 
-export type ContactSheetWindowPayload = VideoPlayerWindowPayload;
+export type ContactSheetWindowPayload = VideoPlayerWindowPayload & {
+  sourceIdentity: string;
+};
 export type MiniPlayerWindowPayload = VideoPlayerWindowPayload;
 
 export type VideoDimensions = {
@@ -109,7 +112,7 @@ export async function openVideoPlayerWindow(
 }
 
 export async function openContactSheetWindow(
-  input: WindowPayloadInput,
+  input: WindowPayloadInput & { sourceIdentity: string },
 ): Promise<AuxiliaryWindowOpenResult> {
   const payload = createPayload("contact", input);
   return openAuxiliaryWindow({
@@ -333,7 +336,12 @@ export function readStoredVideoPlayerPayload() {
 }
 
 export function readStoredContactSheetPayload() {
-  return readStoredPayload(CONTACT_SHEET_PAYLOAD_STORAGE_KEY);
+  const payload = readStoredPayload(CONTACT_SHEET_PAYLOAD_STORAGE_KEY) as
+    | (VideoPlayerWindowPayload & { sourceIdentity?: unknown })
+    | null;
+  return payload && typeof payload.sourceIdentity === "string" && payload.sourceIdentity.trim()
+    ? payload as ContactSheetWindowPayload
+    : null;
 }
 
 export function readStoredMiniPlayerPayload() {

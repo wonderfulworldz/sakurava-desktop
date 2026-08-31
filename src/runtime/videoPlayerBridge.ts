@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const VIDEO_PLAYER_PROTOCOL_VERSION = 3;
+export const VIDEO_PLAYER_PROTOCOL_VERSION = 4;
 
 export type PlaybackStatus = "connecting" | "loading" | "ready" | "ended" | "error" | "closed";
 
@@ -74,6 +74,8 @@ export type PlayerCommandKind =
   | "setSubtitleAppearance"
   | "setSubtitleDelay"
   | "setSubtitleInset"
+  | "captureScreenshot"
+  | "openScreenshotFolder"
   | "openExternally"
   | "enterFullscreen"
   | "exitFullscreen"
@@ -187,6 +189,8 @@ export function useVideoPlayerBridge() {
     setSubtitleAppearance: (appearance: Record<string, unknown>) => send("setSubtitleAppearance", appearance),
     setSubtitleDelay: (seconds: number) => send("setSubtitleDelay", { seconds }),
     setSubtitleInset: (pixels: number) => send("setSubtitleInset", { pixels }),
+    captureScreenshot: () => send("captureScreenshot"),
+    openScreenshotFolder: () => send("openScreenshotFolder"),
     openExternally: () => send("openExternally"),
     enterFullscreen: () => send("enterFullscreen"),
     exitFullscreen: () => send("exitFullscreen"),

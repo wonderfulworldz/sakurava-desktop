@@ -72,6 +72,48 @@ function productionPlayback(overrides: Partial<VideoPlayerPlaybackAdapter> = {})
 }
 
 describe("VideoPlayerPrototype", () => {
+  it("keeps screenshot capture repeatable and reveals only a proven saved result", () => {
+    vi.useFakeTimers();
+    const capture = vi.fn();
+    const openFolder = vi.fn();
+    const initial = productionPlayback({
+      onCaptureScreenshot: capture,
+      onOpenScreenshotFolder: openFolder,
+      sessionId: "session-screenshot",
+    });
+    const view = render(
+      <LanguageProvider>
+        <VideoPlayerPrototype displayName="Screenshot Fixture" resolution="640 × 360" durationLabel="2 min" playback={initial} />
+      </LanguageProvider>,
+    );
+
+    const captureButton = screen.getByLabelText("Capture screenshot");
+    fireEvent.click(captureButton);
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Capturing screenshot…")).toBeDisabled();
+
+    const completed = productionPlayback({
+      ...initial,
+      commandResult: {
+        commandKind: "captureScreenshot",
+        status: "success",
+        message: "D:\\Output\\Screenshot.png",
+      },
+    });
+    view.rerender(
+      <LanguageProvider>
+        <VideoPlayerPrototype displayName="Screenshot Fixture" resolution="640 × 360" durationLabel="2 min" playback={completed} />
+      </LanguageProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Screenshot saved");
+    fireEvent.click(screen.getByRole("button", { name: "Open containing folder" }));
+    expect(openFolder).toHaveBeenCalledTimes(1);
+
+    act(() => vi.advanceTimersByTime(3500));
+    fireEvent.click(screen.getByLabelText("Capture screenshot"));
+    expect(capture).toHaveBeenCalledTimes(2);
+  });
+
   it("shows bounded command-specific subtitle failure feedback", () => {
     vi.useFakeTimers();
     const playback = productionPlayback({
@@ -269,7 +311,7 @@ describe("VideoPlayerPrototype", () => {
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
     expect(actionLabels).toEqual([
-      "Capture screenshot preview",
+      "Capture screenshot",
       "Player settings",
       "Enter Mini Player mode",
       "Enter fullscreen prototype",

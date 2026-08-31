@@ -4,13 +4,14 @@ use std::{
     cell::RefCell,
     collections::VecDeque,
     ffi::{c_char, c_int, c_void, CString},
+    fs,
     io::{self, BufRead, BufReader, Write},
     path::{Path, PathBuf},
     ptr,
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
     thread,
-    time::Instant,
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
 use webview2_com::Microsoft::Web::WebView2::Win32::{
@@ -85,7 +86,13 @@ use windows::{
 };
 
 use super::source::{open_media_file_with_default_app, validate_external_subtitle_path};
+use crate::output::{
+    prepare_category, publish_unique_file, reveal_file, sanitize_file_component, OutputCategory,
+};
 
+use super::contact_sheet::{
+    sample_schedule, ContactSheetExtractionRequest, ContactSheetExtractionResult,
+};
 use super::ipc::{
     HostToMainKind, HostToMainMessage, HostToPlayerMessage, IpcError, MainToHostKind,
     MainToHostMessage, OpenSourcePayload, PlaybackSnapshot, PlayerCommand, PlayerCommandKind,
@@ -117,6 +124,7 @@ const MPV_EVENT_NONE: c_int = 0;
 const MPV_EVENT_SHUTDOWN: c_int = 1;
 const MPV_EVENT_END_FILE: c_int = 7;
 const MPV_EVENT_FILE_LOADED: c_int = 8;
+const MPV_EVENT_SEEK: c_int = 20;
 const MPV_EVENT_PLAYBACK_RESTART: c_int = 21;
 const MPV_EVENT_QUEUE_OVERFLOW: c_int = 24;
 const MPV_END_FILE_REASON_EOF: c_int = 0;
@@ -175,6 +183,14 @@ struct MpvApi {
 
 impl MpvApi {
     fn load(engine_root: &Path) -> Result<Self, String> {
+        Self::load_with_profile(engine_root, false)
+    }
+
+    fn load_for_extraction(engine_root: &Path) -> Result<Self, String> {
+        Self::load_with_profile(engine_root, true)
+    }
+
+    fn load_with_profile(engine_root: &Path, extraction: bool) -> Result<Self, String> {
         let requested = engine_root
             .join("libmpv-2.dll")
             .canonicalize()
@@ -230,7 +246,7 @@ impl MpvApi {
                 let _ = FreeLibrary(module);
                 return Err("MPV_CONTEXT_CREATE_FAILED".into());
             }
-            let options = [
+            let playback_options = [
                 ("config", "no"),
                 ("load-scripts", "no"),
                 ("input-default-bindings", "no"),
@@ -250,6 +266,30 @@ impl MpvApi {
                 ("d3d11-composition-size", "1180x760"),
                 ("hwdec", "auto-safe"),
             ];
+            let extraction_options = [
+                ("config", "no"),
+                ("load-scripts", "no"),
+                ("input-default-bindings", "no"),
+                ("input-builtin-bindings", "no"),
+                ("input-vo-keyboard", "no"),
+                ("autoload-files", "no"),
+                ("access-references", "no"),
+                ("terminal", "no"),
+                ("idle", "yes"),
+                ("keep-open", "yes"),
+                ("pause", "yes"),
+                ("audio", "no"),
+                ("sid", "no"),
+                ("vo", "gpu-next"),
+                ("gpu-api", "d3d11"),
+                ("gpu-context", "d3d11"),
+                ("hwdec", "no"),
+            ];
+            let options: &[(&str, &str)] = if extraction {
+                &extraction_options
+            } else {
+                &playback_options
+            };
             for (name, value) in options {
                 if call_set_string(set_option_string, context, name, value) < 0 {
                     terminate_destroy(context);
@@ -262,7 +302,11 @@ impl MpvApi {
                 let _ = FreeLibrary(module);
                 return Err("MPV_INITIALIZE_FAILED".into());
             }
-            eprintln!("VIDEO_PLAYER_LIBMPV_CONTEXT_COUNT=1");
+            if extraction {
+                eprintln!("CONTACT_SHEET_EXTRACTION_CONTEXT=STARTED");
+            } else {
+                eprintln!("VIDEO_PLAYER_LIBMPV_CONTEXT_COUNT=1");
+            }
             Ok(Self {
                 module,
                 context,
@@ -401,6 +445,84 @@ impl MpvApi {
         }
         events
     }
+
+    fn wait_for_event(&self, expected: c_int, timeout: std::time::Duration) -> Result<(), String> {
+        let deadline = Instant::now() + timeout;
+        while Instant::now() < deadline {
+            let event = unsafe { (self.wait_event)(self.context, 0.1) };
+            if event.is_null() {
+                continue;
+            }
+            let event = unsafe { &*event };
+            if event.event_id == expected {
+                return Ok(());
+            }
+            if event.event_id == MPV_EVENT_END_FILE && !event.data.is_null() {
+                let end = unsafe { &*(event.data as *const MpvEventEndFile) };
+                if end.error < 0 {
+                    return Err(format!("CONTACT_SHEET_SOURCE_FAILED: {}", end.error));
+                }
+            }
+            if event.event_id == MPV_EVENT_SHUTDOWN {
+                return Err("CONTACT_SHEET_ENGINE_SHUTDOWN".into());
+            }
+        }
+        Err("CONTACT_SHEET_ENGINE_TIMEOUT".into())
+    }
+
+    fn seek_and_wait_for_frame(
+        &self,
+        target_seconds: f64,
+        timeout: std::time::Duration,
+    ) -> Result<f64, String> {
+        self.command(&["seek", &target_seconds.to_string(), "absolute+exact"])?;
+        let deadline = Instant::now() + timeout;
+        let mut saw_current_seek = false;
+        let mut saw_current_restart = false;
+        while Instant::now() < deadline {
+            let event = unsafe { (self.wait_event)(self.context, 0.01) };
+            if !event.is_null() {
+                let event = unsafe { &*event };
+                match event.event_id {
+                    MPV_EVENT_SEEK => {
+                        saw_current_seek = true;
+                        saw_current_restart = false;
+                    }
+                    MPV_EVENT_PLAYBACK_RESTART if saw_current_seek => {
+                        saw_current_restart = true;
+                    }
+                    MPV_EVENT_END_FILE if !event.data.is_null() => {
+                        let end = unsafe { &*(event.data as *const MpvEventEndFile) };
+                        if end.error < 0 {
+                            return Err(format!("CONTACT_SHEET_SOURCE_FAILED: {}", end.error));
+                        }
+                    }
+                    MPV_EVENT_SHUTDOWN => {
+                        return Err("CONTACT_SHEET_ENGINE_SHUTDOWN".into());
+                    }
+                    _ => {}
+                }
+            }
+            let seeking = self.get_flag("seeking");
+            let position = self.get_double("time-pos");
+            if seek_capture_ready(saw_current_seek, saw_current_restart, seeking, position) {
+                return position.ok_or("CONTACT_SHEET_POSITION_INVALID".into());
+            }
+        }
+        Err("CONTACT_SHEET_SEEK_TIMEOUT".into())
+    }
+}
+
+fn seek_capture_ready(
+    saw_current_seek: bool,
+    saw_current_restart: bool,
+    seeking: Option<bool>,
+    position: Option<f64>,
+) -> bool {
+    saw_current_seek
+        && saw_current_restart
+        && seeking == Some(false)
+        && position.is_some_and(|value| value.is_finite() && value >= 0.0)
 }
 
 impl Drop for MpvApi {
@@ -477,6 +599,7 @@ struct HostUi {
     controls_ready_recorded: bool,
     pending_seek: Option<(String, Instant)>,
     last_command_error: Option<IpcError>,
+    last_screenshot_path: Option<PathBuf>,
     queue: Arc<Mutex<VecDeque<MainToHostMessage>>>,
     session: Option<OpenSourcePayload>,
     revision: u64,
@@ -486,6 +609,9 @@ struct HostUi {
 }
 
 pub fn run() -> Result<(), String> {
+    if let Some(request_path) = extraction_request_path() {
+        return run_contact_sheet_extraction(&request_path);
+    }
     let process_started_at = Instant::now();
     let args = parse_args()?;
     require_directory(&args.engine_root, "ENGINE_ROOT_INVALID")?;
@@ -502,6 +628,75 @@ pub fn run() -> Result<(), String> {
         CoUninitialize();
     }
     result
+}
+
+fn extraction_request_path() -> Option<PathBuf> {
+    let values = std::env::args_os().skip(1).collect::<Vec<_>>();
+    values
+        .windows(2)
+        .find(|pair| pair[0] == "--contact-sheet-request")
+        .map(|pair| PathBuf::from(&pair[1]))
+}
+
+fn run_contact_sheet_extraction(request_path: &Path) -> Result<(), String> {
+    let request: ContactSheetExtractionRequest = serde_json::from_slice(
+        &fs::read(request_path)
+            .map_err(|error| format!("CONTACT_SHEET_REQUEST_READ_FAILED: {error}"))?,
+    )
+    .map_err(|error| format!("CONTACT_SHEET_REQUEST_INVALID: {error}"))?;
+    let engine_root = request_path
+        .parent()
+        .and_then(|_| {
+            let values = std::env::args_os().skip(1).collect::<Vec<_>>();
+            values
+                .windows(2)
+                .find(|pair| pair[0] == "--engine-root")
+                .map(|pair| PathBuf::from(&pair[1]))
+        })
+        .ok_or("ENGINE_ROOT_REQUIRED")?;
+    require_directory(&engine_root, "ENGINE_ROOT_INVALID")?;
+    let frame_directory = PathBuf::from(&request.frame_directory);
+    fs::create_dir_all(&frame_directory)
+        .map_err(|error| format!("CONTACT_SHEET_FRAME_DIRECTORY_FAILED: {error}"))?;
+    let mpv = MpvApi::load_for_extraction(&engine_root)?;
+    mpv.command(&["loadfile", &request.source_path, "replace"])?;
+    mpv.wait_for_event(MPV_EVENT_FILE_LOADED, std::time::Duration::from_secs(15))?;
+    let duration = mpv
+        .get_double("duration")
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("CONTACT_SHEET_DURATION_INVALID")?;
+    let requested_samples = sample_schedule(
+        duration,
+        usize::from(request.grid) * usize::from(request.grid),
+    )?;
+    let mut sample_seconds = Vec::with_capacity(requested_samples.len());
+    let mut frame_paths = Vec::with_capacity(requested_samples.len());
+    for (index, requested_seconds) in requested_samples.iter().enumerate() {
+        let captured_seconds =
+            mpv.seek_and_wait_for_frame(*requested_seconds, std::time::Duration::from_secs(10))?;
+        let frame = frame_directory.join(format!("frame-{index:02}.png"));
+        mpv.command(&["screenshot-to-file", &frame.display().to_string(), "video"])?;
+        let bytes = fs::read(&frame)
+            .map_err(|error| format!("CONTACT_SHEET_FRAME_READ_FAILED: {error}"))?;
+        if bytes.len() < 32 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+            return Err("CONTACT_SHEET_FRAME_INVALID".into());
+        }
+        sample_seconds.push(captured_seconds);
+        frame_paths.push(frame.display().to_string());
+    }
+    let result = ContactSheetExtractionResult {
+        duration_seconds: duration,
+        sample_seconds,
+        frame_paths,
+    };
+    fs::write(
+        &request.result_path,
+        serde_json::to_vec(&result)
+            .map_err(|error| format!("CONTACT_SHEET_RESULT_ENCODE_FAILED: {error}"))?,
+    )
+    .map_err(|error| format!("CONTACT_SHEET_RESULT_WRITE_FAILED: {error}"))?;
+    eprintln!("CONTACT_SHEET_EXTRACTION_CONTEXT=COMPLETED");
+    Ok(())
 }
 
 fn run_ui(args: HostArgs, process_started_at: Instant) -> Result<(), String> {
@@ -534,6 +729,7 @@ fn run_ui(args: HostArgs, process_started_at: Instant) -> Result<(), String> {
         controls_ready_recorded: false,
         pending_seek: None,
         last_command_error: None,
+        last_screenshot_path: None,
         queue: queue.clone(),
         session: None,
         revision: 0,
@@ -1191,6 +1387,21 @@ fn handle_player_command(
                 .mpv
                 .set_property("sub-margin-y", &pixels.round().to_string())?;
         }
+        PlayerCommandKind::CaptureScreenshot => {
+            let saved = capture_screenshot(state, &command.request_id)?;
+            state.last_screenshot_path = Some(saved.clone());
+            result_code = Some("VIDEO_SCREENSHOT_SAVED".into());
+            result_message = Some(saved.display().to_string());
+        }
+        PlayerCommandKind::OpenScreenshotFolder => {
+            let saved = state
+                .last_screenshot_path
+                .as_ref()
+                .ok_or("VIDEO_SCREENSHOT_NOT_AVAILABLE")?;
+            reveal_file(&saved.display().to_string())?;
+            result_code = Some("VIDEO_SCREENSHOT_FOLDER_OPENED".into());
+            result_message = Some(saved.display().to_string());
+        }
         PlayerCommandKind::OpenExternally => {
             let source = state.session.as_ref().ok_or("SESSION_NOT_OPEN")?;
             open_media_file_with_default_app(Path::new(&source.canonical_path))?;
@@ -1234,6 +1445,44 @@ fn handle_player_command(
         post_web_message(&webview.webview, &event)?;
     }
     Ok(())
+}
+
+fn capture_screenshot(state: &mut HostUi, request_id: &str) -> Result<PathBuf, String> {
+    let session = state.session.as_ref().ok_or("SESSION_NOT_OPEN")?;
+    let parent = session
+        .output_parent
+        .as_deref()
+        .ok_or("GLOBAL_OUTPUT_PARENT_NOT_CONFIGURED")?;
+    let prepared = prepare_category(parent, OutputCategory::VideoScreenshot)?;
+    let directory = PathBuf::from(prepared.directory_path);
+    let request_token = sanitize_file_component(request_id, "request");
+    let temporary = directory.join(format!(".sakurava-screenshot-{request_token}.png"));
+    if temporary.exists() {
+        return Err("VIDEO_SCREENSHOT_TEMP_COLLISION".into());
+    }
+    let temporary_text = temporary.display().to_string();
+    let capture = state
+        .mpv
+        .command(&["screenshot-to-file", &temporary_text, "subtitles"]);
+    if let Err(error) = capture {
+        let _ = fs::remove_file(&temporary);
+        return Err(format!("VIDEO_SCREENSHOT_CAPTURE_FAILED: {error}"));
+    }
+    let bytes =
+        fs::read(&temporary).map_err(|error| format!("VIDEO_SCREENSHOT_READ_FAILED: {error}"))?;
+    if bytes.len() < 32 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        let _ = fs::remove_file(&temporary);
+        return Err("VIDEO_SCREENSHOT_INVALID_PNG".into());
+    }
+    let title = sanitize_file_component(&session.display_name, "Video");
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "VIDEO_SCREENSHOT_CLOCK_INVALID")?
+        .as_millis();
+    let base_name = format!("Sakurava Screenshot - {title} - {timestamp}");
+    let result = publish_unique_file(&temporary, &directory, &base_name, "png");
+    let _ = fs::remove_file(&temporary);
+    result.map_err(|error| format!("VIDEO_SCREENSHOT_SAVE_FAILED: {error}"))
 }
 
 fn apply_subtitle_appearance(state: &mut HostUi, command: &PlayerCommand) -> Result<(), String> {
@@ -2535,6 +2784,16 @@ mod tests {
         assert_eq!(parse_resolution_ratio("1080x1920"), Some(1080.0 / 1920.0));
         assert_eq!(parse_resolution_ratio("0x1080"), None);
         assert_eq!(parse_resolution_ratio("unknown"), None);
+    }
+
+    #[test]
+    fn contact_sheet_capture_requires_current_seek_restart_and_completed_seek() {
+        assert!(!seek_capture_ready(false, true, Some(false), Some(6.0)));
+        assert!(!seek_capture_ready(true, false, Some(false), Some(6.0)));
+        assert!(!seek_capture_ready(true, true, Some(true), Some(6.0)));
+        assert!(!seek_capture_ready(true, true, Some(false), None));
+        assert!(!seek_capture_ready(true, true, Some(false), Some(f64::NAN)));
+        assert!(seek_capture_ready(true, true, Some(false), Some(6.0)));
     }
 
     #[test]

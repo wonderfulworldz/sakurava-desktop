@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +17,8 @@ pub struct OpenSourcePayload {
     pub canonical_path: String,
     pub display_name: String,
     pub resolution: String,
+    #[serde(default)]
+    pub output_parent: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -122,6 +124,8 @@ pub enum PlayerCommandKind {
     SetSubtitleAppearance,
     SetSubtitleDelay,
     SetSubtitleInset,
+    CaptureScreenshot,
+    OpenScreenshotFolder,
     OpenExternally,
     EnterFullscreen,
     ExitFullscreen,
@@ -212,6 +216,7 @@ mod tests {
                 canonical_path: r"D:\fixtures\video.mp4".into(),
                 display_name: "Fixture".into(),
                 resolution: "1920 × 1080".into(),
+                output_parent: None,
             }),
         };
         let encoded = serde_json::to_string(&message).unwrap();
@@ -235,6 +240,7 @@ mod tests {
             canonical_path: r"D:\fixtures\replacement.mp4".into(),
             display_name: "Replacement".into(),
             resolution: "1280 × 720".into(),
+            output_parent: None,
         };
         let message = MainToHostMessage {
             protocol_version: PROTOCOL_VERSION,

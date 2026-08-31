@@ -3235,6 +3235,7 @@ describe("App", () => {
       .toBeInTheDocument();
     for (const section of [
       "Overview",
+      "Global Default Save Location",
       "Appearance",
       "Language",
       "Catalog Preferences",
@@ -6867,6 +6868,42 @@ describe("App", () => {
     expect(
       invoke.mock.calls.some(([command]) => command === "backup_package_restore"),
     ).toBe(false);
+  });
+
+  it("persists Global Default Save Location only after native validation", async () => {
+    window.history.pushState({}, "", "/settings");
+    const selectedRoot = "D:/Disposable/Output";
+    const canonicalRoot = "\\\\?\\D:\\Disposable\\Output";
+    const invoke = vi.fn(async (command: string, args: Record<string, any>) => {
+      if (command === "global_output_validate_parent") {
+        expect(args.parentPath).toBe(selectedRoot);
+        return {
+          parentPath: canonicalRoot,
+          childPaths: {
+            backupExport: `${canonicalRoot}\\Backups`,
+            export: `${canonicalRoot}\\Exports`,
+            videoScreenshot: `${canonicalRoot}\\Video Screenshots`,
+            contactSheet: `${canonicalRoot}\\Contact Sheets`,
+          },
+        };
+      }
+      throw new Error(`Unexpected command ${command}`);
+    }) as unknown as TestTauriInvoke;
+    window.__TAURI_INTERNALS__ = { invoke };
+    dialogMocks.open.mockResolvedValue(selectedRoot);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose Folder…" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("global-output-parent")).toHaveTextContent(
+        canonicalRoot,
+      ),
+    );
+    expect(window.localStorage.getItem("sakurava.globalOutput.v1")).toBe(
+      JSON.stringify({ version: 1, parentPath: canonicalRoot }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Output folders are ready.");
   });
 
   it("confirms restore of an imported package using packageName only", async () => {

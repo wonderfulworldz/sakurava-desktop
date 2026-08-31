@@ -59,7 +59,19 @@ describe("Video Player auxiliary-window ownership", () => {
     expect(contactCapability.permissions).toEqual([
       "core:default",
       "core:window:allow-close",
+      "core:window:allow-destroy",
       "core:window:allow-set-focus",
+      "dialog:allow-save",
     ]);
+  });
+
+  it("cleans Contact Sheet artifacts before native window close completes", () => {
+    expect(contactSheetSource).toContain("onCloseRequested");
+    expect(contactSheetSource).toContain("event.preventDefault()");
+    expect(contactSheetSource).toContain("await cancelContactSheet(null)");
+    expect(contactSheetSource).toContain("await cleanupContactSheet(previewRef.current)");
+    expect(contactSheetSource.indexOf("await cleanupContactSheet(previewRef.current)")).toBeLessThan(
+      contactSheetSource.indexOf("await appWindow.destroy()"),
+    );
   });
 });
