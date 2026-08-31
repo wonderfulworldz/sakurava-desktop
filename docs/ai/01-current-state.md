@@ -1,5 +1,107 @@
 # Sakurava Current State
 
+## Video Player Operator-Feedback Reconciliation — 2026-09-01
+
+This section is the newest current-state authority. Older Video Player
+completion contracts below are historical when they conflict with this
+reconciliation.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+recorded_head: 33d654e0f0aaef6a787c69f4093282d2edc56482
+fresh_origin_main: 33d654e0f0aaef6a787c69f4093282d2edc56482
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+current_administrative_task: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_1_commit: e537e5c42b235f373e5347a442cbb79f4290c394
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_2_commit: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_3: NOT_STARTED
+video_player_pre_objective_3_operator_feedback_corrective_gate: READY_PENDING_SEPARATE_EXECUTION_AFTER_PROJECT_OS_RECONCILIATION_REVIEW
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Objective 1 delivered External SRT, Player interaction/subtitle work, the prior
+auto-hide contract, gestures, subtitle settings, the Video Player preference
+foundation, shortcut persistence, and different-source UX. Objective 2
+delivered the Global Output platform, real Screenshot and Contact Sheet
+outputs, corrected Contact Sheet sampling and normal cleanup, and
+Backup/Export default-child integration. These deliveries are accepted, but
+final Video Player product acceptance has not passed.
+
+Fresh real-app feedback is `OBSERVED_BY_OPERATOR`: controls do not auto-hide
+correctly after popup/dropdown interaction; subtitles do not correctly clear
+visible bottom controls; shortcuts are not immediately active when the Player
+first opens; Contact Sheet should move from Video Detail to the Player popup
+menu under `Sheet / Thumbnail`; Contact Sheet output should follow a compact,
+useful MPC-like information-density reference; and Subtitle Appearance should
+be nested under `Subtitle / CC`. None of these observations is recorded as
+corrected.
+
+The replacement auto-hide contract uses `AUTO_HIDE_IDLE_MS = 2500`. Pointer
+movement reveals controls and restarts the timer. Paused state alone does not
+force controls visible, and keyboard playback shortcuts, including Play/Pause,
+do not reveal the full controls merely because they were used. Interaction
+with controls, timeline, volume, menus, subtitle/settings/shortcut UI, or
+another Player-owned popup holds controls visible. After a popup closes,
+controls remain visible while a hold condition remains; otherwise the 2.5
+second timer restarts.
+
+When bottom controls are visible, subtitles must clear the actual rendered
+control/timeline geometry. When controls hide, subtitles return to their
+configured base position. This dynamic safe-area behavior is approved but not
+yet implemented. Subtitle Appearance moves inside `Subtitle / CC`, alongside
+tracks, external loading, options, delay, and reset behavior. Player keyboard
+shortcuts must be active immediately on open without stealing input from an
+active input, select, or dialog field.
+
+Contact Sheet is a Player feature whose primary entry is Player popup menu
+`Sheet / Thumbnail`; the Video Detail Contact Sheet button is planned for
+removal during corrective implementation and has not already been removed.
+Manual positive Rows and Columns are supported up to `ROWS_MAX = 8`,
+`COLUMNS_MAX = 24`, and `TOTAL_MAX = 192`. The former fixed 3x3/4x4/5x5 and
+25-frame contract is superseded. Large grids remain bounded, cancellable,
+progress-visible when needed, resource-safe, and non-blocking to the
+authoritative playback session; scaling the current implementation to 192
+requires targeted terrain/resource analysis.
+
+The approved MPC-like product reference concerns behavior and information
+density, not copied source, pixels, or branding. Output uses a metadata header
+with file name, file size, resolution, duration, and an existing approved
+Sakurava logo on the opposite side when a suitable asset is available.
+Thumbnails use compact consistent spacing, timestamps overlay the image near
+the bottom-right with bounded readability treatment, and no unnecessary black
+band is added below each image. Options cover Rows, Columns, width, JPEG
+quality for JPEG, JPEG/PNG, timestamp, and header.
+
+The existing Video Player preference foundation is extended, not replaced.
+Remembered preferences are playback speed, volume, mute, subtitle appearance,
+shortcut mapping, and Contact Sheet rows, columns, image width, JPEG quality,
+format, timestamp toggle, and header toggle. Window/PiP geometry is optional
+only if a future terrain audit proves a safe existing machine-local owner.
+Play/Pause, fullscreen, and subtitle delay remain session-only; playback resume
+position and the deferred centralized Remember architecture are out of scope.
+
+Future sidecar discovery is bounded to the opened video's own directory,
+without recursion, for `.srt`, `.ass`, and `.ssa` files matching the exact
+video basename or common language suffixes. Exact-basename matches receive
+appropriate priority and discovered tracks remain under `Subtitle / CC`.
+Subtitle drag/drop accepts those same extensions, reuses the existing safe
+External Subtitle validation/load/activation path, and provides bounded
+success/failure feedback without expanding arbitrary file-drop behavior.
+
+The unnumbered
+`VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE` must complete
+before Objective 3 begins. It is corrective work against accepted Objective 1
+and 2 surfaces, not Objective 4 or a nested/suffix stage. This documentation
+records approved product direction only and grants no technical execution.
+
 ## Video Player Completion Authority — 2026-08-30
 
 This section is the newest current-state authority. Older baseline, Video

@@ -11,6 +11,58 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-29 — Accepted Video Player WIP Delivered and Project OS Reconciled
+
+date: 2026-08-29
+session_type: VIDEO_PLAYER_ACCEPTED_WIP_GIT_DELIVERY_AND_PROJECT_OS_CLOSURE
+operator_decision: EXPLICIT_FULL_CLOSURE_AUTHORIZATION
+recorded_head: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
+historical_source: 4b9cc5bd1c2ea91a73da049da35b67d8399132b9
+project_brain_v2_migration: c82a02f17732ccea941ee072b5842907f32b6057
+authority_state: CANONICAL_00_07_AUTHORITY_RESTORED
+project_os_recovery: COMPLETED_AND_ACCEPTED
+external_exporter_recovery: COMPLETED_AND_ACCEPTED
+external_exporter_canonical_adaptation: COMPLETED_AND_ACCEPTED
+canonical_export_manifest: NINE_ACTIVE_CANONICAL_INPUTS
+canonical_brain_generation_validation: COMPLETED_AND_ACCEPTED
+project_chatgpt_source_refresh: COMPLETED_OBSERVED_BY_OPERATOR
+project_chatgpt_source_refresh_evidence: OBSERVED_BY_OPERATOR
+video_player_final_adoption: VIDEO_PLAYER_MPV_FINAL_ADOPTION_APPROVED
+video_player_stage_3_closure: COMPLETED_AND_ACCEPTED
+video_player_stage_4: DOES_NOT_EXIST
+video_player_git_delivery: COMPLETED_AND_SYNCHRONIZED
+video_player_application_commit: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
+video_player_application_parent: b8d1eca7304ef661578df3d710be7ca465d2daa0
+video_player_remote_delivery: NORMAL_NON_FORCE_PUSH_COMPLETED_0_AHEAD_0_BEHIND
+application_delivery_source_mutation: NONE
+technical_permissions: false
+project_os_documentation_delivery: COMPLETED_AND_SYNCHRONIZED
+project_os_terminal_closure: COMPLETED_AND_CLOSED
+final_documentation_git_closure: COMPLETED
+current_administrative_task: NONE
+next_action: PRODUCT_OR_GOVERNANCE_DECISION_REQUIRED_BEFORE_NEW_TECHNICAL_WORK
+
+Project Brain V2 migration was implemented and accepted at that time, but the
+later authority recovery audit found the old semantic responsibilities only
+partially represented. The canonical `00`–`07` Project OS, ledger archive, and
+boot prompt were restored and reconciled with legitimate post-migration state.
+The external exporter was recovered, narrowly adapted to the fixed nine-input
+canonical manifest, and used to generate and validate one downstream Brain.
+The operator then completed the Project ChatGPT Source refresh. The already
+accepted Video Player WIP was classified into an exact 40-path delivery and
+committed without application source mutation during this closure. Commit
+`a09dea1fa650af5f7bd0a0a5bc20b556077f5b12` was pushed normally and verified
+synchronized with `origin/main`. Exact-path Project OS delivery and the
+post-commit Brain regeneration/validation are complete. The operator's prior
+Project ChatGPT Source replacement remains `OBSERVED_BY_OPERATOR`; any later
+replacement is external synchronization and does not reopen repository state.
+The V2 documents, protected unrelated application WIP, and proof evidence
+remain untouched. Legal review, Screenshot, different-source UX, Contact
+Sheet, proof cleanup, and Batch 42.9 remain separate gates; no application or
+administrative stage is active.
+
+---
+
 ## 2026-08-13 — Manual Regenerate Closure and Feature Queue Reconciled
 
 date: 2026-08-13

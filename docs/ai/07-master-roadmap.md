@@ -1,5 +1,68 @@
 # Sakurava Master Roadmap
 
+## Video Player Pre-Objective-3 Corrective Gate — 2026-09-01
+
+This section supersedes conflicting current Video Player product-contract and
+next-action wording below. The accepted architecture and exactly three
+completion objectives remain unchanged.
+
+recorded_application_baseline: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_1_commit: e537e5c42b235f373e5347a442cbb79f4290c394
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_2_commit: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: READY_PENDING_SEPARATE_EXECUTION_AFTER_PROJECT_OS_RECONCILIATION_REVIEW
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_application_permissions: NONE
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Objective 1 delivered and accepted Player interaction/subtitle completion.
+Objective 2 delivered and accepted the Global Output platform, real Screenshot
+and Contact Sheet, corrected Contact Sheet sampling and cleanup, and
+Backup/Export default-child integration. Final Video Player product acceptance
+has not passed because fresh `OBSERVED_BY_OPERATOR` feedback changed visible
+contracts before Objective 3.
+
+The unnumbered corrective gate must complete before Objective 3 and includes:
+
+1. replace the older three-second/paused-visible auto-hide contract with
+   `AUTO_HIDE_IDLE_MS = 2500`, pointer-led reveal/reset, interaction holds, and
+   no full-control reveal from keyboard playback shortcuts alone;
+2. move subtitles above actual rendered bottom-control geometry while controls
+   are visible and restore the configured base position when hidden;
+3. make Player shortcuts active immediately on open without stealing keyboard
+   input from focused editable controls;
+4. make Player popup menu `Sheet / Thumbnail` the primary Contact Sheet entry
+   and remove the Detail-page button during corrective implementation;
+5. replace fixed grids with manual positive Rows and Columns bounded at 8 x 24
+   and 192 total, with cancellable/progress-visible/resource-safe large-grid
+   behavior subject to targeted terrain analysis;
+6. refine Contact Sheet toward compact MPC-like information density without
+   copying MPC code, pixels, or branding: metadata header, suitable existing
+   Sakurava logo, efficient cells, timestamp overlay, and remembered Rows,
+   Columns, width, JPEG quality, format, timestamp, and header settings;
+7. nest Subtitle Appearance under `Subtitle / CC`;
+8. extend the existing Player preference owner for playback speed, volume,
+   mute, and the approved Contact Sheet options while keeping Play/Pause,
+   fullscreen, and subtitle delay session-only;
+9. add bounded non-recursive same-directory `.srt`/`.ass`/`.ssa` sidecar
+   discovery for exact-basename and language-suffix matches, plus subtitle-only
+   drag/drop through the existing safe External Subtitle path.
+
+Window/PiP geometry is optional only if terrain proves a safe existing
+machine-local owner. Playback resume position, a new general Remember
+framework, online subtitle lookup, arbitrary file drop, new branding assets,
+and unproven scaling of the current 25-frame implementation are not authorized.
+
+Objective 3 remains the final integrated-acceptance objective and is
+`NOT_STARTED`. No Objective 4 or suffix/nested stage exists. This roadmap
+records approved product direction but grants no implementation, runtime,
+test/build, Git-delivery, Batch 42.9, legal/distribution, proof-cleanup, or V2
+disposition authority.
+
 ## Video Player Product Completion Gate — 2026-08-30
 
 This section supersedes older current Video Player gate, product-decision,

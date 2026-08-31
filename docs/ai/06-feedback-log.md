@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 13
+active_count: 12
 
 ### FEEDBACK-2026-08-13-NOTIFICATION-HISTORY — Notification System / Notification History
 
@@ -30,58 +30,96 @@ last_updated: 2026-08-11
 
 ## Active Feedback
 
+### FEEDBACK-2026-09-01-VIDEO-PLAYER-PRE-OBJECTIVE-3-CORRECTIVE — Operator Feedback Before Final Acceptance
+
+date: 2026-09-01
+batch: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+type: APPROVED_PRODUCT_DIRECTION
+status: APPROVED_PENDING_CORRECTIVE_IMPLEMENTATION
+evidence: OBSERVED_BY_OPERATOR
+risk: MEDIUM
+placement: BEFORE_VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE
+
+After accepted Objective 1 and Objective 2 delivery, the operator reports that
+controls do not auto-hide correctly after popup/dropdown interaction,
+subtitles do not clear visible bottom controls correctly, and Player shortcuts
+are not immediately usable on first open until the control/menu layer is
+interacted with. The operator also directs Contact Sheet to Player popup menu
+`Sheet / Thumbnail`, requests compact MPC-like output behavior and information
+density, and places Subtitle Appearance inside `Subtitle / CC`. These are
+`OBSERVED_BY_OPERATOR` product-completion issues and are not yet corrected.
+
+The approved replacement auto-hide contract is 2.5 seconds, pointer-led
+reveal/reset, active interaction holds, no paused-state visibility guarantee,
+and no full-control reveal caused solely by keyboard playback shortcuts.
+Subtitle avoidance must use actual visible bottom-overlay geometry and return
+to the configured base position when controls hide. Shortcuts must work on
+initial Player open while preserving focused input/select/dialog behavior.
+
+Contact Sheet becomes a Player feature with one primary menu entry; the Video
+Detail button is planned for removal. Manual Rows and Columns are bounded by
+8 rows, 24 columns, and 192 total thumbnails. Output direction uses compact
+cells, timestamp overlays, a file-name/size/resolution/duration header, and a
+suitable existing Sakurava logo rather than MPC branding. Remembered options
+are rows, columns, width, JPEG quality, JPEG/PNG, timestamp, and header.
+
+The existing Video Player preference foundation also remembers playback speed,
+volume, and mute while retaining subtitle appearance and shortcuts. Play/Pause,
+fullscreen, and subtitle delay remain session-only. Sidecar subtitle discovery
+is bounded to the video's own directory for matching `.srt`, `.ass`, and `.ssa`
+files without recursion; subtitle-only drag/drop reuses the existing safe
+External Subtitle path with visible feedback. The product direction is
+approved, but technical execution requires separate authorization after this
+Project OS reconciliation receives Result Review.
+
 ### FEEDBACK-2026-08-29-VIDEO-SCREENSHOT-CONTRACT — Screenshot Product Decision
 
 date: 2026-08-29
 batch: VIDEO_PLAYER_REMAINING_PRODUCT_GATES
-type: APPROVED_PRODUCT_DIRECTION
-status: APPROVED_PENDING_IMPLEMENTATION
-evidence: OBSERVED_BY_OPERATOR
+type: RESOLVED_REQUEST
+status: RESOLVED
+evidence: OBSERVED_BY_OPERATOR; REPORTED_BY_CODEX; PROVEN_BY_STATIC_SOURCE
 risk: MEDIUM
 placement: VIDEO_PLAYER_OBJECTIVE_2_GLOBAL_OUTPUT_PLATFORM_AND_REAL_MEDIA_OUTPUTS
 
-The visible Camera control remains `MOCK_ONLY`; implementation is not complete.
-The approved contract is real PNG output by default, visible subtitles
-included, Sakurava React controls excluded, repeated collision-safe captures,
-clear success/failure feedback, and Open containing folder. Output uses the
-configured `Video Screenshots` child under one global machine-local parent.
-This product decision does not authorize Objective 2 implementation.
+The approved real Screenshot contract was delivered and accepted in Objective
+2 commit `33d654e0f0aaef6a787c69f4093282d2edc56482`. This resolved request does
+not imply final Video Player acceptance or authorize the new corrective gate.
 
 ### FEEDBACK-2026-08-29-VIDEO-DIFFERENT-SOURCE-UX — Active-Session Different-Source UX
 
 date: 2026-08-29
 batch: VIDEO_PLAYER_REMAINING_PRODUCT_GATES
-type: APPROVED_PRODUCT_DIRECTION
-status: APPROVED_PENDING_IMPLEMENTATION
-evidence: OBSERVED_BY_OPERATOR
+type: RESOLVED_REQUEST
+status: RESOLVED
+evidence: OBSERVED_BY_OPERATOR; REPORTED_BY_CODEX; PROVEN_BY_STATIC_SOURCE
 risk: MEDIUM
 placement: VIDEO_PLAYER_OBJECTIVE_1_PLAYER_INTERACTION_AND_SUBTITLE_COMPLETION
 
-Same-source requests focus the active presentation. A different source while a
-session is active currently returns typed `ACTIVE_SESSION_DIFFERENT_SOURCE`
-rejection. The approved visible behavior presents `Focus Existing`, `Replace`,
-and `Cancel`; replacement occurs only after explicit choice and must preserve
-one authoritative session/source without a simultaneous second decoder. This
-decision is not yet implemented and does not authorize Objective 1.
+Same-source focus and explicit different-source `Focus Existing`, `Replace`,
+and `Cancel` behavior were delivered and accepted in Objective 1 commit
+`e537e5c42b235f373e5347a442cbb79f4290c394`, preserving one authoritative
+session/source. This resolved request does not imply final Player acceptance.
 
 ### FEEDBACK-2026-08-29-CONTACT-SHEET — Contact Sheet Generation and Save
 
-date: 2026-08-29
-batch: VIDEO_PLAYER_REMAINING_PRODUCT_GATES
-type: APPROVED_PRODUCT_DIRECTION
-status: APPROVED_PENDING_IMPLEMENTATION
+date: 2026-09-01
+batch: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+type: SUPERSEDED_PRODUCT_DIRECTION
+status: APPROVED_PENDING_CORRECTIVE_IMPLEMENTATION
 evidence: OBSERVED_BY_OPERATOR
 risk: MEDIUM
-placement: VIDEO_PLAYER_OBJECTIVE_2_GLOBAL_OUTPUT_PLATFORM_AND_REAL_MEDIA_OUTPUTS
+placement: BEFORE_VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE
 
-Contact Sheet remains `MOCK_ONLY`; implementation is not complete. The approved
-contract is bounded on-demand extraction that does not disturb the
-authoritative playback session or add a permanent second decoder. It provides
-3x3, 4x4, and 5x5 grids; 4x4 default; approximately 5%-95% even sampling;
-timestamps ON; metadata/header OFF; JPEG default with PNG available; Preview
-before Save; cancellation/cleanup; and an initial maximum of 25 frames. Output
-uses the configured `Contact Sheets` child under the global machine-local
-parent. This product decision does not authorize Objective 2 implementation.
+The real Contact Sheet was delivered and accepted in Objective 2 commit
+`33d654e0f0aaef6a787c69f4093282d2edc56482`, including corrected sampling and
+normal cleanup. Fresh operator direction supersedes the former fixed-grid and
+25-frame product contract. Corrective work moves the primary entry to Player
+popup menu `Sheet / Thumbnail`, removes the Detail-page button, supports manual
+Rows and Columns up to 8 x 24 and 192 total, and refines output toward compact
+MPC-like information density with timestamp overlays, metadata header, and
+appropriate existing Sakurava branding. Large-grid scaling requires targeted
+terrain/resource analysis and separate technical authorization.
 
 ### FEEDBACK-2026-07-22-FRONTEND-CHANGE-NOTIFICATION — Frontend Change Notification
 

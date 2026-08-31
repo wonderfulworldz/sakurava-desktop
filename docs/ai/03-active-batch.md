@@ -1,5 +1,67 @@
 # Sakurava Active Batch
 
+## Video Player Operator-Feedback Corrective Gate — 2026-09-01
+
+recorded_application_baseline: 33d654e0f0aaef6a787c69f4093282d2edc56482
+recorded_origin_main: 33d654e0f0aaef6a787c69f4093282d2edc56482
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+staging_authorized: false
+commit_authorized: false
+push_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_1_commit: e537e5c42b235f373e5347a442cbb79f4290c394
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_2_commit: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: READY_PENDING_SEPARATE_EXECUTION_AFTER_PROJECT_OS_RECONCILIATION_REVIEW
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Objective 1 and Objective 2 are delivered and accepted. Fresh
+`OBSERVED_BY_OPERATOR` feedback supersedes parts of the earlier completion
+contract, but has not been corrected. The unnumbered corrective gate owns the
+replacement 2.5-second pointer-led auto-hide behavior, actual-geometry subtitle
+safe area, immediate-on-open Player shortcuts, Contact Sheet relocation and
+MPC-like output refinement, nested Subtitle Appearance, additional Player
+preference persistence, bounded sidecar subtitle discovery, and subtitle
+drag/drop.
+
+Current approved corrective product boundaries are:
+
+- controls hide after 2.5 seconds without a hold condition; paused state and
+  keyboard playback shortcuts alone do not reveal or force visible controls;
+- visible bottom-control geometry raises subtitles, and hidden controls restore
+  the configured base position;
+- shortcuts work immediately at Player open while respecting focused editable
+  controls;
+- Player popup menu `Sheet / Thumbnail` becomes the primary Contact Sheet
+  entry, while the Detail-page button is removed only during future corrective
+  implementation;
+- Contact Sheet accepts manual Rows and Columns up to 8 x 24 and 192 total,
+  with compact thumbnails, timestamp overlay, metadata header, Sakurava
+  branding, remembered output options, and targeted resource analysis before
+  the present implementation is scaled;
+- Subtitle Appearance moves under `Subtitle / CC`;
+- the existing Player preference owner is extended for speed, volume, mute,
+  and Contact Sheet settings without creating a general Remember framework;
+- sidecar `.srt`/`.ass`/`.ssa` discovery is local-directory-only and bounded;
+  subtitle drag/drop reuses the safe External Subtitle path.
+
+No technical work is active or authorized. Objective 3 remains the third and
+final integrated-acceptance objective and has not started. No Objective 4,
+suffix stage, nested stage, or retry stage exists. Batch 42.9 remains blocked
+through corrective-gate completion, Objective 3, final operator acceptance, and
+subsequent Project OS closure.
+
 ## Video Player Completion Reconciliation — 2026-08-30
 
 recorded_application_baseline: 5cdca7088016a4ab6c1c030f148d59f90cd4359d

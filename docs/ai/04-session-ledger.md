@@ -73,6 +73,50 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-01 — Video Player Operator Feedback Reconciled Before Objective 3
+
+date: 2026-09-01
+session_type: PROJECT_OS_VIDEO_PLAYER_OPERATOR_FEEDBACK_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_PRODUCT_AUTHORITY_RECONCILIATION
+recorded_application_baseline: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_1_commit: e537e5c42b235f373e5347a442cbb79f4290c394
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_2_commit: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: READY_PENDING_SEPARATE_EXECUTION_AFTER_PROJECT_OS_RECONCILIATION_REVIEW
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_BRAIN_REFRESH_THEN_SEPARATE_CORRECTIVE_GATE_AUTHORIZATION
+
+Objective 1 and Objective 2 are delivered and accepted, but final Video Player
+acceptance has not passed. Fresh `OBSERVED_BY_OPERATOR` feedback reports
+incorrect post-menu auto-hide, incorrect subtitle clearance of visible bottom
+controls, and shortcuts that are not immediately active on Player open. It also
+places Contact Sheet under Player menu `Sheet / Thumbnail`, requests compact
+MPC-like output quality, and nests Subtitle Appearance under `Subtitle / CC`.
+
+Current product direction replaces the old three-second/paused-visible rule
+with a 2.5-second pointer-led timer, interaction holds, and no full-control
+reveal from keyboard playback shortcuts alone. Subtitle safe area uses actual
+visible overlay geometry. Contact Sheet uses manual Rows and Columns bounded at
+8 x 24 and 192 total, compact cells, timestamp overlays, metadata header,
+Sakurava branding, and remembered output settings. The existing Player
+preference foundation is extended for speed, volume, mute, and Contact Sheet
+options. Bounded same-directory sidecar `.srt`/`.ass`/`.ssa` discovery and
+subtitle-only drag/drop reuse the existing Subtitle/CC and External Subtitle
+paths.
+
+This creates one unnumbered corrective gate before Objective 3, not Objective
+4 or a nested stage. No implementation, runtime, tests/build, or application
+Git delivery is authorized by this documentation reconciliation. Batch 42.9
+remains blocked.
+
+---
+
 ## 2026-08-30 — Video Player Completion Plan Reconciled
 
 date: 2026-08-30
@@ -202,58 +246,6 @@ substantial prompts accountable for total delivery cost. No application work
 was authorized or performed. The accepted unstaged Video Player provisioning
 WIP remains protected. A specialist Tool Gap Audit is ready only for a future
 separately approved task.
-
----
-
-## 2026-08-29 — Accepted Video Player WIP Delivered and Project OS Reconciled
-
-date: 2026-08-29
-session_type: VIDEO_PLAYER_ACCEPTED_WIP_GIT_DELIVERY_AND_PROJECT_OS_CLOSURE
-operator_decision: EXPLICIT_FULL_CLOSURE_AUTHORIZATION
-recorded_head: 3e68bbfc9d5f6b2b170e0aa1be9cc5bcf91d335c
-historical_source: 4b9cc5bd1c2ea91a73da049da35b67d8399132b9
-project_brain_v2_migration: c82a02f17732ccea941ee072b5842907f32b6057
-authority_state: CANONICAL_00_07_AUTHORITY_RESTORED
-project_os_recovery: COMPLETED_AND_ACCEPTED
-external_exporter_recovery: COMPLETED_AND_ACCEPTED
-external_exporter_canonical_adaptation: COMPLETED_AND_ACCEPTED
-canonical_export_manifest: NINE_ACTIVE_CANONICAL_INPUTS
-canonical_brain_generation_validation: COMPLETED_AND_ACCEPTED
-project_chatgpt_source_refresh: COMPLETED_OBSERVED_BY_OPERATOR
-project_chatgpt_source_refresh_evidence: OBSERVED_BY_OPERATOR
-video_player_final_adoption: VIDEO_PLAYER_MPV_FINAL_ADOPTION_APPROVED
-video_player_stage_3_closure: COMPLETED_AND_ACCEPTED
-video_player_stage_4: DOES_NOT_EXIST
-video_player_git_delivery: COMPLETED_AND_SYNCHRONIZED
-video_player_application_commit: a09dea1fa650af5f7bd0a0a5bc20b556077f5b12
-video_player_application_parent: b8d1eca7304ef661578df3d710be7ca465d2daa0
-video_player_remote_delivery: NORMAL_NON_FORCE_PUSH_COMPLETED_0_AHEAD_0_BEHIND
-application_delivery_source_mutation: NONE
-technical_permissions: false
-project_os_documentation_delivery: COMPLETED_AND_SYNCHRONIZED
-project_os_terminal_closure: COMPLETED_AND_CLOSED
-final_documentation_git_closure: COMPLETED
-current_administrative_task: NONE
-next_action: PRODUCT_OR_GOVERNANCE_DECISION_REQUIRED_BEFORE_NEW_TECHNICAL_WORK
-
-Project Brain V2 migration was implemented and accepted at that time, but the
-later authority recovery audit found the old semantic responsibilities only
-partially represented. The canonical `00`–`07` Project OS, ledger archive, and
-boot prompt were restored and reconciled with legitimate post-migration state.
-The external exporter was recovered, narrowly adapted to the fixed nine-input
-canonical manifest, and used to generate and validate one downstream Brain.
-The operator then completed the Project ChatGPT Source refresh. The already
-accepted Video Player WIP was classified into an exact 40-path delivery and
-committed without application source mutation during this closure. Commit
-`a09dea1fa650af5f7bd0a0a5bc20b556077f5b12` was pushed normally and verified
-synchronized with `origin/main`. Exact-path Project OS delivery and the
-post-commit Brain regeneration/validation are complete. The operator's prior
-Project ChatGPT Source replacement remains `OBSERVED_BY_OPERATOR`; any later
-replacement is external synchronization and does not reopen repository state.
-The V2 documents, protected unrelated application WIP, and proof evidence
-remain untouched. Legal review, Screenshot, different-source UX, Contact
-Sheet, proof cleanup, and Batch 42.9 remain separate gates; no application or
-administrative stage is active.
 
 ---
 
