@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 12
+active_count: 13
 
 ### FEEDBACK-2026-08-13-NOTIFICATION-HISTORY — Notification System / Notification History
 
@@ -26,9 +26,37 @@ Additional producers and producer-specific Retry/Cancel/action behavior remain
 separately gated and are not authorized by this resolved request.
 
 ---
-last_updated: 2026-08-11
+last_updated: 2026-09-02
 
 ## Active Feedback
+
+### FEEDBACK-2026-09-02-VIDEO-PLAYER-LATEST-CORRECTIVE-CONTRACT — Latest Operator Product Corrections
+
+date: 2026-09-02
+batch: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+type: APPROVED_PRODUCT_DIRECTION
+status: APPROVED_PENDING_SEPARATE_CORRECTIVE_EXECUTION
+evidence: OBSERVED_BY_OPERATOR
+risk: MEDIUM
+placement: BEFORE_VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE
+
+The operator confirms Player keyboard shortcuts work immediately on first open
+and subtitle drag/drop works. Remaining corrections: auto-hide is inconsistent
+after contextual interaction; the subtitle safe area remains too low; Subtitle
+Appearance must use a right live-preview contextual drawer; all Player-owned
+surfaces must follow Sakurava light/dark/system theme; PiP must retain one
+explicit Return-to-Main action; and windowed Main must remove unnecessary
+black client padding without stretching or cropping video.
+
+The replacement auto-hide value is `AUTO_HIDE_IDLE_MS = 1500`, not 2.5
+seconds. Contact Sheet must open idle at 4 x 8, extract only after `Generate
+Preview`, accept normal Width typing, add a remembered Subtitle ON/OFF option,
+and follow the Sakurava theme/template while retaining the 8 x 24 / 192 bound.
+
+The runtime result `CONTACT_SHEET_EXTRACTION_FAILED` with
+`MPV_COMMAND_FAILED:-12` is unresolved `OBSERVED_BY_OPERATOR` feedback. It
+requires targeted causal analysis before source correction; no root cause is
+claimed here.
 
 ### FEEDBACK-2026-09-01-VIDEO-PLAYER-PRE-OBJECTIVE-3-CORRECTIVE — Operator Feedback Before Final Acceptance
 

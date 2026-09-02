@@ -1,5 +1,65 @@
 # Sakurava Active Batch
 
+## Video Player Latest Operator-Correction Contract — 2026-09-02
+
+recorded_application_baseline: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
+recorded_origin_main: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+staging_authorized: false
+commit_authorized: false
+push_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: PARTIAL_IMPLEMENTATION_WIP_PENDING_LATEST_OPERATOR_CORRECTIONS
+corrective_gate_protected_wip_count: 23
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+The existing 23-path corrective implementation is protected
+`PROTECTED_CORRECTIVE_GATE_WIP_PENDING_LATEST_OPERATOR_CORRECTION`; it is not
+current delivery evidence and is not authorized for mutation in this
+documentation closure. Fresh `OBSERVED_BY_OPERATOR` feedback replaces the
+older 2.5-second and prior UI contracts as follows:
+
+* `AUTO_HIDE_IDLE_MS = 1500`; pointer activity reveals/restarts it, keyboard
+  Play/Pause does not reveal hidden controls, paused alone does not force them
+  visible, contextual-layer closure restarts the timer once no hold remains,
+  and hidden controls remain inert;
+* every compatible subtitle source uses one natural base geometry and clears
+  the actual occupied bottom-control/timeline geometry only while controls are
+  visible; Subtitle Appearance is a live-preview right contextual drawer;
+* Main, PiP, menus, drawers, Contact Sheet, and related feedback use the
+  Sakurava light/dark/system theme source of truth; no Player-specific theme
+  preference exists;
+* PiP has one explicit Return-to-Main action plus double-click Return-to-Main;
+  no redundant custom X action with the same result;
+* windowed Main is edge-to-edge and display-aspect-safe with no stretch/crop;
+  fullscreen may letterbox/pillarbox, and PiP follows the same no-stretch/no-
+  crop principle;
+* Contact Sheet opens idle at 4 x 8 and generates only after explicit
+  `Generate Preview`; the maximum remains 8 x 24 / 192, Width keeps raw edit
+  state until a normal commit boundary, Subtitle ON/OFF becomes a remembered
+  option, and template/background follows Sakurava theme;
+* `CONTACT_SHEET_EXTRACTION_FAILED` / `MPV_COMMAND_FAILED:-12` is
+  `OBSERVED_BY_OPERATOR` and unresolved. A later technical continuation must
+  causally identify the command, source/session, extraction context, and
+  subtitle participation before any correction.
+
+Operator PASS evidence remains: Player keyboard shortcut works immediately on
+first open, and subtitle drag/drop works. No technical work is active or
+authorized by this reconciliation. Objective 3 remains the final unstarted
+objective; no Objective 4, suffix stage, or retry stage exists.
+
 ## Video Player Operator-Feedback Corrective Gate — 2026-09-01
 
 recorded_application_baseline: 33d654e0f0aaef6a787c69f4093282d2edc56482

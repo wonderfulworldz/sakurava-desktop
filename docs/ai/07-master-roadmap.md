@@ -1,5 +1,40 @@
 # Sakurava Master Roadmap
 
+## Video Player Latest Corrective Gate Contract — 2026-09-02
+
+This section supersedes conflicting current corrective-gate requirements below.
+The three-objective completion shape remains unchanged: Objectives 1 and 2 are
+`COMPLETE_AND_ACCEPTED`, Objective 3 is `NOT_STARTED`, and no Objective 4 or
+Video Player Stage 4 exists.
+
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: PARTIAL_IMPLEMENTATION_WIP_PENDING_LATEST_OPERATOR_CORRECTIONS
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+The later separately authorized corrective continuation must preserve the
+accepted composition architecture and one authoritative Main/PiP session while
+addressing the latest approved contract:
+
+1. use `AUTO_HIDE_IDLE_MS = 1500` with correct contextual-layer lifecycle and
+   inert hidden controls;
+2. apply one natural, actual-control-aware subtitle geometry to compatible
+   embedded, sidecar, manually loaded, and drag/drop text subtitles; use the
+   right contextual drawer for Subtitle Appearance;
+3. reuse Sakurava light/dark/system theme on every Player-owned surface;
+4. retain one PiP Return-to-Main action and aspect-safe Main/fullscreen/PiP
+   viewport geometry;
+5. make Contact Sheet idle-first at 4 x 8, explicit `Generate Preview`, raw
+   Width editing, remembered Subtitle ON/OFF, and theme-aware output while
+   retaining 8 x 24 / 192, progress, cancel, sequential extraction, cleanup,
+   sampling correctness, and remembered existing options;
+6. causally audit `CONTACT_SHEET_EXTRACTION_FAILED` /
+   `MPV_COMMAND_FAILED:-12` before changing extraction code.
+
+Keyboard-on-first-open and subtitle drag/drop are `OBSERVED_BY_OPERATOR` PASS.
+The 23-path corrective WIP remains protected and is not a delivery. This
+roadmap section does not authorize implementation, tests, build, runtime, Git
+delivery, Objective 3, or Batch 42.9.
+
 ## Video Player Pre-Objective-3 Corrective Gate — 2026-09-01
 
 This section supersedes conflicting current Video Player product-contract and

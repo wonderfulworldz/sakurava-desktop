@@ -66,6 +66,32 @@ All new frontend elements must follow the closest established Sakurava visual an
 
 ---
 
+## SAKURAVA_CONTEXTUAL_SETTINGS_DRAWER_STANDARD
+
+**Status:** ACTIVE
+
+This is the Sakurava-wide product/UI standard for choosing a surface by the
+semantic kind of interaction:
+
+* short quick choice or action — popover or submenu;
+* multi-field contextual settings with live preview — right-side contextual
+  drawer;
+* destructive or blocking confirmation — modal;
+* open/save file — native dialog;
+* complex standalone tool — dedicated window or tool surface;
+* full application settings — Settings page.
+
+A contextual settings drawer enters from the right, follows the Sakurava
+light/dark/system theme, preserves the configured subject for useful live
+preview, and uses the established spacing, typography, controls, close/back,
+focus, and accessibility behavior. Finite values use selectable controls where
+appropriate; continuous values may use sliders with a numeric value.
+
+This standard governs deliberate future work on semantically equivalent
+surfaces. It does not authorize a repository-wide migration or redesign.
+
+---
+
 ## LOCK-UI-002 — Forms Remain Full Pages
 
 **Status:** ACTIVE

@@ -1,5 +1,77 @@
 # Sakurava Current State
 
+## Video Player Latest Corrective Contract Reconciliation — 2026-09-02
+
+This is the newest current-state authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+recorded_head: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
+fresh_origin_main: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+current_administrative_task: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_pre_objective_3_operator_feedback_corrective_gate: PARTIAL_IMPLEMENTATION_WIP_PENDING_LATEST_OPERATOR_CORRECTIONS
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+The existing 23 corrective source paths are protected WIP pending a separately
+authorized technical continuation. They are neither discarded nor treated as
+complete acceptance evidence. `OBSERVED_BY_OPERATOR` confirms immediate Player
+shortcut operation on first open and subtitle drag/drop. Remaining feedback is
+also `OBSERVED_BY_OPERATOR`: auto-hide is inconsistent after contextual
+interaction; subtitle safe area is too low; the centered Subtitle Appearance
+modal obstructs preview; Contact Sheet starts too eagerly; Width typing is
+incorrect; Player surfaces do not consistently use Sakurava theme; PiP has two
+equivalent Return-to-Main controls; and windowed Main has unnecessary black
+client padding.
+
+Current replacement product contracts are:
+
+* `AUTO_HIDE_IDLE_MS = 1500`. Pointer movement/activity reveals and restarts
+  the timer; keyboard Play/Pause does not reveal hidden controls; paused alone
+  does not force visibility; active interaction may hold visibility; contextual
+  layer closure restarts the timer once no hold remains; hidden controls are
+  inert.
+* Embedded text, sidecar, manually loaded, and drag/drop subtitles share a
+  natural base geometry. Visible bottom controls move text above their actual
+  rendered occupied geometry; hidden controls restore the configured base.
+  Authored ASS styling remains preserved by default.
+* Subtitle Appearance is a multi-field live-preview right contextual drawer;
+  finite selections use selects/dropdowns where appropriate.
+* The existing Sakurava application preference is the sole Player theme source:
+  light, dark, or system. No Player-specific theme preference is approved.
+* PiP is the compact Main Player: one explicit Return-to-Main control and
+  double-click Return-to-Main. One authoritative playback session/source stays
+  protected.
+* Windowed Main fills usable video client area edge-to-edge while preserving
+  actual display aspect ratio, with no stretch or crop. Fullscreen may
+  letterbox/pillarbox; PiP also has no stretch/crop and avoids unnecessary
+  padding.
+* Contact Sheet opens in idle configuration at Rows 4 / Columns 8 and only
+  extracts after explicit `Generate Preview`. It remains bounded to 8 x 24 /
+  192, supports normal raw Width typing until blur/generate validation, adds a
+  remembered Subtitle ON/OFF option, and follows Sakurava theme/template.
+
+Remembered Player values remain speed, volume, mute, subtitle appearance,
+shortcut mapping, and Contact Sheet rows, columns, width, JPEG quality, format,
+timestamp, header, and Subtitle ON/OFF. Play/Pause, fullscreen, subtitle delay,
+and playback position remain session-only.
+
+`CONTACT_SHEET_EXTRACTION_FAILED` with `MPV_COMMAND_FAILED:-12` is
+`OBSERVED_BY_OPERATOR` and unresolved. The later corrective continuation must
+first prove the exact command, source/session state, extraction context, and
+subtitle participation; it must not patch by inference.
+
 ## Video Player Operator-Feedback Reconciliation — 2026-09-01
 
 This section is the newest current-state authority. Older Video Player

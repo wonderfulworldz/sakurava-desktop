@@ -73,6 +73,39 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-02 — Video Player Latest Corrective Contract Reconciled
+
+date: 2026-09-02
+session_type: PROJECT_OS_VIDEO_PLAYER_CORRECTIVE_CONTRACT_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_LATEST_PRODUCT_CONTRACT_APPROVAL
+recorded_application_baseline: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: PARTIAL_IMPLEMENTATION_WIP_PENDING_LATEST_OPERATOR_CORRECTIONS
+corrective_gate_protected_wip_count: 23
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_CORRECTIVE_GATE_AUTHORIZATION
+
+`OBSERVED_BY_OPERATOR` confirms immediate shortcut operation on first Player
+open and subtitle drag/drop. It also records the remaining auto-hide,
+subtitle-safe-area, Subtitle Appearance, theme, PiP control, windowed padding,
+and Contact Sheet UX corrections. The current auto-hide contract is 1500 ms;
+Subtitle Appearance uses the Sakurava contextual-settings drawer standard; all
+Player-owned surfaces use the application light/dark/system preference; and
+Contact Sheet opens idle at 4 x 8 before explicit Generate Preview.
+
+`CONTACT_SHEET_EXTRACTION_FAILED` / `MPV_COMMAND_FAILED:-12` remains unresolved
+`OBSERVED_BY_OPERATOR` evidence. A later technical continuation must first
+identify its exact command and runtime context. No source, test, build, runtime,
+or application Git delivery occurred in this documentation reconciliation.
+
+---
+
 ## 2026-09-01 — Video Player Operator Feedback Reconciled Before Objective 3
 
 date: 2026-09-01
@@ -214,38 +247,6 @@ installed and statically verified without debugger attachment, capture, or
 application runtime. Model Routing now prefers each approved available native
 tool for its evidence domain before custom harness work. `cargo test` remains
 the Rust test runner; `cargo-deny` and Knip remain separately gated additions.
-
----
-
-## 2026-08-29 — Efficient Bounded Execution Governance Adopted
-
-date: 2026-08-29
-session_type: PROJECT_EXECUTION_EFFICIENCY_GOVERNANCE_UPGRADE
-operator_decision: EXPLICIT_DOCUMENTATION_GOVERNANCE_AND_GIT_CLOSURE_APPROVAL
-started_baseline: 910a041583d5d7a6d8bb303b28fda8bd0b76633b
-governance_status: EFFICIENT_BOUNDED_EXECUTION_GOVERNANCE_ACTIVE
-causal_objective_per_prompt: ACTIVE
-bounded_mechanical_self_recovery: ACTIVE_MAX_TWO_INTERNAL_ATTEMPTS
-specialist_tool_policy: APPROVED_AVAILABLE_TOOLS_BEFORE_CUSTOM_HARNESS
-prompt_budget_accountability: ACTIVE_FOR_SUBSTANTIAL_EXECUTION
-application_source_mutation: NONE
-technical_permissions: false
-video_player_provisioning_wip: PRESERVED_UNSTAGED
-specialist_tool_gap_audit: READY_PENDING_SEPARATE_APPROVAL
-project_chatgpt_refresh: REQUIRED_AFTER_VALIDATED_BRAIN_REPLACEMENT
-next_action: OPERATOR_REPLACES_PROJECT_CHATGPT_SOURCE_AFTER_RESULT_REVIEW
-
-The operator made efficient bounded execution a permanent Project OS standard.
-The Operating Contract now requires one complete causal objective per prompt,
-classifies recoverable mechanical execution failures separately, permits only
-one task-local correction and one retry inside unchanged approval, and enforces
-hard causal stops for new product, owner, scope, data, dependency, architecture,
-or authority boundaries. Model Routing and derivative `AGENTS.md` guidance now
-prefer approved and available specialist tools before custom harnesses and make
-substantial prompts accountable for total delivery cost. No application work
-was authorized or performed. The accepted unstaged Video Player provisioning
-WIP remains protected. A specialist Tool Gap Audit is ready only for a future
-separately approved task.
 
 ---
 
