@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 13
+active_count: 14
 
 ### FEEDBACK-2026-08-13-NOTIFICATION-HISTORY — Notification System / Notification History
 
@@ -26,9 +26,39 @@ Additional producers and producer-specific Retry/Cancel/action behavior remain
 separately gated and are not authorized by this resolved request.
 
 ---
-last_updated: 2026-09-02
+last_updated: 2026-09-08
 
 ## Active Feedback
+
+### FEEDBACK-2026-09-08-VIDEO-PLAYER-VISUAL-FAILURE-CAUSAL-REAUDIT — Visual Acceptance Failure and Causal Re-audit
+
+date: 2026-09-08
+batch: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+type: APPROVED_PRODUCT_DIRECTION
+status: VISUAL_ACCEPTANCE_FAILED_CAUSAL_REAUDIT_REQUIRED
+evidence: OBSERVED_BY_OPERATOR
+risk: HIGH
+placement: BEFORE_VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE
+
+The operator confirms base auto-hide at approximately 1.5 seconds, normal
+fullscreen subtitle clearance, and subtitle drag/drop still work. Final visual
+acceptance fails because opening Player Settings can hold controls indefinitely;
+windowed Main can become minimal and resist normal resize; Player multi-field
+settings remain right-side surfaces; subtitle clearance fails in windowed and
+after UI scale/zoom changes; compatible subtitle sources lack one demonstrated
+geometry result; and remembered Player state, including same-source playback
+position, does not reliably restore.
+
+The former right contextual drawer is superseded by the Sakurava-themed floating
+contextual modal standard. Same-source playback position is now approved as
+remembered Player state; Play/Pause, fullscreen, and subtitle delay remain
+session-only. These are product contracts, not source root-cause findings.
+
+Before any further source mutation, a separate
+`VIDEO_PLAYER_CORRECTIVE_COORDINATION_CAUSAL_AUDIT` must prove the ownership and
+competing state flow for transport visibility, Main resize/presentation,
+subtitle coordinate spaces, and remember/session hydration. Rework may only be
+proposed after that audit. Objective 3 and Batch 42.9 remain blocked.
 
 ### FEEDBACK-2026-09-02-VIDEO-PLAYER-LATEST-CORRECTIVE-CONTRACT — Latest Operator Product Corrections
 

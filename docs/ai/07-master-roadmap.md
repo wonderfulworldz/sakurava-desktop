@@ -1,5 +1,38 @@
 # Sakurava Master Roadmap
 
+## Video Player Visual Failure and Causal Re-audit Roadmap — 2026-09-08
+
+This is the newest roadmap authority. It supersedes conflicting current Video
+Player corrective wording below while retaining earlier material as history.
+
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: VISUAL_ACCEPTANCE_FAILED_CAUSAL_REAUDIT_REQUIRED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_technical_action: VIDEO_PLAYER_CORRECTIVE_COORDINATION_CAUSAL_AUDIT
+next_technical_action_mode: AUDIT_ONLY
+next_technical_action_model: Sol
+next_technical_action_reasoning: High
+next_technical_action_risk: HIGH
+
+Fresh `OBSERVED_BY_OPERATOR` visual acceptance fails the current corrective
+implementation for settings/transport coordination, Main windowed resize and
+presentation, subtitle coordinate behavior across window/scale/zoom and
+compatible sources, and reliable remembered Player state including same-source
+position. The audit must establish the direct and competing owners, state flow,
+failure mechanism, smallest safe rework boundary, and prevention/verification
+plan for exactly those four coordination subsystems before rework may be
+proposed.
+
+The product direction replaces the former right contextual drawer with the
+Sakurava-themed floating contextual modal standard for multi-field contextual
+settings. It also replaces session-only playback position with same-source
+position remembering while retaining session-only Play/Pause, fullscreen, and
+subtitle delay. No source rework, Objective 3, Objective 4, suffix/retry stage,
+or Batch 42.9 is authorized by this roadmap reconciliation.
+
 ## Video Player Latest Corrective Gate Contract — 2026-09-02
 
 This section supersedes conflicting current corrective-gate requirements below.

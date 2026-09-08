@@ -66,7 +66,7 @@ All new frontend elements must follow the closest established Sakurava visual an
 
 ---
 
-## SAKURAVA_CONTEXTUAL_SETTINGS_DRAWER_STANDARD
+## SAKURAVA_CONTEXTUAL_SETTINGS_MODAL_STANDARD
 
 **Status:** ACTIVE
 
@@ -74,21 +74,31 @@ This is the Sakurava-wide product/UI standard for choosing a surface by the
 semantic kind of interaction:
 
 * short quick choice or action — popover or submenu;
-* multi-field contextual settings with live preview — right-side contextual
-  drawer;
-* destructive or blocking confirmation — modal;
+* multi-field contextual settings with live preview — floating contextual
+  modal;
+* destructive or blocking confirmation — blocking confirmation modal;
 * open/save file — native dialog;
 * complex standalone tool — dedicated window or tool surface;
 * full application settings — Settings page.
 
-A contextual settings drawer enters from the right, follows the Sakurava
-light/dark/system theme, preserves the configured subject for useful live
-preview, and uses the established spacing, typography, controls, close/back,
-focus, and accessibility behavior. Finite values use selectable controls where
-appropriate; continuous values may use sliders with a numeric value.
+A contextual settings modal is floating, bounded, and not docked or full-height.
+It preserves useful visibility of the configured subject for live preview,
+follows the resolved Sakurava light/dark/system theme rather than an
+independently hard-coded Windows theme, and uses the established spacing,
+typography, controls, close/back, focus, accessibility, accent, and interaction
+behavior. It may use a translucent/frosted Sakurava surface only when text and
+inputs remain clearly readable. Finite values use selectable controls where
+appropriate; continuous values may use sliders with a numeric value. It must
+not permanently pin unrelated transport controls.
 
 This standard governs deliberate future work on semantically equivalent
-surfaces. It does not authorize a repository-wide migration or redesign.
+surfaces. It does not authorize a repository-wide migration or redesign; the
+current corrective implementation remains bounded to Video Player-owned
+surfaces.
+
+`SAKURAVA_CONTEXTUAL_SETTINGS_DRAWER_STANDARD` is cancelled and superseded by
+this standard. Historical references remain historical evidence only and must
+not impose a right-drawer requirement.
 
 ---
 

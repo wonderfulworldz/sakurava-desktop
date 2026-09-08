@@ -1,5 +1,55 @@
 # Sakurava Active Batch
 
+## Video Player Visual Failure and Causal Re-audit Contract — 2026-09-08
+
+This is the newest Active Batch authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+recorded_application_baseline: 08c6b3005a912c073a53a308d8693b4cd755f46f
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: VISUAL_ACCEPTANCE_FAILED_CAUSAL_REAUDIT_REQUIRED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+source_rework_authorized: false
+next_technical_action: VIDEO_PLAYER_CORRECTIVE_COORDINATION_CAUSAL_AUDIT
+next_technical_action_model: Sol
+next_technical_action_reasoning: High
+next_technical_action_mode: AUDIT_ONLY
+next_technical_action_risk: HIGH
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Latest `OBSERVED_BY_OPERATOR` visual evidence preserves the working base
+1500 ms auto-hide, normal fullscreen subtitle clearance, and subtitle drag/drop.
+It also reports that Settings can keep controls visible indefinitely, Main
+windowed can become an unintended minimal presentation with impaired normal
+resize, Player multi-field settings still use the rejected right-side surface,
+subtitle geometry fails in windowed and after UI-scale/zoom changes, compatible
+subtitle sources lack one demonstrated geometry result, and remembered Player
+state—including same-source playback position—does not reliably restore.
+
+The operator explicitly replaces the right contextual drawer with the active
+`SAKURAVA_CONTEXTUAL_SETTINGS_MODAL_STANDARD`; Player multi-field settings use
+the Sakurava-themed floating contextual modal pattern, never a docked/full-
+height drawer, and the modal cannot be a permanent transport-visibility hold.
+The older `playback position = session-only` contract is superseded: the Player
+remembers last playback position for the same source, while Play/Pause,
+fullscreen, and subtitle delay remain session-only.
+
+No new Objective, suffix stage, retry stage, source rework, test, build, or
+runtime is authorized by this reconciliation. The next audit must prove the
+transport-visibility, Main resize/presentation, subtitle coordinate-space, and
+remember/session-hydration ownership chains before any further source mutation.
+
 ## Video Player Latest Operator-Correction Contract — 2026-09-02
 
 recorded_application_baseline: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1

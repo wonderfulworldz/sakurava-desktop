@@ -73,6 +73,42 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-08 — Video Player Visual Failure and Causal Re-audit Contract Reconciled
+
+date: 2026-09-08
+session_type: PROJECT_OS_VIDEO_PLAYER_VISUAL_FAILURE_AND_REWORK_CONTRACT_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_VISUAL_FAILURE_CONTRACT_APPROVAL
+recorded_application_baseline: 08c6b3005a912c073a53a308d8693b4cd755f46f
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: VISUAL_ACCEPTANCE_FAILED_CAUSAL_REAUDIT_REQUIRED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+source_rework_authorized: false
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_VIDEO_PLAYER_CORRECTIVE_COORDINATION_CAUSAL_AUDIT_APPROVAL
+
+Fresh `OBSERVED_BY_OPERATOR` visual evidence preserves working base 1500 ms
+auto-hide, normal fullscreen subtitle clearance, and subtitle drag/drop. It
+fails final acceptance for contextual-settings/transport coordination, Main
+windowed resize/presentation, compatible subtitle geometry through scale/zoom,
+and reliable Player-state restoration including same-source position. These are
+not source root-cause claims.
+
+The active settings contract is now the Sakurava-themed floating contextual
+modal, not the cancelled right contextual drawer. Same-source playback position
+is now remembered; Play/Pause, fullscreen, and subtitle delay remain
+session-only. The next action is one `Sol` / `High` / `AUDIT_ONLY` causal audit
+of transport visibility, Main resize/presentation, subtitle coordinates, and
+remember/session hydration. No source rework, Objective 3, or Batch 42.9 is
+authorized by this documentation reconciliation.
+
+---
+
 ## 2026-09-02 — Video Player Latest Corrective Contract Reconciled
 
 date: 2026-09-02
@@ -222,31 +258,6 @@ created. `cargo test` remains the Rust test runner. This tooling adoption does
 not reopen Video Player debugging or authorize future technical work.
 
 ---
-
-## 2026-08-29 — Native Windows Diagnostic Baseline Adopted
-
-date: 2026-08-29
-session_type: SPECIALIST_TOOL_GAP_AUDIT_AND_NATIVE_WINDOWS_DIAGNOSTIC_BASELINE_ADOPTION
-operator_decision: EXPLICIT_TOOL_ADOPTION_DOCUMENTATION_AND_GIT_CLOSURE_APPROVAL
-specialist_tool_gap_audit: COMPLETED_AND_ACCEPTED
-native_windows_diagnostic_baseline: COMPLETED_AND_ACCEPTED
-windbg: APPROVED_AVAILABLE_VERSION_1_2606_22001_0_OFFICIAL_WINGET_PACKAGE
-process_monitor: APPROVED_AVAILABLE_VERSION_4_1_OFFICIAL_WINGET_PACKAGE
-debugger_attachment: NOT_PERFORMED
-process_monitor_capture: NOT_PERFORMED
-application_runtime: NOT_PERFORMED
-native_windows_tool_routing: PROCESS_MONITOR_FOR_SYSTEM_ACTIVITY; WINDBG_FOR_NATIVE_DEBUGGING
-rust_test_runner_decision: CARGO_TEST_KEEP
-remaining_specialist_tool_additions: CARGO_DENY; KNIP
-technical_permissions: false
-next_action: REPOSITORY_STATIC_ENGINEERING_BASELINE_ADOPTION_AFTER_SEPARATE_APPROVAL
-
-The accepted Specialist Tool Gap Audit established the minimum tool baseline.
-Official Microsoft WinDbg and Sysinternals Process Monitor packages were
-installed and statically verified without debugger attachment, capture, or
-application runtime. Model Routing now prefers each approved available native
-tool for its evidence domain before custom harness work. `cargo test` remains
-the Rust test runner; `cargo-deny` and Knip remain separately gated additions.
 
 ---
 

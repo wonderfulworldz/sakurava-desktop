@@ -11,6 +11,33 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-29 — Native Windows Diagnostic Baseline Adopted
+
+date: 2026-08-29
+session_type: SPECIALIST_TOOL_GAP_AUDIT_AND_NATIVE_WINDOWS_DIAGNOSTIC_BASELINE_ADOPTION
+operator_decision: EXPLICIT_TOOL_ADOPTION_DOCUMENTATION_AND_GIT_CLOSURE_APPROVAL
+specialist_tool_gap_audit: COMPLETED_AND_ACCEPTED
+native_windows_diagnostic_baseline: COMPLETED_AND_ACCEPTED
+windbg: APPROVED_AVAILABLE_VERSION_1_2606_22001_0_OFFICIAL_WINGET_PACKAGE
+process_monitor: APPROVED_AVAILABLE_VERSION_4_1_OFFICIAL_WINGET_PACKAGE
+debugger_attachment: NOT_PERFORMED
+process_monitor_capture: NOT_PERFORMED
+application_runtime: NOT_PERFORMED
+native_windows_tool_routing: PROCESS_MONITOR_FOR_SYSTEM_ACTIVITY; WINDBG_FOR_NATIVE_DEBUGGING
+rust_test_runner_decision: CARGO_TEST_KEEP
+remaining_specialist_tool_additions: CARGO_DENY; KNIP
+technical_permissions: false
+next_action: REPOSITORY_STATIC_ENGINEERING_BASELINE_ADOPTION_AFTER_SEPARATE_APPROVAL
+
+The accepted Specialist Tool Gap Audit established the minimum tool baseline.
+Official Microsoft WinDbg and Sysinternals Process Monitor packages were
+installed and statically verified without debugger attachment, capture, or
+application runtime. Model Routing now prefers each approved available native
+tool for its evidence domain before custom harness work. `cargo test` remains
+the Rust test runner; `cargo-deny` and Knip remain separately gated additions.
+
+---
+
 ## 2026-08-29 — Efficient Bounded Execution Governance Adopted
 
 date: 2026-08-29

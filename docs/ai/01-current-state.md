@@ -1,5 +1,64 @@
 # Sakurava Current State
 
+## Video Player Visual Failure and Causal Re-audit State — 2026-09-08
+
+This is the newest current-state authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+recorded_head: 08c6b3005a912c073a53a308d8693b4cd755f46f
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+current_administrative_task: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_pre_objective_3_operator_feedback_corrective_gate: VISUAL_ACCEPTANCE_FAILED_CAUSAL_REAUDIT_REQUIRED
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Substantial corrective source WIP is protected. The latest implementation
+boundary has `REPORTED_BY_CODEX` automated verification, but final visual
+acceptance is `FAILED_OBSERVED_BY_OPERATOR`; that evidence neither proves a
+source root cause nor authorizes rework. The next technical action is
+`VIDEO_PLAYER_CORRECTIVE_COORDINATION_CAUSAL_AUDIT` (`Sol`, `High`, `AUDIT_ONLY`,
+`HIGH`) before any further source mutation.
+
+Current product contracts are:
+
+* `AUTO_HIDE_IDLE_MS = 1500`; pointer activity reveals/restarts it, keyboard
+  Play/Pause does not reveal hidden controls, paused alone does not force them
+  visible, and hidden controls remain inert. The settings-open visual failure
+  remains unresolved pending a causal ownership audit.
+* Main windowed retains full Main controls and normal user resize; it must not
+  silently become PiP/compact/minimal semantics. Main/fullscreen/PiP preserve
+  actual display aspect without stretch or crop, with letterbox/pillarbox only
+  where required.
+* Compatible embedded text, sidecar, manually loaded external, and drag/drop
+  subtitles share the same product safe-area behavior: natural configured low
+  base when controls are hidden and responsive clearance above actual occupied
+  controls when visible. Window, fullscreen, resize, DPI/UI scale, and zoom
+  changes must not invalidate that relationship. Authored ASS styling remains
+  preserved by default.
+* Multi-field Player settings use the Sakurava-themed floating contextual modal
+  standard. The former right contextual drawer requirement is superseded.
+* Player remembers same-source last playback position plus approved volume,
+  mute, speed, A-B loop where valid, subtitle state/selection where valid,
+  subtitle appearance, shortcut mapping, and Contact Sheet preferences.
+  Play/Pause, fullscreen, and subtitle delay remain session-only. Current
+  restore behavior has not passed operator acceptance.
+
+Contact Sheet remains idle-first with explicit `Generate Preview`, default 4 x
+8, maximum 8 x 24 / 192, raw Width editing, remembered options, theme/design,
+progress/cancel, sequential extraction, cleanup, and sampling correctness.
+Its accepted cancellation-classification direction remains unchanged.
+
 ## Video Player Latest Corrective Contract Reconciliation — 2026-09-02
 
 This is the newest current-state authority. Older Video Player corrective
