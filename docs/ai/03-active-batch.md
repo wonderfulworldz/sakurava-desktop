@@ -1,5 +1,93 @@
 # Sakurava Active Batch
 
+## Video Player Final Visible Corrective Contract — 2026-09-08
+
+This is the newest Active Batch authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+recorded_project_os_baseline: 896a5fee490d1a6af9a61973374dc37744f8c46e
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: LATEST_OPERATOR_VISUAL_ACCEPTANCE_FAILED_FINAL_VISIBLE_REWORK_REQUIRED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+source_rework_authorized: false
+next_technical_action: VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK
+next_technical_action_model: Sol
+next_technical_action_reasoning: High
+next_technical_action_mode: IMPLEMENT
+next_technical_action_risk: HIGH
+next_technical_action_status: READY_PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_TECHNICAL_EXECUTION
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Latest evidence is `OBSERVED_BY_OPERATOR`. Base auto-hide at approximately
+1500 ms and subtitle drag/drop pass. Final visible acceptance nevertheless
+fails for transient Player chrome/menu lifecycle, subtitle clearance relative
+to visible controls, unintended compact/minimal windowed Main presentation,
+the Subtitle Appearance and Custom Shortcuts surfaces, and readability of the
+current translucent settings presentation. These observations do not identify
+or prove a source root cause, and the protected corrective source WIP is not
+accepted as a correction merely because it exists.
+
+The replacement product contract is:
+
+* `AUTO_HIDE_IDLE_MS = 1500`. Player transport, quick menus, and quick
+  submenus share one transient-chrome lifecycle: activity reveals/restarts the
+  deadline; active quick interaction may keep chrome visible; on idle expiry,
+  popup/submenus close and transport hides together. Outside dismissal returns
+  to normal idle hide without triggering an unrelated Player action. Keyboard
+  Play/Pause does not reveal hidden transport, paused state alone does not pin
+  it, and hidden controls remain inert.
+* Subtitle Appearance and Custom Shortcuts are separate draggable floating
+  Player utility windows. They are a Video Player-only exception to the global
+  Sakurava contextual-settings modal standard, not a drawer, docked panel,
+  Player-attached modal, or transient popup. They may remain open while
+  transport auto-hides and do not create another playback session/source.
+* Utility windows use the resolved Sakurava light/dark/system theme and design
+  DNA. Their approximately 15–30% frosted/glass treatment is a readability
+  contract: text/glyphs remain effectively opaque, form boundaries and focus
+  states remain clear, and transparency layers must not compound into
+  illegible controls. No third-party visual copying is approved.
+* `MAIN_WINDOWED_MINIMAL_CONTROL_VARIANT = PROHIBITED`. Main retains complete
+  Main functionality and normal horizontal/vertical Windows resize at every
+  supported size. Responsive reflow, wrapping, spacing, and bounded sizing are
+  allowed; silently removing primary controls or switching Main to PiP/minimal
+  semantics is not. PiP is the only compact presentation. The technical rework
+  may derive a safe minimum from actual Main UI geometry; video remains
+  no-stretch/no-crop with internal letterbox/pillarbox where needed.
+* Compatible embedded text, sidecar, manually loaded external, and drag/drop
+  subtitle sources share one visible safe-area behavior: configured natural
+  low/base position while Player chrome is hidden, and responsive clearance of
+  the complete rendered glyph region above actual current control/timeline
+  geometry while chrome is visible. Resize, fullscreen transitions, UI zoom,
+  DPI, and presentation changes must not leave clearance stale. The persisted
+  base preference remains distinct from transient avoidance. Authored ASS
+  styling remains preserved by default; unsupported authored-geometry
+  guarantees must be reported rather than invented.
+* Remembered values remain same-source position, volume, mute, speed, valid
+  A-B loop, subtitle on/off and valid selection, subtitle appearance, shortcut
+  mapping, and approved Contact Sheet preferences. Play/Pause, fullscreen,
+  and subtitle delay remain session-only. Resume starts from the beginning for
+  a position below five seconds, at/after 95% duration, or with under 30
+  seconds remaining; otherwise it resumes the same-source position. Runtime
+  Remember acceptance remains pending unless separately proven by the operator.
+
+No Objective 4 exists. This documentation reconciliation does not authorize
+source rework, tests, build, runtime, Git delivery of corrective WIP, Objective
+3, or Batch 42.9. The next separately gated technical action is the bounded
+`VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK`; it may replace coordination
+implementation only where causal evidence supports it and may not replace the
+accepted media engine or Main/PiP single-session architecture.
+
 ## Video Player Visual Failure and Causal Re-audit Contract — 2026-09-08
 
 This is the newest Active Batch authority. Older Video Player corrective

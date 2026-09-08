@@ -1,6 +1,6 @@
 # Sakurava Feedback Log
 
-active_count: 14
+active_count: 15
 
 ### FEEDBACK-2026-08-13-NOTIFICATION-HISTORY — Notification System / Notification History
 
@@ -29,6 +29,44 @@ separately gated and are not authorized by this resolved request.
 last_updated: 2026-09-08
 
 ## Active Feedback
+
+### FEEDBACK-2026-09-08-VIDEO-PLAYER-FINAL-VISIBLE-CORRECTIVE-CONTRACT — Final Visible Corrective Contract
+
+date: 2026-09-08
+batch: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+type: APPROVED_PRODUCT_DIRECTION
+status: LATEST_OPERATOR_VISUAL_ACCEPTANCE_FAILED_FINAL_VISIBLE_REWORK_REQUIRED
+evidence: OBSERVED_BY_OPERATOR
+risk: HIGH
+placement: BEFORE_VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE
+
+The operator confirms base Player auto-hide at approximately 1500 ms and
+subtitle drag/drop pass. Final visible acceptance nevertheless fails because
+transient Player chrome/menu and transport do not yet behave as one idle
+lifecycle; subtitle clearance relative to currently visible controls is
+inconsistent; windowed Main exposes an unintended compact/minimal
+presentation; Subtitle Appearance and Custom Shortcuts use the wrong surface;
+and current translucency can reduce settings readability.
+
+The approved replacement contract keeps `AUTO_HIDE_IDLE_MS = 1500` and makes
+transient Player chrome/menu and transport dismiss together after idle. It
+establishes Subtitle Appearance and Custom Shortcuts as separate draggable
+Player utility windows—an explicit bounded exception to, not replacement of,
+the global Sakurava contextual-modal standard. Those utility windows use the
+resolved Sakurava light/dark/system theme and approximately 15–30% readable
+frosted treatment. Main must never switch to compact/minimal semantics; PiP is
+the only compact presentation. Compatible text subtitles must return to natural
+base position with hidden chrome and clear actual current chrome geometry when
+shown, through resize/fullscreen/zoom without overwriting the persisted base
+preference. Authored ASS styling remains preserved by default.
+
+The approved Remember contract and near-EOF policy remain in force, but actual
+runtime restore acceptance is still `UNKNOWN` unless separately observed. This
+feedback is a product contract, not a source-root-cause claim. The protected
+corrective WIP is not accepted as corrected, and no implementation is
+authorized here. The next action is separately gated
+`VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK` after Project ChatGPT Result
+Review and refresh. Objective 3 and Batch 42.9 remain blocked.
 
 ### FEEDBACK-2026-09-08-VIDEO-PLAYER-VISUAL-FAILURE-CAUSAL-REAUDIT — Visual Acceptance Failure and Causal Re-audit
 

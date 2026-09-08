@@ -1,5 +1,51 @@
 # Sakurava Master Roadmap
 
+## Video Player Final Visible Corrective Roadmap — 2026-09-08
+
+This is the newest roadmap authority. It supersedes conflicting current Video
+Player corrective wording below while retaining earlier material as history.
+
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_stage_4: DOES_NOT_EXIST
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: LATEST_OPERATOR_VISUAL_ACCEPTANCE_FAILED_FINAL_VISIBLE_REWORK_REQUIRED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_technical_action: VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK
+next_technical_action_model: Sol
+next_technical_action_reasoning: High
+next_technical_action_mode: IMPLEMENT
+next_technical_action_risk: HIGH
+next_technical_action_status: READY_PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_TECHNICAL_EXECUTION
+
+Fresh `OBSERVED_BY_OPERATOR` evidence passes base approximately-1500 ms
+auto-hide and subtitle drag/drop but fails final visible acceptance. The
+remaining approved rework contracts are one synchronized idle lifecycle for
+transient Player chrome and transport; separate draggable Subtitle Appearance
+and Custom Shortcuts utility windows; readable approximately 15–30% frosted
+Sakurava light/dark/system surfaces; no windowed Main compact/minimal variant;
+and one actual-geometry-aware compatible-text subtitle safe area that remains
+current through resize, fullscreen, UI zoom, DPI, and presentation changes.
+
+The rework must preserve Main’s complete functionality and normal resize,
+PiP as the only compact presentation, no-stretch/no-crop video, accepted mpv
+composition, and one authoritative Main/PiP playback session/source. Utility
+windows are a bounded Video Player exception to the global contextual modal
+standard, not a general migration. The Remember contract retains same-source
+position with the accepted near-EOF start-from-beginning policy, plus the
+approved user preferences; Play/Pause, fullscreen, and subtitle delay remain
+session-only. Runtime Remember acceptance remains unproven until separately
+observed.
+
+The next separately gated action is
+`VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK` (`Sol`, `High`, `IMPLEMENT`,
+`HIGH`). It may replace coordination/presentation implementation only where
+causal evidence supports that scope. It does not authorize a media-engine
+replacement, Objective 3, Objective 4, Git delivery of corrective WIP, or
+Batch 42.9.
+
 ## Video Player Visual Failure and Causal Re-audit Roadmap — 2026-09-08
 
 This is the newest roadmap authority. It supersedes conflicting current Video

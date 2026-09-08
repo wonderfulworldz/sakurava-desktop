@@ -102,6 +102,37 @@ not impose a right-drawer requirement.
 
 ---
 
+## VIDEO_PLAYER_UTILITY_WINDOW_EXCEPTION
+
+**Status:** ACTIVE
+
+`Subtitle Appearance` and `Custom Shortcuts` are the only approved Video
+Player exceptions to `SAKURAVA_CONTEXTUAL_SETTINGS_MODAL_STANDARD`. Each is a
+separate, draggable, Player-owned floating utility window. Neither is a right
+drawer, docked side panel, full-height drawer, Player-attached contextual modal,
+or transient Player popup.
+
+The windows remain associated with the existing authoritative Player session;
+they do not create another playback engine, session, or source. They may remain
+open while Main transport chrome follows its normal idle-hide lifecycle, and
+opening or closing either window must not permanently pin or corrupt that
+lifecycle. Subtitle Appearance retains live preview; Custom Shortcuts retains
+its approved editing semantics.
+
+This is a bounded Video Player product exception only. It does not migrate
+unrelated Sakurava contextual settings away from the active global modal
+standard.
+
+Both utility windows follow the resolved Sakurava light/dark/system theme and
+design language. Their frosted/glass treatment is approximately 15–30% visually
+transparent while retaining effectively opaque, readable text and glyphs,
+clear form boundaries, visible focus/selection states, and high-contrast
+controls. “Apple-like” describes material and readability direction only; it
+does not authorize copied third-party pixels, branding, or a separate Windows
+theme.
+
+---
+
 ## LOCK-UI-002 — Forms Remain Full Pages
 
 **Status:** ACTIVE

@@ -1,5 +1,75 @@
 # Sakurava Current State
 
+## Video Player Final Visible Corrective State — 2026-09-08
+
+This is the newest current-state authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+recorded_head: 896a5fee490d1a6af9a61973374dc37744f8c46e
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+current_administrative_task: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_pre_objective_3_operator_feedback_corrective_gate: LATEST_OPERATOR_VISUAL_ACCEPTANCE_FAILED_FINAL_VISIBLE_REWORK_REQUIRED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+next_technical_action: VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK
+next_technical_action_status: READY_PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_TECHNICAL_EXECUTION
+next_technical_action_recommendation: Sol / High / IMPLEMENT / HIGH
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Latest `OBSERVED_BY_OPERATOR` acceptance passes the base approximately-1500 ms
+auto-hide and subtitle drag/drop. It fails final visible acceptance for the
+shared transient Player chrome/menu lifecycle, subtitle clearance relative to
+visible controls, unintended windowed Main compact/minimal presentation,
+Subtitle Appearance and Custom Shortcuts surfaces, and readability of the
+current translucent settings presentation. These are product observations, not
+source root-cause findings; protected corrective source WIP remains unstaged
+and is not accepted as a completed correction.
+
+The active final-visible contract is:
+
+* transport and quick menus/submenus use one 1500 ms idle dismissal lifecycle;
+  outside dismissal returns to that lifecycle without unrelated Player action;
+  keyboard Play/Pause does not reveal hidden transport; paused does not pin it;
+  hidden controls are inert;
+* Subtitle Appearance and Custom Shortcuts are separate draggable Player-owned
+  utility windows, a bounded Video Player exception to the global contextual
+  modal standard. They are not drawers, docked/full-height panels,
+  Player-attached modals, or transient popups, and do not create a second
+  engine/session/source;
+* those utility windows use resolved Sakurava light/dark/system theme and
+  design DNA. Their frosted material is approximately 15–30% transparent while
+  text, glyphs, control boundaries, focus, and selection remain readable;
+* `MAIN_WINDOWED_MINIMAL_CONTROL_VARIANT = PROHIBITED`. Main keeps all Main
+  functionality and normal resize, reflowing rather than becoming compact;
+  PiP remains the only compact presentation;
+* compatible text subtitle sources use natural configured low/base position
+  while chrome is hidden and responsive clearance above actual current
+  control/timeline geometry while visible. The relation remains current across
+  resize, fullscreen, UI zoom, DPI, and presentation changes, never overwrites
+  the persisted base preference, and preserves authored ASS styling by default;
+* Remember retains same-source position, volume, mute, speed, valid A-B loop,
+  valid subtitle state/selection, appearance, shortcuts, and approved Contact
+  Sheet preferences. Play/Pause, fullscreen, and subtitle delay remain
+  session-only. The accepted near-EOF policy starts from the beginning below
+  five seconds, at/after 95% duration, or with under 30 seconds remaining;
+  otherwise the same-source position resumes. Real runtime Remember acceptance
+  is still `UNKNOWN` unless separately demonstrated by the operator.
+
+No Objective 4 exists. The next bounded rework is not authorized by this
+documentation action; it must preserve accepted mpv composition and one
+authoritative Main/PiP session. Objective 3 and Batch 42.9 remain blocked.
+
 ## Video Player Visual Failure and Causal Re-audit State — 2026-09-08
 
 This is the newest current-state authority. Older Video Player corrective

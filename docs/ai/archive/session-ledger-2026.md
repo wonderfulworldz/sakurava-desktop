@@ -11,6 +11,34 @@ repository proof or rewritten merely because later project state changed.
 
 ---
 
+## 2026-08-30 — Repository Static Engineering Baseline Adopted
+
+date: 2026-08-30
+session_type: REPOSITORY_STATIC_ENGINEERING_BASELINE_ADOPTION
+operator_decision: EXPLICIT_EXTERNAL_TOOL_ADOPTION_DOCUMENTATION_AND_GIT_CLOSURE_APPROVAL
+specialist_tool_gap_audit: COMPLETED_AND_ACCEPTED
+repository_static_engineering_baseline: COMPLETED_AND_ACCEPTED
+cargo_deny: APPROVED_AVAILABLE_VERSION_0_20_2_OFFICIAL_CRATES_IO
+knip: APPROVED_AVAILABLE_VERSION_6_33_0_EXTERNAL_USER_NPM_TOOL
+cargo_deny_repository_scan: NOT_PERFORMED
+knip_repository_scan: NOT_PERFORMED
+repository_dependency_mutation: NONE
+rust_test_runner_decision: CARGO_TEST_KEEP
+specialist_tool_baseline: COMPLETE_FOR_CURRENT_MANDATORY_SET
+application_runtime: NOT_PERFORMED
+technical_permissions: false
+next_action: PRODUCT_OR_TECHNICAL_WORK_REQUIRES_SEPARATE_APPROVAL
+
+The accepted Tool Gap Audit is now implemented for the remaining mandatory
+static-engineering capabilities. Official crates.io `cargo-deny` and official
+npm-registry Knip were installed as external user developer tools without
+changing `Cargo.toml`, `Cargo.lock`, `package.json`, or `package-lock.json`.
+Neither tool ran a Sakurava repository analysis and no tool configuration was
+created. `cargo test` remains the Rust test runner. This tooling adoption does
+not reopen Video Player debugging or authorize future technical work.
+
+---
+
 ## 2026-08-29 — Native Windows Diagnostic Baseline Adopted
 
 date: 2026-08-29

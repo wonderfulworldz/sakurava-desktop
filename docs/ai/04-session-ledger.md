@@ -73,6 +73,51 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-08 — Video Player Final Visible Corrective Contract Reconciled
+
+date: 2026-09-08
+session_type: PROJECT_OS_VIDEO_PLAYER_FINAL_VISIBLE_CORRECTIVE_CONTRACT_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_FINAL_VISIBLE_CONTRACT_APPROVAL
+recorded_project_os_baseline: 896a5fee490d1a6af9a61973374dc37744f8c46e
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: LATEST_OPERATOR_VISUAL_ACCEPTANCE_FAILED_FINAL_VISIBLE_REWORK_REQUIRED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK_APPROVAL
+
+Latest `OBSERVED_BY_OPERATOR` evidence passes base approximately-1500 ms
+auto-hide and subtitle drag/drop, but fails final visible acceptance for the
+shared transient Player chrome/menu lifecycle, subtitle clearance relative to
+current controls, unintended windowed Main minimal presentation, the Subtitle
+Appearance and Custom Shortcuts surfaces, and readability of the current
+translucent settings surface. These are product observations, not source root
+cause claims; existing corrective source WIP remains protected and unstaged.
+
+The replacement contract makes Player transport and quick chrome one 1500 ms
+idle lifecycle. Subtitle Appearance and Custom Shortcuts are dedicated
+draggable Player utility windows—an explicit exception to, not replacement
+of, Sakurava’s global contextual-modal standard—with readable 15–30% frosted
+Sakurava light/dark/system visuals. Main compact/minimal presentation is
+prohibited; PiP alone is compact. Compatible text subtitles must use natural
+base position while chrome is hidden and actual-control clearance while shown,
+without overwriting persisted base position or authored ASS styling. The
+Remember contract, including same-source near-EOF resume policy, remains
+approved, while real runtime restoration acceptance remains unresolved.
+
+No source, test, build, runtime, Objective 3, or Batch 42.9 work was
+authorized by this documentation reconciliation. The next separately gated
+technical action is `VIDEO_PLAYER_FINAL_VISIBLE_COORDINATION_REWORK` with
+`Sol` / `High` / `IMPLEMENT` / `HIGH` after Project ChatGPT Result Review and
+manual source refresh.
+
+---
+
 ## 2026-09-08 — Video Player Visual Failure and Causal Re-audit Contract Reconciled
 
 date: 2026-09-08
@@ -228,34 +273,6 @@ acceptance. No Objective 4 or Video Player Stage 4 exists. Objective 1 is not
 active; it requires Result Review, Project ChatGPT refresh, and separate
 authorization. Batch 42.9 remains blocked until the full Player gate and final
 operator real-app acceptance pass.
-
----
-
-## 2026-08-30 — Repository Static Engineering Baseline Adopted
-
-date: 2026-08-30
-session_type: REPOSITORY_STATIC_ENGINEERING_BASELINE_ADOPTION
-operator_decision: EXPLICIT_EXTERNAL_TOOL_ADOPTION_DOCUMENTATION_AND_GIT_CLOSURE_APPROVAL
-specialist_tool_gap_audit: COMPLETED_AND_ACCEPTED
-repository_static_engineering_baseline: COMPLETED_AND_ACCEPTED
-cargo_deny: APPROVED_AVAILABLE_VERSION_0_20_2_OFFICIAL_CRATES_IO
-knip: APPROVED_AVAILABLE_VERSION_6_33_0_EXTERNAL_USER_NPM_TOOL
-cargo_deny_repository_scan: NOT_PERFORMED
-knip_repository_scan: NOT_PERFORMED
-repository_dependency_mutation: NONE
-rust_test_runner_decision: CARGO_TEST_KEEP
-specialist_tool_baseline: COMPLETE_FOR_CURRENT_MANDATORY_SET
-application_runtime: NOT_PERFORMED
-technical_permissions: false
-next_action: PRODUCT_OR_TECHNICAL_WORK_REQUIRES_SEPARATE_APPROVAL
-
-The accepted Tool Gap Audit is now implemented for the remaining mandatory
-static-engineering capabilities. Official crates.io `cargo-deny` and official
-npm-registry Knip were installed as external user developer tools without
-changing `Cargo.toml`, `Cargo.lock`, `package.json`, or `package-lock.json`.
-Neither tool ran a Sakurava repository analysis and no tool configuration was
-created. `cargo test` remains the Rust test runner. This tooling adoption does
-not reopen Video Player debugging or authorize future technical work.
 
 ---
 
