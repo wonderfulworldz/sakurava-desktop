@@ -1052,16 +1052,68 @@ Do not claim migration, rollback, or data integrity is safe without evidence.
 
 Project continuity must not depend on chat history.
 
-Update the relevant files when:
+Update the relevant files at the timing required by the
+`MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE` standard below. Project OS is an
+authority and continuity system, not a per-revision activity log.
 
-- a batch starts;
-- scope changes;
-- a permanent decision changes;
-- feedback is approved or deferred;
-- a meaningful stage completes;
-- a batch closes;
-- Git baseline changes;
-- the chat is about to rotate.
+### MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE
+
+Default rule: do not create a Project OS update, documentation-only commit,
+Brain regeneration, or manual Project ChatGPT refresh after every minor
+operator revision, visual refinement, smoke observation, or corrective
+iteration. When revisions remain inside one already-approved corrective,
+implementation, verification, or acceptance package, carry the latest approved
+requirements through Result Review, the current execution scope, the next
+Codex prompt, and operator smoke instructions. Consolidate them once that
+package reaches a meaningful boundary.
+
+Ordinary iterative refinements may be deferred and batched only while they stay
+inside the approved direction and do not trigger an immediate update. Examples
+include spacing, alignment, opacity or material tuning, color/readability,
+icon/button placement, duplicate visual-control removal, chrome details,
+bounded responsive polish, small interaction refinement, repeated smoke
+corrections, and implementation-detail refinement that does not replace an
+architecture, authority, safety, compatibility, persistence, or permission
+contract. This timing rule is not implementation authorization.
+
+ChatGPT must make an explicit proportional decision for material feedback:
+
+- `PROJECT_OS_UPDATE_NOW`; or
+- `PROJECT_OS_UPDATE_DEFERRED_UNTIL_MEANINGFUL_BOUNDARY`, including the expected
+  consolidation boundary.
+
+Use `PROJECT_OS_UPDATE_NOW` when deferral would change or materially affect an
+Active Lock or permanent contract; architecture or subsystem ownership;
+media-engine, session, or source ownership; schema, migration, stored-data,
+destructive, or integrity behavior; Backup/Restore or package compatibility;
+dependency posture; security; live AppData or protected-evidence access;
+public identity/reference semantics; Import/Export compatibility; an active
+batch/stage/objective; execution permission or mutation/access boundaries; a
+safety or rollback contract; or a canonical conflict that could cause an
+obsolete, unsafe, destructive, seriously regressive, incompatible, or
+architecturally incorrect next execution. Update now as well before a transfer
+to another operator, chat, or context when the deferred authority cannot be
+carried safely.
+
+Deferred decisions are not forgotten: keep each one explicit and bounded in the
+current Result Review and subsequent relevant prompt; do not revert to older
+canonical behavior merely because consolidation has not happened; and reconcile
+all deferred decisions in one update no later than the earliest applicable
+meaningful boundary:
+
+- product acceptance or final technical closure;
+- transition to an unrelated stage, objective, or batch;
+- source delivery that establishes a new baseline needing future continuity;
+- chat/context rotation or project handoff;
+- promotion to an Active Lock or permanent product contract; or
+- accumulated deferred decisions making the next prompt ambiguous or making
+  Project ChatGPT continuity depend materially on chat history.
+
+This standard changes documentation timing only. It does not weaken explicit
+implementation approval, Active Locks, Result Review, data or Git safety,
+evidence classification, scope control, Project OS authority, handoff
+continuity, or the required Project ChatGPT refresh after a material canonical
+Project OS change.
 
 File ownership:
 
@@ -1209,4 +1261,7 @@ Before responding, ChatGPT should verify:
 7. Are factual claims correctly classified?
 8. Are the expected result and stop condition clear?
 9. Is verification proportional to risk?
-10. Does a Project OS file need updating?
+10. Does Project OS need updating now, or may it safely be deferred until a
+    meaningful boundary?
+11. If deferred, is the decision explicit in the current Result Review and is
+    its consolidation boundary clear?

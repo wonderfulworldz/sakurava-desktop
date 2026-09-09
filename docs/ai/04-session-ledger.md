@@ -73,6 +73,38 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-09 — Meaningful-Boundary Project OS Maintenance Adopted
+
+date: 2026-09-09
+session_type: PROJECT_GOVERNANCE_MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE
+operator_decision: EXPLICIT_PERMANENT_DOCUMENTATION_ONLY_GOVERNANCE_APPROVAL
+permanent_standard: MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE
+project_os_role: AUTHORITY_AND_CONTINUITY_SYSTEM_NOT_PER_REVISION_ACTIVITY_LOG
+documentation_timing: PROPORTIONAL_CONSOLIDATION_AT_MEANINGFUL_BOUNDARY
+immediate_update_rule: PROJECT_OS_UPDATE_NOW_FOR_AUTHORITY_SAFETY_COMPATIBILITY_OR_HANDOFF_RISK
+deferred_update_rule: PROJECT_OS_UPDATE_DEFERRED_UNTIL_MEANINGFUL_BOUNDARY
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_RESUME_CURRENT_VIDEO_PLAYER_CORRECTIVE_PACKAGE
+
+`OBSERVED_BY_OPERATOR` recurring workflow friction showed that ordinary
+iterative refinement could trigger repeated Project OS commits, Brain exports,
+and manual Project ChatGPT source refreshes inside one corrective package. The
+operator permanently requires proportional maintenance: carry bounded approved
+refinements through Result Review and the next relevant prompt, then reconcile
+them once at the next meaningful boundary. Update canonical authority now when
+deferral could affect locks, architecture/ownership, data or compatibility,
+permissions/access, safety, an obsolete-conflict risk, or handoff continuity.
+This changes documentation timing only; approval, safety, evidence, Git, and
+Project OS authority rules remain intact.
+
+No application source, test, build, runtime, Video Player implementation, or
+application Git delivery is authorized by this governance update. The existing
+Video Player corrective WIP remains protected and unstaged.
+
+---
+
 ## 2026-09-09 — Video Player Manual Smoke 1 Replacement Contract Reconciled
 
 date: 2026-09-09
@@ -221,50 +253,6 @@ Contact Sheet opens idle at 4 x 8 before explicit Generate Preview.
 `OBSERVED_BY_OPERATOR` evidence. A later technical continuation must first
 identify its exact command and runtime context. No source, test, build, runtime,
 or application Git delivery occurred in this documentation reconciliation.
-
----
-
-## 2026-09-01 — Video Player Operator Feedback Reconciled Before Objective 3
-
-date: 2026-09-01
-session_type: PROJECT_OS_VIDEO_PLAYER_OPERATOR_FEEDBACK_RECONCILIATION
-operator_decision: EXPLICIT_DOCUMENTATION_ONLY_PRODUCT_AUTHORITY_RECONCILIATION
-recorded_application_baseline: 33d654e0f0aaef6a787c69f4093282d2edc56482
-video_player_objective_1: COMPLETE_AND_ACCEPTED
-video_player_objective_1_commit: e537e5c42b235f373e5347a442cbb79f4290c394
-video_player_objective_2: COMPLETE_AND_ACCEPTED
-video_player_objective_2_commit: 33d654e0f0aaef6a787c69f4093282d2edc56482
-video_player_objective_3: NOT_STARTED
-corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
-corrective_gate_status: READY_PENDING_SEPARATE_EXECUTION_AFTER_PROJECT_OS_RECONCILIATION_REVIEW
-active_application_batch: NONE
-active_technical_video_player_stage: NONE
-technical_permissions: false
-batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
-next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_BRAIN_REFRESH_THEN_SEPARATE_CORRECTIVE_GATE_AUTHORIZATION
-
-Objective 1 and Objective 2 are delivered and accepted, but final Video Player
-acceptance has not passed. Fresh `OBSERVED_BY_OPERATOR` feedback reports
-incorrect post-menu auto-hide, incorrect subtitle clearance of visible bottom
-controls, and shortcuts that are not immediately active on Player open. It also
-places Contact Sheet under Player menu `Sheet / Thumbnail`, requests compact
-MPC-like output quality, and nests Subtitle Appearance under `Subtitle / CC`.
-
-Current product direction replaces the old three-second/paused-visible rule
-with a 2.5-second pointer-led timer, interaction holds, and no full-control
-reveal from keyboard playback shortcuts alone. Subtitle safe area uses actual
-visible overlay geometry. Contact Sheet uses manual Rows and Columns bounded at
-8 x 24 and 192 total, compact cells, timestamp overlays, metadata header,
-Sakurava branding, and remembered output settings. The existing Player
-preference foundation is extended for speed, volume, mute, and Contact Sheet
-options. Bounded same-directory sidecar `.srt`/`.ass`/`.ssa` discovery and
-subtitle-only drag/drop reuse the existing Subtitle/CC and External Subtitle
-paths.
-
-This creates one unnumbered corrective gate before Objective 3, not Objective
-4 or a nested stage. No implementation, runtime, tests/build, or application
-Git delivery is authorized by this documentation reconciliation. Batch 42.9
-remains blocked.
 
 ---
 

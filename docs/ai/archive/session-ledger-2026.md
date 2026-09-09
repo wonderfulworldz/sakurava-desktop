@@ -1,5 +1,49 @@
 # Sakurava Session Ledger Archive — 2026
 
+## 2026-09-01 — Video Player Operator Feedback Reconciled Before Objective 3
+
+date: 2026-09-01
+session_type: PROJECT_OS_VIDEO_PLAYER_OPERATOR_FEEDBACK_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_PRODUCT_AUTHORITY_RECONCILIATION
+recorded_application_baseline: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_1_commit: e537e5c42b235f373e5347a442cbb79f4290c394
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_2_commit: 33d654e0f0aaef6a787c69f4093282d2edc56482
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: READY_PENDING_SEPARATE_EXECUTION_AFTER_PROJECT_OS_RECONCILIATION_REVIEW
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_BRAIN_REFRESH_THEN_SEPARATE_CORRECTIVE_GATE_AUTHORIZATION
+
+Objective 1 and Objective 2 are delivered and accepted, but final Video Player
+acceptance has not passed. Fresh `OBSERVED_BY_OPERATOR` feedback reports
+incorrect post-menu auto-hide, incorrect subtitle clearance of visible bottom
+controls, and shortcuts that are not immediately active on Player open. It also
+places Contact Sheet under Player menu `Sheet / Thumbnail`, requests compact
+MPC-like output quality, and nests Subtitle Appearance under `Subtitle / CC`.
+
+Current product direction replaces the old three-second/paused-visible rule
+with a 2.5-second pointer-led timer, interaction holds, and no full-control
+reveal from keyboard playback shortcuts alone. Subtitle safe area uses actual
+visible overlay geometry. Contact Sheet uses manual Rows and Columns bounded at
+8 x 24 and 192 total, compact cells, timestamp overlays, metadata header,
+Sakurava branding, and remembered output settings. The existing Player
+preference foundation is extended for speed, volume, mute, and Contact Sheet
+options. Bounded same-directory sidecar `.srt`/`.ass`/`.ssa` discovery and
+subtitle-only drag/drop reuse the existing Subtitle/CC and External Subtitle
+paths.
+
+This creates one unnumbered corrective gate before Objective 3, not Objective
+4 or a nested stage. No implementation, runtime, tests/build, or application
+Git delivery is authorized by this documentation reconciliation. Batch 42.9
+remains blocked.
+
+---
+
 ## 2026-08-30 — Video Player Completion Plan Reconciled
 
 date: 2026-08-30
