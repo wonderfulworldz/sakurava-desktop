@@ -1,5 +1,50 @@
 # Sakurava Session Ledger Archive — 2026
 
+## 2026-08-30 — Video Player Completion Plan Reconciled
+
+date: 2026-08-30
+session_type: PROJECT_OS_VIDEO_PLAYER_COMPLETION_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_CLOSURE_AND_PRODUCT_DIRECTION_APPROVAL
+recorded_application_baseline: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
+video_player_overlay_cursor_correction: COMPLETED_AND_SYNCHRONIZED
+video_player_visible_result: PLAYER_WORKS_CONTROLS_VISIBLE_BUSY_CURSOR_CLEAR
+video_player_visible_result_evidence: OBSERVED_BY_OPERATOR
+video_player_completion_audit: VIDEO_PLAYER_COMPLETION_AUDIT_ACCEPTED
+video_player_completion_plan: VIDEO_PLAYER_COMPLETION_PLAN_ACCEPTED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+completion_objectives: 3
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_AND_MANUAL_BRAIN_REFRESH_BEFORE_SEPARATE_OBJECTIVE_1_APPROVAL
+
+The accepted mpv composition architecture remains unchanged. Commit
+`5cdca7088016a4ab6c1c030f148d59f90cd4359d` corrected Player UI resource
+mapping and CompositionController cursor ownership. The operator confirms that
+the Player works and the previously invisible controls and prolonged
+busy/loading cursor are clear. The remaining product-completion audit and plan
+are accepted, but no further implementation has begun.
+
+Approved direction now covers three-second control auto-hide; Main
+single/double-click and PiP Return-to-Main gestures; visible External SRT with
+bounded causal diagnosis; automatic subtitle avoidance, global appearance and
+session-only delay; real Screenshot; real bounded Contact Sheet; shortcut
+persistence; false-toggle removal; command feedback; and explicit
+different-source Focus Existing/Replace/Cancel. One machine-local global output
+parent owns stable `Backups`, `Exports`, `Video Screenshots`, and
+`Contact Sheets` children. `Backups` is for exported copies only; internal
+automatic/safety/recovery backups remain in AppData, and portable Restore does
+not blindly replace the destination machine's absolute path.
+
+Delivery is limited to three separately gated objectives: Player
+interaction/subtitles, global output/real media outputs, and final integrated
+acceptance. No Objective 4 or Video Player Stage 4 exists. Objective 1 is not
+active; it requires Result Review, Project ChatGPT refresh, and separate
+authorization. Batch 42.9 remains blocked until the full Player gate and final
+operator real-app acceptance pass.
+
+---
+
 ## Purpose
 
 This archive preserves older Session Ledger entries moved from

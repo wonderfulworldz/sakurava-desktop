@@ -26,9 +26,38 @@ Additional producers and producer-specific Retry/Cancel/action behavior remain
 separately gated and are not authorized by this resolved request.
 
 ---
-last_updated: 2026-09-08
+last_updated: 2026-09-09
 
 ## Active Feedback
+
+### FEEDBACK-2026-09-09-VIDEO-PLAYER-MANUAL-SMOKE-1-REPLACEMENT-CONTRACT — Manual Smoke 1 Visible Player Corrections
+
+date: 2026-09-09
+batch: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+type: APPROVED_PRODUCT_DIRECTION
+status: READY_PENDING_SEPARATE_TECHNICAL_EXECUTION
+evidence: OBSERVED_BY_OPERATOR
+risk: HIGH
+placement: BEFORE_VIDEO_PLAYER_OBJECTIVE_3_FINAL_INTEGRATED_ACCEPTANCE
+
+Manual Smoke 1 accepts base approximately-1500 ms auto-hide and sufficient
+Player function for inspection. The operator reports that an active quick menu
+or submenu must not auto-dismiss on the idle deadline; only outside click or
+Esc closes its hierarchy, after which normal 1500 ms auto-hide resumes. The
+operator also requires Subtitle Appearance and Custom Shortcuts to remain
+separate draggable native Player utility windows but use one centered,
+Contact-Sheet-family client surface rather than a nested window-inside-window
+card. Player utility/menu surfaces require readable Sakurava light/dark/system
+material, with a current Light target of approximately 80% opaque and no faded
+text or controls.
+
+Main must not expose a minimal/timeline-only variant and must regain normal
+horizontal/vertical edge resize while retaining aspect-safe video. Subtitle
+safe-area behavior remains an active product contract, but its technical
+correction is explicitly deferred to a dedicated later session. Remember is
+preservation-only for the upcoming five-item technical rework. These are product
+contracts, not source-root-cause findings; Objective 3 and Batch 42.9 remain
+blocked.
 
 ### FEEDBACK-2026-09-08-VIDEO-PLAYER-FINAL-VISIBLE-CORRECTIVE-CONTRACT — Final Visible Corrective Contract
 

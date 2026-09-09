@@ -73,6 +73,43 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-09 — Video Player Manual Smoke 1 Replacement Contract Reconciled
+
+date: 2026-09-09
+session_type: PROJECT_OS_VIDEO_PLAYER_MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_REPLACEMENT_CONTRACT_APPROVAL
+recorded_project_os_baseline: 705b6050b87da945920ed893401dea1dbbdd4a2b
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK_APPROVAL
+
+`OBSERVED_BY_OPERATOR` Manual Smoke 1 passes base approximately-1500 ms
+auto-hide and sufficient Player function for inspection. The replacement
+contract pauses auto-hide while any Player quick-menu hierarchy is active;
+outside click or Esc dismisses it, then normal 1500 ms idle hide resumes.
+Subtitle Appearance and Custom Shortcuts remain separate draggable Player
+utility windows but must use one centered readable client surface, with nested
+window-inside-window presentation prohibited. Light Player utility/menu material
+targets approximately 80% opacity without faded text or controls. Main
+minimal/timeline-only presentation is prohibited and normal edge resize remains
+required. Subtitle safe-area technical correction is deferred to a dedicated
+session; Remember is preservation-only for the five-item rework.
+
+No source, test, build, runtime, Objective 3, Batch 42.9, or application Git
+delivery occurred. The next separately gated action is
+`VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK` with `Sol` / `High` /
+`IMPLEMENT` / `HIGH` after Result Review and Project ChatGPT refresh.
+
+---
+
 ## 2026-09-08 — Video Player Final Visible Corrective Contract Reconciled
 
 date: 2026-09-08
@@ -228,51 +265,6 @@ This creates one unnumbered corrective gate before Objective 3, not Objective
 4 or a nested stage. No implementation, runtime, tests/build, or application
 Git delivery is authorized by this documentation reconciliation. Batch 42.9
 remains blocked.
-
----
-
-## 2026-08-30 — Video Player Completion Plan Reconciled
-
-date: 2026-08-30
-session_type: PROJECT_OS_VIDEO_PLAYER_COMPLETION_RECONCILIATION
-operator_decision: EXPLICIT_DOCUMENTATION_CLOSURE_AND_PRODUCT_DIRECTION_APPROVAL
-recorded_application_baseline: 5cdca7088016a4ab6c1c030f148d59f90cd4359d
-video_player_overlay_cursor_correction: COMPLETED_AND_SYNCHRONIZED
-video_player_visible_result: PLAYER_WORKS_CONTROLS_VISIBLE_BUSY_CURSOR_CLEAR
-video_player_visible_result_evidence: OBSERVED_BY_OPERATOR
-video_player_completion_audit: VIDEO_PLAYER_COMPLETION_AUDIT_ACCEPTED
-video_player_completion_plan: VIDEO_PLAYER_COMPLETION_PLAN_ACCEPTED
-batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
-completion_objectives: 3
-active_application_batch: NONE
-active_technical_video_player_stage: NONE
-technical_permissions: false
-next_action: PROJECT_CHATGPT_RESULT_REVIEW_AND_MANUAL_BRAIN_REFRESH_BEFORE_SEPARATE_OBJECTIVE_1_APPROVAL
-
-The accepted mpv composition architecture remains unchanged. Commit
-`5cdca7088016a4ab6c1c030f148d59f90cd4359d` corrected Player UI resource
-mapping and CompositionController cursor ownership. The operator confirms that
-the Player works and the previously invisible controls and prolonged
-busy/loading cursor are clear. The remaining product-completion audit and plan
-are accepted, but no further implementation has begun.
-
-Approved direction now covers three-second control auto-hide; Main
-single/double-click and PiP Return-to-Main gestures; visible External SRT with
-bounded causal diagnosis; automatic subtitle avoidance, global appearance and
-session-only delay; real Screenshot; real bounded Contact Sheet; shortcut
-persistence; false-toggle removal; command feedback; and explicit
-different-source Focus Existing/Replace/Cancel. One machine-local global output
-parent owns stable `Backups`, `Exports`, `Video Screenshots`, and
-`Contact Sheets` children. `Backups` is for exported copies only; internal
-automatic/safety/recovery backups remain in AppData, and portable Restore does
-not blindly replace the destination machine's absolute path.
-
-Delivery is limited to three separately gated objectives: Player
-interaction/subtitles, global output/real media outputs, and final integrated
-acceptance. No Objective 4 or Video Player Stage 4 exists. Objective 1 is not
-active; it requires Result Review, Project ChatGPT refresh, and separate
-authorization. Batch 42.9 remains blocked until the full Player gate and final
-operator real-app acceptance pass.
 
 ---
 

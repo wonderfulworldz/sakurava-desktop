@@ -1,5 +1,66 @@
 # Sakurava Current State
 
+## Video Player Manual Smoke 1 Replacement Contract — 2026-09-09
+
+This is the newest current-state authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+recorded_head: 705b6050b87da945920ed893401dea1dbbdd4a2b
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+next_technical_action: VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK
+next_technical_action_status: READY_PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_TECHNICAL_EXECUTION
+next_technical_action_recommendation: Sol / High / IMPLEMENT / HIGH
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Latest `OBSERVED_BY_OPERATOR` Manual Smoke 1 passes base approximately-1500 ms
+auto-hide and sufficient Player functionality for inspection. Subtitle placement
+remains visibly incorrect relative to controls, but its technical correction is
+deferred to a dedicated session. The current visible correction targets are the
+quick-menu idle lifecycle, nested utility-window presentation, Player surface
+readability, unwanted Main minimal/timeline-only presentation, and impaired
+normal Main edge resizing. These are product observations, not source-root-cause
+claims.
+
+The active replacement contract is:
+
+* With no active quick menu/submenu, `AUTO_HIDE_IDLE_MS = 1500`: activity reveals
+  controls, normal idle hides them, hidden controls remain inert, keyboard
+  Play/Pause does not reveal hidden transport, and paused alone does not pin it.
+* While any Player quick menu/submenu is active, auto-hide is paused. Transport
+  and the menu hierarchy remain visible until the user explicitly dismisses it
+  by outside click or Esc. After the hierarchy closes, normal 1500 ms idle hide
+  resumes; outside dismissal must not also seek or toggle playback.
+* Subtitle Appearance and Custom Shortcuts remain separate draggable
+  Player-owned native utility windows, centered initially where the safe window
+  API supports it. Each has one coherent client surface, keeps the authoritative
+  Player session, and must not create a nested window-inside-window presentation
+  or another engine/session/source.
+* Player auxiliary surfaces and quick menus use the Sakurava light/dark/system
+  family. Light material targets approximately 80% opacity / 20% transparency;
+  text, icons, inputs, selection, and focus remain effectively opaque and
+  readable, with no whole-tree opacity fade.
+* `MAIN_WINDOWED_MINIMAL_CONTROL_VARIANT = PROHIBITED`. Main retains full Main
+  controls and normal horizontal/vertical Windows edge resize. Responsive reflow
+  is allowed; video remains aspect-safe internally. PiP alone is compact.
+* The subtitle safe-area product contract remains active, but
+  `SUBTITLE_SAFE_AREA_TECHNICAL_CORRECTION = DEFERRED_TO_DEDICATED_SESSION` and
+  is excluded from the next five-item rework. Remember remains preservation-only
+  for that rework.
+
+No Objective 4 exists. Objective 3 and Batch 42.9 remain blocked.
+
 ## Video Player Final Visible Corrective State — 2026-09-08
 
 This is the newest current-state authority. Older Video Player corrective

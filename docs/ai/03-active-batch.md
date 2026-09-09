@@ -1,5 +1,52 @@
 # Sakurava Active Batch
 
+## Video Player Manual Smoke 1 Replacement Contract — 2026-09-09
+
+This is the newest Active Batch authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+recorded_project_os_baseline: 705b6050b87da945920ed893401dea1dbbdd4a2b
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILED
+source_rework_authorized: false
+next_technical_action: VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK
+next_technical_action_model: Sol
+next_technical_action_reasoning: High
+next_technical_action_mode: IMPLEMENT
+next_technical_action_risk: HIGH
+next_technical_action_status: READY_PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_TECHNICAL_EXECUTION
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+`OBSERVED_BY_OPERATOR` Manual Smoke 1 confirms base approximately-1500 ms
+auto-hide and sufficient Player function for inspection. It identifies five
+approved visible correction targets: active-menu idle behavior, nested utility
+presentation, unreadable translucent Player surfaces, Main minimal/timeline-only
+presentation, and normal Main edge resizing. It also records subtitle safe-area
+placement as a separate deferred technical correction, not an authorization to
+modify subtitle geometry in the next rework.
+
+The next technical action is limited to: active Player menu/submenu pauses
+auto-hide until outside click or Esc; one readable centered utility client
+surface for Subtitle Appearance and Custom Shortcuts; approximately 80% opaque
+Light frosted Player menus/utility surfaces; no Main minimal variant; and normal
+width/height edge resize without distortion. Subtitle safe-area, subtitle
+coordinate conversion, subtitle IPC geometry, and mpv subtitle-margin logic are
+out of scope unless unavoidable coupling requires a Result Review stop.
+
+This documentation action authorizes no source, test, build, runtime, Git
+delivery, Objective 3, or Batch 42.9 work. Remember is preservation-only.
+
 ## Video Player Final Visible Corrective Contract — 2026-09-08
 
 This is the newest Active Batch authority. Older Video Player corrective

@@ -124,12 +124,43 @@ unrelated Sakurava contextual settings away from the active global modal
 standard.
 
 Both utility windows follow the resolved Sakurava light/dark/system theme and
-design language. Their frosted/glass treatment is approximately 15–30% visually
-transparent while retaining effectively opaque, readable text and glyphs,
-clear form boundaries, visible focus/selection states, and high-contrast
-controls. “Apple-like” describes material and readability direction only; it
-does not authorize copied third-party pixels, branding, or a separate Windows
-theme.
+design language. Their frosted/glass treatment uses an approximately 80% opaque
+/ 20% transparent Light material (and corresponding readable Dark/System
+material), with effectively opaque text and glyphs, clear form boundaries,
+visible focus/selection states, and high-contrast controls. “Apple-like”
+describes material and readability direction only; it does not authorize copied
+third-party pixels, branding, or a separate Windows theme.
+
+`VIDEO_PLAYER_NESTED_WINDOW_IN_WINDOW_PRESENTATION = PROHIBITED` for these
+Player-owned auxiliary/utility windows. A utility client area must contain one
+coherent top-level application surface, not another floating card/window shell
+representing that same native window. This bounded prohibition does not redesign
+unrelated Sakurava windows.
+
+---
+
+## VIDEO_PLAYER_TRANSIENT_MENU_IDLE_CONTRACT
+
+**Status:** ACTIVE
+
+`AUTO_HIDE_IDLE_MS = 1500` applies when no Player quick menu/submenu is active.
+While any quick-menu hierarchy is active, its countdown is paused: transport and
+the hierarchy remain visible and are not dismissed merely by idle expiry. The
+explicit dismissal routes are outside click and Esc. Once the complete hierarchy
+closes, the normal 1500 ms idle lifecycle resumes. Outside dismissal must not
+also trigger seek, Play/Pause, or another unrelated Player surface action.
+
+---
+
+## VIDEO_PLAYER_MAIN_WINDOWED_PRESENTATION_CONTRACT
+
+**Status:** ACTIVE
+
+`MAIN_WINDOWED_MINIMAL_CONTROL_VARIANT = PROHIBITED`. Main keeps normal/full
+Player controls and ordinary horizontal and vertical Windows edge resizing;
+responsive wrapping/reflow may adapt presentation, but primary Main functions
+must not disappear. Video remains no-stretch/no-crop with internal
+letterbox/pillarbox where required. PiP is the only compact presentation.
 
 ---
 

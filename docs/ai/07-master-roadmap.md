@@ -1,5 +1,45 @@
 # Sakurava Master Roadmap
 
+## Video Player Manual Smoke 1 Five-Item Corrective Roadmap — 2026-09-09
+
+This is the newest roadmap authority for the pre-Objective-3 corrective gate.
+It supersedes conflicting current corrective wording below while retaining it as
+history.
+
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_stage_4: DOES_NOT_EXIST
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_technical_action: VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK
+next_technical_action_model: Sol
+next_technical_action_reasoning: High
+next_technical_action_mode: IMPLEMENT
+next_technical_action_risk: HIGH
+next_technical_action_status: READY_PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_TECHNICAL_EXECUTION
+
+The separately gated rework must implement only five visible outcomes:
+
+1. active Player quick-menu/submenu pauses auto-hide until outside click or Esc,
+   then normal 1500 ms idle hide resumes;
+2. Subtitle Appearance and Custom Shortcuts remain draggable separate utility
+   windows, centered where safely supported, with one readable client surface
+   and no nested window-inside-window composition;
+3. Player utility and quick-menu surfaces use readable Sakurava frosted material
+   with approximately 80% opaque Light treatment and corresponding Dark/System
+   treatment;
+4. Main windowed never falls back to compact/minimal/timeline-only controls;
+5. Main regains ordinary horizontal/vertical edge resize without video
+   distortion.
+
+The rework preserves one authoritative Player session/source, accepted mpv
+composition, PiP as the only compact presentation, the active subtitle product
+contract, and Remember. Subtitle safe-area technical correction is deferred to
+a dedicated session and is excluded from this five-item work. This roadmap
+grants no Objective 3, Objective 4, Batch 42.9, or Git delivery authority.
+
 ## Video Player Final Visible Corrective Roadmap — 2026-09-08
 
 This is the newest roadmap authority. It supersedes conflicting current Video
