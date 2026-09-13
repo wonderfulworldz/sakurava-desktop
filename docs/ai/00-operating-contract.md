@@ -425,19 +425,31 @@ Permanent standard: `OUT_OF_SCOPE_FINDING_CAPTURE_AND_DEFERRED_TRIAGE`.
 
 When an approved audit, implementation, verification, test, build, runtime
 observation, or repository inspection discovers a concrete issue outside the
-approved scope, record it in the Feedback Log rather than losing it or silently
+approved causal boundary, do not silently ignore it or automatically repair it.
+Capture the evidence already available without launching an unrelated audit,
+and record the finding in the Feedback Log rather than losing it or silently
 expanding the stage. Record its identifier, discovery source, approved evidence
-label, affected area, observed or proven behavior, scope relationship,
-reasonably determinable risk, stage impact, deferral reason, later triage
-destination, authorization state, and the absence of any implementation claim.
-Do not record hypothetical possibilities or create duplicate records.
+label, affected area, observed or proven behavior, practical impact, scope
+relationship, whether it blocks the current objective, authorization state, and
+the absence of any implementation claim. Do not record hypothetical
+possibilities or create duplicate records.
+
+Classify priority proportionally as `BLOCKING`, `HIGH_PRIORITY`,
+`NORMAL_PRIORITY`, `LOW_PRIORITY`, or `OPTIONAL_IMPROVEMENT`. Recommend one
+disposition: `FIX_BEFORE_CURRENT_OBJECTIVE_CONTINUES`,
+`DEFER_TO_SEPARATE_CORRECTIVE_WORK`, `BACKLOG_FOR_FUTURE_BATCH`,
+`OPTIONAL_NO_ACTION_REQUIRED`, or `MORE_EVIDENCE_REQUIRED`. Unrelated
+correction always requires separate approval.
 
 An out-of-scope finding does not interrupt work when it is genuinely outside
 scope, does not invalidate evidence or safety, does not conflict with an Active
 Lock, and does not make the expected result unreasonable. Stop for Result
 Review when it affects safety or data, invalidates evidence, changes the root
 cause or mutation boundary, conflicts with an Active Lock, or makes the current
-success path unreliable. Record the finding before deciding continuity.
+success path unreliable. Record the finding before deciding continuity. When a
+finding changes the root cause or correction of the active objective and still
+belongs to the same approved causal boundary, it is no longer merely an
+out-of-scope finding and may be followed under `CAUSAL_OBJECTIVE_PER_PROMPT`.
 
 ### Executor Noncompliance Continuity Decision
 
@@ -541,6 +553,31 @@ without relevant risk, retry without new evidence, patch without root-cause
 support, make tooling more complex than the product objective, consume quota
 without increasing decision confidence, or drift from the approved goal.
 
+### Proportional Prompt and Report Standard
+
+Permanent standard: `PROPORTIONAL_PROMPT_AND_REPORT_STANDARD`.
+
+Use the shortest prompt or report structure that remains complete enough to
+preserve the objective, scope, safety, evidence, approval boundaries, and
+decision quality. Do not mechanically produce 30–50 sections, preserve empty
+or irrelevant sections because an older template contained them, or repeat
+related controls when combining them improves clarity. Simple and medium work
+should normally be compact; complex or high-risk work may use more detail only
+when it is materially needed.
+
+When relevant, an executable prompt must still state Model, Reasoning, Mode,
+Risk, repository, branch, expected HEAD, objective, in-scope and out-of-scope
+boundaries, applicable locks and protections, Git preflight, `manual-smoke/`
+and live-data protection, mutation boundary, runtime/test/build permissions,
+evidence rules, stop conditions, staging/commit/push rules, and refresh
+requirements. Concision must never remove a safety control or evidence
+distinction.
+
+Final reports should emphasize Verdict, Accepted Evidence or Findings, Gap or
+Risk, Impact, Mutation or Verification, Authorization State, Out-of-Scope
+Findings when any exist, Recommended Next Action, and Refresh Requirement.
+Omit sections that are not materially relevant.
+
 Operator-facing reports use plain language and prioritize Goal, What is already
 known, What is still uncertain, Main risk, Shortest safe plan, Result, Decision,
 and Next action. Use simple statuses: `READY`, `RUNNING`, `BLOCKED`,
@@ -578,6 +615,27 @@ they can safely remain inside the same approved scope. This is the
 `NO_MICRO_PROMPT_RULE`; it does not permit combining dependent product
 decisions, unrelated owners, or separately gated mutations.
 
+Hypotheses are tools inside one diagnosis, not separate approval stages by
+default. If one hypothesis is rejected, continue to the next materially
+plausible hypothesis while it remains inside the same approved subsystem and
+causal boundary. A newly discovered adjacent causal layer or different failure
+mode is not an automatic stop when it still belongs to the same causal
+objective and can be investigated safely. Bound approved scope, access, and
+mutation—not causal depth inside that boundary—and continue until root cause is
+causally complete enough for the requested decision or a genuine
+authorization, scope, protected-data, permission, or environment blocker
+requires a new operator decision.
+
+The repeated pattern `hypothesis A -> stop -> new prompt -> hypothesis B ->
+stop` is prohibited when one bounded execution could safely complete the same
+investigation. Reuse accepted evidence; do not repeat measurements, builds,
+runtime setup, instrumentation, cleanup, or audits without information gain.
+Diagnosis and correction remain separate permissions. This rule operates with
+`DEEP_TERRAIN_ANALYSIS_BEFORE_CORRECTION_OR_IMPLEMENTATION`,
+`BOUNDED_CAUSAL_DEPTH_COMPLETENESS_BEFORE_MUTATION`, and
+`EFFICIENT_BOUNDED_EXECUTION_GOVERNANCE`; it does not weaken their proportional
+depth, approval, safety, evidence, or mutation gates.
+
 Classify an interrupted or failed execution before deciding whether to retry:
 
 - `TECHNICAL_PRODUCT_FAILURE` — the product or implementation failed its
@@ -591,7 +649,7 @@ Classify an interrupted or failed execution before deciding whether to retry:
 - `EXECUTOR_NONCOMPLIANCE` — the executor departed from the approved scope,
   method, stop condition, or reporting contract;
 - `NEW_CAUSAL_BOUNDARY` — evidence identifies a different owner, failure class,
-  or solution-changing causal layer;
+  or solution-changing causal layer outside the complete approved objective;
 - `AUTHORIZATION_OR_PERMISSION_BOUNDARY` — continuation requires new authority,
   access, protected evidence, or permission.
 

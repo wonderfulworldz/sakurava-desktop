@@ -26,7 +26,7 @@ Additional producers and producer-specific Retry/Cancel/action behavior remain
 separately gated and are not authorized by this resolved request.
 
 ---
-last_updated: 2026-09-09
+last_updated: 2026-09-13
 
 ## Active Feedback
 
@@ -548,6 +548,41 @@ Severity, reachability, and remediation are not established here; no dependency
 audit or package change is authorized.
 
 ## Resolved Feedback
+
+### FEEDBACK-2026-09-13-AUDIT-DIAGNOSTIC-EFFICIENCY — Complete Causal Audits and Proportional Reporting
+
+date: 2026-09-13
+batch: PROJECT_OS_GOVERNANCE
+type: DIRECT_COMMAND
+status: RESOLVED
+evidence: OBSERVED_BY_OPERATOR
+risk: MEDIUM
+placement: PERMANENT_OPERATING_CONTRACT
+
+### Operator Feedback
+
+Overly narrow hypothesis-by-hypothesis diagnostic prompts caused unnecessary
+repetition of Git preflight, context loading, build or runtime preparation,
+instrumentation and cleanup, and reporting. The operator reports that this
+consumed more Codex quota and work than necessary; no exact quota amount,
+timing, or saving was measured.
+
+### Decision
+
+Future audits and diagnostics pursue one complete causal objective while
+retaining exact scope, access, mutation, evidence, safety, and approval
+boundaries. Rejected hypotheses do not force a new prompt when the next
+material hypothesis remains inside the same causal boundary. Unrelated findings
+must be surfaced with proportional priority, current-objective impact, and a
+recommended disposition, without automatic repair. Prompt and final-report
+structure must be proportional and may omit irrelevant sections without
+omitting safety controls or evidence distinctions.
+
+### Completion Evidence
+
+Recorded permanently in `docs/ai/00-operating-contract.md` and summarized in
+the current Session Ledger. This is a governance decision, not a technical
+performance measurement or application-work authorization.
 
 ### FEEDBACK-2026-08-10-CATEGORY-RESURRECTION — Category Autonomous Resurrection
 
